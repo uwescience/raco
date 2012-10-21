@@ -1,0 +1,22 @@
+
+
+      // Join %(depth)s
+      for (uint64 join%(depth)s_rightrow = 0; join%(depth)s_rightrow < join%(depth)s_right->tuples; join%(depth)s_rightrow++) {
+        if (%(right_condition)s) { // filter on join%(depth)s.right
+          uint64 joini%(depth)s_leftrow = %(left_row_variable)s;
+          if (check_condition(join%(depth)s_left
+                             , join%(depth)s_right
+                             , join%(depth)s_leftrow
+                             , join%(depth)s_rightrow
+                             , join%(depth)s_leftattribute
+                             , join%(depth)s_rightattribute)) {
+
+
+             %(inner_plan_compiled)s
+
+
+          } // Join %(depth)s condition
+        } // filter on join1.right
+      } // loop over join1.right
+
+

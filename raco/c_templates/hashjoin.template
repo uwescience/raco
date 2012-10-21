@@ -1,0 +1,188 @@
+// Do a single join, using a precount + hash method.
+// Do a selection on the two relations first. (Don't need to count matches then.)
+// Copy into a result array.
+
+/*
+====================================================
+Two Pass Hash Join
+====================================================
+*/
+struct relationInfo %(resultsym)s_val;
+struct relationInfo *%(resultsym)s = &%(resultsym)s_val;
+{
+  printf("\n%(resultsym)s = TwoPassHashJoin(%(leftsym)s, %(rightsym)s)\n");
+
+
+  uint64 *relation1 = %(leftsym)s->relation;
+  uint64 tuples1 = %(leftsym)s->tuples;
+  uint64 fields1 = %(leftsym)s->fields;
+
+  uint64 *relation2 = %(rightsym)s->relation;
+  uint64 tuples2 = %(rightsym)s->tuples;
+  uint64 fields2 = %(rightsym)s->fields;
+
+  /*
+  int numCounters = 7;
+  int currCounter = 0;
+  int *counters = mallocCounterMemory(numCounters);
+  */
+
+  double start = timer();
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 1
+  // -----------------------------------------------------------
+  // Fill in query here
+  // -----------------------------------------------------------
+
+
+#pragma mta trace "find size of hash tables for selects"
+
+  uint64 matches1 = 0;
+  for (uint64 i = 0; i < tuples2*fields2; i += fields2) {
+      matches1++;
+  }
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 2
+
+  printf("\tmatches1 = %%lu\n", matches1);
+
+  // allocate space for hash tables
+  // find a useful amount of space first
+  uint64 size1 = 2*matches1 + 1;
+  uint64 **ht1 = (uint64 **) calloc(size1, sizeof(uint64 *));
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 3
+
+#pragma mta trace "fill in hash tables for selects"
+
+  // fill in hash tables
+#pragma mta assert parallel
+#pragma mta use 100 streams
+  for (uint64 i = 0; i < tuples2*fields2; i += fields2) {
+    uint64 hash = (uint64(%(rightattribute)s) & mask) %% size1;
+#ifdef __MTA__
+    while (1) {
+      if (!readff(ht1 + hash)) {
+        uint64 *p = readfe(ht1 + hash); // lock it
+        if (p) writeef(ht1 + hash, p); // unlock and try again
+        else break;
+      }
+      hash++;
+      if (hash == size1)
+      hash = 0;
+    }
+    writeef(ht1 + hash, relation2 + i); // unlock it
+#else
+    while (ht1[hash]) {
+      hash++;
+      if (hash == size1) hash = 0;
+    }
+    ht1[hash] = relation2 + i;
+#endif
+  }
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 4
+
+  printf("\tfinished building hash table\n");
+
+#pragma mta trace "start prepass for join"
+
+  // start joins (incorporating LHS select)
+  // first we find how many results we need
+  uint64 *bucket = (uint64 *) malloc((buckets + 1)*sizeof(uint64));
+  bucket[0] = 0;
+  for (uint64 b = 0; b < buckets; b++) {
+    uint64 c = 0;
+    for (uint64 i = b*fields1; i < tuples1*fields1; i += buckets*fields1) {
+	    uint64 hash1 = (uint64(%(leftattribute)s) & mask) %% size1;
+	    while (ht1[hash1]) {
+	      if (%(leftattribute)s == ht1[hash1][Subject]) {
+	        c++;
+	      }
+	      hash1++;
+	      if (hash1 == size1) hash1 = 0;
+	    }
+    }
+    bucket[b + 1] = c;
+  }
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 5
+
+  printf("\tfinished prepass for joins\n");
+
+#pragma mta trace "start recurrence for join"
+  for (uint64 i = 2; i <= buckets; i++)
+    bucket[i] += bucket[i - 1];
+  uint64 matches = bucket[buckets];
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 6
+
+  printf("\tfinished recurrence for joins\n");
+
+  uint64 *result;
+  if (matches) {
+    // then we fill in results
+    result = (uint64 *) malloc(matches*(fields1+fields2)*sizeof(uint64));
+#pragma mta trace "start actual join"
+#pragma mta assert nodep
+    for (uint64 b = 0; b < buckets; b++) {
+      uint64 c = bucket[b];
+      for (uint64 i = b*fields1; i < tuples1*fields1; i += buckets*fields1) {
+        uint64 hash1 = (uint64(%(leftattribute)s) & mask) %% size1;
+        while (ht1[hash1]) {
+          if (%(leftattribute)s == ht1[hash1][Subject]) {
+            for( uint64 j = 0; j < fields1; j=j+1 ) {
+              result[(c*(fields1+fields2))+j] = relation1[i+j];
+            }
+            for( uint64 j = 0; j < fields2; j=j+1 ) {
+              result[((c*(fields1+fields2))+fields1)+j] = ht1[hash1][j];
+            }
+            c++;
+          }
+          hash1++;
+          if (hash1 == size1) hash1 = 0;
+	      }
+      }
+    }
+  }
+  free(bucket);
+  free(ht1);
+  
+
+  // -----------------------------------------------------------
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 7
+
+  double finish = timer();
+  printf("\t%%f seconds\n", finish - start);
+  printf("\t%%lu tuples in result\n", matches);
+  if (matches) {
+
+    %(resultsym)s->tuples = matches;
+    %(resultsym)s->fields = fields1+fields2;
+    %(resultsym)s->relation = result;
+  }
+  else {
+    %(resultsym)s->tuples = 0;
+    %(resultsym)s->fields = 0;
+    %(resultsym)s->relation = NULL;
+  }
+
+  /*
+  printDiffCounters(counters, numCounters);
+  freeCounterMemory(counters);
+  */
+}
+/* 
+----------------------------------------------------------------------
+End HashJoin
+Result in %(resultsym)s
+----------------------------------------------------------------------
+*/
+

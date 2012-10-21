@@ -1,1 +1,16 @@
 Pure python datalog compiler and optimization framework
+
+
+Compiles to pseudocode, C, and a python RA library called pyra
+
+Performs rule-based algebraic optimization.  (Not cost-based yet.)
+
+To add a new language, you define your physical operators and define optimization rules mapping
+your logical operators to these physical operators.  They need not be 1:1.
+
+
+Inspect and run
+
+$ python test.py
+
+for an example

@@ -1,0 +1,3 @@
+
+printf("joined tuple: %d, %d, %d, %d\n", join1_leftrow, join1_rightrow, join2_leftrow, join2_rightrow);
+resultcount++;

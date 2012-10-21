@@ -1,0 +1,85 @@
+/*
+============================================
+============ TwoPass Select ================
+============================================
+*/
+struct relationInfo %(resultsym)s_val;
+struct relationInfo *%(resultsym)s = &%(resultsym)s_val;
+
+{
+  printf("\n%(resultsym)s = TwoPassSelect(%(condition)s, %(inputsym)s)\n");
+
+  uint64 *relation = %(inputsym)s->relation;
+  uint64 tuples = %(inputsym)s->tuples;
+  uint64 fields = %(inputsym)s->fields;
+
+  uint64 matches = 0;
+
+  int numCounters = 4;
+  int currCounter = 0;
+  int *counters = mallocCounterMemory(numCounters);
+
+  double start = timer();
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 1
+  
+  // Count the number of matching entries
+  #pragma mta trace "1st pass to compute size for TwoPassSelect(%(condition)s, %(inputsym)s))"
+  for (uint64 i = 0; i < tuples*fields; i += fields) {
+      if (%(condition)s) {
+	      matches++;
+      }
+  }
+  printf("\tfinished first pass\n");
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 2
+
+  uint64 *%(resultsym)s_result;
+  // allocate space for the result
+  %(resultsym)s_result = (uint64 *) malloc(matches*fields*sizeof(uint64));
+ 
+  // check success
+  if (!%(resultsym)s_result) {
+    #pragma mta trace "Memory Allocation FAILURE in TwoPassSelect(%(condition)s, %(inputsym)s))"
+    printf("Memory Allocation FAILURE in TwoPassSelect(%(condition)s, %(inputsym)s)\n");
+    exit(5);
+  }
+
+  uint64 current_result = 0;
+  #pragma mta trace "begin 2nd pass"
+  #pragma mta assert nodep
+  for (uint64 i = 0; i < tuples*fields; i+=fields) {
+	  if (%(condition)s) {
+	    for( uint64 j = 0; j < fields; j = j + 1 ) {
+	      %(resultsym)s_result[current_result + j] = relation[i + j];
+	    }
+      current_result+=fields;
+	  }
+  }
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 3
+
+  double finish = timer();
+  printf("\t%%f seconds\n", finish - start);
+  printf("\t%%lu tuples in result\n", matches);
+  if (matches) {
+    %(resultsym)s->tuples = matches;
+    %(resultsym)s->fields = fields;
+    %(resultsym)s->relation = %(resultsym)s_result;
+  }
+  else {
+    %(resultsym)s->tuples = 0;
+    %(resultsym)s->fields = fields;
+    %(resultsym)s->relation = NULL;
+  }
+
+  printDiffCounters(counters, numCounters);
+  freeCounterMemory(counters);
+
+/*
+============ End TwoPass Select ================
+*/
+}

@@ -1,0 +1,35 @@
+{ // Begin Filtering_NestedLoop_Join_Chain
+
+
+
+  printf("V2 = Join(%(inner_plan)s,V1) \n");
+  // Assume left-deep plan
+
+  // leaves of the tree
+  %(relation_decls)s
+
+  // Join 1
+  %(join_decls)s
+
+  double start = timer();
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 1
+
+#pragma mta trace "running join"
+  // Left Root
+  for (uint64 join%(depth)s_leftrow = 0; join%(depth)s_leftrow < join%(depth)s_left->tuples; join%(depth)s_leftrow++) {
+    if (%(left_root_condition)s) { // filter on join%(depth)s.left
+      // Join %(depth)s
+      for (uint64 join%(depth)s_rightrow = 0; join%(depth)s_rightrow < join%(depth)s_right->tuples; join%(depth)s_rightrow++) {
+        if (%(right_condition)s) { // filter on join%(depth)s.right
+          if (check_condition(join%(depth)s_left, join%(depth)s_right
+                             , join%(depth)s_leftrow, join%(depth)s_rightrow, join%(depth)s_leftattribute, join%(depth)s_rightattribute)) {
+             %(inner_plan_compiled)s
+          } // Join 1 condition
+        } // filter on join1.right
+      } // loop over join1.right
+    } // filter on join1.left 
+  } // loop over join1.left
+
+} // End Filtering_NestedLoop_Join_Chain

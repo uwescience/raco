@@ -1,0 +1,110 @@
+/*
+============================================
+============ TwoPass Select ================
+============================================
+*/
+struct relationInfo %(resultsym)s_val;
+struct relationInfo *%(resultsym)s = &%(resultsym)s_val;
+
+{
+  printf("\n%(resultsym)s = TwoPassSelect(%(condition)s, %(inputsym)s)\n");
+
+  uint64 *relation = %(inputsym)s->relation;
+  uint64 tuples = %(inputsym)s->tuples;
+  uint64 fields = %(inputsym)s->fields;
+
+  int numCounters = 4;
+  int currCounter = 0;
+  int *counters = mallocCounterMemory(numCounters);
+
+  double start = timer();
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 1
+  
+  // Count the number of matching entries
+#pragma mta trace "1st pass to compute size for TwoPassSelect(%(condition)s, %(inputsym)s))"
+  uint64 *bucket = (uint64 *)malloc((buckets + 1)*sizeof(uint64));
+  bucket[0] = 0;
+  for (uint64 b = 0; b < buckets; b++) {
+    uint64 c = 0;
+    for (uint64 i = b*fields; i < tuples*fields; i += buckets*fields) {
+/*
+Here is where the selection condition is spliced in:
+*/
+      if (%(condition)s) {
+	      c++;
+      }
+    }
+    bucket[b + 1] = c;
+  }
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 2
+
+  printf("\tfinished first pass\n");
+
+#pragma mta trace "2nd pass for TwoPassSelect(%(condition)s, %(inputsym)s))"
+  for (uint64 i = 2; i <= buckets; i++)
+    bucket[i] += bucket[i - 1];
+  uint64 matches = bucket[buckets];
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 3
+
+  printf("\tfinished 2nd pass for select\n");
+  printf("\tmatches: %%ld\n", matches);
+
+  uint64 *%(resultsym)s_result;
+  if (matches) {
+    // then we fill in results
+    %(resultsym)s_result = (uint64 *) malloc(matches*fields*sizeof(uint64));
+#pragma mta trace "start actual select"
+#pragma mta assert nodep
+    for (uint64 b = 0; b < buckets; b++) {
+      uint64 c = bucket[b];
+      for (uint64 i = b*fields; i < tuples*fields; i += buckets*fields) {
+/*
+Here is where the selection condition is spliced in:
+*/
+	      if (%(condition)s) {
+
+
+	        //printf("rel[%%ld+%%ld] = %%ld\n", i, position, relation[i+position]);
+	        for( uint64 j = 0; j < fields; j = j + 1 ) {
+	          %(resultsym)s_result[(c*fields)+j] = relation[i+j];
+	        }
+	        //printf("rel[%%ld(%%ld, %%ld)+%%ld] = %%ld %%ld %%ld\n", i, b, fields, position, 
+	        //	 relation[i+0], relation[i+1], relation[i+2]);
+	        c++;
+	      }
+      }
+    }
+  }
+  free(bucket);
+
+  getCounters(counters, currCounter);
+  currCounter = currCounter + 1; // 4
+
+  double finish = timer();
+  printf("\t%%f seconds\n", finish - start);
+  printf("\t%%lu tuples in result\n", matches);
+  if (matches) {
+
+    %(resultsym)s->tuples = matches;
+    %(resultsym)s->fields = fields;
+    %(resultsym)s->relation = %(resultsym)s_result;
+  }
+  else {
+    %(resultsym)s->tuples = 0;
+    %(resultsym)s->fields = 0;
+    %(resultsym)s->relation = NULL;
+  }
+
+  printDiffCounters(counters, numCounters);
+  freeCounterMemory(counters);
+
+/*
+============ End TwoPass Select ================
+*/
+}
