@@ -3,6 +3,7 @@ import rules
 import algebra
 from logical_ra_pb2 import *
 from protobuf import text_format
+  
 from language import Language
 
 class Protobuf(Language):

@@ -97,5 +97,8 @@ Compile a boolean condition into the target language
 from pythonlang import *
 from pseudocodelang import *
 from clang import *
-from protobuflang import *
+try:
+  from protobuflang import *
+except ImportError:
+  pass
 
