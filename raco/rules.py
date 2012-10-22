@@ -1,4 +1,3 @@
-import algebra
 import boolean
 
 class Rule:
@@ -8,6 +7,8 @@ Returns a possibly modified expression tree
 """
   def __call__(self, expr):
     return self.fire(expr)
+
+import algebra
 
 class CrossProduct2Join(Rule):
   """A rewrite rule for removing Cross Product"""
