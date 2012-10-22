@@ -11,6 +11,6 @@ your logical operators to these physical operators.  They need not be 1:1.
 
 Inspect and run
 
-$ python test.py
+$ python helloworld.py
 
 for an example
