@@ -7,6 +7,10 @@ from rules import Rule
 Generate variables names
 """
 i = 0
+def reset():
+  global i
+  i = 0
+
 def gensym():
   global i
   i += 1
