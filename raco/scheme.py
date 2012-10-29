@@ -26,6 +26,9 @@ Type is a function that returns true for any value that is of the correct type
     except:
       raise TypeError("%s not of type %s" % (tup,self.attributes))
 
+  def __eq__(self, other):
+    return self.attributes == other.attributes
+
   def getPosition(self, name): 
     return self.asdict[name][0]
   
@@ -57,3 +60,8 @@ Type is a function that returns true for any value that is of the correct type
     for (n,t) in other:
       newsch.addAttribute(n,t)
     return newsch
+
+class EmptyScheme(Scheme):
+  def __init__(self):
+    Scheme.__init__(self, [])
+

@@ -1,3 +1,13 @@
+/*
+A(A,B,C) :- R(A, x, B), R(A, y, C), R(C, z, B)
+*/
+/*
+Project(col0,col2,col3)[Select(col0 = col6)[Join(col3 = col2)[Join(col2 = col2)[Scan(R), Scan(R)], Scan(R)]]]
+*/
+//-------
+/*
+FilteringNLJoinChain([col2 = col2, col3 = col2], [1 = 1, 1 = 1], [1 = 1, 1 = 1], col0 = col6)[FileScan(R),FileScan(R),FileScan(R)]
+*/
 // Precount_select: Use buckets to track the number of matches
 // Use buckets to copy into the result array
 #include <stdio.h>
@@ -72,14 +82,16 @@ void insert(uint64 **ht1, uint64 size1, uint64 offset)
 }
 */
 
-inline bool check_condition(struct relationInfo *left, struct relationInfo *right
-                           , uint64 leftrow, uint64 rightrow
-                           , uint64 leftattribute, uint64 rightattribute) {
+
+inline uint64 string_lookup(const char *key) {
+  return 1; // dummy for now. 
+}
+
+inline bool equals(struct relationInfo *left, uint64 leftrow, uint64 leftattribute
+                    , struct relationInfo *right, uint64 rightrow, uint64 rightattribute) {
   /* Convenience function for evaluating equi-join conditions */
   uint64 leftval = left->relation[leftrow*left->fields + leftattribute];
   uint64 rightval = right->relation[rightrow*right->fields + rightattribute];
-  //printf("rows: %d, %d\n", leftrow, rightrow);
-  //printf("checking: %d, %d\n", leftval, rightval);
   return leftval == rightval;
 }
 
@@ -107,7 +119,11 @@ void query(struct relationInfo *resultInfo)
   // -----------------------------------------------------------
 
   
+// Compiled subplan for FilteringNLJoinChain([col2 = col2, col3 = col2], [1 = 1, 1 = 1], [1 = 1, 1 = 1], col0 = col6)[FileScan(R),FileScan(R),FileScan(R)]
+printf("Evaluating subplan FilteringNLJoinChain([col2 = col2, col3 = col2], [1 = 1, 1 = 1], [1 = 1, 1 = 1], col0 = col6)[FileScan(R),FileScan(R),FileScan(R)]\n");
 
+// Compiled subplan for FileScan(R)
+printf("Evaluating subplan FileScan(R)\n");
 /*
 =====================================
   Scan(R)
@@ -126,75 +142,87 @@ struct relationInfo V1_val;
 #endif // __MTA__
 
 struct relationInfo *V1 = &V1_val;
- 
-/*
-=====================================
-  Scan(R)
-=====================================
-*/
+// originalterm=Term_R(A,y,C) (position 1)
+// originalterm=Term_R(A,x,B) (position 0)
+// originalterm=Term_R(C,z,B) (position 2)
+// symbol=V1
 
-printf("V2 = Scan(R)\n");
+// Compiled subplan for FileScan(R)
+printf("Evaluating subplan FileScan(R)\n");
 
-struct relationInfo V2_val;
+struct relationInfo *V2;
+V2 = V1;
 
-#ifdef __MTA__
-  binary_inhale("R", &V2_val);
-  //inhale("R", &V2_val);
-#else
-  inhale("R", &V2_val);
-#endif // __MTA__
+// Compiled subplan for FileScan(R)
+printf("Evaluating subplan FileScan(R)\n");
 
-struct relationInfo *V2 = &V2_val;
-
-{ // Begin Filtering_NestedLoop_Join_Chain
+struct relationInfo *V3;
+V3 = V1;
 
 
+{ /* Begin Join Chain */
 
-  printf("V2 = Join(V1,V1) \n");
-  // Assume left-deep plan
-
-  // leaves of the tree
-  
-struct relationInfo *rel1 = V1;
-struct relationInfo *rel2 = V2;
-
-
-  // Join 1
-  
-struct relationInfo *join1_left = rel1;
-uint64 join1_leftattribute = 2;
-
-struct relationInfo *join1_right = rel2;
-uint64 join1_rightattribute = 0;
-
+  printf("Begin Join Chain ['V1', 'V2', 'V3']\n");
+  #pragma mta trace "running join 0"
 
   double start = timer();
 
   getCounters(counters, currCounter);
   currCounter = currCounter + 1; // 1
 
-#pragma mta trace "running join"
-  // Left Root
-  for (uint64 join1_leftrow = 0; join1_leftrow < join1_left->tuples; join1_leftrow++) {
-    if (true) { // filter on join1.left
-      // Join 1
-      for (uint64 join1_rightrow = 0; join1_rightrow < join1_right->tuples; join1_rightrow++) {
-        if (true) { // filter on join1.right
-          if (check_condition(join1_left, join1_right
-                             , join1_leftrow, join1_rightrow, join1_leftattribute, join1_rightattribute)) {
-             
+  // Loop over left leaf relation 
+  for (uint64 V1_row = 0; V1_row < V1->tuples; V1_row++) {
 
+      
+      { /* Begin Join Level 0 */
+       
+        #pragma mta trace "running join 0"
+      
+        if (( (1) == (1) )) { // filter on join0.left 
+          // Join 0
+          for (uint64 V2_row = 0; V2_row < V2->tuples; V2_row++) {
+            if (( (1) == (1) )) { // filter on join0.right          
+              if (equals(V1, V1_row, 2 // left attribute ref
+                       , V2, V2_row, 2)) { //right attribtue ref
+      
+                             
+                  { /* Begin Join Level 1 */
+                   
+                    #pragma mta trace "running join 1"
+                  
+                    if (( (1) == (1) )) { // filter on join1.left 
+                      // Join 1
+                      for (uint64 V3_row = 0; V3_row < V3->tuples; V3_row++) {
+                        if (( (1) == (1) )) { // filter on join1.right          
+                          if (equals(V2, V2_row, 0 // left attribute ref
+                                   , V3, V3_row, 2)) { //right attribtue ref
+                  
+                                         
+                              if (( (V1->relation[V1_row*V1->fields + 0]) == (V3->relation[V3_row*V3->fields + 0]) )) {
+                              
+                                // Here we would send the tuple to the client, or write to disk, or fill a data structure
+                                printf("joined tuple: %d, %d, %d\n", V1_row, V2_row, V3_row);
+                                resultcount++;
+                              
+                              }
+                  
+                          } // Join 1 condition
+                        } // filter on join1.right
+                      } // loop over join1.right
+                    } // filter on join1.left 
+                  
+                  }
+                  
+      
+              } // Join 0 condition
+            } // filter on join0.right
+          } // loop over join0.right
+        } // filter on join0.left 
+      
+      }
+      
 
-printf("joined tuple: %d, %d\n", join1_leftrow, join1_rightrow);
-resultcount++;
-
-
-
-          } // Join 1 condition
-        } // filter on join1.right
-      } // loop over join1.right
-    } // filter on join1.left 
-  } // loop over join1.left
+  } // loop over join0.left
 
 } // End Filtering_NestedLoop_Join_Chain
 

@@ -19,9 +19,25 @@ class Operator(Printable):
     # Extra code to emit to cleanup
     self.cleanup = ""
     self.alias = self
+    self._trace = []
+
+  def __eq__(self, other):
+    return self.__class__ == other.__class__
 
   def copy(self, other):
+    self._trace = [pair for pair in other.gettrace()]
     self.bound = None
+
+  def trace(self, key, val):
+    self._trace.append((key, val))
+
+  def gettrace(self):
+    """Return a list of trace messages"""
+    return self._trace
+
+  def compiletrace(self):
+    """Return the trace as a list of strings"""
+    return "".join([self.language.comment("%s=%s" % (k,v)) for k,v in self.gettrace()])
 
   def set_alias(self, alias):
     """Set a user-defined identififer for this operator.  Used in optimization and transformation of plans"""
@@ -32,12 +48,19 @@ class ZeroaryOperator(Operator):
   def __init__(self):
     Operator.__init__(self)
 
+  def __eq__(self, other):
+    return self.__class__ == other.__class__
+
   def compile(self, resultsym):
+    code = self.language.comment("Compiled subplan for %s" % self)
+    code += self.language.log("Evaluating subplan %s" % self)
+    self.trace("symbol", resultsym)
     if self.bound:
-      code = self.language.assignment(resultsym, self.bound)     
+      code += self.language.new_relation_assignment(resultsym, self.bound)     
     else:
-      code = "%s" % (self.compileme(resultsym),)
+      code += "%s" % (self.compileme(resultsym),)
       self.bound = resultsym
+      code += self.compiletrace()
     return code
 
   def apply(self, f):
@@ -57,7 +80,7 @@ class ZeroaryOperator(Operator):
 
   def preorder(self, f):
     """Preorder traversal, applying a function to each operator"""
-    self.postorder(f)
+    return self.postorder(f)
 
   def collectParents(self, parentmap):
     pass
@@ -68,18 +91,24 @@ class UnaryOperator(Operator):
     self.input = input
     Operator.__init__(self)
 
+  def __eq__(self, other):
+    return self.__class__ == other.__class__ and self.input == other.input
+  
+
   def compile(self, resultsym):
     """Compile this operator to the language specified."""
     #TODO: Why is the language not an argument? 
+    code = self.language.comment("Compiled subplan for %s" % self)
     if self.bound:
-      code = self.language.assignment(resultsym, self.bound)
+      code += self.language.assignment(resultsym, self.bound)
     else:
       inputsym = gensym()
       # compile the previous operator
       prev = self.input.compile(inputsym)
       # compile me
       me = self.compileme(resultsym, inputsym)
-      code = emit(prev, me)
+      code += emit(prev, me)
+    code += self.language.log("Evaluating subplan %s" % self)
     return code
 
   def apply(self, f):
@@ -118,15 +147,20 @@ class BinaryOperator(Operator):
     self.right = right
     Operator.__init__(self)
 
+  def __eq__(self, other):
+    return self.__class__ == other.__class__ and self.left == other.left and self.right == other.right
+
   def compile(self, resultsym):
     """Compile this plan.  Result sym is the variable name to use to hold the result of this operator."""
+    code = self.language.comment("Compiled subplan for %s" % self)
+    code += self.language.log("Evaluating subplan %s" % self)
     #TODO: Why is language not an argument?
     if self.bound:
-      code = self.language.assignment(resultsym, self.bound)
+      code += self.language.assignment(resultsym, self.bound)
     else:
       leftsym = gensym()
       rightsym = gensym()
-      code = """
+      code += """
 %s 
 %s
 %s
@@ -159,8 +193,8 @@ class BinaryOperator(Operator):
   def preorder(self, f):
     """preorder traversal.  Apply a function to each operator.  Function returns an iterator."""
     for x in f(self): yield x
-    for x in self.left.postorder(f): yield x
-    for x in self.right.postorder(f): yield x
+    for x in self.left.preorder(f): yield x
+    for x in self.right.preorder(f): yield x
 
   def collectParents(self, parentmap):
     """Construct a dict mapping children to parents. Used in optimization."""
@@ -168,6 +202,68 @@ class BinaryOperator(Operator):
     parentmap.setdefault(self.right, []).append(self)
     self.left.collectParents(parentmap)
     self.right.collectParents(parentmap)
+
+class NaryOperator(Operator):
+  """Operator with N arguments.  e.g., multi-way joins in one step."""
+  def __init__(self, args):
+    self.args = args
+    Operator.__init__(self)
+
+  def compile(self, resultsym):
+    """Compile this plan.  Result sym is the variable name to use to hold the result of this operator."""
+    #TODO: Why is language not an argument?
+    code = self.language.comment("Compiled subplan for %s" % self)
+    code += self.language.log("Evaluating subplan %s" % self)
+    if self.bound:
+      code += self.language.assignment(resultsym, self.bound)
+    else:
+      argsyms = [gensym() for arg in self.args]
+      code += """
+%s
+%s
+""" % ("\n".join([arg.compile(sym) for arg,sym in zip(self.args,argsyms)])
+      , self.compileme(resultsym, argsyms))
+    return code
+
+
+  def copy(self, other):
+    """deep copy"""
+    self.args = [a for a in other.args]
+    Operator.copy(self, other)
+
+  def postorder(self, f):
+    """postorder traversal.  Apply a function to each operator.  Function returns an iterator."""
+    for arg in self.args:
+      for x in arg.postorder(f): yield x
+    for x in f(self): yield x
+
+  def preorder(self, f):
+    """preorder traversal.  Apply a function to each operator.  Function returns an iterator."""
+    for x in f(self): yield x
+    for arg in self.args:
+      for x in arg.preorder(f): yield x
+
+  def collectParents(self, parentmap):
+    """Construct a dict mapping children to parents. Used in optimization."""
+    for arg in self.args:
+      parentmap.setdefault(arg, []).append(self)
+      arg.collectParents(parentmap)
+
+  def apply(self, f):
+    """Apply a function to your children"""
+    self.args = [f(arg) for arg in self.args]
+    return self
+
+  def __str__(self):
+    return "%s[%s]" % (self.opname(), ",".join(["%s" % arg for arg in self.args]))
+
+class NaryJoin(NaryOperator):
+  def scheme(self):
+    sch = scheme.Scheme()
+    for arg in self.args:
+      sch = sch + arg.scheme()
+    return sch
+
 
 """Logical Relational Algebra"""
 
@@ -181,6 +277,9 @@ class Join(BinaryOperator):
   def __init__(self, condition=None, left=None, right=None):
     self.condition = condition
     BinaryOperator.__init__(self, left, right)
+
+  def __eq__(self, other):
+    return BinaryOperator.__eq__(self,other) and self.condition == other.condition
 
   def __str__(self):
     return "%s(%s)[%s, %s]" % (self.opname(), self.condition, self.left, self.right)
@@ -199,6 +298,9 @@ class Select(UnaryOperator):
   def __init__(self, condition=None, input=None):
     self.condition = condition
     UnaryOperator.__init__(self, input)
+
+  def __eq__(self, other):
+    return UnaryOperator.__eq__(self,other) and self.condition == other.condition
 
   def __str__(self):
     if isinstance(self.condition,dict): 
@@ -237,6 +339,9 @@ class Project(UnaryOperator):
   def __init__(self, columnlist=None, input=None):
     self.columnlist = columnlist
     UnaryOperator.__init__(self, input)
+
+  def __eq__(self, other):
+    return UnaryOperator.__eq__(self,other) and self.columnlist == other.columnlist 
 
   def __str__(self):
     colstring = ",".join([str(x) for x in self.columnlist])
@@ -297,6 +402,9 @@ class Scan(ZeroaryOperator):
     self.relation = relation
     ZeroaryOperator.__init__(self)
 
+  def __eq__(self,other):
+    return ZeroaryOperator.__eq__(self,other) and self.relation == other.relation
+
   def __str__(self):
     return "%s(%s)" % (self.opname(), self.relation.name)
 
@@ -306,6 +414,10 @@ class Scan(ZeroaryOperator):
   def copy(self, other):
     """deep copy"""
     self.relation = other.relation
+    # TODO: need a cleaner and more general way of tracing information through 
+    # the compilation process for debugging purposes
+    if hasattr(other, "originalterm"): 
+      self.originalterm = other.originalterm
     ZeroaryOperator.copy(self, other)
 
   def scheme(self):

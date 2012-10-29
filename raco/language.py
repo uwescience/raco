@@ -26,6 +26,7 @@ class Language:
   def conjunction(cls, *args):
     return cls.boolean_combine(args, operator="and")
 
+
   @classmethod
   def disjunction(cls, *args):
     return cls.boolean_combine(args, operator="or")
@@ -39,6 +40,11 @@ Replace column names with positions
       condition.left = Language.unnamed(condition.left, sch)
       condition.right = Language.unnamed(condition.right, sch)
       result = condition
+
+    elif isinstance(condition, boolean.UnaryBooleanOperator):
+      condition.input = Language.unnamed(condition.input, sch)
+      result = condition
+
     elif isinstance(condition, boolean.Attribute):
       # replace the attribute name with it's position in the relation
       # TODO: This won't work with intermediate results from joins
@@ -59,24 +65,28 @@ Replace column names with positions
     """
 Compile a boolean condition into the target language
   """
+    if isinstance(expr, boolean.UnaryBooleanOperator):
+      input = cls.compile_boolean(expr.input)
+      if isinstance(expr, boolean.NOT):
+        return cls.negation(input)
     if isinstance(expr, boolean.BinaryBooleanOperator):
       left, right = cls.compile_boolean(expr.left), cls.compile_boolean(expr.right)
       if isinstance(expr, boolean.AND):
-        return cls.conjunction(expr.left, expr.right)
+        return cls.conjunction(left, right)
       if isinstance(expr, boolean.OR):
-        return cls.disjunction(expr.left, expr.right)
+        return cls.disjunction(left, right)
       if isinstance(expr, boolean.EQ):
-        return cls.boolean_combine([expr.left, expr.right], operator="==")
+        return cls.boolean_combine([left, right], operator="==")
       if isinstance(expr, boolean.NEQ):
-        return cls.boolean_combine([expr.left, expr.right], operator="!=")
+        return cls.boolean_combine([left, right], operator="!=")
       if isinstance(expr, boolean.GT):
-        return cls.boolean_combine([expr.left, expr.right], operator=">")
+        return cls.boolean_combine([left, right], operator=">")
       if isinstance(expr, boolean.LT):
-        return cls.boolean_combine([expr.left, expr.right], operator="<")
+        return cls.boolean_combine([left, right], operator="<")
       if isinstance(expr, boolean.GTEQ):
-        return cls.boolean_combine([expr.left, expr.right], operator=">=")
+        return cls.boolean_combine([left, right], operator=">=")
       if isinstance(expr, boolean.LTEQ):
-        return cls.boolean_combine([expr.left, expr.right], operator="<=")
+        return cls.boolean_combine([left, right], operator="<=")
 
     elif isinstance(expr, boolean.Attribute):
       return cls.compile_attribute(expr)
@@ -91,7 +101,8 @@ Compile a boolean condition into the target language
       return cls.compile_attribute(expr)
   
     else:
-      raise ValueError("Unknown class in boolean expression: %s (value is %s)" % (expr.__class__,expr))
+      return expr
+      #raise ValueError("Unknown class in boolean expression: %s (value is %s)" % (expr.__class__,expr))
 
 # import everything from each language
 from pythonlang import *

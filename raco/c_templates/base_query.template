@@ -72,9 +72,13 @@ void insert(uint64 **ht1, uint64 size1, uint64 offset)
 }
 */
 
-inline bool check_condition(struct relationInfo *left, struct relationInfo *right
-                           , uint64 leftrow, uint64 rightrow
-                           , uint64 leftattribute, uint64 rightattribute) {
+
+inline uint64 string_lookup(const char *key) {
+  return 1; // dummy for now. 
+}
+
+inline bool equals(struct relationInfo *left, uint64 leftrow, uint64 leftattribute
+                    , struct relationInfo *right, uint64 rightrow, uint64 rightattribute) {
   /* Convenience function for evaluating equi-join conditions */
   uint64 leftval = left->relation[leftrow*left->fields + leftattribute];
   uint64 rightval = right->relation[rightrow*right->fields + rightattribute];

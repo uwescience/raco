@@ -21,6 +21,10 @@ class PseudoCode(Language):
     return "%s = %s" % (x,y)
 
   @staticmethod
+  def comment(txt):
+    return  "// %s" % txt
+
+  @staticmethod
   def initialize(resultsym):
     return  """
 #include <relation.h>

@@ -21,6 +21,10 @@ class Python(Language):
     return "%s = %s" % (x,y)
 
   @staticmethod
+  def comment(txt):
+    return  "# %s" % txt
+
+  @staticmethod
   def initialize(resultsym):
     return  """
 import pyra

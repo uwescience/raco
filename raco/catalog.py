@@ -5,6 +5,11 @@ class Relation:
     self.name = name
     self.scheme = sch
 
+  def __eq__(self, other):
+    return self.name == other.name
+    # and self.scheme == other.scheme
+
+
 class FileRelation(Relation):
   pass
 

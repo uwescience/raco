@@ -16,3 +16,4 @@ struct relationInfo %(resultsym)s_val;
 #endif // __MTA__
 
 struct relationInfo *%(resultsym)s = &%(resultsym)s_val;
+

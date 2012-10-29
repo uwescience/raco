@@ -166,9 +166,13 @@ class Rule:
     # get the conditions, like Z=3
     conditions = [c for c in self.body if isinstance(c, raco.boolean.BinaryBooleanOperator)]
 
+    # construct the join graph
     joingraph = nx.Graph()
     N = len(terms)
     for i, term1 in enumerate(terms):
+      # store the order for explaining queries later -- not strictly necessary
+      term1.originalorder = i
+
       joingraph.add_node(term1, term=term1) 
       for j in range(i+1, N):
         term2 = terms[j]
@@ -177,16 +181,18 @@ class Rule:
           conjunction = reduce(raco.boolean.AND, joins) 
           joingraph.add_edge(term1, term2, condition=conjunction, order=(term1, term2)) 
 
+    # find connected components (some non-determinism in the order here)
     comps = nx.connected_component_subgraphs(joingraph)
 
     component_plans = []
 
+    # for each component
     for component in comps:
-      # TODO: Only handling one component right now
       cycleconditions = []
+      # check for cycles
       for cycle in nx.cycle_basis(component):
         # choose an edge to break the cycle
-        # that one will be a selection condition on the final join
+        # that edge will be a selection condition after the final join
         oneedge = cycle[-2:]
         data = component.get_edge_data(*oneedge)   
         cycleconditions.append(data)
@@ -216,7 +222,7 @@ class Rule:
 
         predicate.leftoffset(leftoffset)
         predicate.rightoffset(rightoffset)
-
+        # create selections after each cycle
         plan = raco.algebra.Select(predicate, plan)
 
       component_plans.append(plan)
@@ -226,8 +232,7 @@ class Rule:
     for newplan in component_plans[1:]:
       plan = raco.algebra.CrossProduct(plan, newplan)
  
-    # Put a project on the end
-
+    # Put a project at the top of the plan
     vars = [(i,nm) for i, (nm, typ) in enumerate(plan.scheme())]
     Pos = raco.boolean.PositionReference
     def findvar(var):
@@ -390,6 +395,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
     else:
       scheme = [attr(i,r) for i,r in enumerate(term.valuerefs)]
       scan = raco.algebra.Scan(raco.catalog.Relation(term.name, scheme))
+      scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))
 
     # collect conditions within the term itself, like A(X,3) or A(Y,Y)
     implconds = list(term.implicitconditions())

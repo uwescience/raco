@@ -13,6 +13,10 @@ class Protobuf(Language):
     conjunc = opstr.join(["%s" % cls.compile_boolean(arg) for arg in args])
     return "(%s)" % conjunc
 
+  @staticmethod
+  def comment(txt):
+    return  "# %s" % txt
+
   @classmethod
   def compile_attribute(cls, attr):
     if isinstance(attr, boolean.PositionReference):

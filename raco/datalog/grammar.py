@@ -58,7 +58,7 @@ number = realNum | intNum
 variable = ident.copy()
 variable.setParseAction(lambda x: model.Var(x[0]))
 
-quotedString.setParseAction(lambda x: raco.boolean.StringLiteral(x[0]))
+quotedString.setParseAction(lambda x: raco.boolean.StringLiteral(x[0][1:-1]))
 
 literal = quotedString | number
 

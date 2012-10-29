@@ -19,10 +19,43 @@ class BFalse(BooleanLiteral):
   literals = ["False", "false", "FALSE"]
 '''
 
+class UnaryBooleanOperator(BooleanExpression):
+  def __init__(self, input):
+    self.input = input
+
+  def __eq__(self, other):
+    return self.__class__ == other.__class__ and self.input == other.input
+
+  def __str__(self):
+    if not hasattr(self, "literals"):
+      opstr = self.opname()
+    else:
+     opstr = self.literals[0]
+    return "%s%s" % (opstr, self.input)
+
+  def __repr__(self):
+    return self.__str__()
+
+  def leftoffset(self, offset):
+    """Add an offset to any positional references on the left-hand side.  Useful when constructing left-deep plans."""
+    self.input.leftoffset(offset)
+
+  def rightoffset(self, offset):
+    """Add an offset to any positional references on the left-hand side.  Useful when constructing right-deep plans."""
+    self.input.rightoffset(offset)
+
+  def flip(self):
+    """flip the order of comparison operators.  Used in optimizing join trees"""
+    self.input.flip()
+
+
 class BinaryBooleanOperator(BooleanExpression):
   def __init__(self, left, right):
     self.left = left
     self.right = right
+
+  def __eq__(self, other):
+    return self.__class__ == other.__class__ and self.left == other.left and self.right == other.right
 
   def __str__(self):
     if not hasattr(self, "literals"):
@@ -62,6 +95,9 @@ E.g., 3>X becomes X<3. Useful for normalizing plans."""
   def rightoffset(self, offset):
     """Add an offset to any positional references on the left-hand side.  Useful when constructing right-deep plans."""
     self.right.rightoffset(offset)
+
+class NOT(UnaryBooleanOperator):
+  literals = ["not", "NOT", "-"]
 
 class AND(BinaryBooleanOperator):
   literals = ["and", "AND"]
@@ -109,6 +145,9 @@ class Literal:
   def __init__(self, value):
     self.value = value
 
+  def __eq__(self, other):
+    return self.__class__ == other.__class__ and self.value == other.value 
+
   def __repr__(self):
     return str(self.value)
 
@@ -133,10 +172,17 @@ Will subsume PositionReference and Attribute"""
   def __init__(self, ):
     self.name = value
 
+  def __eq__(self, other):
+    return self.__class__ == other.__class__ and self.name == other.name
+
 class PositionReference(AttributeReference):
   """A reference to an attribute by position, for implementing the unnamed perspective."""
   def __init__(self, position):
     self.position = position   
+    self.leaf_position = position # original position wrt leaf in plan, before leftoffset or rightoffset were called
+
+  def __eq__(self, other):
+    return self.__class__ == other.__class__ and self.position == other.position and self.leaf_position == other.leaf_position
 
   def leftoffset(self, offset):
     """Add an offset to this positional reference.  Used when building a plan from a set of joins"""
@@ -155,6 +201,19 @@ class PositionReference(AttributeReference):
   def resolve(self, scheme):
     return scheme[self.position]
 
+#class QualifiedPositionReference(PositionReference):
+#  """
+#A positional reference that refers explicitly to a node in a query plan.  Allows references to upstream children. 
+#For example, for the rule 
+#A(x,y,y,z) :- R(x,y), S(y,z)
+#I can refer to the 3rd position in the head by col2 or by S.col0, as long as I have the plan around.
+#"""
+#  def __init__(self, position, node):
+#    self.node = node
+#    PositionReference.__init__(self, position)
+#
+#  def __repr__(self):
+#    return "%s.col%s" % (self.node, self.position)
 
 class Attribute(AttributeReference):
   """A reference to an attribute by name"""
@@ -188,3 +247,6 @@ def toNamed(ref, scheme):
     return ref
   else:
     raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference.")
+
+
+tautology = EQ(NumericLiteral(1),NumericLiteral(1))
