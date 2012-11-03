@@ -66,6 +66,7 @@ and offset([A(X,Y), B(Y,Z)], A) == 0"""
       self.terms.append(left)
 
     leftoffset = self.offset(left)
+    print left, right
     condition.leftoffset(leftoffset)
     self.terms.append(right)
     self.conditions.append(condition)
@@ -112,11 +113,10 @@ An edgesequence does not."""
       return joinsequence
 
     left, right, condition = self.joininfo(edgesequence[0])
-      
+     
     joinsequence.addjoin(left, right, condition)
 
     return self.toJoinSequence(edgesequence[1:], joinsequence)
-
 
 def normalize(x,y):
   if y < x:
@@ -285,14 +285,17 @@ class Term:
       if yourvars.has_key(var):
         joins.append(raco.boolean.EQ(attr, yourvars[var]))
 
+    # get the explicit join conditions
     for c in conditions:
       if isinstance(c.left, Var) and isinstance(c.right, Var):
         # then we have a potential join condition
         if self.match(c.left) and other.match(c.right):
           joins.append(c.__class__(self.convertvalref(c.left), other.convertvalref(c.right)))
-        if other.match(c.left) and self.match(c.right):
-          joins.append(c.__class__(self.convertvalref(c.left), other.convertvalref(c.right)))
-
+        elif other.match(c.left) and self.match(c.right):
+          joins.append(c.__class__(other.convertvalref(c.left), self.convertvalref(c.right)))
+        else:
+          # must be a condition on some other pair of relations
+          pass
     return joins
         
   def match(self, valref):
