@@ -66,7 +66,6 @@ and offset([A(X,Y), B(Y,Z)], A) == 0"""
       self.terms.append(left)
 
     leftoffset = self.offset(left)
-    print left, right
     condition.leftoffset(leftoffset)
     self.terms.append(right)
     self.conditions.append(condition)
