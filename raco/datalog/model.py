@@ -190,13 +190,15 @@ class Rule:
     for component in comps:
       cycleconditions = []
       # check for cycles
-      for cycle in nx.cycle_basis(component):
+      cycles = nx.cycle_basis(component)
+      while cycles:
         # choose an edge to break the cycle
         # that edge will be a selection condition after the final join
-        oneedge = cycle[-2:]
+        oneedge = cycles[0][-2:]
         data = component.get_edge_data(*oneedge)   
         cycleconditions.append(data)
         component.remove_edge(*oneedge)
+        cycles = nx.cycle_basis(component)
 
       if len(component) == 1:
         # no joins to plan

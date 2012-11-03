@@ -27,6 +27,28 @@ R = ASCIIFile("R", sch)
 #query = """A(x,z) :- R(x,y,4),S(y,z,5),T(z,a,6),U(a,b,7),V(b,c,8)"""
 query = """A(A,B,C) :- R(A, x, B), R(A, y, C), R(C, z, B)"""
 #query = """A(A,B,C) :- R(A, x, B), R(A, y, C)"""
+query = """
+Q2(p, auth, bookt, year, xref, ee, title, pages, url, abs) :- 
+
+IsProceedings(p), 
+Author(p, auth),
+Booktitle(p, bookt), 
+Year(p, year), 
+Crossref(p, xref), 
+Ee(p, ee), 
+Title(p, title), 
+Page(p, pages), 
+Url(p, url), 
+Abstract(p, abs)
+"""
+query = """
+Q2(p, auth, url,ee) :- 
+
+IsProceedings(p), 
+Author(p, auth),
+Url(p, url),
+Ee(p, ee), 
+"""
 
 def comment(s):
   print "/*\n%s\n*/" % s
@@ -60,5 +82,5 @@ comment(physicalplan)
 #  print x
 
 # generate code in the target language
-print compile(physicalplan)
+#print compile(physicalplan)
 compile(physicalplan)
