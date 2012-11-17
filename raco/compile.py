@@ -1,4 +1,4 @@
-
+import algebra
 from utility import emit
 
 """
@@ -39,6 +39,7 @@ Emit any initialization and call
 compile method on top-level operator
 """
 def compile(expr):
+  algebra.reset()
   result = "resultRelation"
   init = expr.language.initialize(result)
   code = expr.compile(result)

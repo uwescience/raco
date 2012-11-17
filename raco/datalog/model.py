@@ -144,11 +144,10 @@ An edgesequence does not."""
       return joinsequence
 
     left, right, condition = self.joininfo(edgesequence[0])
-      
+     
     joinsequence.addjoin(left, right, condition)
 
     return self.toJoinSequence(edgesequence[1:], joinsequence)
-
 
 def normalize(x,y):
   if y < x:
@@ -237,13 +236,15 @@ class Rule:
     for component in comps:
       cycleconditions = []
       # check for cycles
-      for cycle in nx.cycle_basis(component):
+      cycles = nx.cycle_basis(component)
+      while cycles:
         # choose an edge to break the cycle
         # that edge will be a selection condition after the final join
-        oneedge = cycle[-2:]
+        oneedge = cycles[0][-2:]
         data = component.get_edge_data(*oneedge)   
         cycleconditions.append(data)
         component.remove_edge(*oneedge)
+        cycles = nx.cycle_basis(component)
 
       if len(component) == 1:
         # no joins to plan
@@ -334,14 +335,17 @@ class Term:
       if yourvars.has_key(var):
         joins.append(raco.boolean.EQ(attr, yourvars[var]))
 
+    # get the explicit join conditions
     for c in conditions:
       if isinstance(c.left, Var) and isinstance(c.right, Var):
         # then we have a potential join condition
         if self.match(c.left) and other.match(c.right):
           joins.append(c.__class__(self.convertvalref(c.left), other.convertvalref(c.right)))
-        if other.match(c.left) and self.match(c.right):
-          joins.append(c.__class__(self.convertvalref(c.left), other.convertvalref(c.right)))
-
+        elif other.match(c.left) and self.match(c.right):
+          joins.append(c.__class__(other.convertvalref(c.left), self.convertvalref(c.right)))
+        else:
+          # must be a condition on some other pair of relations
+          pass
     return joins
         
   def match(self, valref):
