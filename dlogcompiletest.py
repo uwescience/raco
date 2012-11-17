@@ -25,8 +25,13 @@ R = ASCIIFile("R", sch)
 #query = """A(x) :- S(y,z,4)"""
 #query = """A(x,z) :- R(x,y,u),R(y,z,w),w=3,u=4"""
 #query = """A(x,z) :- R(x,y,4),S(y,z,5),T(z,a,6),U(a,b,7),V(b,c,8)"""
-query = """A(A,B,C) :- R(A, x, B), R(A, y, C), R(C, z, B)"""
+#query = """A(A,B,C) :- R(A, x, B), R(A, y, C), R(C, z, B)"""
 #query = """A(A,B,C) :- R(A, x, B), R(A, y, C)"""
+query = """
+A(x,z) :- R(x,y,z)
+B(w) :- A(3,w)
+C(x) :- R(y,x,z), S(z,g)
+"""
 
 def comment(s):
   print "/*\n%s\n*/" % s
@@ -36,12 +41,16 @@ comment(query)
 # Now parse it
 parsedprogram = parse(query)
 
+exprs = parsedprogram.toRA()
 # generate an RA expression
-onlyrule = parsedprogram.rules[0]
-ra = onlyrule.toRA(parsedprogram)
+#rules = parsedprogram.rules
+#ra = onlyrule.toRA(parsedprogram)
+
+print exprs
+#ra = exprs[0]
 
 #print query
-comment(ra)
+#comment(ra)
 
 
 print "//-------"
@@ -50,15 +59,15 @@ print "//-------"
 # expression to a target expression
 #result = optimize(ra, target=PseudoCodeAlgebra, source=LogicalAlgebra)
 #result = optimize(ra, target=ProtobufAlgebra, source=LogicalAlgebra)
-result = optimize(ra, target=CCAlgebra, source=LogicalAlgebra)
+#result = optimize(ra, target=CCAlgebra, source=LogicalAlgebra)
 
 #comment(result)
 #physicalplan = result
-physicalplan = common_subexpression_elimination(result)
-comment(physicalplan)
+#physicalplan = common_subexpression_elimination(result)
+#comment(physicalplan)
 #for x in showids(physicalplan):
 #  print x
 
 # generate code in the target language
-print compile(physicalplan)
-compile(physicalplan)
+#print compile(physicalplan)
+#compile(physicalplan)

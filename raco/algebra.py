@@ -347,6 +347,9 @@ class Project(UnaryOperator):
     colstring = ",".join([str(x) for x in self.columnlist])
     return "%s(%s)[%s]" % (self.opname(), colstring, self.input)
 
+  def __repr__(self):
+    return "%s" % self
+
   def copy(self, other):
     """deep copy"""
     self.columnlist = other.columnlist
@@ -382,6 +385,15 @@ class GroupBy(UnaryOperator):
     """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
     groupingscheme = [attref.resolve(self.input.scheme()) for attref in self.groupinglist]
     expressionscheme = [("expr%s" % i, GroupBy.typeof(expr)) for i,expr in enumerate(self.expressionlist)]
+
+class Fixpoint(BinaryOperator):
+  
+  def __str__(self):
+    return """Fixpoint[%s, %s]""" % (self.left, self.right)
+
+class State(ZeroaryOperator):
+  """A placeholder operator for recursive plan"""
+  pass
 
 class EmptyRelation(ZeroaryOperator):
   """Empty Relation.  Used in certain optimizations."""

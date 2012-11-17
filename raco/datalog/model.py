@@ -11,6 +11,7 @@ import raco.catalog
 class Program:
   def __init__(self, rules):
     self.rules = rules
+    self.compiledrules = {}
 
   def IDB(self,term):
     """Return a list of rules that define an IDB corresponding to the given term: relation names are the same, and the number of columns are the same."""
@@ -20,6 +21,37 @@ class Program:
         matches.append(r)
 
     return matches
+
+  def compiling(self, idbterm):
+    """Return true if any of the rules that define the given idb are being compiled"""
+    for r in self.rules:
+      if r.head.samerelation(idbterm):
+        if r.compiling:
+          return True
+    return False
+
+  def intermediateRule(self, rule):
+    """Return True if the head does not appear in the body of any other rule."""
+    for other in self.rules:
+      if other.refersTo(rule.head):
+        return True
+    return False
+
+  def compileRule(self, rule):
+    """Return a compiled rule as a relational algebra expression."""
+    if rule in self.compiledrules:
+      return self.compiledrules[rule]
+    else:
+      ra = rule.toRA(self)
+      self.compiledrules[rule] = ra
+      return ra
+
+  def toRA(self):
+    """Return a set of relational algebra expressions implementing this program."""
+    for rule in self.rules:
+      ra = self.compileRule(rule)
+
+    return [plan for (rule, plan) in self.compiledrules.iteritems() if not self.intermediateRule(rule)]
 
   def __repr__(self):
     return "\n".join([str(r) for r in self.rules])
@@ -147,13 +179,28 @@ class Rule:
     # flag used to etect recursion
     self.compiling = False
 
+  def vars(self):
+    """Return a list of variables in their order of appearence in the rule.  No attempt to remove duplicates"""
+    for term in self.body:
+      for v in term.vars():
+        yield v
+
+  def refersTo(self, term):
+    """Return true if this rule includeas a reference to the given term"""
+    for bodyterm in self.body:
+      if bodyterm.samerelation(term): 
+        return True
+    return False
+
   def IDBof(self, term):
-    """Return true if this rule defines an IDB corresponding to the gien term"""
+    """Return true if this rule defines an IDB corresponding to the given term"""
     return term.name == self.head.name and len(term.valuerefs) == len(self.head.valuerefs)
       
   def toRA(self, program):
     """Emit a relational plan for this rule"""
-    if self.compiling:
+    if program.compiling(self.head):
+      # recursive rule
+      #return algebra.State()
       raise ValueError("Recursion not implemented")
     else:
       self.compiling = True
@@ -233,7 +280,7 @@ class Rule:
       plan = raco.algebra.CrossProduct(plan, newplan)
  
     # Put a project at the top of the plan
-    vars = [(i,nm) for i, (nm, typ) in enumerate(plan.scheme())]
+    vars = [(i,nm) for i, nm in enumerate(self.vars())] 
     Pos = raco.boolean.PositionReference
     def findvar(var):
       occurrences = [Pos(i) for (i, nm) in vars if nm == var.var]
@@ -263,6 +310,10 @@ class Term:
   def __init__(self, parsedterm): 
     self.name = parsedterm[0]
     self.valuerefs = [vr for vr in parsedterm[1]]
+
+  def samerelation(self, term):
+    """Return True if the argument refers to the same relation"""
+    return self.name == term.name
 
   def __repr__(self):
     return "%s_%s(%s)" % (self.__class__.__name__,self.name, ",".join([str(e) for e in self.valuerefs]))
@@ -391,7 +442,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
 
     idbs = program.IDB(term)
     if idbs:
-      scan = reduce(raco.algebra.Union,[idb.toRA(program) for idb in idbs])
+      scan = reduce(raco.algebra.Union,[program.compileRule(idb) for idb in idbs])
     else:
       scheme = [attr(i,r) for i,r in enumerate(term.valuerefs)]
       scan = raco.algebra.Scan(raco.catalog.Relation(term.name, scheme))
