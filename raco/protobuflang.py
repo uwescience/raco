@@ -13,9 +13,20 @@ class Protobuf(Language):
     conjunc = opstr.join(["%s" % cls.compile_boolean(arg) for arg in args])
     return "(%s)" % conjunc
 
+  @classmethod
+  def new_relation_assignment(cls, rvar, val):
+    # Not sure how this will/can be used for protobufs
+    return """
+# %s <- %s
+""" % (val, rvar)
+
   @staticmethod
   def comment(txt):
     return  "# %s" % txt
+
+  @staticmethod
+  def log(txt):
+    return  Protobuf.comment(txt)
 
   @classmethod
   def compile_attribute(cls, attr):
@@ -55,7 +66,7 @@ class ProtobufProject(algebra.Project, ProtobufOperator):
     project.project.childName = inputsym
     posi = [Protobuf.unnamed(attref,self.scheme()) for attref in self.columnlist]
     cols = [Protobuf.compile_attribute(attref) for attref in posi]
-    project.project.column.extend(cols)
+    project.project.columns.extend(cols)
     return text_format.MessageToString(project)
 
 class ProtobufJoin(algebra.Join, ProtobufOperator):
@@ -68,8 +79,8 @@ class ProtobufJoin(algebra.Join, ProtobufOperator):
     join = LogicalRaOperator()
     join.type = LogicalRaOperator.JOIN
     join.name="%s" % resultsym
-    join.join.leftChildName = leftsym
-    join.join.rightChildName = rightsym
+    join.equijoin.leftChildName = leftsym
+    join.equijoin.rightChildName = rightsym
  
     condition = Protobuf.compile_boolean(self.condition)
     leftattribute = Protobuf.unnamed(self.condition.left,self.scheme()) 
@@ -77,8 +88,8 @@ class ProtobufJoin(algebra.Join, ProtobufOperator):
     leftattribute = Protobuf.compile_attribute(leftattribute)
     rightattribute = Protobuf.compile_attribute(rightattribute)
 
-    join.join.leftColumn.extend([leftattribute])
-    join.join.rightColumn.extend([rightattribute])
+    join.equijoin.leftColumns.extend([leftattribute])
+    join.equijoin.rightColumns.extend([rightattribute])
 
     return text_format.MessageToString(join)
 

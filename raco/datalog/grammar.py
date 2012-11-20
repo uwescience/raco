@@ -92,7 +92,7 @@ def mkrule(x):
   """Workaround for AttribtueError: Class Rule has no __call__ method when running through wsgi"""
   return model.Rule(x)
 
-rule = (head + Group(body)).setParseAction(mkrule)
+rule = (head + Group(body) + Optional(drop(";"))).setParseAction(mkrule)
 
 def mkprogram(x):
   """Workaround for AttribtueError: Class Rule has no __call__ method when running through wsgi"""

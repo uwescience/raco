@@ -14,6 +14,11 @@ class Language:
   def compile_stringliteral(cls, value):
     return '"%s"' % value
 
+  @staticmethod
+  def log(txt):
+    """Emit code that will generate a log message at runtime. Defaults to nothing."""
+    return ""
+
   @classmethod
   def compile_numericliteral(cls, value):
     return '%s' % value

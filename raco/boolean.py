@@ -54,6 +54,12 @@ class BinaryBooleanOperator(BooleanExpression):
     self.left = left
     self.right = right
 
+  def vars(self):
+    """Return a list of variables referenced in this expression. """
+    # TODO: This is tangling the datalog parsing with the boolean expression model.  
+    # Maybe subclass moel.Term and wrap the boolean expression.
+    return self.left.vars() + self.right.vars()
+
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.left == other.left and self.right == other.right
 
@@ -147,6 +153,9 @@ class Literal:
 
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.value == other.value 
+
+  def vars(self):
+    return []
 
   def __repr__(self):
     return str(self.value)

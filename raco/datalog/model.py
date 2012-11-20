@@ -187,8 +187,9 @@ class Rule:
   def refersTo(self, term):
     """Return true if this rule includeas a reference to the given term"""
     for bodyterm in self.body:
-      if bodyterm.samerelation(term): 
-        return True
+      if isinstance(bodyterm, Term):
+        if bodyterm.samerelation(term): 
+          return True
     return False
 
   def IDBof(self, term):
@@ -303,6 +304,10 @@ class Rule:
 class Var:
   def __init__(self, var):
     self.var = var
+
+  def vars(self):
+    """Works with BinaryBooleanOperator.vars to return a list of vars from any expression"""
+    return [self.var]
 
   def __repr__(self):
     return str(self.var)
