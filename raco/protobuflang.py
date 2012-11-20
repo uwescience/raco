@@ -77,7 +77,7 @@ class ProtobufJoin(algebra.Join, ProtobufOperator):
       raise ValueError(msg)
 
     join = LogicalRaOperator()
-    join.type = LogicalRaOperator.JOIN
+    join.type = LogicalRaOperator.EQUIJOIN
     join.name="%s" % resultsym
     join.equijoin.leftChildName = leftsym
     join.equijoin.rightChildName = rightsym
