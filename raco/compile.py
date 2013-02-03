@@ -40,7 +40,7 @@ compile method on top-level operator
 """
 def compile(expr):
   algebra.reset()
-  result = "resultRelation"
+  result = "VR"
   init = expr.language.initialize(result)
   code = expr.compile(result)
   final = expr.language.finalize(result)

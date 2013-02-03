@@ -57,14 +57,15 @@ class ZeroaryOperator(Operator):
 
   def compile(self, resultsym):
     code = self.language.comment("Compiled subplan for %s" % self)
-    code += self.language.log("Evaluating subplan %s" % self)
     self.trace("symbol", resultsym)
     if self.bound:
       code += self.language.new_relation_assignment(resultsym, self.bound)     
     else:
       code += "%s" % (self.compileme(resultsym),)
+      #code += self.language.comment("Binding: %s" % resultsym)
       self.bound = resultsym
       code += self.compiletrace()
+    code += self.language.log("Evaluating subplan %s" % self)
     return code
 
   def apply(self, f):
@@ -115,13 +116,20 @@ class UnaryOperator(Operator):
     code += self.language.log("Evaluating subplan %s" % self)
     return code
 
+  def scheme(self):
+    """Default scheme is the same as the input.  Usually overriden"""
+    return self.input.scheme()
+
   def apply(self, f):
     """Apply a function to your children"""
     self.input = f(self.input)
     return self
 
   def __str__(self):
-    return "%s(%s)" % (self.opname(), self.input)
+    return "%s[%s]" % (self.opname(), self.input)
+
+  def __repr__(self):
+    return str(self)
 
   def copy(self, other):
     """deep copy"""
@@ -273,8 +281,8 @@ class NaryJoin(NaryOperator):
 
 class Union(BinaryOperator):
   def scheme(self): 
-    assert left.scheme() == right.scheme()
-    return left.scheme()
+    """Same semantics as SQL: Assume first schema "wins" and throw an  error if they don't match during evaluation"""
+    return self.left.scheme()
 
 class Join(BinaryOperator):
   """Logical Join operator"""
@@ -390,14 +398,54 @@ class GroupBy(UnaryOperator):
     groupingscheme = [attref.resolve(self.input.scheme()) for attref in self.groupinglist]
     expressionscheme = [("expr%s" % i, GroupBy.typeof(expr)) for i,expr in enumerate(self.expressionlist)]
 
-class Fixpoint(BinaryOperator):
-  
-  def __str__(self):
-    return """Fixpoint[%s, %s]""" % (self.left, self.right)
 
-class State(ZeroaryOperator):
-  """A placeholder operator for recursive plan"""
+class Shuffle(UnaryOperator):
+  """Send the input to the specified servers"""
+
+class Broadcast(UnaryOperator):
+  """Send input to all servers"""
   pass
+
+class PartitionBy(UnaryOperator):
+  """Send input to hash of specified variables"""
+  def __init__(self, attributerefs, input):
+    UnaryOperator.__init__(self, input)
+    self.attributerefs = reversed(attributerefs)
+
+  def __str__(self):
+    cols = ",".join(["%s" % a for a in self.attributerefs])
+    return "%s(%s)[%s]" % (self.opname(), cols, self.input)
+
+class Fixpoint(Operator):
+  def __init__(self):
+    self.body = None
+
+  def __str__(self):
+    return """Fixpoint[%s]""" % (self.body)
+
+  def scheme(self):
+    if self.body:
+      return self.body.scheme()
+    else:
+      return scheme.EmptyScheme()
+ 
+  def loopBody(self,plan):
+    self.body = plan
+
+class State(UnaryOperator):
+  """A placeholder operator for a recursive plan"""
+
+  def __init__(self, name, fixpoint):
+    UnaryOperator.__init__(self, fixpoint)
+    self.name = name
+
+  def __str__(self):
+    return "%s(%s)" % (self.opname(),self.name)
+
+class Store(State):
+  """A logical no-op. Captures the fact that the user used this result in the head of a rule, which may have intended it to be a materialized result.  May be ignored in compiled languages."""
+  def __str__(self):
+    return "%s(%s)[%s]" % (self.opname(),self.name,self.input)
 
 class EmptyRelation(ZeroaryOperator):
   """Empty Relation.  Used in certain optimizations."""

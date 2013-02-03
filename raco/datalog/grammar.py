@@ -1,5 +1,5 @@
 '''
-A parser for Datalog programs.
+A parser for Purple programs.
 
 The result is a parse object that can return a (recursive) relational algebra expression.
 '''
@@ -13,11 +13,13 @@ import model as model
 
 def show(x):
   print x
+  return x
+
+drop = lambda x: Literal(x).suppress()
 
 # define Datalog tokens
 ident = Word(alphas, alphanums + "_$")
 predicate = ident.setName("Predicate")
-drop = lambda x: Literal(x).suppress()
 
 E = CaselessLiteral("E")
 
@@ -86,16 +88,37 @@ condition.setParseAction(parsebinop)
 body = delimitedList(term | groundcondition | condition, ",")
 #.setParseAction(show) #lambda xs: [Term(x) for x in xs])
 
-head = (term + drop(":-")).setParseAction(lambda x: model.IDB(x[0]))
+partitioner = (drop("h(") + delimitedList(variable, ",") + drop(")")).setParseAction(lambda x: model.PartitionBy(x))
+allservers = Literal("*").setParseAction(lambda x: model.Broadcast())
+server = drop("@") + (partitioner | allservers)
+timeexpr = (variable + oneOf("+ -") + Word( nums )).setParseAction(lambda xs: "".join([str(x) for x in xs]))
+timestep = drop("#") + (intNum | timeexpr | variable).setParseAction(lambda x: model.Timestep(x[0]))
+
+headterm = predicate + Optional(server) + drop("(") + Group(delimitedList(valueref, ",")) + drop(")") 
+
+def mkIDB(x):
+  if len(x) == 4:
+    idb = model.IDB(mkterm((x[0], x[2])), x[1], x[3])
+  elif len(x) == 3:
+    if isinstance(x[2], model.Timestep):
+      idb = model.IDB(mkterm((x[0], x[1])), timestep=x[2])
+    else:
+      idb = model.IDB(mkterm((x[0], x[2])), x[1])
+  else:
+    idb = model.IDB(mkterm(x)) 
+  return idb
+  
+head = (headterm + Optional(timestep) + drop(":-")).setParseAction(mkIDB)
+#head.setParseAction(show)
 
 def mkrule(x):
-  """Workaround for AttribtueError: Class Rule has no __call__ method when running through wsgi"""
+  """Workaround for AttributeError: Class Rule has no __call__ method when running through wsgi"""
   return model.Rule(x)
 
 rule = (head + Group(body) + Optional(drop(";"))).setParseAction(mkrule)
 
 def mkprogram(x):
-  """Workaround for AttribtueError: Class Rule has no __call__ method when running through wsgi"""
+  """Workaround for AttributeError: Class Rule has no __call__ method when running through wsgi"""
   return model.Program(x)
 
 program = ZeroOrMore(rule).setParseAction(mkprogram)

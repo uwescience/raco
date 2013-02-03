@@ -113,6 +113,7 @@ Compile a boolean condition into the target language
 from pythonlang import *
 from pseudocodelang import *
 from clang import *
+from myrialang import *
 try:
   from protobuflang import *
 except ImportError:
