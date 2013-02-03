@@ -121,7 +121,9 @@ def mkprogram(x):
   """Workaround for AttributeError: Class Rule has no __call__ method when running through wsgi"""
   return model.Program(x)
 
-program = ZeroOrMore(rule).setParseAction(mkprogram)
+comment = (Literal("#") + restOfLine).suppress()
+
+program = ZeroOrMore(rule | comment).setParseAction(mkprogram)
 
 def parse(query):
   return program.parseString(query)[0]
