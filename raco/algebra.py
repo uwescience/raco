@@ -401,24 +401,40 @@ class GroupBy(UnaryOperator):
 
 class Shuffle(UnaryOperator):
   """Send the input to the specified servers"""
+  pass
 
 class Broadcast(UnaryOperator):
   """Send input to all servers"""
   pass
 
 class PartitionBy(UnaryOperator):
-  """Send input to hash of specified variables"""
-  def __init__(self, attributerefs, input):
+  """Send input to a server indicated by a hash of specified columns."""
+  def __init__(self, columnlist=None, input=None):
+    self.columnlist = columnlist
     UnaryOperator.__init__(self, input)
-    self.attributerefs = reversed(attributerefs)
+
+  def __eq__(self, other):
+    return UnaryOperator.__eq__(self,other) and self.columnlist == other.columnlist
 
   def __str__(self):
-    cols = ",".join(["%s" % a for a in self.attributerefs])
-    return "%s(%s)[%s]" % (self.opname(), cols, self.input)
+    colstring = ",".join([str(x) for x in self.columnlist])
+    return "%s(%s)[%s]" % (self.opname(), colstring, self.input)
+
+  def __repr__(self):
+    return "%s" % self
+
+  def copy(self, other):
+    """deep copy"""
+    self.columnlist = other.columnlist
+    UnaryOperator.copy(self, other)
+
+  def scheme(self):
+    """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
+    return self.input.scheme()
 
 class Fixpoint(Operator):
-  def __init__(self):
-    self.body = None
+  def __init__(self, body=None):
+    self.body = body
 
   def __str__(self):
     return """Fixpoint[%s]""" % (self.body)
@@ -442,8 +458,12 @@ class State(UnaryOperator):
   def __str__(self):
     return "%s(%s)" % (self.opname(),self.name)
 
-class Store(State):
+class Store(UnaryOperator):
   """A logical no-op. Captures the fact that the user used this result in the head of a rule, which may have intended it to be a materialized result.  May be ignored in compiled languages."""
+  def __init__(self, name=None, plan=None):
+    UnaryOperator.__init__(self, plan)
+    self.name = name
+    
   def __str__(self):
     return "%s(%s)[%s]" % (self.opname(),self.name,self.input)
 
