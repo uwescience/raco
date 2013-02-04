@@ -28,24 +28,29 @@ def optimize_by_rules_breadth_first(expr, rules):
   return expr
 
 
-def optimize(expr, target, source):
-  expr = optimize_by_rules(expr, source.rules)
-  expr = optimize_by_rules(expr, target.rules)
-  return expr
+def optimize(exprs, target, source, eliminate_common_subexpressions=False):
+  """Fire the rule-based optimizer on a list of exprs.  Fire all rules in the source algebra 
+(logical) and the target algebra (physical)"""
+  def opt(expr):
+    so = optimize_by_rules(expr, source.rules)
+    newexpr = optimize_by_rules(so, target.rules)
+    if eliminate_common_subexpressions:
+      newexpr = common_subexpression_elimination(newexpr)
+    return newexpr
+  return [(var, opt(exp)) for var, exp in exprs]
 
+def compile(exprs):
+  """Compile a list of RA expressions.  Each expression is a pair Var, Plan
+Emit any initialization and call compile method on top-level operator
 """
-Top-level compile function.
-Emit any initialization and call 
-compile method on top-level operator
-"""
-def compile(expr):
   algebra.reset()
-  result = "VR"
-  init = expr.language.initialize(result)
-  code = expr.compile(result)
-  final = expr.language.finalize(result)
-  return emit(init,code,final)
-
+  exprcode = []
+  for result, expr in exprs:
+    init = expr.language.initialize(result)
+    body = expr.compile(result)
+    final = expr.language.finalize(result)
+    exprcode.append(emit(init,body,final))
+  return  emit(*exprcode)
 
 def search(expr, tofind):
   """yield a sequence of subexpressions equal to tofind"""
