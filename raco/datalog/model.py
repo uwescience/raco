@@ -182,7 +182,7 @@ class Rule:
   def vars(self):
     """Return a list of variables in their order of appearence in the rule.  No attempt to remove duplicates"""
     for term in self.body:
-      for i,v in sorted([(i,v) for (v,i) in term.vars().iteritems()]):
+      for v in term.vars():
         yield v
 
   def refersTo(self, term):
@@ -242,7 +242,7 @@ class Rule:
 
     component_plans = []
 
-    # for each component
+    # for each component, choose a join order
     for component in comps:
       cycleconditions = []
       # check for cycles
@@ -290,19 +290,14 @@ class Rule:
     for newplan in component_plans[1:]:
       plan = raco.algebra.CrossProduct(plan, newplan)
  
-    # Put a project at the top of the plan
-    vars = [(i,nm) for i, (nm, t) in enumerate(plan.scheme())]
-    Pos = raco.boolean.PositionReference
-    def findvar(var):
-      occurrences = [Pos(i) for (i, nm) in vars if nm == var.var]
-      if not occurrences:
+    # Helper function for the next two steps (TODO: move this to a method?)
+    vars = [x for x in self.vars()]
+    def findvar(variable):
+      var = variable.var
+      if var not in vars:
         msg = "Head variable %s does not appear in rule body: %s" % (var, self)
         raise SyntaxError(msg)
-      return occurrences[0]
-      
-    columnlist = [findvar(var) for var in self.head.valuerefs if isinstance(var, Var)]
-        
-    plan = raco.algebra.Project(columnlist, plan)
+      return raco.boolean.PositionReference(vars.index(var))
 
     # if this Rule includes a server specification, add a partition operator
     if self.isParallel():
@@ -312,14 +307,21 @@ class Rule:
         positions = [findvar(v) for v in self.head.serverspec.variables]
         plan = raco.algebra.PartitionBy(positions, plan)
 
-    self.compiling = False
+
+    # Put a project at the top of the plan
+     
+    columnlist = [findvar(var) for var in self.head.valuerefs if isinstance(var, Var)]
+        
+    plan = raco.algebra.Project(columnlist, plan)
+
     
     # If we found a cycle, the "root" of the plan is the fixpoint operator
     if self.fixpoint:
       self.fixpoint.loopBody(plan)
-      print self.fixpoint
       plan = self.fixpoint
       self.fixpoint = None
+
+    self.compiling = False
 
     return plan      
 
@@ -353,7 +355,8 @@ class Term:
     """Return a dictionary mapping variable names to RA attribute references. For example, A(X,Y) returns {"X":PositionReference(0), "Y":PositionReference(1)}.  Only the first reference to this variable is returned."""
   
     Pos = raco.boolean.PositionReference
-    return {vr.var:Pos(i) for i,vr in enumerate(self.valuerefs) if isinstance(vr, Var)}
+    return [vr.var for vr in self.valuerefs if isinstance(vr, Var)]
+    #return {vr.var:Pos(i) for i,vr in enumerate(self.valuerefs) if isinstance(vr, Var)}
 
   def joins(self, other, conditions):
     """Return the join conditions between this term and the argument term.  The second argument is a list of explicit conditions, like X=3 or Y=Z"""
@@ -361,9 +364,12 @@ class Term:
     yourvars = other.vars()
     myvars = self.vars()
     joins = []
-    for var,attr in myvars.items():
-      if yourvars.has_key(var):
-        joins.append(raco.boolean.EQ(attr, yourvars[var]))
+    Pos = raco.boolean.PositionReference
+    for i, var in enumerate(myvars):
+      if var in yourvars:
+        myposition = Pos(i)
+        yourposition = Pos(yourvars.index(var))
+        joins.append(raco.boolean.EQ(myposition, yourposition))
 
     # get the explicit join conditions
     for c in conditions:
