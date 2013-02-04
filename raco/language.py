@@ -3,6 +3,14 @@ import boolean
 class Language:
 
   @staticmethod
+  def preamble(query=None,plan=None):
+    return  ""
+
+  @staticmethod
+  def postamble(query=None,plan=None):
+    return  ""
+
+  @staticmethod
   def initialize(resultsym):
     return  ""
 
