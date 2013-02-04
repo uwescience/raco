@@ -94,6 +94,16 @@ server = drop("@") + (partitioner | allservers)
 timeexpr = (variable + oneOf("+ -") + Word( nums )).setParseAction(lambda xs: "".join([str(x) for x in xs]))
 timestep = drop("#") + (intNum | timeexpr | variable).setParseAction(lambda x: model.Timestep(x[0]))
 
+#def mkagg(x):
+#  return (x[0], x[1])
+
+#aggregate = (Word(alphas) + drop("(") + variable + drop(")")).setParseAction(mkagg)
+
+#def mkheadterm(x):
+#  return model.HeadTerm(x)
+
+#headvalueref = variable | literal | aggregate
+
 headterm = predicate + Optional(server) + drop("(") + Group(delimitedList(valueref, ",")) + drop(")") 
 
 def mkIDB(x):
