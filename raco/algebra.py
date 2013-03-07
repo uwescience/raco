@@ -58,7 +58,7 @@ class ZeroaryOperator(Operator):
   def compile(self, resultsym):
     code = self.language.comment("Compiled subplan for %s" % self)
     self.trace("symbol", resultsym)
-    if self.bound:
+    if self.bound and self.language.reusescans:
       code += self.language.new_relation_assignment(resultsym, self.bound)     
     else:
       code += "%s" % (self.compileme(resultsym),)

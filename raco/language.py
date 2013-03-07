@@ -1,6 +1,9 @@
 import boolean
 
 class Language:
+ 
+  # By default, reuse scans
+  reusescans = True
 
   @staticmethod
   def preamble(query=None,plan=None):
@@ -15,7 +18,7 @@ class Language:
     return  ""
 
   @staticmethod
-  def finalize(resultsym):
+  def finalize(resultsym,body=""):
     return ""
 
   @classmethod

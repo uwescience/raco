@@ -27,7 +27,7 @@ class RACompiler:
            self.logicalplan
          , target = self.target
          , source = LogicalAlgebra
-         , eliminate_common_subexpressions=True
+         , eliminate_common_subexpressions=eliminate_common_subexpressions
     )
 
   def compile(self):

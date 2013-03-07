@@ -5,6 +5,10 @@ import json
 from language import Language
 
 class MyriaLanguage(Language):
+  # TODO: get the workers from somewhere
+  workers = [1,2]
+  reusescans = False
+
   @classmethod
   def new_relation_assignment(cls, rvar, val):
     return """
@@ -33,17 +37,20 @@ class MyriaLanguage(Language):
 {
   "raw_datalog" : "%s",
   "logical_ra" : "%s",
+  "expected_result_size" : "-1",
   "query_plan" : {
 """ % (query, plan)
 
   @staticmethod
   def initialize(resultsym):
+    return ""
     return  """
     "%s" : [[
 """ % resultsym
 
   @staticmethod
   def finalize(resultsym):
+    return ""
     return  """
       ]]
 """
@@ -70,6 +77,7 @@ class MyriaLanguage(Language):
     return '%s' % name
 
 class MyriaOperator:
+  workers = MyriaLanguage.workers
   language = MyriaLanguage
 
 class MyriaScan(algebra.Scan, MyriaOperator):
@@ -78,6 +86,8 @@ class MyriaScan(algebra.Scan, MyriaOperator):
 { 
   "op_name" : "%s",
   "op_type" : "SCAN", 
+  "arg_user_name" : "public"
+  "arg_program_name" : "adhoc"
   "arg_relation_name" : "%s"
 },""" % (resultsym, self.relation.name)
 
@@ -131,45 +141,114 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
   
     leftcols, rightcols = self.convertcondition(self.condition)
 
-    def mkshuffle(symbol, joincond):
+    def mkshuffle(symbol, id, joincond):
       return """
 { 
   "op_name" : "%s_scatter",
-  "op_type" : "SHUFFLE_PRODUCER",
-  "partition" : %s,
-  "arg_child" : %s
-}""" % (symbol, joincond, symbol)
+  "op_type" : "ShuffleProducer",
+  "arg_child" : %s,
+  "arg_workerIDs" : %s,
+  "arg_operatorID" : %s,
+  "arg_pf" : ["SingleFieldHash", %s]
+}""" % (symbol, symbol, self.workers, id, joincond)
 
-    shuffleleft = mkshuffle(leftsym, leftcols)
-    shuffleright = mkshuffle(rightsym, rightcols)
-    shuffleconsume = """
+    shuffleleft = mkshuffle(leftsym, 0, leftcols)
+    shuffleright = mkshuffle(rightsym, 1, rightcols)
+
+    def mkconsumer(symbol,scheme,id):
+      return """
 {
   "op_name" : "%s_gather",
-  "op_type" : "SHUFFLE_CONSUMER",
-  "producers" : ["%s_scatter","%s_scatter"]
-}""" % (resultsym, leftsym, rightsym)
+  "op_type" : "ShuffleConsumer",
+  "arg_schema" : %s,
+  "arg_workerIDs" : %s,
+  "arg_operatorID" : %s
+}""" % (symbol, scheme, self.workers, id)
+
+    def pretty(s):
+      names, descrs = zip(*s.asdict.items())
+      names = ["%s" % n for n in names]
+      types = [r[1] for r in descrs]
+      return {"column_types" : types, "column_names" : names}
+
+    consumeleft = mkconsumer(leftsym, pretty(self.left.scheme()),  0)
+    consumeright = mkconsumer(rightsym, pretty(self.right.scheme()), 1)
+
+    cols = [str(i) for i in range(len(self.scheme()))]
+    allleft = cols[:len(self.left.scheme())]
+    allright = cols[len(self.right.scheme()):]
 
     join = """
 {
   "op_name" : "%s",
   "op_type" : "LocalJoin",
-  "arg_child1" : "%s",
+  "arg_child1" : "%s_gather",
   "arg_columns1" : %s,
-  "arg_child2": "%s",
+  "arg_child2": "%s_gather",
   "arg_columns2" : %s,
-}""" % (resultsym, leftsym, leftcols, rightsym, rightcols)
-    return ",\n".join([shuffleleft, shuffleright, shuffleconsume, join])
+  "arg_select1" : %s,
+  "arg_select2" : %s,
+},""" % (resultsym, leftsym, leftcols, rightsym, rightcols, allleft, allright)
+
+    return ",\n".join([shuffleleft, shuffleright, consumeleft, consumeright, join])
 
 class MyriaShuffle(algebra.PartitionBy,MyriaOperator):
   def compileme(self, resultsym, inputsym):
     shuffle = """
-{"name" : "%s",
- "type" : "SHUFFLEPRODUCER",
- "hash" : "%s",
- "replicate" : "%s",
- "input": "%s"
-}""" % (resultsym, self.columnlist, "not used", inputsym)
+{"op_name" : "%s_scatter",
+ "op_type" : "SHUFFLE_PRODUCER",
+ "partition" : %s,
+ "arg_child": %s
+},
+{"op_name" : "%s_gather",
+ "op_type" : "SHUFFLE_CONSUMER",
+ "producers" : ["%s_producer"]
+}
+""" % (resultsym, self.columnlist, inputsym, resultsym, resultsym)
     return shuffle
+
+class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
+  """Turns a single plan into a forst of identical plans, one for each worker."""
+  """An awkward operator.  It compiles itself instead of letting the compiler do it."""
+  def __init__(self, plans):
+    self.plans = plans
+    algebra.Operator.__init__(self)
+
+  def compileme(self, resultsym):
+    patt = """
+"%s" : [[
+ %s 
+]]
+""" 
+    def compile(p):
+      algebra.reset()
+      return p.compile(resultsym)
+    return ",\n".join([patt % (worker, compile(plan)) for (worker, plan) in self.plans])
+
+class BroadcastRule(rules.Rule):
+  """Convert a broadcast operator to a shuffle"""
+  def fire(self, expr):
+    if isinstance(expr, algebra.Broadcast):
+      columnlist = [boolean.PositionReference(i) for i in range(len(expr.scheme()))]
+      newop = MyriaShuffle(columnlist, expr.input)
+      return newop
+    return expr
+
+  def __str__(self):
+    return "Project => ()"
+
+class Parallel(rules.Rule):
+  """Repeat a plan for each worker"""
+  def __init__(self,N):
+    self.workers = range(N)
+ 
+  def fire(self, expr):
+    def copy(expr):
+      newop = expr.__class__()
+      newop.copy(expr)
+      return newop
+    return MyriaParallel([(i, copy(expr)) for i in self.workers])
+      
 
 class MyriaAlgebra:
   language = MyriaLanguage
@@ -183,11 +262,12 @@ class MyriaAlgebra:
 ]
   rules = [
   rules.OneToOne(algebra.PartitionBy,MyriaShuffle),
-  rules.OneToOne(algebra.Broadcast,MyriaShuffle),
+  BroadcastRule(),
   rules.OneToOne(algebra.Store,MyriaInsert),
   rules.OneToOne(algebra.Join,MyriaEquiJoin),
   rules.OneToOne(algebra.Select,MyriaSelect),
   rules.OneToOne(algebra.Project,MyriaProject),
-  rules.OneToOne(algebra.Scan,MyriaScan)
+  rules.OneToOne(algebra.Scan,MyriaScan),
+  Parallel(2)
 ]
  

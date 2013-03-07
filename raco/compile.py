@@ -45,10 +45,10 @@ Emit any initialization and call compile method on top-level operator
 """
   algebra.reset()
   exprcode = []
-  for result, expr in exprs:
-    init = expr.language.initialize(result)
-    body = expr.compile(result)
-    final = expr.language.finalize(result)
+  for resultsym, expr in exprs:
+    init = expr.language.initialize(resultsym)
+    body = expr.compile(resultsym)
+    final = expr.language.finalize(resultsym)
     exprcode.append(emit(init,body,final))
   return  emit(*exprcode)
 

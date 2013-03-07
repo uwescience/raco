@@ -49,6 +49,10 @@ Type is a function that returns true for any value that is of the correct type
     except KeyError:
       pass
 
+  def __len__(self):
+    """Return the number of attributes in the scheme"""
+    return len(self.attributes)
+
   def __iter__(self):
     return self.attributes.__iter__()
 

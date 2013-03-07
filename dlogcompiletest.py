@@ -102,14 +102,23 @@ query1 = """
 
 """
 
+query = """
+A@*(x) :- R(x,y,z)
+"""
+
+query = """
+smallTableJoin(x,z) :- smallTable(x,y),smallTable(y,z)
+"""
+
 def comment(s):
   print "/*\n%s\n*/" % str(s)
 
 dlog = RACompiler()
 
 dlog.fromDatalog(query)
+print dlog.logicalplan
 
-dlog.optimize(target=MyriaAlgebra, eliminate_common_subexpressions=True)
+dlog.optimize(target=MyriaAlgebra, eliminate_common_subexpressions=False)
     
 code = dlog.compile()
 print code
