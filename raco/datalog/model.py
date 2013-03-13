@@ -6,6 +6,7 @@ In particular, they can be compiled to (iterative) relational algebra expression
 import networkx as nx
 import raco.boolean
 import raco.algebra
+import raco.scheme
 import raco.catalog
 
 class Program:
@@ -13,7 +14,7 @@ class Program:
     self.rules = rules
     self.compiledrules = {}
 
-  def IDB(self,term):
+  def IDB(self, term):
     """Return a list of rules that define an IDB corresponding to the given term: relation names are the same, and the number of columns are the same."""
     matches = []
     for r in self.rules:
@@ -51,7 +52,7 @@ class Program:
     for rule in self.rules:
       ra = self.compileRule(rule)
 
-    return [plan for (rule, plan) in self.compiledrules.iteritems() if not self.intermediateRule(rule)]
+    return [(rule.head.name, plan) for (rule, plan) in self.compiledrules.iteritems() if not self.intermediateRule(rule)]
 
   def __repr__(self):
     return "\n".join([str(r) for r in self.rules])
@@ -124,7 +125,6 @@ some cost function.  Subclasses can implement this however they want."""
     leftterm, rightterm = joinedge
     data = self.joingraph.get_edge_data(*joinedge)
     condition = data["condition"]
-    #print joinedge, condition
     left, right = data["order"]
     # We may have traversed the graph in the opposite direction
     # if so, flip the condition 
@@ -175,8 +175,9 @@ class Rule:
   def __init__(self, headbody):
     self.head = headbody[0]
     self.body = headbody[1]
-    # flag used to etect recursion
+    # flag used to detect recursion
     self.compiling = False
+    self.fixpoint = None
 
   def vars(self):
     """Return a list of variables in their order of appearence in the rule.  No attempt to remove duplicates"""
@@ -192,6 +193,11 @@ class Rule:
           return True
     return False
 
+  def isParallel(self):
+    if self.head.serverspec: return True
+    else: return False
+
+
   def IDBof(self, term):
     """Return true if this rule defines an IDB corresponding to the given term"""
     return term.name == self.head.name and len(term.valuerefs) == len(self.head.valuerefs)
@@ -200,8 +206,11 @@ class Rule:
     """Emit a relational plan for this rule"""
     if program.compiling(self.head):
       # recursive rule
-      #return algebra.State()
-      raise ValueError("Recursion not implemented")
+      if not self.fixpoint:
+        self.fixpoint = raco.algebra.Fixpoint()
+      state = raco.algebra.State(self.head.name, self.fixpoint)
+      return state
+      #raise ValueError("Recursion still under the knife")
     else:
       self.compiling = True
 
@@ -233,7 +242,7 @@ class Rule:
 
     component_plans = []
 
-    # for each component
+    # for each component, choose a join order
     for component in comps:
       cycleconditions = []
       # check for cycles
@@ -281,21 +290,39 @@ class Rule:
     for newplan in component_plans[1:]:
       plan = raco.algebra.CrossProduct(plan, newplan)
  
-    # Put a project at the top of the plan
-    vars = [(i,nm) for i, nm in enumerate(self.vars())] 
-    Pos = raco.boolean.PositionReference
-    def findvar(var):
-      occurrences = [Pos(i) for (i, nm) in vars if nm == var.var]
-      if not occurrences:
+    # Helper function for the next two steps (TODO: move this to a method?)
+    vars = [x for x in self.vars()]
+    def findvar(variable):
+      var = variable.var
+      if var not in vars:
         msg = "Head variable %s does not appear in rule body: %s" % (var, self)
         raise SyntaxError(msg)
-      return occurrences[0]
-      
+      return raco.boolean.PositionReference(vars.index(var))
+
+    # if this Rule includes a server specification, add a partition operator
+    if self.isParallel():
+      if isinstance(self.head.serverspec, Broadcast):
+        plan = raco.algebra.Broadcast(plan)
+      if isinstance(self.head.serverspec, PartitionBy):
+        positions = [findvar(v) for v in self.head.serverspec.variables]
+        plan = raco.algebra.PartitionBy(positions, plan)
+
+
+    # Put a project at the top of the plan
+     
     columnlist = [findvar(var) for var in self.head.valuerefs if isinstance(var, Var)]
         
     plan = raco.algebra.Project(columnlist, plan)
 
+    
+    # If we found a cycle, the "root" of the plan is the fixpoint operator
+    if self.fixpoint:
+      self.fixpoint.loopBody(plan)
+      plan = self.fixpoint
+      self.fixpoint = None
+
     self.compiling = False
+
     return plan      
 
   def __repr__(self):
@@ -328,7 +355,8 @@ class Term:
     """Return a dictionary mapping variable names to RA attribute references. For example, A(X,Y) returns {"X":PositionReference(0), "Y":PositionReference(1)}.  Only the first reference to this variable is returned."""
   
     Pos = raco.boolean.PositionReference
-    return {vr.var:Pos(i) for i,vr in enumerate(self.valuerefs) if isinstance(vr, Var)}
+    return [vr.var for vr in self.valuerefs if isinstance(vr, Var)]
+    #return {vr.var:Pos(i) for i,vr in enumerate(self.valuerefs) if isinstance(vr, Var)}
 
   def joins(self, other, conditions):
     """Return the join conditions between this term and the argument term.  The second argument is a list of explicit conditions, like X=3 or Y=Z"""
@@ -336,9 +364,12 @@ class Term:
     yourvars = other.vars()
     myvars = self.vars()
     joins = []
-    for var,attr in myvars.items():
-      if yourvars.has_key(var):
-        joins.append(raco.boolean.EQ(attr, yourvars[var]))
+    Pos = raco.boolean.PositionReference
+    for i, var in enumerate(myvars):
+      if var in yourvars:
+        myposition = Pos(i)
+        yourposition = Pos(yourvars.index(var))
+        joins.append(raco.boolean.EQ(myposition, yourposition))
 
     # get the explicit join conditions
     for c in conditions:
@@ -451,10 +482,18 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
 
     idbs = program.IDB(term)
     if idbs:
-      scan = reduce(raco.algebra.Union,[program.compileRule(idb) for idb in idbs])
+      def wrap(idb):
+        plan = program.compileRule(idb)
+        if isinstance(plan, raco.algebra.State):
+          # This is the same rule we are currently compiling
+          return plan
+        else:
+          return raco.algebra.Store(idb.head.name, plan)
+      scan = reduce(raco.algebra.Union,[wrap(idb) for idb in idbs])
     else:
-      scheme = [attr(i,r) for i,r in enumerate(term.valuerefs)]
-      scan = raco.algebra.Scan(raco.catalog.Relation(term.name, scheme))
+      # TODO: A call to some catalog?
+      sch = raco.scheme.Scheme([attr(i,r) for i,r in enumerate(term.valuerefs)])
+      scan = raco.algebra.Scan(raco.catalog.Relation(term.name, sch))
       scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))
 
     # collect conditions within the term itself, like A(X,3) or A(Y,Y)
@@ -475,10 +514,30 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
     return plan
 
 class IDB(Term):
-  def __init__(self, termobj):
-    self.name = termobj.name
+  def __init__(self, termobj, serverspec=None, timestep=None):
+    if timestep:
+      self.name = "%s_%s" % (termobj.name, timestep.spec)
+    else:
+      self.name = termobj.name
     self.valuerefs = termobj.valuerefs
+    self.serverspec = serverspec
+    self.timestep = timestep
 
 class EDB(Term):
   pass
+
+class ServerSpecification:
+ pass
+
+class Broadcast(ServerSpecification):
+  pass
+
+class PartitionBy(ServerSpecification):
+  def __init__(self, variables):
+    self.variables = variables
+
+class Timestep:
+  def __init__(self, spec):
+    self.spec = spec
+    pass
 

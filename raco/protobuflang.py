@@ -22,7 +22,7 @@ class Protobuf(Language):
 
   @staticmethod
   def comment(txt):
-    return  "# %s" % txt
+    return  "# %s\n" % txt
 
   @staticmethod
   def log(txt):
@@ -46,7 +46,6 @@ class ProtobufScan(algebra.Scan, ProtobufOperator):
     scan.type = LogicalRaOperator.SCAN
     scan.name = "%s" % resultsym
     scan.scan.relation = "R"
-
     return text_format.MessageToString(scan)
 
 class ProtobufSelect(algebra.Select, ProtobufOperator):

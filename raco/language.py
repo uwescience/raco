@@ -1,13 +1,24 @@
 import boolean
 
 class Language:
+ 
+  # By default, reuse scans
+  reusescans = True
+
+  @staticmethod
+  def preamble(query=None,plan=None):
+    return  ""
+
+  @staticmethod
+  def postamble(query=None,plan=None):
+    return  ""
 
   @staticmethod
   def initialize(resultsym):
     return  ""
 
   @staticmethod
-  def finalize(resultsym):
+  def finalize(resultsym,body=""):
     return ""
 
   @classmethod
@@ -113,6 +124,7 @@ Compile a boolean condition into the target language
 from pythonlang import *
 from pseudocodelang import *
 from clang import *
+from myrialang import *
 try:
   from protobuflang import *
 except ImportError:
