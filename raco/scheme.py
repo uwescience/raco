@@ -38,8 +38,22 @@ Type is a function that returns true for any value that is of the correct type
   def subScheme(self, attributes):
     return Scheme([(n,self.getType(n)) for n in attributes])
 
-  def contains(self, names):
+  def subsumes(self, names):
     return all([n in self.asdict.keys() for n in names])
+
+  def contains(self, names):
+    """deprecated.  use subsumes"""
+    return self.contains(names)
+
+  def __contains__(self, attr, typ=None):
+    if typ:
+      return (attr,type) in self.attributes
+    else:
+      return attr in self.asdict
+
+  def project(self, tup, subscheme):
+    """Return a tuple corresponding to the subscheme corresponding to the values in tup"""
+    return (tup[self.getPosition(n)] for n,t in subscheme.attributes)
 
   def rename(self, name1, name2):
     try:
@@ -60,6 +74,14 @@ Type is a function that returns true for any value that is of the correct type
     for (n,t) in other:
       newsch.addAttribute(n,t)
     return newsch
+
+  def __sub__(self, other):
+    newsch = Scheme()
+    for (n,t) in self:
+      if not n in other: 
+        newsch.addAttribute(n,t)
+    return newsch
+
 
 class EmptyScheme(Scheme):
   def __init__(self):
