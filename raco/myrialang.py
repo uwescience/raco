@@ -4,6 +4,12 @@ import algebra
 import json
 from language import Language
 
+def json_pretty_print(dictionary):
+    """a function to pretty-print a JSON dictionary.
+From http://docs.python.org/2/library/json.html"""
+    return json.dumps(dictionary, sort_keys=True, 
+            indent=2, separators=(',', ': '))
+
 class MyriaLanguage(Language):
   # TODO: get the workers from somewhere
   workers = [1,2]
@@ -82,45 +88,40 @@ class MyriaOperator:
 
 class MyriaScan(algebra.Scan, MyriaOperator):
   def compileme(self, resultsym):
-    return """
-{ 
-  "op_name" : "%s",
-  "op_type" : "SCAN", 
-  "arg_user_name" : "public"
-  "arg_program_name" : "adhoc"
-  "arg_relation_name" : "%s"
-},""" % (resultsym, self.relation.name)
+    return json_pretty_print({
+        "op_name" : resultsym,
+        "op_type" : "SCAN",
+        "arg_user_name" : "public",
+        "arg_program_name" : "adhoc",
+        "arg_relation_name" : self.relation.name
+      })+','
 
 class MyriaSelect(algebra.Select, MyriaOperator):
   def compileme(self, resultsym, inputsym):
-    """
-{ 
-  "name" : "%s",
-  "type" : "SELECT",
-  "condition" : "%s",
-  "input" : "%s"
-},""" % (resultsym, self.language.compile_boolean(self.condition), inputsym)
+    return json_pretty_print({
+        "op_name" : resultsym,
+        "op_type" : "SELECT",
+        "condition" : self.language.compile_boolean(self.condition),
+        "input" : inputsym
+      }) + ','
 
 class MyriaProject(algebra.Project, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     cols = [str(x) for x in self.columnlist]
-    return """
-{ 
-  "op_name" : "%s",
-  "op_type" : "PROJECT",
-  "columnlist" : %s,
-  "arg_child" : "%s"
-},""" % (resultsym, cols, inputsym)
+    return json_pretty_print({
+        "op_name" : resultsym,
+        "op_type" : "PROJECT",
+        "columnlist" : cols,
+        "arg_child" : inputsym
+      })+','
 
 class MyriaInsert(algebra.Store, MyriaOperator):
   def compileme(self, resultsym, inputsym):
-    return """
-{ 
-  "op_name" : "%s",
-  "op_type" : "INSERT",
-  "arg_child" : "%s"
-},""" % (resultsym, inputsym)
-
+    return json_pretty_print({
+        "op_name" : resultsym,
+        "op_type" : "INSERT",
+        "arg_child" : inputsym
+      })+','
 
 class MyriaEquiJoin(algebra.Join, MyriaOperator):
 
@@ -141,29 +142,27 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
   
     leftcols, rightcols = self.convertcondition(self.condition)
 
-    def mkshuffle(symbol, id, joincond):
-      return """
-{ 
-  "op_name" : "%s_scatter",
-  "op_type" : "ShuffleProducer",
-  "arg_child" : %s,
-  "arg_workerIDs" : %s,
-  "arg_operatorID" : %s,
-  "arg_pf" : ["SingleFieldHash", %s]
-}""" % (symbol, symbol, self.workers, id, joincond)
+    def mkshuffle(symbol, op_id, joincond):
+      return json_pretty_print({
+          "op_name" : "%s_scatter" % (symbol,),
+          "op_type" : "ShuffleProducer",
+          "arg_child" : symbol,
+          "arg_workerIDs" : self.workers,
+          "arg_operatorID" : op_id,
+          "arg_pf" : ["SingleFieldHash", joincond]
+        })+','
 
     shuffleleft = mkshuffle(leftsym, 0, leftcols)
     shuffleright = mkshuffle(rightsym, 1, rightcols)
 
-    def mkconsumer(symbol,scheme,id):
-      return """
-{
-  "op_name" : "%s_gather",
-  "op_type" : "ShuffleConsumer",
-  "arg_schema" : %s,
-  "arg_workerIDs" : %s,
-  "arg_operatorID" : %s
-}""" % (symbol, scheme, self.workers, id)
+    def mkconsumer(symbol,scheme,op_id):
+      return json_pretty_print({
+          "op_name" : "%s_gather" % (symbol,),
+          "op_type" : "ShuffleConsumer",
+          "arg_schema" : scheme,
+          "arg_workerIDs" : self.workers,
+          "arg_operatorID" : op_id
+        })+','
 
     def pretty(s):
       names, descrs = zip(*s.asdict.items())
@@ -178,34 +177,33 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
     allleft = cols[:len(self.left.scheme())]
     allright = cols[len(self.right.scheme()):]
 
-    join = """
-{
-  "op_name" : "%s",
-  "op_type" : "LocalJoin",
-  "arg_child1" : "%s_gather",
-  "arg_columns1" : %s,
-  "arg_child2": "%s_gather",
-  "arg_columns2" : %s,
-  "arg_select1" : %s,
-  "arg_select2" : %s,
-},""" % (resultsym, leftsym, leftcols, rightsym, rightcols, allleft, allright)
+    join = json_pretty_print({
+        "op_name" : resultsym,
+        "op_type" : "LocalJoin",
+        "arg_child1" : "%s_gather" % (leftsym,),
+        "arg_columns1" : leftcols,
+        "arg_child2": "%s_gather" % (rightsym,),
+        "arg_columns2" : rightcols,
+        "arg_select1" : allleft,
+        "arg_select2" : allright
+      })+','
 
-    return ",\n".join([shuffleleft, shuffleright, consumeleft, consumeright, join])
+    return "\n".join([shuffleleft, shuffleright, consumeleft, consumeright, join])
 
 class MyriaShuffle(algebra.PartitionBy,MyriaOperator):
   def compileme(self, resultsym, inputsym):
-    shuffle = """
-{"op_name" : "%s_scatter",
- "op_type" : "SHUFFLE_PRODUCER",
- "partition" : %s,
- "arg_child": %s
-},
-{"op_name" : "%s_gather",
- "op_type" : "SHUFFLE_CONSUMER",
- "producers" : ["%s_producer"]
-}
-""" % (resultsym, self.columnlist, inputsym, resultsym, resultsym)
-    return shuffle
+    scatter = json_pretty_print({
+        "op_name" : "%s_scatter" % (resultsym,),
+        "op_type" : "SHUFFLE_PRODUCER",
+        "partition" : self.columnlist,
+        "arg_child": inputsym
+      })+','
+    gather = json_pretty_print({
+        "op_name" : "%s_gather" % (resultsym,),
+        "op_type" : "SHUFFLE_CONSUMER",
+        "producers" : ["%s_producer" % (resultsym,)]
+      })+','
+    return scatter + '\n' + gather
 
 class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
   """Turns a single plan into a forst of identical plans, one for each worker."""
