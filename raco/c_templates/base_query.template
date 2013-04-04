@@ -100,8 +100,8 @@ void query(struct relationInfo *resultInfo)
   currCounter = currCounter + 1; // 1
   
   uint64 resultcount = 0;
-  struct relationInfo resultRelation_val;
-  struct relationInfo *resultRelation = &resultRelation_val;
+  struct relationInfo %(resultsym)s_val;
+  struct relationInfo *%(resultsym)s = &%(resultsym)s_val;
 
 
   // -----------------------------------------------------------
@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
   query(&resultInfo);
 
 #ifdef ZAPPA
-  printrelation(&resultInfo);
+  //printrelation(&resultInfo);
 #endif
-  free(resultInfo.relation);
+  //free(resultInfo.relation);
 }
