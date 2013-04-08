@@ -39,7 +39,12 @@ def generateDotRecursive(x,s,ID,u) :
         s.append(str(ID) + '->' + str(child) + ';')
         #s += str(ID) + '[label = "' + x.opname() + '"];\n'
         #print str(ID) + '[label = "' + x.opname() + '"];'
-        s.append(str(ID) + '[label = "' + x.opname() + '"];')
+        if isinstance(x,alg.Project) :
+             s.append(str(ID) + '[label = "' + x.opname() + ' ' + str(x.columnlist)+ '"];')
+        elif isinstance(x,alg.Select) :
+            s.append(str(ID) + '[label = "' + x.opname() + ' ' + str(x.condition)+ '"];')
+        else :
+            s.append(str(ID) + '[label = "' + x.opname() + '"];')
         generateDotRecursive(x.input,s,child,u)
 
     elif isinstance(x,alg.BinaryOperator) :
@@ -56,7 +61,10 @@ def generateDotRecursive(x,s,ID,u) :
 
         #s += str(ID) + '[label = "' + x.opname() + '"];\n'
         #print str(ID) + '[label = "' + x.opname() + '"];'
-        s.append(str(ID) + '[label = "' + x.opname() + '"];')
+        if isinstance(x,alg.Join) :
+            s.append(str(ID) + '[label = "' + x.opname() + ' ' + str(x.condition)+ '"];')
+        else :
+            s.append(str(ID) + '[label = "' + x.opname() + '"];')
 
     else :
         #not handling n-ary operators yet
