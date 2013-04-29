@@ -335,7 +335,10 @@ A linear chain of joins, with selection predicates applied"""
 
         else: # right-hand selection
           # selection condition
-          relsym = argsyms[joinlevel + 1]
+          if conditiontype == "left":
+            relsym = argsyms[joinlevel]
+          else:
+            relsym = argsyms[joinlevel + 1]
           if isinstance(condition.left, boolean.AttributeReference):
             condition.left.relationsymbol = relsym
             condition.left.rowvariable = self.rowvar(relsym)
