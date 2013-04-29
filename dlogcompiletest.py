@@ -93,4 +93,4 @@ physicalplan = result
 # generate code in the target language
 #print compile(physicalplan)
 #compile(physicalplan)
-compile(physicalplan)
+print compile(physicalplan)
