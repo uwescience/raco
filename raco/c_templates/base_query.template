@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
   query(&resultInfo);
 
 #ifdef ZAPPA
-  printrelation(&resultInfo);
+//  printrelation(&resultInfo);
 #endif
-  free(resultInfo.relation);
+//  free(resultInfo.relation);
 }
