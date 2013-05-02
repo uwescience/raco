@@ -16,6 +16,7 @@ class cpp_code :
         self.node_to_name = {}
         self.node_to_hash = {}
         self.indent = 0
+        self.index = 0
 
     #generate code call
     def gen_code(self) :
@@ -66,31 +67,36 @@ class cpp_code :
         code = code.replace('$$column$$',str(column))
         return code.replace('\n','\n' + ' '*self.indent)
 
+    def generate_loop_code(self,table,column,hashname,new_table,clause='') :
+        code = open('nested_loop.template').read()
+        code = code.replace('$$hash$$',hashname)
+        code = code.replace('$$table$$',table)
+        code = code.replace('$$column$$',str(column))
+        code = code.replace('$$new_table$$',new_table)
+        code = code.replace('$$index$$','index' + str(self.index))
+        if len(clause) > 0 :
+            code = code.replace('$$clause$$',clause)
+        self.index += 1
+        return code.replace('\n','\n' + ' '*self.indent)
+
     #messy code for generating join chain code
     def generate_join_chain(self,n) :
-        #step 1: update columns in join conditions
-        
+        #step 0: output for sanity checking
         for arg in n.args :
             print arg
         print '---'
 
         for c in n.joinconditions :
             print c 
-        '''
+
+        #step 1: update columns in join conditions
         tot = 0
+        index = {}
         for i in range(0,len(n.joinconditions)) :
-            pos = n.joinconditions[i].left.position
-            print n.joinconditions[i]
-            for arg in n.args :
-                if pos >= len(arg.relation.scheme) :
-                    pos -= len(arg.relation.scheme)
-            n.joinconditions[i].left.position = pos
-
-        print '---'
-
-        for c in n.joinconditions :
-            print c
-        '''
+            node = n.args[i]
+            for j in range(tot,tot + len(node.relation.scheme)) :
+                index[j] = n.joinconditions[i].left.position - tot
+            tot += len(node.relation.scheme)
 
         #step 2: create necessary hashes
         for i in range(0,len(n.joinconditions)) :
@@ -100,8 +106,25 @@ class cpp_code :
             self.cpp_code += self.generate_hash_code(name,node.relation.name,pos)
             self.node_to_hash[node] = name
 
+        first = True
         #step 3: nasty code generation
-            
+        for i in range(0,len(n.joinconditions)) :
+            pos = n.joinconditions[i].left.position
+            column = index[pos]
+            hashname = self.node_to_hash[n.args[i+1]]
+            table = "table" + str(self.index)
+            if first :
+                table = self.node_to_name[n.args[0]]
+            new_table = "table" + str(self.index + 1)
+            self.cpp_code += self.generate_loop_code(table,column,hashname,new_table)
+            self.indent += 4
+            first = False
+
+        self.cpp_code += '\n'
+        #step 4: close it up
+        for i in range(0,len(n.joinconditions)) :
+            self.indent -= 4
+            self.cpp_code += ' ' * self.indent + '}\n'
         return
 
     #recursive code to walk the tree

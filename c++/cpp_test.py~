@@ -6,7 +6,7 @@ from raco.algebra import LogicalAlgebra
 from raco.compile import compile, optimize, common_subexpression_elimination, showids
 import scan_code as sc
 
-query = 'A(a1,a2) :- R(a1,x),S(x,y),T(y,z),U(z,a2),z=100,y=50'
+query = 'A(a1,a2) :- R(a1,x),S(x,y),T(y,z),U(z,a2),z=100'
 parsedprogram = parse(query)
 exprs = parsedprogram.toRA()
 ra = exprs
