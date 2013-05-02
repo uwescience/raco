@@ -1,3 +1,5 @@
+
+//hash $$relation$$
 map<int, vector<vector<int> > > $$hashname$$;
 for (int i = 0; i < $$relation$$.size(); i++) {
 	if ($$hashname$$.find($$relation$$[i][$$column$$]) == $$hashname$$.end()) {
@@ -5,3 +7,6 @@ for (int i = 0; i < $$relation$$.size(); i++) {
 	}
 	$$hashname$$[$$relation$$[i][$$column$$]].push_back($$relation$$[i]);
 }
+
+
+

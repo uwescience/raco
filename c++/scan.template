@@ -1,3 +1,5 @@
+
+//scan $$varname$$
 vector<vector<int> > $$varname$$ = vector<vector<int> >();
 ifstream $$f$$($$filename$$);
 int $$count$$ = 0;
@@ -14,4 +16,6 @@ while (!$$f$$.eof()) {
 	}
 }
 $$f$$.close();
+
+
 

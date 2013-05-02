@@ -1,5 +1,5 @@
-#ifndef ____$$qn$$__
-#define ____$$qn$$__
+#ifndef ____A__
+#define ____A__
 
 #include <vector>
 #include <iostream>

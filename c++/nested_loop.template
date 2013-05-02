@@ -1,0 +1,7 @@
+
+//loop over $$table$$
+for (int $$index$$ = 0; i < $$table$$.size(); ++$$index$$) {
+        if ($$hash$$.find($$table$$[$$index$$][$$column$$]) == $$hash$$.end()) {
+            continue;
+        }
+        vector<vector<int> > $$new_table$$ = $$hash$$[$$table$$[$$index$$][$$column$$]];
