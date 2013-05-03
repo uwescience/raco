@@ -19,6 +19,8 @@ class cpp_code :
         self.indent = 0
         self.index = 0
 
+    #-----------------------------------------------------------------------
+
     #generate code call
     def gen_code(self) :
         f = open(self.query_name + '.h','w')
@@ -39,6 +41,8 @@ class cpp_code :
         f.write(self.cpp_code)
         f.close()
 
+    #-----------------------------------------------------------------------
+
     #load scan template
     def gen_code_for_scan(self,n) :
         varname = n.relation.name
@@ -55,11 +59,15 @@ class cpp_code :
         self.scan_count += 1
         return code.replace('\n','\n' + ' '*self.indent)
 
+    #-----------------------------------------------------------------------
+
     #code to generate header
     def generate_header(self,query_name) :
         code = open('templates/header.template').read()
         code = code.replace('$$qn$$',query_name)
         return code.replace('\n','\n' + ' '*self.indent)
+
+    #-----------------------------------------------------------------------
 
     #generate code to create hash
     def generate_hash_code(self,hashname,relation,column) :
@@ -68,6 +76,8 @@ class cpp_code :
         code = code.replace('$$relation$$',relation)
         code = code.replace('$$column$$',str(column))
         return code.replace('\n','\n' + ' '*self.indent)
+
+    #-----------------------------------------------------------------------
 
     def generate_loop_code(self,table,column,hashname,new_table) :
         code = open('templates/nested_loop.template').read()
@@ -78,6 +88,8 @@ class cpp_code :
         code = code.replace('$$index$$','index' + str(self.index))
         self.index += 1
         return code.replace('\n','\n' + ' '*self.indent)
+
+    #-----------------------------------------------------------------------
 
     def generate_loop_code_clause(self,table,column,hashname,new_table,clause) :
         code = open('templates/nested_loop_select.template').read()
@@ -90,6 +102,8 @@ class cpp_code :
         self.index += 1
         return code.replace('\n','\n' + ' '*self.indent)
 
+    #-----------------------------------------------------------------------
+
     def generate_result(self,table,clause='1') :
         code = open('templates/final_select_emit.template').read()
         code = code.replace('$$index$$','index' + str(self.index))
@@ -97,6 +111,8 @@ class cpp_code :
         code = code.replace('$$clause$$',clause)
         self.index += 1
         return code.replace('\n','\n' + ' '*self.indent)
+
+    #-----------------------------------------------------------------------
 
     #messy code for generating join chain code
     def generate_join_chain(self,n) :
@@ -109,16 +125,6 @@ class cpp_code :
             print c 
 
         #step 1: update columns in join conditions
-        '''
-        tot = 0
-        index = {}
-        for i in range(0,len(n.joinconditions)) :
-            node = n.args[i]
-            for j in range(tot,tot + len(node.relation.scheme)) :
-                index[j] = (n.joinconditions[i].left.position - tot,node)
-            tot += len(node.relation.scheme)
-        '''
-
         tot = 0
         index = {}
         for arg in n.args :
@@ -172,6 +178,8 @@ class cpp_code :
             self.cpp_code += ' ' * self.indent + '}\n'
         return
 
+    #-----------------------------------------------------------------------
+
     #handle select clause
     def handle_clause(self,table,clause) :
         if rbool.isTaut(clause) :
@@ -205,6 +213,8 @@ class cpp_code :
         
         return c
 
+    #-----------------------------------------------------------------------
+
     #if there is a final condition
     def handle_final_cond(self,clause,ind) :
         print ind
@@ -221,6 +231,8 @@ class cpp_code :
 
         c += table2 + '[' + str(r) + ']'
         return c
+
+    #-----------------------------------------------------------------------
 
     #recursive code to walk the tree
     def visit (self,n):
@@ -247,5 +259,5 @@ class cpp_code :
                     self.visit(arg)
                 self.generate_join_chain(n)
 
-            
+    #-----------------------------------------------------------------------            
 
