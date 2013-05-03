@@ -1,0 +1,14 @@
+#ifndef ____$$qn$$__
+#define ____$$qn$$__
+
+#include <vector>
+#include <iostream>
+#include <fstream>
+#include <map>
+
+using namespace std;
+
+void query();
+
+#endif
+

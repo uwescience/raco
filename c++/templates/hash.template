@@ -1,0 +1,12 @@
+
+//hash $$relation$$
+map<int, vector<vector<int> > > $$hashname$$;
+for (int i = 0; i < $$relation$$.size(); i++) {
+	if ($$hashname$$.find($$relation$$[i][$$column$$]) == $$hashname$$.end()) {
+		$$hashname$$[$$relation$$[i][$$column$$]] = vector<vector<int> > ();
+	}
+	$$hashname$$[$$relation$$[i][$$column$$]].push_back($$relation$$[i]);
+}
+
+
+

@@ -11,6 +11,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <omp.h>
 
 using namespace std;
 
@@ -48,10 +49,12 @@ void query(const char* filename) {
 
 	cout << "done building map\n";
 
+    omp_set_num_threads(32);
+
     count = 0;
     //loop over edges a,b
+    #pragma omp parallel for reduction(+:count) schedule(dynamic,1)
     for (int i = 0; i < edges.size(); ++i) {
-	if (i%100000 == 0) {cout << i << "\n";}
         int a = edges[i][0];
         if (hash1.find(edges[i][1]) == hash1.end()) {
             continue;
@@ -59,6 +62,7 @@ void query(const char* filename) {
         vector<vector<int> > matches1 = hash1[edges[i][1]];
 
         //loop over match b,c
+        #pragma omp parallel for reduction(+:count) schedule(dynamic,1)
         for (int j = 0; j < matches1.size(); ++j) {
             int b = matches1[j][0];
             if (b <= a) {continue;}
@@ -68,6 +72,7 @@ void query(const char* filename) {
             vector<vector<int> > matches2 = hash1[matches1[j][1]];
 
             //loop over matches c,d
+            #pragma omp parallel for reduction(+:count) schedule(dynamic,1)
             for (int k = 0; k < matches2.size(); ++k) {
                 int c = matches2[k][0];
                 if (c <= b) { continue;}

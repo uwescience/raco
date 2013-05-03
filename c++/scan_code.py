@@ -15,6 +15,7 @@ class cpp_code :
         self.scan_count = 0
         self.node_to_name = {}
         self.node_to_hash = {}
+        self.node_to_table = {}
         self.indent = 0
         self.index = 0
 
@@ -43,7 +44,7 @@ class cpp_code :
         varname = n.relation.name
         filename = n.relation.name #could be changed later
         numcols = len(n.relation.scheme)
-        code = open('scan.template').read()
+        code = open('templates/scan.template').read()
         code = code.replace('$$varname$$',varname)
         code = code.replace('$$filename$$','"' + str(filename) + '"')
         code = code.replace('$$numcolumns$$',str(numcols))
@@ -56,32 +57,50 @@ class cpp_code :
 
     #code to generate header
     def generate_header(self,query_name) :
-        code = open('header.template').read()
+        code = open('templates/header.template').read()
         code = code.replace('$$qn$$',query_name)
         return code.replace('\n','\n' + ' '*self.indent)
 
+    #generate code to create hash
     def generate_hash_code(self,hashname,relation,column) :
-        code = open('hash.template').read()
+        code = open('templates/hash.template').read()
         code = code.replace('$$hashname$$',hashname)
         code = code.replace('$$relation$$',relation)
         code = code.replace('$$column$$',str(column))
         return code.replace('\n','\n' + ' '*self.indent)
 
-    def generate_loop_code(self,table,column,hashname,new_table,clause='') :
-        code = open('nested_loop.template').read()
+    def generate_loop_code(self,table,column,hashname,new_table) :
+        code = open('templates/nested_loop.template').read()
         code = code.replace('$$hash$$',hashname)
         code = code.replace('$$table$$',table)
         code = code.replace('$$column$$',str(column))
         code = code.replace('$$new_table$$',new_table)
         code = code.replace('$$index$$','index' + str(self.index))
-        if len(clause) > 0 :
-            code = code.replace('$$clause$$',clause)
+        self.index += 1
+        return code.replace('\n','\n' + ' '*self.indent)
+
+    def generate_loop_code_clause(self,table,column,hashname,new_table,clause) :
+        code = open('templates/nested_loop_select.template').read()
+        code = code.replace('$$hash$$',hashname)
+        code = code.replace('$$table$$',table)
+        code = code.replace('$$column$$',str(column))
+        code = code.replace('$$new_table$$',new_table)
+        code = code.replace('$$index$$','index' + str(self.index))
+        code = code.replace('$$clause$$',clause)
+        self.index += 1
+        return code.replace('\n','\n' + ' '*self.indent)
+
+    def generate_result(self,table,clause='1') :
+        code = open('templates/final_select_emit.template').read()
+        code = code.replace('$$index$$','index' + str(self.index))
+        code = code.replace('$$table$$',table)
+        code = code.replace('$$clause$$',clause)
         self.index += 1
         return code.replace('\n','\n' + ' '*self.indent)
 
     #messy code for generating join chain code
     def generate_join_chain(self,n) :
-        #step 0: output for sanity checking
+        #step 0: output for sanity checking, remove later
         for arg in n.args :
             print arg
         print '---'
@@ -90,13 +109,22 @@ class cpp_code :
             print c 
 
         #step 1: update columns in join conditions
+        '''
         tot = 0
         index = {}
         for i in range(0,len(n.joinconditions)) :
             node = n.args[i]
             for j in range(tot,tot + len(node.relation.scheme)) :
-                index[j] = n.joinconditions[i].left.position - tot
+                index[j] = (n.joinconditions[i].left.position - tot,node)
             tot += len(node.relation.scheme)
+        '''
+
+        tot = 0
+        index = {}
+        for arg in n.args :
+            for i in range(tot,tot+len(arg.relation.scheme)) :
+                index[i] = (i - tot,arg)
+            tot += len(arg.relation.scheme)
 
         #step 2: create necessary hashes
         for i in range(0,len(n.joinconditions)) :
@@ -107,18 +135,35 @@ class cpp_code :
             self.node_to_hash[node] = name
 
         first = True
+        new_table=''
         #step 3: nasty code generation
         for i in range(0,len(n.joinconditions)) :
             pos = n.joinconditions[i].left.position
-            column = index[pos]
+            column = index[pos][0]
             hashname = self.node_to_hash[n.args[i+1]]
             table = "table" + str(self.index)
+            
+            clause = '1'
             if first :
                 table = self.node_to_name[n.args[0]]
+                clause = self.handle_clause(table,n.leftconditions[0])
+            else :
+                clause = self.handle_clause(table,n.rightconditions[i-1])
+            self.node_to_table[n.args[i]] = table
             new_table = "table" + str(self.index + 1)
-            self.cpp_code += self.generate_loop_code(table,column,hashname,new_table)
+            if clause == '1' :
+                self.cpp_code += self.generate_loop_code(table,column,hashname,new_table)
+            else :
+                self.cpp_code += self.generate_loop_code_clause(table,column,hashname,new_table,clause)
             self.indent += 4
             first = False
+
+        #step 3.1: final loop and select
+        self.node_to_table[n.args[-1]] = new_table
+        clause = self.handle_clause(new_table,n.rightconditions[-1])
+        if not rbool.isTaut(n.finalcondition) :
+            clause += ' && ' + self.handle_final_cond(n.finalcondition,index)
+        self.cpp_code += self.generate_result('table' + str(self.index),clause) + '}'
 
         self.cpp_code += '\n'
         #step 4: close it up
@@ -126,6 +171,56 @@ class cpp_code :
             self.indent -= 4
             self.cpp_code += ' ' * self.indent + '}\n'
         return
+
+    #handle select clause
+    def handle_clause(self,table,clause) :
+        if rbool.isTaut(clause) :
+            return '1'
+        c = ''
+        if clause.literals[0] == 'and' :
+            c += '(' + self.handle_clause(table,clause.left)
+            c += ' && '
+            c += self.handle_clause(table,clause.right) + ')'
+            return c
+        elif clause.literals[1] == 'or' :
+            c += '(' + self.handle_clause(table,clause.left)
+            c += ' || '
+            c += self.handle_clause(table,clause.right) + ')'
+            return c
+
+        if isinstance(clause.left,rbool.NumericLiteral) :
+            c += clause.left.value
+        elif isinstance(clause.left,rbool.PositionReference) :
+            c += table + '[' + str(clause.left.position) + ']'
+
+        if clause.literals[0] == '=' :
+            c += '=='
+        else :
+            c += clause.literals[0]
+
+        if isinstance(clause.right,rbool.NumericLiteral) :
+            c += clause.right.value
+        elif isinstance(clause.right,rbool.PositionReference) :
+            c += table + '[' + str(clause.right.position) + ']'
+        
+        return c
+
+    #if there is a final condition
+    def handle_final_cond(self,clause,ind) :
+        print ind
+        print
+        table1 = self.node_to_table[ind[int(clause.left.position)][1]]
+        table2 = self.node_to_table[ind[int(clause.right.position)][1]]
+        l = ind[int(clause.left.position)][0]
+        r = ind[int(clause.right.position)][0]
+        c = table1 + '[' + str(l) + ']'
+        if clause.literals[0] == '=' :
+            c += '=='
+        else :
+            c += clause.literals[0]
+
+        c += table2 + '[' + str(r) + ']'
+        return c
 
     #recursive code to walk the tree
     def visit (self,n):

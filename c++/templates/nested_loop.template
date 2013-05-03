@@ -1,6 +1,7 @@
 
 //loop over $$table$$
 for (int $$index$$ = 0; $$index$$ < $$table$$.size(); ++$$index$$) {
+    //if there is no match, continue
     if ($$hash$$.find($$table$$[$$index$$][$$column$$]) == $$hash$$.end()) {
         continue;
     }

@@ -44,9 +44,9 @@ void query () {
     
     
     
-    //scan U
-    vector<vector<int> > U = vector<vector<int> >();
-    ifstream f2("U");
+    //scan T
+    vector<vector<int> > T = vector<vector<int> >();
+    ifstream f2("T");
     int count2 = 0;
     vector<int> tmp_vector2 = vector<int>();
     while (!f2.eof()) {
@@ -56,7 +56,7 @@ void query () {
     	count2++;
     	if (count2 == 2) {
     		count2 = 0;
-    		U.push_back(tmp_vector2);
+    		T.push_back(tmp_vector2);
     		tmp_vector2 = vector<int>();
     	}
     }
@@ -65,9 +65,9 @@ void query () {
     
     
     
-    //scan T
-    vector<vector<int> > T = vector<vector<int> >();
-    ifstream f3("T");
+    //scan U
+    vector<vector<int> > U = vector<vector<int> >();
+    ifstream f3("U");
     int count3 = 0;
     vector<int> tmp_vector3 = vector<int>();
     while (!f3.eof()) {
@@ -77,7 +77,7 @@ void query () {
     	count3++;
     	if (count3 == 2) {
     		count3 = 0;
-    		T.push_back(tmp_vector3);
+    		U.push_back(tmp_vector3);
     		tmp_vector3 = vector<int>();
     	}
     }
@@ -98,35 +98,32 @@ void query () {
     
     
     
-    //hash U
-    map<int, vector<vector<int> > > U1_hash;
-    for (int i = 0; i < U.size(); i++) {
-    	if (U1_hash.find(U[i][1]) == U1_hash.end()) {
-    		U1_hash[U[i][1]] = vector<vector<int> > ();
+    //hash T
+    map<int, vector<vector<int> > > T0_hash;
+    for (int i = 0; i < T.size(); i++) {
+    	if (T0_hash.find(T[i][0]) == T0_hash.end()) {
+    		T0_hash[T[i][0]] = vector<vector<int> > ();
     	}
-    	U1_hash[U[i][1]].push_back(U[i]);
+    	T0_hash[T[i][0]].push_back(T[i]);
     }
     
     
     
     
-    //hash T
-    map<int, vector<vector<int> > > T1_hash;
-    for (int i = 0; i < T.size(); i++) {
-    	if (T1_hash.find(T[i][1]) == T1_hash.end()) {
-    		T1_hash[T[i][1]] = vector<vector<int> > ();
+    //hash U
+    map<int, vector<vector<int> > > U0_hash;
+    for (int i = 0; i < U.size(); i++) {
+    	if (U0_hash.find(U[i][0]) == U0_hash.end()) {
+    		U0_hash[U[i][0]] = vector<vector<int> > ();
     	}
-    	T1_hash[T[i][1]].push_back(T[i]);
+    	U0_hash[U[i][0]].push_back(U[i]);
     }
     
     
     
     
     //loop over S
-    for (int index0 = 0; i < S.size(); ++index0) {
-        if (!(S[1]==50)) {
-            continue;
-        }
+    for (int index0 = 0; index0 < S.size(); ++index0) {
         if (R1_hash.find(S[index0][0]) == R1_hash.end()) {
             continue;
         }
@@ -136,32 +133,22 @@ void query () {
     
         //loop over table1
         for (int index1 = 0; index1 < table1.size(); ++index1) {
-            //if there is no match, continue
-            if (U1_hash.find(table1[index1][0]) == U1_hash.end()) {
+            if (T0_hash.find(table1[index1][0]) == T0_hash.end()) {
                 continue;
             }
-            vector<vector<int> > table2 = U1_hash[table1[index1][0]];
+            vector<vector<int> > table2 = T0_hash[table1[index1][0]];
         
         
         
             //loop over table2
-            for (int index2 = 0; i < table2.size(); ++index2) {
-                if (!(100==table2[0])) {
+            for (int index2 = 0; index2 < table2.size(); ++index2) {
+                if (U0_hash.find(table2[index2][1]) == U0_hash.end()) {
                     continue;
                 }
-                if (T1_hash.find(table2[index2][0]) == T1_hash.end()) {
-                    continue;
-                }
-                vector<vector<int> > table3 = T1_hash[table2[index2][0]];
+                vector<vector<int> > table3 = U0_hash[table2[index2][1]];
             
             
             
-                //loop over final join results
-                for (int index3 = 0; index3 < table3.size(); ++index3) {
-                    if ((100==table3[1] && table3[0]==50) && S[1]==table3[0]) {
-                        //emit result
-                    }
-                }
             }
         }
     }
