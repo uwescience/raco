@@ -18,6 +18,9 @@ class cpp_code :
         self.node_to_table = {}
         self.indent = 0
         self.index = 0
+        self.relations = set()
+        self.hashes = set()
+        self.relation_to_index = {}
 
     #-----------------------------------------------------------------------
 
@@ -46,6 +49,11 @@ class cpp_code :
     #load scan template
     def gen_code_for_scan(self,n) :
         varname = n.relation.name
+
+        if varname in self.relations :
+            self.node_to_name[n] = varname
+            return ''
+
         filename = n.relation.name #could be changed later
         numcols = len(n.relation.scheme)
         code = open('templates/scan.template').read()
@@ -57,6 +65,7 @@ class cpp_code :
         code = code.replace('$$count$$', 'count' + str(self.scan_count))
         self.node_to_name[n] = varname
         self.scan_count += 1
+        self.relations.add(varname)
         return code.replace('\n','\n' + ' '*self.indent)
 
     #-----------------------------------------------------------------------
@@ -71,6 +80,10 @@ class cpp_code :
 
     #generate code to create hash
     def generate_hash_code(self,hashname,relation,column) :
+        if (relation,column) in self.hashes :
+            return ''
+
+        self.hashes.add((relation,column))
         code = open('templates/hash.template').read()
         code = code.replace('$$hashname$$',hashname)
         code = code.replace('$$relation$$',relation)
@@ -152,8 +165,10 @@ class cpp_code :
             clause = '1'
             if first :
                 table = self.node_to_name[n.args[0]]
+                self.relation_to_index[table] = 'index' + str(self.index)
                 clause = self.handle_clause(table,n.leftconditions[0])
             else :
+                self.relation_to_index[table] = 'index' + str(self.index)
                 clause = self.handle_clause(table,n.rightconditions[i-1])
             self.node_to_table[n.args[i]] = table
             new_table = "table" + str(self.index + 1)
@@ -166,6 +181,7 @@ class cpp_code :
 
         #step 3.1: final loop and select
         self.node_to_table[n.args[-1]] = new_table
+        self.relation_to_index[new_table] = 'index' + str(self.index)
         clause = self.handle_clause(new_table,n.rightconditions[-1])
         if not rbool.isTaut(n.finalcondition) :
             clause += ' && ' + self.handle_final_cond(n.finalcondition,index)
@@ -199,7 +215,7 @@ class cpp_code :
         if isinstance(clause.left,rbool.NumericLiteral) :
             c += clause.left.value
         elif isinstance(clause.left,rbool.PositionReference) :
-            c += table + '[' + str(clause.left.position) + ']'
+            c += table + '[' + self.relation_to_index[table] + '][' + str(clause.left.position) + ']'
 
         if clause.literals[0] == '=' :
             c += '=='
@@ -209,7 +225,7 @@ class cpp_code :
         if isinstance(clause.right,rbool.NumericLiteral) :
             c += clause.right.value
         elif isinstance(clause.right,rbool.PositionReference) :
-            c += table + '[' + str(clause.right.position) + ']'
+            c += table + '[' + self.relation_to_index[table] + '][' + str(clause.right.position) + ']'
         
         return c
 
@@ -223,13 +239,13 @@ class cpp_code :
         table2 = self.node_to_table[ind[int(clause.right.position)][1]]
         l = ind[int(clause.left.position)][0]
         r = ind[int(clause.right.position)][0]
-        c = table1 + '[' + str(l) + ']'
+        c = table1 + '[' + self.relation_to_index[table1] + '][' + str(l) + ']'
         if clause.literals[0] == '=' :
             c += '=='
         else :
             c += clause.literals[0]
 
-        c += table2 + '[' + str(r) + ']'
+        c += table2 + '[' + self.relation_to_index[table2] + '][' + str(r) + ']'
         return c
 
     #-----------------------------------------------------------------------
