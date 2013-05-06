@@ -7,7 +7,9 @@ from raco.compile import compile, optimize, common_subexpression_elimination, sh
 import scan_code as sc
 import raco.boolean
 
-query = 'A(a1) :- R(a1,x),S(x,y),T(y,z),U(z,a1),100=z,y=50'
+#query = 'A(a1) :- R(a1,x),S(x,y),T(y,z),U(z,a1),100=z,y=50'
+#query = 'T(x,y,z) :- E(x,y),E(y,z),E(z,x)'
+query = 'A(x,z) :- edges(x,y),edges(y,z)'
 parsedprogram = parse(query)
 exprs = parsedprogram.toRA()
 ra = exprs

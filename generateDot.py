@@ -13,8 +13,15 @@ class unique_id :
         self.seed += 1
         return self.seed
 
-#x is an Operator
-def generateDot(result, x) :
+#run as:
+#query = <query>
+#parsedprogram = parse(query)
+#exprs = parsedprogram.toRA()
+#generateDot(exprs,<file_name>)
+# bash ~: dot -Tps <file_name> -o graph.ps
+def generateDot(inputs,output_file) :
+    result = inputs[0][0]
+    x = inputs[0][1]
     u = unique_id()
     ID = u.next_id()
     s=['digraph G {',result + '-> ' + str(ID) + ';']
@@ -24,7 +31,7 @@ def generateDot(result, x) :
     #s += '}\n'
     #print '}'
     s.append('}')
-    return '\n'.join(s)
+    open(output_file,'w').write('\n'.join(s))
 
 def generateDotRecursive(x,s,ID,u) :
     if isinstance(x,alg.ZeroaryOperator) :

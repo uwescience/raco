@@ -78,7 +78,7 @@ class CC(Language):
       rowvariable = expr.rowvariable
       return '%s->relation[%s*%s->fields + %s]' % (relation, rowvariable, relation, position)
 
-class CCOperator:
+class CCOperator (object):
   language = CC
 
 class FileScan(algebra.Scan, CCOperator):
