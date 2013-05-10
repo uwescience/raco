@@ -1,0 +1,3 @@
+
+cout << "Found " << results << " tuples.\n";
+

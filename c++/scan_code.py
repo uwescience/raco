@@ -34,15 +34,56 @@ class cpp_code :
         self.cpp_code += 'void query () {\n'
         self.indent += 4
 
+        self.cpp_code += self.setup_code()
+
         #generate_files call
         for s,c in self.plan :
             self.visit(c)
+
+        self.cpp_code += self.wrapup_code()
+
         self.cpp_code +='\n}\n\nint main() { query(); }'
         self.indent -= 4
 
         f = open(self.query_name + '.cpp','w')
         f.write(self.cpp_code)
         f.close()
+
+    #-----------------------------------------------------------------------
+
+    def setup_code(self) :
+        #for now
+        return self.count_startup_code()
+
+    #-----------------------------------------------------------------------
+
+    def update(self) :
+        #for now
+        return self.count_update_code()
+
+    #-----------------------------------------------------------------------
+
+    def wrapup_code(self) :
+        #for now
+        return self.count_wrapup_code()
+
+    #-----------------------------------------------------------------------
+
+    def count_startup_code(self) :
+        code = open('templates/count_setup.template').read()
+        return code.replace('\n','\n' + ' '*self.indent) 
+
+    #-----------------------------------------------------------------------
+
+    def count_update_code(self) :
+        code = open('templates/count_update.template').read()
+        return code.replace('\n','\n' + ' '*self.indent)
+
+    #-----------------------------------------------------------------------
+
+    def count_wrapup_code(self) :
+        code = open('templates/count_output.template').read()
+        return code.replace('\n','\n' + ' '*self.indent)  
 
     #-----------------------------------------------------------------------
 
@@ -122,6 +163,7 @@ class cpp_code :
         code = code.replace('$$index$$','index' + str(self.index))
         code = code.replace('$$table$$',table)
         code = code.replace('$$clause$$',clause)
+        code = code.replace('$$resultcall$$',self.update())
         self.index += 1
         return code.replace('\n','\n' + ' '*self.indent)
 

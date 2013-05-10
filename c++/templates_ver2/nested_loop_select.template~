@@ -4,9 +4,9 @@ for (int $$index$$ = 0; $$index$$ < $$table$$.size(); ++$$index$$) {
     if (!($$clause$$)) {
         continue;
     }
-    if ($$hash$$.find($$table$$[$$index$$][$$column$$]) == $$hash$$.end()) {
+    if ($$hash$$.find($$table$$[$$index$$].a$$column$$) == $$hash$$.end()) {
         continue;
     }
-    vector<vector<int> > $$new_table$$ = $$hash$$[$$table$$[$$index$$][$$column$$]];
+    vector<vector<int> > $$new_table$$ = $$hash$$[$$table$$[$$index$$].a$$column$$];
 
 

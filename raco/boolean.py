@@ -259,3 +259,9 @@ def toNamed(ref, scheme):
 
 
 tautology = EQ(NumericLiteral(1),NumericLiteral(1))
+
+def isTaut(ref) :
+    try :
+        return ref.literals == ['=','=='] and ref.left.value == 1 and ref.right.value == 1
+    except AttributeError:
+        return False

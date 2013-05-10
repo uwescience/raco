@@ -1,0 +1,4 @@
+
+    $$f$$ >> $$tmp_tuple$$.a$$count$$;
+
+    if ($$f$$.eof()) {break;}

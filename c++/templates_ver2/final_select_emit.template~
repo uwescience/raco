@@ -2,5 +2,5 @@
 //loop over final join results
 for (int $$index$$ = 0; $$index$$ < $$table$$.size(); ++$$index$$) {
     if ($$clause$$) {
-        $$resultcall$$
+        //emit result
     }

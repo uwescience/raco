@@ -1,13 +1,4 @@
-/*
-A(A,B,C) :- R(A, x, B), R(A, y, C), R(C, z, B)
-*/
-/*
-Project(col0,col2,col3)[Select(col0 = col6)[Join(col3 = col2)[Join(col2 = col2)[Scan(R), Scan(R)], Scan(R)]]]
-*/
 //-------
-/*
-FilteringNLJoinChain([col2 = col2, col3 = col2], [1 = 1, 1 = 1], [1 = 1, 1 = 1], col0 = col6)[FileScan(R),FileScan(R),FileScan(R)]
-*/
 // Precount_select: Use buckets to track the number of matches
 // Use buckets to copy into the result array
 #include <stdio.h>
@@ -110,8 +101,8 @@ void query(struct relationInfo *resultInfo)
   currCounter = currCounter + 1; // 1
   
   uint64 resultcount = 0;
-  struct relationInfo resultRelation_val;
-  struct relationInfo *resultRelation = &resultRelation_val;
+  struct relationInfo A_val;
+  struct relationInfo *A = &A_val;
 
 
   // -----------------------------------------------------------
@@ -119,50 +110,59 @@ void query(struct relationInfo *resultInfo)
   // -----------------------------------------------------------
 
   
-// Compiled subplan for FilteringNLJoinChain([col2 = col2, col3 = col2], [1 = 1, 1 = 1], [1 = 1, 1 = 1], col0 = col6)[FileScan(R),FileScan(R),FileScan(R)]
-printf("Evaluating subplan FilteringNLJoinChain([col2 = col2, col3 = col2], [1 = 1, 1 = 1], [1 = 1, 1 = 1], col0 = col6)[FileScan(R),FileScan(R),FileScan(R)]\n");
+// Compiled subplan for FilteringNLJoinChain([col0 = col2], [col2 = 217772631], [1 = 1], 1 = 1)[FileScan(T),FileScan(R)]
+printf("Evaluating subplan FilteringNLJoinChain([col0 = col2], [col2 = 217772631], [1 = 1], 1 = 1)[FileScan(T),FileScan(R)]\n");
+
+// Compiled subplan for FileScan(T)
+/*
+=====================================
+  Scan(T)
+=====================================
+*/
+
+printf("V1 = Scan(T)\n");
+
+struct relationInfo V1_val;
+
+#ifdef __MTA__
+  binary_inhale("T", &V1_val);
+  //inhale("T", &V1_val);
+#else
+  inhale("T", &V1_val);
+#endif // __MTA__
+
+struct relationInfo *V1 = &V1_val;
+// originalterm=Term_T(y,p2,z,c2) (position 1)
+// symbol=V1
+printf("Evaluating subplan FileScan(T)\n");
 
 // Compiled subplan for FileScan(R)
-printf("Evaluating subplan FileScan(R)\n");
 /*
 =====================================
   Scan(R)
 =====================================
 */
 
-printf("V1 = Scan(R)\n");
+printf("V2 = Scan(R)\n");
 
-struct relationInfo V1_val;
+struct relationInfo V2_val;
 
 #ifdef __MTA__
-  binary_inhale("R", &V1_val);
-  //inhale("R", &V1_val);
+  binary_inhale("R", &V2_val);
+  //inhale("R", &V2_val);
 #else
-  inhale("R", &V1_val);
+  inhale("R", &V2_val);
 #endif // __MTA__
 
-struct relationInfo *V1 = &V1_val;
-// originalterm=Term_R(A,y,C) (position 1)
-// originalterm=Term_R(A,x,B) (position 0)
-// originalterm=Term_R(C,z,B) (position 2)
-// symbol=V1
-
-// Compiled subplan for FileScan(R)
+struct relationInfo *V2 = &V2_val;
+// originalterm=Term_R(x,p1,y,c1) (position 0)
+// symbol=V2
 printf("Evaluating subplan FileScan(R)\n");
-
-struct relationInfo *V2;
-V2 = V1;
-
-// Compiled subplan for FileScan(R)
-printf("Evaluating subplan FileScan(R)\n");
-
-struct relationInfo *V3;
-V3 = V1;
 
 
 { /* Begin Join Chain */
 
-  printf("Begin Join Chain ['V1', 'V2', 'V3']\n");
+  printf("Begin Join Chain ['V1', 'V2']\n");
   #pragma mta trace "running join 0"
 
   double start = timer();
@@ -178,41 +178,21 @@ V3 = V1;
        
         #pragma mta trace "running join 0"
       
-        if (( (1) == (1) )) { // filter on join0.left 
+        if (( (V1->relation[V1_row*V1->fields + 2]) == (217772631) )) { // filter on join0.left 
           // Join 0
           for (uint64 V2_row = 0; V2_row < V2->tuples; V2_row++) {
             if (( (1) == (1) )) { // filter on join0.right          
-              if (equals(V1, V1_row, 2 // left attribute ref
+              if (equals(V1, V1_row, 0 // left attribute ref
                        , V2, V2_row, 2)) { //right attribtue ref
       
-                             
-                  { /* Begin Join Level 1 */
-                   
-                    #pragma mta trace "running join 1"
-                  
-                    if (( (1) == (1) )) { // filter on join1.left 
-                      // Join 1
-                      for (uint64 V3_row = 0; V3_row < V3->tuples; V3_row++) {
-                        if (( (1) == (1) )) { // filter on join1.right          
-                          if (equals(V2, V2_row, 0 // left attribute ref
-                                   , V3, V3_row, 2)) { //right attribtue ref
-                  
-                                         
-                              if (( (V1->relation[V1_row*V1->fields + 0]) == (V3->relation[V3_row*V3->fields + 0]) )) {
-                              
-                                // Here we would send the tuple to the client, or write to disk, or fill a data structure
-                                printf("joined tuple: %d, %d, %d\n", V1_row, V2_row, V3_row);
-                                resultcount++;
-                              
-                              }
-                  
-                          } // Join 1 condition
-                        } // filter on join1.right
-                      } // loop over join1.right
-                    } // filter on join1.left 
-                  
-                  }
-                  
+                       
+            if (( (1) == (1) )) {
+            
+              // Here we would send the tuple to the client, or write to disk, or fill a data structure
+              printf("joined tuple: %d, %d\n", V1_row, V2_row);
+              resultcount++;
+            
+            }
       
               } // Join 0 condition
             } // filter on join0.right
@@ -231,9 +211,9 @@ V3 = V1;
 
 
   // return final result
-  resultInfo->tuples = resultRelation->tuples;
-  resultInfo->fields = resultRelation->fields;
-  resultInfo->relation = resultRelation->relation;
+  resultInfo->tuples = A->tuples;
+  resultInfo->fields = A->fields;
+  resultInfo->relation = A->relation;
 
 }
 
@@ -247,8 +227,8 @@ int main(int argc, char **argv) {
   query(&resultInfo);
 
 #ifdef ZAPPA
-  printrelation(&resultInfo);
+//  printrelation(&resultInfo);
 #endif
-  free(resultInfo.relation);
+//  free(resultInfo.relation);
 }
 
