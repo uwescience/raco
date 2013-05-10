@@ -1,0 +1,13 @@
+
+//scan $$varname$$
+vector<$$tuple$$> $$varname$$ = vector<$$tuple$$>();
+ifstream $$f$$($$filename$$);
+while (!$$f$$.eof()) {
+    $$tuple$$ $$tmp_tuple$$;
+	$$code_to_create_tuple$$
+    $$varname$$.push_back($$tmp_tuple$$);
+}
+$$f$$.close();
+
+
+

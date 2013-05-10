@@ -20,7 +20,9 @@ class cpp_code :
         self.index = 0
         self.relations = set()
         self.hashes = set()
+        self.structs = set()
         self.relation_to_index = {}
+        self.relation_to_tuple = {}
 
     #-----------------------------------------------------------------------
 
@@ -84,6 +86,17 @@ class cpp_code :
     def count_wrapup_code(self) :
         code = open('templates/count_output.template').read()
         return code.replace('\n','\n' + ' '*self.indent)  
+
+    #-----------------------------------------------------------------------
+
+    def struct_definition(self,n) :
+        varname = n.relation.name
+
+        if varname in self.structs() :
+            self.node_to_name[n] = varname
+            return ''
+
+        numcols = len(n.relation.scheme)
 
     #-----------------------------------------------------------------------
 
@@ -227,7 +240,7 @@ class cpp_code :
         clause = self.handle_clause(new_table,n.rightconditions[-1])
         if not rbool.isTaut(n.finalcondition) :
             clause += ' && ' + self.handle_final_cond(n.finalcondition,index)
-        self.cpp_code += self.generate_result('table' + str(self.index),clause) '}'
+        self.cpp_code += self.generate_result('table' + str(self.index),clause) + '}'
 
         self.cpp_code += '\n'
         #step 4: close it up
