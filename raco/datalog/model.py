@@ -129,7 +129,7 @@ some cost function.  Subclasses can implement this however they want."""
     # We may have traversed the graph in the opposite direction
     # if so, flip the condition 
     if leftterm != left:
-      condition = condition.flip()
+      condition.flip()
     return leftterm, rightterm, condition
 
   def toJoinSequence(self, edgesequence, joinsequence=None):
