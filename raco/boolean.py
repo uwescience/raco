@@ -84,9 +84,8 @@ class BinaryBooleanOperator(BooleanExpression):
     self.right.rightoffset(offset)
 
   def flip(self):
-    """flip the order of comparison operators.  Used in optimizing join trees"""
-    self.left.flip()
-    self.right.flip()
+    """Return a new copy of this condition with the order of comparison operators flipped.  Used in optimizing join trees, when the left and right relations are swapped."""
+    return self.__class__(self.left.flip(), self.right.flip())
 
 class BinaryComparisonOperator(BinaryBooleanOperator):
   def flip(self):

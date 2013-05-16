@@ -129,7 +129,7 @@ some cost function.  Subclasses can implement this however they want."""
     # We may have traversed the graph in the opposite direction
     # if so, flip the condition 
     if leftterm != left:
-      condition.flip()
+      condition = condition.flip()
     return leftterm, rightterm, condition
 
   def toJoinSequence(self, edgesequence, joinsequence=None):
@@ -147,7 +147,8 @@ An edgesequence does not."""
      
     joinsequence.addjoin(left, right, condition)
 
-    return self.toJoinSequence(edgesequence[1:], joinsequence)
+    js = self.toJoinSequence(edgesequence[1:], joinsequence)
+    return js
 
 def normalize(x,y):
   if y < x:
