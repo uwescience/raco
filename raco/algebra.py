@@ -144,7 +144,7 @@ class UnaryOperator(Operator):
   def preorder(self, f):
     """Preorder traversal. Apply a function to your children. Function returns an iterator."""
     for x in f(self): yield x
-    for x in self.input.postorder(f): yield x
+    for x in self.input.preorder(f): yield x
 
   def collectParents(self, parentmap):
     """Construct a dict mapping children to parents. Used in optimization"""
@@ -189,6 +189,9 @@ class BinaryOperator(Operator):
 
   def __str__(self):
     return "%s(%s,%s)" % (self.opname(), self.left, self.right)
+
+  def __repr__(self):
+    return str(self)
 
   def copy(self, other):
     """deep copy"""
@@ -421,7 +424,7 @@ class PartitionBy(UnaryOperator):
     return "%s(%s)[%s]" % (self.opname(), colstring, self.input)
 
   def __repr__(self):
-    return "%s" % self
+    return str(self)
 
   def copy(self, other):
     """deep copy"""
