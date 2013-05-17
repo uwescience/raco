@@ -1,0 +1,6 @@
+
+
+$$tuple$$ t;
+t.a0 = outer_table[index0].a0;
+t.a1 = $$table$$[$$index$$].a1;
+d_result.insert(t);
