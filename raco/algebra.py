@@ -183,13 +183,9 @@ class BinaryOperator(Operator):
     else:
       leftsym = gensym()
       rightsym = gensym()
-      code += """
-%s 
-%s
-%s
-""" % (self.left.compile(leftsym)
-      , self.right.compile(rightsym)
-      , self.compileme(resultsym, leftsym, rightsym))
+      code += emit(self.left.compile(leftsym)
+                   , self.right.compile(rightsym)
+                   , self.compileme(resultsym, leftsym, rightsym))
     return code
 
   def apply(self, f):
@@ -253,11 +249,7 @@ class NaryOperator(Operator):
       code += self.language.assignment(resultsym, self.bound)
     else:
       argsyms = [gensym() for arg in self.args]
-      code += """
-%s
-%s
-""" % ("\n".join([arg.compile(sym) for arg,sym in zip(self.args,argsyms)])
-      , self.compileme(resultsym, argsyms))
+      code += emit([arg.compile(sym) for arg,sym in zip(self.args,argsyms)] + [self.compileme(resultsym, argsyms)])
     return code
 
 
