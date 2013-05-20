@@ -142,7 +142,7 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
       return leftcols1 + leftcols2, rightcols1 + rightcols2
 
     if isinstance(condition, boolean.EQ):
-      return [str(condition.left.position)], [str(condition.right.position)]
+      return [condition.left.position], [condition.right.position]
   
   def compileme(self, resultsym, leftsym, rightsym):
     """Compile the operator to a sequence of json operators"""
@@ -180,7 +180,7 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
     consumeleft = mkconsumer(leftsym, pretty(self.left.scheme()),  0)
     consumeright = mkconsumer(rightsym, pretty(self.right.scheme()), 1)
 
-    cols = [str(i) for i in range(len(self.scheme()))]
+    cols = range(len(self.scheme()))
     allleft = cols[:len(self.left.scheme())]
     allright = cols[len(self.right.scheme()):]
 
