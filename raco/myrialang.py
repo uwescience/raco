@@ -1,3 +1,10 @@
+# vim: tabstop=2 softtabstop=2 shiftwidth=2 expandtab
+#
+# The above modeline for Vim automatically sets it to
+# .. Bill's Python style. If it doesn't work, check
+#     :set modeline?        -> should be true
+#     :set modelines?       -> should be > 0
+
 import boolean
 import rules
 import algebra
