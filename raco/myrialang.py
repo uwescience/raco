@@ -10,6 +10,7 @@ import rules
 import algebra
 import json
 from language import Language
+from utility import emit
 
 def json_pretty_print(dictionary):
     """a function to pretty-print a JSON dictionary.
@@ -24,10 +25,7 @@ class MyriaLanguage(Language):
 
   @classmethod
   def new_relation_assignment(cls, rvar, val):
-    return """
-%s
-%s
-""" % (cls.relation_decl(rvar), cls.assignment(rvar,val))
+    return emit(cls.relation_decl(rvar), cls.assignment(rvar,val))
 
   @classmethod
   def relation_decl(cls, rvar):
@@ -43,37 +41,6 @@ class MyriaLanguage(Language):
     #return  "# %s" % txt
     # comments not technically allowed in json
     return  ""
-
-  @staticmethod
-  def preamble(query=None, plan=None):
-    return  """
-{
-  "raw_datalog" : "%s",
-  "logical_ra" : "%s",
-  "expected_result_size" : "-1",
-  "query_plan" : {
-""" % (query, plan)
-
-  @staticmethod
-  def initialize(resultsym):
-    return ""
-    return  """
-    "%s" : [[
-""" % resultsym
-
-  @staticmethod
-  def finalize(resultsym):
-    return ""
-    return  """
-      ]]
-"""
-
-  @staticmethod
-  def postamble(query=None, plan=None):
-    return  """
-  }
-}
-""" 
 
   @classmethod
   def boolean_combine(cls, args, operator="and"):
@@ -95,40 +62,42 @@ class MyriaOperator:
 
 class MyriaScan(algebra.Scan, MyriaOperator):
   def compileme(self, resultsym):
-    return json_pretty_print({
+    return {
         "op_name" : resultsym,
         "op_type" : "SCAN",
-        "arg_user_name" : "public",
-        "arg_program_name" : "adhoc",
-        "arg_relation_name" : self.relation.name
-      })+','
+        "arg_relation_key" : {
+          "user_name" : "public",
+          "program_name" : "adhoc",
+          "relation_name" : self.relation.name
+        }
+      }
 
 class MyriaSelect(algebra.Select, MyriaOperator):
   def compileme(self, resultsym, inputsym):
-    return json_pretty_print({
+    return {
         "op_name" : resultsym,
         "op_type" : "SELECT",
         "condition" : self.language.compile_boolean(self.condition),
         "input" : inputsym
-      }) + ','
+      }
 
 class MyriaProject(algebra.Project, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     cols = [str(x) for x in self.columnlist]
-    return json_pretty_print({
+    return {
         "op_name" : resultsym,
         "op_type" : "PROJECT",
         "columnlist" : cols,
         "arg_child" : inputsym
-      })+','
+      }
 
 class MyriaInsert(algebra.Store, MyriaOperator):
   def compileme(self, resultsym, inputsym):
-    return json_pretty_print({
+    return {
         "op_name" : resultsym,
         "op_type" : "INSERT",
         "arg_child" : inputsym
-      })+','
+      }
 
 class MyriaEquiJoin(algebra.Join, MyriaOperator):
 
@@ -150,26 +119,26 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
     leftcols, rightcols = self.convertcondition(self.condition)
 
     def mkshuffle(symbol, op_id, joincond):
-      return json_pretty_print({
-          "op_name" : "%s_scatter" % (symbol,),
+      return {
+          "op_name" : "%s_scatter" % symbol,
           "op_type" : "ShuffleProducer",
           "arg_child" : symbol,
-          "arg_workerIDs" : self.workers,
-          "arg_operatorID" : op_id,
+          "arg_worker_ids" : self.workers,
+          "arg_operator_id" : op_id,
           "arg_pf" : ["SingleFieldHash", joincond]
-        })+','
+        }
 
     shuffleleft = mkshuffle(leftsym, 0, leftcols)
     shuffleright = mkshuffle(rightsym, 1, rightcols)
 
     def mkconsumer(symbol,scheme,op_id):
-      return json_pretty_print({
+      return {
           "op_name" : "%s_gather" % (symbol,),
           "op_type" : "ShuffleConsumer",
           "arg_schema" : scheme,
-          "arg_workerIDs" : self.workers,
-          "arg_operatorID" : op_id
-        })+','
+          "arg_worker_ids" : self.workers,
+          "arg_operator_id" : op_id
+        }
 
     def pretty(s):
       names, descrs = zip(*s.asdict.items())
@@ -184,7 +153,7 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
     allleft = cols[:len(self.left.scheme())]
     allright = cols[len(self.right.scheme()):]
 
-    join = json_pretty_print({
+    join = {
         "op_name" : resultsym,
         "op_type" : "LocalJoin",
         "arg_child1" : "%s_gather" % (leftsym,),
@@ -193,24 +162,24 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
         "arg_columns2" : rightcols,
         "arg_select1" : allleft,
         "arg_select2" : allright
-      })+','
+      }
 
-    return "\n".join([shuffleleft, shuffleright, consumeleft, consumeright, join])
+    return [shuffleleft, shuffleright, consumeleft, consumeright, join]
 
 class MyriaShuffle(algebra.PartitionBy,MyriaOperator):
   def compileme(self, resultsym, inputsym):
-    scatter = json_pretty_print({
+    scatter = {
         "op_name" : "%s_scatter" % (resultsym,),
         "op_type" : "SHUFFLE_PRODUCER",
         "partition" : self.columnlist,
         "arg_child": inputsym
-      })+','
-    gather = json_pretty_print({
+      }
+    gather = {
         "op_name" : "%s_gather" % (resultsym,),
         "op_type" : "SHUFFLE_CONSUMER",
         "producers" : ["%s_producer" % (resultsym,)]
-      })+','
-    return scatter + '\n' + gather
+      }
+    return [scatter, gather]
 
 class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
   """Turns a single plan into a forst of identical plans, one for each worker."""
@@ -223,15 +192,11 @@ class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
       return 'MyriaParallel(%s)' % repr(self.plans)
 
   def compileme(self, resultsym):
-    patt = """
-"%s" : [[
- %s 
-]]
-""" 
     def compile(p):
       algebra.reset()
       return p.compile(resultsym)
-    return ",\n".join([patt % (worker, compile(plan)) for (worker, plan) in self.plans])
+    ret = [{ worker : compile(plan) } for (worker, plan) in self.plans]
+    return ret
 
 class BroadcastRule(rules.Rule):
   """Convert a broadcast operator to a shuffle"""
@@ -262,20 +227,20 @@ class MyriaAlgebra:
   language = MyriaLanguage
 
   operators = [
-  MyriaShuffle,
-  MyriaEquiJoin,
-  MyriaSelect,
-  MyriaProject,
-  MyriaScan
-]
+      MyriaShuffle
+      , MyriaEquiJoin
+      , MyriaSelect
+      , MyriaProject
+      , MyriaScan
+  ]
+
   rules = [
-  rules.OneToOne(algebra.PartitionBy,MyriaShuffle),
-  BroadcastRule(),
-  rules.OneToOne(algebra.Store,MyriaInsert),
-  rules.OneToOne(algebra.Join,MyriaEquiJoin),
-  rules.OneToOne(algebra.Select,MyriaSelect),
-  rules.OneToOne(algebra.Project,MyriaProject),
-  rules.OneToOne(algebra.Scan,MyriaScan),
-  Parallel(2)
-]
- 
+      rules.OneToOne(algebra.PartitionBy,MyriaShuffle)
+      , BroadcastRule()
+      , rules.OneToOne(algebra.Store,MyriaInsert)
+      , rules.OneToOne(algebra.Join,MyriaEquiJoin)
+      , rules.OneToOne(algebra.Select,MyriaSelect)
+      , rules.OneToOne(algebra.Project,MyriaProject)
+      , rules.OneToOne(algebra.Scan,MyriaScan)
+      #, Parallel(2)
+  ]
