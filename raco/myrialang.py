@@ -83,7 +83,7 @@ class MyriaSelect(algebra.Select, MyriaOperator):
 
 class MyriaProject(algebra.Project, MyriaOperator):
   def compileme(self, resultsym, inputsym):
-    cols = [str(x) for x in self.columnlist]
+    cols = [x.position for x in self.columnlist]
     return {
         "op_name" : resultsym,
         "op_type" : "PROJECT",
@@ -99,7 +99,7 @@ class MyriaInsert(algebra.Store, MyriaOperator):
         "arg_child" : inputsym
       }
 
-class MyriaEquiJoin(algebra.Join, MyriaOperator):
+class MyriaJoin(algebra.ProjectingJoin, MyriaOperator):
 
   @classmethod
   def convertcondition(self, condition):
@@ -112,6 +112,8 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
 
     if isinstance(condition, boolean.EQ):
       return [condition.left.position], [condition.right.position]
+
+    raise NotImplementedError("Myria only supports EquiJoins")
   
   def compileme(self, resultsym, leftsym, rightsym):
     """Compile the operator to a sequence of json operators"""
@@ -149,9 +151,11 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
     consumeleft = mkconsumer(leftsym, pretty(self.left.scheme()),  0)
     consumeright = mkconsumer(rightsym, pretty(self.right.scheme()), 1)
 
-    cols = range(len(self.scheme()))
-    allleft = cols[:len(self.left.scheme())]
-    allright = cols[len(self.right.scheme()):]
+    
+    if self.columnlist is None:
+      self.columnlist = [boolean.PositionReference(i) for i in xrange(len(self.scheme()))]
+    allleft = [i.position for i in self.columnlist if i.position < len(self.left.scheme())]
+    allright = [i.position-len(self.left.scheme()) for i in self.columnlist if i.position >= len(self.left.scheme())]
 
     join = {
         "op_name" : resultsym,
@@ -165,21 +169,6 @@ class MyriaEquiJoin(algebra.Join, MyriaOperator):
       }
 
     return [shuffleleft, shuffleright, consumeleft, consumeright, join]
-
-class MyriaShuffle(algebra.PartitionBy,MyriaOperator):
-  def compileme(self, resultsym, inputsym):
-    scatter = {
-        "op_name" : "%s_scatter" % (resultsym,),
-        "op_type" : "SHUFFLE_PRODUCER",
-        "partition" : self.columnlist,
-        "arg_child": inputsym
-      }
-    gather = {
-        "op_name" : "%s_gather" % (resultsym,),
-        "op_type" : "SHUFFLE_CONSUMER",
-        "producers" : ["%s_producer" % (resultsym,)]
-      }
-    return [scatter, gather]
 
 class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
   """Turns a single plan into a forst of identical plans, one for each worker."""
@@ -198,18 +187,6 @@ class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
     ret = [{ worker : compile(plan) } for (worker, plan) in self.plans]
     return ret
 
-class BroadcastRule(rules.Rule):
-  """Convert a broadcast operator to a shuffle"""
-  def fire(self, expr):
-    if isinstance(expr, algebra.Broadcast):
-      columnlist = [boolean.PositionReference(i) for i in range(len(expr.scheme()))]
-      newop = MyriaShuffle(columnlist, expr.input)
-      return newop
-    return expr
-
-  def __str__(self):
-    return "Project => ()"
-
 class Parallel(rules.Rule):
   """Repeat a plan for each worker"""
   def __init__(self,N):
@@ -227,20 +204,19 @@ class MyriaAlgebra:
   language = MyriaLanguage
 
   operators = [
-      MyriaShuffle
-      , MyriaEquiJoin
+      MyriaJoin
       , MyriaSelect
       , MyriaProject
       , MyriaScan
   ]
 
   rules = [
-      rules.OneToOne(algebra.PartitionBy,MyriaShuffle)
-      , BroadcastRule()
+      rules.ProjectingJoin()
       , rules.OneToOne(algebra.Store,MyriaInsert)
-      , rules.OneToOne(algebra.Join,MyriaEquiJoin)
+      , rules.OneToOne(algebra.Join,MyriaJoin)
       , rules.OneToOne(algebra.Select,MyriaSelect)
       , rules.OneToOne(algebra.Project,MyriaProject)
+      , rules.OneToOne(algebra.ProjectingJoin,MyriaJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
       #, Parallel(2)
   ]
