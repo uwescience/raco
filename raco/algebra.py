@@ -421,6 +421,31 @@ class GroupBy(UnaryOperator):
     groupingscheme = [attref.resolve(self.input.scheme()) for attref in self.groupinglist]
     expressionscheme = [("expr%s" % i, GroupBy.typeof(expr)) for i,expr in enumerate(self.expressionlist)]
 
+class ProjectingJoin(Join):
+  """Logical Projecting Join operator"""
+  def __init__(self, condition=None, left=None, right=None, columnlist=None):
+    self.columnlist = columnlist
+    Join.__init__(self, condition, left, right)
+
+  def __eq__(self, other):
+    return Join.__eq__(self,other) and self.columnlist == other.columnlist
+
+  def __str__(self):
+    if self.columnlist is None:
+      return Join.__str__(self)
+    return "%s(%s; %s)[%s, %s]" % (self.opname(), self.condition, self.columnlist, self.left, self.right)
+
+  def copy(self, other):
+    """deep copy"""
+    self.columnlist = other.columnlist
+    Join.copy(self, other)
+
+  def scheme(self):
+    """Return the scheme of the result."""
+    if self.columnlist is None:
+      return Join.scheme(self)
+    combined = self.left.scheme() + self.right.scheme()
+    return [combined[i] for i in self.columnlist]
 
 class Shuffle(UnaryOperator):
   """Send the input to the specified servers"""
