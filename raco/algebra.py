@@ -449,7 +449,16 @@ class ProjectingJoin(Join):
 
 class Shuffle(UnaryOperator):
   """Send the input to the specified servers"""
-  pass
+  def __init__(self, child=None, columnlist=None):
+      UnaryOperator.__init__(self, child)
+      self.columnlist = columnlist
+
+  def __str__(self):
+      return "%s(%s)[%s]" % (self.opname(), self.columnlist, self.input)
+
+  def copy(self, other):
+      self.columnlist = other.columnlist
+      UnaryOperator.copy(self, other)
 
 class Broadcast(UnaryOperator):
   """Send input to all servers"""

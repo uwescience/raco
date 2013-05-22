@@ -100,7 +100,6 @@ class MyriaInsert(algebra.Store, MyriaOperator):
       }
 
 class MyriaJoin(algebra.ProjectingJoin, MyriaOperator):
-
   @classmethod
   def convertcondition(self, condition):
     """Convert the joincondition to a list of left columns and a list of right columns representing a conjunction"""
@@ -120,55 +119,24 @@ class MyriaJoin(algebra.ProjectingJoin, MyriaOperator):
   
     leftcols, rightcols = self.convertcondition(self.condition)
 
-    def mkshuffle(symbol, op_id, joincond):
-      return {
-          "op_name" : "%s_scatter" % symbol,
-          "op_type" : "ShuffleProducer",
-          "arg_child" : symbol,
-          "arg_worker_ids" : self.workers,
-          "arg_operator_id" : op_id,
-          "arg_pf" : ["SingleFieldHash", joincond]
-        }
-
-    shuffleleft = mkshuffle(leftsym, 0, leftcols)
-    shuffleright = mkshuffle(rightsym, 1, rightcols)
-
-    def mkconsumer(symbol,scheme,op_id):
-      return {
-          "op_name" : "%s_gather" % (symbol,),
-          "op_type" : "ShuffleConsumer",
-          "arg_schema" : scheme,
-          "arg_worker_ids" : self.workers,
-          "arg_operator_id" : op_id
-        }
-
-    def pretty(s):
-      names, descrs = zip(*s.asdict.items())
-      names = ["%s" % n for n in names]
-      types = [r[1] for r in descrs]
-      return {"column_types" : types, "column_names" : names}
-
-    consumeleft = mkconsumer(leftsym, pretty(self.left.scheme()),  0)
-    consumeright = mkconsumer(rightsym, pretty(self.right.scheme()), 1)
-
-    
     if self.columnlist is None:
       self.columnlist = [boolean.PositionReference(i) for i in xrange(len(self.scheme()))]
+
     allleft = [i.position for i in self.columnlist if i.position < len(self.left.scheme())]
     allright = [i.position-len(self.left.scheme()) for i in self.columnlist if i.position >= len(self.left.scheme())]
 
     join = {
         "op_name" : resultsym,
         "op_type" : "LocalJoin",
-        "arg_child1" : "%s_gather" % (leftsym,),
+        "arg_child1" : "%s" % leftsym,
         "arg_columns1" : leftcols,
-        "arg_child2": "%s_gather" % (rightsym,),
+        "arg_child2": "%s" % rightsym,
         "arg_columns2" : rightcols,
         "arg_select1" : allleft,
         "arg_select2" : allright
       }
 
-    return [shuffleleft, shuffleright, consumeleft, consumeright, join]
+    return join
 
 class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
   """Turns a single plan into a forst of identical plans, one for each worker."""
@@ -187,6 +155,15 @@ class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
     ret = [{ worker : compile(plan) } for (worker, plan) in self.plans]
     return ret
 
+class MyriaShuffle(algebra.Shuffle, MyriaOperator):
+  """Represents a simple shuffle operator"""
+  def compileme(self, resultsym, inputsym):
+    return {
+        'op_name' : resultsym,
+        'op_type' : 'Shuffle',
+        'arg_child' : inputsym
+      }
+
 class Parallel(rules.Rule):
   """Repeat a plan for each worker"""
   def __init__(self,N):
@@ -198,7 +175,38 @@ class Parallel(rules.Rule):
       newop.copy(expr)
       return newop
     return MyriaParallel([(i, copy(expr)) for i in self.workers])
-      
+
+class ShuffleBeforeJoin(rules.Rule):
+  def fire(self, expr):
+    # If not a join, who cares?
+    if not (isinstance(expr, algebra.Join) or \
+            isinstance(expr, algebra.ProjectingJoin)):
+      return expr
+
+    # If both have shuffles already, who cares?
+    if isinstance(expr.left, algebra.Shuffle) and isinstance(expr.right, algebra.Shuffle):
+      return expr
+
+    # Figure out which columns go in the shuffle
+    left_cols, right_cols = MyriaJoin.convertcondition(expr.condition)
+
+    # Left shuffle
+    if isinstance(expr.left, algebra.Shuffle):
+      left_shuffle = expr.left
+    else:
+      left_shuffle = algebra.Shuffle(expr.left, left_cols)
+    # Right shuffle
+    if isinstance(expr.right, algebra.Shuffle):
+      right_shuffle = expr.right
+    else:
+      right_shuffle = algebra.Shuffle(expr.right, right_cols)
+
+    # Construct the object!
+    if isinstance(expr, algebra.ProjectingJoin):
+      return algebra.ProjectingJoin(expr.condition, left_shuffle, right_shuffle, expr.columnlist)
+    elif isinstance(expr, algebra.Join):
+      return algebra.Join(expr.condition, left_shuffle, right_shuffle)
+    raise NotImplementedError("How the heck did you get here?")
 
 class MyriaAlgebra:
   language = MyriaLanguage
@@ -212,9 +220,11 @@ class MyriaAlgebra:
 
   rules = [
       rules.ProjectingJoin()
+      , ShuffleBeforeJoin()
       , rules.OneToOne(algebra.Store,MyriaInsert)
       , rules.OneToOne(algebra.Join,MyriaJoin)
       , rules.OneToOne(algebra.Select,MyriaSelect)
+      , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
       , rules.OneToOne(algebra.Project,MyriaProject)
       , rules.OneToOne(algebra.ProjectingJoin,MyriaJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
