@@ -9,6 +9,7 @@ import raco.algebra
 import raco.scheme
 import raco.catalog
 
+
 class Program:
   def __init__(self, rules):
     self.rules = rules
@@ -162,8 +163,8 @@ class BFSLeftDeepPlanner(Planner):
   def chooseplan(self, costfunc=None):
     """Return a join sequence object based on the join graph.
 This one is simple -- it just adds the joins according to a breadth first search"""
-    # choose first node
-    firstnode = self.joingraph.nodes()[0]
+    # choose first node in the original insertion order (networkx does not guarantee even a deterministic order)
+    firstnode = [n for n in self.joingraph.nodes() if n.originalorder == 0][0]
 
     # get a BFS ordering of the edges.  Ignores costs.
     edgesequence = [x for x in nx.bfs_edges(self.joingraph, firstnode)]
@@ -292,13 +293,13 @@ class Rule:
       plan = raco.algebra.CrossProduct(plan, newplan)
  
     # Helper function for the next two steps (TODO: move this to a method?)
-    vars = [x for x in self.vars()]
+    scheme = plan.scheme()
     def findvar(variable):
       var = variable.var
-      if var not in vars:
+      if var not in scheme:
         msg = "Head variable %s does not appear in rule body: %s" % (var, self)
         raise SyntaxError(msg)
-      return raco.boolean.PositionReference(vars.index(var))
+      return raco.boolean.PositionReference(scheme.getPosition(var))
 
     # if this Rule includes a server specification, add a partition operator
     if self.isParallel():
@@ -343,7 +344,12 @@ class Var:
 class Term:
   def __init__(self, parsedterm): 
     self.name = parsedterm[0]
+    self.alias = self.name
     self.valuerefs = [vr for vr in parsedterm[1]]
+
+  def setalias(self, alias):
+    """Assign an alias for this term. Used when the same relation appears twice in one rule."""
+    self.alias = alias
 
   def samerelation(self, term):
     """Return True if the argument refers to the same relation"""
@@ -373,16 +379,16 @@ class Term:
         joins.append(raco.boolean.EQ(myposition, yourposition))
 
     # get the explicit join conditions
-    for c in conditions:
-      if isinstance(c.left, Var) and isinstance(c.right, Var):
-        # then we have a potential join condition
-        if self.match(c.left) and other.match(c.right):
-          joins.append(c.__class__(self.convertvalref(c.left), other.convertvalref(c.right)))
-        elif other.match(c.left) and self.match(c.right):
-          joins.append(c.__class__(other.convertvalref(c.left), self.convertvalref(c.right)))
-        else:
-          # must be a condition on some other pair of relations
-          pass
+    #for c in conditions:
+    #  if isinstance(c.left, Var) and isinstance(c.right, Var):
+    #    # then we have a potential join condition
+    #    if self.match(c.left) and other.match(c.right):
+    #      joins.append(c.__class__(self.convertvalref(c.left), other.convertvalref(c.right)))
+    #    elif other.match(c.left) and self.match(c.right):
+    #      joins.append(c.__class__(other.convertvalref(c.left), self.convertvalref(c.right)))
+    #    else:
+    #      # must be a condition on some other pair of relations
+    #      pass
     return joins
         
   def match(self, valref):
@@ -475,11 +481,15 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
   and separate condition terms, like A(X,Y), X=3 -> Select(pos0=3, Scan(A))
   separate condition terms are passed in as an argument.
   """
-    def attr(i,r): 
+    def attr(i,r, relation_alias): 
       if isinstance(r,Var):
-        return (r.var, None)
+        name = r.var
+        attrtype = None
       elif isinstance(r,raco.boolean.Literal):
-        return ("pos%s" % i, type(r.value))
+        name = "pos%s" % i 
+        attrtype = type(r.value)
+      return (name, attrtype)
+      #return AttributeSpec(relation_alias, name, attrtype)
 
     idbs = program.IDB(term)
     if idbs:
@@ -493,7 +503,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
       scan = reduce(raco.algebra.Union,[wrap(idb) for idb in idbs])
     else:
       # TODO: A call to some catalog?
-      sch = raco.scheme.Scheme([attr(i,r) for i,r in enumerate(term.valuerefs)])
+      sch = raco.scheme.Scheme([attr(i,r,term.name) for i,r in enumerate(term.valuerefs)])
       scan = raco.algebra.Scan(raco.catalog.Relation(term.name, sch))
       scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))
 

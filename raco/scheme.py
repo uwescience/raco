@@ -63,6 +63,10 @@ Type is a function that returns true for any value that is of the correct type
     except KeyError:
       pass
 
+  def __str__(self):
+    """Pretty print the scheme"""
+    return str(self.attributes)
+
   def __len__(self):
     """Return the number of attributes in the scheme"""
     return len(self.attributes)
