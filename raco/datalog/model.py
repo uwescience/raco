@@ -234,7 +234,7 @@ class Rule:
       joingraph.add_node(term1, term=term1) 
       for j in range(i+1, N):
         term2 = terms[j]
-        joins = term1.joins(term2, conditions)
+        joins = term1.joinsto(term2, conditions)
         if joins:
           conjunction = reduce(raco.boolean.AND, joins) 
           joingraph.add_edge(term1, term2, condition=conjunction, order=(term1, term2)) 
@@ -359,13 +359,10 @@ class Term:
     return "%s_%s(%s)" % (self.__class__.__name__,self.name, ",".join([str(e) for e in self.valuerefs]))
 
   def vars(self):
-    """Return a dictionary mapping variable names to RA attribute references. For example, A(X,Y) returns {"X":PositionReference(0), "Y":PositionReference(1)}.  Only the first reference to this variable is returned."""
-  
-    Pos = raco.boolean.PositionReference
+    """Return a list of variable names used in this term."""
     return [vr.var for vr in self.valuerefs if isinstance(vr, Var)]
-    #return {vr.var:Pos(i) for i,vr in enumerate(self.valuerefs) if isinstance(vr, Var)}
 
-  def joins(self, other, conditions):
+  def joinsto(self, other, conditions):
     """Return the join conditions between this term and the argument term.  The second argument is a list of explicit conditions, like X=3 or Y=Z"""
     # get the implicit join conditions
     yourvars = other.vars()
@@ -379,16 +376,16 @@ class Term:
         joins.append(raco.boolean.EQ(myposition, yourposition))
 
     # get the explicit join conditions
-    #for c in conditions:
-    #  if isinstance(c.left, Var) and isinstance(c.right, Var):
-    #    # then we have a potential join condition
-    #    if self.match(c.left) and other.match(c.right):
-    #      joins.append(c.__class__(self.convertvalref(c.left), other.convertvalref(c.right)))
-    #    elif other.match(c.left) and self.match(c.right):
-    #      joins.append(c.__class__(other.convertvalref(c.left), self.convertvalref(c.right)))
-    #    else:
-    #      # must be a condition on some other pair of relations
-    #      pass
+    for c in conditions:
+      if isinstance(c.left, Var) and isinstance(c.right, Var):
+        # then we have a potential join condition
+        if self.match(c.left) and other.match(c.right):
+          joins.append(c.__class__(self.convertvalref(c.left), other.convertvalref(c.right)))
+        elif other.match(c.left) and self.match(c.right):
+          joins.append(c.__class__(other.convertvalref(c.left), self.convertvalref(c.right)))
+        else:
+          # must be a condition on some other pair of relations
+          pass
     return joins
         
   def match(self, valref):
