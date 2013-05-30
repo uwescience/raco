@@ -47,8 +47,7 @@ def main():
     dlog.fromDatalog(query)
 
     # Print out the graph
-    for plan_fragment in dlog.logicalplan:
-        (label, root_operator) = plan_fragment
+    for (label, root_operator) in dlog.logicalplan:
         (nodes, edges) = root_operator.collectGraph()
         print print_gv(nodes, edges)
 

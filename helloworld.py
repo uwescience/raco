@@ -15,11 +15,18 @@ dlog = RACompiler()
 
 # parse the query
 dlog.fromDatalog(query)
+print "************ LOGICAL PLAN *************"
 print dlog.logicalplan
+print
 
+# Optimize the query, includes producing a physical plan
+print "************ PHYSICAL PLAN *************"
 dlog.optimize(target=MyriaAlgebra, eliminate_common_subexpressions=False)
+print dlog.physicalplan
+print
 
 # generate code in the target language
 code = dlog.compile()
+print "************ CODE *************"
 print code
-
+print
