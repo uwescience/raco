@@ -110,7 +110,7 @@ void query (const char* fname,int num_threads) {
     start = walltime();
     
     //loop over edges
-    #pragma omp parallel for reduction(+:result) schedule(dynamic,1)
+    #pragma omp parallel for reduction(+:result) schedule(static)
     for (int index0 = 0; index0 < edges.size(); ++index0) {
         if (edges[index0].to > edges[index0].from) { continue; }
         //if there is no match, continue
@@ -122,7 +122,7 @@ void query (const char* fname,int num_threads) {
     
     
         //loop over table1
-        #pragma omp parallel for reduction(+:result) schedule(dynamic,1)
+        #pragma omp parallel for reduction(+:result) schedule(static)
         for (int index1 = 0; index1 < table1.size(); ++index1) {
             if (table1[index1].to > table1[index1].from) { continue;}
             //if there is no match, continue
@@ -134,7 +134,7 @@ void query (const char* fname,int num_threads) {
         
         
             //loop over final join results
-            #pragma omp parallel for reduction(+:result) schedule(dynamic,1)
+            #pragma omp parallel for reduction(+:result) schedule(static)
             for (int index2 = 0; index2 < table2.size(); ++index2) {
                 if (table2[index2].from==edges[index0].to) {
                         ++result;
@@ -149,11 +149,18 @@ void query (const char* fname,int num_threads) {
     triangles_runtime = end - start;
 
     cout << "Found " << result << " tuples.\n";
+
+    char scheduling[1024] = "static";
+    int64_t chunk = -1;
     
     DictOut out;
     DICT_ADD(out, hash_runtime);
     DICT_ADD(out, triangles_runtime);
     DICT_ADD(out, scan_runtime);
+    DICT_ADD(out, (int64_t)num_threads);
+    DICT_ADD(out, fname);
+    DICT_ADD(out, scheduling);
+    DICT_ADD(out, chunk);
     std::cout << out.toString() << std::endl; 
 }
 
