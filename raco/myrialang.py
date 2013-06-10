@@ -60,12 +60,12 @@ class MyriaOperator:
   workers = MyriaLanguage.workers
   language = MyriaLanguage
 
-class MyriaScan(algebra.Scan, MyriaOperator):
+class MyriaSQLiteScan(algebra.Scan, MyriaOperator):
   def compileme(self, resultsym):
     return {
         "op_name" : resultsym,
-        "op_type" : "SCAN",
-        "arg_relation_key" : {
+        "op_type" : "SQLiteScan",
+        "relation_key" : {
           "user_name" : "public",
           "program_name" : "adhoc",
           "relation_name" : self.relation.name
@@ -91,15 +91,20 @@ class MyriaProject(algebra.Project, MyriaOperator):
         "arg_child" : inputsym
       }
 
-class MyriaInsert(algebra.Store, MyriaOperator):
+class MyriaSQLiteInsert(algebra.Store, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     return {
         "op_name" : resultsym,
-        "op_type" : "INSERT",
+        "op_type" : "SQLiteInsert",
+        "relation_key" : {
+          "user_name" : "public",
+          "program_name" : "adhoc",
+          "relation_name" : self.relation.name
+        },
         "arg_child" : inputsym
       }
 
-class MyriaJoin(algebra.ProjectingJoin, MyriaOperator):
+class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
   @classmethod
   def convertcondition(self, condition):
     """Convert the joincondition to a list of left columns and a list of right columns representing a conjunction"""
@@ -188,7 +193,7 @@ class ShuffleBeforeJoin(rules.Rule):
       return expr
 
     # Figure out which columns go in the shuffle
-    left_cols, right_cols = MyriaJoin.convertcondition(expr.condition)
+    left_cols, right_cols = MyriaLocalJoin.convertcondition(expr.condition)
 
     # Left shuffle
     if isinstance(expr.left, algebra.Shuffle):
@@ -212,21 +217,21 @@ class MyriaAlgebra:
   language = MyriaLanguage
 
   operators = [
-      MyriaJoin
+      MyriaLocalJoin
       , MyriaSelect
       , MyriaProject
-      , MyriaScan
+      , MyriaSQLiteScan
   ]
 
   rules = [
       rules.ProjectingJoin()
       , ShuffleBeforeJoin()
-      , rules.OneToOne(algebra.Store,MyriaInsert)
-      , rules.OneToOne(algebra.Join,MyriaJoin)
+      , rules.OneToOne(algebra.Store,MyriaSQLiteInsert)
+      , rules.OneToOne(algebra.Join,MyriaLocalJoin)
       , rules.OneToOne(algebra.Select,MyriaSelect)
       , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
       , rules.OneToOne(algebra.Project,MyriaProject)
-      , rules.OneToOne(algebra.ProjectingJoin,MyriaJoin)
-      , rules.OneToOne(algebra.Scan,MyriaScan)
+      , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
+      , rules.OneToOne(algebra.Scan,MyriaSQLiteScan)
       #, Parallel(2)
   ]
