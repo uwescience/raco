@@ -12,6 +12,12 @@ import json
 from language import Language
 from utility import emit
 
+op_id = 0
+def gen_op_id():
+  global op_id
+  op_id += 1
+  return "operator%d" % op_id
+
 def json_pretty_print(dictionary):
     """a function to pretty-print a JSON dictionary.
 From http://docs.python.org/2/library/json.html"""
@@ -163,11 +169,57 @@ class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
   """Represents a simple shuffle operator"""
   def compileme(self, resultsym, inputsym):
+    raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')
+
+class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
+  """A Myria ShuffleProducer"""
+  def __init__(self, input, opid, hash_columns):
+    algebra.UnaryOperator.__init__(self, input)
+    self.opid = opid
+    self.hash_columns = hash_columns
+
+  def compileme(self, resultsym, inputsym):
+    if len(self.hash_columns) == 1:
+      pf = {
+          "type" : "SingleFieldHash",
+          "index" : self.hash_columns[0]
+        }
+    else:
+      pf = {
+          "type" : "MultiFieldHash",
+          "index" : self.hash_columns
+        }
+
+    return {
+        "op_name" : resultsym,
+        "op_type" : "ShuffleProducer",
+        "arg_child" : inputsym,
+        "arg_operator_id" : self.opid,
+        "arg_pf" : pf
+      }
+
+class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
+  """A Myria ShuffleConsumer"""
+  def __init__(self, input, opid):
+    algebra.UnaryOperator.__init__(self, input)
+    self.opid = opid
+
+  def compileme(self, resultsym, inputsym):
     return {
         'op_name' : resultsym,
-        'op_type' : 'Shuffle',
-        'arg_child' : inputsym
+        'op_type' : 'ShuffleConsumer',
+        'arg_operator_id' : self.opid,
       }
+
+class BreakShuffle(rules.Rule):
+  def fire(self, expr):
+    if not isinstance(expr, MyriaShuffle):
+      return expr
+
+    opid = gen_op_id()
+    producer = MyriaShuffleProducer(expr.input, opid, expr.columnlist)
+    consumer = MyriaShuffleConsumer(producer, opid)
+    return consumer
 
 class Parallel(rules.Rule):
   """Repeat a plan for each worker"""
@@ -233,5 +285,6 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.Project,MyriaProject)
       , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
       , rules.OneToOne(algebra.Scan,MyriaSQLiteScan)
+      , BreakShuffle()
       #, Parallel(2)
   ]
