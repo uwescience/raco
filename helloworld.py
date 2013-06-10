@@ -3,9 +3,16 @@ from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
 
 # A simple join
-query = """
+simple_query = """
 A(x,z) :- R(x,y), S(y,z)
 """
+# A multi-join version
+multi_query = """
+A(x,w) :- R(x,y,z), S(y,z,w)
+"""
+
+# Which one do we use?
+query = simple_query
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
