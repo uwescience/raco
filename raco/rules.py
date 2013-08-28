@@ -46,3 +46,14 @@ class OneToOne(Rule):
   def __str__(self):
     return "%s => %s" % (self.opfrom.__name__,self.opto.__name__)
 
+class ProjectingJoin(Rule):
+  """A rewrite rule for combining Project after Join into ProjectingJoin"""
+  def fire(self, expr):
+    if isinstance(expr, algebra.Project):
+      if isinstance(expr.input, algebra.Join):
+         return algebra.ProjectingJoin(expr.input.condition, expr.input.left, expr.input.right, expr.columnlist)
+    return expr
+
+  def __str__(self):
+    return "Project, Join => ProjectingJoin"
+

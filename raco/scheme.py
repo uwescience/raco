@@ -96,6 +96,9 @@ Type is a function that returns true for any value that is of the correct type
         newsch.addAttribute(n,t)
     return newsch
 
+  def __str__(self):
+    return str(self.attributes)
+
 
 class EmptyScheme(Scheme):
   def __init__(self):
