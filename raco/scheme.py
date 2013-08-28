@@ -32,8 +32,14 @@ Type is a function that returns true for any value that is of the correct type
   def getPosition(self, name): 
     return self.asdict[name][0]
   
+  def getName(self, position):
+    return self[position][0]
+
   def getType(self, name):
-    return self.asdict[name][1]
+    if type(name) == int:
+      return self[name][1]
+    else:
+      return self.asdict[name][1]
 
   def subScheme(self, attributes):
     return Scheme([(n,self.getType(n)) for n in attributes])
