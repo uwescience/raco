@@ -1,3 +1,4 @@
+import boolean
 
 class Scheme:
   '''
@@ -42,14 +43,22 @@ Type is a function that returns true for any value that is of the correct type
       return self.asdict[name][1]
 
   def subScheme(self, attributes):
+    """Return a scheme consisting of only the provided attribute names"""
     return Scheme([(n,self.getType(n)) for n in attributes])
 
   def subsumes(self, names):
+    """Does this scheme contain all the names in the list?"""
     return all([n in self.asdict.keys() for n in names])
 
   def contains(self, names):
     """deprecated.  use subsumes"""
     return self.contains(names)
+
+  def ascolumnlist(self):
+    """Return a columnlist structure suitable for use with Project and ProjectingJoin.
+    Currently a list of PositionReferences.  May eventually be a scheme itself.
+    """
+    return [boolean.PositionReference(i) for i in xrange(len(self))]
 
   def __contains__(self, attr, typ=None):
     if typ:

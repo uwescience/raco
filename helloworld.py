@@ -11,6 +11,10 @@ multi_query = """
 A(x,w) :- R(x,y,z), S(y,z,w)
 """
 
+simple_query = """
+A(x,z) :- R(x,y),S(y,z),T(z,x)
+"""
+
 # Which one do we use?
 query = simple_query
 

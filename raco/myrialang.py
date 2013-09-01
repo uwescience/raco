@@ -131,7 +131,7 @@ class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
     leftcols, rightcols = self.convertcondition(self.condition)
 
     if self.columnlist is None:
-      self.columnlist = [boolean.PositionReference(i) for i in xrange(len(self.scheme()))]
+      self.columnlist = self.scheme().ascolumnlist()
 
     allleft = [i.position for i in self.columnlist if i.position < len(self.left.scheme())]
     allright = [i.position-len(self.left.scheme()) for i in self.columnlist if i.position >= len(self.left.scheme())]
@@ -233,6 +233,20 @@ class Parallel(rules.Rule):
       return newop
     return MyriaParallel([(i, copy(expr)) for i in self.workers])
 
+class JoinToProjectingJoin(rules.Rule):
+  """MyriaLocalJoin needs a columnlist; it's a projecting join.  This rule
+  converts regular joins into MyriaLocalJoins by adding a trivial columnlist 
+  consisting of every column.  
+  (None would also work due to an explicit check in 
+  MyriaLocalJoin, but it's probably best to avoid relying on that logic.)"""
+  def fire(self, expr):
+    # If not a join, who cares?
+    if not (isinstance(expr, algebra.Join)):
+      return expr
+
+    columnlist = expr.scheme().ascolumnlist()
+    return MyriaLocalJoin(expr.condition, expr.left, expr.right, columnlist)
+
 class ShuffleBeforeJoin(rules.Rule):
   def fire(self, expr):
     # If not a join, who cares?
@@ -277,9 +291,9 @@ class MyriaAlgebra:
 
   rules = [
       rules.ProjectingJoin()
+      , JoinToProjectingJoin()
       , ShuffleBeforeJoin()
       , rules.OneToOne(algebra.Store,MyriaSQLiteInsert)
-      , rules.OneToOne(algebra.Join,MyriaLocalJoin)
       , rules.OneToOne(algebra.Select,MyriaSelect)
       , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
       , rules.OneToOne(algebra.Project,MyriaProject)

@@ -392,6 +392,7 @@ class Project(UnaryOperator):
 
   def scheme(self):
     """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
+    # TODO: columnlist should perhaps be a list of column expressions, TBD
     return scheme.Scheme([attref.resolve(self.input.scheme()) for attref in self.columnlist])
 
 class GroupBy(UnaryOperator):
@@ -445,7 +446,8 @@ class ProjectingJoin(Join):
     if self.columnlist is None:
       return Join.scheme(self)
     combined = self.left.scheme() + self.right.scheme()
-    return [combined[i] for i in self.columnlist]
+    # TODO: columnlist should perhaps be a list of arbitrary column expressions, TBD
+    return [combined[p.position] for p in self.columnlist]
 
 class Shuffle(UnaryOperator):
   """Send the input to the specified servers"""
