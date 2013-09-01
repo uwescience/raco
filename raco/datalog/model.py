@@ -312,6 +312,7 @@ class Rule:
 
     # Put a project at the top of the plan
      
+    # TODO: columnlist should perhaps be a list of arbitrary column expressions
     columnlist = [findvar(var) for var in self.head.valuerefs if isinstance(var, Var)]
         
     plan = raco.algebra.Project(columnlist, plan)
