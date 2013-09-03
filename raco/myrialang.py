@@ -212,6 +212,9 @@ class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
     self.plans = plans
     algebra.Operator.__init__(self)
 
+  def __repr__(self):
+      return 'MyriaParallel(%s)' % repr(self.plans)
+
   def compileme(self, resultsym):
     patt = """
 "%s" : [[
