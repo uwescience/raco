@@ -59,6 +59,10 @@ class Parser:
         'statement : DO statement_list WHILE expression SEMI'
         p[0] = ('DOWHILE', p[2], p[4])
 
+    def p_statement_store(self, p):
+        'statement : STORE ID COMMA relation_key'
+        p[0] = ('STORE', p[2], p[4])
+
     def p_expression_id(self, p):
         'expression : ID'
         p[0] = ('ALIAS', p[1])
