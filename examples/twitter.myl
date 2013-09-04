@@ -8,9 +8,9 @@ T3 = JOIN T1 BY follower, T2 by followee;
 
 T4 = PROJECT T3 EMIT ($0, $3);
 
-/*
+T5 = RENAME T4 AS (x, y);
 
-T5 = Rename T4 AS (x, y)
+/*
 T6 = DISTINCT T5;
 T7 = COUNT T6; -- renames to count(colname)
 -- T8 = RENAME T7 AS (count)

@@ -7,14 +7,14 @@ import ply.lex as lex
 reserved = ['LOAD', 'STORE', 'LIMIT', 'SHUFFLE', 'SEQUENCE', 'CROSS', 'JOIN',
             'GROUP', 'PROJECT', 'EMIT', 'AS', 'DIFF', 'UNION', 'INTERSECT',
             'DUMP', 'FILTER', 'TABLE', 'ORDER', 'ASC', 'DESC', 'BY', 'WHILE',
-            'INT', 'STRING', 'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN']
+            'INT', 'STRING', 'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN',
+            'RENAME']
 
 # Token types; required by ply to have this variable name
 tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'PLUS', 'MINUS', 'TIMES',
           'DIVIDE', 'MOD', 'LOR', 'LAND', 'LNOT', 'LT', 'GT', 'GE', 'LE', 'EQ',
           'NE', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'DOT', 'ID',
           'STRING_LITERAL', 'INTEGER_LITERAL', 'LBRACE', 'RBRACE'] + reserved
-
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('

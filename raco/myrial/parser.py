@@ -99,6 +99,10 @@ class Parser:
         '''expression : PROJECT ID EMIT LPAREN column_arg_list RPAREN'''
         p[0] = ('PROJECT', p[2], p[5])
 
+    def p_expression_rename(self, p):
+        '''expression : RENAME ID AS LPAREN string_arg_list RPAREN'''
+        p[0] = ('RENAME', p[2], p[5])
+
     def p_expression_limit(self, p):
         'expression : LIMIT ID COMMA INTEGER_LITERAL'
         p[0] = ('LIMIT', p[2], p[4])
