@@ -460,7 +460,7 @@ class ProjectingJoin(Join):
       return Join.scheme(self)
     combined = self.left.scheme() + self.right.scheme()
     # TODO: columnlist should perhaps be a list of arbitrary column expressions, TBD
-    return [combined[p.position] for p in self.columnlist]
+    return scheme.Scheme([combined[p.position] for p in self.columnlist])
 
 class Shuffle(UnaryOperator):
   """Send the input to the specified servers"""
