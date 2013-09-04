@@ -18,15 +18,7 @@ def gen_op_id():
   op_id += 1
   return "operator%d" % op_id
 
-def json_pretty_print(dictionary):
-    """a function to pretty-print a JSON dictionary.
-From http://docs.python.org/2/library/json.html"""
-    return json.dumps(dictionary, sort_keys=True, 
-            indent=2, separators=(',', ': '))
-
 class MyriaLanguage(Language):
-  # TODO: get the workers from somewhere
-  workers = [1,2]
   reusescans = False
 
   @classmethod
@@ -63,7 +55,6 @@ class MyriaLanguage(Language):
     return '%s' % name
 
 class MyriaOperator:
-  workers = MyriaLanguage.workers
   language = MyriaLanguage
 
 class MyriaScan(algebra.Scan, MyriaOperator):
@@ -149,23 +140,6 @@ class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
 
     return join
 
-class MyriaParallel(algebra.ZeroaryOperator, MyriaOperator):
-  """Turns a single plan into a forst of identical plans, one for each worker."""
-  """An awkward operator.  It compiles itself instead of letting the compiler do it."""
-  def __init__(self, plans):
-    self.plans = plans
-    algebra.Operator.__init__(self)
-
-  def __repr__(self):
-      return 'MyriaParallel(%s)' % repr(self.plans)
-
-  def compileme(self, resultsym):
-    def compile(p):
-      algebra.reset()
-      return p.compile(resultsym)
-    ret = [{ worker : compile(plan) } for (worker, plan) in self.plans]
-    return ret
-
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
   """Represents a simple shuffle operator"""
   def compileme(self, resultsym, inputsym):
@@ -220,18 +194,6 @@ class BreakShuffle(rules.Rule):
     producer = MyriaShuffleProducer(expr.input, opid, expr.columnlist)
     consumer = MyriaShuffleConsumer(producer, opid)
     return consumer
-
-class Parallel(rules.Rule):
-  """Repeat a plan for each worker"""
-  def __init__(self,N):
-    self.workers = range(N)
- 
-  def fire(self, expr):
-    def copy(expr):
-      newop = expr.__class__()
-      newop.copy(expr)
-      return newop
-    return MyriaParallel([(i, copy(expr)) for i in self.workers])
 
 class JoinToProjectingJoin(rules.Rule):
   """MyriaLocalJoin needs a columnlist; it's a projecting join.  This rule
@@ -306,5 +268,4 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
       , BreakShuffle()
-      #, Parallel(2)
   ]
