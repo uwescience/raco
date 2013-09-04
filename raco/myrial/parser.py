@@ -91,6 +91,14 @@ class Parser:
         # identifiers and quoted strings to be used equivalently
         p[0] = p[1]
 
+    def p_expression_project_single(self, p):
+        '''expression : PROJECT ID EMIT column_arg'''
+        p[0] = ('PROJECT', p[2], [p[4]])
+
+    def p_expression_project_list(self, p):
+        '''expression : PROJECT ID EMIT LPAREN column_arg_list RPAREN'''
+        p[0] = ('PROJECT', p[2], p[5])
+
     def p_expression_limit(self, p):
         'expression : LIMIT ID COMMA INTEGER_LITERAL'
         p[0] = ('LIMIT', p[2], p[4])
@@ -121,7 +129,7 @@ class Parser:
 
     def p_join_argument_single(self, p):
         'join_argument : ID BY column_arg'
-        p[0] = JoinTarget(p[1], (p[3],))
+        p[0] = JoinTarget(p[1], [p[3]])
 
     def p_column_arg_list(self, p):
         '''column_arg_list : column_arg_list COMMA column_arg

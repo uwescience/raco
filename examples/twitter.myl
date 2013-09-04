@@ -4,11 +4,12 @@ T1 = SCAN {Twitter, default, andrew};
 T2 = SCAN {Twitter};
 
 
-T3 = Join T1 BY follower, T2 by followee;
+T3 = JOIN T1 BY follower, T2 by followee;
+
+T4 = PROJECT T3 EMIT ($0, $3);
 
 /*
 
-T4 = Project ($0, $3) FROM T3;
 T5 = Rename T4 AS (x, y)
 T6 = DISTINCT T5;
 T7 = COUNT T6; -- renames to count(colname)
