@@ -108,8 +108,12 @@ class Parser:
         p[0] = ('LIMIT', p[2], p[4])
 
     def p_expression_distinct(self, p):
-        'expression : DISTINCT expression'
+        'expression : DISTINCT ID'
         p[0] = ('DISTINCT', p[2])
+
+    def p_expression_count(self, p):
+        'expression : COUNT ID'
+        p[0] = ('COUNT', p[2])
 
     def p_expression_binary_set_operation(self, p):
         'expression : setop ID COMMA ID'
