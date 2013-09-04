@@ -1,6 +1,13 @@
 from raco import RACompiler
 from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra, gensym, ZeroaryOperator, UnaryOperator, BinaryOperator, NaryOperator
+import json
+
+def json_pretty_print(dictionary):
+    """a function to pretty-print a JSON dictionary.
+From http://docs.python.org/2/library/json.html"""
+    return json.dumps(dictionary, sort_keys=True, 
+            indent=2, separators=(',', ': '))
 
 # A simple join
 simple_query = """
@@ -86,12 +93,19 @@ for (label, rootOp) in phys:
     syms[id(rootOp)] = label
     label, rootOp
     frags = fragments(rootOp)
-    all_frags.extend([[call_compile_me(op) for op in frag] for frag in frags])
+    all_frags.extend([{'operators': [call_compile_me(op) for op in frag]} for frag in frags])
     syms.clear()
+
 query = {
         'fragments' : all_frags,
         'raw_query' : query,
-        'logical_ra' : dlog.logicalplan
+        'logical_ra' : str(dlog.logicalplan)
         }
-print query
+print json_pretty_print(query)
 print
+
+# dump the JSON to output.json
+print "************ DUMPING CODE TO output.json *************"
+with open('output.json', 'w') as outfile:
+    json.dump(query, outfile)
+
