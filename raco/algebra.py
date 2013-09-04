@@ -25,6 +25,9 @@ class Operator(Printable):
     self.alias = self
     self._trace = []
 
+  def children(self):
+    raise NotImplementedError("Operator.children")
+
   def __eq__(self, other):
     return self.__class__ == other.__class__
 
@@ -54,6 +57,9 @@ class ZeroaryOperator(Operator):
 
   def __eq__(self, other):
     return self.__class__ == other.__class__
+
+  def children(self):
+    return []
 
   def compile(self, resultsym):
     code = self.language.comment("Compiled subplan for %s" % self)
@@ -104,6 +110,8 @@ class UnaryOperator(Operator):
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.input == other.input
   
+  def children(self):
+    return [self.input]
 
   def compile(self, resultsym):
     """Compile this operator to the language specified."""
@@ -172,6 +180,9 @@ class BinaryOperator(Operator):
 
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.left == other.left and self.right == other.right
+
+  def children(self):
+    return [self.left, self.right]
 
   def compile(self, resultsym):
     """Compile this plan.  Result sym is the variable name to use to hold the result of this operator."""
@@ -252,6 +263,8 @@ class NaryOperator(Operator):
       code += emit([arg.compile(sym) for arg,sym in zip(self.args,argsyms)] + [self.compileme(resultsym, argsyms)])
     return code
 
+  def children(self):
+    return self.args
 
   def copy(self, other):
     """deep copy"""
