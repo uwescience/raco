@@ -30,18 +30,18 @@ class ExpressionProcessor:
         return raco.algebra.Scan(rel)
 
     def load(self, path, schema):
-        pass
+        raise NotImplementedError()
 
     def table(self, tuple_list, schema):
-        pass
+        raise NotImplementedError()
 
     def distinct(self, _id):
-        pass
+        raise NotImplementedError()
 
     def __process_bitop(self, _type, id1, id2):
         c_op1 = self.symbols[id1]
         c_op2 = self.symbols[id2]
-        pass
+        raise NotImplementedError()
 
     def union(self, id1, id2):
         return self.__process_bitop('UNION', id1, id2)
@@ -54,12 +54,12 @@ class ExpressionProcessor:
 
     def limit(self, _id, count):
         c_op1 = self.symbols[_id]
-        pass
+        raise NotImplementedError()
 
     def join(self, arg1, arg2):
         c_op1 = self.symbols[arg1.id]
         c_op2 = self.symbols[arg2.id]
-        pass
+        raise NotImplementedError()
 
 class StatementProcessor:
     '''Evaluate a list of statements'''
