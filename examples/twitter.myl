@@ -13,4 +13,4 @@ T6 = DISTINCT T5;
 
 T7 = COUNT T6; -- renames to count(colname)
 
-Store T7, {Twitter2HopCount}
+STORE T7, {Twitter2HopCount};
