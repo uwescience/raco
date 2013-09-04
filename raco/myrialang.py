@@ -203,7 +203,8 @@ class JoinToProjectingJoin(rules.Rule):
   MyriaLocalJoin, but it's probably best to avoid relying on that logic.)"""
   def fire(self, expr):
     # If not a join, who cares?
-    if not (isinstance(expr, algebra.Join)):
+    if isinstance(expr, algebra.ProjectingJoin) or \
+        not (isinstance(expr, algebra.Join)):
       return expr
 
     columnlist = expr.scheme().ascolumnlist()
