@@ -66,11 +66,11 @@ class MyriaOperator:
   workers = MyriaLanguage.workers
   language = MyriaLanguage
 
-class MyriaSQLiteScan(algebra.Scan, MyriaOperator):
+class MyriaScan(algebra.Scan, MyriaOperator):
   def compileme(self, resultsym):
     return {
         "op_name" : resultsym,
-        "op_type" : "SQLiteScan",
+        "op_type" : "TableScan",
         "relation_key" : {
           "user_name" : "public",
           "program_name" : "adhoc",
@@ -97,11 +97,11 @@ class MyriaProject(algebra.Project, MyriaOperator):
         "arg_child" : inputsym
       }
 
-class MyriaSQLiteInsert(algebra.Store, MyriaOperator):
+class MyriaInsert(algebra.Store, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     return {
         "op_name" : resultsym,
-        "op_type" : "SQLiteInsert",
+        "op_type" : "DbInsert",
         "relation_key" : {
           "user_name" : "public",
           "program_name" : "adhoc",
@@ -286,19 +286,20 @@ class MyriaAlgebra:
       MyriaLocalJoin
       , MyriaSelect
       , MyriaProject
-      , MyriaSQLiteScan
+      , MyriaScan
+      , MyriaInsert
   ]
 
   rules = [
       rules.ProjectingJoin()
       , JoinToProjectingJoin()
       , ShuffleBeforeJoin()
-      , rules.OneToOne(algebra.Store,MyriaSQLiteInsert)
+      , rules.OneToOne(algebra.Store,MyriaInsert)
       , rules.OneToOne(algebra.Select,MyriaSelect)
       , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
       , rules.OneToOne(algebra.Project,MyriaProject)
       , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
-      , rules.OneToOne(algebra.Scan,MyriaSQLiteScan)
+      , rules.OneToOne(algebra.Scan,MyriaScan)
       , BreakShuffle()
       #, Parallel(2)
   ]
