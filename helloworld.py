@@ -1,6 +1,6 @@
 from raco import RACompiler
 from raco.language import MyriaAlgebra
-from raco.algebra import LogicalAlgebra
+from raco.algebra import LogicalAlgebra, gensym, ZeroaryOperator, UnaryOperator, BinaryOperator, NaryOperator
 
 # A simple join
 simple_query = """
@@ -11,8 +11,9 @@ multi_query = """
 A(x,w) :- R(x,y,z), S(y,z,w)
 """
 
-simple_query = """
-A(x,z) :- R(x,y),S(y,z),T(z,x)
+# Triangles
+triangles = """
+A(x,y,z) :- R(x,y),S(y,z),T(z,x)
 """
 
 # Which one do we use?
@@ -37,7 +38,60 @@ print dlog.physicalplan
 print
 
 # generate code in the target language
-code = dlog.compile()
 print "************ CODE *************"
-print code
+phys = dlog.physicalplan
+
+syms = {}
+
+def one_fragment(rootOp):
+    cur_frag = [rootOp]
+    if id(rootOp) not in syms:
+        syms[id(rootOp)] = gensym()
+    queue = []
+    if isinstance(rootOp, MyriaAlgebra.leaves):
+        for child in rootOp.children():
+            queue.append(child)
+    else:
+        for child in rootOp.children():
+            (child_frag, child_queue) = one_fragment(child)
+            cur_frag += child_frag
+            queue += child_queue
+    return (cur_frag, queue)
+
+def fragments(rootOp):
+    queue = [rootOp]
+    ret = []
+    while len(queue) > 0:
+        rootOp = queue.pop(0)
+        (op_frag, op_queue) = one_fragment(rootOp)
+        ret.append(op_frag)
+        queue.extend(op_queue)
+    return ret
+
+def call_compile_me(op):
+    opsym = syms[id(op)]
+    childsyms = [syms[id(child)] for child in op.children()]
+    if isinstance(op, ZeroaryOperator):
+        return op.compileme(opsym)
+    if isinstance(op, UnaryOperator):
+        return op.compileme(opsym, childsyms[0])
+    if isinstance(op, BinaryOperator):
+        return op.compileme(opsym, childsyms[0], childsyms[1])
+    if isinstance(op, NaryOperator):
+        return op.compileme(opsym, childsyms)
+    raise NotImplementedError("unable to handle operator of type "+type(op))
+
+all_frags = []
+for (label, rootOp) in phys:
+    syms[id(rootOp)] = label
+    label, rootOp
+    frags = fragments(rootOp)
+    all_frags.extend([[call_compile_me(op) for op in frag] for frag in frags])
+    syms.clear()
+query = {
+        'fragments' : all_frags,
+        'raw_query' : query,
+        'logical_ra' : dlog.logicalplan
+        }
+print query
 print

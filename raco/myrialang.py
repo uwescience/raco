@@ -290,6 +290,11 @@ class MyriaAlgebra:
       , MyriaInsert
   ]
 
+  leaves = (
+      MyriaShuffleConsumer
+      , MyriaScan
+  )
+
   rules = [
       rules.ProjectingJoin()
       , JoinToProjectingJoin()
