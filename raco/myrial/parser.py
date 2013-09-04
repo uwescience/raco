@@ -61,7 +61,7 @@ class Parser:
         p[0] = ('DOWHILE', p[2], p[4])
 
     def p_statement_store(self, p):
-        'statement : STORE ID COMMA relation_key'
+        'statement : STORE ID COMMA relation_key SEMI'
         p[0] = ('STORE', p[2], p[4])
 
     def p_expression_id(self, p):
