@@ -68,6 +68,7 @@ class StatementProcessor:
         # Map from identifiers to db operation
         self.symbols = {}
         self.ep = ExpressionProcessor(self.symbols)
+        self.out = out
 
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
@@ -81,15 +82,13 @@ class StatementProcessor:
         op = self.ep.evaluate(expr)
         self.symbols[_id] = op
 
-    def explain(self, _id):
-        '''Dump the logical query plan for an identifier'''
-        op = self.symbols[_id]
+    def store(self, _id, relation_key):
+        child_op = self.symbols[_id]
+        op = raco.algebra.Store(relation_key.table, child_op)
+        self.out.write(str(op))
 
-        if type(self.out) == types.ListType:
-            self.out.append(op)
-        else:
-            s = '%s : %s\n' % (_id, str(op))
-            self.out.write(s)
+    def explain(self, _id):
+        pass
 
     def describe(self, _id):
         pass

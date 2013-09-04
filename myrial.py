@@ -13,7 +13,6 @@ def parse_options(args):
     parser.add_argument('file', help='File containing Myrial source program')
 
     ns = parser.parse_args(args)
-    print ns
     return ns
 
 if __name__ == "__main__":
