@@ -1,7 +1,7 @@
 
-T1 = SCAN {Twitter, default, andrew};
+T1 = SCAN {Twitter, default, andrew} AS (follower:int, followee:int);
 
-T2 = SCAN {Twitter};
+T2 = SCAN {Twitter} AS (follower:int, followee:int);
 
 T3 = JOIN T1 BY follower, T2 by followee;
 

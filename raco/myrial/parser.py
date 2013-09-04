@@ -3,6 +3,7 @@
 import ply.yacc as yacc
 
 import raco.myrial.scanner as scanner
+import raco.scheme as scheme
 
 import collections
 import sys
@@ -68,8 +69,10 @@ class Parser:
         p[0] = ('ALIAS', p[1])
 
     def p_expression_scan(self, p):
-        'expression : SCAN relation_key'
-        p[0] = ('SCAN', p[2])
+        'expression : SCAN relation_key optional_as'
+        # TODO(AJW): Nix optional schema argument once we can read this from
+        # myrial?
+        p[0] = ('SCAN', p[2], p[3])
 
     def p_relation_key(self, p):
         'relation_key : LBRACE string_arg_list RBRACE'
@@ -79,6 +82,36 @@ class Parser:
         if len(p[2]) > 3:
             raise ParseException("Too many arguments to relation key")
         p[0] = RelationKey(*p[2])
+
+    def p_optional_as(self, p):
+        '''optional_as : AS schema
+                       | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = None
+
+    def p_schema(self, p):
+        'schema : LPAREN column_def_list RPAREN'
+        p[0] = scheme.Scheme(p[2])
+
+    def p_column_def_list(self, p):
+        '''column_def_list : column_def_list COMMA column_def
+                           | column_def'''
+        if len(p) == 4:
+            cols = p[1] + [p[3]]
+        else:
+            cols = [p[1]]
+        p[0] = cols
+
+    def p_column_def(self, p):
+        'column_def : string_arg COLON type_name'
+        p[0] = (p[1], p[3])
+
+    def p_type_name(self, p):
+        '''type_name : STRING
+                     | INT'''
+        p[0] = p[1]
 
     def p_string_arg_list(self, p):
         '''string_arg_list : string_arg_list COMMA string_arg
@@ -159,6 +192,10 @@ class Parser:
     def p_column_arg_offset(self, p):
         'column_arg : DOLLAR INTEGER_LITERAL'
         p[0] = p[2]
+
+    def p_empty(self, p):
+        'empty :'
+        pass
 
     def parse(self, s):
         parser = yacc.yacc(module=self, debug=True)
