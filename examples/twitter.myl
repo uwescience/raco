@@ -10,10 +10,8 @@ T4 = PROJECT T3 EMIT ($0, $3);
 
 T5 = RENAME T4 AS (x, y);
 
-/*
 T6 = DISTINCT T5;
-T7 = COUNT T6; -- renames to count(colname)
--- T8 = RENAME T7 AS (count)
 
-Store T7, {Twitter2HopCount}
-*/
+T7 = COUNT T6; -- renames to count(colname)
+
+-- Store T7, {Twitter2HopCount}
