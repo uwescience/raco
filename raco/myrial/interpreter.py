@@ -62,6 +62,15 @@ class ExpressionProcessor:
         # Note: arguments are of type parser.JoinTarget
         c_op1 = self.symbols[arg1.id]
         c_op2 = self.symbols[arg2.id]
+
+        # TODO: compute join condition
+        return raco.algebra.Join(None, c_op1, c_op2)
+
+    def project(self, _id, columns):
+        c_op = self.symbols[_id]
+        return raco.algebra.Project(columns, c_op)
+
+    def rename(self, _id, column_names):
         raise NotImplementedError()
 
 class StatementProcessor:
