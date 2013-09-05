@@ -115,6 +115,7 @@ class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
   def convertcondition(self, condition):
     """Convert the joincondition to a list of left columns and a list of right columns representing a conjunction"""
 
+
     if isinstance(condition, boolean.AND):
       leftcols1, rightcols1 = self.convertcondition(condition.left)
       leftcols2, rightcols2 = self.convertcondition(condition.right)
@@ -216,6 +217,9 @@ class ShuffleBeforeJoin(rules.Rule):
     # If both have shuffles already, who cares?
     if isinstance(expr.left, algebra.Shuffle) and isinstance(expr.right, algebra.Shuffle):
       return expr
+
+    # Convert to unnamed perspective
+    condition = MyriaLanguage.unnamed(expr.condition, expr.scheme())
 
     # Figure out which columns go in the shuffle
     left_cols, right_cols = MyriaLocalJoin.convertcondition(expr.condition)
