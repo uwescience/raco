@@ -4,6 +4,7 @@ import ply.yacc as yacc
 
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
+import raco.expression as colexpr
 
 import collections
 import sys
@@ -14,8 +15,9 @@ class JoinColumnCountMismatchException(Exception):
 class ParseException(Exception):
     pass
 
-# ID is a symbol name; columns is list containing either column names
-# (as strings) or integer offsets (starting at zero).
+# ID is a symbol name that identifies an input relation; columns is a list of
+# "atomic" column expressions -- either NamedAttributeRef (for strings) or
+# UnnamedAttributeRef (for positions).
 JoinTarget = collections.namedtuple('JoinTarget',['id', 'columns'])
 
 class RelationKey(object):
@@ -175,11 +177,11 @@ class Parser:
 
     def p_column_arg_id(self, p):
         'column_arg : ID'
-        p[0] = p[1]
+        p[0] = colexpr.NamedAttributeRef(p[1])
 
     def p_column_arg_index(self, p):
         'column_arg : DOLLAR INTEGER_LITERAL'
-        p[0] = p[2]
+        p[0] = colexpr.UnnamedAttributeRef(p[2])
 
     def p_empty(self, p):
         'empty :'
