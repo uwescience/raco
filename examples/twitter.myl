@@ -5,12 +5,10 @@ T2 = SCAN {Twitter} AS (follower:int, followee:int);
 
 T3 = JOIN T1 BY follower, T2 by followee;
 
-T4 = PROJECT T3 EMIT ($0, $3);
+T4 = APPLY T3 EMIT (x=$0, y=$3);
 
-T5 = RENAME T4 AS (x, y);
+T5 = DISTINCT T4
 
-T6 = DISTINCT T5;
+T6 = COUNT T7; -- renames to count(colname)
 
-T7 = COUNT T6; -- renames to count(colname)
-
-STORE T7, {Twitter2HopCount};
+STORE T6, {Twitter2HopCount};
