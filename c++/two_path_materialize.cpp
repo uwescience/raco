@@ -63,7 +63,7 @@ void query(const char* filename) {
 
     cout << "done creating map.\n";
 
-    vector<tuple> result = vector<tuple>();
+    //vector<tuple> result = vector<tuple>();
     set<tuple> d_result = set<tuple>();
 
     //loop over edges a,b
@@ -88,7 +88,8 @@ void query(const char* filename) {
             t.from = c;
             //++total_count;
             //myfile << t.to << " " << t.from << "\n";
-            result.push_back(t);
+            d_result.insert(t);
+            //result.push_back(t);
             /*ostringstream convert;
             convert << a;
             string str1 = convert.str();
@@ -102,15 +103,15 @@ void query(const char* filename) {
     //cout << total_count << "\n";
 
     //distinct
-    for (int i = 0; i < result.size(); ++i) {
-        d_result.insert(result[i]);
-    }
+    //for (int i = 0; i < result.size(); ++i) {
+    //    d_result.insert(result[i]);
+    //}
 
     //for (set<string>::iterator it = result.begin(); it != result.end(); ++it) {
     //    cout << *it << "\n";
     //}
 
-    cout << "found " << d_result.size() << " distinct two-paths out of " << result.size()                                                                                                                                                                                                << " total paths.\n";
+    cout << "found " << d_result.size() << " distinct two-paths\n";
 
 }
 

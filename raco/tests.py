@@ -23,7 +23,7 @@ class DatalogTest(unittest.TestCase):
 
   def test_triangle(self):
     join = """A(x,y,z) :- R(x,y), S(y,z), T(z,x)"""
-    desiredresult = """[('A', Project(col0,col1,col2)[Select(col1 = col4)[Join(col2 = col1)[Join(col0 = col1)[Scan(R), Scan(T)], Scan(S)]]])]"""
+    desiredresult = """[('A', Project(col0,col1,col3)[Select(col0 = col5)[Join(col3 = col0)[Join(col1 = col0)[Scan(R), Scan(S)], Scan(T)]]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
