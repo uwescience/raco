@@ -91,8 +91,8 @@ class MyriaProject(algebra.Project, MyriaOperator):
     cols = [x.position for x in self.columnlist]
     return {
         "op_name" : resultsym,
-        "op_type" : "PROJECT",
-        "columnlist" : cols,
+        "op_type" : "Project",
+        "arg_field_list" : cols,
         "arg_child" : inputsym
       }
 
