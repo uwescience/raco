@@ -98,7 +98,7 @@ for (label, rootOp) in phys:
 
 query = {
         'fragments' : all_frags,
-        'raw_query' : query,
+        'raw_datalog' : query,
         'logical_ra' : str(dlog.logicalplan)
         }
 print json_pretty_print(query)
