@@ -103,7 +103,7 @@ class StatementProcessor:
     def store(self, _id, relation_key):
         child_op = self.symbols[_id]
         op = raco.algebra.Store(relation_key.table, child_op)
-        self.output_symbols[_id] = op
+        self.output_symbols.append((_id, op))
 
     @property
     def output_symbols(self):
