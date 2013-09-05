@@ -1,4 +1,5 @@
 import boolean
+import expression
 
 class Scheme:
   '''
@@ -56,9 +57,9 @@ Type is a function that returns true for any value that is of the correct type
 
   def ascolumnlist(self):
     """Return a columnlist structure suitable for use with Project and ProjectingJoin.
-    Currently a list of PositionReferences.  May eventually be a scheme itself.
+    Currently a list of positional attribute references.  May eventually be a scheme itself.
     """
-    return [boolean.PositionReference(i) for i in xrange(len(self))]
+    return [expression.UnnamedAttributeRef(i) for i in xrange(len(self))]
 
   def __contains__(self, attr, typ=None):
     if typ:
