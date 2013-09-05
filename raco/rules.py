@@ -57,3 +57,15 @@ class ProjectingJoin(Rule):
   def __str__(self):
     return "Project, Join => ProjectingJoin"
 
+class JoinToProjectingJoin(Rule):
+  """A rewrite rule for turning every Join into a ProjectingJoin"""
+  def fire(self, expr):
+    if not isinstance(expr, algebra.Join) or isinstance(expr,
+            algebra.ProjectingJoin):
+      return expr
+     
+    return algebra.ProjectingJoin(expr.condition, expr.left, expr.right, expr.scheme().ascolumnlist())
+
+  def __str__(self):
+    return "Join => ProjectingJoin"
+

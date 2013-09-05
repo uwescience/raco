@@ -204,21 +204,6 @@ class BreakShuffle(rules.Rule):
     consumer = MyriaShuffleConsumer(producer, opid)
     return consumer
 
-class JoinToProjectingJoin(rules.Rule):
-  """MyriaLocalJoin needs a columnlist; it's a projecting join.  This rule
-  converts regular joins into MyriaLocalJoins by adding a trivial columnlist 
-  consisting of every column.  
-  (None would also work due to an explicit check in 
-  MyriaLocalJoin, but it's probably best to avoid relying on that logic.)"""
-  def fire(self, expr):
-    # If not a join, who cares?
-    if isinstance(expr, algebra.ProjectingJoin) or \
-        not (isinstance(expr, algebra.Join)):
-      return expr
-
-    columnlist = expr.scheme().ascolumnlist()
-    return MyriaLocalJoin(expr.condition, expr.left, expr.right, columnlist)
-
 class ShuffleBeforeJoin(rules.Rule):
   def fire(self, expr):
     # If not a join, who cares?
@@ -293,7 +278,7 @@ class MyriaAlgebra:
 
   rules = [
       rules.ProjectingJoin()
-      , JoinToProjectingJoin()
+      , rules.JoinToProjectingJoin()
       , ShuffleBeforeJoin()
       , rules.OneToOne(algebra.Store,MyriaInsert)
       , rules.OneToOne(algebra.Select,MyriaSelect)
