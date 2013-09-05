@@ -387,7 +387,7 @@ class Apply(UnaryOperator):
   def scheme(self):
     """scheme of the result."""
     new_attrs = [(name,expr.typeof()) for (name, expr) in self.expressions.items()]
-    return self.input.scheme() + scheme.Scheme(new_attrs)
+    return scheme.Scheme(new_attrs)
 
 class Select(UnaryOperator):
   """Logical selection operator"""
@@ -611,7 +611,6 @@ class Scan(ZeroaryOperator):
     return ZeroaryOperator.__eq__(self,other) and self.relation == other.relation
 
   def __str__(self):
-    print self.relation
     return "%s(%s)" % (self.opname(), self.relation.name)
 
   def __repr__(self):
