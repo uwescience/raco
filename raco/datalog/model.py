@@ -369,7 +369,7 @@ class Term:
     yourvars = other.vars()
     myvars = self.vars()
     joins = []
-    Pos = raco.boolean.UnnamedAttributeRef
+    Pos = raco.expression.UnnamedAttributeRef
     for i, var in enumerate(myvars):
       if var in yourvars:
         myposition = Pos(i)
