@@ -10,12 +10,12 @@ From http://docs.python.org/2/library/json.html"""
             indent=2, separators=(',', ': '))
 
 # A simple join
-simple_query = """
+join = """
 A(x,z) :- R(x,y), S(y,z)
 """
 # A multi-join version
-multi_query = """
-A(x,w) :- R(x,y,z), S(y,z,w)
+multi_join = """
+A(x,w) :- R3(x,y,z), S3(y,z,w)
 """
 
 # Triangles
@@ -24,7 +24,7 @@ A(x,y,z) :- R(x,y),S(y,z),T(z,x)
 """
 
 # Which one do we use?
-query = simple_query
+query = join
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)

@@ -255,7 +255,11 @@ class ApplyHardcodedSchema(rules.Rule):
   def fire(self, expr):
     hardcoded_schema = {
         'R': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
+        'R3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
         'S': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
+        'S3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
+        'T': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
+        'T3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
         'Twitter': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
     }
     # only handles MyriaScan right now
