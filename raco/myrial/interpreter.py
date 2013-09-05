@@ -2,6 +2,7 @@
 
 import raco.myrial.parser as parser
 import raco.algebra
+import raco.expression as colexpr
 import raco.catalog
 
 import collections
@@ -39,15 +40,15 @@ class ExpressionProcessor:
         raise NotImplementedError()
 
     def __process_bitop(self, _type, id1, id2):
-        c_op1 = self.symbols[id1]
-        c_op2 = self.symbols[id2]
+        left = self.symbols[id1]
+        right = self.symbols[id2]
         raise NotImplementedError()
 
     def union(self, id1, id2):
-        c_op1 = self.symbols[id1]
-        c_op2 = self.symbols[id2]
+        left = self.symbols[id1]
+        right = self.symbols[id2]
         # TODO: Figure out set/bag semantics here
-        return raco.algebra.Union(c_op1, c_op2)
+        return raco.algebra.Union(left, right)
 
     def intersect(self, id1, id2):
         raise NotImplementedError()
@@ -56,16 +57,17 @@ class ExpressionProcessor:
         raise NotImplementedError()
 
     def limit(self, _id, count):
-        c_op1 = self.symbols[_id]
         raise NotImplementedError()
 
     def join(self, arg1, arg2):
         # Note: arguments are of type parser.JoinTarget
-        c_op1 = self.symbols[arg1.id]
-        c_op2 = self.symbols[arg2.id]
+        left = self.symbols[arg1.id]
+        right = self.symbols[arg2.id]
 
-        # TODO: compute join condition
-        return raco.algebra.Join(None, c_op1, c_op2)
+        assert len(arg1.columns) == len(arg2.columns)
+
+        condition = [colexpr.EQ(x,y) for x,y in zip(arg1.columns, arg2.columns)]
+        return raco.algebra.Join(condition, left, right)
 
     def project(self, _id, columns):
         c_op = self.symbols[_id]
