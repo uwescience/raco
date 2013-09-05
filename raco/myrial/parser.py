@@ -267,20 +267,16 @@ class Parser:
         p[0] = colexpr.TIMES(colexpr.NumericLiteral(-1), p[2])
 
     def p_expression_binop(self, p):
-        '''colexpr : colexpr binary_op colexpr'''
+        '''colexpr : colexpr PLUS colexpr
+                   | colexpr MINUS colexpr
+                   | colexpr TIMES colexpr
+                   | colexpr DIVIDE colexpr
+                   | colexpr GT colexpr
+                   | colexpr LT colexpr
+                   | colexpr GE colexpr
+                   | colexpr LE colexpr
+                   | colexpr EQ colexpr'''
         p[0] = binops[p[2]](p[1], p[3])
-
-    def p_binary_op(self, p):
-        '''binary_op : PLUS
-                     | MINUS
-                     | TIMES
-                     | DIVIDE
-                     | GT
-                     | LT
-                     | GE
-                     | LE
-                     | EQ'''
-        p[0] = p[1]
 
     def p_colexpr_not(self, p):
         'colexpr : LNOT colexpr'
