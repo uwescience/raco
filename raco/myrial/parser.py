@@ -29,7 +29,39 @@ class RelationKey(object):
     def __repr__(self):
         return 'RelationKey(%s,%s,%s)' % (self.table, self.program,self.user)
 
+# Mapping from source symbols to raco.expression.BinaryOperator classes
+binops = {
+    '+': colexpr.PLUS,
+    '-' : colexpr.MINUS,
+    '/' : colexpr.DIVIDE,
+    '*' : colexpr.TIMES,
+    '>' : colexpr.GT,
+    '<' : colexpr.LT,
+    '>=' : colexpr.GTEQ,
+    '<=' : colexpr.LTEQ,
+    '!=' : colexpr.NEQ,
+    '==' : colexpr.EQ,
+    '&&' : colexpr.AND,
+    '||' : colexpr.OR,
+}
+
 class Parser:
+    # Precedence among column expression operators in ascending order; this is
+    # necessary to disambiguate the grammer.  Operator precedence is identical
+    # to C.  http://en.cppreference.com/w/cpp/language/operator_precedence
+
+    precedence = (
+        ('left', 'LOR'),
+        ('left', 'LAND'),
+        ('left', 'EQ'),
+        ('left', 'NE'),
+        ('left', 'GT', 'LT', 'LE', 'GE'),
+        ('left', 'PLUS', 'MINUS'),
+        ('left', 'TIMES', 'DIVIDE'),
+        ('right', 'LNOT'),
+        ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
+    )
+
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
@@ -166,6 +198,8 @@ class Parser:
         'join_argument : ID BY column_ref'
         p[0] = JoinTarget(p[1], [p[3]])
 
+    # column_ref refers to the name or position of a column; these serve
+    # as arguments to join.
     def p_column_ref_list(self, p):
         '''column_ref_list : column_ref_list COMMA column_ref
                            | column_ref'''
@@ -182,6 +216,70 @@ class Parser:
     def p_column_ref_index(self, p):
         'column_ref : DOLLAR INTEGER_LITERAL'
         p[0] = colexpr.UnnamedAttributeRef(p[2])
+
+    def p_apply_expr(self, p):
+        'expression : APPLY ID EMIT LPAREN apply_arg_list RPAREN'
+        p[0] = ('APPLY', p[2], p[5])
+
+    def p_apply_arg_list(self, p):
+        '''apply_arg_list : apply_arg_list COMMA apply_arg
+                          | apply_arg'''
+        # Resolves into a list of tuples of the form (id, raco.Expression)
+        if len(p) == 4:
+            p[0] = p[1] + [p[3]]
+        else:
+            p[0] = [p[1]]
+
+    def p_apply_arg(self, p):
+        'apply_arg : ID EQUALS colexpr'
+        p[0] = (p[1], p[3])
+
+    # column expressions map to raco.Expression instances; these are operations
+    # that return atomic types, and that are suitable as arguments for apply.
+
+    def p_colexpr_integer_literal(self, p):
+        'colexpr : INTEGER_LITERAL'
+        p[0] = colexpr.NumericLiteral(p[1])
+
+    def p_colexpr_string_literal(self, p):
+        'colexpr : STRING_LITERAL'
+        p[0] = colexpr.StringLiteral(p[1])
+
+    def p_colexpr_id(self, p):
+        'colexpr : ID'
+        p[0] = colexpr.NamedAttributeRef(p[1])
+
+    def p_colexpr_index(self, p):
+        'colexpr : DOLLAR INTEGER_LITERAL'
+        p[0] = colexpr.UnnamedAttributeRef(p[2])
+
+    def p_colexpr_group(self, p):
+        'colexpr : LPAREN colexpr RPAREN'
+        p[0] = p[2]
+
+    def p_colexpr_uminus(self, p):
+        'colexpr : MINUS colexpr %prec UMINUS'
+        p[0] = colexpr.TIMES(colexpr.NumericLiteral(-1), t[2])
+
+    def p_expression_binop(self, p):
+        '''colexpr : colexpr binary_op colexpr'''
+        p[0] = binops[p[2]](p[1], p[3])
+
+    def p_binary_op(self, p):
+        '''binary_op : PLUS
+                     | MINUS
+                     | TIMES
+                     | DIVIDE
+                     | GT
+                     | LT
+                     | GE
+                     | LE
+                     | EQ'''
+        p[0] = p[1]
+
+    def p_colexpr_not(self, p):
+        'colexpr : LNOT colexpr'
+        p[0] = colexpr.NOT(p[2])
 
     def p_empty(self, p):
         'empty :'
