@@ -44,7 +44,7 @@ class ExpressionProcessor:
         right = self.symbols[id2]
         raise NotImplementedError()
 
-    def union(self, id1, id2):
+    def unionall(self, id1, id2):
         left = self.symbols[id1]
         right = self.symbols[id2]
         # TODO: Figure out set/bag semantics here

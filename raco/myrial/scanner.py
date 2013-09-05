@@ -5,7 +5,7 @@ import ply.lex as lex
 # identifiers with special meaning; case-insensitive:
 # LoAd, load, LOAD are all accepted
 reserved = ['LOAD', 'STORE', 'LIMIT', 'SHUFFLE', 'SEQUENCE', 'CROSS', 'JOIN',
-            'GROUP','EMIT', 'AS', 'DIFF', 'UNION', 'INTERSECT', 'APPLY',
+            'GROUP','EMIT', 'AS', 'DIFF', 'UNIONALL', 'INTERSECT', 'APPLY',
             'DUMP', 'FILTER', 'TABLE', 'ORDER', 'ASC', 'DESC', 'BY', 'WHILE',
             'INT', 'STRING', 'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN',
             'COUNT']
