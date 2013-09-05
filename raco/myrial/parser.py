@@ -159,28 +159,28 @@ class Parser:
         p[0] = ('JOIN', p[2], p[4])
 
     def p_join_argument_list(self, p):
-        'join_argument : ID BY LPAREN column_arg_list RPAREN'
+        'join_argument : ID BY LPAREN column_ref_list RPAREN'
         p[0] = JoinTarget(p[1], p[4])
 
     def p_join_argument_single(self, p):
-        'join_argument : ID BY column_arg'
+        'join_argument : ID BY column_ref'
         p[0] = JoinTarget(p[1], [p[3]])
 
-    def p_column_arg_list(self, p):
-        '''column_arg_list : column_arg_list COMMA column_arg
-                           | column_arg'''
+    def p_column_ref_list(self, p):
+        '''column_ref_list : column_ref_list COMMA column_ref
+                           | column_ref'''
         if len(p) == 4:
             cols = p[1] + [p[3]]
         else:
             cols = [p[1]]
         p[0] = cols
 
-    def p_column_arg_id(self, p):
-        'column_arg : ID'
+    def p_column_ref_id(self, p):
+        'column_ref : ID'
         p[0] = colexpr.NamedAttributeRef(p[1])
 
-    def p_column_arg_index(self, p):
-        'column_arg : DOLLAR INTEGER_LITERAL'
+    def p_column_ref_index(self, p):
+        'column_ref : DOLLAR INTEGER_LITERAL'
         p[0] = colexpr.UnnamedAttributeRef(p[2])
 
     def p_empty(self, p):
