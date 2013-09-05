@@ -1,5 +1,6 @@
 import raco.expression as e
-from raco.language import PythonAlgebra
+from raco import RACompiler
+from raco.language import MyriaAlgebra
 from raco.scheme import Scheme
 from raco.algebra import Select, Scan, Join, Apply, LogicalAlgebra
 from raco.boolean import EQ, AND, OR, StringLiteral, NumericLiteral
@@ -20,11 +21,40 @@ mix = e.DIVIDE(e.TIMES(plus, absf), minus)
 print mix
 
 
-def test():
+def testRA():
   sch = Scheme([("y",float), ("x",int)])
   R = raco.catalog.Relation("R", sch)
   J = Join(EQ(e.UnnamedAttributeRef(0), e.NamedAttributeRef("x")), Scan(R), Scan(R))
-  exprs = optimize([('A',J)], target=PythonAlgebra, source=LogicalAlgebra)
+  A = Apply(J, z=e.PLUS(e.NamedAttributeRef("x"), e.NamedAttributeRef("y")), w=e.UnnamedAttributeRef(3))
+  exprs = optimize([('A',A)], target=MyriaAlgebra, source=LogicalAlgebra)
+  print exprs
   print compile(exprs)
 
-test()
+def testDatalog():
+  query = "A(x) :- R(x,y),S(y,z)"
+
+  print "/*\n%s\n*/" % str(query)
+
+  # Create a compiler object
+  dlog = RACompiler()
+
+  # parse the query
+  dlog.fromDatalog(query)
+  print "************ LOGICAL PLAN *************"
+  print dlog.logicalplan
+  print
+
+  # Optimize the query, includes producing a physical plan
+  print "************ PHYSICAL PLAN *************"
+  dlog.optimize(target=MyriaAlgebra, eliminate_common_subexpressions=False)
+  print dlog.physicalplan
+  print
+
+  # generate code in the target language
+  code = dlog.compile()
+  print "************ CODE *************"
+  print code
+  print
+
+
+testRA()
