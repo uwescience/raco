@@ -72,15 +72,33 @@ class AttributeRef(Expression):
 
 class NamedAttributeRef(AttributeRef):
   def __init__(self, attributename):
-    self.attributename = attributename
+    self.name = attributename
+
+  def __repr__(self):
+    return "%s" % (self.name)
+
   def __str__(self):
-    return "%s" % (self.attributename)
+    return "%s" % (self.name)
 
 class UnnamedAttributeRef(AttributeRef):
   def __init__(self, position):
     self.position = position
+
+  def __repr__(self):
+    return "$%s" % (self.position)
+
   def __str__(self):
-    return "[%s]" % (self.position)
+    return "$%s" % (self.position)
+
+  # TODO: These are artifacts of a messy way of handling attribute references
+  # Hopefully will go away.
+  def leftoffset(self, offset):
+    """Add an offset to this positional reference.  Used when building a plan from a set of joins"""
+    self.position = self.position + offset
+
+  def rightoffset(self, offset):
+    """Add an offset to this positional reference.  Used when building a plan from a set of joins"""
+    self.position = self.position + offset
 
 class NaryOperator(Expression):
   pass
