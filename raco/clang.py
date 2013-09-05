@@ -122,7 +122,7 @@ Count matches, allocate memory, loop again to populate result
   def compileme(self, resultsym, inputsym):
     pcondition = CC.unnamed(self.condition, self.scheme())
     self.tagcondition(pcondition, inputsym)
-    condition = CC.compile_oolean(pcondition)
+    condition = CC.compile_boolean(pcondition)
     # Preston's original
     #code = twopass_select_template % locals()
 
