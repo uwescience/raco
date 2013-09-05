@@ -46,6 +46,7 @@ class ExpressionProcessor:
     def union(self, id1, id2):
         c_op1 = self.symbols[id1]
         c_op2 = self.symbols[id2]
+        # TODO: Figure out set/bag semantics here
         return raco.algebra.Union(c_op1, c_op2)
 
     def intersect(self, id1, id2):
