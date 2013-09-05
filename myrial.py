@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     opt = parse_options(sys.argv[1:])
     _parser = parser.Parser()
-    processor = interpreter.StatementProcessor(sys.stdout)
+    processor = interpreter.StatementProcessor()
 
     with open(opt.file) as fh:
         statement_list = _parser.parse(fh.read())
@@ -28,3 +28,4 @@ if __name__ == "__main__":
             print statement_list
         else:
             processor.evaluate(statement_list)
+            print processor.output_symbols

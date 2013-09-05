@@ -76,11 +76,16 @@ class ExpressionProcessor:
 class StatementProcessor:
     '''Evaluate a list of statements'''
 
-    def __init__(self, out=sys.stdout, eager_evaluation=False):
-        # Map from identifiers to db operation
+    def __init__(self):
+        # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
+
+        # Identifiers that the user has asked us to materialize
+        # (via store, dump, etc.).  Contains tuples of the form:
+        # (id, raco.algebra.Operation)
+        self.output_symbols = []
+
         self.ep = ExpressionProcessor(self.symbols)
-        self.out = out
 
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
@@ -97,7 +102,11 @@ class StatementProcessor:
     def store(self, _id, relation_key):
         child_op = self.symbols[_id]
         op = raco.algebra.Store(relation_key.table, child_op)
-        self.out.write(str(op))
+        self.output_symbols[_id] = op
+
+    @property
+    def output_symbols(self):
+        return self.output_symbols
 
     def explain(self, _id):
         pass
