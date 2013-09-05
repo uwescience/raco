@@ -105,7 +105,7 @@ class Parser:
         p[0] = cols
 
     def p_column_def(self, p):
-        'column_def : string_arg COLON type_name'
+        'column_def : ID COLON type_name'
         p[0] = (p[1], p[3])
 
     def p_type_name(self, p):
@@ -113,6 +113,8 @@ class Parser:
                      | INT'''
         p[0] = p[1]
 
+    # For operators that take string-like arguments: allow unquoted
+    # identifiers and quoted strings to be used equivalently
     def p_string_arg_list(self, p):
         '''string_arg_list : string_arg_list COMMA string_arg
                            | string_arg'''
@@ -124,21 +126,7 @@ class Parser:
     def p_string_arg(self, p):
         '''string_arg : ID
                       | STRING_LITERAL'''
-        # For operators that take string-like arguments: allow unquoted
-        # identifiers and quoted strings to be used equivalently
         p[0] = p[1]
-
-    def p_expression_project_single(self, p):
-        '''expression : PROJECT ID EMIT column_arg'''
-        p[0] = ('PROJECT', p[2], [p[4]])
-
-    def p_expression_project_list(self, p):
-        '''expression : PROJECT ID EMIT LPAREN column_arg_list RPAREN'''
-        p[0] = ('PROJECT', p[2], p[5])
-
-    def p_expression_rename(self, p):
-        '''expression : RENAME ID AS LPAREN string_arg_list RPAREN'''
-        p[0] = ('RENAME', p[2], p[5])
 
     def p_expression_limit(self, p):
         'expression : LIMIT ID COMMA INTEGER_LITERAL'
@@ -185,11 +173,11 @@ class Parser:
             cols = [p[1]]
         p[0] = cols
 
-    def p_column_arg_string(self, p):
-        'column_arg : string_arg'
+    def p_column_arg_id(self, p):
+        'column_arg : ID'
         p[0] = p[1]
 
-    def p_column_arg_offset(self, p):
+    def p_column_arg_index(self, p):
         'column_arg : DOLLAR INTEGER_LITERAL'
         p[0] = p[2]
 

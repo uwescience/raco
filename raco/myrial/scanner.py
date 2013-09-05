@@ -5,10 +5,10 @@ import ply.lex as lex
 # identifiers with special meaning; case-insensitive:
 # LoAd, load, LOAD are all accepted
 reserved = ['LOAD', 'STORE', 'LIMIT', 'SHUFFLE', 'SEQUENCE', 'CROSS', 'JOIN',
-            'GROUP', 'PROJECT', 'EMIT', 'AS', 'DIFF', 'UNION', 'INTERSECT',
+            'GROUP','EMIT', 'AS', 'DIFF', 'UNION', 'INTERSECT',
             'DUMP', 'FILTER', 'TABLE', 'ORDER', 'ASC', 'DESC', 'BY', 'WHILE',
             'INT', 'STRING', 'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN',
-            'RENAME', 'COUNT']
+            'COUNT']
 
 # Token types; required by ply to have this variable name
 tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'PLUS', 'MINUS', 'TIMES',
