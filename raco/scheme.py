@@ -1,4 +1,5 @@
 import boolean
+from collections import OrderedDict
 
 class Scheme:
   '''
@@ -8,7 +9,7 @@ Type is a function that returns true for any value that is of the correct type
   salt = "1"
   def __init__(self,attributes=[]):
     self.attributes = []
-    self.asdict = {}
+    self.asdict = OrderedDict()
     for n,t in attributes:
       self.addAttribute(n,t)
 
