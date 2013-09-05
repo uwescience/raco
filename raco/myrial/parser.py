@@ -50,21 +50,21 @@ class Parser:
     # necessary to disambiguate the grammer.  Operator precedence is identical
     # to C.  http://en.cppreference.com/w/cpp/language/operator_precedence
 
-    precedence = (
-        ('left', 'LOR'),
-        ('left', 'LAND'),
-        ('left', 'EQ'),
-        ('left', 'NE'),
-        ('left', 'GT', 'LT', 'LE', 'GE'),
-        ('left', 'PLUS', 'MINUS'),
-        ('left', 'TIMES', 'DIVIDE'),
-        ('right', 'LNOT'),
-        ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
-    )
-
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
+
+        self.precedence = (
+            ('left', 'LOR'),
+            ('left', 'LAND'),
+            ('left', 'EQ'),
+            ('left', 'NE'),
+            ('left', 'GT', 'LT', 'LE', 'GE'),
+            ('left', 'PLUS', 'MINUS'),
+            ('left', 'TIMES', 'DIVIDE'),
+            ('right', 'LNOT'),
+            ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
+    )
 
     def p_statement_list(self, p):
         '''statement_list : statement_list statement
@@ -234,8 +234,13 @@ class Parser:
         'apply_arg : ID EQUALS colexpr'
         p[0] = (p[1], p[3])
 
+    def p_expression_filter(self, p):
+        'expression : FILTER ID BY colexpr'
+        p[0] = ('FILTER', p[2], p[4])
+
     # column expressions map to raco.Expression instances; these are operations
-    # that return atomic types, and that are suitable as arguments for apply.
+    # that return atomic types, and that are suitable as arguments for apply
+    # and fiter
 
     def p_colexpr_integer_literal(self, p):
         'colexpr : INTEGER_LITERAL'
@@ -259,7 +264,7 @@ class Parser:
 
     def p_colexpr_uminus(self, p):
         'colexpr : MINUS colexpr %prec UMINUS'
-        p[0] = colexpr.TIMES(colexpr.NumericLiteral(-1), t[2])
+        p[0] = colexpr.TIMES(colexpr.NumericLiteral(-1), p[2])
 
     def p_expression_binop(self, p):
         '''colexpr : colexpr binary_op colexpr'''
