@@ -219,7 +219,7 @@ class Parser:
 
     def p_apply_expr(self, p):
         'expression : APPLY ID EMIT LPAREN apply_arg_list RPAREN'
-        p[0] = ('APPLY', p[2], p[5])
+        p[0] = ('APPLY', p[2], dict(p[5]))
 
     def p_apply_arg_list(self, p):
         '''apply_arg_list : apply_arg_list COMMA apply_arg

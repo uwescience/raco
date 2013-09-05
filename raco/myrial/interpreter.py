@@ -69,12 +69,9 @@ class ExpressionProcessor:
         condition = [colexpr.EQ(x,y) for x,y in zip(arg1.columns, arg2.columns)]
         return raco.algebra.Join(condition, left, right)
 
-    def project(self, _id, columns):
-        c_op = self.symbols[_id]
-        return raco.algebra.Project(columns, c_op)
-
-    def rename(self, _id, column_names):
-        raise NotImplementedError()
+    def apply(self, _id, columns):
+        op = self.symbols[_id]
+        return raco.algebra.Apply(op, **columns)
 
 class StatementProcessor:
     '''Evaluate a list of statements'''
