@@ -55,7 +55,7 @@ def one_fragment(rootOp):
     if id(rootOp) not in syms:
         syms[id(rootOp)] = gensym()
     queue = []
-    if isinstance(rootOp, MyriaAlgebra.leaves):
+    if isinstance(rootOp, MyriaAlgebra.fragment_leaves):
         for child in rootOp.children():
             queue.append(child)
     else:

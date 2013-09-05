@@ -5,10 +5,12 @@
 #     :set modeline?        -> should be true
 #     :set modelines?       -> should be > 0
 
-import boolean
-import rules
 import algebra
+import boolean
 import json
+import rules
+import scheme
+import sys
 from language import Language
 from utility import emit
 
@@ -17,6 +19,12 @@ def gen_op_id():
   global op_id
   op_id += 1
   return "operator%d" % op_id
+
+def scheme_to_schema(s):
+  names, descrs = zip(*s.asdict.items())
+  names = ["%s" % n for n in names]
+  types = [r[1] for r in descrs]
+  return {"column_types" : types, "column_names" : names}
 
 class MyriaLanguage(Language):
   reusescans = False
@@ -183,6 +191,7 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
         'op_name' : resultsym,
         'op_type' : 'ShuffleConsumer',
         'arg_operator_id' : self.opid,
+        'arg_schema' : scheme_to_schema(self.scheme())
       }
 
 class BreakShuffle(rules.Rule):
@@ -242,6 +251,26 @@ class ShuffleBeforeJoin(rules.Rule):
       return algebra.Join(expr.condition, left_shuffle, right_shuffle)
     raise NotImplementedError("How the heck did you get here?")
 
+class ApplyHardcodedSchema(rules.Rule):
+  def fire(self, expr):
+    hardcoded_schema = {
+        'R': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
+        'S': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
+        'Twitter': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
+    }
+    # only handles MyriaScan right now
+    if not isinstance(expr, MyriaScan):
+      # warn if zeroary
+      if isinstance(expr, algebra.ZeroaryOperator):
+        print >>sys.stderr, "warning, unhandled ZeroaryOperator %s" % type(expr)
+      return expr
+    
+    try:
+      expr.relation.scheme = scheme.Scheme(hardcoded_schema[expr.relation.name])
+    except KeyError:
+      raise KeyError("Scanned relation %s has no hardcoded scheme!" % expr.relation.name)
+    return expr
+
 class MyriaAlgebra:
   language = MyriaLanguage
 
@@ -253,7 +282,7 @@ class MyriaAlgebra:
       , MyriaInsert
   ]
 
-  leaves = (
+  fragment_leaves = (
       MyriaShuffleConsumer
       , MyriaScan
   )
@@ -269,4 +298,5 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
       , BreakShuffle()
+      , ApplyHardcodedSchema() # TODO replace with Catalog call
   ]
