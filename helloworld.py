@@ -11,7 +11,7 @@ From http://docs.python.org/2/library/json.html"""
 
 # A simple join
 join = """
-A(x,z) :- R(x,y), S(y,z)
+A(x,z) :- Twitter(x,y), Twitter(y,z)
 """
 # A multi-join version
 multi_join = """
@@ -71,7 +71,7 @@ def fragments(rootOp):
     while len(queue) > 0:
         rootOp = queue.pop(0)
         (op_frag, op_queue) = one_fragment(rootOp)
-        ret.append(op_frag)
+        ret.append(reversed(op_frag))
         queue.extend(op_queue)
     return ret
 
