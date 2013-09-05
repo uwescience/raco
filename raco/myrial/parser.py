@@ -181,7 +181,7 @@ class Parser:
     def p_setop(self, p):
         '''setop : INTERSECT
                  | DIFF
-                 | UNION'''
+                 | UNIONALL'''
         p[0] = p[1]
 
     def p_expression_join(self, p):
