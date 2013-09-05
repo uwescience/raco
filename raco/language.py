@@ -63,13 +63,9 @@ Replace column names with positions
       result = condition
 
     elif isinstance(condition, expression.NamedAttributeRef):
-      # replace the attribute name with it's position in the relation
-      # TODO: This won't work with intermediate results from joins
-      # Replace with a generic AttributeReference
       pos = sch.getPosition(condition.name)
       result = expression.UnnamedAttributeRef(pos)
     elif isinstance(condition, expression.UnnamedAttributeRef):
-      # TODO: Replace with a generic AttributeReference
       result = condition
     else:
       # do nothing; it's a literal or something custom
