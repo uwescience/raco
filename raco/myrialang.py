@@ -104,9 +104,10 @@ class MyriaInsert(algebra.Store, MyriaOperator):
         "relation_key" : {
           "user_name" : "public",
           "program_name" : "adhoc",
-          "relation_name" : self.relation.name
+          "relation_name" : self.name
         },
-        "arg_child" : inputsym
+        "arg_overwrite_table" : True,
+        "arg_child" : inputsym,
       }
 
 class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
