@@ -4,10 +4,29 @@ An expression language for datalog: Function calls, arithmetic, simple string fu
 """
 
 class Expression(Printable):
-  pass
   def typeof(self):
     # By default, we don't know the type
     return None
+
+  def opstr(self):
+    if not hasattr(self, "literals"):
+      return self.opname()
+    else:
+      return self.literals[0]
+
+
+class ZeroaryOperator(Expression):
+  def __init__(self):
+
+  def __eq__(self, other):
+    return self.__class__ == other.__class__ 
+
+  def __str__(self):
+    return "%s" % (self.opstr(),)
+
+  def __repr__(self):
+    return self.__str__()
+
 
 class UnaryOperator(Expression):
   def __init__(self, input):
@@ -17,11 +36,7 @@ class UnaryOperator(Expression):
     return self.__class__ == other.__class__ and self.input == other.input
 
   def __str__(self):
-    if not hasattr(self, "literals"):
-      opstr = self.opname()
-    else:
-     opstr = self.literals[0]
-    return "%s%s" % (opstr, self.input)
+    return "%s%s" % (self.opstr(), self.input)
 
   def __repr__(self):
     return self.__str__()
@@ -35,14 +50,12 @@ class BinaryOperator(Expression):
     return self.__class__ == other.__class__ and self.left == other.left and self.right == other.right
 
   def __str__(self):
-    if not hasattr(self, "literals"):
-      opstr = self.opname()
-    else:
-     opstr = self.literals[0]
-    return "(%s %s %s)" % (self.left, opstr, self.right)
+    return "(%s %s %s)" % (self.left, self.opstr(), self.right)
 
   def __repr__(self):
     return self.__str__()
+
+
 
 class Literal:
   def __init__(self, value):
@@ -152,6 +165,20 @@ class FLOOR(UnaryFunction):
 class CEIL(UnaryFunction):
   pass
 
+class AggregateExpression(Expression):
+  pass
+
+class MAX(AggregateExpression,UnaryFunction):
+  pass
+
+class MIN(AggregateExpression,UnaryFunction):
+  pass
+
+class COUNT(AggregateExpression,ZeroaryOperator):
+  pass
+
+class SUM(AggregateExpression,UnaryFunction):
+  pass
 
 class BooleanExpression(Printable):
   pass
