@@ -401,7 +401,7 @@ class Term:
     """Convert a Datalog value reference (a literal or a variable) to RA.  Literals are passed through unchanged.  Variables are converted"""
     if self.match(valueref):
       pos = self.position(valueref)
-      return raco.boolean.UnnamedAttributeRef(pos)
+      return raco.expression.UnnamedAttributeRef(pos)
     else:
       # must be a join condition, and the other variable matches
       return valueref
