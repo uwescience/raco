@@ -290,3 +290,62 @@ class MyriaAlgebra:
       , BreakShuffle()
       , ApplyHardcodedSchema() # TODO replace with Catalog call
   ]
+
+def compile_to_json(raw_query, logical_plan, physical_plan):
+  syms = {}
+
+  def one_fragment(rootOp):
+      cur_frag = [rootOp]
+      if id(rootOp) not in syms:
+          syms[id(rootOp)] = algebra.gensym()
+      queue = []
+      if isinstance(rootOp, MyriaAlgebra.fragment_leaves):
+          for child in rootOp.children():
+              queue.append(child)
+      else:
+          for child in rootOp.children():
+              (child_frag, child_queue) = one_fragment(child)
+              cur_frag += child_frag
+              queue += child_queue
+      return (cur_frag, queue)
+
+  def fragments(rootOp):
+      queue = [rootOp]
+      ret = []
+      while len(queue) > 0:
+          rootOp = queue.pop(0)
+          (op_frag, op_queue) = one_fragment(rootOp)
+          ret.append(reversed(op_frag))
+          queue.extend(op_queue)
+      return ret
+
+  def call_compile_me(op):
+      opsym = syms[id(op)]
+      childsyms = [syms[id(child)] for child in op.children()]
+      if isinstance(op, algebra.ZeroaryOperator):
+          return op.compileme(opsym)
+      if isinstance(op, algebra.UnaryOperator):
+          return op.compileme(opsym, childsyms[0])
+      if isinstance(op, algebra.BinaryOperator):
+          return op.compileme(opsym, childsyms[0], childsyms[1])
+      if isinstance(op, algebra.NaryOperator):
+          return op.compileme(opsym, childsyms)
+      raise NotImplementedError("unable to handle operator of type "+type(op))
+
+  all_frags = []
+  for (label, rootOp) in physical_plan:
+      if isinstance(rootOp, algebra.Store):
+          frag_root = rootOp
+      else:
+          frag_root = MyriaInsert(plan=rootOp, name=label)
+      syms[id(frag_root)] = label
+      frags = fragments(frag_root)
+      all_frags.extend([{'operators': [call_compile_me(op) for op in frag]} for frag in frags])
+      syms.clear()
+
+  query = {
+          'fragments' : all_frags,
+          'raw_datalog' : raw_query,
+          'logical_ra' : str(logical_plan)
+          }
+  return query
