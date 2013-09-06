@@ -11,25 +11,25 @@ def RATest(query):
 class DatalogTest(unittest.TestCase):
   def test_join(self):
     join = """A(x,z) :- R(x,y), S(y,z)"""
-    desiredresult = """[('A', Project(col0,col3)[Join(col1 = col0)[Scan(R), Scan(S)]])]"""
+    desiredresult = """[('A', Project($0,$3)[Join($1 = $0)[Scan(R), Scan(S)]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
   def test_selfjoin(self):
     join = """A(x,z) :- R(x,y), R(y,z)"""
-    desiredresult = """[('A', Project(col0,col3)[Join(col1 = col0)[Scan(R), Scan(R)]])]"""
+    desiredresult = """[('A', Project($0,$3)[Join($1 = $0)[Scan(R), Scan(R)]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
   def test_triangle(self):
     join = """A(x,y,z) :- R(x,y), S(y,z), T(z,x)"""
-    desiredresult = """[('A', Project(col0,col1,col3)[Select(col0 = col5)[Join(col3 = col0)[Join(col1 = col0)[Scan(R), Scan(S)], Scan(T)]]])]"""
+    desiredresult = """[('A', Project($0,$1,$2)[Select($1 = $4)[Join($2 = $1)[Join($0 = $1)[Scan(R), Scan(T)], Scan(S)]]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
   def test_explicit_conditions(self):
     join = """A(x,y,z) :- R(x,y), S(w,z), x<y,y<z,y=w"""
-    desiredresult = """[('A', Project(col0,col1,col3)[Join(col1 < col1 and col1 = col0)[Select(col0 < col1)[Scan(R)], Scan(S)]])]"""
+    desiredresult = """[('A', Project($0,$1,$3)[Join($1 < $1 and $1 = $0)[Select($0 < $1)[Scan(R)], Scan(S)]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
