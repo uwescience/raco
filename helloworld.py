@@ -23,6 +23,11 @@ triangles = """
 A(x,y,z) :- R(x,y),S(y,z),T(z,x)
 """
 
+# Three hops
+three_hops = """
+ThreeHops(x,w) :- TwitterK(x,y),TwitterK(y,z),TwitterK(z,w)
+"""
+
 # Which one do we use?
 query = join
 
