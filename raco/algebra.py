@@ -474,15 +474,11 @@ class GroupBy(UnaryOperator):
     self.expressionlist = other.expressionlist
     UnaryOperator.copy(self, other)
 
-  @classmethod
-  def typeof(self):
-    """Infer the type of an aggregate expression"""
-    return float
-
   def scheme(self):
     """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
     groupingscheme = [attref.resolve(self.input.scheme()) for attref in self.groupinglist]
-    expressionscheme = [("expr%s" % i, GroupBy.typeof(expr)) for i,expr in enumerate(self.expressionlist)]
+    expressionscheme = [("expr%s" % i, expr.typeof()) for i,expr in enumerate(self.expressionlist)]
+    return scheme.Scheme([groupingscheme + expressionscheme])
 
 class ProjectingJoin(Join):
   """Logical Projecting Join operator"""
