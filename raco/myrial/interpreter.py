@@ -53,6 +53,12 @@ class ExpressionProcessor:
         # TODO: Figure out set/bag semantics here
         return raco.algebra.Union(left, right)
 
+    def countall(self, _id):
+        op = self.symbols[_id]
+        return raco.algebra.GroupBy(groupinglist=[],
+                                    aggregatelist=[colexpr.COUNT()],
+                                    input=op)
+
     def intersect(self, id1, id2):
         raise NotImplementedError()
 
