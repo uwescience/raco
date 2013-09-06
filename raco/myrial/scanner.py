@@ -8,7 +8,7 @@ reserved = ['LOAD', 'STORE', 'LIMIT', 'SHUFFLE', 'SEQUENCE', 'CROSS', 'JOIN',
             'GROUP','EMIT', 'AS', 'DIFF', 'UNIONALL', 'INTERSECT', 'APPLY',
             'DUMP', 'FILTER', 'TABLE', 'ORDER', 'ASC', 'DESC', 'BY', 'WHILE',
             'INT', 'STRING', 'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN',
-            'COUNT']
+            'COUNTALL']
 
 # Token types; required by ply to have this variable name
 tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'PLUS', 'MINUS', 'TIMES',

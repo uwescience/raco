@@ -170,9 +170,9 @@ class Parser:
         'expression : DISTINCT ID'
         p[0] = ('DISTINCT', p[2])
 
-    def p_expression_count(self, p):
-        'expression : COUNT ID'
-        p[0] = ('COUNT', p[2])
+    def p_expression_countall(self, p):
+        'expression : COUNTALL ID'
+        p[0] = ('COUNTALL', p[2])
 
     def p_expression_binary_set_operation(self, p):
         'expression : setop ID COMMA ID'
