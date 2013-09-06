@@ -55,6 +55,7 @@ def t_ID(t):
     upped = t.value.upper()
     if upped in reserved:
         t.type = upped
+        t.value = upped
         return t
     else:
         t.type = 'ID'
