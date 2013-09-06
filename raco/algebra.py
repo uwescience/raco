@@ -459,9 +459,9 @@ class Project(UnaryOperator):
 
 class GroupBy(UnaryOperator):
   """Logical projection operator"""
-  def __init__(self, groupinglist=None, expressionlist=None, input=None):
+  def __init__(self, groupinglist=None, aggregatelist=None, input=None):
     self.groupinglist = groupinglist
-    self.expressionlist = expressionlist
+    self.aggregatelist = aggregatelist
     UnaryOperator.__init__(self, input)
 
   def __str__(self):
@@ -471,13 +471,13 @@ class GroupBy(UnaryOperator):
   def copy(self, other):
     """deep copy"""
     self.groupinglist = other.groupinglist
-    self.expressionlist = other.expressionlist
+    self.aggregatelist = other.aggregatelist
     UnaryOperator.copy(self, other)
 
   def scheme(self):
     """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
     groupingscheme = [attref.resolve(self.input.scheme()) for attref in self.groupinglist]
-    expressionscheme = [("expr%s" % i, expr.typeof()) for i,expr in enumerate(self.expressionlist)]
+    expressionscheme = [("expr%s" % i, expr.typeof()) for i,expr in enumerate(self.aggregatelist)]
     return scheme.Scheme([groupingscheme + expressionscheme])
 
 class ProjectingJoin(Join):
