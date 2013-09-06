@@ -37,7 +37,10 @@ class ExpressionProcessor:
         raise NotImplementedError()
 
     def distinct(self, _id):
-        raise NotImplementedError()
+        # TODO: Use a first-class distinct operator here?
+        op = self.symbols[_id]
+        return raco.algebra.GroupBy(groupinglist=op.scheme().ascolumnlist(),
+                                    input=op)
 
     def __process_bitop(self, _type, id1, id2):
         left = self.symbols[id1]

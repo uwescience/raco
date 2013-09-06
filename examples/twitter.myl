@@ -15,9 +15,10 @@ STORE T3, {T3};
 T4 = APPLY T3 EMIT (x=$0, y=$3);
 STORE T4, {T4};
 
-/*
 T5 = DISTINCT T4;
+STORE T5, {T5};
 
+/*
 T6 = COUNT T7; -- renames to count(colname)
 
 STORE T6, {Twitter2HopCount};

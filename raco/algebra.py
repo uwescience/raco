@@ -459,14 +459,15 @@ class Project(UnaryOperator):
 
 class GroupBy(UnaryOperator):
   """Logical projection operator"""
-  def __init__(self, groupinglist=None, aggregatelist=None, input=None):
+  def __init__(self, groupinglist=[], aggregatelist=[], input=None):
     self.groupinglist = groupinglist
     self.aggregatelist = aggregatelist
     UnaryOperator.__init__(self, input)
 
   def __str__(self):
-    colstring = ",".join([str(x) for x in self.columnlist])
-    return "%s(%s)[%s]" % (self.opname(), colstring, self.input)
+    groupstring = ",".join([str(x) for x in self.groupinglist])
+    aggstr = ",".join([str(x) for x in self.aggregatelist])
+    return "%s(%s)(%s)[%s]" % (self.opname(), groupstring, aggstr, self.input)
 
   def copy(self, other):
     """deep copy"""
