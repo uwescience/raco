@@ -132,6 +132,7 @@ class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
 
     if self.columnlist is None:
       self.columnlist = self.scheme().ascolumnlist()
+    column_names = [name for (name,type) in self.scheme()]
 
     allleft = [i.position for i in self.columnlist if i.position < len(self.left.scheme())]
     allright = [i.position-len(self.left.scheme()) for i in self.columnlist if i.position >= len(self.left.scheme())]
@@ -139,6 +140,7 @@ class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
     join = {
         "op_name" : resultsym,
         "op_type" : "LocalJoin",
+        "arg_column_names" : column_names,
         "arg_child1" : "%s" % leftsym,
         "arg_columns1" : leftcols,
         "arg_child2": "%s" % rightsym,
@@ -247,6 +249,7 @@ class ApplyHardcodedSchema(rules.Rule):
         'T': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
         'T3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
         'Twitter': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
+        'TwitterK': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
     }
     # only handles MyriaScan right now
     if not isinstance(expr, MyriaScan):
