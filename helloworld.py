@@ -1,6 +1,6 @@
 from raco import RACompiler
-from raco.language import MyriaAlgebra
-from raco.algebra import LogicalAlgebra, gensym, ZeroaryOperator, UnaryOperator, BinaryOperator, NaryOperator
+from raco.language import MyriaAlgebra, MyriaInsert
+from raco.algebra import LogicalAlgebra, gensym, ZeroaryOperator, UnaryOperator, BinaryOperator, NaryOperator, Store
 import json
 
 def json_pretty_print(dictionary):
@@ -35,6 +35,7 @@ dlog = RACompiler()
 # parse the query
 dlog.fromDatalog(query)
 print "************ LOGICAL PLAN *************"
+cached_logicalplan = dlog.logicalplan
 print dlog.logicalplan
 print
 
@@ -90,16 +91,19 @@ def call_compile_me(op):
 
 all_frags = []
 for (label, rootOp) in phys:
-    syms[id(rootOp)] = label
-    label, rootOp
-    frags = fragments(rootOp)
+    if isinstance(rootOp, Store):
+        frag_root = rootOp
+    else:
+        frag_root = MyriaInsert(plan=rootOp, name=label)
+    syms[id(frag_root)] = label
+    frags = fragments(frag_root)
     all_frags.extend([{'operators': [call_compile_me(op) for op in frag]} for frag in frags])
     syms.clear()
 
 query = {
         'fragments' : all_frags,
         'raw_datalog' : query,
-        'logical_ra' : str(dlog.logicalplan)
+        'logical_ra' : str(cached_logicalplan)
         }
 print json_pretty_print(query)
 print
