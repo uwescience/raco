@@ -35,7 +35,7 @@ dlog = RACompiler()
 # parse the query
 dlog.fromDatalog(query)
 print "************ LOGICAL PLAN *************"
-cached_logicalplan = dlog.logicalplan
+cached_logicalplan = str(dlog.logicalplan)
 print dlog.logicalplan
 print
 
