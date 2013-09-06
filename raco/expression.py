@@ -17,7 +17,7 @@ class Expression(Printable):
 
 class ZeroaryOperator(Expression):
   def __init__(self):
-
+    pass
   def __eq__(self, other):
     return self.__class__ == other.__class__ 
 
