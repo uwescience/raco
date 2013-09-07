@@ -133,9 +133,6 @@ class UnaryOperator(Operator):
     """Default scheme is the same as the input.  Usually overriden"""
     return self.input.scheme()
 
-  def resolveAttribute(self, attributereference):
-    return self.input.resolveAttribute(attributereference)
-
   def apply(self, f):
     """Apply a function to your children"""
     self.input = f(self.input)
@@ -266,14 +263,6 @@ class NaryOperator(Operator):
       code += emit([arg.compile(sym) for arg,sym in zip(self.args,argsyms)] + [self.compileme(resultsym, argsyms)])
     return code
 
-  def resolveAttribute(self, attributeReference):
-    for arg in self.args:
-      try:
-        return arg.resolveAttribute(attribtueReference)
-      except SchemaError:
-        pass
-    raise SchemaError("Cannot resolve %s in Nary operator with schema %s" % (attributeReference, self.scheme()))
-
   def children(self):
     return self.args
 
@@ -331,10 +320,6 @@ class Union(BinaryOperator):
     """Same semantics as SQL: Assume first schema "wins" and throw an  error if they don't match during evaluation"""
     return self.left.scheme()
 
-  def resolveAttribute(self, attributereference):
-    """Union assumes the schema of its left argument"""
-    return self.left.resolveAttribute(attribtuereference)
-
 class Join(BinaryOperator):
   """Logical Join operator"""
   def __init__(self, condition=None, left=None, right=None):
@@ -355,39 +340,6 @@ class Join(BinaryOperator):
   def scheme(self):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
-
-  def resolveAttribute(self, attributereference):
-    """Join has to check to see if this attribute is in the left or right argument."""
-    try:
-      self.left.resolveAttribute(attributereference)
-    except SchemaError:
-      try:
-        return self.right.resolveAttribute(attributereference)
-      except SchemaError:
-        raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
-
-class Apply(UnaryOperator):
-  """Create new attributes from expressions.  Subsumes the rename operator"""
-  def __init__(self, input=None, **expressions):
-    self.expressions = expressions
-    UnaryOperator.__init__(self, input)
-
-  def __eq__(self, other):
-    return UnaryOperator.__eq__(self,other) and self.expressions == other.expressions
-
-  def __str__(self):
-    estrs = ",".join(["%s=%s" % pair for pair in self.expressions.items()])
-    return "%s(%s)[%s]" % (self.opname(), estrs, self.input)
-
-  def copy(self, other):
-    """deep copy"""
-    self.expressions = other.expressions
-    UnaryOperator.copy(self, other)
-
-  def scheme(self):
-    """scheme of the result."""
-    new_attrs = [(name,expr.typeof()) for (name, expr) in self.expressions.items()]
-    return scheme.Scheme(new_attrs)
 
 class Select(UnaryOperator):
   """Logical selection operator"""
@@ -413,7 +365,6 @@ class Select(UnaryOperator):
   def scheme(self):
     """scheme of the result."""
     return self.input.scheme()
-
 
 class CrossProduct(BinaryOperator):
   """Logical Cross Product operator"""
@@ -459,27 +410,30 @@ class Project(UnaryOperator):
 
 class GroupBy(UnaryOperator):
   """Logical projection operator"""
-  def __init__(self, groupinglist=[], aggregatelist=[], input=None):
+  def __init__(self, groupinglist=None, expressionlist=None, input=None):
     self.groupinglist = groupinglist
-    self.aggregatelist = aggregatelist
+    self.expressionlist = expressionlist
     UnaryOperator.__init__(self, input)
 
   def __str__(self):
-    groupstring = ",".join([str(x) for x in self.groupinglist])
-    aggstr = ",".join([str(x) for x in self.aggregatelist])
-    return "%s(%s)(%s)[%s]" % (self.opname(), groupstring, aggstr, self.input)
+    colstring = ",".join([str(x) for x in self.columnlist])
+    return "%s(%s)[%s]" % (self.opname(), colstring, self.input)
 
   def copy(self, other):
     """deep copy"""
     self.groupinglist = other.groupinglist
-    self.aggregatelist = other.aggregatelist
+    self.expressionlist = other.expressionlist
     UnaryOperator.copy(self, other)
+
+  @classmethod
+  def typeof(self):
+    """Infer the type of an aggregate expression"""
+    return float
 
   def scheme(self):
     """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
     groupingscheme = [attref.resolve(self.input.scheme()) for attref in self.groupinglist]
-    expressionscheme = [("expr%s" % i, expr.typeof()) for i,expr in enumerate(self.aggregatelist)]
-    return scheme.Scheme([groupingscheme + expressionscheme])
+    expressionscheme = [("expr%s" % i, GroupBy.typeof(expr)) for i,expr in enumerate(self.expressionlist)]
 
 class ProjectingJoin(Join):
   """Logical Projecting Join operator"""
@@ -624,12 +578,8 @@ class Scan(ZeroaryOperator):
 
   def scheme(self):
     """Scheme of the result, which is just the scheme of the relation."""
-    return self.relation.scheme()
-
-  def resolveAttribute(self, attributereference):
-    """Resolve an attribute reference in this operator's schema to its definition: 
-    An attribute in an EDB or an expression."""
-    return attributereference
+    return self.relation.scheme
+ 
 
 class CollapseSelect(Rule):
   """A rewrite rule for combining two selections"""
