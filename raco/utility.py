@@ -2,7 +2,7 @@
 Return a block of code as a string.
 """
 def emit(*args):
-  return "\n".join(["%s" % x for x in args])
+  return "\n".join([str(x) for x in args if len(str(x)) > 0])
 
 class Printable:
   def opname(self):

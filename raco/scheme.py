@@ -1,3 +1,5 @@
+import boolean
+from collections import OrderedDict
 
 class Scheme:
   '''
@@ -7,7 +9,7 @@ Type is a function that returns true for any value that is of the correct type
   salt = "1"
   def __init__(self,attributes=[]):
     self.attributes = []
-    self.asdict = {}
+    self.asdict = OrderedDict()
     for n,t in attributes:
       self.addAttribute(n,t)
 
@@ -32,18 +34,32 @@ Type is a function that returns true for any value that is of the correct type
   def getPosition(self, name): 
     return self.asdict[name][0]
   
+  def getName(self, position):
+    return self[position][0]
+
   def getType(self, name):
-    return self.asdict[name][1]
+    if type(name) == int:
+      return self[name][1]
+    else:
+      return self.asdict[name][1]
 
   def subScheme(self, attributes):
+    """Return a scheme consisting of only the provided attribute names"""
     return Scheme([(n,self.getType(n)) for n in attributes])
 
   def subsumes(self, names):
+    """Does this scheme contain all the names in the list?"""
     return all([n in self.asdict.keys() for n in names])
 
   def contains(self, names):
     """deprecated.  use subsumes"""
     return self.contains(names)
+
+  def ascolumnlist(self):
+    """Return a columnlist structure suitable for use with Project and ProjectingJoin.
+    Currently a list of PositionReferences.  May eventually be a scheme itself.
+    """
+    return [boolean.PositionReference(i) for i in xrange(len(self))]
 
   def __contains__(self, attr, typ=None):
     if typ:
@@ -62,6 +78,10 @@ Type is a function that returns true for any value that is of the correct type
       self.asdict[name2] = (i,t)
     except KeyError:
       pass
+
+  def __str__(self):
+    """Pretty print the scheme"""
+    return str(self.attributes)
 
   def __len__(self):
     """Return the number of attributes in the scheme"""
@@ -85,6 +105,9 @@ Type is a function that returns true for any value that is of the correct type
       if not n in other: 
         newsch.addAttribute(n,t)
     return newsch
+
+  def __str__(self):
+    return str(self.attributes)
 
 
 class EmptyScheme(Scheme):
