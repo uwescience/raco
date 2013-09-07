@@ -296,34 +296,70 @@ class MyriaAlgebra:
   ]
 
 def compile_to_json(raw_query, logical_plan, physical_plan):
+  """This function compiles a logical RA plan to the JSON suitable for
+  submission to the Myria REST API server."""
+
+  # A dictionary mapping each object to a unique, object-dependent symbol.
+  # Since we want this to be truly unique for each object instance, even if two
+  # objects are equal, we use id(obj) as the key.
   syms = {}
 
   def one_fragment(rootOp):
+      """Given an operator that is the root of a query fragment/plan, extract
+      the operators in the fragment. Assembles a list cur_frag of the operators
+      in the current fragment, in preorder from the root.
+      
+      This operator also assembles a queue of the discovered roots of later
+      fragments, e.g., when there is a ShuffleProducer below. The list of
+      operators that should be treated as fragment leaves is given by
+      MyriaAlgebra.fragment_leaves. """
+
+      # The current fragment starts with the current root
       cur_frag = [rootOp]
+      # If necessary, assign a symbol to the root operator
       if id(rootOp) not in syms:
           syms[id(rootOp)] = algebra.gensym()
+      # Initially, there are no new roots discovered below leaves of this
+      # fragment.
       queue = []
       if isinstance(rootOp, MyriaAlgebra.fragment_leaves):
+          # The current root operator is a fragment leaf, such as a
+          # ShuffleProducer. Append its children to the queue of new roots.
           for child in rootOp.children():
               queue.append(child)
       else:
+          # Otherwise, the children belong in this fragment. Recursively go
+          # discover their fragments, including the queue of roots below their
+          # children.
           for child in rootOp.children():
               (child_frag, child_queue) = one_fragment(child)
+              # Add their fragment onto this fragment
               cur_frag += child_frag
+              # Add their roots-of-next-fragments into our queue
               queue += child_queue
       return (cur_frag, queue)
 
   def fragments(rootOp):
+      """Given the root of a query plan, recursively determine all the fragments
+      in it."""
+      # The queue of fragment roots. Initially, just the root of this query
       queue = [rootOp]
       ret = []
       while len(queue) > 0:
+          # Get the next fragment root
           rootOp = queue.pop(0)
+          # .. recursively learn the entire fragment, and any newly discovered
+          # roots.
           (op_frag, op_queue) = one_fragment(rootOp)
+          # .. Myria JSON expects the fragment operators in reverse order,
+          # i.e., root at the bottom.
           ret.append(reversed(op_frag))
+          # .. and collect the newly discovered fragment roots.
           queue.extend(op_queue)
       return ret
 
   def call_compile_me(op):
+      "A shortcut to call the operator's compile_me function."
       opsym = syms[id(op)]
       childsyms = [syms[id(child)] for child in op.children()]
       if isinstance(op, algebra.ZeroaryOperator):
@@ -336,17 +372,30 @@ def compile_to_json(raw_query, logical_plan, physical_plan):
           return op.compileme(opsym, childsyms)
       raise NotImplementedError("unable to handle operator of type "+type(op))
 
+  # The actual code. all_frags collects up the fragments.
   all_frags = []
+  # For each IDB, generate a plan that assembles all its fragments and stores
+  # them back to a relation named (label).
   for (label, rootOp) in physical_plan:
       if isinstance(rootOp, algebra.Store):
+          # If there is already a store (including MyriaInsert) at the top, do
+          # nothing.
           frag_root = rootOp
       else:
+          # Otherwise, add an insert at the top to store this relation to a
+          # table named (label).
           frag_root = MyriaInsert(plan=rootOp, name=label)
+      # Make sure the root is in the symbol dictionary, but rather than using a
+      # generated symbol use the IDB label.
       syms[id(frag_root)] = label
+      # Determine the fragments.
       frags = fragments(frag_root)
+      # Build the fragments.
       all_frags.extend([{'operators': [call_compile_me(op) for op in frag]} for frag in frags])
+      # Clear out the symbol dictionary for the next IDB.
       syms.clear()
 
+  # Assemble all the fragments into a single JSON query plan
   query = {
           'fragments' : all_frags,
           'raw_datalog' : raw_query,
