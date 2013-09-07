@@ -1,4 +1,5 @@
 import boolean
+import expression
 
 class Language:
  
@@ -61,14 +62,10 @@ Replace column names with positions
       condition.input = Language.unnamed(condition.input, sch)
       result = condition
 
-    elif isinstance(condition, boolean.Attribute):
-      # replace the attribute name with it's position in the relation
-      # TODO: This won't work with intermediate results from joins
-      # Replace with a generic AttributeReference
+    elif isinstance(condition, expression.NamedAttributeRef):
       pos = sch.getPosition(condition.name)
-      result = boolean.PositionReference(pos)
-    elif isinstance(condition, boolean.PositionReference):
-      # TODO: Replace with a generic AttributeReference
+      result = expression.UnnamedAttributeRef(pos)
+    elif isinstance(condition, expression.UnnamedAttributeRef):
       result = condition
     else:
       # do nothing; it's a literal or something custom
@@ -104,7 +101,7 @@ Compile a boolean condition into the target language
       if isinstance(expr, boolean.LTEQ):
         return cls.boolean_combine([left, right], operator="<=")
 
-    elif isinstance(expr, boolean.Attribute):
+    elif isinstance(expr, expression.NamedAttributeRef):
       return cls.compile_attribute(expr)
 
     elif isinstance(expr, boolean.StringLiteral):
@@ -113,7 +110,7 @@ Compile a boolean condition into the target language
     elif isinstance(expr, boolean.NumericLiteral):
       return cls.compile_numericliteral(expr.value)
   
-    elif isinstance(expr, boolean.PositionReference):
+    elif isinstance(expr, expression.UnnamedAttributeRef):
       return cls.compile_attribute(expr)
   
     else:
