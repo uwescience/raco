@@ -240,6 +240,8 @@ class ShuffleBeforeJoin(rules.Rule):
     raise NotImplementedError("How the heck did you get here?")
 
 class ApplyHardcodedSchema(rules.Rule):
+  """A rule to insert the hardcoded Myria schema for certain objects."""
+  # TODO remove this and replace with a REST API lookup
   def fire(self, expr):
     hardcoded_schema = {
         'R': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
@@ -251,13 +253,12 @@ class ApplyHardcodedSchema(rules.Rule):
         'Twitter': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
         'TwitterK': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
     }
-    # only handles MyriaScan right now
+    # TODO only handles MyriaScan right now
     if not isinstance(expr, MyriaScan):
       # warn if zeroary
       if isinstance(expr, algebra.ZeroaryOperator):
         print >>sys.stderr, "warning, unhandled ZeroaryOperator %s" % type(expr)
       return expr
-    
     try:
       expr.relation.scheme = scheme.Scheme(hardcoded_schema[expr.relation.name])
     except KeyError:
