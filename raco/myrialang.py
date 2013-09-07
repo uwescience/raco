@@ -210,8 +210,7 @@ class BreakShuffle(rules.Rule):
 class ShuffleBeforeJoin(rules.Rule):
   def fire(self, expr):
     # If not a join, who cares?
-    if not (isinstance(expr, algebra.Join) or \
-            isinstance(expr, algebra.ProjectingJoin)):
+    if not isinstance(expr, algebra.Join):
       return expr
 
     # If both have shuffles already, who cares?
