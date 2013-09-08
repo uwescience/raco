@@ -12,8 +12,9 @@ import types
 
 class ExpressionProcessor:
     '''Convert syntactic expressions into a relational algebra operation'''
-    def __init__(self, symbols):
+    def __init__(self, symbols, db):
         self.symbols = symbols
+        self.db = db
 
     def evaluate(self, expr):
         method = getattr(self, expr[0].lower())
@@ -23,8 +24,8 @@ class ExpressionProcessor:
         return self.symbols[_id]
 
     def scan(self, relation_key, scheme):
-        # TODO(AJW) resolve the schema if it's not provided
-        assert scheme # REMOVE THIS!
+        if not scheme:
+            scheme = self.db.get_scheme(relation_key)
 
         rel = raco.catalog.Relation(relation_key, scheme)
         return raco.algebra.Scan(rel)
@@ -84,7 +85,7 @@ class ExpressionProcessor:
 class StatementProcessor:
     '''Evaluate a list of statements'''
 
-    def __init__(self):
+    def __init__(self, db=None):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
@@ -93,7 +94,8 @@ class StatementProcessor:
         # (id, raco.algebra.Operation)
         self.output_symbols = []
 
-        self.ep = ExpressionProcessor(self.symbols)
+        self.db = db
+        self.ep = ExpressionProcessor(self.symbols, db)
 
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
@@ -114,7 +116,7 @@ class StatementProcessor:
 
     def dump(self, _id):
         child_op = self.symbols[_id]
-        self.output_symbols.append(_id, op)
+        self.output_symbols.append((_id, child_op))
 
     @property
     def output_symbols(self):
@@ -124,9 +126,6 @@ class StatementProcessor:
         pass
 
     def describe(self, _id):
-        pass
-
-    def dump(self, _id):
         pass
 
     def dowhile(self, statement_list, termination_ex):

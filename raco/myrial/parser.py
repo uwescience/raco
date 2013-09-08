@@ -97,13 +97,13 @@ class Parser:
         'expression : SCAN LPAREN relation_key optional_schema RPAREN'
         # TODO(AJW): Nix optional schema argument once we can read this from
         # myrial?
-        p[0] = ('SCAN', p[2], p[3])
+        p[0] = ('SCAN', p[3], p[4])
 
     def p_relation_key(self, p):
         '''relation_key : string_arg
                         | string_arg COLON string_arg
                         | string_arg COLON string_arg COLON string_arg'''
-        p[0] = ':'.join(p[1:])
+        p[0] = ''.join(p[1:])
 
     def p_optional_schema(self, p):
         '''optional_schema : COMMA column_def_list
@@ -130,16 +130,6 @@ class Parser:
         '''type_name : STRING
                      | INT'''
         p[0] = p[1]
-
-    # For operators that take string-like arguments: allow unquoted
-    # identifiers and quoted strings to be used equivalently
-    def p_string_arg_list(self, p):
-        '''string_arg_list : string_arg_list COMMA string_arg
-                           | string_arg'''
-        if len(p) == 4:
-            p[0] = p[1] + [p[3]]
-        else:
-            p[0] = [p[1]]
 
     def p_string_arg(self, p):
         '''string_arg : ID
