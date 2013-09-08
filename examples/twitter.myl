@@ -1,7 +1,7 @@
 
-T1 = SCAN {Twitter, default, andrew} AS (follower:int, followee:int);
+T1 = SCAN(andrew:adhoc:Twitter, follower:int, followee:int);
 
-T2 = SCAN {Twitter} AS (follower:int, followee:int);
+T2 = T1;
 
 T3 = JOIN T1 BY follower, T2 by followee;
 
@@ -10,4 +10,4 @@ T4 = APPLY T3 EMIT (x=$0, y=$3);
 T5 = DISTINCT T4;
 
 T6 = COUNTALL T5; -- renames to count(colname)
-STORE T6, {Twitter2HopCount};
+STORE (T6, Twitter2HopCount);

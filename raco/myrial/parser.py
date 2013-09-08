@@ -20,15 +20,6 @@ class ParseException(Exception):
 # UnnamedAttributeRef (for positions).
 JoinTarget = collections.namedtuple('JoinTarget',['id', 'columns'])
 
-class RelationKey(object):
-    def __init__(self, table, program='default', user='nobody'):
-        self.table = table
-        self.program = program
-        self.user = user
-
-    def __repr__(self):
-        return 'RelationKey(%s,%s,%s)' % (self.table, self.program,self.user)
-
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': colexpr.PLUS,
@@ -95,39 +86,32 @@ class Parser:
         p[0] = ('DOWHILE', p[2], p[4])
 
     def p_statement_store(self, p):
-        'statement : STORE ID COMMA relation_key SEMI'
-        p[0] = ('STORE', p[2], p[4])
+        'statement : STORE LPAREN ID COMMA relation_key RPAREN SEMI'
+        p[0] = ('STORE', p[3], p[5])
 
     def p_expression_id(self, p):
         'expression : ID'
         p[0] = ('ALIAS', p[1])
 
     def p_expression_scan(self, p):
-        'expression : SCAN relation_key optional_as'
+        'expression : SCAN LPAREN relation_key optional_schema RPAREN'
         # TODO(AJW): Nix optional schema argument once we can read this from
         # myrial?
         p[0] = ('SCAN', p[2], p[3])
 
     def p_relation_key(self, p):
-        'relation_key : LBRACE string_arg_list RBRACE'
-        # {table [, program] [,user]}
-        if len(p[2]) < 1:
-            raise ParseException("No table name provided")
-        if len(p[2]) > 3:
-            raise ParseException("Too many arguments to relation key")
-        p[0] = RelationKey(*p[2])
+        '''relation_key : string_arg
+                        | string_arg COLON string_arg
+                        | string_arg COLON string_arg COLON string_arg'''
+        p[0] = ':'.join(p[1:])
 
-    def p_optional_as(self, p):
-        '''optional_as : AS schema
-                       | empty'''
+    def p_optional_schema(self, p):
+        '''optional_schema : COMMA column_def_list
+                           | empty'''
         if len(p) == 3:
-            p[0] = p[2]
+            p[0] = scheme.Scheme(p[2])
         else:
             p[0] = None
-
-    def p_schema(self, p):
-        'schema : LPAREN column_def_list RPAREN'
-        p[0] = scheme.Scheme(p[2])
 
     def p_column_def_list(self, p):
         '''column_def_list : column_def_list COMMA column_def

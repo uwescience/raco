@@ -26,8 +26,7 @@ class ExpressionProcessor:
         # TODO(AJW) resolve the schema if it's not provided
         assert scheme # REMOVE THIS!
 
-        # TODO(AJW): Use the entire relation key!
-        rel = raco.catalog.Relation(relation_key.table, scheme)
+        rel = raco.catalog.Relation(relation_key, scheme)
         return raco.algebra.Scan(rel)
 
     def load(self, path, schema):
@@ -110,8 +109,12 @@ class StatementProcessor:
 
     def store(self, _id, relation_key):
         child_op = self.symbols[_id]
-        op = raco.algebra.Store(relation_key.table, child_op)
+        op = raco.algebra.Store(relation_key, child_op)
         self.output_symbols.append((_id, op))
+
+    def dump(self, _id):
+        child_op = self.symbols[_id]
+        self.output_symbols.append(_id, op)
 
     @property
     def output_symbols(self):
@@ -128,10 +131,3 @@ class StatementProcessor:
 
     def dowhile(self, statement_list, termination_ex):
         pass
-
-def evaluate(s, out=sys.stdout):
-    _parser = parser.Parser()
-    processor = StatementProcessor(out)
-
-    statement_list = _parser.parse(s)
-    processor.evaluate(statement_list)
