@@ -299,7 +299,7 @@ class Rule:
       if var not in scheme:
         msg = "Head variable %s does not appear in rule body: %s" % (var, self)
         raise SyntaxError(msg)
-      return raco.boolean.PositionReference(scheme.getPosition(var))
+      return raco.expression.UnnamedAttributeRef(scheme.getPosition(var))
 
     # if this Rule includes a server specification, add a partition operator
     if self.isParallel():
@@ -369,7 +369,7 @@ class Term:
     yourvars = other.vars()
     myvars = self.vars()
     joins = []
-    Pos = raco.boolean.PositionReference
+    Pos = raco.expression.UnnamedAttributeRef
     for i, var in enumerate(myvars):
       if var in yourvars:
         myposition = Pos(i)
@@ -401,7 +401,7 @@ class Term:
     """Convert a Datalog value reference (a literal or a variable) to RA.  Literals are passed through unchanged.  Variables are converted"""
     if self.match(valueref):
       pos = self.position(valueref)
-      return raco.boolean.PositionReference(pos)
+      return raco.expression.UnnamedAttributeRef(pos)
     else:
       # must be a join condition, and the other variable matches
       return valueref
@@ -457,7 +457,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
     # Check for implicit literal equality conditions, like A(X,"foo")
     for i,b in enumerate(self.valuerefs):
       if isinstance(b,raco.boolean.Literal):
-        posref = raco.boolean.PositionReference(i)
+        posref = raco.boolean.UnnamedAttributeRef(i)
         yield raco.boolean.EQ(posref, b)
 
     # Check for repeated variable conditions, like A(X,X)
@@ -469,8 +469,8 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
           if isinstance(y, Var):
             # TODO: probably want to implement __eq__, but it makes Var objects unhashable
             if x.var == y.var:
-              leftpos = raco.boolean.PositionReference(i)
-              rightpos = raco.boolean.PositionReference(j)
+              leftpos = raco.expression.UnnamedAttributeRef(i)
+              rightpos = raco.expression.UnnamedAttributeRef(j)
               yield raco.boolean.EQ(leftpos, rightpos)
  
   def makeLeaf(term, conditions, program):
