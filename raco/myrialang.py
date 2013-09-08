@@ -263,7 +263,7 @@ class ApplyHardcodedSchema(rules.Rule):
         print >>sys.stderr, "warning, unhandled ZeroaryOperator %s" % type(expr)
       return expr
     try:
-      expr.relation.scheme = scheme.Scheme(hardcoded_schema[expr.relation.name])
+      expr.relation._scheme = scheme.Scheme(hardcoded_schema[expr.relation.name])
     except KeyError:
       raise KeyError("Scanned relation %s has no hardcoded scheme!" % expr.relation.name)
     return expr
