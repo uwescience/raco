@@ -70,9 +70,9 @@ class CC(Language):
 
   @classmethod
   def compile_attribute(cls, expr):
-    if isinstance(expr, boolean.Attribute):
+    if isinstance(expr, expression.NamedAttributeRef):
       raise TypeError("Error compiling attribute reference %s. C compiler only support unnamed perspective.  Use helper function unnamed." % expr)
-    if isinstance(expr, boolean.PositionReference):
+    if isinstance(expr, boolean.UnnamedAttributeRef):
       position = expr.leaf_position
       relation = expr.relationsymbol
       rowvariable = expr.rowvariable
@@ -109,10 +109,10 @@ Count matches, allocate memory, loop again to populate result
         helper(condition.left)
         helper(condition.right)
       if isinstance(condition, boolean.BinaryComparisonOperator):
-        if isinstance(condition.left, boolean.PositionReference):
+        if isinstance(condition.left, expression.UnnamedAttributeRef):
           condition.left.rowvariable = "i"
           condition.left.relationsymbol = inputsym
-        if isinstance(condition.right, boolean.PositionReference):
+        if isinstance(condition.right, expression.UnnamedAttributeRef):
           condition.right.rowvariable = "i"
           condition.right.relationsymbol = inputsym
 
@@ -315,20 +315,20 @@ A linear chain of joins, with selection predicates applied"""
       if isinstance(condition, boolean.BinaryComparisonOperator):
 
         def localize(posref):
-          assert(isinstance(posref, boolean.PositionReference))
+          assert(isinstance(posref, expression.UnnamedAttributeRef))
           relsym, foundlevel, localposition = self.leafreference(posref.position, argsyms)
           rowvar = "%s_row" % relsym
           return relsym, rowvar
 
         if conditiontype=="final":
-          if isinstance(condition.left, boolean.AttributeReference):
+          if isinstance(condition.left, expression.NamedAttributeRef):
             condition.left.relationsymbol, condition.left.rowvariable = localize(condition.left)
-          if isinstance(condition.right, boolean.AttributeReference):
+          if isinstance(condition.right, expression.NamedAttributeRef):
             condition.right.relationsymbol, condition.right.rowvariable = localize(condition.right)
 
         elif conditiontype=="join":
           condition.left.relationsymbol, condition.left.rowvariable = localize(condition.left)
-          assert(isinstance(condition.right, boolean.PositionReference))
+          assert(isinstance(condition.right,expression.UnnamedAttributeRef))
           relsym = argsyms[joinlevel + 1]
           condition.right.relationsymbol = relsym
           condition.right.rowvariable = self.rowvar(relsym)
@@ -339,10 +339,10 @@ A linear chain of joins, with selection predicates applied"""
             relsym = argsyms[joinlevel]
           else:
             relsym = argsyms[joinlevel + 1]
-          if isinstance(condition.left, boolean.AttributeReference):
+          if isinstance(condition.left, expression.NamedAttributeRef):
             condition.left.relationsymbol = relsym
             condition.left.rowvariable = self.rowvar(relsym)
-          if isinstance(condition.right, boolean.AttributeReference):
+          if isinstance(condition.right, expression.NamedAttributeRef):
             condition.right.relationsymbol = relsym
             condition.right.rowvariable = self.rowvar(relsym)
  
@@ -358,8 +358,8 @@ A linear chain of joins, with selection predicates applied"""
         if not isinstance(joincondition, boolean.EQ):
           raise ValueError("The C compiler can only handle equi-join conditions of a single attribute")
 
-        assert(isinstance(joincondition.left, boolean.PositionReference))
-        assert(isinstance(joincondition.right, boolean.PositionReference))
+        assert(isinstance(joincondition.left, expression.UnnamedAttributeRef))
+        assert(isinstance(joincondition.right, expression.UnnamedAttributeRef))
     
         # change the addressing scheme for the left-hand attribute reference
         self.tagcondition(level,joincondition,argsyms,conditiontype="join")
@@ -407,7 +407,7 @@ if (%s) {%s}""" % (condition, "%s")
     leftsym = argsyms[depth]
     # get attribute position in left relation
     firstjoin = self.joinconditions[depth]
-    assert(isinstance(firstjoin.left, boolean.PositionReference))
+    assert(isinstance(firstjoin.left,expression.UnnamedAttributeRef))
     leftposition = self.joinconditions[depth].left.leaf_position
     # get condition on left relation
     left_condition = self.leftconditions[depth]

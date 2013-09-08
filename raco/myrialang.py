@@ -115,6 +115,7 @@ class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
   def convertcondition(self, condition):
     """Convert the joincondition to a list of left columns and a list of right columns representing a conjunction"""
 
+
     if isinstance(condition, boolean.AND):
       leftcols1, rightcols1 = self.convertcondition(condition.left)
       leftcols2, rightcols2 = self.convertcondition(condition.right)
@@ -217,6 +218,9 @@ class ShuffleBeforeJoin(rules.Rule):
     if isinstance(expr.left, algebra.Shuffle) and isinstance(expr.right, algebra.Shuffle):
       return expr
 
+    # Convert to unnamed perspective
+    condition = MyriaLanguage.unnamed(expr.condition, expr.scheme())
+
     # Figure out which columns go in the shuffle
     left_cols, right_cols = MyriaLocalJoin.convertcondition(expr.condition)
 
@@ -259,7 +263,7 @@ class ApplyHardcodedSchema(rules.Rule):
         print >>sys.stderr, "warning, unhandled ZeroaryOperator %s" % type(expr)
       return expr
     try:
-      expr.relation.scheme = scheme.Scheme(hardcoded_schema[expr.relation.name])
+      expr.relation._scheme = scheme.Scheme(hardcoded_schema[expr.relation.name])
     except KeyError:
       raise KeyError("Scanned relation %s has no hardcoded scheme!" % expr.relation.name)
     return expr
