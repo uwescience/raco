@@ -27,7 +27,7 @@ class TestQueryFunctions(unittest.TestCase):
         self.emp_schema = scheme.Scheme([("id", "int"),
                                          ("dept_id", "int"),
                                          ("name", "string"),
-                                         ("salary", int)])
+                                         ("salary", "int")])
 
         self.emp_key = "andrew:adhoc:employee"
         self.db.ingest(self.emp_key, self.emp_table, self.emp_schema)
@@ -75,7 +75,7 @@ class TestQueryFunctions(unittest.TestCase):
         self.__run_test(query, self.dept_table)
 
 
-    def test_bag_comp_trivial(self):
+    def test_bag_comp_emit_star(self):
         query = """
         emp = SCAN(%s);
         bc = [FROM emp EMIT *];
@@ -83,6 +83,17 @@ class TestQueryFunctions(unittest.TestCase):
         """ % self.emp_key
 
         self.__run_test(query, self.emp_table)
+
+    def test_bag_comp_filter(self):
+        query = """
+        emp = SCAN(%s);
+        rich = [FROM emp WHERE salary > 25000 EMIT *];
+        DUMP rich;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] > 25000])
+        self.__run_test(query, expected)
 
 if __name__ == '__main__':
     unittest.main()
