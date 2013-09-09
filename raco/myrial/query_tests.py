@@ -117,5 +117,71 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter()
         self.__run_test(query, expected)
 
+    def test_bag_comp_filter_column_compare_ge(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE 2 * $1 >= $0 EMIT *];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if 2 * x[1] >= x[0]])
+        self.__run_test(query, expected)
+
+    def test_bag_comp_filter_column_compare_le(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $1 <= 2 * $0 EMIT *];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[1] <= 2 * x[0]])
+        self.__run_test(query, expected)
+
+    def test_bag_comp_filter_column_compare_gt(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE 2 * $1 > $0 EMIT *];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if 2 * x[1] > x[0]])
+        self.__run_test(query, expected)
+
+    def test_bag_comp_filter_column_compare_lt(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $1 < 2 * $0 EMIT *];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[1] < 2 * x[0]])
+        self.__run_test(query, expected)
+
+    def test_bag_comp_filter_column_compare_eq(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $0 * 2 == $1 EMIT *];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[0] * 2 == x[1]])
+        self.__run_test(query, expected)
+
+    def test_bag_comp_filter_column_compare_ne(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $1 != 2 * $0 EMIT *];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[1] != 2 * x[0]])
+        self.__run_test(query, expected)
+
 if __name__ == '__main__':
     unittest.main()

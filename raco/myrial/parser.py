@@ -286,6 +286,7 @@ class Parser:
                    | colexpr LT colexpr
                    | colexpr GE colexpr
                    | colexpr LE colexpr
+                   | colexpr NE colexpr
                    | colexpr EQ colexpr'''
         p[0] = binops[p[2]](p[1], p[3])
 

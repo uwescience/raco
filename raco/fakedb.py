@@ -16,7 +16,6 @@ class FakeDatabase:
         For "query-type" operators, return a tuple iterator.
         For store queries, the return value is None.
         '''
-        print str(op)
         method = getattr(self, op.opname().lower())
         return method(op)
 
