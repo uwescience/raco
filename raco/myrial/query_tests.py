@@ -279,5 +279,19 @@ class TestQueryFunctions(unittest.TestCase):
              for x in self.emp_table.elements()])
         self.__run_test(query, expected)
 
+    def test_bag_comp_rename(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp EMIT name, double_salary=salary * 2];
+        out = [FROM out WHERE double_salary > 10000 EMIT *];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[2], x[3] * 2) for x in self.emp_table.elements() if
+             x[3] * 2 > 10000])
+
+        self.__run_test(query, expected)
+
 if __name__ == '__main__':
     unittest.main()
