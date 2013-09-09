@@ -84,15 +84,35 @@ class TestQueryFunctions(unittest.TestCase):
 
         self.__run_test(query, self.emp_table)
 
-    def test_bag_comp_filter(self):
-        query = """
-        emp = SCAN(%s);
-        rich = [FROM emp WHERE salary > 25000 EMIT *];
-        DUMP rich;
-        """ % self.emp_key
+    salary_filter_query = """
+    emp = SCAN(%s);
+    rich = [FROM emp WHERE %s > 25 * 10 * 10 * (5 + 5) EMIT *];
+    DUMP rich;
+    """
+
+    def test_bag_comp_filter_large_salary_by_name(self):
+        query =  TestQueryFunctions.salary_filter_query % (self.emp_key,
+                                                           'salary')
 
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[3] > 25000])
+        self.__run_test(query, expected)
+
+    def test_bag_comp_filter_large_salary_by_position(self):
+        query =  TestQueryFunctions.salary_filter_query % (self.emp_key, '$3')
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] > 25000])
+        self.__run_test(query, expected)
+
+    def test_bag_comp_filter_empty_result(self):
+        query = """
+        emp = SCAN(%s);
+        poor = [FROM emp WHERE $3 < (5 * 2) EMIT *];
+        DUMP poor;
+        """ % self.emp_key
+
+        expected = collections.Counter()
         self.__run_test(query, expected)
 
 if __name__ == '__main__':
