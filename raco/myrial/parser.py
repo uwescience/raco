@@ -37,25 +37,24 @@ binops = {
 }
 
 class Parser:
-    # Precedence among column expression operators in ascending order; this is
-    # necessary to disambiguate the grammer.  Operator precedence is identical
-    # to C.  http://en.cppreference.com/w/cpp/language/operator_precedence
-
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
 
+        # Precedence among column expression operators in ascending order; this
+        # is necessary to disambiguate the grammer.  Operator precedence is
+        # identical to Python:
+        # http://docs.python.org/2/reference/expressions.html#comparisons
+
         self.precedence = (
             ('left', 'OR'),
             ('left', 'AND'),
-            ('left', 'EQ'),
-            ('left', 'NE'),
-            ('left', 'GT', 'LT', 'LE', 'GE'),
+            ('right', 'NOT'),
+            ('left', 'EQ', 'NE', 'GT', 'LT', 'LE', 'GE'),
             ('left', 'PLUS', 'MINUS'),
             ('left', 'TIMES', 'DIVIDE'),
-            ('right', 'NOT'),
             ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
-    )
+        )
 
     def p_statement_list(self, p):
         '''statement_list : statement_list statement

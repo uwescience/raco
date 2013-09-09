@@ -218,5 +218,16 @@ class TestQueryFunctions(unittest.TestCase):
              x[0] > x[1]])
         self.__run_test(query, expected)
 
+    def test_bag_comp_filter_not(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE not salary > 25000 EMIT *];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if not x[3] > 25000])
+        self.__run_test(query, expected)
+
 if __name__ == '__main__':
     unittest.main()
