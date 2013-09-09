@@ -255,5 +255,29 @@ class TestQueryFunctions(unittest.TestCase):
              x[3] == 5000 and x[1] == 1])
         self.__run_test(query, expected)
 
+    def test_bag_comp_emit_columns(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE dept_id == 1 EMIT $2, salary];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[2], x[3]) for x in self.emp_table.elements() if x[1] == 1])
+        self.__run_test(query, expected)
+
+    def test_bag_comp_emit_with_math(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp EMIT salary + 5000, salary - 5000, salary / 5000,
+        salary * 5000];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[3] + 5000, x[3] - 5000, x[3] / 5000, x[3] * 5000) \
+             for x in self.emp_table.elements()])
+        self.__run_test(query, expected)
+
 if __name__ == '__main__':
     unittest.main()
