@@ -136,6 +136,43 @@ class Parser:
                       | STRING_LITERAL'''
         p[0] = p[1]
 
+    def p_expression_bag_comp(self, p):
+        'expression : LBRACKET FROM expression opt_where_clause \
+        emit_clause RBRACKET'
+        p[0] = ('BAGCOMP', p[3], p[4], p[5])
+
+    def p_opt_where_clause(self, p):
+        '''opt_where_clause : WHERE colexpr
+                            | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = None
+
+    def p_emit_clause_star(self, p):
+        '''emit_clause : EMIT TIMES'''
+        p[0] = None
+
+    def p_emit_clause_list(self, p):
+        '''emit_clause : EMIT emit_arg_list'''
+        p[0] = p[2]
+
+    def p_emit_arg_list(self, p):
+        '''emit_arg_list : emit_arg_list COMMA emit_arg
+                         | emit_arg'''
+        if len(p) == 4:
+            p[0] = p[1] + [p[3]]
+        else:
+            p[0] = [p[1]]
+
+    def p_emit_arg(self, p):
+        '''emit_arg : string_arg EQUALS colexpr
+                    | colexpr'''
+        if len(p) == 4:
+            p[0] = (p[1], p[3])
+        else:
+            p[0] = (None, p[1])
+
     def p_expression_limit(self, p):
         'expression : LIMIT ID COMMA INTEGER_LITERAL'
         p[0] = ('LIMIT', p[2], p[4])
@@ -265,4 +302,4 @@ class Parser:
         return parser.parse(s, lexer=scanner.lexer, tracking=True)
 
     def p_error(self, p):
-        self.log.error("Syntax error: %s" %  str(p))
+        self.log.error("Syntax error: %s", str(p))

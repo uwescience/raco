@@ -36,6 +36,18 @@ class ExpressionProcessor:
     def table(self, tuple_list, schema):
         raise NotImplementedError()
 
+    def bagcomp(self, from_expression, where_clause, emit_clause):
+        # Evaluate the nested expression to get a RA operator
+        op = self.evaluate(from_expression)
+
+        if where_clause:
+            assert False # Fixme
+
+        if emit_clause:
+            assert False # Fixme
+
+        return op
+
     def distinct(self, _id):
         # TODO: Use a first-class distinct operator here?
         op = self.symbols[_id]

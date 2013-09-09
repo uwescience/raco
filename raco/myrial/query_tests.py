@@ -74,5 +74,15 @@ class TestQueryFunctions(unittest.TestCase):
 
         self.__run_test(query, self.dept_table)
 
+
+    def test_bag_comp_trivial(self):
+        query = """
+        emp = SCAN(%s);
+        bc = [FROM emp EMIT *];
+        DUMP bc;
+        """ % self.emp_key
+
+        self.__run_test(query, self.emp_table)
+
 if __name__ == '__main__':
     unittest.main()
