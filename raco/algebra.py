@@ -377,8 +377,15 @@ class Apply(UnaryOperator):
     expression.
     """
 
-    # TODO: handle empty column names
-    self.mappings = mappings
+    def resolve_name(name, expr):
+      if name:
+        return name
+      else:
+        # TODO: This isn't right; we should resolve $1 into a column name
+        return str(expr)
+
+    self.mappings = [(resolve_name(name, expr), expr) for name, expr
+                     in mappings]
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):

@@ -258,7 +258,7 @@ class TestQueryFunctions(unittest.TestCase):
     def test_bag_comp_emit_columns(self):
         query = """
         emp = SCAN(%s);
-        out = [FROM emp WHERE dept_id == 1 EMIT $2, salary];
+        out = [FROM emp WHERE dept_id == 1 EMIT $2, salary=salary];
         DUMP out;
         """ % self.emp_key
 
