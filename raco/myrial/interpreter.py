@@ -44,7 +44,7 @@ class ExpressionProcessor:
             op = raco.algebra.Select(condition=where_clause, input=op)
 
         if emit_clause:
-            assert False # Fixme
+            op = raco.algebra.Apply(mappings=emit_clause, input=op)
 
         return op
 

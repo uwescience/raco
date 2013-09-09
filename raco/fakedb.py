@@ -45,3 +45,12 @@ class FakeDatabase:
             return op.condition.evaluate(_tuple, op.scheme())
 
         return itertools.ifilter(filter_func, child_it)
+
+    def apply(self, op):
+        child_it = self.evaluate(op.input)
+
+        def make_tuple(input_tuple):
+            ls = [colexpr.evaluate(input_tuple, op.input.scheme()) \
+                  for var, colexpr in op.mappings]
+            return tuple(ls)
+        return (make_tuple(t) for t in child_it)
