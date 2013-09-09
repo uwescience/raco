@@ -32,8 +32,8 @@ binops = {
     '<=' : colexpr.LTEQ,
     '!=' : colexpr.NEQ,
     '==' : colexpr.EQ,
-    '&&' : colexpr.AND,
-    '||' : colexpr.OR,
+    'AND' : colexpr.AND,
+    'OR' : colexpr.OR,
 }
 
 class Parser:
@@ -46,14 +46,14 @@ class Parser:
         self.tokens = scanner.tokens
 
         self.precedence = (
-            ('left', 'LOR'),
-            ('left', 'LAND'),
+            ('left', 'OR'),
+            ('left', 'AND'),
             ('left', 'EQ'),
             ('left', 'NE'),
             ('left', 'GT', 'LT', 'LE', 'GE'),
             ('left', 'PLUS', 'MINUS'),
             ('left', 'TIMES', 'DIVIDE'),
-            ('right', 'LNOT'),
+            ('right', 'NOT'),
             ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
     )
 
@@ -287,11 +287,13 @@ class Parser:
                    | colexpr GE colexpr
                    | colexpr LE colexpr
                    | colexpr NE colexpr
-                   | colexpr EQ colexpr'''
+                   | colexpr EQ colexpr
+                   | colexpr AND colexpr
+                   | colexpr OR colexpr'''
         p[0] = binops[p[2]](p[1], p[3])
 
     def p_colexpr_not(self, p):
-        'colexpr : LNOT colexpr'
+        'colexpr : NOT colexpr'
         p[0] = colexpr.NOT(p[2])
 
     def p_empty(self, p):
