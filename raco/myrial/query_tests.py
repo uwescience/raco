@@ -229,5 +229,31 @@ class TestQueryFunctions(unittest.TestCase):
             [x for x in self.emp_table.elements() if not x[3] > 25000])
         self.__run_test(query, expected)
 
+    def test_bag_comp_filter_or_and(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary == 25000 OR salary == 5000 AND
+        dept_id == 1 EMIT *];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] == 25000 or
+             (x[3] == 5000 and x[1] == 1)])
+        self.__run_test(query, expected)
+
+    def test_bag_comp_filter_or_and_not(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary == 25000 OR NOT salary == 5000 AND
+        dept_id == 1 EMIT *];
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] == 25000 or not
+             x[3] == 5000 and x[1] == 1])
+        self.__run_test(query, expected)
+
 if __name__ == '__main__':
     unittest.main()
