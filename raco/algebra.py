@@ -367,26 +367,36 @@ class Join(BinaryOperator):
         raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
 class Apply(UnaryOperator):
-  """Create new attributes from expressions.  Subsumes the rename operator"""
-  def __init__(self, input=None, **expressions):
-    self.expressions = expressions
+  def __init__(self, mappings, input=None):
+    """Create new attributes from expressions with optional rename.
+
+    mappings is a list of tuples of the form:
+    (column_name, raco.expression.Expression)
+
+    column_name can be None, in which case the system will a name based on the
+    expression.
+    """
+
+    # TODO: handle empty column names
+    self.mappings = mappings
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):
-    return UnaryOperator.__eq__(self,other) and self.expressions == other.expressions
+    return UnaryOperator.__eq__(self,other) and \
+      self.expressions == other.expressions
 
   def __str__(self):
-    estrs = ",".join(["%s=%s" % pair for pair in self.expressions.items()])
+    estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.mappings])
     return "%s(%s)[%s]" % (self.opname(), estrs, self.input)
 
   def copy(self, other):
     """deep copy"""
-    self.expressions = other.expressions
+    self.mappings = other.mappings
     UnaryOperator.copy(self, other)
 
   def scheme(self):
     """scheme of the result."""
-    new_attrs = [(name,expr.typeof()) for (name, expr) in self.expressions.items()]
+    new_attrs = [(name,expr.typeof()) for (name, expr) in self.mappings]
     return scheme.Scheme(new_attrs)
 
 class Select(UnaryOperator):
