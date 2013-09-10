@@ -48,8 +48,8 @@ def main():
 
     # Print out the graph
     for (label, root_operator) in dlog.logicalplan:
-        (nodes, edges) = root_operator.collectGraph()
-        print print_gv(nodes, edges)
+        graph = root_operator.collectGraph()
+        print print_gv(graph['nodes'], graph['edges'])
 
 if __name__ == "__main__":
     main()

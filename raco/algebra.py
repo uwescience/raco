@@ -50,6 +50,30 @@ class Operator(Printable):
     """Set a user-defined identififer for this operator.  Used in optimization and transformation of plans"""
     self.alias = alias
 
+  def collectGraph(self, graph=None):
+    """Collects the operator graph for a given query. Input parameter graph
+    has the format { 'nodes' : list(), 'edges' : list() }, initialized to empty
+    lists by default. An input graph will be mutated."""
+
+    # Initialize graph if necessary
+    if graph is None:
+        graph = { 'nodes' : list(), 'edges' : list() }
+
+    # Cycle detection
+    if id(self) in [id(n) for n in graph['nodes']]:
+        return
+
+    # Add this node to the graph
+    graph['nodes'].append(self)
+    # Add all edges
+    graph['edges'].extend([(x, self) for x in self.children()])
+    for x in self.children():
+        # Recursively add children and edges to the graph. This mutates graph
+        x.collectGraph(graph)
+
+    # Return the graph
+    return graph
+
 class ZeroaryOperator(Operator):
   """Operator with no arguments"""
   def __init__(self):
@@ -95,11 +119,6 @@ class ZeroaryOperator(Operator):
 
   def collectParents(self, parentmap):
     pass
-
-  def collectGraph(self, graph=(list(), list())):
-    (nodes,edges) = graph
-    nodes.append(self)
-    return graph
 
 class UnaryOperator(Operator):
   """Operator with one argument"""
@@ -167,13 +186,6 @@ class UnaryOperator(Operator):
     parentmap.setdefault(self.input, []).append(self)
     self.input.collectParents(parentmap)
 
-  def collectGraph(self, graph=(list(), list())):
-    (nodes,edges) = graph
-    nodes.append(self)
-    edges.append((self.input, self))
-    self.input.collectGraph(graph)
-    return graph
-
 class BinaryOperator(Operator):
   """Operator with two arguments"""
   def __init__(self, left, right):
@@ -239,15 +251,6 @@ class BinaryOperator(Operator):
     self.left.collectParents(parentmap)
     self.right.collectParents(parentmap)
 
-  def collectGraph(self, graph=(list(), list())):
-    (nodes,edges) = graph
-    nodes.append(self)
-    children = [self.left, self.right]
-    edges.extend([(x, self) for x in children])
-    for x in children:
-        x.collectGraph(graph)
-    return graph
-
 class NaryOperator(Operator):
   """Operator with N arguments.  e.g., multi-way joins in one step."""
   def __init__(self, args):
@@ -299,14 +302,6 @@ class NaryOperator(Operator):
     for arg in self.args:
       parentmap.setdefault(arg, []).append(self)
       arg.collectParents(parentmap)
-
-  def collectGraph(self, graph=(list(), list())):
-    (nodes,edges) = graph
-    nodes.add(self)
-    edges.extend([(x, self) for x in self.args])
-    for x in self.args:
-        x.collectGraph(graph)
-    return graph
 
   def apply(self, f):
     """Apply a function to your children"""
