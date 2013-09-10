@@ -400,3 +400,16 @@ class TestQueryFunctions(unittest.TestCase):
         """ % self.emp_key
 
         self.__run_test(query, self.__aggregate_expected_result(sum))
+
+    def test_compound_aggregate(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, SUM(5 * $3 + id / 2)};
+        DUMP(out);
+        """ % self.emp_key
+
+
+        agg = collections.defaultdict(int)
+        for t in self.emp_table.elements():
+            agg[t[1]] += t[3] * 5 + t[0] / 2
+        expected = collections.Counter(agg.iteritems())
+        self.__run_test(query, expected)
