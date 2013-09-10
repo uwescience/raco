@@ -367,3 +367,36 @@ class TestQueryFunctions(unittest.TestCase):
 
         result = self.__execute_query(query)
         self.assertEquals(len(result), 3)
+
+    def __aggregate_expected_result(self, apply_func):
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, apply_func(values)) for key, values in
+                  result_dict.iteritems()]
+        return collections.Counter(tuples)
+
+    def test_max(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, MAX(salary)};
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(max))
+
+    def test_min(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, MIN(salary)};
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(min))
+
+    def test_sum(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, SUM(salary)};
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(sum))
