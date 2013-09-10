@@ -337,3 +337,12 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(tuples)
 
         self.__run_test(query, expected)
+
+    def test_distinct(self):
+        query = """
+        out = DISTINCT([FROM SCAN(%s) EMIT salary]);
+        DUMP out;
+        """ % self.emp_key
+
+        expected = collections.Counter([(25000,),(5000,),(90000,)])
+        self.__run_test(query, expected)
