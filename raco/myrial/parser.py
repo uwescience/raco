@@ -229,23 +229,6 @@ class Parser:
         'column_ref : DOLLAR INTEGER_LITERAL'
         p[0] = p[2]
 
-    def p_apply_expr(self, p):
-        'expression : APPLY ID EMIT LPAREN apply_arg_list RPAREN'
-        p[0] = ('APPLY', p[2], dict(p[5]))
-
-    def p_apply_arg_list(self, p):
-        '''apply_arg_list : apply_arg_list COMMA apply_arg
-                          | apply_arg'''
-        # Resolves into a list of tuples of the form (id, raco.Expression)
-        if len(p) == 4:
-            p[0] = p[1] + [p[3]]
-        else:
-            p[0] = [p[1]]
-
-    def p_apply_arg(self, p):
-        'apply_arg : ID EQUALS colexpr'
-        p[0] = (p[1], p[3])
-
     def p_expression_filter(self, p):
         'expression : FILTER ID BY colexpr'
         p[0] = ('FILTER', p[2], p[4])

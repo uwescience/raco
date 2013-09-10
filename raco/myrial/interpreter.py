@@ -122,10 +122,6 @@ class ExpressionProcessor:
         condition = reduce(andify, join_conditions[1:], join_conditions[0])
         return raco.algebra.Join(condition, left, right)
 
-    def apply(self, _id, columns):
-        op = self.symbols[_id]
-        return raco.algebra.Apply(op, **columns)
-
 class StatementProcessor:
     '''Evaluate a list of statements'''
 
