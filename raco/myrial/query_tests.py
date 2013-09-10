@@ -52,14 +52,17 @@ class TestQueryFunctions(unittest.TestCase):
         self.parser = parser.Parser()
         self.processor = interpreter.StatementProcessor(self.db)
 
-    def __run_test(self, query, expected):
+    def __execute_query(self, query):
         '''Run a test query against the fake database'''
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
 
         _var, op = self.processor.output_symbols[0]
-        actual = self.db.evaluate_to_bag(op)
+        return self.db.evaluate_to_bag(op)
 
+    def __run_test(self, query, expected):
+        '''Execute a test query with an expected output'''
+        actual = self.__execute_query(query)
         self.assertEquals(actual, expected)
 
     def test_scan_emp(self):
@@ -355,4 +358,14 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter([(25000,),(5000,),(90000,)])
         self.__run_test(query, expected)
+
+
+    def test_limit(self):
+        query = """
+        out = LIMIT(SCAN(%s), 3);
+        DUMP(out);
+        """ % self.emp_key
+
+        result = self.__execute_query(query)
+        self.assertEquals(len(result), 3)
 
