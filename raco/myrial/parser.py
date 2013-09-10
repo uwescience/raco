@@ -262,6 +262,21 @@ class Parser:
         'colexpr : MINUS colexpr %prec UMINUS'
         p[0] = colexpr.TIMES(colexpr.NumericLiteral(-1), p[2])
 
+    def p_colexpr_aggregate(self, p):
+        'colexpr : aggregate_func LPAREN colexpr RPAREN'
+        p[0] = p[1](p[3])
+
+    def p_aggregate_func(self, p):
+        '''aggregate_func : MAX
+                          | MIN
+                          | SUM'''
+        # TODO: support average once we have floating point
+        # TODO: support count once we can handle COUNT(*);
+        if p[1] == 'MAX': func = colexpr.MAX
+        if p[1] == 'MIN': func = colexpr.MIN
+        if p[1] == 'SUM': func = colexpr.SUM
+        p[0] = func
+
     def p_expression_binop(self, p):
         '''colexpr : colexpr PLUS colexpr
                    | colexpr MINUS colexpr
