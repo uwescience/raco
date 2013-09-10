@@ -44,13 +44,24 @@ class ExpressionProcessor:
             op = raco.algebra.Select(condition=where_clause, input=op)
 
         if emit_clause:
-            op = raco.algebra.Apply(mappings=emit_clause, input=op)
+            op = raco.algebra.Apply(mappings=emit_clause, set_semantics=False,
+                                    input=op)
 
         return op
 
     def setcomp(self, from_expression, where_clause, emit_clause):
-        op = self.bagcomp(from_expression, where_clause, emit_clause)
-        return raco.algebra.Distinct(op)
+        op = self.evaluate(from_expression)
+
+        if where_clause:
+            op = raco.algebra.Select(condition=where_clause, input=op)
+
+        if emit_clause:
+            op = raco.algebra.Apply(mappings=emit_clause, set_semantics=True,
+                                    input=op)
+        else:
+            op = raco.algebra.Distinct(op)
+
+        return op
 
     def distinct(self, expr):
         op = self.evaluate(expr)
@@ -68,10 +79,8 @@ class ExpressionProcessor:
         return raco.algebra.Union(left, right)
 
     def countall(self, expr):
-        op = self.evaluate(expr)
-        return raco.algebra.GroupBy(groupinglist=[],
-                                    aggregatelist=[colexpr.COUNT()],
-                                    input=op)
+        # TODO: implement me
+        raise NotImplementedError()
 
     def intersect(self, id1, id2):
         raise NotImplementedError()
