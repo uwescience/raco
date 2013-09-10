@@ -65,7 +65,7 @@ class TestQueryFunctions(unittest.TestCase):
     def test_scan_emp(self):
         query = """
         emp = SCAN(%s);
-        DUMP emp;
+        DUMP(emp);
         """ % self.emp_key
 
         self.__run_test(query, self.emp_table)
@@ -73,7 +73,7 @@ class TestQueryFunctions(unittest.TestCase):
     def test_scan_dept(self):
         query = """
         dept = SCAN(%s);
-        DUMP dept;
+        DUMP(dept);
         """ % self.dept_key
 
         self.__run_test(query, self.dept_table)
@@ -83,7 +83,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         bc = [FROM emp EMIT *];
-        DUMP bc;
+        DUMP(bc);
         """ % self.emp_key
 
         self.__run_test(query, self.emp_table)
@@ -91,7 +91,7 @@ class TestQueryFunctions(unittest.TestCase):
     salary_filter_query = """
     emp = SCAN(%s);
     rich = [FROM emp WHERE %s > 25 * 10 * 10 * (5 + 5) EMIT *];
-    DUMP rich;
+    DUMP(rich);
     """
 
     salary_expected_result = collections.Counter(
@@ -110,7 +110,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         poor = [FROM emp WHERE $3 < (5 * 2) EMIT *];
-        DUMP poor;
+        DUMP( poor);
         """ % self.emp_key
 
         expected = collections.Counter()
@@ -120,7 +120,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE 2 * $1 >= $0 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -131,7 +131,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $1 <= 2 * $0 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -142,7 +142,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE 2 * $1 > $0 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -153,7 +153,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $1 < 2 * $0 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -164,7 +164,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $0 * 2 == $1 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -175,7 +175,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $0 / $1 != $1 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -186,7 +186,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $0 + -$1 == $1 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -197,7 +197,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == 25000 AND id > dept_id EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -209,7 +209,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $3 > 25 * 1000 OR id > dept_id EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -221,7 +221,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE not salary > 25000 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -233,7 +233,7 @@ class TestQueryFunctions(unittest.TestCase):
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == 25000 OR salary == 5000 AND
         dept_id == 1 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -246,7 +246,7 @@ class TestQueryFunctions(unittest.TestCase):
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == 25000 OR NOT salary == 5000 AND
         dept_id == 1 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -258,7 +258,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE dept_id == 1 EMIT $2, salary=salary];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -269,7 +269,7 @@ class TestQueryFunctions(unittest.TestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp EMIT salary, "bugga bugga"];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -282,7 +282,7 @@ class TestQueryFunctions(unittest.TestCase):
         emp = SCAN(%s);
         out = [FROM emp EMIT salary + 5000, salary - 5000, salary / 5000,
         salary * 5000];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -295,7 +295,7 @@ class TestQueryFunctions(unittest.TestCase):
         emp = SCAN(%s);
         out = [FROM emp EMIT name, double_salary=salary * 2];
         out = [FROM out WHERE double_salary > 10000 EMIT *];
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -310,7 +310,7 @@ class TestQueryFunctions(unittest.TestCase):
         dept = SCAN(%s);
         out = JOIN(emp, dept_id, dept, id);
         out = [FROM out EMIT emp_name=$2, dept_name=$5];
-        DUMP out;
+        DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
         expected = collections.Counter(
@@ -329,7 +329,7 @@ class TestQueryFunctions(unittest.TestCase):
     def test_cross(self):
         query = """
         out = CROSS(SCAN(%s), SCAN(%s));
-        DUMP out;
+        DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
         tuples = [e + d for e in self.emp_table.elements() for
@@ -341,7 +341,7 @@ class TestQueryFunctions(unittest.TestCase):
     def test_distinct(self):
         query = """
         out = DISTINCT([FROM SCAN(%s) EMIT salary]);
-        DUMP out;
+        DUMP(out);
         """ % self.emp_key
 
         expected = collections.Counter([(25000,),(5000,),(90000,)])

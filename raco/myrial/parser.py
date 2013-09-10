@@ -68,8 +68,8 @@ class Parser:
         p[0] = ('ASSIGN', p[1], p[3])
 
     def p_statement_dump(self, p):
-        'statement : DUMP ID SEMI'
-        p[0] = ('DUMP', p[2])
+        'statement : DUMP LPAREN ID RPAREN SEMI'
+        p[0] = ('DUMP', p[3])
 
     def p_statement_describe(self, p):
         'statement : DESCRIBE ID SEMI'
