@@ -326,5 +326,13 @@ class TestQueryFunctions(unittest.TestCase):
 
     # TODO: test with multiple join attributes
 
-if __name__ == '__main__':
-    unittest.main()
+    def test_cross(self):
+        query = """
+        out = CROSS(SCAN(%s), SCAN(%s));
+        """ % (self.emp_key, self.dept_key)
+
+        tuples = [e + d for e in self.emp_table.elements() for
+                  d in self.dept_table.elements()]
+        expected = collections.Counter(tuples)
+
+        self.__run_test(query, expected)
