@@ -5,7 +5,6 @@ from rules import Rule
 
 import raco.expression
 
-
 """
 Generate variables names
 """
@@ -380,7 +379,7 @@ class Apply(UnaryOperator):
     the expression.
 
     set_semantics is a boolean indicating whether to treat the result as
-    a set.  This results in duplciate elimination and allows for the use
+    a set.  This results in duplicate elimination and allows for the use
     of aggregate functions.  Basically, set_semantics=True is a GROUP BY
     statement.
     """
