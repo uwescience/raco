@@ -33,5 +33,11 @@ class DatalogTest(unittest.TestCase):
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
+  def test_select(self):
+    select = "A(x) :- R(x,3)"
+    desiredresult = """[('A', Project($0)[Select($1 = 3)[Scan(R)]])]"""
+    testresult = RATest(select)
+    self.assertEqual(testresult, desiredresult)
+
 if __name__ == '__main__':
    unittest.main()
