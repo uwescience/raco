@@ -161,10 +161,10 @@ class StatementProcessor:
         return self.output_symbols
 
     def explain(self, _id):
-        pass
+        raise NotImplementedError()
 
     def describe(self, _id):
-        pass
+        raise NotImplementedError()
 
     def dowhile(self, statement_list, termination_ex):
-        pass
+        raise NotImplementedError()
