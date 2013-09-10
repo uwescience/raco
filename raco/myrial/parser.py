@@ -176,8 +176,8 @@ class Parser:
         p[0] = ('LIMIT', p[2], p[4])
 
     def p_expression_distinct(self, p):
-        'expression : DISTINCT ID'
-        p[0] = ('DISTINCT', p[2])
+        'expression : DISTINCT LPAREN expression RPAREN'
+        p[0] = ('DISTINCT', p[3])
 
     def p_expression_countall(self, p):
         'expression : COUNTALL ID'

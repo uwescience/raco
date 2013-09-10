@@ -73,3 +73,7 @@ class FakeDatabase:
         p1 = itertools.product(left_it, right_it)
         return (x + y for (x,y) in p1)
 
+    def distinct(self, op):
+        it = self.evaluate(op.input)
+        s = set(it)
+        return iter(s)

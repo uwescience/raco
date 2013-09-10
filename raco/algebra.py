@@ -406,6 +406,15 @@ class Apply(UnaryOperator):
     new_attrs = [(name,expr.typeof()) for (name, expr) in self.mappings]
     return scheme.Scheme(new_attrs)
 
+class Distinct(UnaryOperator):
+  """Remove duplicates from the child operator"""
+  def __init__(self, input=None):
+    UnaryOperator.__init__(self, input)
+
+  def scheme(self):
+    """scheme of the result"""
+    return self.input.scheme()
+
 class Select(UnaryOperator):
   """Logical selection operator"""
   def __init__(self, condition=None, input=None):

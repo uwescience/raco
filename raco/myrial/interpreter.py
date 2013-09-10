@@ -48,11 +48,9 @@ class ExpressionProcessor:
 
         return op
 
-    def distinct(self, _id):
-        # TODO: Use a first-class distinct operator here?
-        op = self.symbols[_id]
-        return raco.algebra.GroupBy(groupinglist=op.scheme().ascolumnlist(),
-                                    input=op)
+    def distinct(self, expr):
+        op = self.evaluate(expr)
+        return raco.algebra.Distinct(input=op)
 
     def __process_bitop(self, _type, id1, id2):
         left = self.symbols[id1]
