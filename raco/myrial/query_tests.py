@@ -417,6 +417,16 @@ class TestQueryFunctions(unittest.TestCase):
 
         self.__run_test(query, self.__aggregate_expected_result(len))
 
+    def test_count_all_no_groupby(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT cnt=COUNTALL()};
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([
+            (len(self.emp_table),)])
+        self.__run_test(query, expected)
+
     def test_compound_aggregate(self):
         query = """
         out = {FROM SCAN(%s) EMIT dept_id, SUM(5 * $3 + id / 2)};
