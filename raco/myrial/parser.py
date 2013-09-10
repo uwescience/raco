@@ -145,8 +145,10 @@ class Parser:
         p[0] = ('SETCOMP', p[3], p[4], p[5])
 
     def p_opt_where_clause(self, p):
-        '''opt_where_clause : WHERE colexpr
+        '''opt_where_clause : WHERE colexpr_atomic
                             | empty'''
+        # TODO: Should we allow arbitrary column expressions here, or do
+        # we want a more restricted syntax that only allows boolean expressions?
         if len(p) == 3:
             p[0] = p[2]
         else:
@@ -234,55 +236,77 @@ class Parser:
         'column_ref : DOLLAR INTEGER_LITERAL'
         p[0] = p[2]
 
-    def p_expression_filter(self, p):
-        'expression : FILTER ID BY colexpr'
-        p[0] = ('FILTER', p[2], p[4])
-
     # column expressions map to raco.Expression instances; these are operations
-    # that return atomic types, and that are suitable as arguments for apply
-    # and fiter
+    # that return atomic types.  Aggregate column expressions like MIN and MAX
+    # operate on bags of tuples.  Flat column expressions operate over zero
+    # or more atomic values (usually expressed as flat column expressions).
 
-    def p_colexpr_integer_literal(self, p):
-        'colexpr : INTEGER_LITERAL'
+    def p_colexpr_count_all(self, p):
+        '''colexpr : COUNTALL LPAREN RPAREN'''
+        p[0] = colexpr.COUNT_ALL()
+
+    def p_colexpr_unary_aggregate(self, p):
+        'colexpr : unary_aggregate_func LPAREN colexpr_atomic RPAREN'
+        p[0] = p[1](p[3])
+
+    def p_colexpr_atomic(self, p):
+        '''colexpr : colexpr_atomic'''
+        p[0] = p[1]
+
+    def p_unary_aggregate_func(self, p):
+        '''unary_aggregate_func : MAX
+                                | MIN
+                                | SUM
+                                | COUNT'''
+        # TODO: support average once we have floating point
+        if p[1] == 'MAX': func = colexpr.MAX
+        if p[1] == 'MIN': func = colexpr.MIN
+        if p[1] == 'SUM': func = colexpr.SUM
+        if p[1] == 'COUNT': func = colexpr.COUNT
+
+        p[0] = func
+
+    def p_colexpr_atomic_integer_literal(self, p):
+        'colexpr_atomic : INTEGER_LITERAL'
         p[0] = colexpr.NumericLiteral(p[1])
 
-    def p_colexpr_string_literal(self, p):
-        'colexpr : STRING_LITERAL'
+    def p_colexpr_atomic_string_literal(self, p):
+        'colexpr_atomic : STRING_LITERAL'
         p[0] = colexpr.StringLiteral(p[1])
 
-    def p_colexpr_id(self, p):
-        'colexpr : ID'
+    def p_colexpr_atomic_id(self, p):
+        'colexpr_atomic : ID'
         p[0] = colexpr.NamedAttributeRef(p[1])
 
-    def p_colexpr_index(self, p):
-        'colexpr : DOLLAR INTEGER_LITERAL'
+    def p_colexpr_atomic_index(self, p):
+        'colexpr_atomic : DOLLAR INTEGER_LITERAL'
         p[0] = colexpr.UnnamedAttributeRef(p[2])
 
-    def p_colexpr_group(self, p):
-        'colexpr : LPAREN colexpr RPAREN'
+    def p_colexpr_atomic_group(self, p):
+        'colexpr_atomic : LPAREN colexpr_atomic RPAREN'
         p[0] = p[2]
 
-    def p_colexpr_uminus(self, p):
-        'colexpr : MINUS colexpr %prec UMINUS'
+    def p_colexpr_atomic_uminus(self, p):
+        'colexpr_atomic : MINUS colexpr_atomic %prec UMINUS'
         p[0] = colexpr.TIMES(colexpr.NumericLiteral(-1), p[2])
 
-    def p_expression_binop(self, p):
-        '''colexpr : colexpr PLUS colexpr
-                   | colexpr MINUS colexpr
-                   | colexpr TIMES colexpr
-                   | colexpr DIVIDE colexpr
-                   | colexpr GT colexpr
-                   | colexpr LT colexpr
-                   | colexpr GE colexpr
-                   | colexpr LE colexpr
-                   | colexpr NE colexpr
-                   | colexpr EQ colexpr
-                   | colexpr AND colexpr
-                   | colexpr OR colexpr'''
+    def p_colexpr_atomic_binop(self, p):
+        '''colexpr_atomic : colexpr_atomic PLUS colexpr_atomic
+                          | colexpr_atomic MINUS colexpr_atomic
+                          | colexpr_atomic TIMES colexpr_atomic
+                          | colexpr_atomic DIVIDE colexpr_atomic
+                          | colexpr_atomic GT colexpr_atomic
+                          | colexpr_atomic LT colexpr_atomic
+                          | colexpr_atomic GE colexpr_atomic
+                          | colexpr_atomic LE colexpr_atomic
+                          | colexpr_atomic NE colexpr_atomic
+                          | colexpr_atomic EQ colexpr_atomic
+                          | colexpr_atomic AND colexpr_atomic
+                          | colexpr_atomic OR colexpr_atomic'''
         p[0] = binops[p[2]](p[1], p[3])
 
-    def p_colexpr_not(self, p):
-        'colexpr : NOT colexpr'
+    def p_colexpr_atomic_not(self, p):
+        'colexpr_atomic : NOT colexpr_atomic'
         p[0] = colexpr.NOT(p[2])
 
     def p_empty(self, p):

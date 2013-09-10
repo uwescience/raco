@@ -50,12 +50,38 @@ class FakeDatabase:
 
     def apply(self, op):
         child_it = self.evaluate(op.input)
+        colexprs = [c for _, c in op.mappings]
 
         def make_tuple(input_tuple):
+            """Convert an input tuple into an output tuple.
+
+            Note: aggregate functions are not yet evaluated
+            """
             ls = [colexpr.evaluate(input_tuple, op.input.scheme()) \
-                  for var, colexpr in op.mappings]
+                  for colexpr in colexprs]
             return tuple(ls)
-        return (make_tuple(t) for t in child_it)
+
+        if op.set_semantics:
+            # Calculate groups of matching input tuples
+            results = collections.defaultdict(list)
+            for input_tuple in child_it:
+                output_tuple = make_tuple(input_tuple)
+                results[output_tuple].append(input_tuple)
+
+            # Resolve aggregate functions
+            for key, tuples in results.iteritems():
+                output_fields = list(key)
+                for i in range(len(colexprs)):
+                    if isinstance(colexprs[i],
+                                  raco.expression.AggregateExpression):
+                        output_fields[i] = colexprs[i].evaluate_aggregate(
+                            tuples, op.input.scheme())
+                    else:
+                        output_fields[i] = key[i]
+                yield tuple(output_fields)
+        else:
+            for t in child_it:
+                yield make_tuple(t)
 
     def join(self, op):
         # Compute the cross product of the children and flatten

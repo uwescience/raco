@@ -3,6 +3,8 @@ import scheme
 from utility import emit, Printable
 from rules import Rule
 
+import raco.expression
+
 """
 Generate variables names
 """
@@ -367,15 +369,29 @@ class Join(BinaryOperator):
         raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
 class Apply(UnaryOperator):
-  def __init__(self, mappings, input=None):
+  def __init__(self, mappings, set_semantics, input=None):
     """Create new attributes from expressions with optional rename.
 
     mappings is a list of tuples of the form:
     (column_name, raco.expression.Expression)
 
     column_name can be None, in which case the system will infer a name based on
-    the expression."""
+    the expression.
 
+    set_semantics is a boolean indicating whether to treat the result as
+    a set.  This results in duplicate elimination and allows for the use
+    of aggregate functions.  Basically, set_semantics=True is a GROUP BY
+    statement.
+    """
+
+    # Aggregate functions are not compatible with bag semantics
+    # TODO: is this the right semantics?  Is this the right place to enforce?
+    if not set_semantics:
+      for _name, expr in mappings:
+        if isinstance(expr, raco.expression.AggregateExpression):
+          raise ValueException("Aggregates must use set semantics")
+
+    # If the user didn't supply a rename, infer a column name.
     def resolve_name(name, expr):
       if name:
         return name
@@ -385,11 +401,13 @@ class Apply(UnaryOperator):
 
     self.mappings = [(resolve_name(name, expr), expr) for name, expr
                      in mappings]
+    self.set_semantics = set_semantics
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):
     return UnaryOperator.__eq__(self,other) and \
-      self.expressions == other.expressions
+      self.expressions == other.expressions and \
+      self.set_semantics == other.set_semantics
 
   def __str__(self):
     estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.mappings])
@@ -398,6 +416,7 @@ class Apply(UnaryOperator):
   def copy(self, other):
     """deep copy"""
     self.mappings = other.mappings
+    self.set_semantics = other.set_semantics
     UnaryOperator.copy(self, other)
 
   def scheme(self):
@@ -499,30 +518,6 @@ class Project(UnaryOperator):
     """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
     # TODO: columnlist should perhaps be a list of column expressions, TBD
     return scheme.Scheme([attref.resolve(self.input.scheme()) for attref in self.columnlist])
-
-class GroupBy(UnaryOperator):
-  """Logical projection operator"""
-  def __init__(self, groupinglist=[], aggregatelist=[], input=None):
-    self.groupinglist = groupinglist
-    self.aggregatelist = aggregatelist
-    UnaryOperator.__init__(self, input)
-
-  def __str__(self):
-    groupstring = ",".join([str(x) for x in self.groupinglist])
-    aggstr = ",".join([str(x) for x in self.aggregatelist])
-    return "%s(%s)(%s)[%s]" % (self.opname(), groupstring, aggstr, self.input)
-
-  def copy(self, other):
-    """deep copy"""
-    self.groupinglist = other.groupinglist
-    self.aggregatelist = other.aggregatelist
-    UnaryOperator.copy(self, other)
-
-  def scheme(self):
-    """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
-    groupingscheme = [attref.resolve(self.input.scheme()) for attref in self.groupinglist]
-    expressionscheme = [("expr%s" % i, expr.typeof()) for i,expr in enumerate(self.aggregatelist)]
-    return scheme.Scheme([groupingscheme + expressionscheme])
 
 class ProjectingJoin(Join):
   """Logical Projecting Join operator"""

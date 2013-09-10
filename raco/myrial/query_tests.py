@@ -359,7 +359,6 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter([(25000,),(5000,),(90000,)])
         self.__run_test(query, expected)
 
-
     def test_limit(self):
         query = """
         out = LIMIT(SCAN(%s), 3);
@@ -369,3 +368,73 @@ class TestQueryFunctions(unittest.TestCase):
         result = self.__execute_query(query)
         self.assertEquals(len(result), 3)
 
+    def __aggregate_expected_result(self, apply_func):
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, apply_func(values)) for key, values in
+                  result_dict.iteritems()]
+        return collections.Counter(tuples)
+
+    def test_max(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, MAX(salary)};
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(max))
+
+    def test_min(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, MIN(salary)};
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(min))
+
+    def test_sum(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, SUM(salary)};
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(sum))
+
+    def test_count(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, COUNT(salary)};
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(len))
+
+    def test_count_all(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, COUNTALL()};
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(len))
+
+    def test_count_all_no_groupby(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT cnt=COUNTALL()};
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([
+            (len(self.emp_table),)])
+        self.__run_test(query, expected)
+
+    def test_compound_aggregate(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, SUM(5 * $3 + id / 2)};
+        DUMP(out);
+        """ % self.emp_key
+
+        agg = collections.defaultdict(int)
+        for t in self.emp_table.elements():
+            agg[t[1]] += t[3] * 5 + t[0] / 2
+        expected = collections.Counter(agg.iteritems())
+        self.__run_test(query, expected)
