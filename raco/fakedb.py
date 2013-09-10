@@ -65,5 +65,11 @@ class FakeDatabase:
         p2 = (x + y for (x,y) in p1)
 
         # Return tuples that match on the join conditions
-        print op.condition
         return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
+
+    def crossproduct(self, op):
+        left_it = self.evaluate(op.left)
+        right_it = self.evaluate(op.right)
+        p1 = itertools.product(left_it, right_it)
+        return (x + y for (x,y) in p1)
+

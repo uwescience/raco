@@ -193,6 +193,10 @@ class Parser:
                  | UNIONALL'''
         p[0] = p[1]
 
+    def p_expression_cross(self, p):
+        'expression : CROSS LPAREN expression COMMA expression RPAREN'
+        p[0] = ('CROSS', p[3], p[5])
+
     def p_expression_join(self, p):
         'expression : JOIN LPAREN join_argument COMMA join_argument RPAREN'
         if len(p[3].columns) != len(p[5].columns):

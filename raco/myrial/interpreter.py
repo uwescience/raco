@@ -80,6 +80,12 @@ class ExpressionProcessor:
     def limit(self, _id, count):
         raise NotImplementedError()
 
+    def cross(self, left_target, right_target):
+        left = self.evaluate(left_target)
+        right = self.evaluate(right_target)
+
+        return raco.algebra.CrossProduct(left, right)
+
     def join(self, left_target, right_target):
         """Convert parser.JoinTarget arguments into a Join operation"""
 

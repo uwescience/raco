@@ -329,6 +329,7 @@ class TestQueryFunctions(unittest.TestCase):
     def test_cross(self):
         query = """
         out = CROSS(SCAN(%s), SCAN(%s));
+        DUMP out;
         """ % (self.emp_key, self.dept_key)
 
         tuples = [e + d for e in self.emp_table.elements() for
