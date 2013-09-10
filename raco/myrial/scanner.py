@@ -4,7 +4,7 @@ import ply.lex as lex
 
 # identifiers with special meaning; case-insensitive
 reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
-            'INTERSECT', 'DUMP', 'FILTER', 'BY', 'WHILE', 'INT', 'STRING',
+            'INTERSECT', 'DUMP', 'BY', 'WHILE', 'INT', 'STRING',
             'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN', 'COUNTALL', 'FROM',
             'WHERE', 'AND', 'OR', 'NOT']
 
