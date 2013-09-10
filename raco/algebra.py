@@ -415,6 +415,24 @@ class Distinct(UnaryOperator):
     """scheme of the result"""
     return self.input.scheme()
 
+class Limit(UnaryOperator):
+  def __init__(self, count=None, input=None):
+    UnaryOperator.__init__(self, input)
+    self.count = count
+
+  def __eq__(self, other):
+    return UnaryOperator.__eq__(self,other) and self.count == other.count
+
+  def __str__(self):
+    return "%s(%s,%s)" % (self.opname(), self.input, self.count)
+
+  def copy(self, other):
+    self.count = other.count
+    UnaryOperator.copy(self, other)
+
+  def scheme(self):
+    return self.input.scheme()
+
 class Select(UnaryOperator):
   """Logical selection operator"""
   def __init__(self, condition=None, input=None):
