@@ -72,12 +72,12 @@ class Parser:
         p[0] = ('DUMP', p[3])
 
     def p_statement_describe(self, p):
-        'statement : DESCRIBE ID SEMI'
-        p[0] = ('DESCRIBE', p[2])
+        'statement : DESCRIBE LPAREN ID RPAREN SEMI'
+        p[0] = ('DESCRIBE', p[3])
 
     def p_statement_explain(self, p):
-        'statement : EXPLAIN ID SEMI'
-        p[0] = ('EXPLAIN', p[2])
+        'statement : EXPLAIN LPAREN ID RPAREN SEMI'
+        p[0] = ('EXPLAIN', p[3])
 
     def p_statement_dowhile(self, p):
         'statement : DO statement_list WHILE expression SEMI'
