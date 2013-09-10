@@ -227,8 +227,14 @@ class MIN(AggregateExpression,UnaryFunction):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return min(inputs)
 
-class COUNT(AggregateExpression,ZeroaryOperator):
-  pass
+class COUNT(AggregateExpression,UnaryOperator):
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    count = 0
+    for t in inputs:
+      if t is not None:
+        count += 1
+    return count
 
 class SUM(AggregateExpression,UnaryFunction):
   def evaluate_aggregate(self, tuple_iterator, scheme):

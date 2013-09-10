@@ -252,12 +252,14 @@ class Parser:
     def p_aggregate_func(self, p):
         '''aggregate_func : MAX
                           | MIN
-                          | SUM'''
+                          | SUM
+                          | COUNT'''
         # TODO: support average once we have floating point
-        # TODO: support count once we can handle COUNT(*);
         if p[1] == 'MAX': func = colexpr.MAX
         if p[1] == 'MIN': func = colexpr.MIN
         if p[1] == 'SUM': func = colexpr.SUM
+        if p[1] == 'COUNT': func = colexpr.COUNT
+
         p[0] = func
 
     def p_colexpr_atomic_integer_literal(self, p):
