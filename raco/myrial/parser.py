@@ -177,8 +177,8 @@ class Parser:
             p[0] = (None, p[1])
 
     def p_expression_limit(self, p):
-        'expression : LIMIT ID COMMA INTEGER_LITERAL'
-        p[0] = ('LIMIT', p[2], p[4])
+        'expression : LIMIT LPAREN expression COMMA INTEGER_LITERAL RPAREN'
+        p[0] = ('LIMIT', p[3], p[5])
 
     def p_expression_distinct(self, p):
         'expression : DISTINCT LPAREN expression RPAREN'

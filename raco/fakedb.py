@@ -77,3 +77,7 @@ class FakeDatabase:
         it = self.evaluate(op.input)
         s = set(it)
         return iter(s)
+
+    def limit(self, op):
+        it = self.evaluate(op.input)
+        return itertools.islice(it, op.count)

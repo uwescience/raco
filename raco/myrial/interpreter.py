@@ -79,8 +79,9 @@ class ExpressionProcessor:
     def diff(self, id1, id2):
         raise NotImplementedError()
 
-    def limit(self, _id, count):
-        raise NotImplementedError()
+    def limit(self, expr, count):
+        op = self.evaluate(expr)
+        return raco.algebra.Limit(input=op, count=count)
 
     def cross(self, left_target, right_target):
         left = self.evaluate(left_target)
