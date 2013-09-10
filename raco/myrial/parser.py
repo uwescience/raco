@@ -15,10 +15,9 @@ class JoinColumnCountMismatchException(Exception):
 class ParseException(Exception):
     pass
 
-# ID is a symbol name that identifies an input relation; columns is a list of
-# "atomic" column expressions -- either NamedAttributeRef (for strings) or
-# UnnamedAttributeRef (for positions).
-JoinTarget = collections.namedtuple('JoinTarget',['id', 'columns'])
+# ID is a symbol name that identifies an input expression; columns is a list of
+# columns expressed as either names or integer positions.
+JoinTarget = collections.namedtuple('JoinTarget',['expr', 'columns'])
 
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
@@ -195,17 +194,17 @@ class Parser:
         p[0] = p[1]
 
     def p_expression_join(self, p):
-        'expression : JOIN join_argument COMMA join_argument'
-        if len(p[2].columns) != len(p[4].columns):
+        'expression : JOIN LPAREN join_argument COMMA join_argument RPAREN'
+        if len(p[3].columns) != len(p[5].columns):
             raise JoinColumnCountMismatchException()
-        p[0] = ('JOIN', p[2], p[4])
+        p[0] = ('JOIN', p[3], p[5])
 
     def p_join_argument_list(self, p):
-        'join_argument : ID BY LPAREN column_ref_list RPAREN'
+        'join_argument : expression COMMA LPAREN column_ref_list RPAREN'
         p[0] = JoinTarget(p[1], p[4])
 
     def p_join_argument_single(self, p):
-        'join_argument : ID BY column_ref'
+        'join_argument : expression COMMA column_ref'
         p[0] = JoinTarget(p[1], [p[3]])
 
     # column_ref refers to the name or position of a column; these serve
@@ -214,18 +213,17 @@ class Parser:
         '''column_ref_list : column_ref_list COMMA column_ref
                            | column_ref'''
         if len(p) == 4:
-            cols = p[1] + [p[3]]
+            p[0] = p[1] + [p[3]]
         else:
-            cols = [p[1]]
-        p[0] = cols
+            p[0] = [p[1]]
 
-    def p_column_ref_id(self, p):
+    def p_column_ref_string(self, p):
         'column_ref : ID'
-        p[0] = colexpr.NamedAttributeRef(p[1])
+        p[0] = p[1]
 
     def p_column_ref_index(self, p):
         'column_ref : DOLLAR INTEGER_LITERAL'
-        p[0] = colexpr.UnnamedAttributeRef(p[2])
+        p[0] = p[2]
 
     def p_apply_expr(self, p):
         'expression : APPLY ID EMIT LPAREN apply_arg_list RPAREN'

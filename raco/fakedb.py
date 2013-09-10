@@ -6,6 +6,8 @@ import raco.algebra
 import raco.scheme as scheme
 
 class FakeDatabase:
+    """An in-memory implementation of relational algebra operators"""
+
     def __init__(self):
         # Map from relation names (strings) to tuples of (Bag, scheme.Scheme)
         self.tables = {}
@@ -54,3 +56,14 @@ class FakeDatabase:
                   for var, colexpr in op.mappings]
             return tuple(ls)
         return (make_tuple(t) for t in child_it)
+
+    def join(self, op):
+        # Compute the cross product of the children and flatten
+        left_it = self.evaluate(op.left)
+        right_it = self.evaluate(op.right)
+        p1 = itertools.product(left_it, right_it)
+        p2 = (x + y for (x,y) in p1)
+
+        # Return tuples that match on the join conditions
+        print op.condition
+        return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))

@@ -39,7 +39,6 @@ class TestQueryFunctions(unittest.TestCase):
     dept_key = "andrew:adhoc:department"
 
     def setUp(self):
-
         self.db = raco.fakedb.FakeDatabase()
 
         self.db.ingest(TestQueryFunctions.emp_key,
@@ -292,6 +291,28 @@ class TestQueryFunctions(unittest.TestCase):
              x[3] * 2 > 10000])
 
         self.__run_test(query, expected)
+
+    def test_join(self):
+        query = """
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        out = JOIN(emp, dept_id, dept, id);
+        out = [FROM out EMIT emp_name=$2, dept_name=$5];
+        DUMP out;
+        """ % (self.emp_key, self.dept_key)
+
+        expected = collections.Counter(
+            [('Bill Howe', 'human resources'),
+             ('Dan Halperin', 'accounting'),
+             ('Andrew Whitaker','accounting'),
+             ('Shumo Chu', 'human resources'),
+             ('Victor Almeida', 'accounting'),
+             ('Dan Suciu', 'engineering'),
+             ('Magdalena Balazinska', 'accounting')])
+
+        self.__run_test(query, expected)
+
+    # TODO: test with multiple join attributes
 
 if __name__ == '__main__':
     unittest.main()

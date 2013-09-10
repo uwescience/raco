@@ -80,14 +80,40 @@ class ExpressionProcessor:
     def limit(self, _id, count):
         raise NotImplementedError()
 
-    def join(self, arg1, arg2):
-        # Note: arguments are of type parser.JoinTarget
-        left = self.symbols[arg1.id]
-        right = self.symbols[arg2.id]
+    def join(self, left_target, right_target):
+        """Convert parser.JoinTarget arguments into a Join operation"""
 
-        assert len(arg1.columns) == len(arg2.columns)
+        left = self.evaluate(left_target.expr)
+        right = self.evaluate(right_target.expr)
 
-        condition = [colexpr.EQ(x,y) for x,y in zip(arg1.columns, arg2.columns)]
+        assert len(left_target.columns) == len(right_target.columns)
+
+        def get_attribute_ref(column_ref, scheme, offset):
+            """Convert a string or int into an attribute ref on the new table"""
+            if type(column_ref) == types.IntType:
+                index = column_ref
+            else:
+                index = scheme.getPosition(column_ref)
+            return raco.expression.UnnamedAttributeRef(index + offset)
+
+        left_scheme = left.scheme()
+        left_refs = [get_attribute_ref(c, left_scheme, 0)
+                     for c in left_target.columns]
+
+        right_scheme = right.scheme()
+        right_refs = [get_attribute_ref(c, right_scheme, len(left_scheme))
+                      for c in right_target.columns]
+
+        join_conditions = [colexpr.EQ(x,y) for x,y in
+                           zip(left_refs, right_refs)]
+
+        # Merge the join conditions into a big AND expression
+
+        def andify(x,y):
+            """Merge two column expressions with an AND"""
+            return colexpr.AND(x,y)
+
+        condition = reduce(andify, join_conditions[1:], join_conditions[0])
         return raco.algebra.Join(condition, left, right)
 
     def apply(self, _id, columns):
