@@ -241,6 +241,12 @@ class SUM(AggregateExpression,UnaryFunction):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return sum(inputs)
 
+class COUNT_ALL(AggregateExpression,ZeroaryOperator):
+  """Aggregate function that counts all rows"""
+
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    return len(tuple_iterator)
+
 class BooleanExpression(Printable):
   pass
 

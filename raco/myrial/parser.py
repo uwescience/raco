@@ -241,19 +241,23 @@ class Parser:
     # operate on bags of tuples.  Flat column expressions operate over zero
     # or more atomic values (usually expressed as flat column expressions).
 
-    def p_colexpr_aggregate(self, p):
-        'colexpr : aggregate_func LPAREN colexpr_atomic RPAREN'
+    def p_colexpr_count_all(self, p):
+        '''colexpr : COUNTALL LPAREN RPAREN'''
+        p[0] = colexpr.COUNT_ALL()
+
+    def p_colexpr_unary_aggregate(self, p):
+        'colexpr : unary_aggregate_func LPAREN colexpr_atomic RPAREN'
         p[0] = p[1](p[3])
 
     def p_colexpr_atomic(self, p):
         '''colexpr : colexpr_atomic'''
         p[0] = p[1]
 
-    def p_aggregate_func(self, p):
-        '''aggregate_func : MAX
-                          | MIN
-                          | SUM
-                          | COUNT'''
+    def p_unary_aggregate_func(self, p):
+        '''unary_aggregate_func : MAX
+                                | MIN
+                                | SUM
+                                | COUNT'''
         # TODO: support average once we have floating point
         if p[1] == 'MAX': func = colexpr.MAX
         if p[1] == 'MIN': func = colexpr.MIN

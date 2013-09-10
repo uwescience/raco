@@ -409,6 +409,14 @@ class TestQueryFunctions(unittest.TestCase):
 
         self.__run_test(query, self.__aggregate_expected_result(len))
 
+    def test_count_all(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT dept_id, COUNTALL()};
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(len))
+
     def test_compound_aggregate(self):
         query = """
         out = {FROM SCAN(%s) EMIT dept_id, SUM(5 * $3 + id / 2)};
