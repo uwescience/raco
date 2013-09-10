@@ -346,3 +346,13 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter([(25000,),(5000,),(90000,)])
         self.__run_test(query, expected)
+
+    def test_set_comp(self):
+        query = """
+        out = {FROM SCAN(%s) EMIT salary};
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(25000,),(5000,),(90000,)])
+        self.__run_test(query, expected)
+
