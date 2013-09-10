@@ -359,7 +359,6 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter([(25000,),(5000,),(90000,)])
         self.__run_test(query, expected)
 
-
     def test_limit(self):
         query = """
         out = LIMIT(SCAN(%s), 3);
@@ -368,4 +367,3 @@ class TestQueryFunctions(unittest.TestCase):
 
         result = self.__execute_query(query)
         self.assertEquals(len(result), 3)
-

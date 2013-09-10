@@ -55,7 +55,16 @@ class FakeDatabase:
             ls = [colexpr.evaluate(input_tuple, op.input.scheme()) \
                   for var, colexpr in op.mappings]
             return tuple(ls)
-        return (make_tuple(t) for t in child_it)
+
+        if op.set_semantics:
+            results = collections.defaultdict(list)
+            for input_tuple in child_it:
+                output_tuple = make_tuple(input_tuple)
+                results[output_tuple].append(input_tuple)
+            # TODO: compute aggregate functions over dict values
+            return results.iterkeys()
+        else:
+            return (make_tuple(t) for t in child_it)
 
     def join(self, op):
         # Compute the cross product of the children and flatten
