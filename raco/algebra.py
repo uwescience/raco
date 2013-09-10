@@ -373,9 +373,8 @@ class Apply(UnaryOperator):
     mappings is a list of tuples of the form:
     (column_name, raco.expression.Expression)
 
-    column_name can be None, in which case the system will a name based on the
-    expression.
-    """
+    column_name can be None, in which case the system will infer a name based on
+    the expression."""
 
     def resolve_name(name, expr):
       if name:
