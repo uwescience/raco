@@ -67,8 +67,8 @@ class ExpressionProcessor:
         # TODO: Figure out set/bag semantics here
         return raco.algebra.Union(left, right)
 
-    def countall(self, _id):
-        op = self.symbols[_id]
+    def countall(self, expr):
+        op = self.evaluate(expr)
         return raco.algebra.GroupBy(groupinglist=[],
                                     aggregatelist=[colexpr.COUNT()],
                                     input=op)

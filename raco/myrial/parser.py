@@ -185,8 +185,8 @@ class Parser:
         p[0] = ('DISTINCT', p[3])
 
     def p_expression_countall(self, p):
-        'expression : COUNTALL ID'
-        p[0] = ('COUNTALL', p[2])
+        'expression : COUNTALL LPAREN expression RPAREN'
+        p[0] = ('COUNTALL', p[3])
 
     def p_expression_binary_set_operation(self, p):
         'expression : setop ID COMMA ID'
