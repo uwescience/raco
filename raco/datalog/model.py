@@ -457,7 +457,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
     # Check for implicit literal equality conditions, like A(X,"foo")
     for i,b in enumerate(self.valuerefs):
       if isinstance(b,raco.boolean.Literal):
-        posref = raco.boolean.UnnamedAttributeRef(i)
+        posref = raco.expression.UnnamedAttributeRef(i)
         yield raco.boolean.EQ(posref, b)
 
     # Check for repeated variable conditions, like A(X,X)
