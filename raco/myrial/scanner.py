@@ -2,36 +2,30 @@
 
 import ply.lex as lex
 
-# identifiers with special meaning; case-insensitive:
-# LoAd, load, LOAD are all accepted
-reserved = ['LOAD', 'STORE', 'LIMIT', 'SHUFFLE', 'SEQUENCE', 'CROSS', 'JOIN',
-            'GROUP','EMIT', 'AS', 'DIFF', 'UNIONALL', 'INTERSECT', 'APPLY',
-            'DUMP', 'FILTER', 'TABLE', 'ORDER', 'ASC', 'DESC', 'BY', 'WHILE',
-            'INT', 'STRING', 'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN',
-            'COUNTALL']
+# identifiers with special meaning; case-insensitive
+reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
+            'INTERSECT', 'DUMP', 'FILTER', 'BY', 'WHILE', 'INT', 'STRING',
+            'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN', 'COUNTALL', 'FROM',
+            'WHERE', 'AND', 'OR', 'NOT']
 
 # Token types; required by ply to have this variable name
-tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'PLUS', 'MINUS', 'TIMES',
-          'DIVIDE', 'MOD', 'LOR', 'LAND', 'LNOT', 'LT', 'GT', 'GE', 'LE', 'EQ',
-          'NE', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'DOT', 'ID',
-          'STRING_LITERAL', 'INTEGER_LITERAL', 'LBRACE', 'RBRACE'] + reserved
+tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'LBRACE', 'RBRACE',
+          'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ',
+          'NE', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
+          'STRING_LITERAL', 'INTEGER_LITERAL'] + reserved
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('
 t_RPAREN = r'\)'
 t_LBRACKET = r'\['
 t_RBRACKET = r'\]'
-t_LBRACE           = r'\{'
-t_RBRACE           = r'\}'
+t_LBRACE = r'\{'
+t_RBRACE = r'\}'
 t_PLUS  = r'\+'
 t_MINUS  = r'-'
 t_TIMES  = r'\*'
 t_DIVIDE = r'/'
-t_MOD   = r'%'
 
-t_LOR              = r'\|\|'
-t_LAND             = r'&&'
-t_LNOT             = r'!'
 t_LT               = r'<'
 t_GT               = r'>'
 t_LE               = r'<='
@@ -44,7 +38,6 @@ t_SEMI = r';'
 t_EQUALS = r'='
 t_COLON = r':'
 t_DOLLAR = r'\$'
-t_DOT = r'\.'
 
 # Regular expressions for non-trivial tokens
 

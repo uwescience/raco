@@ -15,19 +15,9 @@ class JoinColumnCountMismatchException(Exception):
 class ParseException(Exception):
     pass
 
-# ID is a symbol name that identifies an input relation; columns is a list of
-# "atomic" column expressions -- either NamedAttributeRef (for strings) or
-# UnnamedAttributeRef (for positions).
-JoinTarget = collections.namedtuple('JoinTarget',['id', 'columns'])
-
-class RelationKey(object):
-    def __init__(self, table, program='default', user='nobody'):
-        self.table = table
-        self.program = program
-        self.user = user
-
-    def __repr__(self):
-        return 'RelationKey(%s,%s,%s)' % (self.table, self.program,self.user)
+# ID is a symbol name that identifies an input expression; columns is a list of
+# columns expressed as either names or integer positions.
+JoinTarget = collections.namedtuple('JoinTarget',['expr', 'columns'])
 
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
@@ -41,30 +31,29 @@ binops = {
     '<=' : colexpr.LTEQ,
     '!=' : colexpr.NEQ,
     '==' : colexpr.EQ,
-    '&&' : colexpr.AND,
-    '||' : colexpr.OR,
+    'AND' : colexpr.AND,
+    'OR' : colexpr.OR,
 }
 
 class Parser:
-    # Precedence among column expression operators in ascending order; this is
-    # necessary to disambiguate the grammer.  Operator precedence is identical
-    # to C.  http://en.cppreference.com/w/cpp/language/operator_precedence
-
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
 
+        # Precedence among column expression operators in ascending order; this
+        # is necessary to disambiguate the grammer.  Operator precedence is
+        # identical to Python:
+        # http://docs.python.org/2/reference/expressions.html#comparisons
+
         self.precedence = (
-            ('left', 'LOR'),
-            ('left', 'LAND'),
-            ('left', 'EQ'),
-            ('left', 'NE'),
-            ('left', 'GT', 'LT', 'LE', 'GE'),
+            ('left', 'OR'),
+            ('left', 'AND'),
+            ('right', 'NOT'),
+            ('left', 'EQ', 'NE', 'GT', 'LT', 'LE', 'GE'),
             ('left', 'PLUS', 'MINUS'),
             ('left', 'TIMES', 'DIVIDE'),
-            ('right', 'LNOT'),
             ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
-    )
+        )
 
     def p_statement_list(self, p):
         '''statement_list : statement_list statement
@@ -79,55 +68,48 @@ class Parser:
         p[0] = ('ASSIGN', p[1], p[3])
 
     def p_statement_dump(self, p):
-        'statement : DUMP ID SEMI'
-        p[0] = ('DUMP', p[2])
+        'statement : DUMP LPAREN ID RPAREN SEMI'
+        p[0] = ('DUMP', p[3])
 
     def p_statement_describe(self, p):
-        'statement : DESCRIBE ID SEMI'
-        p[0] = ('DESCRIBE', p[2])
+        'statement : DESCRIBE LPAREN ID RPAREN SEMI'
+        p[0] = ('DESCRIBE', p[3])
 
     def p_statement_explain(self, p):
-        'statement : EXPLAIN ID SEMI'
-        p[0] = ('EXPLAIN', p[2])
+        'statement : EXPLAIN LPAREN ID RPAREN SEMI'
+        p[0] = ('EXPLAIN', p[3])
 
     def p_statement_dowhile(self, p):
         'statement : DO statement_list WHILE expression SEMI'
         p[0] = ('DOWHILE', p[2], p[4])
 
     def p_statement_store(self, p):
-        'statement : STORE ID COMMA relation_key SEMI'
-        p[0] = ('STORE', p[2], p[4])
+        'statement : STORE LPAREN ID COMMA relation_key RPAREN SEMI'
+        p[0] = ('STORE', p[3], p[5])
 
     def p_expression_id(self, p):
         'expression : ID'
         p[0] = ('ALIAS', p[1])
 
     def p_expression_scan(self, p):
-        'expression : SCAN relation_key optional_as'
+        'expression : SCAN LPAREN relation_key optional_schema RPAREN'
         # TODO(AJW): Nix optional schema argument once we can read this from
         # myrial?
-        p[0] = ('SCAN', p[2], p[3])
+        p[0] = ('SCAN', p[3], p[4])
 
     def p_relation_key(self, p):
-        'relation_key : LBRACE string_arg_list RBRACE'
-        # {table [, program] [,user]}
-        if len(p[2]) < 1:
-            raise ParseException("No table name provided")
-        if len(p[2]) > 3:
-            raise ParseException("Too many arguments to relation key")
-        p[0] = RelationKey(*p[2])
+        '''relation_key : string_arg
+                        | string_arg COLON string_arg
+                        | string_arg COLON string_arg COLON string_arg'''
+        p[0] = ''.join(p[1:])
 
-    def p_optional_as(self, p):
-        '''optional_as : AS schema
-                       | empty'''
+    def p_optional_schema(self, p):
+        '''optional_schema : COMMA column_def_list
+                           | empty'''
         if len(p) == 3:
-            p[0] = p[2]
+            p[0] = scheme.Scheme(p[2])
         else:
             p[0] = None
-
-    def p_schema(self, p):
-        'schema : LPAREN column_def_list RPAREN'
-        p[0] = scheme.Scheme(p[2])
 
     def p_column_def_list(self, p):
         '''column_def_list : column_def_list COMMA column_def
@@ -147,32 +129,64 @@ class Parser:
                      | INT'''
         p[0] = p[1]
 
-    # For operators that take string-like arguments: allow unquoted
-    # identifiers and quoted strings to be used equivalently
-    def p_string_arg_list(self, p):
-        '''string_arg_list : string_arg_list COMMA string_arg
-                           | string_arg'''
-        if len(p) == 4:
-            p[0] = p[1] + [p[3]]
-        else:
-            p[0] = [p[1]]
-
     def p_string_arg(self, p):
         '''string_arg : ID
                       | STRING_LITERAL'''
         p[0] = p[1]
 
+    def p_expression_bagcomp(self, p):
+        'expression : LBRACKET FROM expression opt_where_clause \
+        emit_clause RBRACKET'
+        p[0] = ('BAGCOMP', p[3], p[4], p[5])
+
+    def p_expression_setcomp(self, p):
+        'expression : LBRACE FROM expression opt_where_clause \
+        emit_clause RBRACE'
+        p[0] = ('SETCOMP', p[3], p[4], p[5])
+
+    def p_opt_where_clause(self, p):
+        '''opt_where_clause : WHERE colexpr
+                            | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = None
+
+    def p_emit_clause_star(self, p):
+        '''emit_clause : EMIT TIMES'''
+        p[0] = None
+
+    def p_emit_clause_list(self, p):
+        '''emit_clause : EMIT emit_arg_list'''
+        p[0] = p[2]
+
+    def p_emit_arg_list(self, p):
+        '''emit_arg_list : emit_arg_list COMMA emit_arg
+                         | emit_arg'''
+        if len(p) == 4:
+            p[0] = p[1] + [p[3]]
+        else:
+            p[0] = [p[1]]
+
+    def p_emit_arg(self, p):
+        '''emit_arg : string_arg EQUALS colexpr
+                    | colexpr'''
+        if len(p) == 4:
+            p[0] = (p[1], p[3])
+        else:
+            p[0] = (None, p[1])
+
     def p_expression_limit(self, p):
-        'expression : LIMIT ID COMMA INTEGER_LITERAL'
-        p[0] = ('LIMIT', p[2], p[4])
+        'expression : LIMIT LPAREN expression COMMA INTEGER_LITERAL RPAREN'
+        p[0] = ('LIMIT', p[3], p[5])
 
     def p_expression_distinct(self, p):
-        'expression : DISTINCT ID'
-        p[0] = ('DISTINCT', p[2])
+        'expression : DISTINCT LPAREN expression RPAREN'
+        p[0] = ('DISTINCT', p[3])
 
     def p_expression_countall(self, p):
-        'expression : COUNTALL ID'
-        p[0] = ('COUNTALL', p[2])
+        'expression : COUNTALL LPAREN expression RPAREN'
+        p[0] = ('COUNTALL', p[3])
 
     def p_expression_binary_set_operation(self, p):
         'expression : setop ID COMMA ID'
@@ -184,18 +198,22 @@ class Parser:
                  | UNIONALL'''
         p[0] = p[1]
 
+    def p_expression_cross(self, p):
+        'expression : CROSS LPAREN expression COMMA expression RPAREN'
+        p[0] = ('CROSS', p[3], p[5])
+
     def p_expression_join(self, p):
-        'expression : JOIN join_argument COMMA join_argument'
-        if len(p[2].columns) != len(p[4].columns):
+        'expression : JOIN LPAREN join_argument COMMA join_argument RPAREN'
+        if len(p[3].columns) != len(p[5].columns):
             raise JoinColumnCountMismatchException()
-        p[0] = ('JOIN', p[2], p[4])
+        p[0] = ('JOIN', p[3], p[5])
 
     def p_join_argument_list(self, p):
-        'join_argument : ID BY LPAREN column_ref_list RPAREN'
+        'join_argument : expression COMMA LPAREN column_ref_list RPAREN'
         p[0] = JoinTarget(p[1], p[4])
 
     def p_join_argument_single(self, p):
-        'join_argument : ID BY column_ref'
+        'join_argument : expression COMMA column_ref'
         p[0] = JoinTarget(p[1], [p[3]])
 
     # column_ref refers to the name or position of a column; these serve
@@ -204,35 +222,17 @@ class Parser:
         '''column_ref_list : column_ref_list COMMA column_ref
                            | column_ref'''
         if len(p) == 4:
-            cols = p[1] + [p[3]]
-        else:
-            cols = [p[1]]
-        p[0] = cols
-
-    def p_column_ref_id(self, p):
-        'column_ref : ID'
-        p[0] = colexpr.NamedAttributeRef(p[1])
-
-    def p_column_ref_index(self, p):
-        'column_ref : DOLLAR INTEGER_LITERAL'
-        p[0] = colexpr.UnnamedAttributeRef(p[2])
-
-    def p_apply_expr(self, p):
-        'expression : APPLY ID EMIT LPAREN apply_arg_list RPAREN'
-        p[0] = ('APPLY', p[2], dict(p[5]))
-
-    def p_apply_arg_list(self, p):
-        '''apply_arg_list : apply_arg_list COMMA apply_arg
-                          | apply_arg'''
-        # Resolves into a list of tuples of the form (id, raco.Expression)
-        if len(p) == 4:
             p[0] = p[1] + [p[3]]
         else:
             p[0] = [p[1]]
 
-    def p_apply_arg(self, p):
-        'apply_arg : ID EQUALS colexpr'
-        p[0] = (p[1], p[3])
+    def p_column_ref_string(self, p):
+        'column_ref : ID'
+        p[0] = p[1]
+
+    def p_column_ref_index(self, p):
+        'column_ref : DOLLAR INTEGER_LITERAL'
+        p[0] = p[2]
 
     def p_expression_filter(self, p):
         'expression : FILTER ID BY colexpr'
@@ -275,11 +275,14 @@ class Parser:
                    | colexpr LT colexpr
                    | colexpr GE colexpr
                    | colexpr LE colexpr
-                   | colexpr EQ colexpr'''
+                   | colexpr NE colexpr
+                   | colexpr EQ colexpr
+                   | colexpr AND colexpr
+                   | colexpr OR colexpr'''
         p[0] = binops[p[2]](p[1], p[3])
 
     def p_colexpr_not(self, p):
-        'colexpr : LNOT colexpr'
+        'colexpr : NOT colexpr'
         p[0] = colexpr.NOT(p[2])
 
     def p_empty(self, p):
@@ -291,4 +294,4 @@ class Parser:
         return parser.parse(s, lexer=scanner.lexer, tracking=True)
 
     def p_error(self, p):
-        self.log.error("Syntax error: %s" %  str(p))
+        self.log.error("Syntax error: %s", str(p))

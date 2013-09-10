@@ -14,6 +14,12 @@ class Expression(Printable):
     else:
       return self.literals[0]
 
+  def evaluate(self, _tuple, scheme):
+    '''Evaluate an expression in the context of a given tuple and schema.
+
+    This is used for unit tests written against the fake database.
+    '''
+    raise NotImplementedError()
 
 class ZeroaryOperator(Expression):
   def __init__(self):
@@ -74,6 +80,9 @@ class Literal:
     # TODO: DANGEROUS
     return type(self.value)
 
+  def evaluate(self, _tuple, scheme):
+    return self.value
+
 class StringLiteral(Literal):
   pass
 
@@ -92,6 +101,10 @@ class NamedAttributeRef(AttributeRef):
 
   def __str__(self):
     return "%s" % (self.name)
+
+  def evaluate(self, _tuple, scheme):
+    pos = scheme.getPosition(self.name)
+    return _tuple[pos]
 
 class UnnamedAttributeRef(AttributeRef):
   def __init__(self, position):
@@ -113,6 +126,9 @@ class UnnamedAttributeRef(AttributeRef):
     """Add an offset to this positional reference.  Used when building a plan from a set of joins"""
     self.position = self.position + offset
 
+  def evaluate(self, _tuple, scheme):
+    return _tuple[self.position]
+
 class NaryOperator(Expression):
   pass
 
@@ -122,17 +138,38 @@ class UDF(NaryOperator):
 class PLUS(BinaryOperator):
   literals = ["+"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) +
+            self.right.evaluate(_tuple, scheme))
+
 class MINUS(BinaryOperator):
   literals = ["-"]
+
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) -
+            self.right.evaluate(_tuple, scheme))
 
 class DIVIDE(BinaryOperator):
   literals = ["/"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) /
+            self.right.evaluate(_tuple, scheme))
+
+
 class TIMES(BinaryOperator):
   literals = ["*"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) *
+            self.right.evaluate(_tuple, scheme))
+
+
 class NEG(UnaryOperator):
   literals = ["-"]
+
+  def evaluate(self, _tuple, scheme):
+    return -1 * self.input.evaluate(_tuple, scheme)
 
 class UnaryFunction(UnaryOperator):
   def __str__(self):
@@ -195,29 +232,68 @@ class BinaryComparisonOperator(BinaryBooleanOperator):
 class NOT(UnaryBooleanOperator):
   literals = ["not", "NOT", "-"]
 
+  def evaluate(self, _tuple, scheme):
+    return not self.input.evaluate(_tuple, scheme)
+
 class AND(BinaryBooleanOperator):
   literals = ["and", "AND"]
+
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) and
+            self.right.evaluate(_tuple, scheme))
 
 class OR(BinaryBooleanOperator):
   literals = ["or", "OR"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) or
+            self.right.evaluate(_tuple, scheme))
+
 class EQ(BinaryComparisonOperator):
   literals = ["=", "=="]
+
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) ==
+            self.right.evaluate(_tuple, scheme))
 
 class LT(BinaryComparisonOperator):
   literals = ["<", "lt"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) <
+            self.right.evaluate(_tuple, scheme))
+
+
 class GT(BinaryComparisonOperator):
   literals = [">", "gt"]
+
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) >
+            self.right.evaluate(_tuple, scheme))
+
 
 class GTEQ(BinaryComparisonOperator):
   literals = [">=", "gteq", "gte"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) >=
+            self.right.evaluate(_tuple, scheme))
+
+
 class LTEQ(BinaryComparisonOperator):
   literals = ["<=", "lteq", "lte"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) <=
+            self.right.evaluate(_tuple, scheme))
+
+
 class NEQ(BinaryComparisonOperator):
   literals = ["!=", "neq", "ne"]
+
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) !=
+            self.right.evaluate(_tuple, scheme))
 
 reverse = {
   NEQ:NEQ,
