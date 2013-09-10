@@ -367,27 +367,70 @@ class Join(BinaryOperator):
         raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
 class Apply(UnaryOperator):
-  """Create new attributes from expressions.  Subsumes the rename operator"""
-  def __init__(self, input=None, **expressions):
-    self.expressions = expressions
+  def __init__(self, mappings, input=None):
+    """Create new attributes from expressions with optional rename.
+
+    mappings is a list of tuples of the form:
+    (column_name, raco.expression.Expression)
+
+    column_name can be None, in which case the system will infer a name based on
+    the expression."""
+
+    def resolve_name(name, expr):
+      if name:
+        return name
+      else:
+        # TODO: This isn't right; we should resolve $1 into a column name
+        return str(expr)
+
+    self.mappings = [(resolve_name(name, expr), expr) for name, expr
+                     in mappings]
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):
-    return UnaryOperator.__eq__(self,other) and self.expressions == other.expressions
+    return UnaryOperator.__eq__(self,other) and \
+      self.expressions == other.expressions
 
   def __str__(self):
-    estrs = ",".join(["%s=%s" % pair for pair in self.expressions.items()])
+    estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.mappings])
     return "%s(%s)[%s]" % (self.opname(), estrs, self.input)
 
   def copy(self, other):
     """deep copy"""
-    self.expressions = other.expressions
+    self.mappings = other.mappings
     UnaryOperator.copy(self, other)
 
   def scheme(self):
     """scheme of the result."""
-    new_attrs = [(name,expr.typeof()) for (name, expr) in self.expressions.items()]
+    new_attrs = [(name,expr.typeof()) for (name, expr) in self.mappings]
     return scheme.Scheme(new_attrs)
+
+class Distinct(UnaryOperator):
+  """Remove duplicates from the child operator"""
+  def __init__(self, input=None):
+    UnaryOperator.__init__(self, input)
+
+  def scheme(self):
+    """scheme of the result"""
+    return self.input.scheme()
+
+class Limit(UnaryOperator):
+  def __init__(self, count=None, input=None):
+    UnaryOperator.__init__(self, input)
+    self.count = count
+
+  def __eq__(self, other):
+    return UnaryOperator.__eq__(self,other) and self.count == other.count
+
+  def __str__(self):
+    return "%s(%s,%s)" % (self.opname(), self.input, self.count)
+
+  def copy(self, other):
+    self.count = other.count
+    UnaryOperator.copy(self, other)
+
+  def scheme(self):
+    return self.input.scheme()
 
 class Select(UnaryOperator):
   """Logical selection operator"""
