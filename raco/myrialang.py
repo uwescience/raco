@@ -273,7 +273,8 @@ class ApplyHardcodedSchema(rules.Rule):
     try:
       expr.relation._scheme = scheme.Scheme(hardcoded_schema[expr.relation.name])
     except KeyError:
-      raise KeyError("Scanned relation %s has no hardcoded scheme!" % expr.relation.name)
+      # raise KeyError("Scanned relation %s has no hardcoded scheme!" % expr.relation.name)
+      pass
     return expr
 
 class MyriaAlgebra:
