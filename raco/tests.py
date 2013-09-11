@@ -1,5 +1,7 @@
 import unittest
+import sys
 from raco import RACompiler
+import raco.expression as e
 
 def RATest(query):
   dlog = RACompiler()
@@ -23,7 +25,7 @@ class DatalogTest(unittest.TestCase):
 
   def test_triangle(self):
     join = """A(x,y,z) :- R(x,y), S(y,z), T(z,x)"""
-    desiredresult = """[('A', Project($0,$1,$2)[Select($1 = $4)[Join($2 = $1)[Join($0 = $1)[Scan(R), Scan(T)], Scan(S)]]])]"""
+    desiredresult = """[('A', Project($0,$1,$3)[Select($0 = $5)[Join($3 = $0)[Join($1 = $0)[Scan(R), Scan(S)], Scan(T)]]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
@@ -45,5 +47,30 @@ class DatalogTest(unittest.TestCase):
     testresult = RATest(select)
     self.assertEqual(testresult, desiredresult)
 
+class ExpressionTest(unittest.TestCase):
+  def test_postorder(self):
+    expr1 = e.MINUS(e.MAX(e.NamedAttributeRef("salary")), e.MIN(e.NamedAttributeRef("salary")))
+    expr2 = e.PLUS(e.LOG(e.NamedAttributeRef("salary")), e.ABS(e.NamedAttributeRef("salary")))
+    
+    def isAggregate(expr):
+      return isinstance(expr,e.AggregateExpression)
+
+    def classname(expr):
+      return expr.__class__.__name__
+
+    e1cls = [x for x in expr1.postorder(classname)]
+
+    e2cls = [x for x in expr2.postorder(classname)]
+
+    e1any = any(expr1.postorder(isAggregate))
+
+    e2any = any(expr2.postorder(isAggregate))
+
+    self.assertEqual(str(e1cls), """['NamedAttributeRef', 'MAX', 'NamedAttributeRef', 'MIN', 'MINUS']""")
+    self.assertEqual(str(e2cls), """['NamedAttributeRef', 'LOG', 'NamedAttributeRef', 'ABS', 'PLUS']""")
+    self.assertEqual(e1any, True)
+    self.assertEqual(e2any, False)
+
 if __name__ == '__main__':
-   unittest.main()
+  unittest.main()
+
