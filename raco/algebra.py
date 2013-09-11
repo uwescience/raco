@@ -78,9 +78,9 @@ class Operator(Printable):
     if graph is None:
         graph = { 'nodes' : list(), 'edges' : list() }
 
-    # Cycle detection
+    # Cycle detection - continue, but don't re-add this node to the graph
     if id(self) in [id(n) for n in graph['nodes']]:
-        return
+        return graph
 
     # Add this node to the graph
     graph['nodes'].append(self)
