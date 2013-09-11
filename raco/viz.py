@@ -4,11 +4,14 @@ def graph_to_dot(graph):
 
     # Template, including setup and formatting:
     template = """digraph G {
-      size = "3.0, 4.0" ;
       ratio = "fill" ;
+      size = "4.0, 4.0" ;
+      page = "4, 4" ;
+      margin = 0 ;
       mincross = 2.0 ;
       rankdir = "BT" ;
       nodesep = 0.25 ;
+      ranksep = 0.25 ;
       node [fontname="Helvetica", fontsize=10, shape=oval, style=filled, fillcolor=white ] ;
 
       // The nodes
