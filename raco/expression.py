@@ -218,16 +218,16 @@ class CEIL(UnaryFunction):
 class AggregateExpression(Expression):
   pass
 
-class MAX(AggregateExpression,UnaryFunction):
+class MAX(UnaryFunction,AggregateExpression):
   pass
 
-class MIN(AggregateExpression,UnaryFunction):
+class MIN(UnaryFunction,AggregateExpression):
   pass
 
-class COUNT(AggregateExpression,ZeroaryOperator):
+class COUNT(ZeroaryOperator,AggregateExpression):
   pass
 
-class SUM(AggregateExpression,UnaryFunction):
+class SUM(UnaryFunction,AggregateExpression):
   pass
 
 class BooleanExpression(Printable):
