@@ -21,6 +21,10 @@ class Expression(Printable):
     '''
     raise NotImplementedError()
 
+  def postorder(self, f):
+    yield f(self)
+
+
 class ZeroaryOperator(Expression):
   def __init__(self):
     pass
@@ -32,7 +36,6 @@ class ZeroaryOperator(Expression):
 
   def __repr__(self):
     return self.__str__()
-
 
 class UnaryOperator(Expression):
   def __init__(self, input):
@@ -46,6 +49,11 @@ class UnaryOperator(Expression):
 
   def __repr__(self):
     return self.__str__()
+
+  def postorder(self, f):
+    for x in self.input.postorder(f):
+      yield x
+    yield f(self)
 
 class BinaryOperator(Expression):
   def __init__(self, left, right):
@@ -61,7 +69,12 @@ class BinaryOperator(Expression):
   def __repr__(self):
     return self.__str__()
 
-
+  def postorder(self, f):
+    for x in self.left.postorder(f):
+      yield x
+    for x in self.right.postorder(f):
+      yield x
+    yield f(self)
 
 class Literal:
   def __init__(self, value):
