@@ -1,13 +1,10 @@
 #!/usr/bin/env python
-
-from raco.tests import DatalogTest
-import raco.myrial.query_tests
-import sys
 import unittest
+import sys
 
-test_cases = [DatalogTest, raco.myrial.query_tests.TestQueryFunctions]
-suites = [unittest.TestLoader().loadTestsFromTestCase(c) for c in test_cases]
-all_tests = unittest.TestSuite(suites)
-
-result = unittest.TextTestRunner(verbosity=2).run(all_tests)
+loader = unittest.TestLoader()
+# Find all modules that include test classes, we think
+suite = loader.discover('raco', pattern='*test*.py')
+runner = unittest.TextTestRunner(verbosity=2)
+result = runner.run(suite)
 sys.exit(not result.wasSuccessful())

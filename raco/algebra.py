@@ -410,6 +410,7 @@ class Apply(UnaryOperator):
     estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.mappings])
     return "%s(%s)" % (self.opname(), estrs)
 
+#TODO: Non-scheme-mutating operators
 class Distinct(UnaryOperator):
   """Remove duplicates from the child operator"""
   def __init__(self, input=None):
