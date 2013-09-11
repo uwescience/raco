@@ -31,6 +31,12 @@ class Operator(Printable):
   def __eq__(self, other):
     return self.__class__ == other.__class__
 
+  def __str__(self):
+    child_str = ', '.join([str(c) for c in self.children()])
+    if len(child_str) > 0:
+        return "%s[%s]" % (self.shortStr(), child_str)
+    return self.shortStr()
+
   def copy(self, other):
     self._trace = [pair for pair in other.gettrace()]
     self.bound = None
@@ -49,6 +55,19 @@ class Operator(Printable):
   def set_alias(self, alias):
     """Set a user-defined identififer for this operator.  Used in optimization and transformation of plans"""
     self.alias = alias
+
+  def shortStr(self):
+    """Returns a short string describing the current operator and its
+    arguments, but not its children. Consider:
+    
+       query = "A(x) :- R(x,3)."
+       logicalplan = dlog.fromDatalog(query)
+       (label, root_op) = logicalplan[0]
+
+       str(root_op) returns "Project($0)[Select($1 = 3)[Scan(R)]]"
+
+       shortStr(root_op) should return "Project($0)" """
+    raise NotImplementedError("Operator[%s] must override shortStr()" % self.opname())
 
   def collectGraph(self, graph=None):
     """Collects the operator graph for a given query. Input parameter graph
@@ -101,9 +120,6 @@ class ZeroaryOperator(Operator):
   def apply(self, f):
     """Apply a function to your children"""
     return self
-
-  def __str__(self):
-    return "%s" % self.opname()
 
   def copy(self, other):
     """Deep copy"""
@@ -159,9 +175,6 @@ class UnaryOperator(Operator):
     """Apply a function to your children"""
     self.input = f(self.input)
     return self
-
-  def __str__(self):
-    return "%s[%s]" % (self.opname(), self.input)
 
   def __repr__(self):
     return str(self)
@@ -219,9 +232,6 @@ class BinaryOperator(Operator):
     self.left = f(self.left)
     self.right = f(self.right)
     return self
-
-  def __str__(self):
-    return "%s(%s,%s)" % (self.opname(), self.left, self.right)
 
   def __repr__(self):
     return str(self)
@@ -308,9 +318,6 @@ class NaryOperator(Operator):
     self.args = [f(arg) for arg in self.args]
     return self
 
-  def __str__(self):
-    return "%s[%s]" % (self.opname(), ",".join(["%s" % arg for arg in self.args]))
-
 class NaryJoin(NaryOperator):
   def scheme(self):
     sch = scheme.Scheme()
@@ -330,6 +337,9 @@ class Union(BinaryOperator):
     """Union assumes the schema of its left argument"""
     return self.left.resolveAttribute(attribtuereference)
 
+  def shortStr(self):
+    return self.opname()
+
 class Join(BinaryOperator):
   """Logical Join operator"""
   def __init__(self, condition=None, left=None, right=None):
@@ -338,9 +348,6 @@ class Join(BinaryOperator):
 
   def __eq__(self, other):
     return BinaryOperator.__eq__(self,other) and self.condition == other.condition
-
-  def __str__(self):
-    return "%s(%s)[%s, %s]" % (self.opname(), self.condition, self.left, self.right)
 
   def copy(self, other):
     """deep copy"""
@@ -360,6 +367,9 @@ class Join(BinaryOperator):
         return self.right.resolveAttribute(attributereference)
       except SchemaError:
         raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
+
+  def shortStr(self):
+    return "%s(%s)" % (self.opname(), self.condition)
 
 class Apply(UnaryOperator):
   def __init__(self, mappings, input=None):
@@ -386,10 +396,6 @@ class Apply(UnaryOperator):
     return UnaryOperator.__eq__(self,other) and \
       self.expressions == other.expressions
 
-  def __str__(self):
-    estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.mappings])
-    return "%s(%s)[%s]" % (self.opname(), estrs, self.input)
-
   def copy(self, other):
     """deep copy"""
     self.mappings = other.mappings
@@ -400,6 +406,10 @@ class Apply(UnaryOperator):
     new_attrs = [(name,expr.typeof()) for (name, expr) in self.mappings]
     return scheme.Scheme(new_attrs)
 
+  def shortStr(self):
+    estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.mappings])
+    return "%s(%s)" % (self.opname(), estrs)
+
 class Distinct(UnaryOperator):
   """Remove duplicates from the child operator"""
   def __init__(self, input=None):
@@ -409,6 +419,9 @@ class Distinct(UnaryOperator):
     """scheme of the result"""
     return self.input.scheme()
 
+  def shortStr(self):
+    return self.opname()
+
 class Limit(UnaryOperator):
   def __init__(self, count=None, input=None):
     UnaryOperator.__init__(self, input)
@@ -417,15 +430,15 @@ class Limit(UnaryOperator):
   def __eq__(self, other):
     return UnaryOperator.__eq__(self,other) and self.count == other.count
 
-  def __str__(self):
-    return "%s(%s,%s)" % (self.opname(), self.input, self.count)
-
   def copy(self, other):
     self.count = other.count
     UnaryOperator.copy(self, other)
 
   def scheme(self):
     return self.input.scheme()
+
+  def shortStr(self):
+    return "%s(%s)" % (self.opname(), self.count)
 
 class Select(UnaryOperator):
   """Logical selection operator"""
@@ -436,12 +449,12 @@ class Select(UnaryOperator):
   def __eq__(self, other):
     return UnaryOperator.__eq__(self,other) and self.condition == other.condition
 
-  def __str__(self):
+  def shortStr(self):
     if isinstance(self.condition,dict): 
       cond = self.condition["condition"]
     else:
       cond = self.condition
-    return "%s(%s)[%s]" % (self.opname(), cond, self.input)
+    return "%s(%s)" % (self.opname(), cond)
 
   def copy(self, other):
     """deep copy"""
@@ -462,8 +475,8 @@ class CrossProduct(BinaryOperator):
     """deep copy"""
     BinaryOperator.copy(self, other)
 
-  def __str__(self):
-    return "%s[%s, %s]" % (self.opname(), self.left, self.right)
+  def shortStr(self):
+    return self.opname()
 
   def scheme(self):
     """Return the scheme of the result."""
@@ -478,9 +491,9 @@ class Project(UnaryOperator):
   def __eq__(self, other):
     return UnaryOperator.__eq__(self,other) and self.columnlist == other.columnlist 
 
-  def __str__(self):
+  def shortStr(self):
     colstring = ",".join([str(x) for x in self.columnlist])
-    return "%s(%s)[%s]" % (self.opname(), colstring, self.input)
+    return "%s(%s)" % (self.opname(), colstring)
 
   def __repr__(self):
     return "%s" % self
@@ -502,10 +515,10 @@ class GroupBy(UnaryOperator):
     self.aggregatelist = aggregatelist
     UnaryOperator.__init__(self, input)
 
-  def __str__(self):
+  def shortStr(self):
     groupstring = ",".join([str(x) for x in self.groupinglist])
     aggstr = ",".join([str(x) for x in self.aggregatelist])
-    return "%s(%s)(%s)[%s]" % (self.opname(), groupstring, aggstr, self.input)
+    return "%s(%s)(%s)" % (self.opname(), groupstring, aggstr)
 
   def copy(self, other):
     """deep copy"""
@@ -528,10 +541,10 @@ class ProjectingJoin(Join):
   def __eq__(self, other):
     return Join.__eq__(self,other) and self.columnlist == other.columnlist
 
-  def __str__(self):
+  def shortStr(self):
     if self.columnlist is None:
-      return Join.__str__(self)
-    return "%s(%s; %s)[%s, %s]" % (self.opname(), self.condition, self.columnlist, self.left, self.right)
+      return Join.shortStr(self)
+    return "%s(%s; %s)" % (self.opname(), self.condition, self.columnlist)
 
   def copy(self, other):
     """deep copy"""
@@ -552,8 +565,8 @@ class Shuffle(UnaryOperator):
       UnaryOperator.__init__(self, child)
       self.columnlist = columnlist
 
-  def __str__(self):
-      return "%s(%s)[%s]" % (self.opname(), self.columnlist, self.input)
+  def shortStr(self):
+      return "%s(%s)" % (self.opname(), self.columnlist)
 
   def copy(self, other):
       self.columnlist = other.columnlist
@@ -561,7 +574,8 @@ class Shuffle(UnaryOperator):
 
 class Broadcast(UnaryOperator):
   """Send input to all servers"""
-  pass
+  def shortStr(self):
+      return self.opname()
 
 class PartitionBy(UnaryOperator):
   """Send input to a server indicated by a hash of specified columns."""
@@ -572,9 +586,9 @@ class PartitionBy(UnaryOperator):
   def __eq__(self, other):
     return UnaryOperator.__eq__(self,other) and self.columnlist == other.columnlist
 
-  def __str__(self):
+  def shortStr(self):
     colstring = ",".join([str(x) for x in self.columnlist])
-    return "%s(%s)[%s]" % (self.opname(), colstring, self.input)
+    return "%s(%s)" % (self.opname(), colstring)
 
   def __repr__(self):
     return str(self)
@@ -592,8 +606,11 @@ class Fixpoint(Operator):
   def __init__(self, body=None):
     self.body = body
 
-  def __str__(self):
-    return """Fixpoint[%s]""" % (self.body)
+  def children(self):
+    return [self.body]
+
+  def shortStr(self):
+    return """Fixpoint"""
 
   def scheme(self):
     if self.body:
@@ -611,8 +628,8 @@ class State(UnaryOperator):
     UnaryOperator.__init__(self, fixpoint)
     self.name = name
 
-  def __str__(self):
-    return "%s(%s)" % (self.opname(),self.name)
+  def shortStr(self):
+    return "%s(%s)" % (self.opname(), self.name)
 
 class Store(UnaryOperator):
   """A logical no-op. Captures the fact that the user used this result in the head of a rule, which may have intended it to be a materialized result.  May be ignored in compiled languages."""
@@ -620,12 +637,12 @@ class Store(UnaryOperator):
     UnaryOperator.__init__(self, plan)
     self.name = name
     
-  def __str__(self):
-    return "%s(%s)[%s]" % (self.opname(),self.name,self.input)
+  def shortStr(self):
+    return "%s(%s)" % (self.opname(),self.name)
 
 class EmptyRelation(ZeroaryOperator):
   """Empty Relation.  Used in certain optimizations."""
-  def __str__(self):
+  def shortStr(self):
     return "EmptySet"
 
   def copy(self, other):
@@ -645,7 +662,7 @@ class Scan(ZeroaryOperator):
   def __eq__(self,other):
     return ZeroaryOperator.__eq__(self,other) and self.relation == other.relation
 
-  def __str__(self):
+  def shortStr(self):
     return "%s(%s)" % (self.opname(), self.relation.name)
 
   def __repr__(self):

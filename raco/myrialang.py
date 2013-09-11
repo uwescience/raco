@@ -164,6 +164,10 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     self.opid = opid
     self.hash_columns = hash_columns
 
+  def shortStr(self):
+    hash_string = ','.join([str(x) for x in self.hash_columns])
+    return "%s(h(%s), %s)" % (self.opname(), hash_string, self.opid)
+
   def compileme(self, resultsym, inputsym):
     if len(self.hash_columns) == 1:
       pf = {
@@ -197,6 +201,10 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
         'arg_operator_id' : self.opid,
         'arg_schema' : scheme_to_schema(self.scheme())
       }
+
+  def shortStr(self):
+    return "%s(%s)" % (self.opname(), self.opid)
+
 
 class BreakShuffle(rules.Rule):
   def fire(self, expr):

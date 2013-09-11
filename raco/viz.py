@@ -19,7 +19,7 @@ def graph_to_dot(graph):
 }"""
 
     # Nodes:
-    nodes = ['"%s" [label="%s"] ;' % (id(n), str(n)) for n in graph['nodes']]
+    nodes = ['"%s" [label="%s"] ;' % (id(n), n.shortStr()) for n in graph['nodes']]
     node_str = '\n      '.join(nodes)
 
     # Edges:
