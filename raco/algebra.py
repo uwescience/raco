@@ -28,6 +28,32 @@ class Operator(Printable):
   def children(self):
     raise NotImplementedError("Operator.children")
 
+  def postorder(self, f):
+    """Postorder traversal, applying a function to each operator.  The function
+    returns an iterator"""
+    for c in self.children():
+      for x in c.postorder(f):
+        yield x
+    for x in f(self):
+      yield x
+
+  def preorder(self, f):
+    """Preorder traversal, applying a function to each operator.  The function
+    returns an iterator"""
+    for x in f(self):
+      yield x
+    for c in self.children():
+      for x in c.postorder(f):
+        yield x
+
+  def collectParents(self, parent_map=None):
+    """Construct a dict mapping children to parents. Used in optimization"""
+    if parent_map is None:
+      parent_map = {}
+    for c in self.children():
+      parent_map.setdefault(c, []).append(self)
+      c.collectParents(parentmap)
+
   def __eq__(self, other):
     return self.__class__ == other.__class__
 
@@ -125,17 +151,6 @@ class ZeroaryOperator(Operator):
     """Deep copy"""
     Operator.copy(self, other)
 
-  def postorder(self, f):
-    """Postorder traversal, applying a function to each operator.  The function returns an iterator"""
-    for x in f(self): yield x
-
-  def preorder(self, f):
-    """Preorder traversal, applying a function to each operator"""
-    return self.postorder(f)
-
-  def collectParents(self, parentmap):
-    pass
-
 class UnaryOperator(Operator):
   """Operator with one argument"""
   def __init__(self, input):
@@ -184,21 +199,6 @@ class UnaryOperator(Operator):
     self.input = other.input
     Operator.copy(self, other)
 
-  def postorder(self, f):
-    """Postorder traversal. Apply a function to your children. Function returns an iterator."""
-    for x in self.input.postorder(f): yield x
-    for x in f(self): yield x
-
-  def preorder(self, f):
-    """Preorder traversal. Apply a function to your children. Function returns an iterator."""
-    for x in f(self): yield x
-    for x in self.input.preorder(f): yield x
-
-  def collectParents(self, parentmap):
-    """Construct a dict mapping children to parents. Used in optimization"""
-    parentmap.setdefault(self.input, []).append(self)
-    self.input.collectParents(parentmap)
-
 class BinaryOperator(Operator):
   """Operator with two arguments"""
   def __init__(self, left, right):
@@ -242,25 +242,6 @@ class BinaryOperator(Operator):
     self.right = other.right
     Operator.copy(self, other)
 
-  def postorder(self, f):
-    """postorder traversal.  Apply a function to each operator.  Function returns an iterator."""
-    for x in self.left.postorder(f): yield x
-    for x in self.right.postorder(f): yield x
-    for x in f(self): yield x
-
-  def preorder(self, f):
-    """preorder traversal.  Apply a function to each operator.  Function returns an iterator."""
-    for x in f(self): yield x
-    for x in self.left.preorder(f): yield x
-    for x in self.right.preorder(f): yield x
-
-  def collectParents(self, parentmap):
-    """Construct a dict mapping children to parents. Used in optimization."""
-    parentmap.setdefault(self.left, []).append(self)
-    parentmap.setdefault(self.right, []).append(self)
-    self.left.collectParents(parentmap)
-    self.right.collectParents(parentmap)
-
 class NaryOperator(Operator):
   """Operator with N arguments.  e.g., multi-way joins in one step."""
   def __init__(self, args):
@@ -294,24 +275,6 @@ class NaryOperator(Operator):
     """deep copy"""
     self.args = [a for a in other.args]
     Operator.copy(self, other)
-
-  def postorder(self, f):
-    """postorder traversal.  Apply a function to each operator.  Function returns an iterator."""
-    for arg in self.args:
-      for x in arg.postorder(f): yield x
-    for x in f(self): yield x
-
-  def preorder(self, f):
-    """preorder traversal.  Apply a function to each operator.  Function returns an iterator."""
-    for x in f(self): yield x
-    for arg in self.args:
-      for x in arg.preorder(f): yield x
-
-  def collectParents(self, parentmap):
-    """Construct a dict mapping children to parents. Used in optimization."""
-    for arg in self.args:
-      parentmap.setdefault(arg, []).append(self)
-      arg.collectParents(parentmap)
 
   def apply(self, f):
     """Apply a function to your children"""
