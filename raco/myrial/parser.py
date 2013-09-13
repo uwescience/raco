@@ -139,11 +139,6 @@ class Parser:
         emit_clause RBRACKET'
         p[0] = ('BAGCOMP', p[3], p[4], p[5])
 
-    def p_expression_setcomp(self, p):
-        'expression : LBRACE FROM expression opt_where_clause \
-        emit_clause RBRACE'
-        p[0] = ('SETCOMP', p[3], p[4], p[5])
-
     def p_opt_where_clause(self, p):
         '''opt_where_clause : WHERE colexpr
                             | empty'''

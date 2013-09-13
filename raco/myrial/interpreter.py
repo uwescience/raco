@@ -48,10 +48,6 @@ class ExpressionProcessor:
 
         return op
 
-    def setcomp(self, from_expression, where_clause, emit_clause):
-        op = self.bagcomp(from_expression, where_clause, emit_clause)
-        return raco.algebra.Distinct(op)
-
     def distinct(self, expr):
         op = self.evaluate(expr)
         return raco.algebra.Distinct(input=op)
