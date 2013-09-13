@@ -654,6 +654,24 @@ class EmptyRelation(ZeroaryOperator):
     """scheme of the result."""
     return scheme.Scheme()
 
+class SingletonRelation(ZeroaryOperator):
+  """Relation with a single empty tuple.
+
+  Used for constructing table literals.
+  """
+
+  def shortStr(self):
+    return "SingletonRelation"
+
+  def copy(self, other):
+    """deep copy"""
+    pass
+
+  def scheme(self):
+    """scheme of the result."""
+    return scheme.Scheme()
+
+
 class Scan(ZeroaryOperator):
   """Logical Scan operator"""
   def __init__(self, relation=None):

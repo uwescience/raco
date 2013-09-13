@@ -81,3 +81,6 @@ class FakeDatabase:
     def limit(self, op):
         it = self.evaluate(op.input)
         return itertools.islice(it, op.count)
+
+    def singletonrelation(self, op):
+        return iter([()])
