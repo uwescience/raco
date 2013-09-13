@@ -265,7 +265,7 @@ class Parser:
         'colexpr : MINUS colexpr %prec UMINUS'
         p[0] = colexpr.TIMES(colexpr.NumericLiteral(-1), p[2])
 
-    def p_expression_binop(self, p):
+    def p_colexpr_binop(self, p):
         '''colexpr : colexpr PLUS colexpr
                    | colexpr MINUS colexpr
                    | colexpr TIMES colexpr
@@ -283,6 +283,14 @@ class Parser:
     def p_colexpr_not(self, p):
         'colexpr : NOT colexpr'
         p[0] = colexpr.NOT(p[2])
+
+    def p_colexpr_unbox_implicit(self, p):
+        'colexpr : TIMES ID'
+        p[0] = colexpr.Unbox(p[2], None)
+
+    def p_colexpr_unbox_explicit(self, p):
+        'colexpr : TIMES ID DOT ID'
+        p[0] = colexpr.Unbox(p[2], p[4])
 
     def p_empty(self, p):
         'empty :'

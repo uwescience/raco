@@ -317,6 +317,20 @@ reverse = {
   LT:GT
 }
 
+class Unbox(ZeroaryOperator):
+  def __init__(self, table, field):
+    self.table = table
+    self.field = field
+
+  def evaluate(self, _tuple, scheme):
+    """Raise an error on attempted evaluation.
+
+    Unbox should never be "evaluated" in the usual sense.  Rather it should
+    be replaced by a cross-product with a single-element table.  This operator
+    is just a placeholder.
+    """
+    raise NotImplementedError()
+
 def toUnnamed(ref, scheme):
   """Convert a reference to the unnamed perspective"""
   if issubclass(ref, UnnamedAttributeRef):
