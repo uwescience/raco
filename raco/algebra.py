@@ -671,7 +671,6 @@ class SingletonRelation(ZeroaryOperator):
     """scheme of the result."""
     return scheme.Scheme()
 
-
 class Scan(ZeroaryOperator):
   """Logical Scan operator"""
   def __init__(self, relation=None):

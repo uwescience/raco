@@ -91,6 +91,10 @@ class Parser:
         'expression : ID'
         p[0] = ('ALIAS', p[1])
 
+    def p_expression_table_literal(self, p):
+        'expression : LBRACKET emit_arg_list RBRACKET'
+        p[0] = ('TABLE', p[2])
+
     def p_expression_scan(self, p):
         'expression : SCAN LPAREN relation_key optional_schema RPAREN'
         # TODO(AJW): Nix optional schema argument once we can read this from

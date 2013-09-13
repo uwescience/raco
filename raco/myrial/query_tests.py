@@ -365,6 +365,5 @@ class TestQueryFunctions(unittest.TestCase):
         X = [FROM ["Andrew", salary=(50 * (500 + 500))] EMIT salary];
         DUMP(X);
         """
-
         expected = collections.Counter([(50000,)])
-        self.__run_test(query, expected);
+        self.__run_test(query, expected)

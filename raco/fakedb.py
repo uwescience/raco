@@ -3,7 +3,7 @@ import collections
 import itertools
 
 import raco.algebra
-import raco.scheme as scheme
+import raco.scheme
 
 class FakeDatabase:
     """An in-memory implementation of relational algebra operators"""
