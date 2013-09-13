@@ -359,3 +359,12 @@ class TestQueryFunctions(unittest.TestCase):
         result = self.__execute_query(query)
         self.assertEquals(len(result), 3)
 
+
+    def test_table_literal(self):
+        query = """
+        X = [FROM ["Andrew", salary=(50 * (500 + 500))] EMIT salary];
+        DUMP(X);
+        """
+
+        expected = collections.Counter([(50000,)])
+        self.__run_test(query, expected);
