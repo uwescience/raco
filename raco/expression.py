@@ -24,6 +24,9 @@ class Expression(Printable):
   def postorder(self, f):
     yield f(self)
 
+  def apply(self, f):
+    """Replace children with the result of a function"""
+    return self
 
 class ZeroaryOperator(Expression):
   def __init__(self):
@@ -55,6 +58,10 @@ class UnaryOperator(Expression):
       yield x
     yield f(self)
 
+  def apply(self, f):
+    self.input = self.input.apply(f)
+    return self
+
 class BinaryOperator(Expression):
   def __init__(self, left, right):
     self.left = left
@@ -76,6 +83,11 @@ class BinaryOperator(Expression):
       yield x
     yield f(self)
 
+  def apply(self, f):
+    self.left = self.left.apply(f)
+    self.right = self.right.apply(f)
+    return self
+
 class Literal:
   def __init__(self, value):
     self.value = value
@@ -95,6 +107,9 @@ class Literal:
 
   def evaluate(self, _tuple, scheme):
     return self.value
+
+  def apply(self, f):
+    return self
 
 class StringLiteral(Literal):
   pass
