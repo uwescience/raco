@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import raco.myrial.parser as parser
+import raco.myrial.unbox as unbox
 import raco.algebra
 import raco.expression as colexpr
 import raco.catalog
@@ -42,11 +43,21 @@ class ExpressionProcessor:
         # Evaluate the nested expression to get a RA operator
         op = self.evaluate(from_expression)
 
+        orig_scheme = op.scheme()
+        op, where_clause = unbox.unbox(
+            op, where_clause, len(orig_scheme), self.symbols)
+
         if where_clause:
             op = raco.algebra.Select(condition=where_clause, input=op)
 
         if emit_clause:
             op = raco.algebra.Apply(mappings=emit_clause, input=op)
+        else:
+            # Strip off any cross-product columns that we artificially added
+            mappings = [(orig_scheme.getName(i),
+                         raco.expression.UnnamedAttributeRef(i))
+                        for i in range(len(orig_scheme))]
+            op = raco.algebra.Apply(mappings=mappings, input=op)
 
         return op
 

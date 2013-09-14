@@ -26,7 +26,7 @@ class Expression(Printable):
 
   def apply(self, f):
     """Replace children with the result of a function"""
-    return self
+    pass
 
 class ZeroaryOperator(Expression):
   def __init__(self):
@@ -59,8 +59,7 @@ class UnaryOperator(Expression):
     yield f(self)
 
   def apply(self, f):
-    self.input = self.input.apply(f)
-    return self
+    self.input = f(self.input)
 
 class BinaryOperator(Expression):
   def __init__(self, left, right):
@@ -84,9 +83,8 @@ class BinaryOperator(Expression):
     yield f(self)
 
   def apply(self, f):
-    self.left = self.left.apply(f)
-    self.right = self.right.apply(f)
-    return self
+    self.left = f(self.left)
+    self.right = f(self.right)
 
 class Literal:
   def __init__(self, value):
@@ -109,7 +107,7 @@ class Literal:
     return self.value
 
   def apply(self, f):
-    return self
+    pass
 
 class StringLiteral(Literal):
   pass
