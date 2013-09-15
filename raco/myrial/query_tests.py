@@ -393,13 +393,28 @@ class TestQueryFunctions(unittest.TestCase):
 
         self.__run_test(query, self.emp_table)
 
-    def test_unbox_from_where_nary(self):
+    def test_unbox_from_where_nary_name(self):
         query = """
         CONST = [twenty_five=25, thousand=1000];
 
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == *CONST.twenty_five *
         *CONST.thousand EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] == 25000])
+
+        self.__run_test(query, expected)
+
+    def test_unbox_from_where_nary_pos(self):
+        query = """
+        CONST = [twenty_five=25, thousand=1000];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary == *CONST.$0 *
+        *CONST.$1 EMIT *];
         DUMP(out);
         """ % self.emp_key
 
