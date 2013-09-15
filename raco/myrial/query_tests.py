@@ -434,3 +434,20 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [(x[3] * 1000,) for x in self.emp_table.elements()])
         self.__run_test(query, expected)
+
+    def test_unbox_kitchen_sink(self):
+        query = """
+        C1 = [a=25, b=100];
+        C2 = [a=50, b=1000];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary==*C1.a * *C2.b OR $3==*C1.b * *C2
+               EMIT kitchen_sink = dept_id * *C1.b / *C2.a];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[1] * 2,) for x in self.emp_table.elements() if
+             x[3] == 5000 or x[3] == 25000])
+        self.__run_test(query, expected)
+
