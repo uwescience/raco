@@ -422,3 +422,15 @@ class TestQueryFunctions(unittest.TestCase):
             [x for x in self.emp_table.elements() if x[3] == 25000])
 
         self.__run_test(query, expected)
+
+    def test_unbox_from_emit_single(self):
+        query = """
+        THOUSAND = [1000];
+        emp = SCAN(%s);
+        out = [FROM emp EMIT salary=salary * *THOUSAND];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[3] * 1000,) for x in self.emp_table.elements()])
+        self.__run_test(query, expected)

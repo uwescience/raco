@@ -46,11 +46,15 @@ def __unbox_expression(expr, ub_state):
 
     return recursive_eval(expr)
 
-def unbox(op, where_clause, symbols):
+def unbox(op, where_clause, emit_clause, symbols):
     ub_state = UnboxState(symbols, len(op.scheme()))
 
     if where_clause:
         where_clause = __unbox_expression(where_clause, ub_state)
+
+    if emit_clause:
+        emit_clause = [(name, __unbox_expression(sexpr, ub_state)) for
+                       (name, sexpr) in emit_clause]
 
     def cross(x,y):
         return raco.algebra.CrossProduct(x,y)
@@ -58,4 +62,4 @@ def unbox(op, where_clause, symbols):
     # Update the op to be the cross product of all unboxed tables
     cps = [symbols[key] for key in ub_state.local_symbols.keys()]
     op = reduce(cross, cps, op)
-    return op, where_clause
+    return op, where_clause, emit_clause
