@@ -368,7 +368,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter([(50000,)])
         self.__run_test(query, expected)
 
-    def test_simple_unbox_from_where(self):
+    def test_simple_unbox_from_where_single(self):
         query = """
         TH = [25 * 1000];
         emp = SCAN(%s);
@@ -379,3 +379,16 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[3] > 25000])
         self.__run_test(query, expected)
+
+    def test_simple_unbox_from_where_multi(self):
+        query = """
+        TWO = [2];
+        FOUR = [4];
+        EIGHT = [8];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE *EIGHT == *TWO**FOUR EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.emp_table)
