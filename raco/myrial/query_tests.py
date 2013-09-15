@@ -368,7 +368,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter([(50000,)])
         self.__run_test(query, expected)
 
-    def test_simple_unbox_from_where_single(self):
+    def test_unbox_from_where_single(self):
         query = """
         TH = [25 * 1000];
         emp = SCAN(%s);
@@ -380,7 +380,7 @@ class TestQueryFunctions(unittest.TestCase):
             [x for x in self.emp_table.elements() if x[3] > 25000])
         self.__run_test(query, expected)
 
-    def test_simple_unbox_from_where_multi(self):
+    def test_unbox_from_where_multi(self):
         query = """
         TWO = [2];
         FOUR = [4];
@@ -392,3 +392,18 @@ class TestQueryFunctions(unittest.TestCase):
         """ % self.emp_key
 
         self.__run_test(query, self.emp_table)
+
+    def test_unbox_from_where_nary(self):
+        query = """
+        CONST = [twenty_five=25, thousand=1000];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary == *CONST.twenty_five *
+        *CONST.thousand EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] == 25000])
+
+        self.__run_test(query, expected)
