@@ -44,8 +44,7 @@ class ExpressionProcessor:
         op = self.evaluate(from_expression)
 
         orig_scheme = op.scheme()
-        op, where_clause = unbox.unbox(
-            op, where_clause, len(orig_scheme), self.symbols)
+        op, where_clause = unbox.unbox(op, where_clause, self.symbols)
 
         if where_clause:
             op = raco.algebra.Select(condition=where_clause, input=op)

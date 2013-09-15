@@ -288,9 +288,13 @@ class Parser:
         'colexpr : TIMES ID'
         p[0] = colexpr.Unbox(p[2], None)
 
-    def p_colexpr_unbox_explicit(self, p):
+    def p_colexpr_unbox_explicit_name(self, p):
         'colexpr : TIMES ID DOT ID'
         p[0] = colexpr.Unbox(p[2], p[4])
+
+    def p_colexpr_unbox_explicit_pos(self, p):
+        'colexpr : TIMES ID DOT DOLLAR INTEGER_LITERAL'
+        p[0] = colexpr.Unbox(p[2], p[5])
 
     def p_empty(self, p):
         'empty :'
