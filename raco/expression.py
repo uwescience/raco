@@ -34,6 +34,9 @@ class ZeroaryOperator(Expression):
   def __eq__(self, other):
     return self.__class__ == other.__class__ 
 
+  def __hash__(self):
+    return hash(self.__class__)
+
   def __str__(self):
     return "%s" % (self.opstr(),)
 
@@ -46,6 +49,9 @@ class UnaryOperator(Expression):
 
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.input == other.input
+
+  def __hash__(self):
+    return hash(self.__class__) + hash(self.input)
 
   def __str__(self):
     return "%s%s" % (self.opstr(), self.input)
@@ -61,6 +67,7 @@ class UnaryOperator(Expression):
   def apply(self, f):
     self.input = f(self.input)
 
+
 class BinaryOperator(Expression):
   def __init__(self, left, right):
     self.left = left
@@ -68,6 +75,9 @@ class BinaryOperator(Expression):
 
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.left == other.left and self.right == other.right
+
+  def __hash__(self):
+    return hash(self.__class__) + hash(self.left) + hash(self.right)
 
   def __str__(self):
     return "(%s %s %s)" % (self.left, self.opstr(), self.right)
@@ -92,6 +102,9 @@ class Literal(ZeroaryOperator):
 
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.value == other.value
+
+  def __hash__(self):
+    return hash(self.__class__) + hash(self.value)
 
   def vars(self):
     return []
