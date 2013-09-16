@@ -555,3 +555,12 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(tuples)
         self.__run_test(query, expected)
 
+    def test_empty_groupby(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT MAX(salary), COUNT($0), MIN(dept_id*4)];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(90000, len(self.emp_table), 4)])
+        self.__run_test(query, expected)
+
