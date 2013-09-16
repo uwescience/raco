@@ -4,7 +4,7 @@ import ply.yacc as yacc
 
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
-import raco.expression as colexpr
+import raco.expression as sexpr
 
 import collections
 import sys
@@ -21,18 +21,18 @@ JoinTarget = collections.namedtuple('JoinTarget',['expr', 'columns'])
 
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
-    '+': colexpr.PLUS,
-    '-' : colexpr.MINUS,
-    '/' : colexpr.DIVIDE,
-    '*' : colexpr.TIMES,
-    '>' : colexpr.GT,
-    '<' : colexpr.LT,
-    '>=' : colexpr.GTEQ,
-    '<=' : colexpr.LTEQ,
-    '!=' : colexpr.NEQ,
-    '==' : colexpr.EQ,
-    'AND' : colexpr.AND,
-    'OR' : colexpr.OR,
+    '+': sexpr.PLUS,
+    '-' : sexpr.MINUS,
+    '/' : sexpr.DIVIDE,
+    '*' : sexpr.TIMES,
+    '>' : sexpr.GT,
+    '<' : sexpr.LT,
+    '>=' : sexpr.GTEQ,
+    '<=' : sexpr.LTEQ,
+    '!=' : sexpr.NEQ,
+    '==' : sexpr.EQ,
+    'AND' : sexpr.AND,
+    'OR' : sexpr.OR,
 }
 
 class Parser:
@@ -40,7 +40,7 @@ class Parser:
         self.log = log
         self.tokens = scanner.tokens
 
-        # Precedence among column expression operators in ascending order; this
+        # Precedence among scalar expression operators in ascending order; this
         # is necessary to disambiguate the grammer.  Operator precedence is
         # identical to Python:
         # http://docs.python.org/2/reference/expressions.html#comparisons
@@ -144,7 +144,7 @@ class Parser:
         p[0] = ('BAGCOMP', p[3], p[4], p[5])
 
     def p_opt_where_clause(self, p):
-        '''opt_where_clause : WHERE colexpr
+        '''opt_where_clause : WHERE sexpr
                             | empty'''
         if len(p) == 3:
             p[0] = p[2]
@@ -168,8 +168,8 @@ class Parser:
             p[0] = [p[1]]
 
     def p_emit_arg(self, p):
-        '''emit_arg : string_arg EQUALS colexpr
-                    | colexpr'''
+        '''emit_arg : string_arg EQUALS sexpr
+                    | sexpr'''
         if len(p) == 4:
             p[0] = (p[1], p[3])
         else:
@@ -234,67 +234,66 @@ class Parser:
         p[0] = p[2]
 
     def p_expression_filter(self, p):
-        'expression : FILTER ID BY colexpr'
+        'expression : FILTER ID BY sexpr'
         p[0] = ('FILTER', p[2], p[4])
 
-    # column expressions map to raco.Expression instances; these are operations
-    # that return atomic types, and that are suitable as arguments for apply
-    # and fiter
+    # scalar expressions map to raco.Expression instances; these are operations
+    # that return scalar types.
 
-    def p_colexpr_integer_literal(self, p):
-        'colexpr : INTEGER_LITERAL'
-        p[0] = colexpr.NumericLiteral(p[1])
+    def p_sexpr_integer_literal(self, p):
+        'sexpr : INTEGER_LITERAL'
+        p[0] = sexpr.NumericLiteral(p[1])
 
-    def p_colexpr_string_literal(self, p):
-        'colexpr : STRING_LITERAL'
-        p[0] = colexpr.StringLiteral(p[1])
+    def p_sexpr_string_literal(self, p):
+        'sexpr : STRING_LITERAL'
+        p[0] = sexpr.StringLiteral(p[1])
 
-    def p_colexpr_id(self, p):
-        'colexpr : ID'
-        p[0] = colexpr.NamedAttributeRef(p[1])
+    def p_sexpr_id(self, p):
+        'sexpr : ID'
+        p[0] = sexpr.NamedAttributeRef(p[1])
 
-    def p_colexpr_index(self, p):
-        'colexpr : DOLLAR INTEGER_LITERAL'
-        p[0] = colexpr.UnnamedAttributeRef(p[2])
+    def p_sexpr_index(self, p):
+        'sexpr : DOLLAR INTEGER_LITERAL'
+        p[0] = sexpr.UnnamedAttributeRef(p[2])
 
-    def p_colexpr_group(self, p):
-        'colexpr : LPAREN colexpr RPAREN'
+    def p_sexpr_group(self, p):
+        'sexpr : LPAREN sexpr RPAREN'
         p[0] = p[2]
 
-    def p_colexpr_uminus(self, p):
-        'colexpr : MINUS colexpr %prec UMINUS'
-        p[0] = colexpr.TIMES(colexpr.NumericLiteral(-1), p[2])
+    def p_sexpr_uminus(self, p):
+        'sexpr : MINUS sexpr %prec UMINUS'
+        p[0] = sexpr.TIMES(sexpr.NumericLiteral(-1), p[2])
 
-    def p_colexpr_binop(self, p):
-        '''colexpr : colexpr PLUS colexpr
-                   | colexpr MINUS colexpr
-                   | colexpr TIMES colexpr
-                   | colexpr DIVIDE colexpr
-                   | colexpr GT colexpr
-                   | colexpr LT colexpr
-                   | colexpr GE colexpr
-                   | colexpr LE colexpr
-                   | colexpr NE colexpr
-                   | colexpr EQ colexpr
-                   | colexpr AND colexpr
-                   | colexpr OR colexpr'''
+    def p_sexpr_binop(self, p):
+        '''sexpr : sexpr PLUS sexpr
+                   | sexpr MINUS sexpr
+                   | sexpr TIMES sexpr
+                   | sexpr DIVIDE sexpr
+                   | sexpr GT sexpr
+                   | sexpr LT sexpr
+                   | sexpr GE sexpr
+                   | sexpr LE sexpr
+                   | sexpr NE sexpr
+                   | sexpr EQ sexpr
+                   | sexpr AND sexpr
+                   | sexpr OR sexpr'''
         p[0] = binops[p[2]](p[1], p[3])
 
-    def p_colexpr_not(self, p):
-        'colexpr : NOT colexpr'
-        p[0] = colexpr.NOT(p[2])
+    def p_sexpr_not(self, p):
+        'sexpr : NOT sexpr'
+        p[0] = sexpr.NOT(p[2])
 
-    def p_colexpr_unbox_implicit(self, p):
-        'colexpr : TIMES ID'
-        p[0] = colexpr.Unbox(p[2], None)
+    def p_sexpr_unbox_implicit(self, p):
+        'sexpr : TIMES ID'
+        p[0] = sexpr.Unbox(p[2], None)
 
-    def p_colexpr_unbox_explicit_name(self, p):
-        'colexpr : TIMES ID DOT ID'
-        p[0] = colexpr.Unbox(p[2], p[4])
+    def p_sexpr_unbox_explicit_name(self, p):
+        'sexpr : TIMES ID DOT ID'
+        p[0] = sexpr.Unbox(p[2], p[4])
 
-    def p_colexpr_unbox_explicit_pos(self, p):
-        'colexpr : TIMES ID DOT DOLLAR INTEGER_LITERAL'
-        p[0] = colexpr.Unbox(p[2], p[5])
+    def p_sexpr_unbox_explicit_pos(self, p):
+        'sexpr : TIMES ID DOT DOLLAR INTEGER_LITERAL'
+        p[0] = sexpr.Unbox(p[2], p[5])
 
     def p_empty(self, p):
         'empty :'

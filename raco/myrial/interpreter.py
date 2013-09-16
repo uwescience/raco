@@ -3,7 +3,7 @@
 import raco.myrial.parser as parser
 import raco.myrial.unbox as unbox
 import raco.algebra
-import raco.expression as colexpr
+import raco.expression as sexpr
 import raco.catalog
 import raco.scheme
 
@@ -79,7 +79,7 @@ class ExpressionProcessor:
     def countall(self, expr):
         op = self.evaluate(expr)
         return raco.algebra.GroupBy(groupinglist=[],
-                                    aggregatelist=[colexpr.COUNT()],
+                                    aggregatelist=[sexpr.COUNT()],
                                     input=op)
 
     def intersect(self, id1, id2):
@@ -122,14 +122,14 @@ class ExpressionProcessor:
         right_refs = [get_attribute_ref(c, right_scheme, len(left_scheme))
                       for c in right_target.columns]
 
-        join_conditions = [colexpr.EQ(x,y) for x,y in
+        join_conditions = [sexpr.EQ(x,y) for x,y in
                            zip(left_refs, right_refs)]
 
         # Merge the join conditions into a big AND expression
 
         def andify(x,y):
-            """Merge two column expressions with an AND"""
-            return colexpr.AND(x,y)
+            """Merge two scalar expressions with an AND"""
+            return sexpr.AND(x,y)
 
         condition = reduce(andify, join_conditions[1:], join_conditions[0])
         return raco.algebra.Join(condition, left, right)
