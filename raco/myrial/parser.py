@@ -294,10 +294,10 @@ class Parser:
                                 | COUNT'''
 
         # TODO: support average once we have floating point
-        if p[1] == 'MAX': func = colexpr.MAX
-        if p[1] == 'MIN': func = colexpr.MIN
-        if p[1] == 'SUM': func = colexpr.SUM
-        if p[1] == 'COUNT': func = colexpr.COUNT
+        if p[1] == 'MAX': func = sexpr.MAX
+        if p[1] == 'MIN': func = sexpr.MIN
+        if p[1] == 'SUM': func = sexpr.SUM
+        if p[1] == 'COUNT': func = sexpr.COUNT
 
         p[0] = func
 

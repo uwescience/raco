@@ -451,3 +451,44 @@ class TestQueryFunctions(unittest.TestCase):
              x[3] == 5000 or x[3] == 25000])
         self.__run_test(query, expected)
 
+
+    def __aggregate_expected_result(self, apply_func):
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, apply_func(values)) for key, values in
+                  result_dict.iteritems()]
+        return collections.Counter(tuples)
+
+    def test_max(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, MAX(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(max))
+
+    def test_min(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, MIN(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(min))
+
+    def test_sum(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, SUM(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(sum))
+
+    def test_count(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, COUNT(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(len))
