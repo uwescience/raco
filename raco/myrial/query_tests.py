@@ -520,3 +520,24 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(tuples)
         self.__run_test(query, expected)
+
+    def test_aggregate_with_unbox(self):
+        query = """
+        C = [one=1, two=2];
+        out = [FROM SCAN(%s) EMIT range=MAX(*C.two * salary) -
+        MIN( *C.$1 * salary), did=dept_id];
+        out = [FROM out EMIT dept_id=did, rng=range];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(2 * t[3])
+
+        tuples = [(key, (max(values) - min(values))) for key, values in
+                  result_dict.iteritems()]
+
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
+
+    # todo: compound groupby
