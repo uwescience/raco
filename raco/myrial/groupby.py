@@ -14,7 +14,7 @@ class GroupbyState(object):
 def __hoist_aggregates(sexpr, gb_state):
     def hoist_node(sexpr):
         if not isinstance(sexpr, raco.expression.AggregateExpression):
-            return expr
+            return sexpr
         elif sexpr in gb_state.aggregates:
             return gb_state.aggregates[sexpr];
         else:

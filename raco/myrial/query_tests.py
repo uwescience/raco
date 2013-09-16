@@ -502,3 +502,21 @@ class TestQueryFunctions(unittest.TestCase):
         ex = self.__aggregate_expected_result(max)
         ex = collections.Counter([(y,x) for (x,y) in ex])
         self.__run_test(query, ex)
+
+    def test_compound_aggregate(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT range=( 2 * (MAX(salary) - MIN(salary))),
+        did=dept_id];
+        out = [FROM out EMIT dept_id=did, rng=range];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, 2 * (max(values) - min(values))) for key, values in
+                  result_dict.iteritems()]
+
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
