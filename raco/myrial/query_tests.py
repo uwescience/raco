@@ -492,3 +492,13 @@ class TestQueryFunctions(unittest.TestCase):
         """ % self.emp_key
 
         self.__run_test(query, self.__aggregate_expected_result(len))
+
+    def test_max_reversed(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT max_salary=MAX(salary), dept_id];
+        DUMP(out);
+        """ % self.emp_key
+
+        ex = self.__aggregate_expected_result(max)
+        ex = collections.Counter([(y,x) for (x,y) in ex])
+        self.__run_test(query, ex)
