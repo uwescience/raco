@@ -66,5 +66,5 @@ def groupby(op, emit_clause):
             output_mappings.append((name, out))
             grouping_terms.append(sexpr)
 
-    op = raco.algebra.GroupBy(grouping_terms, gb_state.aggregates.keys(), op)
+    op = raco.algebra.GroupBy(grouping_terms, state.aggregates.keys(), op)
     return op, output_mappings
