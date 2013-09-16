@@ -528,10 +528,10 @@ class GroupBy(UnaryOperator):
     UnaryOperator.copy(self, other)
 
   def scheme(self):
-    """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
-    groupingscheme = [attref.resolve(self.input.scheme()) for attref in self.groupinglist]
-    expressionscheme = [("expr%s" % i, expr.typeof()) for i,expr in enumerate(self.aggregatelist)]
-    return scheme.Scheme([groupingscheme + expressionscheme])
+    """scheme of the result"""
+    cols = [(str(sexpr), sexpr.typeof()) for sexpr in
+            self.groupinglist + self.aggregatelist]
+    return scheme.Scheme(cols)
 
 class ProjectingJoin(Join):
   """Logical Projecting Join operator"""
