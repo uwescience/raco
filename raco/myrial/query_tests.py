@@ -564,3 +564,17 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter([(90000, len(self.emp_table), 4)])
         self.__run_test(query, expected)
 
+    def test_compound_groupby(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT id+dept_id, COUNT(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[0] + t[1]].append(t[3])
+
+        tuples = [(key, len(values)) for key, values in result_dict.iteritems()]
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
+
