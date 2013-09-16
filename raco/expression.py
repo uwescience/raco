@@ -242,19 +242,48 @@ class CEIL(UnaryFunction):
   pass
 
 class AggregateExpression(Expression):
-  pass
+  def evaluate(self, _tuple, scheme):
+    """Stub evaluate function for aggregate expressions.
+
+    Aggregate functions do not evaluate individual tuples; rather they
+    operate on collections of tuples in the evaluate_aggregate function.
+    We return a dummy string so that all tuples containing this aggregate
+    hash to the same value.
+    """
+    return self.opname()
+
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    """Evaluate an aggregate over a bag of tuples"""
+    raise NotImplementedError()
 
 class MAX(UnaryFunction,AggregateExpression):
-  pass
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    return max(inputs)
 
 class MIN(UnaryFunction,AggregateExpression):
-  pass
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    return min(inputs)
 
 class COUNT(UnaryFunction,AggregateExpression):
-  pass
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    count = 0
+    for t in inputs:
+      if t is not None:
+        count += 1
+    return count
 
 class SUM(UnaryFunction,AggregateExpression):
-  pass
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+
+    sum = 0
+    for t in inputs:
+      if t is not None:
+        sum += t
+    return sum
 
 class BooleanExpression(Printable):
   pass
