@@ -237,7 +237,7 @@ class MAX(UnaryFunction,AggregateExpression):
 class MIN(UnaryFunction,AggregateExpression):
   pass
 
-class COUNT(ZeroaryOperator,AggregateExpression):
+class COUNT(UnaryFunction,AggregateExpression):
   pass
 
 class SUM(UnaryFunction,AggregateExpression):

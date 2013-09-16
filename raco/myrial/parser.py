@@ -283,6 +283,24 @@ class Parser:
         'sexpr : NOT sexpr'
         p[0] = sexpr.NOT(p[2])
 
+    def p_sexpr_unary_aggregate(self, p):
+        'sexpr : unary_aggregate_func LPAREN sexpr RPAREN'
+        p[0] = p[1](p[3])
+
+    def p_unary_aggregate_func(self, p):
+        '''unary_aggregate_func : MAX
+                                | MIN
+                                | SUM
+                                | COUNT'''
+
+        # TODO: support average once we have floating point
+        if p[1] == 'MAX': func = colexpr.MAX
+        if p[1] == 'MIN': func = colexpr.MIN
+        if p[1] == 'SUM': func = colexpr.SUM
+        if p[1] == 'COUNT': func = colexpr.COUNT
+
+        p[0] = func
+
     def p_sexpr_unbox_implicit(self, p):
         'sexpr : TIMES ID'
         p[0] = sexpr.Unbox(p[2], None)
