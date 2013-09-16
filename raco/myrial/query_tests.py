@@ -540,4 +540,18 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(tuples)
         self.__run_test(query, expected)
 
-    # todo: compound groupby
+    def test_nary_groupby(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, salary, COUNT(name)];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[(t[1], t[3])].append(t[2])
+
+        tuples = [key + (len(values),)
+                  for key, values in result_dict.iteritems()]
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
+
