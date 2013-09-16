@@ -2,6 +2,7 @@
 
 import raco.myrial.parser as parser
 import raco.myrial.unbox as unbox
+import raco.myrial.groupby as groupby
 import raco.algebra
 import raco.expression as sexpr
 import raco.catalog
@@ -50,10 +51,13 @@ class ExpressionProcessor:
         if where_clause:
             op = raco.algebra.Select(condition=where_clause, input=op)
 
+        op, emit_clause = groupby.groupby(op, emit_clause)
+
         if emit_clause:
             op = raco.algebra.Apply(mappings=emit_clause, input=op)
         else:
             # Strip off any cross-product columns that we artificially added
+            # during unboxing.
             mappings = [(orig_scheme.getName(i),
                          raco.expression.UnnamedAttributeRef(i))
                         for i in range(len(orig_scheme))]

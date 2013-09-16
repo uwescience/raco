@@ -25,7 +25,7 @@ def __hoist_aggregates(sexpr, gb_state):
 
     def recursive_eval(sexpr):
         """Apply hoisting to an expression and all its descendents"""
-        newexpr = hoist_node(sexpr):
+        newexpr = hoist_node(sexpr)
         newexpr.apply(recursive_eval)
         return newexpr
 
@@ -48,8 +48,8 @@ def groupby(op, emit_clause):
         return op, emit_clause
 
     # Perform a simple count of output columns with aggregate expressions
-    num_agg_columns = count([sexpr_contains_aggregate(sexpr) for _, sexpr in
-                             emit_clause])
+    num_agg_columns = sum([sexpr_contains_aggregate(sexpr) for _, sexpr in
+                           emit_clause])
 
     if num_agg_columns == 0:
         return op, emit_clause # No aggregates: not a groupby query

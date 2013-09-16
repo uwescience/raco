@@ -86,7 +86,7 @@ class BinaryOperator(Expression):
     self.left = f(self.left)
     self.right = f(self.right)
 
-class Literal:
+class Literal(ZeroaryOperator):
   def __init__(self, value):
     self.value = value
 
