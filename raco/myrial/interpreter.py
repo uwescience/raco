@@ -4,6 +4,7 @@ import raco.myrial.parser as parser
 import raco.algebra
 import raco.expression as colexpr
 import raco.catalog
+import raco.scheme
 
 import collections
 import random
@@ -33,8 +34,9 @@ class ExpressionProcessor:
     def load(self, path, schema):
         raise NotImplementedError()
 
-    def table(self, tuple_list, schema):
-        raise NotImplementedError()
+    def table(self, mappings):
+        op = raco.algebra.SingletonRelation()
+        return raco.algebra.Apply(mappings=mappings, input=op)
 
     def bagcomp(self, from_expression, where_clause, emit_clause):
         # Evaluate the nested expression to get a RA operator
@@ -47,10 +49,6 @@ class ExpressionProcessor:
             op = raco.algebra.Apply(mappings=emit_clause, input=op)
 
         return op
-
-    def setcomp(self, from_expression, where_clause, emit_clause):
-        op = self.bagcomp(from_expression, where_clause, emit_clause)
-        return raco.algebra.Distinct(op)
 
     def distinct(self, expr):
         op = self.evaluate(expr)

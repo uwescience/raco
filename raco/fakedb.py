@@ -3,7 +3,7 @@ import collections
 import itertools
 
 import raco.algebra
-import raco.scheme as scheme
+import raco.scheme
 
 class FakeDatabase:
     """An in-memory implementation of relational algebra operators"""
@@ -81,3 +81,6 @@ class FakeDatabase:
     def limit(self, op):
         it = self.evaluate(op.input)
         return itertools.islice(it, op.count)
+
+    def singletonrelation(self, op):
+        return iter([()])

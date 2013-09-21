@@ -350,16 +350,6 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter([(25000,),(5000,),(90000,)])
         self.__run_test(query, expected)
 
-    def test_set_comp(self):
-        query = """
-        out = {FROM SCAN(%s) EMIT salary};
-        DUMP(out);
-        """ % self.emp_key
-
-        expected = collections.Counter([(25000,),(5000,),(90000,)])
-        self.__run_test(query, expected)
-
-
     def test_limit(self):
         query = """
         out = LIMIT(SCAN(%s), 3);
@@ -369,3 +359,11 @@ class TestQueryFunctions(unittest.TestCase):
         result = self.__execute_query(query)
         self.assertEquals(len(result), 3)
 
+
+    def test_table_literal(self):
+        query = """
+        X = [FROM ["Andrew", salary=(50 * (500 + 500))] EMIT salary];
+        DUMP(X);
+        """
+        expected = collections.Counter([(50000,)])
+        self.__run_test(query, expected)
