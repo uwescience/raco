@@ -250,32 +250,16 @@ class ShuffleBeforeJoin(rules.Rule):
       return algebra.Join(expr.condition, left_shuffle, right_shuffle)
     raise NotImplementedError("How the heck did you get here?")
 
-class ApplyHardcodedSchema(rules.Rule):
-  """A rule to insert the hardcoded Myria schema for certain objects."""
-  # TODO remove this and replace with a REST API lookup
-  def fire(self, expr):
-    hardcoded_schema = {
-        'R': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
-        'R3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
-        'S': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
-        'S3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
-        'T': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
-        'T3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
-        'Twitter': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
-        'TwitterK': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
-    }
-    # TODO only handles MyriaScan right now
-    if not isinstance(expr, MyriaScan):
-      # warn if zeroary
-      if isinstance(expr, algebra.ZeroaryOperator):
-        print >>sys.stderr, "warning, unhandled ZeroaryOperator %s" % type(expr)
-      return expr
-    try:
-      expr.relation._scheme = scheme.Scheme(hardcoded_schema[expr.relation.name])
-    except KeyError:
-      # raise KeyError("Scanned relation %s has no hardcoded scheme!" % expr.relation.name)
-      pass
-    return expr
+DEFAULT_HARDCODED_SCHEMA = {
+    'R': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
+    'R3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
+    'S': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
+    'S3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
+    'T': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
+    'T3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
+    'Twitter': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
+    'TwitterK': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
+}
 
 class MyriaAlgebra:
   language = MyriaLanguage
@@ -304,12 +288,35 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
       , BreakShuffle()
-      , ApplyHardcodedSchema() # TODO replace with Catalog call
   ]
 
-def compile_to_json(raw_query, logical_plan, physical_plan):
+def apply_schema_recursive(operator, schema_map):
+  """Given a schema_map, which maps relation names to schemas, update the
+  schema for all scan operations that scan relations in the map."""
+
+  # If we find a scan, apply the schema if it's in the schema_map
+  if isinstance(operator, MyriaScan):
+    name = operator.relation.name
+    if name in schema_map:
+      operator.relation._scheme = scheme.Scheme(schema_map[name])
+
+  # Recurse through all children
+  for child in operator.children():
+    apply_schema_recursive(child, schema_map)
+
+  # Done
+  return
+
+def compile_to_json(raw_query, logical_plan, physical_plan, schema_map=None):
   """This function compiles a logical RA plan to the JSON suitable for
   submission to the Myria REST API server."""
+
+  # First, let's try and apply the schema_map, if we got one. Otherwise, we use
+  # the defaults.
+  if schema_map is None:
+    schema_map = DEFAULT_HARDCODED_SCHEMA
+  for (label, root_op) in physical_plan:
+    apply_schema_recursive(root_op, schema_map)
 
   # A dictionary mapping each object to a unique, object-dependent symbol.
   # Since we want this to be truly unique for each object instance, even if two
