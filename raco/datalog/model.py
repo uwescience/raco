@@ -53,7 +53,17 @@ class Program:
     for rule in self.rules:
       ra = self.compileRule(rule)
 
-    return [(rule.head.name, plan) for (rule, plan) in self.compiledrules.iteritems() if not self.intermediateRule(rule)]
+    # Multiple rules with the same head are interpreted as a union
+    plans = [(rule.head.name, plan) for (rule, plan) in self.compiledrules.iteritems() if not self.intermediateRule(rule)]
+
+    unioned_plans = {}
+    for name, plan in plans:
+      union_list = unioned_plans.setdefault(name, [])
+      union_list.append(plan)
+
+    newplans = [(name, reduce(raco.algebra.Union,union_list)) for name, union_list in unioned_plans.iteritems()]
+    return newplans
+      
 
   def __repr__(self):
     return "\n".join([str(r) for r in self.rules])
@@ -317,7 +327,6 @@ class Rule:
         
     plan = raco.algebra.Project(columnlist, plan)
 
-    
     # If we found a cycle, the "root" of the plan is the fixpoint operator
     if self.fixpoint:
       self.fixpoint.loopBody(plan)

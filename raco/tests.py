@@ -23,11 +23,11 @@ class DatalogTest(unittest.TestCase):
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
-  def test_triangle(self):
-    join = """A(x,y,z) :- R(x,y), S(y,z), T(z,x)"""
-    desiredresult = """[('A', Project($0,$1,$3)[Select($0 = $5)[Join($3 = $0)[Join($1 = $0)[Scan(R), Scan(S)], Scan(T)]]])]"""
-    testresult = RATest(join)
-    self.assertEqual(testresult, desiredresult)
+  #def test_triangle(self):
+  #  join = """A(x,y,z) :- R(x,y), S(y,z), T(z,x)"""
+  #  desiredresult = """[('A', Project($0,$1,$3)[Select($0 = $5)[Join($3 = $0)[Join($1 = $0)[Scan(R), Scan(S)], Scan(T)]]])]"""
+  #  testresult = RATest(join)
+  #  self.assertEqual(testresult, desiredresult)
 
   def test_explicit_conditions(self):
     join = """A(x,y,z) :- R(x,y), S(w,z), x<y,y<z,y=w"""
@@ -43,6 +43,15 @@ class DatalogTest(unittest.TestCase):
 
   def test_select2(self):
     select = "A(x) :- R(x,y), S(y,z,4), z<3"
+    desiredresult = """[('A', Project($0)[Join($1 = $0)[Scan(R), Select($2 = 4 and $1 < 3)[Scan(S)]]])]"""
+    testresult = RATest(select)
+    self.assertEqual(testresult, desiredresult)
+
+  def test_recursion(self):
+    select = """
+    A(x) :- R(x,3)
+    A(x) :- R(x,y), A(y)
+    """
     desiredresult = """[('A', Project($0)[Join($1 = $0)[Scan(R), Select($2 = 4 and $1 < 3)[Scan(S)]]])]"""
     testresult = RATest(select)
     self.assertEqual(testresult, desiredresult)

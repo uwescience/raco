@@ -388,19 +388,19 @@ class Unbox(ZeroaryOperator):
 
 def toUnnamed(ref, scheme):
   """Convert a reference to the unnamed perspective"""
-  if issubclass(ref, UnnamedAttributeRef):
+  if issubclass(ref.__class__, UnnamedAttributeRef):
     return ref
-  elif issubclass(ref, NamedAttributeRef):
+  elif issubclass(ref.__class__, NamedAttributeRef):
     return UnnamedAttributeRef(scheme.getpos(ref.name))
   else:
     raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference.")
 
 def toNamed(ref, scheme):
   """Convert a reference to the named perspective"""
-  if issubclass(ref, UnnamedAttributeRef):
+  if issubclass(ref.__class__, UnnamedAttributeRef):
     attrname = scheme[ref.position][0]
     return NamedAttributeRef(attrname)
-  elif issubclass(ref, NamedAttributeRef):
+  elif issubclass(ref.__class__, NamedAttributeRef):
     return ref
   else:
     raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference.")

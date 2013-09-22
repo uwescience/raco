@@ -33,13 +33,19 @@ cross_product = """
 Cross(x,y) :- R1(x),S1(y).
 """
 
+# Union
+union = """
+A(x) :- R(x,3)
+A(x) :- S(x,y)
+"""
+
 # Which one do we use?
-query = cross_product
+query = union
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
 
-# Create a cmpiler object
+# Create a compiler object
 dlog = RACompiler()
 
 # parse the query
