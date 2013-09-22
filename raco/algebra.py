@@ -574,9 +574,20 @@ class Fixpoint(Operator):
   def children(self):
     return [self.body]
 
+  def __str__(self):
+    return "%s[%s]" % (self.shortStr(), str(self.body))
+
+  def __repr__(self):
+    return str(self)
+
   def shortStr(self):
     return """Fixpoint"""
 
+  def apply(self, f):
+    """Apply a function to your children"""
+    self.body.apply(f)
+    return self
+ 
   def scheme(self):
     if self.body:
       return self.body.scheme()
@@ -586,12 +597,13 @@ class Fixpoint(Operator):
   def loopBody(self,plan):
     self.body = plan
 
-class State(UnaryOperator):
+class State(ZeroaryOperator):
   """A placeholder operator for a recursive plan"""
 
   def __init__(self, name, fixpoint):
-    UnaryOperator.__init__(self, fixpoint)
+    ZeroaryOperator.__init__(self)
     self.name = name
+    self.fixpoint = fixpoint
 
   def shortStr(self):
     return "%s(%s)" % (self.opname(), self.name)
