@@ -35,7 +35,7 @@ class Program:
   def intermediateRule(self, rule):
     """Return True if the head does not appear in the body of any other rule."""
     for other in self.rules:
-      if other.refersTo(rule.head):
+      if other.refersTo(rule.head) and other.head != rule.head:
         return True
     return False
 
