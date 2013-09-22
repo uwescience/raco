@@ -266,7 +266,7 @@ class NaryOperator(Operator):
   def resolveAttribute(self, attributeReference):
     for arg in self.args:
       try:
-        return arg.resolveAttribute(attribtueReference)
+        return arg.resolveAttribute(attributeReference)
       except SchemaError:
         pass
     raise SchemaError("Cannot resolve %s in Nary operator with schema %s" % (attributeReference, self.scheme()))
@@ -298,7 +298,7 @@ class Union(BinaryOperator):
 
   def resolveAttribute(self, attributereference):
     """Union assumes the schema of its left argument"""
-    return self.left.resolveAttribute(attribtuereference)
+    return self.left.resolveAttribute(attributereference)
 
   def shortStr(self):
     return self.opname()
@@ -470,7 +470,8 @@ class Project(UnaryOperator):
   def scheme(self):
     """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
     # TODO: columnlist should perhaps be a list of column expressions, TBD
-    return scheme.Scheme([attref.resolve(self.input.scheme()) for attref in self.columnlist])
+    attrs = [self.input.resolveAttribute(attref) for attref in self.columnlist]
+    return scheme.Scheme(attrs)
 
 class GroupBy(UnaryOperator):
   """Logical projection operator"""
@@ -491,10 +492,10 @@ class GroupBy(UnaryOperator):
     UnaryOperator.copy(self, other)
 
   def scheme(self):
-    """scheme of the result"""
-    cols = [(str(sexpr), sexpr.typeof()) for sexpr in
-            self.groupinglist + self.aggregatelist]
-    return scheme.Scheme(cols)
+    """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
+    groupingscheme = [self.input.resolveAttribute(attref) for attref in self.groupinglist]
+    expressionscheme = [("expr%s" % i, expr.typeof()) for i,expr in enumerate(self.aggregatelist)]
+    return scheme.Scheme([groupingscheme + expressionscheme])
 
 class ProjectingJoin(Join):
   """Logical Projecting Join operator"""
@@ -665,7 +666,7 @@ class Scan(ZeroaryOperator):
   def resolveAttribute(self, attributereference):
     """Resolve an attribute reference in this operator's schema to its definition: 
     An attribute in an EDB or an expression."""
-    return attributereference
+    return self.relation.scheme().resolve(attributereference)
 
 class CollapseSelect(Rule):
   """A rewrite rule for combining two selections"""
