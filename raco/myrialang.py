@@ -96,6 +96,23 @@ class MyriaProject(algebra.Project, MyriaOperator):
         "arg_child" : inputsym
       }
 
+class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
+  def compileme(self, resultsym, leftsym, rightsym):
+    column_names = [name for (name,type) in self.scheme()]
+    allleft = [i.position for i in self.left.scheme().ascolumnlist()]
+    allright = [i.position for i in self.right.scheme().ascolumnlist()]
+    return {
+        "op_name" : resultsym,
+        "op_type" : "LocalJoin",
+        "arg_column_names" : column_names,
+        "arg_child1" : leftsym,
+        "arg_child2" : rightsym,
+        "arg_columns1" : [],
+        "arg_columns2" : [],
+        "arg_select1" : allleft,
+        "arg_select2" : allright
+      }
+
 class MyriaInsert(algebra.Store, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     return {
@@ -157,6 +174,40 @@ class MyriaShuffle(algebra.Shuffle, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')
 
+class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
+  """A Myria BroadcastProducer"""
+  def __init__(self, input, opid):
+    algebra.UnaryOperator.__init__(self, input)
+    self.opid = opid
+
+  def shortStr(self):
+    return "%s(%s)" % (self.opname(), self.opid)
+
+  def compileme(self, resultsym, inputsym):
+    return {
+        "op_name" : resultsym,
+        "op_type" : "BroadcastProducer",
+        "arg_child" : inputsym,
+        "arg_operator_id" : self.opid
+      }
+
+class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
+  """A Myria BroadcastConsumer"""
+  def __init__(self, input, opid):
+    algebra.UnaryOperator.__init__(self, input)
+    self.opid = opid
+
+  def compileme(self, resultsym, inputsym):
+    return {
+        'op_name' : resultsym,
+        'op_type' : 'BroadcastConsumer',
+        'arg_operator_id' : self.opid,
+        'arg_schema' : scheme_to_schema(self.scheme())
+      }
+
+  def shortStr(self):
+    return "%s(%s)" % (self.opname(), self.opid)
+
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
   """A Myria ShuffleProducer"""
   def __init__(self, input, opid, hash_columns):
@@ -216,6 +267,16 @@ class BreakShuffle(rules.Rule):
     consumer = MyriaShuffleConsumer(producer, opid)
     return consumer
 
+class BreakBroadcast(rules.Rule):
+  def fire(self, expr):
+    if not isinstance(expr, algebra.Broadcast):
+      return expr
+
+    opid = gen_op_id()
+    producer = MyriaBroadcastProducer(expr.input, opid)
+    consumer = MyriaBroadcastConsumer(producer, opid)
+    return consumer
+
 class ShuffleBeforeJoin(rules.Rule):
   def fire(self, expr):
     # If not a join, who cares?
@@ -250,6 +311,21 @@ class ShuffleBeforeJoin(rules.Rule):
       return algebra.Join(expr.condition, left_shuffle, right_shuffle)
     raise NotImplementedError("How the heck did you get here?")
 
+class BroadcastBeforeCross(rules.Rule):
+  def fire(self, expr):
+    # If not a CrossProduct, who cares?
+    if not isinstance(expr, algebra.CrossProduct):
+      return expr
+
+    # Left broadcast
+    if not isinstance(expr.left, algebra.Broadcast):
+      expr.left = algebra.Broadcast(expr.left)
+    # Right broadcast
+    if not isinstance(expr.right, algebra.Broadcast):
+      expr.right = algebra.Broadcast(expr.right)
+
+    return expr
+
 DEFAULT_HARDCODED_SCHEMA = {
     'R': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
     'R3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
@@ -274,6 +350,7 @@ class MyriaAlgebra:
 
   fragment_leaves = (
       MyriaShuffleConsumer
+      , MyriaBroadcastConsumer
       , MyriaScan
   )
 
@@ -281,6 +358,8 @@ class MyriaAlgebra:
       rules.ProjectingJoin()
       , rules.JoinToProjectingJoin()
       , ShuffleBeforeJoin()
+      , BroadcastBeforeCross()
+      , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
       , rules.OneToOne(algebra.Store,MyriaInsert)
       , rules.OneToOne(algebra.Select,MyriaSelect)
       , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
@@ -288,6 +367,7 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
       , BreakShuffle()
+      , BreakBroadcast()
   ]
 
 def apply_schema_recursive(operator, schema_map):

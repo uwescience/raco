@@ -28,8 +28,13 @@ three_hops = """
 ThreeHops(x,w) :- TwitterK(x,y),TwitterK(y,z),TwitterK(z,w)
 """
 
+# Cross product
+cross_product = """
+Cross(x,y) :- R1(x),S1(y).
+"""
+
 # Which one do we use?
-query = join
+query = cross_product
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
