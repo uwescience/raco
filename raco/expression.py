@@ -404,3 +404,32 @@ def toNamed(ref, scheme):
     return ref
   else:
     raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference.")
+
+
+def all_classes():
+  import raco.expression as expr
+  """Return a list of all classes in the module"""
+  return [c for c in expr.__dict__.values() if not hasattr(c, "__class__")]
+
+def aggregate_functions():
+  """Return all the classes that can be used to construct an aggregate expression"""
+  allclasses = all_classes()
+  opclasses = [opclass for opclass in allclasses
+                   if issubclass(opclass, AggregateExpression)
+                   and opclass is not AggregateExpression]
+
+  return opclasses
+
+def binary_ops():
+  """Return a list of all classes used to construct arithmetic, like PLUS, DIVIDE, etc."""
+  allclasses = all_classes()
+  opclasses = [opclass for opclass in allclasses
+                   if issubclass(opclass, BinaryOperator)
+                   and opclass is not BinaryOperator
+                   and opclass is not BinaryBooleanOperator
+                   and opclass is not BinaryComparisonOperator
+                   and not issubclass(opclass,AggregateExpression)]
+  return opclasses
+
+def isaggregate(expr):
+  return any(expr.postorder(lambda x: isinstance(x, AggregateExpression)))
