@@ -305,8 +305,6 @@ class Rule:
  
     # Helper function for the next two steps (TODO: move this to a method?)
     scheme = plan.scheme()
-    print "Head:", self.head
-    print "SCHEME:", scheme
     def findvar(variable):
       var = variable.var
       if var not in scheme:
@@ -543,7 +541,6 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
         # Use an apply operator to impose the mapping
         plan = raco.algebra.Apply(mappings, plan)
         
-        print "CHAINED SCHEME:", plan.scheme(), term
         if isinstance(plan, raco.algebra.State):
           # This is the same rule we are currently compiling
           return plan
@@ -571,7 +568,6 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
       plan = scan  # TODO: This is only correct for EDBs
 
     plan.set_alias(term)
-    print "AFTER SELECTS:", plan, term
     return plan
 
 class IDB(Term):
