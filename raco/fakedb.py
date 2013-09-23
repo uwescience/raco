@@ -3,7 +3,7 @@ import collections
 import itertools
 
 import raco.algebra
-import raco.scheme as scheme
+import raco.scheme
 
 class FakeDatabase:
     """An in-memory implementation of relational algebra operators"""
@@ -81,3 +81,27 @@ class FakeDatabase:
     def limit(self, op):
         it = self.evaluate(op.input)
         return itertools.islice(it, op.count)
+
+    def singletonrelation(self, op):
+        return iter([()])
+
+    def groupby(self, op):
+        child_it = self.evaluate(op.input)
+
+        def process_grouping_columns(_tuple):
+            ls = [sexpr.evaluate(_tuple, op.input.scheme()) for
+                  sexpr in op.groupinglist]
+            return tuple(ls)
+
+        # calculate groups of matching input tuples
+        results = collections.defaultdict(list)
+        for input_tuple in child_it:
+            output_tuple = process_grouping_columns(input_tuple)
+            results[output_tuple].append(input_tuple)
+
+        # resolve aggregate functions
+        for key, tuples in results.iteritems():
+            agg_fields = [agg_expr.evaluate_aggregate(
+                tuples, op.input.scheme()) for agg_expr in op.aggregatelist]
+            yield(key + tuple(agg_fields))
+

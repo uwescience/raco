@@ -24,12 +24,18 @@ class Expression(Printable):
   def postorder(self, f):
     yield f(self)
 
+  def apply(self, f):
+    """Replace children with the result of a function"""
+    pass
 
 class ZeroaryOperator(Expression):
   def __init__(self):
     pass
   def __eq__(self, other):
     return self.__class__ == other.__class__ 
+
+  def __hash__(self):
+    return hash(self.__class__)
 
   def __str__(self):
     return "%s" % (self.opstr(),)
@@ -44,6 +50,9 @@ class UnaryOperator(Expression):
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.input == other.input
 
+  def __hash__(self):
+    return hash(self.__class__) + hash(self.input)
+
   def __str__(self):
     return "%s%s" % (self.opstr(), self.input)
 
@@ -55,6 +64,10 @@ class UnaryOperator(Expression):
       yield x
     yield f(self)
 
+  def apply(self, f):
+    self.input = f(self.input)
+
+
 class BinaryOperator(Expression):
   def __init__(self, left, right):
     self.left = left
@@ -62,6 +75,9 @@ class BinaryOperator(Expression):
 
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.left == other.left and self.right == other.right
+
+  def __hash__(self):
+    return hash(self.__class__) + hash(self.left) + hash(self.right)
 
   def __str__(self):
     return "(%s %s %s)" % (self.left, self.opstr(), self.right)
@@ -76,12 +92,19 @@ class BinaryOperator(Expression):
       yield x
     yield f(self)
 
-class Literal:
+  def apply(self, f):
+    self.left = f(self.left)
+    self.right = f(self.right)
+
+class Literal(ZeroaryOperator):
   def __init__(self, value):
     self.value = value
 
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.value == other.value
+
+  def __hash__(self):
+    return hash(self.__class__) + hash(self.value)
 
   def vars(self):
     return []
@@ -95,6 +118,9 @@ class Literal:
 
   def evaluate(self, _tuple, scheme):
     return self.value
+
+  def apply(self, f):
+    pass
 
 class StringLiteral(Literal):
   pass
@@ -216,19 +242,48 @@ class CEIL(UnaryFunction):
   pass
 
 class AggregateExpression(Expression):
-  pass
+  def evaluate(self, _tuple, scheme):
+    """Stub evaluate function for aggregate expressions.
+
+    Aggregate functions do not evaluate individual tuples; rather they
+    operate on collections of tuples in the evaluate_aggregate function.
+    We return a dummy string so that all tuples containing this aggregate
+    hash to the same value.
+    """
+    return self.opname()
+
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    """Evaluate an aggregate over a bag of tuples"""
+    raise NotImplementedError()
 
 class MAX(UnaryFunction,AggregateExpression):
-  pass
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    return max(inputs)
 
 class MIN(UnaryFunction,AggregateExpression):
-  pass
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    return min(inputs)
 
-class COUNT(ZeroaryOperator,AggregateExpression):
-  pass
+class COUNT(UnaryFunction,AggregateExpression):
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    count = 0
+    for t in inputs:
+      if t is not None:
+        count += 1
+    return count
 
 class SUM(UnaryFunction,AggregateExpression):
-  pass
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+
+    sum = 0
+    for t in inputs:
+      if t is not None:
+        sum += t
+    return sum
 
 class BooleanExpression(Printable):
   pass
@@ -317,21 +372,35 @@ reverse = {
   LT:GT
 }
 
+class Unbox(ZeroaryOperator):
+  def __init__(self, table, field):
+    self.table = table
+    self.field = field
+
+  def evaluate(self, _tuple, scheme):
+    """Raise an error on attempted evaluation.
+
+    Unbox should never be "evaluated" in the usual sense.  Rather it should
+    be replaced by a cross-product with a single-element table.  This operator
+    is just a placeholder.
+    """
+    raise NotImplementedError()
+
 def toUnnamed(ref, scheme):
   """Convert a reference to the unnamed perspective"""
-  if issubclass(ref, UnnamedAttributeRef):
+  if issubclass(ref.__class__, UnnamedAttributeRef):
     return ref
-  elif issubclass(ref, NamedAttributeRef):
+  elif issubclass(ref.__class__, NamedAttributeRef):
     return UnnamedAttributeRef(scheme.getpos(ref.name))
   else:
     raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference.")
 
 def toNamed(ref, scheme):
   """Convert a reference to the named perspective"""
-  if issubclass(ref, UnnamedAttributeRef):
+  if issubclass(ref.__class__, UnnamedAttributeRef):
     attrname = scheme[ref.position][0]
     return NamedAttributeRef(attrname)
-  elif issubclass(ref, NamedAttributeRef):
+  elif issubclass(ref.__class__, NamedAttributeRef):
     return ref
   else:
     raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference.")

@@ -350,16 +350,6 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter([(25000,),(5000,),(90000,)])
         self.__run_test(query, expected)
 
-    def test_set_comp(self):
-        query = """
-        out = {FROM SCAN(%s) EMIT salary};
-        DUMP(out);
-        """ % self.emp_key
-
-        expected = collections.Counter([(25000,),(5000,),(90000,)])
-        self.__run_test(query, expected)
-
-
     def test_limit(self):
         query = """
         out = LIMIT(SCAN(%s), 3);
@@ -368,4 +358,223 @@ class TestQueryFunctions(unittest.TestCase):
 
         result = self.__execute_query(query)
         self.assertEquals(len(result), 3)
+
+
+    def test_table_literal(self):
+        query = """
+        X = [FROM ["Andrew", salary=(50 * (500 + 500))] EMIT salary];
+        DUMP(X);
+        """
+        expected = collections.Counter([(50000,)])
+        self.__run_test(query, expected)
+
+    def test_unbox_from_where_single(self):
+        query = """
+        TH = [25 * 1000];
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $3 > *TH EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] > 25000])
+        self.__run_test(query, expected)
+
+    def test_unbox_from_where_multi(self):
+        query = """
+        TWO = [2];
+        FOUR = [4];
+        EIGHT = [8];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE *EIGHT == *TWO**FOUR EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.emp_table)
+
+    def test_unbox_from_where_nary_name(self):
+        query = """
+        CONST = [twenty_five=25, thousand=1000];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary == *CONST.twenty_five *
+        *CONST.thousand EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] == 25000])
+
+        self.__run_test(query, expected)
+
+    def test_unbox_from_where_nary_pos(self):
+        query = """
+        CONST = [twenty_five=25, thousand=1000];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary == *CONST.$0 *
+        *CONST.$1 EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] == 25000])
+
+        self.__run_test(query, expected)
+
+    def test_unbox_from_emit_single(self):
+        query = """
+        THOUSAND = [1000];
+        emp = SCAN(%s);
+        out = [FROM emp EMIT salary=salary * *THOUSAND];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[3] * 1000,) for x in self.emp_table.elements()])
+        self.__run_test(query, expected)
+
+    def test_unbox_kitchen_sink(self):
+        query = """
+        C1 = [a=25, b=100];
+        C2 = [a=50, b=1000];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary==*C1.a * *C2.b OR $3==*C1.b * *C2
+               EMIT kitchen_sink = dept_id * *C1.b / *C2.a];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[1] * 2,) for x in self.emp_table.elements() if
+             x[3] == 5000 or x[3] == 25000])
+        self.__run_test(query, expected)
+
+
+    def __aggregate_expected_result(self, apply_func):
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, apply_func(values)) for key, values in
+                  result_dict.iteritems()]
+        return collections.Counter(tuples)
+
+    def test_max(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, MAX(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(max))
+
+    def test_min(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, MIN(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(min))
+
+    def test_sum(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, SUM(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(sum))
+
+    def test_count(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, COUNT(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(len))
+
+    def test_max_reversed(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT max_salary=MAX(salary), dept_id];
+        DUMP(out);
+        """ % self.emp_key
+
+        ex = self.__aggregate_expected_result(max)
+        ex = collections.Counter([(y,x) for (x,y) in ex])
+        self.__run_test(query, ex)
+
+    def test_compound_aggregate(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT range=( 2 * (MAX(salary) - MIN(salary))),
+        did=dept_id];
+        out = [FROM out EMIT dept_id=did, rng=range];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, 2 * (max(values) - min(values))) for key, values in
+                  result_dict.iteritems()]
+
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
+
+    def test_aggregate_with_unbox(self):
+        query = """
+        C = [one=1, two=2];
+        out = [FROM SCAN(%s) EMIT range=MAX(*C.two * salary) -
+        MIN( *C.$1 * salary), did=dept_id];
+        out = [FROM out EMIT dept_id=did, rng=range];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(2 * t[3])
+
+        tuples = [(key, (max(values) - min(values))) for key, values in
+                  result_dict.iteritems()]
+
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
+
+    def test_nary_groupby(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, salary, COUNT(name)];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[(t[1], t[3])].append(t[2])
+
+        tuples = [key + (len(values),)
+                  for key, values in result_dict.iteritems()]
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
+
+    def test_empty_groupby(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT MAX(salary), COUNT($0), MIN(dept_id*4)];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(90000, len(self.emp_table), 4)])
+        self.__run_test(query, expected)
+
+    def test_compound_groupby(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT id+dept_id, COUNT(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[0] + t[1]].append(t[3])
+
+        tuples = [(key, len(values)) for key, values in result_dict.iteritems()]
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
 

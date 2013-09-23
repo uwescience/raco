@@ -33,13 +33,36 @@ cross_product = """
 Cross(x,y) :- R1(x),S1(y).
 """
 
+# Union
+union = """
+B(x) :- A(x)
+A(x) :- R(x,3)
+A(x) :- S(x,y)
+"""
+
+# Chained
+chained = """
+JustXBill(x) :- TwitterK(x,y)
+JustXBill2(x) :- JustXBill(x)
+JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
+"""
+
+# Recursion
+recursion = """
+A(x) :- R(x,3)
+A(x) :- R(x,y), A(x)
+"""
+"""
+Fixpoint([(A,Select(R,$1=3)), [(A,Join(R,State))])
+"""
+
 # Which one do we use?
-query = cross_product
+query = chained
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
 
-# Create a cmpiler object
+# Create a compiler object
 dlog = RACompiler()
 
 # parse the query

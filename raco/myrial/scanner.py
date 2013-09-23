@@ -6,10 +6,11 @@ import ply.lex as lex
 reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
             'INTERSECT', 'DUMP', 'FILTER', 'BY', 'WHILE', 'INT', 'STRING',
             'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN', 'COUNTALL', 'FROM',
-            'WHERE', 'AND', 'OR', 'NOT']
+            'WHERE', 'AND', 'OR', 'NOT', 'MAX', 'MIN', 'SUM', 'COUNT']
 
 # Token types; required by ply to have this variable name
-tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'LBRACE', 'RBRACE',
+
+tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT',
           'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ',
           'NE', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
           'STRING_LITERAL', 'INTEGER_LITERAL'] + reserved
@@ -19,8 +20,6 @@ t_LPAREN = r'\('
 t_RPAREN = r'\)'
 t_LBRACKET = r'\['
 t_RBRACKET = r'\]'
-t_LBRACE = r'\{'
-t_RBRACE = r'\}'
 t_PLUS  = r'\+'
 t_MINUS  = r'-'
 t_TIMES  = r'\*'
@@ -33,6 +32,7 @@ t_GE               = r'>='
 t_EQ               = r'=='
 t_NE               = r'!='
 
+t_DOT = r'\.'
 t_COMMA = r','
 t_SEMI = r';'
 t_EQUALS = r'='
