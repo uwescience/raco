@@ -47,6 +47,12 @@ JustXBill2(x) :- JustXBill(x)
 JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
 """
 
+# Chained 2 -- this one triggers Bug #29
+chained2 = """
+A(x,z) :- R(x,y,z);
+B(w) :- A(3,w)
+"""
+
 # Recursion
 recursion = """
 A(x) :- R(x,3)
@@ -58,7 +64,7 @@ Fixpoint([(A,Select(R,$1=3)), [(A,Join(R,State))])
 
 # Filters
 filtered = """
-Filtered(src, dst, time) :- nccdc(src, dst, proto, time, a, b, c), time > 1366475761, time < 1366475821
+filtered(src, dst, time) :- nccdc(src, dst, proto, time, a, b, c), time > 1366475761, time < 1366475821
 """
 
 # Aggregate
@@ -67,7 +73,7 @@ InDegree(dst, count(src)) :- Edge(src,dst)
 """
 
 # Which one do we use?
-query = aggregate
+query = filtered
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
