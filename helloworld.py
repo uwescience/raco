@@ -73,7 +73,7 @@ InDegree(dst, count(src)) :- Edge(src,dst)
 """
 
 # Which one do we use?
-query = filtered
+query = chained2
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
