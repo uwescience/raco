@@ -57,9 +57,6 @@ recursion = """
 A(x) :- R(x,3)
 A(x) :- R(x,y), A(x)
 """
-"""
-Fixpoint([(A,Select(R,$1=3)), [(A,Join(R,State))])
-"""
 
 # Filters
 filtered = """
@@ -72,7 +69,7 @@ InDegree(dst, count(src)) :- Edge(src,dst)
 """
 
 # Which one do we use?
-query = chained2
+query = aggregate
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
