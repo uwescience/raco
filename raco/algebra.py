@@ -502,7 +502,7 @@ class GroupBy(UnaryOperator):
         return ("expr%s" % i, attr.typeof())
       else:
         return self.input.resolveAttribute(attr)
-    return Scheme([resolve(e) for e in self.columnlist])
+    return scheme.Scheme([resolve(i, e) for i, e in enumerate(self.columnlist)])
 
 class ProjectingJoin(Join):
   """Logical Projecting Join operator"""
