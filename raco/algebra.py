@@ -1,4 +1,5 @@
 import boolean
+import expression
 import scheme
 from utility import emit, Printable
 from rules import Rule
@@ -475,9 +476,11 @@ class Project(UnaryOperator):
 
 class GroupBy(UnaryOperator):
   """Logical projection operator"""
-  def __init__(self, groupinglist=[], aggregatelist=[], input=None):
-    self.groupinglist = groupinglist
-    self.aggregatelist = aggregatelist
+  def __init__(self, columnlist=[],input=None):
+    self.columnlist = columnlist
+
+    self.groupinglist = [e for e in self.columnlist if not expression.isaggregate(e)]
+    self.aggregatelist = [e for e in self.columnlist if expression.isaggregate(e)]
     UnaryOperator.__init__(self, input)
 
   def shortStr(self):
@@ -487,15 +490,19 @@ class GroupBy(UnaryOperator):
 
   def copy(self, other):
     """deep copy"""
+    self.columnlist = other.columnlist
     self.groupinglist = other.groupinglist
     self.aggregatelist = other.aggregatelist
     UnaryOperator.copy(self, other)
 
   def scheme(self):
     """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
-    groupingscheme = [self.input.resolveAttribute(attref) for attref in self.groupinglist]
-    expressionscheme = [("expr%s" % i, expr.typeof()) for i,expr in enumerate(self.aggregatelist)]
-    return scheme.Scheme([groupingscheme + expressionscheme])
+    def resolve(i, attr):
+      if expression.isaggregate(attr):
+        return ("expr%s" % i, attr.typeof())
+      else:
+        return self.input.resolveAttribute(attr)
+    return Scheme([resolve(e) for e in self.columnlist])
 
 class ProjectingJoin(Join):
   """Logical Projecting Join operator"""
