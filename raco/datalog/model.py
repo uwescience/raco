@@ -223,7 +223,6 @@ class Rule:
         self.fixpoint = raco.algebra.Fixpoint()
       state = raco.algebra.State(self.head.name, self.fixpoint)
       return state
-      #raise ValueError("Recursion still under the knife")
     else:
       self.compiling = True
 
@@ -520,7 +519,16 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
         plan = program.compileRule(idb)
 
         # Rename attributes as needed.  
-        oldscheme = [name for name, typ in plan.scheme()]
+        
+        # Do we know the actual scheme? If it's recursive, we don't
+        # So derive it from the rule head
+        # Not really satisfied with this.
+        try:
+          sch = plan.scheme()
+        except raco.algebra.RecursionError:
+          sch = raco.scheme.Scheme([attr(i,r,idb.head.name) for i,r in enumerate(idb.head.valuerefs)])
+
+        oldscheme = [name for name, typ in sch]
         termscheme = [expr for expr in term.valuerefs]
 
         if len(oldscheme) != len(termscheme):
@@ -528,6 +536,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
 
         pairs = zip(termscheme, oldscheme)
 
+        # Merge the old and new schemes.  Use new where we can.
         def choosename(new, old):
           if isinstance(new,Var):
             # Then use this new var as the column name
@@ -538,7 +547,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
 
         mappings = [(choosename(new,old),raco.expression.UnnamedAttributeRef(i)) for i, (new,old) in enumerate(pairs)]
 
-        # Use an apply operator to impose the mapping
+        # Use an apply operator to implement the renaming
         plan = raco.algebra.Apply(mappings, plan)
         
         if isinstance(plan, raco.algebra.State):
