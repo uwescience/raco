@@ -5,6 +5,7 @@ In particular, they can be compiled to (iterative) relational algebra expression
 '''
 import networkx as nx
 import raco.boolean
+import raco.expression
 import raco.algebra
 import raco.scheme
 import raco.catalog
@@ -320,12 +321,23 @@ class Rule:
         plan = raco.algebra.PartitionBy(positions, plan)
 
 
-    # Put a project at the top of the plan
+    # Put a project or a group by at the top of the plan
      
-    # TODO: columnlist should perhaps be a list of arbitrary column expressions
-    columnlist = [findvar(var) for var in self.head.valuerefs if isinstance(var, Var)]
+    # Resolve variable references in the head; pass through aggregate expressions
+    def toAttrRef(e):
+      if raco.expression.isaggregate(e):
+        return e
+      elif isinstance(e,Var):
+        return findvar(e)
+    columnlist = [toAttrRef(v) for v in self.head.valuerefs]
         
-    plan = raco.algebra.Project(columnlist, plan)
+    # If any of the expressions in the head are aggregate expression, construct a group by
+    if any([raco.expression.isaggregate(v) for v in self.head.valuerefs]):
+      plan = raco.algebra.GroupBy(columnlist, plan)
+    else:
+      # otherwise, just build a project
+      plan = raco.algebra.Project(columnlist, plan)
+
 
     # If we found a cycle, the "root" of the plan is the fixpoint operator
     if self.fixpoint:
@@ -340,7 +352,7 @@ class Rule:
   def __repr__(self):
     return "%s :- %s" % (self.head, ", ".join([str(t) for t in self.body]))
 
-class Var:
+class Var(raco.expression.Expression):
   def __init__(self, var):
     self.var = var
 
