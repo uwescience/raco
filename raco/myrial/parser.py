@@ -91,6 +91,10 @@ class Parser:
         'expression : ID'
         p[0] = ('ALIAS', p[1])
 
+    def p_expression_table_literal(self, p):
+        'expression : LBRACKET emit_arg_list RBRACKET'
+        p[0] = ('TABLE', p[2])
+
     def p_expression_scan(self, p):
         'expression : SCAN LPAREN relation_key optional_schema RPAREN'
         # TODO(AJW): Nix optional schema argument once we can read this from
@@ -138,11 +142,6 @@ class Parser:
         'expression : LBRACKET FROM expression opt_where_clause \
         emit_clause RBRACKET'
         p[0] = ('BAGCOMP', p[3], p[4], p[5])
-
-    def p_expression_setcomp(self, p):
-        'expression : LBRACE FROM expression opt_where_clause \
-        emit_clause RBRACE'
-        p[0] = ('SETCOMP', p[3], p[4], p[5])
 
     def p_opt_where_clause(self, p):
         '''opt_where_clause : WHERE colexpr
