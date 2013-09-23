@@ -56,8 +56,18 @@ A(x) :- R(x,y), A(x)
 Fixpoint([(A,Select(R,$1=3)), [(A,Join(R,State))])
 """
 
+# Filters
+filtered = """
+Filtered(src, dst, time) :- nccdc(src, dst, proto, time, a, b, c), time > 1366475761, time < 1366475821
+"""
+
+# Aggregate
+aggregate = """
+InDegree(dst, count(src)) :- Edge(src,dst)
+"""
+
 # Which one do we use?
-query = chained
+query = aggregate
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
