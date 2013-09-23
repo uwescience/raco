@@ -17,6 +17,9 @@ def gensym():
   i += 1
   return "V%s" % i
 
+class RecursionError(ValueError):
+  pass
+
 class Operator(Printable):
   """Operator base classs"""
   def __init__(self):
@@ -598,7 +601,7 @@ class Fixpoint(Operator):
     if self.body:
       return self.body.scheme()
     else:
-      return scheme.EmptyScheme()
+      raise RecursionError("No Scheme defined yet for fixpoint")
  
   def loopBody(self,plan):
     self.body = plan
