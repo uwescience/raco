@@ -391,9 +391,9 @@ def toUnnamed(ref, scheme):
   if issubclass(ref.__class__, UnnamedAttributeRef):
     return ref
   elif issubclass(ref.__class__, NamedAttributeRef):
-    return UnnamedAttributeRef(scheme.getpos(ref.name))
+    return UnnamedAttributeRef(scheme.getPosition(ref.name))
   else:
-    raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference.")
+    raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference." % ref)
 
 def toNamed(ref, scheme):
   """Convert a reference to the named perspective"""

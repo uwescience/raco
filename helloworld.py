@@ -47,7 +47,6 @@ JustXBill2(x) :- JustXBill(x)
 JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
 """
 
-# Chained 2 -- this one triggers Bug #29
 chained2 = """
 A(x,z) :- R(x,y,z);
 B(w) :- A(3,w)
@@ -57,9 +56,6 @@ B(w) :- A(3,w)
 recursion = """
 A(x) :- R(x,3)
 A(x) :- R(x,y), A(x)
-"""
-"""
-Fixpoint([(A,Select(R,$1=3)), [(A,Join(R,State))])
 """
 
 # Filters
@@ -73,7 +69,7 @@ InDegree(dst, count(src)) :- Edge(src,dst)
 """
 
 # Which one do we use?
-query = filtered
+query = aggregate
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
