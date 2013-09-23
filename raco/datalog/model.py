@@ -325,7 +325,8 @@ class Rule:
     # Resolve variable references in the head; pass through aggregate expressions
     def toAttrRef(e):
       if raco.expression.isaggregate(e):
-        return e
+        # assuming that every aggregate has exactly one argument
+        return e.__class__(findvar(e.input))
       elif isinstance(e,Var):
         return findvar(e)
     columnlist = [toAttrRef(v) for v in self.head.valuerefs]
