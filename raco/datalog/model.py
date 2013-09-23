@@ -305,6 +305,8 @@ class Rule:
  
     # Helper function for the next two steps (TODO: move this to a method?)
     scheme = plan.scheme()
+    print "Head:", self.head
+    print "SCHEME:", scheme
     def findvar(variable):
       var = variable.var
       if var not in scheme:
@@ -359,6 +361,9 @@ class Var(raco.expression.Expression):
   def vars(self):
     """Works with BinaryBooleanOperator.vars to return a list of vars from any expression"""
     return [self.var]
+
+  def __str__(self):
+    return str(self.var)
 
   def __repr__(self):
     return str(self.var)
@@ -510,10 +515,35 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
       return (name, attrtype)
       #return AttributeSpec(relation_alias, name, attrtype)
 
+    # Chain rules together
     idbs = program.IDB(term)
-    if idbs:
+    if idbs: # This term refers to an IDB
       def wrap(idb):
         plan = program.compileRule(idb)
+
+        # Rename attributes as needed.  
+        oldscheme = [name for name, typ in plan.scheme()]
+        termscheme = [expr for expr in term.valuerefs]
+
+        if len(oldscheme) != len(termscheme):
+          raise TypeError("Rule with head %s does not match Term %s" % (idb.head, term))
+
+        pairs = zip(termscheme, oldscheme)
+
+        def choosename(new, old):
+          if isinstance(new,Var):
+            # Then use this new var as the column name
+            return new.var
+          else:
+            # It's an implicit selection condition
+            return old
+
+        mappings = [(choosename(new,old),raco.expression.UnnamedAttributeRef(i)) for i, (new,old) in enumerate(pairs)]
+
+        # Use an apply operator to impose the mapping
+        plan = raco.algebra.Apply(mappings, plan)
+        
+        print "CHAINED SCHEME:", plan.scheme(), term
         if isinstance(plan, raco.algebra.State):
           # This is the same rule we are currently compiling
           return plan
@@ -541,6 +571,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
       plan = scan  # TODO: This is only correct for EDBs
 
     plan.set_alias(term)
+    print "AFTER SELECTS:", plan, term
     return plan
 
 class IDB(Term):
