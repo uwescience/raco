@@ -47,6 +47,11 @@ JustXBill2(x) :- JustXBill(x)
 JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
 """
 
+chained2 = """
+A(x,z) :- R(x,y,z);
+B(w) :- A(3,w)
+"""
+
 # Recursion
 recursion = """
 A(x) :- R(x,3)
@@ -67,7 +72,7 @@ InDegree(dst, count(src)) :- Edge(src,dst)
 """
 
 # Which one do we use?
-query = aggregate
+query = chained2
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
