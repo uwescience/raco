@@ -81,9 +81,9 @@ class MyriaSelect(algebra.Select, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     return {
         "op_name" : resultsym,
-        "op_type" : "SELECT",
-        "condition" : self.language.compile_boolean(self.condition),
-        "input" : inputsym
+        "op_type" : "HardcodedFilter",
+        "arg_condition" : self.language.compile_boolean(self.condition),
+        "arg_child" : inputsym
       }
 
 class MyriaProject(algebra.Project, MyriaOperator):
