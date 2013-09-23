@@ -367,3 +367,87 @@ class TestQueryFunctions(unittest.TestCase):
         """
         expected = collections.Counter([(50000,)])
         self.__run_test(query, expected)
+
+    def test_unbox_from_where_single(self):
+        query = """
+        TH = [25 * 1000];
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $3 > *TH EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] > 25000])
+        self.__run_test(query, expected)
+
+    def test_unbox_from_where_multi(self):
+        query = """
+        TWO = [2];
+        FOUR = [4];
+        EIGHT = [8];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE *EIGHT == *TWO**FOUR EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.emp_table)
+
+    def test_unbox_from_where_nary_name(self):
+        query = """
+        CONST = [twenty_five=25, thousand=1000];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary == *CONST.twenty_five *
+        *CONST.thousand EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] == 25000])
+
+        self.__run_test(query, expected)
+
+    def test_unbox_from_where_nary_pos(self):
+        query = """
+        CONST = [twenty_five=25, thousand=1000];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary == *CONST.$0 *
+        *CONST.$1 EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[3] == 25000])
+
+        self.__run_test(query, expected)
+
+    def test_unbox_from_emit_single(self):
+        query = """
+        THOUSAND = [1000];
+        emp = SCAN(%s);
+        out = [FROM emp EMIT salary=salary * *THOUSAND];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[3] * 1000,) for x in self.emp_table.elements()])
+        self.__run_test(query, expected)
+
+    def test_unbox_kitchen_sink(self):
+        query = """
+        C1 = [a=25, b=100];
+        C2 = [a=50, b=1000];
+
+        emp = SCAN(%s);
+        out = [FROM emp WHERE salary==*C1.a * *C2.b OR $3==*C1.b * *C2
+               EMIT kitchen_sink = dept_id * *C1.b / *C2.a];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[1] * 2,) for x in self.emp_table.elements() if
+             x[3] == 5000 or x[3] == 25000])
+        self.__run_test(query, expected)
+
