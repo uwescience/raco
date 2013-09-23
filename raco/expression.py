@@ -24,6 +24,9 @@ class Expression(Printable):
   def postorder(self, f):
     yield f(self)
 
+  def apply(self, f):
+    """Replace children with the result of a function"""
+    pass
 
 class ZeroaryOperator(Expression):
   def __init__(self):
@@ -55,6 +58,9 @@ class UnaryOperator(Expression):
       yield x
     yield f(self)
 
+  def apply(self, f):
+    self.input = f(self.input)
+
 class BinaryOperator(Expression):
   def __init__(self, left, right):
     self.left = left
@@ -76,6 +82,10 @@ class BinaryOperator(Expression):
       yield x
     yield f(self)
 
+  def apply(self, f):
+    self.left = f(self.left)
+    self.right = f(self.right)
+
 class Literal:
   def __init__(self, value):
     self.value = value
@@ -95,6 +105,9 @@ class Literal:
 
   def evaluate(self, _tuple, scheme):
     return self.value
+
+  def apply(self, f):
+    pass
 
 class StringLiteral(Literal):
   pass
@@ -316,6 +329,20 @@ reverse = {
   GT:LT,
   LT:GT
 }
+
+class Unbox(ZeroaryOperator):
+  def __init__(self, table, field):
+    self.table = table
+    self.field = field
+
+  def evaluate(self, _tuple, scheme):
+    """Raise an error on attempted evaluation.
+
+    Unbox should never be "evaluated" in the usual sense.  Rather it should
+    be replaced by a cross-product with a single-element table.  This operator
+    is just a placeholder.
+    """
+    raise NotImplementedError()
 
 def toUnnamed(ref, scheme):
   """Convert a reference to the unnamed perspective"""
