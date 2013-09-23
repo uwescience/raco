@@ -333,7 +333,7 @@ class CrossProduct(BinaryOperator):
       except SchemaError:
         raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
-class Join(CrossProduct):
+class Join(BinaryOperator):
   """Logical Join operator"""
   def __init__(self, condition=None, left=None, right=None):
     self.condition = condition
@@ -349,6 +349,20 @@ class Join(CrossProduct):
 
   def shortStr(self):
     return "%s(%s)" % (self.opname(), self.condition)
+
+  def scheme(self):
+    """Return the scheme of the result."""
+    return self.left.scheme() + self.right.scheme()
+
+  def resolveAttribute(self, attributereference):
+    """Join has to check to see if this attribute is in the left or right argument."""
+    try:
+      return self.left.resolveAttribute(attributereference)
+    except SchemaError:
+      try:
+        return self.right.resolveAttribute(attributereference)
+      except SchemaError:
+        raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
 class Apply(UnaryOperator):
   def __init__(self, mappings, input=None):
