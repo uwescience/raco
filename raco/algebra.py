@@ -561,6 +561,19 @@ class Shuffle(UnaryOperator):
       self.columnlist = other.columnlist
       UnaryOperator.copy(self, other)
 
+class Collect(UnaryOperator):
+  """Send input to one server"""
+  def __init__(self, child=None, server=None):
+      UnaryOperator.__init__(self, child)
+      self.server = server
+
+  def shortStr(self):
+      return "%s(@%s)" % (self.opname(), self.server)
+
+  def copy(self, other):
+      self.server = other.server
+      UnaryOperator.copy(self, other)
+
 class Broadcast(UnaryOperator):
   """Send input to all servers"""
   def shortStr(self):
