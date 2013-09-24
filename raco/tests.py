@@ -60,7 +60,7 @@ class DatalogTest(unittest.TestCase):
     query = """
     InDegree(dst, count(src)) :- Edge(src,dst)
     """
-    desiredresult = """[('InDegree', GroupBy($1)(COUNT(src))[Scan(Edge)])]"""
+    desiredresult = """[('InDegree', GroupBy($1)(COUNT($0))[Scan(Edge)])]"""
     testresult = RATest(query)
     self.assertEqual(testresult, desiredresult)
 
@@ -68,7 +68,7 @@ class DatalogTest(unittest.TestCase):
     query = """
     TotalSalary(emp_id, sum(salary)) :- Employee(emp_id, dept_id,salary)
     """
-    desiredresult = """[('TotalSalary', GroupBy($0)(SUM(salary))[Scan(Employee)])]"""
+    desiredresult = """[('TotalSalary', GroupBy($0)(SUM($2))[Scan(Employee)])]"""
     testresult = RATest(query)
     self.assertEqual(testresult, desiredresult)
 
@@ -76,7 +76,7 @@ class DatalogTest(unittest.TestCase):
     query = """
     TotalSalary(sum(salary)) :- Employee(emp_id, dept_id,salary)
     """
-    desiredresult = """[('TotalSalary', GroupBy()(SUM(salary))[Scan(Employee)])]"""
+    desiredresult = """[('TotalSalary', GroupBy()(SUM($2))[Scan(Employee)])]"""
     testresult = RATest(query)
     self.assertEqual(testresult, desiredresult)
 
