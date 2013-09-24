@@ -640,6 +640,8 @@ def apply_schema_recursive(operator, schema_map):
   if isinstance(operator, MyriaScan):
     name = operator.relation.name
     if name in schema_map:
+      if len(operator.relation._scheme) != len(schema_map[name]):
+        raise ValueError("query scheme for %s (%d columns) does not match the catalog scheme (%d columns)" % (name, len(operator.relation._scheme), len(schema_map[name])))
       operator.relation._scheme = scheme.Scheme(schema_map[name])
 
   # Recurse through all children
