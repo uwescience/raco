@@ -86,7 +86,7 @@ Status(min(x), count(y)) :- Twitter(x,y)
 """
 
 # Which one do we use?
-query = no_group_aggregate
+query = filtered
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
