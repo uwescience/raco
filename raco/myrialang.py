@@ -11,6 +11,7 @@ import json
 import rules
 import scheme
 import sys
+import expression
 from language import Language
 from utility import emit
 
@@ -169,6 +170,53 @@ class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
 
     return join
 
+class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
+  @staticmethod
+  def agg_mapping(agg_expr):
+    """Maps an AggregateExpression to a Myria string constant representing the
+    corresponding aggregate operation."""
+    if isinstance(agg_expr, expression.MAX):
+      return "AGG_OP_MAX"
+    elif isinstance(agg_expr, expression.MIN):
+      return "AGG_OP_MIN"
+    elif isinstance(agg_expr, expression.COUNT):
+      return "AGG_OP_COUNT"
+    elif isinstance(agg_expr, expression.SUM):
+      return "AGG_OP_SUM"
+
+  def compileme_nogrouping(self, resultsym, inputsym):
+    raise NotImplementedError("no grouping")
+
+  def compileme_one_group(self, resultsym, inputsym):
+    child_scheme = self.input.scheme()
+    group_field = expression.toUnnamed(self.groupinglist[0], child_scheme)
+    agg_fields = [expression.toUnnamed(expr.input, child_scheme) \
+                  for expr in self.aggregatelist]
+    agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)] \
+                 for agg_expr in self.aggregatelist]
+    print self.scheme()
+    return {
+        "op_name" : resultsym,
+        "op_type" : "SingleGroupByAggregate",
+        "arg_child" : inputsym,
+        "arg_group_field" : group_field.position,
+        "arg_agg_fields" : [agg_field.position for agg_field in agg_fields],
+        "arg_agg_operators" : agg_types,
+        }
+
+  def compileme_multi_group(self, resultsym, inputsym):
+    raise NotImplementedError("multi grouping")
+    pass
+
+  def compileme(self, resultsym, inputsym):
+    num_fields = len(self.groupinglist)
+    if num_fields == 0:
+      return self.compileme_nogrouping(resultsym, inputsym)
+    elif num_fields == 1:
+      return self.compileme_one_group(resultsym, inputsym)
+    else:
+      return self.compileme_multi_group(resultsym, inputsym)
+
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
   """Represents a simple shuffle operator"""
   def compileme(self, resultsym, inputsym):
@@ -326,6 +374,25 @@ class BroadcastBeforeCross(rules.Rule):
 
     return expr
 
+class TransferBeforeGroupBy(rules.Rule):
+  def fire(self, expr):
+    # If not a GroupBy, who cares?
+    if not isinstance(expr, algebra.GroupBy):
+      return expr
+
+    # Get an array of position references to columns in the child scheme
+    child_scheme = expr.input.scheme()
+    group_fields = [expression.toUnnamed(ref, child_scheme).position \
+                    for ref in expr.groupinglist]
+    if len(group_fields) == 0:
+      # Need to Collect all tuples at once place
+      raise NotImplementedError("Aggregate with no fields")
+    else:
+      # Need to Shuffle
+      expr.input = algebra.Shuffle(expr.input, group_fields)
+
+    return expr
+
 DEFAULT_HARDCODED_SCHEMA = {
     'R': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
     'R3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
@@ -359,7 +426,9 @@ class MyriaAlgebra:
       , rules.JoinToProjectingJoin()
       , ShuffleBeforeJoin()
       , BroadcastBeforeCross()
+      , TransferBeforeGroupBy()
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
+      , rules.OneToOne(algebra.GroupBy,MyriaGroupBy)
       , rules.OneToOne(algebra.Store,MyriaInsert)
       , rules.OneToOne(algebra.Select,MyriaSelect)
       , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
