@@ -256,15 +256,37 @@ class AggregateExpression(Expression):
     """Evaluate an aggregate over a bag of tuples"""
     raise NotImplementedError()
 
+class AVG(UnaryFunction,AggregateExpression):
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    return max(inputs)
+
+  def typeof(self):
+    return type(0.01)
+
+class STDDEV(UnaryFunction,AggregateExpression):
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    return max(inputs)
+
+  def typeof(self):
+    return type(0.01)
+
 class MAX(UnaryFunction,AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return max(inputs)
 
+  def typeof(self):
+    return self.input.typeof()
+
 class MIN(UnaryFunction,AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return min(inputs)
+
+  def typeof(self):
+    return self.input.typeof()
 
 class COUNT(UnaryFunction,AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
@@ -275,6 +297,9 @@ class COUNT(UnaryFunction,AggregateExpression):
         count += 1
     return count
 
+  def typeof(self):
+    return type(0L)
+
 class SUM(UnaryFunction,AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
@@ -284,6 +309,9 @@ class SUM(UnaryFunction,AggregateExpression):
       if t is not None:
         sum += t
     return sum
+
+  def typeof(self):
+    return self.input.typeof()
 
 class BooleanExpression(Printable):
   pass
