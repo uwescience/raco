@@ -53,6 +53,12 @@ A(x,z) :- R(x,y,z);
 B(w) :- A(3,w)
 """
 
+chained_victim = """
+InDegreeNCCDC(dst, count(time)) :- nccdc(src, dst, proto, time, x, y, z)
+
+Victim(dst) :- InDegreeNCCDC(dst, cnt), cnt > 10000
+"""
+
 # Recursion
 recursion = """
 A(x) :- R(x,3)
@@ -75,7 +81,7 @@ TwoHopCount(x, z, count(y)) :- R3(x,y,z)
 """
 
 # Which one do we use?
-query = multi_aggregate
+query = chained_victim
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
