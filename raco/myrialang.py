@@ -79,7 +79,63 @@ class MyriaScan(algebra.Scan, MyriaOperator):
       }
 
 class MyriaSelect(algebra.Select, MyriaOperator):
+  @staticmethod
+  def get_simple_predicate(condition, scheme):
+    # In case we have to swap left-right operands
+    swap = { "LESS_THAN" : "GREATER_THAN",
+             "GREATHER_THAN" : "LESS_THAN",
+             "LESS_THAN_OR_EQ" : "GREATER_THAN_OR_EQ",
+             "GREATER_THAN_OR_EQ" : "LESS_THAN_OR_EQ",
+             # Note that if we swap a = b left/right, we still use ==. Not <>!
+             "EQUALS" : "EQUALS",
+             "NOT_EQUALS" : "NOT_EQUALS" }
+
+    # Is it one of the supported operators?
+    if isinstance(condition, boolean.LT):
+      op = "LESS_THAN"
+    elif isinstance(condition, boolean.GT):
+      op = "GREATER_THAN"
+    elif isinstance(condition, boolean.LTEQ):
+      op = "LESS_THAN_OR_EQ"
+    elif isinstance(condition, boolean.GTEQ):
+      op = "GREATER_THAN_OR_EQ"
+    elif isinstance(condition, boolean.EQ):
+      op = "EQUALS"
+    elif isinstance(condition, boolean.NEQ):
+      op = "NOT_EQUALS"
+    else:
+      return None
+
+    # Reference on left, literal on right
+    if isinstance(condition.left, expression.AttributeRef) \
+        and isinstance(condition.right, boolean.Literal):
+      ref = condition.left
+      lit = condition.right
+    # Reference on right, literal on left - swap op
+    elif isinstance(condition.right, expression.AttributeRef) \
+        and isinstance(condition.left, boolean.Literal):
+      op = swap[op]
+      ref = condition.right
+      lit = condition.left
+    else:
+      return None
+
+    return {
+        "type" : "SimplePredicate",
+        "arg_compare_index" : expression.toUnnamed(ref, scheme).position,
+        "arg_compare_value" : str(lit.value),
+        "arg_op" : op
+      }
+
   def compileme(self, resultsym, inputsym):
+    pred = MyriaSelect.get_simple_predicate(self.condition, self.scheme())
+    if pred is not None:
+      return {
+        "op_name" : resultsym,
+        "op_type" : "Filter",
+        "arg_child" : inputsym,
+        "arg_predicate" : pred
+      }
     return {
         "op_name" : resultsym,
         "op_type" : "HardcodedFilter",
@@ -513,6 +569,16 @@ class TransferBeforeGroupBy(rules.Rule):
 
     return expr
 
+class SplitSelects(rules.Rule):
+  """If a select has an AND, replace it with two consecutive selects."""
+  def fire(self, expr):
+    if isinstance(expr, algebra.Select):
+      if isinstance(expr.condition, boolean.AND):
+        first_filter = algebra.Select(expr.condition.left, expr.input)
+        return algebra.Select(expr.condition.right, first_filter)
+
+    return expr
+
 DEFAULT_HARDCODED_SCHEMA = {
     'R': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
     'R3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
@@ -548,6 +614,7 @@ class MyriaAlgebra:
       , ShuffleBeforeJoin()
       , BroadcastBeforeCross()
       , TransferBeforeGroupBy()
+      , SplitSelects()
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
       , rules.OneToOne(algebra.GroupBy,MyriaGroupBy)
       , rules.OneToOne(algebra.Store,MyriaInsert)
