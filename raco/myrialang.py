@@ -185,7 +185,18 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
       return "AGG_OP_SUM"
 
   def compileme_nogrouping(self, resultsym, inputsym):
-    raise NotImplementedError("no grouping")
+    child_scheme = self.input.scheme()
+    agg_fields = [expression.toUnnamed(expr.input, child_scheme) \
+                  for expr in self.aggregatelist]
+    agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)] \
+                 for agg_expr in self.aggregatelist]
+    return {
+        "op_name" : resultsym,
+        "op_type" : "Aggregate",
+        "arg_child" : inputsym,
+        "arg_agg_fields" : [agg_field.position for agg_field in agg_fields],
+        "arg_agg_operators" : agg_types,
+        }
 
   def compileme_one_group(self, resultsym, inputsym):
     child_scheme = self.input.scheme()
@@ -233,6 +244,11 @@ class MyriaShuffle(algebra.Shuffle, MyriaOperator):
   """Represents a simple shuffle operator"""
   def compileme(self, resultsym, inputsym):
     raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')
+
+class MyriaCollect(algebra.Collect, MyriaOperator):
+  """Represents a simple collect operator"""
+  def compileme(self, resultsym, inputsym):
+    raise NotImplementedError('shouldn''t ever get here, should be turned into CP-CC pair')
 
 class MyriaApply(algebra.Apply, MyriaOperator):
   """Represents a simple apply operator"""
@@ -342,7 +358,6 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
   def shortStr(self):
     return "%s(%s)" % (self.opname(), self.opid)
 
-
 class BreakShuffle(rules.Rule):
   def fire(self, expr):
     if not isinstance(expr, MyriaShuffle):
@@ -351,6 +366,52 @@ class BreakShuffle(rules.Rule):
     opid = gen_op_id()
     producer = MyriaShuffleProducer(expr.input, opid, expr.columnlist)
     consumer = MyriaShuffleConsumer(producer, opid)
+    return consumer
+
+
+class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
+  """A Myria CollectProducer"""
+  def __init__(self, input, opid, server):
+    algebra.UnaryOperator.__init__(self, input)
+    self.opid = opid
+    self.server = server
+
+  def shortStr(self):
+    return "%s(@%s, %s)" % (self.opname(), self.server, self.opid)
+
+  def compileme(self, resultsym, inputsym):
+    return {
+        "op_name" : resultsym,
+        "op_type" : "CollectProducer",
+        "arg_child" : inputsym,
+        "arg_operator_id" : self.opid
+      }
+
+class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
+  """A Myria CollectConsumer"""
+  def __init__(self, input, opid):
+    algebra.UnaryOperator.__init__(self, input)
+    self.opid = opid
+
+  def compileme(self, resultsym, inputsym):
+    return {
+        'op_name' : resultsym,
+        'op_type' : 'CollectConsumer',
+        'arg_operator_id' : self.opid,
+        'arg_schema' : scheme_to_schema(self.scheme())
+      }
+
+  def shortStr(self):
+    return "%s(%s)" % (self.opname(), self.opid)
+
+class BreakCollect(rules.Rule):
+  def fire(self, expr):
+    if not isinstance(expr, MyriaCollect):
+      return expr
+
+    opid = gen_op_id()
+    producer = MyriaCollectProducer(expr.input, opid, None)
+    consumer = MyriaCollectConsumer(producer, opid)
     return consumer
 
 class BreakBroadcast(rules.Rule):
@@ -445,7 +506,7 @@ class TransferBeforeGroupBy(rules.Rule):
                     for ref in expr.groupinglist]
     if len(group_fields) == 0:
       # Need to Collect all tuples at once place
-      raise NotImplementedError("Aggregate with no fields")
+      expr.input = algebra.Collect(expr.input)
     else:
       # Need to Shuffle
       expr.input = algebra.Shuffle(expr.input, group_fields)
@@ -476,6 +537,7 @@ class MyriaAlgebra:
 
   fragment_leaves = (
       MyriaShuffleConsumer
+      , MyriaCollectConsumer
       , MyriaBroadcastConsumer
       , MyriaScan
   )
@@ -492,12 +554,14 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.Apply,MyriaApply)
       , rules.OneToOne(algebra.Select,MyriaSelect)
       , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
+      , rules.OneToOne(algebra.Collect,MyriaCollect)
       , rules.OneToOne(algebra.Project,MyriaProject)
       , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
       , RemoveRenames()
       , RemoveStores()
       , BreakShuffle()
+      , BreakCollect()
       , BreakBroadcast()
   ]
 

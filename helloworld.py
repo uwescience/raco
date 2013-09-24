@@ -80,8 +80,13 @@ multi_aggregate = """
 TwoHopCount(x, z, count(y)) :- R3(x,y,z)
 """
 
+# No-column aggregate
+no_group_aggregate = """
+Status(min(x), count(y)) :- Twitter(x,y)
+"""
+
 # Which one do we use?
-query = chained_victim
+query = no_group_aggregate
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
