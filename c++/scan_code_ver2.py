@@ -121,7 +121,7 @@ class cpp_code :
             self.relation_to_tuple[n] = t_name
             return ''
 
-        numcols = len(n.relation.scheme)
+        numcols = len(n.relation.scheme())
 
         self.cpp_code += 'struct ' + t_name + '{\n'
         for i in range(numcols) :
@@ -160,7 +160,7 @@ class cpp_code :
             return ''
 
         filename = n.relation.name #could be changed later
-        numcols = len(n.relation.scheme)
+        numcols = len(n.relation.scheme())
         code = open('templates_ver2/scan.template').read()
         code = code.replace('$$varname$$',varname)
         code = code.replace('$$filename$$','"' + str(filename) + '"')
@@ -276,9 +276,9 @@ class cpp_code :
         tot = 0
         index = {}
         for arg in n.args :
-            for i in range(tot,tot+len(arg.relation.scheme)) :
+            for i in range(tot,tot+len(arg.relation.scheme())) :
                 index[i] = (i - tot,arg)
-            tot += len(arg.relation.scheme)
+            tot += len(arg.relation.scheme())
 
         #step 2: create necessary hashes
         for i in range(0,len(n.joinconditions)) :
