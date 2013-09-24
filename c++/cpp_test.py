@@ -8,12 +8,23 @@ import scan_code_ver2 as sc
 import raco.boolean
 from generateDot import generateDot
 
-#query = 'A(a1) :- R(a1,x),S(x,y),T(y,z),U(z,a1),100=z,y=50'
-query = 'Triangle(x,y,z) :- R(x,y),S(y,z),T(z,x)'
-#query = 'Triangle(x,y,z) :- edges(x,y),edges(y,z),edges(z,x),x<y,y<z'
-#query = 'California(x,z) :- edges1(x,y1),edges1(y1,y2),edges2(y2,z)'
-#query = 'A(x,z) :- edges(x,y1),edges(y1,y2),edges(y2,z)'
-#query = 'we(a,c) :- edges(a,b),edges(b,c)'
+import sys
+if len(sys.argv) > 1:
+    query = sys.argv[1]
+    set_sem = bool(sys.argv[2])
+else:
+    #query = 'Long(a1) :- R(a1,x),S(x,y),T(y,z),U(z,w),V(w,a1),100=z,y=50'
+    #query = 'Triangle(x,y,z) :- R(x,y),S(y,z),T(z,x)'
+    #query = 'Triangle(x,y,z) :- edges(x,y),edges(y,z),edges(z,x),x<y,y<z'
+    #query = 'California(x,z) :- edges1(x,y1),edges1(y1,y2),edges2(y2,z)'
+    query = 'fof(a,c) :- edges(a,b),edges(b,c)'
+    #query = 'fofsel(a,c) :- edges(a,b),edges(b,c),b<c'
+    #query = 'fofdir(a,c) :- edges(a,b),edges(b,c),a<b,b<c'
+    #query = 'mutual(a,b) :- edges(a,b),edges(b,a)'
+
+import re
+p = re.compile('[^(]*')
+headname = p.match(query).group(0)
 
 print "query:", query, "\n"
 
@@ -23,7 +34,7 @@ print "parsed:", parsedprogram, "\n"
 
 
 ra = parsedprogram.toRA()
-generateDot(ra,'diamond.dot')
+generateDot(ra,headname+'.dot')
 print "ra:", ra, "\n"
 
 physicalplan = optimize(ra, target=CCAlgebra, source=LogicalAlgebra)
@@ -33,8 +44,7 @@ print 'joinconditions=',physicalplan[0][1].joinconditions
 print 'leftconditions=',physicalplan[0][1].leftconditions
 print 'rightconditions=',physicalplan[0][1].rightconditions
 print 'final=',physicalplan[0][1].finalcondition
-#tmp = sc.cpp_code(physicalplan,'california')
-tmp = sc.cpp_code(physicalplan,'triangle_nosel')
+tmp = sc.cpp_code(physicalplan,headname,dis=set_sem)  #dis=True
 print 'cpp_code result:',tmp
 tmp.gen_code()
 
