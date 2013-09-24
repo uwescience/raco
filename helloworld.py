@@ -66,11 +66,16 @@ filtered(src, dst, time) :- nccdc(src, dst, proto, time, a, b, c), time > 136647
 
 # Aggregate
 aggregate = """
-InDegree(dst, count(src)) :- Edge(src,dst)
+InDegree(dst, count(src)) :- R3(src,dst,val)
+"""
+
+# Multi-column aggregate
+multi_aggregate = """
+TwoHopCount(x, z, count(y)) :- R3(x,y,z)
 """
 
 # Which one do we use?
-query = aggregate
+query = multi_aggregate
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)

@@ -196,7 +196,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
                  for agg_expr in self.aggregatelist]
     return {
         "op_name" : resultsym,
-        "op_type" : "SingleGroupByAggregate",
+        "op_type" : "SingleGroupByAggregateNoBuffer",
         "arg_child" : inputsym,
         "arg_group_field" : group_field.position,
         "arg_agg_fields" : [agg_field.position for agg_field in agg_fields],
@@ -204,8 +204,21 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         }
 
   def compileme_multi_group(self, resultsym, inputsym):
-    raise NotImplementedError("multi grouping")
-    pass
+    child_scheme = self.input.scheme()
+    group_fields = [expression.toUnnamed(ref, child_scheme) \
+                    for ref in self.groupinglist]
+    agg_fields = [expression.toUnnamed(expr.input, child_scheme) \
+                  for expr in self.aggregatelist]
+    agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)] \
+                 for agg_expr in self.aggregatelist]
+    return {
+        "op_name" : resultsym,
+        "op_type" : "MultiGroupByAggregate",
+        "arg_child" : inputsym,
+        "arg_group_fields" : [field.position for field in group_fields],
+        "arg_agg_fields" : [agg_field.position for agg_field in agg_fields],
+        "arg_agg_operators" : agg_types,
+        }
 
   def compileme(self, resultsym, inputsym):
     num_fields = len(self.groupinglist)
