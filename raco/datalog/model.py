@@ -262,7 +262,8 @@ class Rule:
       while cycles:
         # choose an edge to break the cycle
         # that edge will be a selection condition after the final join
-        oneedge = cycles[0][-2:]
+        #oneedge = cycles[0][-2:]
+        oneedge = sorted(cycles[0], key=lambda v: v.originalorder)[-2:]
         data = component.get_edge_data(*oneedge)   
         cycleconditions.append(data)
         component.remove_edge(*oneedge)
