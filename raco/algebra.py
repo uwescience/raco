@@ -498,7 +498,7 @@ class GroupBy(UnaryOperator):
   def shortStr(self):
     groupstring = ",".join([str(x) for x in self.groupinglist])
     aggstr = ",".join([str(x) for x in self.aggregatelist])
-    return "%s(%s)(%s)" % (self.opname(), groupstring, aggstr)
+    return "%s(%s; %s)" % (self.opname(), groupstring, aggstr)
 
   def copy(self, other):
     """deep copy"""
