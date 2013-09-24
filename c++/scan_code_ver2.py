@@ -86,13 +86,13 @@ class cpp_code :
     #-----------------------------------------------------------------------
 
     def count_startup_code(self) :
-        code = open('templates/count_setup.template').read()
+        code = open('templates_ver2/count_setup.template').read()
         return code.replace('\n','\n' + ' '*self.indent) 
 
     #-----------------------------------------------------------------------
 
     def count_update_code(self) :
-        code = open('templates/count_update.template').read()
+        code = open('templates_ver2/count_update.template').read()
         return code.replace('\n','\n' + ' '*self.indent)
 
     #-----------------------------------------------------------------------
@@ -108,7 +108,7 @@ class cpp_code :
     #-----------------------------------------------------------------------
 
     def count_wrapup_code(self) :
-        code = open('templates/count_output.template').read()
+        code = open('templates_ver2/count_output.template').read()
         return code.replace('\n','\n' + ' '*self.indent)  
 
     #-----------------------------------------------------------------------
