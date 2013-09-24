@@ -3,35 +3,7 @@
 from raco import RACompiler
 from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
-
-def nodes_to_id(nodes):
-    return [id(x) for x in nodes]
-
-def edges_to_id(edges):
-    return [(id(x), id(y)) for (x, y) in edges]
-
-def print_gv(nodes, edges):
-    # Header
-    ret = """digraph G {
-  ratio = 1.333333 ;
-  mincross = 2.0 ;
-  rankdir = "BT" ;
-  nodesep = 0.25 ;
-  node [fontname="Helvetica", fontsize=10, shape=oval, style=filled, fillcolor=white ] ;
-
-"""
-    
-    # Nodes
-    for n in nodes:
-        ret += '  "%s" [label="%s"] ;\n' % (id(n), str(n))
-    ret += '\n'
-
-    # Edges
-    for (x, y) in edges:
-        ret += '  "%s" -> "%s" ;\n' % (id(x), id(y))
-
-    ret += '}'
-    return ret
+from raco.viz import graph_to_dot, operator_to_dot, plan_to_dot
 
 def main():
     # A simple join
@@ -39,6 +11,9 @@ def main():
 
     # Triangle
     # query = "A(x,z) :- R(x,y),S(y,z),T(z,x)"
+
+    # Two independent rules
+    query = """A(x,z) :- R(x,y), S(y,z); B(x,z) :- S(z,x)."""
 
     # Create a cmpiler object
     dlog = RACompiler()
@@ -48,8 +23,20 @@ def main():
 
     # Print out the graph
     for (label, root_operator) in dlog.logicalplan:
-        (nodes, edges) = root_operator.collectGraph()
-        print print_gv(nodes, edges)
+        graph = root_operator.collectGraph()
+        v1 = graph_to_dot(graph)
+        v2 = operator_to_dot(root_operator)
+        assert v1 == v2
+        print "Dot for individual IDB %s: " % label
+        print v1
+        print
+
+    v3 = plan_to_dot(dlog.logicalplan)
+    print "Dot for combined IDBs:"
+    print v3
+    print
+    if len(dlog.logicalplan) == 1:
+        assert v1 == v3
 
 if __name__ == "__main__":
     main()

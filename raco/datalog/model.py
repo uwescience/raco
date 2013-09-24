@@ -9,6 +9,7 @@ import raco.algebra
 import raco.scheme
 import raco.catalog
 
+
 class Program:
   def __init__(self, rules):
     self.rules = rules
@@ -162,8 +163,8 @@ class BFSLeftDeepPlanner(Planner):
   def chooseplan(self, costfunc=None):
     """Return a join sequence object based on the join graph.
 This one is simple -- it just adds the joins according to a breadth first search"""
-    # choose first node
-    firstnode = self.joingraph.nodes()[0]
+    # choose first node in the original insertion order (networkx does not guarantee even a deterministic order)
+    firstnode = [n for n in self.joingraph.nodes() if n.originalorder == 0][0]
 
     # get a BFS ordering of the edges.  Ignores costs.
     edgesequence = [x for x in nx.bfs_edges(self.joingraph, firstnode)]
@@ -233,7 +234,7 @@ class Rule:
       joingraph.add_node(term1, term=term1) 
       for j in range(i+1, N):
         term2 = terms[j]
-        joins = term1.joins(term2, conditions)
+        joins = term1.joinsto(term2, conditions)
         if joins:
           conjunction = reduce(raco.boolean.AND, joins) 
           joingraph.add_edge(term1, term2, condition=conjunction, order=(term1, term2)) 
@@ -292,13 +293,13 @@ class Rule:
       plan = raco.algebra.CrossProduct(plan, newplan)
  
     # Helper function for the next two steps (TODO: move this to a method?)
-    vars = [x for x in self.vars()]
+    scheme = plan.scheme()
     def findvar(variable):
       var = variable.var
-      if var not in vars:
+      if var not in scheme:
         msg = "Head variable %s does not appear in rule body: %s" % (var, self)
         raise SyntaxError(msg)
-      return raco.boolean.PositionReference(vars.index(var))
+      return raco.expression.UnnamedAttributeRef(scheme.getPosition(var))
 
     # if this Rule includes a server specification, add a partition operator
     if self.isParallel():
@@ -311,6 +312,7 @@ class Rule:
 
     # Put a project at the top of the plan
      
+    # TODO: columnlist should perhaps be a list of arbitrary column expressions
     columnlist = [findvar(var) for var in self.head.valuerefs if isinstance(var, Var)]
         
     plan = raco.algebra.Project(columnlist, plan)
@@ -343,7 +345,12 @@ class Var:
 class Term:
   def __init__(self, parsedterm): 
     self.name = parsedterm[0]
+    self.alias = self.name
     self.valuerefs = [vr for vr in parsedterm[1]]
+
+  def setalias(self, alias):
+    """Assign an alias for this term. Used when the same relation appears twice in one rule."""
+    self.alias = alias
 
   def samerelation(self, term):
     """Return True if the argument refers to the same relation"""
@@ -353,19 +360,16 @@ class Term:
     return "%s_%s(%s)" % (self.__class__.__name__,self.name, ",".join([str(e) for e in self.valuerefs]))
 
   def vars(self):
-    """Return a dictionary mapping variable names to RA attribute references. For example, A(X,Y) returns {"X":PositionReference(0), "Y":PositionReference(1)}.  Only the first reference to this variable is returned."""
-  
-    Pos = raco.boolean.PositionReference
+    """Return a list of variable names used in this term."""
     return [vr.var for vr in self.valuerefs if isinstance(vr, Var)]
-    #return {vr.var:Pos(i) for i,vr in enumerate(self.valuerefs) if isinstance(vr, Var)}
 
-  def joins(self, other, conditions):
+  def joinsto(self, other, conditions):
     """Return the join conditions between this term and the argument term.  The second argument is a list of explicit conditions, like X=3 or Y=Z"""
     # get the implicit join conditions
     yourvars = other.vars()
     myvars = self.vars()
     joins = []
-    Pos = raco.boolean.PositionReference
+    Pos = raco.expression.UnnamedAttributeRef
     for i, var in enumerate(myvars):
       if var in yourvars:
         myposition = Pos(i)
@@ -397,7 +401,7 @@ class Term:
     """Convert a Datalog value reference (a literal or a variable) to RA.  Literals are passed through unchanged.  Variables are converted"""
     if self.match(valueref):
       pos = self.position(valueref)
-      return raco.boolean.PositionReference(pos)
+      return raco.expression.UnnamedAttributeRef(pos)
     else:
       # must be a join condition, and the other variable matches
       return valueref
@@ -453,7 +457,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
     # Check for implicit literal equality conditions, like A(X,"foo")
     for i,b in enumerate(self.valuerefs):
       if isinstance(b,raco.boolean.Literal):
-        posref = raco.boolean.PositionReference(i)
+        posref = raco.expression.UnnamedAttributeRef(i)
         yield raco.boolean.EQ(posref, b)
 
     # Check for repeated variable conditions, like A(X,X)
@@ -465,8 +469,8 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
           if isinstance(y, Var):
             # TODO: probably want to implement __eq__, but it makes Var objects unhashable
             if x.var == y.var:
-              leftpos = raco.boolean.PositionReference(i)
-              rightpos = raco.boolean.PositionReference(j)
+              leftpos = raco.expression.UnnamedAttributeRef(i)
+              rightpos = raco.expression.UnnamedAttributeRef(j)
               yield raco.boolean.EQ(leftpos, rightpos)
  
   def makeLeaf(term, conditions, program):
@@ -475,11 +479,15 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
   and separate condition terms, like A(X,Y), X=3 -> Select(pos0=3, Scan(A))
   separate condition terms are passed in as an argument.
   """
-    def attr(i,r): 
+    def attr(i,r, relation_alias): 
       if isinstance(r,Var):
-        return (r.var, None)
+        name = r.var
+        attrtype = None
       elif isinstance(r,raco.boolean.Literal):
-        return ("pos%s" % i, type(r.value))
+        name = "pos%s" % i 
+        attrtype = type(r.value)
+      return (name, attrtype)
+      #return AttributeSpec(relation_alias, name, attrtype)
 
     idbs = program.IDB(term)
     if idbs:
@@ -493,7 +501,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
       scan = reduce(raco.algebra.Union,[wrap(idb) for idb in idbs])
     else:
       # TODO: A call to some catalog?
-      sch = raco.scheme.Scheme([attr(i,r) for i,r in enumerate(term.valuerefs)])
+      sch = raco.scheme.Scheme([attr(i,r,term.name) for i,r in enumerate(term.valuerefs)])
       scan = raco.algebra.Scan(raco.catalog.Relation(term.name, sch))
       scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))
 

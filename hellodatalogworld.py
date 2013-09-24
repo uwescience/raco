@@ -9,6 +9,10 @@ query = """
 A(x,z) :- R(x,p1,y,c1), T(y,p2,z,c2), z=217772631
 """
 
+query = """
+A(x,z) :- R(x,y),S(y,z),T(z,x)
+"""
+
 # Now parse it
 parsedprogram = parse(query)
 
