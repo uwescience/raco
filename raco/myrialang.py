@@ -234,6 +234,32 @@ class MyriaShuffle(algebra.Shuffle, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')
 
+class MyriaApply(algebra.Apply, MyriaOperator):
+  """Represents a simple apply operator"""
+  def is_a_rename(self):
+    """Returns true if this Apply is just a rename."""
+    child_scheme = self.input.scheme()
+
+    # If the number of input and output fields are different, obviously not a rename
+    num_input_fields = len(child_scheme)
+    num_output_fields = len(self.mappings)
+    if num_input_fields != num_output_fields:
+      return False
+
+    for (i, (out, out_expr)) in enumerate(self.mappings):
+      # In a rename, the expression must be a simple attribute reference
+      if not isinstance(out_expr, expression.AttributeRef):
+        return False
+      # And mapping[i] better be a reference to the ith child input
+      if expression.toUnnamed(out_expr, child_scheme).position != i:
+        return False
+
+    # Okay, if all those conditions are met, it's a rename
+    return True
+
+  def compileme(self, resultsym, inputsym):
+    raise NotImplementedError('shouldn''t get here, should be getting removed by rules')
+
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
   """A Myria BroadcastProducer"""
   def __init__(self, input, opid):
@@ -386,6 +412,27 @@ class BroadcastBeforeCross(rules.Rule):
 
     return expr
 
+class RemoveRenames(rules.Rule):
+  def fire(self, expr):
+    # If not a MyriaApply, who cares?
+    if not isinstance(expr, MyriaApply):
+      return expr
+
+    if expr.is_a_rename():
+      return expr.input
+
+    return expr
+
+class RemoveStores(rules.Rule):
+  def fire(self, expr):
+    # This rule only works because, currently, the compiler adds a MyriaInsert
+    # during compilation (and after this rule is fired).
+
+    if isinstance(expr, algebra.Store):
+      return expr.input
+
+    return expr
+
 class TransferBeforeGroupBy(rules.Rule):
   def fire(self, expr):
     # If not a GroupBy, who cares?
@@ -442,11 +489,14 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
       , rules.OneToOne(algebra.GroupBy,MyriaGroupBy)
       , rules.OneToOne(algebra.Store,MyriaInsert)
+      , rules.OneToOne(algebra.Apply,MyriaApply)
       , rules.OneToOne(algebra.Select,MyriaSelect)
       , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
       , rules.OneToOne(algebra.Project,MyriaProject)
       , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
+      , RemoveRenames()
+      , RemoveStores()
       , BreakShuffle()
       , BreakBroadcast()
   ]
