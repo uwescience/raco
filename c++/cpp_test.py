@@ -12,6 +12,8 @@ import sys
 if len(sys.argv) > 1:
     query = sys.argv[1]
     set_sem = bool(sys.argv[2])
+    if (set_sem=='True'): set_sem = True
+    else: set_sem=False
 else:
     #query = 'Long(a1) :- R(a1,x),S(x,y),T(y,z),U(z,w),V(w,a1),100=z,y=50'
     #query = 'Triangle(x,y,z) :- R(x,y),S(y,z),T(z,x)'
