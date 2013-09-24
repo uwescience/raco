@@ -194,7 +194,6 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
                   for expr in self.aggregatelist]
     agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)] \
                  for agg_expr in self.aggregatelist]
-    print self.scheme()
     return {
         "op_name" : resultsym,
         "op_type" : "SingleGroupByAggregate",
