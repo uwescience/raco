@@ -4,7 +4,7 @@ An expression language for datalog: Function calls, arithmetic, simple string fu
 """
 
 class Expression(Printable):
-  def typeof(self):
+  def type_with_respect_to(self, plan):
     # By default, we don't know the type
     return None
 
@@ -112,8 +112,7 @@ class Literal(ZeroaryOperator):
   def __repr__(self):
     return str(self.value)
 
-  def typeof(self):
-    # TODO: DANGEROUS
+  def type_with_respect_to(self, plan):
     return type(self.value)
 
   def evaluate(self, _tuple, scheme):
@@ -261,7 +260,7 @@ class AVG(UnaryFunction,AggregateExpression):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return max(inputs)
 
-  def typeof(self):
+  def type_with_respect_to(self, plan):
     return type(0.01)
 
 class STDDEV(UnaryFunction,AggregateExpression):
@@ -269,7 +268,7 @@ class STDDEV(UnaryFunction,AggregateExpression):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return max(inputs)
 
-  def typeof(self):
+  def type_with_respect_to(self, plan):
     return type(0.01)
 
 class MAX(UnaryFunction,AggregateExpression):
@@ -277,16 +276,16 @@ class MAX(UnaryFunction,AggregateExpression):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return max(inputs)
 
-  def typeof(self):
-    return self.input.typeof()
+  def type_with_respect_to(self, plan):
+    return self.input.type_with_respect_to(plan)
 
 class MIN(UnaryFunction,AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return min(inputs)
 
-  def typeof(self):
-    return self.input.typeof()
+  def type_with_respect_to(self, plan):
+    return self.input.type_with_respect_to(plan)
 
 class COUNT(UnaryFunction,AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
@@ -297,7 +296,7 @@ class COUNT(UnaryFunction,AggregateExpression):
         count += 1
     return count
 
-  def typeof(self):
+  def type_with_respect_to(self, plan):
     return type(0L)
 
 class SUM(UnaryFunction,AggregateExpression):
@@ -310,8 +309,8 @@ class SUM(UnaryFunction,AggregateExpression):
         sum += t
     return sum
 
-  def typeof(self):
-    return self.input.typeof()
+  def type_with_respect_to(self, plan):
+    return self.input.type_with_respect_to(plan)
 
 class BooleanExpression(Printable):
   pass
