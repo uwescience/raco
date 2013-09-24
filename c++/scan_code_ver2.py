@@ -86,13 +86,13 @@ class cpp_code :
     #-----------------------------------------------------------------------
 
     def count_startup_code(self) :
-        code = open('templates/count_setup.template').read()
+        code = open('templates_ver2/count_setup.template').read()
         return code.replace('\n','\n' + ' '*self.indent) 
 
     #-----------------------------------------------------------------------
 
     def count_update_code(self) :
-        code = open('templates/count_update.template').read()
+        code = open('templates_ver2/count_update.template').read()
         return code.replace('\n','\n' + ' '*self.indent)
 
     #-----------------------------------------------------------------------
@@ -108,7 +108,7 @@ class cpp_code :
     #-----------------------------------------------------------------------
 
     def count_wrapup_code(self) :
-        code = open('templates/count_output.template').read()
+        code = open('templates_ver2/count_output.template').read()
         return code.replace('\n','\n' + ' '*self.indent)  
 
     #-----------------------------------------------------------------------
@@ -249,7 +249,7 @@ class cpp_code :
 
 
     def generate_result(self,table,clause='1') :
-        code = open('templates/final_select_emit.template').read()
+        code = open('templates_ver2/final_select_emit.template').read()
         code = code.replace('$$index$$','index' + str(self.index))
         code = code.replace('$$table$$',table)
         code = code.replace('$$clause$$',clause)
