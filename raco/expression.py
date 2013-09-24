@@ -128,7 +128,9 @@ class NumericLiteral(Literal):
   pass
 
 class AttributeRef(Expression):
-  pass
+  def type_with_respect_to(self, plan):
+    name, typ = plan.resolveAttribute(self)
+    return typ
 
 class NamedAttributeRef(AttributeRef):
   def __init__(self, attributename):
