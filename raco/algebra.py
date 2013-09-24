@@ -365,7 +365,7 @@ class Join(BinaryOperator):
         raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
 class Apply(UnaryOperator):
-  def __init__(self, mappings, input=None):
+  def __init__(self, mappings=None, input=None):
     """Create new attributes from expressions with optional rename.
 
     mappings is a list of tuples of the form:
@@ -381,8 +381,9 @@ class Apply(UnaryOperator):
         # TODO: This isn't right; we should resolve $1 into a column name
         return str(expr)
 
-    self.mappings = [(resolve_name(name, expr), expr) for name, expr
-                     in mappings]
+    if mappings is not None:
+      self.mappings = [(resolve_name(name, expr), expr) for name, expr
+                       in mappings]
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):
@@ -642,6 +643,10 @@ class Store(UnaryOperator):
     
   def shortStr(self):
     return "%s(%s)" % (self.opname(),self.name)
+
+  def copy(self, other):
+    self.name = other.name
+    UnaryOperator.copy(self, other)
 
 class EmptyRelation(ZeroaryOperator):
   """Empty Relation.  Used in certain optimizations."""
