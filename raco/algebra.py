@@ -382,7 +382,7 @@ class Apply(UnaryOperator):
 
   def scheme(self):
     """scheme of the result."""
-    new_attrs = [(name,expr.typeof()) for (name, expr) in self.mappings]
+    new_attrs = [(name,expr.type_with_respect_to(self)) for (name, expr) in self.mappings]
     return scheme.Scheme(new_attrs)
 
   def shortStr(self):
@@ -497,13 +497,13 @@ class GroupBy(UnaryOperator):
     """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
     def resolve(i, attr):
       if expression.isaggregate(attr):
-        return ("%s%s" % (attr.__class__.__name__,i), attr.typeof())
+        return ("%s%s" % (attr.__class__.__name__,i), attr.type_with_respect_to(self))
       elif isinstance(attr,expression.AttributeRef):
         return self.input.resolveAttribute(attr)
       else:
         # Must be some complex expression.  
         # TODO: I'm thinking we should require these expressions to be handled exclusively in Apply, where the assigned name is unambiguous.
-        return ("%s%s" % (attr.__class__.__name__,i), attr.typeof())
+        return ("%s%s" % (attr.__class__.__name__,i), attr.type_with_respect_to(self))
     return scheme.Scheme([resolve(i, e) for i, e in enumerate(self.columnlist)])
 
 class ProjectingJoin(Join):
