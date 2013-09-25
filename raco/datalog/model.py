@@ -180,8 +180,19 @@ This one is simple -- it just adds the joins according to a breadth first search
     # get a BFS ordering of the edges.  Ignores costs.
     edgesequence = [x for x in nx.bfs_edges(self.joingraph, firstnode)]
 
+    # Make it deterministic but still in BFS order
+    deterministic_edge_sequence = []
+    while len(edgesequence) > 0:
+        # Consider all edges that have the same first node -- these are all "ties" in BFS order.
+        (firstx, firsty) = edgesequence[0]
+        new_edges = [(x,y) for (x,y) in edgesequence if x == firstx]
+        # Sort those edges on the originalorder tuple of the source and destination
+        deterministic_edge_sequence.extend(sorted(new_edges, key=lambda (x,y) : (x.originalorder,y.originalorder)))
+        # Remove all those edges from edgesequence
+        edgesequence = [(x,y) for (x,y) in edgesequence if x != firstx]
+
     # Generate a concrete sequence of terms with conditions properly adjusted
-    joinsequence = self.toJoinSequence(edgesequence)
+    joinsequence = self.toJoinSequence(deterministic_edge_sequence)
     return joinsequence
 
 class Rule:
