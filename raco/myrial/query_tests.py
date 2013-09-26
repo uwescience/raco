@@ -619,3 +619,21 @@ class TestQueryFunctions(unittest.TestCase):
 
         with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
             self.__run_test(query, collections.Counter())
+
+    def test_multiway_bagcomp_with_unbox(self):
+        """Return all employees in accounting making less than 30000"""
+        query = """
+        Salary = [30000];
+        Dept = ["accounting"];
+
+        out = [FROM E=SCAN(%s), D=SCAN(%s)
+               WHERE E.dept_id == D.id AND D.name == *Dept
+               AND E.salary < *Salary EMIT name=E.$2];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = collections.Counter([
+            ("Andrew Whitaker",),
+            ("Victor Almeida",),
+            ("Magdalena Balazinska",)])
+        self.__run_test(query, expected)
