@@ -350,11 +350,23 @@ class TestQueryFunctions(unittest.TestCase):
 
     # TODO: test with multiple join attributes
 
-    def test_cross(self):
+    def test_explicit_cross(self):
         query = """
         out = CROSS(SCAN(%s), SCAN(%s));
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
+
+        tuples = [e + d for e in self.emp_table.elements() for
+                  d in self.dept_table.elements()]
+        expected = collections.Counter(tuples)
+
+        self.__run_test(query, expected)
+
+    def test_bagcomp_cross(self):
+        query = """
+        out = [FROM E=SCAN(%s),D=SCAN(%s) EMIT *];
+        DUMP(out);
+        """  % (self.emp_key, self.dept_key)
 
         tuples = [e + d for e in self.emp_table.elements() for
                   d in self.dept_table.elements()]
