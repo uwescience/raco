@@ -643,6 +643,10 @@ def apply_schema_recursive(operator, schema_map):
       if len(operator.relation._scheme) != len(schema_map[name]):
         raise ValueError("query scheme for %s (%d columns) does not match the catalog scheme (%d columns)" % (name, len(operator.relation._scheme), len(schema_map[name])))
       operator.relation._scheme = scheme.Scheme(schema_map[name])
+    else:
+      old_sch = operator.relation._scheme
+      new_sch = [(old_sch.getName(i), "unknown") for i in range(len(old_sch))]
+      operator.relation._scheme = scheme.Scheme(new_sch)
 
   # Recurse through all children
   for child in operator.children():
