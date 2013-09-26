@@ -308,7 +308,16 @@ class TestQueryFunctions(unittest.TestCase):
 
         self.__run_test(query, expected)
 
-    def test_join(self):
+    join_expected = collections.Counter(
+        [('Bill Howe', 'human resources'),
+         ('Dan Halperin', 'accounting'),
+         ('Andrew Whitaker','accounting'),
+         ('Shumo Chu', 'human resources'),
+         ('Victor Almeida', 'accounting'),
+         ('Dan Suciu', 'engineering'),
+         ('Magdalena Balazinska', 'accounting')])
+
+    def test_explicit_join(self):
         query = """
         emp = SCAN(%s);
         dept = SCAN(%s);
@@ -317,16 +326,27 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
-        expected = collections.Counter(
-            [('Bill Howe', 'human resources'),
-             ('Dan Halperin', 'accounting'),
-             ('Andrew Whitaker','accounting'),
-             ('Shumo Chu', 'human resources'),
-             ('Victor Almeida', 'accounting'),
-             ('Dan Suciu', 'engineering'),
-             ('Magdalena Balazinska', 'accounting')])
+        self.__run_test(query, self.join_expected)
 
-        self.__run_test(query, expected)
+    def test_bagcomp_join_via_names(self):
+        query = """
+        out = [FROM E=SCAN(%s),D=SCAN(%s) WHERE E.dept_id == D.id
+              EMIT emp_name=E.name, dept_name=D.name];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        self.__run_test(query, self.join_expected)
+
+    def test_bagcomp_join_via_pos(self):
+        query = """
+        E = SCAN(%s);
+        D = SCAN(%s);
+        out = [FROM E, D WHERE E.$1 == D.$0
+              EMIT emp_name=E.name, dept_name=D.$1];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        self.__run_test(query, self.join_expected)
 
     # TODO: test with multiple join attributes
 
