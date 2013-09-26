@@ -2,8 +2,9 @@
 
 import raco.myrial.parser as parser
 import raco.myrial.unbox as unbox
+import raco.myrial.groupby as groupby
 import raco.algebra
-import raco.expression as colexpr
+import raco.expression as sexpr
 import raco.catalog
 import raco.scheme
 
@@ -50,10 +51,13 @@ class ExpressionProcessor:
         if where_clause:
             op = raco.algebra.Select(condition=where_clause, input=op)
 
+        op, emit_clause = groupby.groupby(op, emit_clause)
+
         if emit_clause:
             op = raco.algebra.Apply(mappings=emit_clause, input=op)
         else:
             # Strip off any cross-product columns that we artificially added
+            # during unboxing.
             mappings = [(orig_scheme.getName(i),
                          raco.expression.UnnamedAttributeRef(i))
                         for i in range(len(orig_scheme))]
@@ -79,7 +83,7 @@ class ExpressionProcessor:
     def countall(self, expr):
         op = self.evaluate(expr)
         return raco.algebra.GroupBy(groupinglist=[],
-                                    aggregatelist=[colexpr.COUNT()],
+                                    aggregatelist=[sexpr.COUNT()],
                                     input=op)
 
     def intersect(self, id1, id2):
@@ -122,14 +126,14 @@ class ExpressionProcessor:
         right_refs = [get_attribute_ref(c, right_scheme, len(left_scheme))
                       for c in right_target.columns]
 
-        join_conditions = [colexpr.EQ(x,y) for x,y in
+        join_conditions = [sexpr.EQ(x,y) for x,y in
                            zip(left_refs, right_refs)]
 
         # Merge the join conditions into a big AND expression
 
         def andify(x,y):
-            """Merge two column expressions with an AND"""
-            return colexpr.AND(x,y)
+            """Merge two scalar expressions with an AND"""
+            return sexpr.AND(x,y)
 
         condition = reduce(andify, join_conditions[1:], join_conditions[0])
         return raco.algebra.Join(condition, left, right)

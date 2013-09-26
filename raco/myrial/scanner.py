@@ -6,7 +6,7 @@ import ply.lex as lex
 reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
             'INTERSECT', 'DUMP', 'FILTER', 'BY', 'WHILE', 'INT', 'STRING',
             'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN', 'COUNTALL', 'FROM',
-            'WHERE', 'AND', 'OR', 'NOT']
+            'WHERE', 'AND', 'OR', 'NOT', 'MAX', 'MIN', 'SUM', 'COUNT']
 
 # Token types; required by ply to have this variable name
 

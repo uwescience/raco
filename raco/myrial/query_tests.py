@@ -6,6 +6,7 @@ import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme as scheme
+import raco.myrial.groupby
 
 class TestQueryFunctions(unittest.TestCase):
 
@@ -451,3 +452,138 @@ class TestQueryFunctions(unittest.TestCase):
              x[3] == 5000 or x[3] == 25000])
         self.__run_test(query, expected)
 
+
+    def __aggregate_expected_result(self, apply_func):
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, apply_func(values)) for key, values in
+                  result_dict.iteritems()]
+        return collections.Counter(tuples)
+
+    def test_max(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, MAX(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(max))
+
+    def test_min(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, MIN(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(min))
+
+    def test_sum(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, SUM(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(sum))
+
+    def test_count(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, COUNT(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.__run_test(query, self.__aggregate_expected_result(len))
+
+    def test_max_reversed(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT max_salary=MAX(salary), dept_id];
+        DUMP(out);
+        """ % self.emp_key
+
+        ex = self.__aggregate_expected_result(max)
+        ex = collections.Counter([(y,x) for (x,y) in ex])
+        self.__run_test(query, ex)
+
+    def test_compound_aggregate(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT range=( 2 * (MAX(salary) - MIN(salary))),
+        did=dept_id];
+        out = [FROM out EMIT dept_id=did, rng=range];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, 2 * (max(values) - min(values))) for key, values in
+                  result_dict.iteritems()]
+
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
+
+    def test_aggregate_with_unbox(self):
+        query = """
+        C = [one=1, two=2];
+        out = [FROM SCAN(%s) EMIT range=MAX(*C.two * salary) -
+        MIN( *C.$1 * salary), did=dept_id];
+        out = [FROM out EMIT dept_id=did, rng=range];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(2 * t[3])
+
+        tuples = [(key, (max(values) - min(values))) for key, values in
+                  result_dict.iteritems()]
+
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
+
+    def test_nary_groupby(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT dept_id, salary, COUNT(name)];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[(t[1], t[3])].append(t[2])
+
+        tuples = [key + (len(values),)
+                  for key, values in result_dict.iteritems()]
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
+
+    def test_empty_groupby(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT MAX(salary), COUNT($0), MIN(dept_id*4)];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(90000, len(self.emp_table), 4)])
+        self.__run_test(query, expected)
+
+    def test_compound_groupby(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT id+dept_id, COUNT(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[0] + t[1]].append(t[3])
+
+        tuples = [(key, len(values)) for key, values in result_dict.iteritems()]
+        expected = collections.Counter(tuples)
+        self.__run_test(query, expected)
+
+    def test_nested_aggregates_are_illegal(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
+            self.__run_test(query, collections.Counter())
