@@ -1,5 +1,40 @@
-import collections
 
+"""
+Implemention of groupby/aggregation in Myrial.
+
+The inputs are a child Operator and a list of column mappings, each defined
+by tuples of the form: (column_name, scalar_expression).  The outputs are
+(possibly) revised operators and list of column mappings.
+
+The basic algorithm:
+
+1) Scan the list of columns looking for any aggregte expressions.  If none
+are found, then we return the inputs unmodified.
+
+2) Next, we scan each column, switching on whether the scalar expression
+contains any aggregate expression:
+
+2A) Columns without aggregate expressions are "groupby" terms.  We add such
+terms to a list of groupby terms.
+
+2B) Columns with aggregate expressions are "aggregation" terms.  We record all
+aggregate expressions in a list (actually, an OrderedDict).  And, we apply
+a "hoisting" procedure whereby each aggregate expression is replaced by
+a reference to a raw column reference.  As an example:
+
+range = max(salary) - min(salary)
+==>
+range = $4 - $5
+
+3) We create a GroupBy relational algebra operation with the grouping terms
+and aggregate terms calculated in steps 2A and 2B.
+
+4) We return an updated set of column mappings; the Myrial interpreter
+uses these mappings to form an Apply operator that stitches up the column
+names and values as expected by the caller.
+"""
+
+import collections
 import raco.expression
 
 class GroupbyState(object):
