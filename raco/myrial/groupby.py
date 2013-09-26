@@ -37,6 +37,17 @@ names and values as expected by the caller.
 import collections
 import raco.expression
 
+class NestedAggregateException(Exception):
+    '''Nested aggregate functions are not allowed'''
+    pass
+
+def __aggregate_count(sexpr):
+    def count(sexpr):
+        if isinstance(sexpr, raco.expression.AggregateExpression):
+            return 1
+        return 0
+    return sum(sexpr.postorder(count))
+
 class GroupbyState(object):
     def __init__(self, initial_aggregate_pos):
         # Mapping from an aggregate scalar expression (e.g., MAX(salary)) to
@@ -53,6 +64,10 @@ def __hoist_aggregates(sexpr, gb_state):
         elif sexpr in gb_state.aggregates:
             return gb_state.aggregates[sexpr];
         else:
+            # Check for nested aggregate expressions
+            if __aggregate_count(sexpr) != 1:
+                raise NestedAggregateException(str(sexpr))
+
             out = raco.expression.UnnamedAttributeRef(gb_state.aggregate_pos)
             gb_state.aggregates[sexpr] = out
             gb_state.aggregate_pos += 1

@@ -6,6 +6,7 @@ import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme as scheme
+import raco.myrial.groupby
 
 class TestQueryFunctions(unittest.TestCase):
 
@@ -578,3 +579,11 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(tuples)
         self.__run_test(query, expected)
 
+    def test_nested_aggregates_are_illegal(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
+            self.__run_test(query, collections.Counter())
