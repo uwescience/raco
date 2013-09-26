@@ -637,3 +637,13 @@ class TestQueryFunctions(unittest.TestCase):
             ("Victor Almeida",),
             ("Magdalena Balazinska",)])
         self.__run_test(query, expected)
+
+    def test_duplicate_bagcomp_aliases_are_illegal(self):
+        query = """
+        X = SCAN(%s);
+        out = [FROM X, X EMIT *];
+        DUMP(out);
+        """ % (self.emp_key,)
+
+        with self.assertRaises(interpreter.DuplicateAliasException):
+            self.__run_test(query, collections.Counter())
