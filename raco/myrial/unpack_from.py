@@ -13,6 +13,8 @@ are converted into raw indexes.
 
 import raco.expression
 
+import types
+
 class ColumnIndexOutOfBounds(Exception):
     pass
 
@@ -39,7 +41,7 @@ def __rewrite_expression(sexpr, from_args, base_offsets):
             if type(sexpr.field) == types.IntType:
                 if sexpr.field >= len(scheme):
                     raise ColumnIndexOutOfBounds(str(sexpr))
-                offset = expr.field
+                offset = sexpr.field
             else:
                 offset = scheme.getPosition(sexpr.field)
 
