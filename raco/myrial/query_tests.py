@@ -7,6 +7,7 @@ import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme as scheme
 import raco.myrial.groupby
+import raco.myrial.unpack_from
 
 class TestQueryFunctions(unittest.TestCase):
 
@@ -646,4 +647,16 @@ class TestQueryFunctions(unittest.TestCase):
         """ % (self.emp_key,)
 
         with self.assertRaises(interpreter.DuplicateAliasException):
+            self.__run_test(query, collections.Counter())
+
+    def test_bagcomp_column_index_out_of_bounds(self):
+        query = """
+        E = SCAN(%s);
+        D = SCAN(%s);
+        out = [FROM E, D WHERE E.$1 == D.$77
+              EMIT emp_name=E.name, dept_name=D.$1];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        with self.assertRaises(raco.myrial.unpack_from.ColumnIndexOutOfBounds):
             self.__run_test(query, collections.Counter())

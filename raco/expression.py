@@ -179,10 +179,10 @@ class DottedAttributeRef(AttributeRef):
     self.field = field
 
   def __repr__(self):
-    return "%s.%s" % (self.relation_name, str(field))
+    return "%s.%s" % (self.relation_name, str(self.field))
 
   def __str__(self):
-    return "%s.%s" % (self.relation_name, str(field))
+    return "%s.%s" % (self.relation_name, str(self.field))
 
   def evaluate(self, _tuple, scheme):
     """Panic on attempted evaluation.
