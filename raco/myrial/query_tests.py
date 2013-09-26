@@ -344,7 +344,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_distinct(self):
         query = """
-        out = DISTINCT([FROM SCAN(%s) EMIT salary]);
+        out = DISTINCT([FROM X=SCAN(%s) EMIT salary]);
         DUMP(out);
         """ % self.emp_key
 
@@ -363,7 +363,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_table_literal(self):
         query = """
-        X = [FROM ["Andrew", salary=(50 * (500 + 500))] EMIT salary];
+        X = [FROM Z=["Andrew", salary=(50 * (500 + 500))] EMIT salary];
         DUMP(X);
         """
         expected = collections.Counter([(50000,)])
@@ -464,7 +464,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_max(self):
         query = """
-        out = [FROM SCAN(%s) EMIT dept_id, MAX(salary)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, MAX(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -472,7 +472,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_min(self):
         query = """
-        out = [FROM SCAN(%s) EMIT dept_id, MIN(salary)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, MIN(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -480,7 +480,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_sum(self):
         query = """
-        out = [FROM SCAN(%s) EMIT dept_id, SUM(salary)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, SUM(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -488,7 +488,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_count(self):
         query = """
-        out = [FROM SCAN(%s) EMIT dept_id, COUNT(salary)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, COUNT(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -496,7 +496,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_max_reversed(self):
         query = """
-        out = [FROM SCAN(%s) EMIT max_salary=MAX(salary), dept_id];
+        out = [FROM X=SCAN(%s) EMIT max_salary=MAX(salary), dept_id];
         DUMP(out);
         """ % self.emp_key
 
@@ -506,7 +506,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_compound_aggregate(self):
         query = """
-        out = [FROM SCAN(%s) EMIT range=( 2 * (MAX(salary) - MIN(salary))),
+        out = [FROM X=SCAN(%s) EMIT range=( 2 * (MAX(salary) - MIN(salary))),
         did=dept_id];
         out = [FROM out EMIT dept_id=did, rng=range];
         DUMP(out);
@@ -525,7 +525,7 @@ class TestQueryFunctions(unittest.TestCase):
     def test_aggregate_with_unbox(self):
         query = """
         C = [one=1, two=2];
-        out = [FROM SCAN(%s) EMIT range=MAX(*C.two * salary) -
+        out = [FROM X=SCAN(%s) EMIT range=MAX(*C.two * salary) -
         MIN( *C.$1 * salary), did=dept_id];
         out = [FROM out EMIT dept_id=did, rng=range];
         DUMP(out);
@@ -543,7 +543,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_nary_groupby(self):
         query = """
-        out = [FROM SCAN(%s) EMIT dept_id, salary, COUNT(name)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, salary, COUNT(name)];
         DUMP(out);
         """ % self.emp_key
 
@@ -558,7 +558,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_empty_groupby(self):
         query = """
-        out = [FROM SCAN(%s) EMIT MAX(salary), COUNT($0), MIN(dept_id*4)];
+        out = [FROM X=SCAN(%s) EMIT MAX(salary), COUNT($0), MIN(dept_id*4)];
         DUMP(out);
         """ % self.emp_key
 
@@ -567,7 +567,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_compound_groupby(self):
         query = """
-        out = [FROM SCAN(%s) EMIT id+dept_id, COUNT(salary)];
+        out = [FROM X=SCAN(%s) EMIT id+dept_id, COUNT(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -581,7 +581,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_nested_aggregates_are_illegal(self):
         query = """
-        out = [FROM SCAN(%s) EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
+        out = [FROM X=SCAN(%s) EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
         DUMP(out);
         """ % self.emp_key
 
