@@ -5,7 +5,7 @@ T2 = T1;
 
 T3 = JOIN (T1, follower, T2, followee);
 
-T4 = {FROM T3 EMIT x=$0, y=$3};
+T4 = [FROM T3 EMIT x=$0, y=$3];
 
 T5 = COUNTALL(T4);
 STORE (T5, Twitter2HopCount);

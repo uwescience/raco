@@ -23,12 +23,16 @@ predicate = ident.setName("Predicate")
 
 E = CaselessLiteral("E")
 
-# Get all the binary operator classes
-allclasses = [c for c in raco.boolean.__dict__.values() if not hasattr(c, "__class__")]
-binopclasses = [opclass for opclass in allclasses
-                   if issubclass(opclass,raco.boolean.BinaryBooleanOperator)
-                   and opclass is not raco.boolean.BinaryBooleanOperator
-                   and opclass is not raco.boolean.BinaryComparisonOperator]
+# Get all the aggregate expression classes
+aggregate_functions = raco.expression.aggregate_functions()
+
+# Get all the infix boolean binary operator classes, like AND, OR
+booleanopclasses = raco.boolean.binary_ops()
+
+# Get all the infix binary expression classes, like PLUS, DIVIDE, etc.
+expressionclasses = raco.expression.binary_ops()
+
+binopclasses = booleanopclasses + expressionclasses
 
 # a list of string literals representing opcodes
 opcodes = sum([oc.literals for oc in binopclasses], [])
@@ -94,17 +98,25 @@ server = drop("@") + (partitioner | allservers)
 timeexpr = (variable + oneOf("+ -") + Word( nums )).setParseAction(lambda xs: "".join([str(x) for x in xs]))
 timestep = drop("#") + (intNum | timeexpr | variable).setParseAction(lambda x: model.Timestep(x[0]))
 
-#def mkagg(x):
-#  return (x[0], x[1])
+def mkagg(x):
+  opstr, arg = x
+  for aggclass in aggregate_functions:
+    if opstr.lower() == aggclass.__name__.lower():
+       return aggclass(arg)
+  raise "Aggregate Function %s not found among %s" % (opstr, aggregate_functions)
 
-#aggregate = (Word(alphas) + drop("(") + variable + drop(")")).setParseAction(mkagg)
+aggregate = (Word(alphas) + drop("(") + variable + drop(")")).setParseAction(mkagg)
 
-#def mkheadterm(x):
-#  return model.HeadTerm(x)
+def mkheadterm(x):
+  print "HEAD: ", x
+  print model.HeadTerm(x)
+  return model.HeadTerm(x)
 
-#headvalueref = variable | literal | aggregate
+headvalueref = aggregate | variable | literal
 
-headterm = predicate + Optional(server) + drop("(") + Group(delimitedList(valueref, ",")) + drop(")") 
+headterm = (predicate + Optional(server) + drop("(") + Group(delimitedList(headvalueref, ",")) + drop(")"))
+#.setParseAction(mkheadterm)
+#headterm = (predicate + Optional(server) + drop("(") + Group(delimitedList(valueref, ",")) + drop(")"))
 
 def mkIDB(x):
   if len(x) == 4:

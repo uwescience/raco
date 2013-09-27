@@ -5,6 +5,7 @@ In particular, they can be compiled to (iterative) relational algebra expression
 '''
 import networkx as nx
 import raco.boolean
+import raco.expression
 import raco.algebra
 import raco.scheme
 import raco.catalog
@@ -35,7 +36,7 @@ class Program:
   def intermediateRule(self, rule):
     """Return True if the head does not appear in the body of any other rule."""
     for other in self.rules:
-      if other.refersTo(rule.head):
+      if other.refersTo(rule.head) and other.head != rule.head:
         return True
     return False
 
@@ -53,7 +54,17 @@ class Program:
     for rule in self.rules:
       ra = self.compileRule(rule)
 
-    return [(rule.head.name, plan) for (rule, plan) in self.compiledrules.iteritems() if not self.intermediateRule(rule)]
+    # Multiple rules with the same head are interpreted as a union
+    plans = [(rule.head.name, plan) for (rule, plan) in self.compiledrules.iteritems() if not self.intermediateRule(rule)]
+
+    unioned_plans = {}
+    for name, plan in plans:
+      union_list = unioned_plans.setdefault(name, [])
+      union_list.append(plan)
+
+    newplans = [(name, reduce(raco.algebra.Union,union_list)) for name, union_list in unioned_plans.iteritems()]
+    return newplans
+      
 
   def __repr__(self):
     return "\n".join([str(r) for r in self.rules])
@@ -169,8 +180,19 @@ This one is simple -- it just adds the joins according to a breadth first search
     # get a BFS ordering of the edges.  Ignores costs.
     edgesequence = [x for x in nx.bfs_edges(self.joingraph, firstnode)]
 
+    # Make it deterministic but still in BFS order
+    deterministic_edge_sequence = []
+    while len(edgesequence) > 0:
+        # Consider all edges that have the same first node -- these are all "ties" in BFS order.
+        (firstx, firsty) = edgesequence[0]
+        new_edges = [(x,y) for (x,y) in edgesequence if x == firstx]
+        # Sort those edges on the originalorder tuple of the source and destination
+        deterministic_edge_sequence.extend(sorted(new_edges, key=lambda (x,y) : (x.originalorder,y.originalorder)))
+        # Remove all those edges from edgesequence
+        edgesequence = [(x,y) for (x,y) in edgesequence if x != firstx]
+
     # Generate a concrete sequence of terms with conditions properly adjusted
-    joinsequence = self.toJoinSequence(edgesequence)
+    joinsequence = self.toJoinSequence(deterministic_edge_sequence)
     return joinsequence
 
 class Rule:
@@ -212,7 +234,6 @@ class Rule:
         self.fixpoint = raco.algebra.Fixpoint()
       state = raco.algebra.State(self.head.name, self.fixpoint)
       return state
-      #raise ValueError("Recursion still under the knife")
     else:
       self.compiling = True
 
@@ -252,7 +273,8 @@ class Rule:
       while cycles:
         # choose an edge to break the cycle
         # that edge will be a selection condition after the final join
-        oneedge = cycles[0][-2:]
+        #oneedge = cycles[0][-2:]
+        oneedge = sorted(cycles[0], key=lambda v: v.originalorder)[-2:]
         data = component.get_edge_data(*oneedge)   
         cycleconditions.append(data)
         component.remove_edge(*oneedge)
@@ -310,14 +332,25 @@ class Rule:
         plan = raco.algebra.PartitionBy(positions, plan)
 
 
-    # Put a project at the top of the plan
+    # Put a project or a group by at the top of the plan
      
-    # TODO: columnlist should perhaps be a list of arbitrary column expressions
-    columnlist = [findvar(var) for var in self.head.valuerefs if isinstance(var, Var)]
+    # Resolve variable references in the head; pass through aggregate expressions
+    def toAttrRef(e):
+      if raco.expression.isaggregate(e):
+        # assuming that every aggregate has exactly one argument
+        return e.__class__(findvar(e.input))
+      elif isinstance(e,Var):
+        return findvar(e)
+    columnlist = [toAttrRef(v) for v in self.head.valuerefs]
         
-    plan = raco.algebra.Project(columnlist, plan)
+    # If any of the expressions in the head are aggregate expression, construct a group by
+    if any([raco.expression.isaggregate(v) for v in self.head.valuerefs]):
+      plan = raco.algebra.GroupBy(columnlist, plan)
+    else:
+      # otherwise, just build a project
+      plan = raco.algebra.Project(columnlist, plan)
 
-    
+
     # If we found a cycle, the "root" of the plan is the fixpoint operator
     if self.fixpoint:
       self.fixpoint.loopBody(plan)
@@ -331,13 +364,16 @@ class Rule:
   def __repr__(self):
     return "%s :- %s" % (self.head, ", ".join([str(t) for t in self.body]))
 
-class Var:
+class Var(raco.expression.Expression):
   def __init__(self, var):
     self.var = var
 
   def vars(self):
     """Works with BinaryBooleanOperator.vars to return a list of vars from any expression"""
     return [self.var]
+
+  def __str__(self):
+    return str(self.var)
 
   def __repr__(self):
     return str(self.var)
@@ -489,10 +525,44 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
       return (name, attrtype)
       #return AttributeSpec(relation_alias, name, attrtype)
 
+    # Chain rules together
     idbs = program.IDB(term)
-    if idbs:
+    if idbs: # This term refers to an IDB
       def wrap(idb):
         plan = program.compileRule(idb)
+
+        # Rename attributes as needed.  
+        
+        # Do we know the actual scheme? If it's recursive, we don't
+        # So derive it from the rule head
+        # Not really satisfied with this.
+        try:
+          sch = plan.scheme()
+        except raco.algebra.RecursionError:
+          sch = raco.scheme.Scheme([attr(i,r,idb.head.name) for i,r in enumerate(idb.head.valuerefs)])
+
+        oldscheme = [name for name, typ in sch]
+        termscheme = [expr for expr in term.valuerefs]
+
+        if len(oldscheme) != len(termscheme):
+          raise TypeError("Rule with head %s does not match Term %s" % (idb.head, term))
+
+        pairs = zip(termscheme, oldscheme)
+
+        # Merge the old and new schemes.  Use new where we can.
+        def choosename(new, old):
+          if isinstance(new,Var):
+            # Then use this new var as the column name
+            return new.var
+          else:
+            # It's an implicit selection condition
+            return old
+
+        mappings = [(choosename(new,old),raco.expression.UnnamedAttributeRef(i)) for i, (new,old) in enumerate(pairs)]
+
+        # Use an apply operator to implement the renaming
+        plan = raco.algebra.Apply(mappings, plan)
+        
         if isinstance(plan, raco.algebra.State):
           # This is the same rule we are currently compiling
           return plan
