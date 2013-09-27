@@ -139,9 +139,25 @@ class Parser:
         p[0] = p[1]
 
     def p_expression_bagcomp(self, p):
-        'expression : LBRACKET FROM expression opt_where_clause \
+        'expression : LBRACKET FROM from_arg_list opt_where_clause \
         emit_clause RBRACKET'
         p[0] = ('BAGCOMP', p[3], p[4], p[5])
+
+    def p_from_arg_list(self, p):
+        '''from_arg_list : from_arg_list COMMA from_arg
+                         | from_arg'''
+        if len(p) == 4:
+            p[0] = p[1] + [p[3]]
+        else:
+            p[0] = [p[1]]
+
+    def p_from_arg(self, p):
+        '''from_arg : ID EQUALS expression
+                    | ID'''
+        expr = None
+        if len(p) == 4:
+            expr = p[3]
+        p[0] = (p[1], expr)
 
     def p_opt_where_clause(self, p):
         '''opt_where_clause : WHERE sexpr
@@ -255,6 +271,14 @@ class Parser:
     def p_sexpr_index(self, p):
         'sexpr : DOLLAR INTEGER_LITERAL'
         p[0] = sexpr.UnnamedAttributeRef(p[2])
+
+    def p_sexpr_id_dot_id(self, p):
+        'sexpr : ID DOT ID'
+        p[0] = sexpr.DottedAttributeRef(p[1], p[3])
+
+    def p_sexpr_id_dot_pos(self, p):
+        'sexpr : ID DOT DOLLAR INTEGER_LITERAL'
+        p[0] = sexpr.DottedAttributeRef(p[1], p[4])
 
     def p_sexpr_group(self, p):
         'sexpr : LPAREN sexpr RPAREN'
