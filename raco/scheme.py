@@ -56,6 +56,11 @@ Type is a function that returns true for any value that is of the correct type
     """deprecated.  use subsumes"""
     return self.contains(names)
 
+  def resolve(self, attrref):
+    """return the name and type of the attribute reference, resolved against this scheme"""
+    unnamed = expression.toUnnamed(attrref,self)
+    return self.getName(unnamed.position), self.getType(unnamed.position)
+
   def ascolumnlist(self):
     """Return a columnlist structure suitable for use with Project and ProjectingJoin.
     Currently a list of positional attribute references.  May eventually be a scheme itself.

@@ -116,5 +116,8 @@ def groupby(op, emit_clause):
             output_mappings.append((name, out))
             grouping_terms.append(sexpr)
 
-    op = raco.algebra.GroupBy(grouping_terms, state.aggregates.keys(), op)
+    # TODO: Need to resolve this with the new group by 
+    #op = raco.algebra.GroupBy(grouping_terms, state.aggregates.keys(), op)
+    columnlist = grouping_terms + state.aggregates.keys()
+    op = raco.algebra.GroupBy(columnlist, op)
     return op, output_mappings

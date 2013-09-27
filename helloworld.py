@@ -28,13 +28,70 @@ three_hops = """
 ThreeHops(x,w) :- TwitterK(x,y),TwitterK(y,z),TwitterK(z,w)
 """
 
+# Cross product
+cross_product = """
+Cross(x,y) :- R1(x),S1(y).
+"""
+
+# Union
+union = """
+B(x) :- A(x)
+A(x) :- R(x,3)
+A(x) :- S(x,y)
+"""
+
+# Chained
+chained = """
+JustXBill(x) :- TwitterK(x,y)
+JustXBill2(x) :- JustXBill(x)
+JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
+"""
+
+# Chained 2 -- this one triggers Bug #29
+chained2 = """
+A(x,z) :- R(x,y,z);
+B(w) :- A(3,w)
+"""
+
+chained_victim = """
+InDegreeNCCDC(dst, count(time)) :- nccdc(src, dst, proto, time, x, y, z)
+
+Victim(dst) :- InDegreeNCCDC(dst, cnt), cnt > 10000
+"""
+
+# Recursion
+recursion = """
+A(x) :- R(x,3)
+A(x) :- R(x,y), A(x)
+"""
+
+# Filters
+filtered = """
+filtered(src, dst, time) :- nccdc(src, dst, proto, time, a, b, c), time > 1366475761, time < 1366475821
+"""
+
+# Aggregate
+aggregate = """
+InDegree(dst, count(src)) :- R3(src,dst,val)
+"""
+
+# Multi-column aggregate
+multi_aggregate = """
+TwoHopCount(x, z, count(y)) :- R3(x,y,z)
+"""
+
+# No-column aggregate
+no_group_aggregate = """
+Status(min(x), count(y)) :- Twitter(x,y)
+"""
+
 # Which one do we use?
-query = join
+query = filtered
 
 def comment(s):
   print "/*\n%s\n*/" % str(s)
 
-# Create a cmpiler object
+# Create a compiler object
 dlog = RACompiler()
 
 # parse the query

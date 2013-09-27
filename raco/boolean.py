@@ -180,3 +180,14 @@ def isTaut(ref) :
         return ref.literals == ['=','=='] and ref.left.value == 1 and ref.right.value == 1
     except AttributeError:
         return False
+
+def binary_ops():
+  """Return a list of all binary operator classes, like AND, OR"""
+  import raco.boolean as boolean
+  allclasses = [c for c in boolean.__dict__.values() if not hasattr(c, "__class__")]
+  binopclasses = [opclass for opclass in allclasses
+                   if issubclass(opclass,BinaryBooleanOperator)
+                   and opclass is not BinaryBooleanOperator
+                   and opclass is not BinaryComparisonOperator]
+
+  return binopclasses

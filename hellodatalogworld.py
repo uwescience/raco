@@ -1,16 +1,13 @@
 from raco.datalog.grammar import parse
 from raco.scheme import Scheme
 from raco.catalog import ASCIIFile
-from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra#, ProtobufAlgebra
+from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra, MyriaAlgebra#, ProtobufAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import compile, optimize, common_subexpression_elimination, showids
 
 query = """
-A(x,z) :- R(x,p1,y,c1), T(y,p2,z,c2), z=217772631
-"""
-
-query = """
-A(x,z) :- R(x,y),S(y,z),T(z,x)
+A(x) :- R(x,3)
+A(x) :- R(x,y), A(y)
 """
 
 # Now parse it
@@ -24,17 +21,19 @@ exprs = parsedprogram.toRA()
 #print exprs
 ra = exprs
 
-#print query
-#comment(ra)
-
+print query
+print ra
 
 print "//-------"
+
 
 # optimize applies a set of rules to translate a source 
 # expression to a target expression
 #result = optimize(ra, target=PseudoCodeAlgebra, source=LogicalAlgebra)
 #result = optimize(ra, target=ProtobufAlgebra, source=LogicalAlgebra)
-result = optimize(ra, target=CCAlgebra, source=LogicalAlgebra)
+result = optimize(ra, target=MyriaAlgebra, source=LogicalAlgebra)
+
+print result
 
 #comment(result)
 physicalplan = result

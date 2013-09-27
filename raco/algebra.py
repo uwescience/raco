@@ -1,4 +1,5 @@
 import boolean
+import expression
 import scheme
 from utility import emit, Printable
 from rules import Rule
@@ -15,6 +16,9 @@ def gensym():
   global i
   i += 1
   return "V%s" % i
+
+class RecursionError(ValueError):
+  pass
 
 class Operator(Printable):
   """Operator base classs"""
@@ -266,7 +270,7 @@ class NaryOperator(Operator):
   def resolveAttribute(self, attributeReference):
     for arg in self.args:
       try:
-        return arg.resolveAttribute(attribtueReference)
+        return arg.resolveAttribute(attributeReference)
       except SchemaError:
         pass
     raise SchemaError("Cannot resolve %s in Nary operator with schema %s" % (attributeReference, self.scheme()))
@@ -298,10 +302,36 @@ class Union(BinaryOperator):
 
   def resolveAttribute(self, attributereference):
     """Union assumes the schema of its left argument"""
-    return self.left.resolveAttribute(attribtuereference)
+    return self.left.resolveAttribute(attributereference)
 
   def shortStr(self):
     return self.opname()
+
+class CrossProduct(BinaryOperator):
+  """Logical Cross Product operator"""
+  def __init__(self, left=None, right=None):
+    BinaryOperator.__init__(self, left, right)
+
+  def copy(self, other):
+    """deep copy"""
+    BinaryOperator.copy(self, other)
+
+  def shortStr(self):
+    return self.opname()
+
+  def scheme(self):
+    """Return the scheme of the result."""
+    return self.left.scheme() + self.right.scheme()
+
+  def resolveAttribute(self, attributereference):
+    """Join has to check to see if this attribute is in the left or right argument."""
+    try:
+      return self.left.resolveAttribute(attributereference)
+    except SchemaError:
+      try:
+        return self.right.resolveAttribute(attributereference)
+      except SchemaError:
+        raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
 class Join(BinaryOperator):
   """Logical Join operator"""
@@ -317,6 +347,9 @@ class Join(BinaryOperator):
     self.condition = other.condition
     BinaryOperator.copy(self, other)
 
+  def shortStr(self):
+    return "%s(%s)" % (self.opname(), self.condition)
+
   def scheme(self):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
@@ -324,18 +357,15 @@ class Join(BinaryOperator):
   def resolveAttribute(self, attributereference):
     """Join has to check to see if this attribute is in the left or right argument."""
     try:
-      self.left.resolveAttribute(attributereference)
+      return self.left.resolveAttribute(attributereference)
     except SchemaError:
       try:
         return self.right.resolveAttribute(attributereference)
       except SchemaError:
         raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
-  def shortStr(self):
-    return "%s(%s)" % (self.opname(), self.condition)
-
 class Apply(UnaryOperator):
-  def __init__(self, mappings, input=None):
+  def __init__(self, mappings=None, input=None):
     """Create new attributes from expressions with optional rename.
 
     mappings is a list of tuples of the form:
@@ -351,8 +381,9 @@ class Apply(UnaryOperator):
         # TODO: This isn't right; we should resolve $1 into a column name
         return str(expr)
 
-    self.mappings = [(resolve_name(name, expr), expr) for name, expr
-                     in mappings]
+    if mappings is not None:
+      self.mappings = [(resolve_name(name, expr), expr) for name, expr
+                       in mappings]
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):
@@ -429,23 +460,6 @@ class Select(UnaryOperator):
     """scheme of the result."""
     return self.input.scheme()
 
-
-class CrossProduct(BinaryOperator):
-  """Logical Cross Product operator"""
-  def __init__(self, left=None, right=None):
-    BinaryOperator.__init__(self, left, right)
-
-  def copy(self, other):
-    """deep copy"""
-    BinaryOperator.copy(self, other)
-
-  def shortStr(self):
-    return self.opname()
-
-  def scheme(self):
-    """Return the scheme of the result."""
-    return self.left.scheme() + self.right.scheme()
-
 class Project(UnaryOperator):
   """Logical projection operator"""
   def __init__(self, columnlist=None, input=None):
@@ -470,31 +484,42 @@ class Project(UnaryOperator):
   def scheme(self):
     """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
     # TODO: columnlist should perhaps be a list of column expressions, TBD
-    return scheme.Scheme([attref.resolve(self.input.scheme()) for attref in self.columnlist])
+    attrs = [self.input.resolveAttribute(attref) for attref in self.columnlist]
+    return scheme.Scheme(attrs)
 
 class GroupBy(UnaryOperator):
   """Logical projection operator"""
-  def __init__(self, groupinglist=[], aggregatelist=[], input=None):
-    self.groupinglist = groupinglist
-    self.aggregatelist = aggregatelist
+  def __init__(self, columnlist=[],input=None):
+    self.columnlist = columnlist
+
+    self.groupinglist = [e for e in self.columnlist if not expression.isaggregate(e)]
+    self.aggregatelist = [e for e in self.columnlist if expression.isaggregate(e)]
     UnaryOperator.__init__(self, input)
 
   def shortStr(self):
     groupstring = ",".join([str(x) for x in self.groupinglist])
     aggstr = ",".join([str(x) for x in self.aggregatelist])
-    return "%s(%s)(%s)" % (self.opname(), groupstring, aggstr)
+    return "%s(%s; %s)" % (self.opname(), groupstring, aggstr)
 
   def copy(self, other):
     """deep copy"""
+    self.columnlist = other.columnlist
     self.groupinglist = other.groupinglist
     self.aggregatelist = other.aggregatelist
     UnaryOperator.copy(self, other)
 
   def scheme(self):
-    """scheme of the result"""
-    cols = [(str(sexpr), sexpr.typeof()) for sexpr in
-            self.groupinglist + self.aggregatelist]
-    return scheme.Scheme(cols)
+    """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
+    def resolve(i, attr):
+      if expression.isaggregate(attr):
+        return ("%s%s" % (attr.__class__.__name__,i), attr.typeof())
+      elif isinstance(attr,expression.AttributeRef):
+        return self.input.resolveAttribute(attr)
+      else:
+        # Must be some complex expression.  
+        # TODO: I'm thinking we should require these expressions to be handled exclusively in Apply, where the assigned name is unambiguous.
+        return ("%s%s" % (attr.__class__.__name__,i), attr.typeof())
+    return scheme.Scheme([resolve(i, e) for i, e in enumerate(self.columnlist)])
 
 class ProjectingJoin(Join):
   """Logical Projecting Join operator"""
@@ -536,6 +561,19 @@ class Shuffle(UnaryOperator):
       self.columnlist = other.columnlist
       UnaryOperator.copy(self, other)
 
+class Collect(UnaryOperator):
+  """Send input to one server"""
+  def __init__(self, child=None, server=None):
+      UnaryOperator.__init__(self, child)
+      self.server = server
+
+  def shortStr(self):
+      return "%s(@%s)" % (self.opname(), self.server)
+
+  def copy(self, other):
+      self.server = other.server
+      UnaryOperator.copy(self, other)
+
 class Broadcast(UnaryOperator):
   """Send input to all servers"""
   def shortStr(self):
@@ -573,27 +611,42 @@ class Fixpoint(Operator):
   def children(self):
     return [self.body]
 
+  def __str__(self):
+    return "%s[%s]" % (self.shortStr(), str(self.body))
+
+  def __repr__(self):
+    return str(self)
+
   def shortStr(self):
     return """Fixpoint"""
 
+  def apply(self, f):
+    """Apply a function to your children"""
+    self.body.apply(f)
+    return self
+ 
   def scheme(self):
     if self.body:
       return self.body.scheme()
     else:
-      return scheme.EmptyScheme()
+      raise RecursionError("No Scheme defined yet for fixpoint")
  
   def loopBody(self,plan):
     self.body = plan
 
-class State(UnaryOperator):
+class State(ZeroaryOperator):
   """A placeholder operator for a recursive plan"""
 
   def __init__(self, name, fixpoint):
-    UnaryOperator.__init__(self, fixpoint)
+    ZeroaryOperator.__init__(self)
     self.name = name
+    self.fixpoint = fixpoint
 
   def shortStr(self):
     return "%s(%s)" % (self.opname(), self.name)
+
+  def scheme(self):
+    return self.fixpoint.scheme()
 
 class Store(UnaryOperator):
   """A logical no-op. Captures the fact that the user used this result in the head of a rule, which may have intended it to be a materialized result.  May be ignored in compiled languages."""
@@ -603,6 +656,10 @@ class Store(UnaryOperator):
     
   def shortStr(self):
     return "%s(%s)" % (self.opname(),self.name)
+
+  def copy(self, other):
+    self.name = other.name
+    UnaryOperator.copy(self, other)
 
 class EmptyRelation(ZeroaryOperator):
   """Empty Relation.  Used in certain optimizations."""
@@ -665,7 +722,7 @@ class Scan(ZeroaryOperator):
   def resolveAttribute(self, attributereference):
     """Resolve an attribute reference in this operator's schema to its definition: 
     An attribute in an EDB or an expression."""
-    return attributereference
+    return self.relation.scheme().resolve(attributereference)
 
 class CollapseSelect(Rule):
   """A rewrite rule for combining two selections"""
