@@ -342,7 +342,7 @@ class Parser:
         pass
 
     def parse(self, s):
-        parser = yacc.yacc(module=self, debug=True)
+        parser = yacc.yacc(module=self, debug=False, optimize=False)
         return parser.parse(s, lexer=scanner.lexer, tracking=True)
 
     def p_error(self, p):
