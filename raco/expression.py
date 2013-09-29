@@ -1,3 +1,4 @@
+import math
 from utility import emit, Printable
 """
 An expression language for datalog: Function calls, arithmetic, simple string functions
@@ -239,31 +240,36 @@ class UnaryFunction(UnaryOperator):
     return "%s(%s)" % (self.__class__.__name__, self.input)
 
 class ABS(UnaryFunction):
-  pass
-
-class SQRT(UnaryFunction):
-  pass
-
-class LN(UnaryFunction):
-  pass
-
-class LOG(UnaryFunction):
-  pass
-
-class SIN(UnaryFunction):
-  pass
-
-class COS(UnaryFunction):
-  pass
-
-class TAN(UnaryFunction):
-  pass
-
-class FLOOR(UnaryFunction):
-  pass
+  def evaluate(self, _tuple, scheme):
+    return abs(self.input.evaluate(_tuple, scheme))
 
 class CEIL(UnaryFunction):
-  pass
+  def evaluate(self, _tuple, scheme):
+    return math.ceil(self.input.evaluate(_tuple, scheme))
+
+class COS(UnaryFunction):
+  def evaluate(self, _tuple, scheme):
+    return math.cos(self.input.evaluate(_tuple, scheme))
+
+class FLOOR(UnaryFunction):
+  def evaluate(self, _tuple, scheme):
+    return math.floor(self.input.evaluate(_tuple, scheme))
+
+class LOG(UnaryFunction):
+  def evaluate(self, _tuple, scheme):
+    return math.log(self.input.evaluate(_tuple, scheme))
+
+class SIN(UnaryFunction):
+  def evaluate(self, _tuple, scheme):
+    return math.sin(self.input.evaluate(_tuple, scheme))
+
+class SQRT(UnaryFunction):
+  def evaluate(self, _tuple, scheme):
+    return math.sqrt(self.input.evaluate(_tuple, scheme))
+
+class TAN(UnaryFunction):
+  def evaluate(self, _tuple, scheme):
+    return math.tan(self.input.evaluate(_tuple, scheme))
 
 class AggregateExpression(Expression):
   def evaluate(self, _tuple, scheme):

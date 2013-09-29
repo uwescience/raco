@@ -35,6 +35,18 @@ binops = {
     'OR' : sexpr.OR,
 }
 
+# Mapping from source symbols to raco.expression.UnaryOperator classes
+unops = {
+    'ABS' : sexpr.ABS,
+    'CEIL' : sexpr.CEIL,
+    'COS' : sexpr.COS,
+    'FLOOR' : sexpr.FLOOR,
+    'LOG' : sexpr.LOG,
+    'SIN' : sexpr.SIN,
+    'SQRT' : sexpr.SQRT,
+    'TAN' : sexpr.TAN,
+}
+
 class Parser:
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
@@ -287,6 +299,17 @@ class Parser:
     def p_sexpr_uminus(self, p):
         'sexpr : MINUS sexpr %prec UMINUS'
         p[0] = sexpr.TIMES(sexpr.NumericLiteral(-1), p[2])
+
+    def p_sexpr_unop(self, p):
+        '''sexpr : ABS LPAREN sexpr RPAREN
+                   | CEIL LPAREN sexpr RPAREN
+                   | COS LPAREN sexpr RPAREN
+                   | FLOOR LPAREN sexpr RPAREN
+                   | LOG LPAREN sexpr RPAREN
+                   | SIN LPAREN sexpr RPAREN
+                   | SQRT LPAREN sexpr RPAREN
+                   | TAN LPAREN sexpr RPAREN'''
+        p[0] = unops[p[1]](p[3])
 
     def p_sexpr_binop(self, p):
         '''sexpr : sexpr PLUS sexpr
