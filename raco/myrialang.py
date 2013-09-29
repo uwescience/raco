@@ -632,39 +632,49 @@ class MyriaAlgebra:
       , BreakBroadcast()
   ]
 
-def apply_schema_recursive(operator, schema_map):
-  """Given a schema_map, which maps relation names to schemas, update the
-  schema for all scan operations that scan relations in the map."""
+def apply_schema_recursive(operator, catalog):
+  """Given a catalog, which has a function get_scheme(string) to map a relation
+  name to its scheme, update the schema for all scan operations that scan
+  relations in the map."""
 
-  # If we find a scan, apply the schema if it's in the schema_map
+  # We found a scan, let's fill in its scheme
   if isinstance(operator, MyriaScan):
-    name = operator.relation.name
-    if name in schema_map:
-      if len(operator.relation._scheme) != len(schema_map[name]):
-        raise ValueError("query scheme for %s (%d columns) does not match the catalog scheme (%d columns)" % (name, len(operator.relation._scheme), len(schema_map[name])))
-      operator.relation._scheme = scheme.Scheme(schema_map[name])
+    rel_name = operator.relation.name
+    rel_scheme = catalog.get_scheme(rel_name)
+    if rel_scheme:
+      # The Catalog has an entry for this relation
+      if len(operator.relation._scheme) != len(rel_scheme):
+        raise ValueError("query scheme for %s (%d columns) does not match the catalog scheme (%d columns)" % (rel_name, len(operator.relation._scheme), len(rel_scheme)))
+      operator.relation._scheme = scheme.Scheme(rel_scheme)
     else:
+      # The specified relation is not in the Catalog, replace its scheme's
+      # .. types with "unknown"
       old_sch = operator.relation._scheme
       new_sch = [(old_sch.getName(i), "unknown") for i in range(len(old_sch))]
       operator.relation._scheme = scheme.Scheme(new_sch)
 
   # Recurse through all children
   for child in operator.children():
-    apply_schema_recursive(child, schema_map)
+    apply_schema_recursive(child, catalog)
 
   # Done
   return
 
-def compile_to_json(raw_query, logical_plan, physical_plan, schema_map=None):
+class EmptyCatalog:
+  @staticmethod
+  def get_scheme(relation_name):
+    return None
+
+def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
   """This function compiles a logical RA plan to the JSON suitable for
   submission to the Myria REST API server."""
 
-  # First, let's try and apply the schema_map, if we got one. Otherwise, we use
-  # the defaults.
-  if schema_map is None:
-    schema_map = DEFAULT_HARDCODED_SCHEMA
+  # No catalog supplied; create the empty catalog
+  if catalog is None:
+    catalog = EmptyCatalog()
+
   for (label, root_op) in physical_plan:
-    apply_schema_recursive(root_op, schema_map)
+    apply_schema_recursive(root_op, catalog)
 
   # A dictionary mapping each object to a unique, object-dependent symbol.
   # Since we want this to be truly unique for each object instance, even if two

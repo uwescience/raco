@@ -117,8 +117,10 @@ class ExpressionProcessor:
 
     def countall(self, expr):
         op = self.evaluate(expr)
-        return raco.algebra.GroupBy(groupinglist=[],
-                                    aggregatelist=[sexpr.COUNT()],
+        grouping_list = []
+        # COUNT must take a column ref. Use the first column
+        agg_list = [sexpr.COUNT(raco.expression.UnnamedAttributeRef(0))]
+        return raco.algebra.GroupBy(columnlist=grouping_list+agg_list,
                                     input=op)
 
     def intersect(self, id1, id2):

@@ -1,5 +1,6 @@
 
 import collections
+import math
 import unittest
 
 import raco.fakedb
@@ -40,6 +41,17 @@ class TestQueryFunctions(unittest.TestCase):
 
     dept_key = "andrew:adhoc:department"
 
+    numbers_table = collections.Counter([
+        (1, 3),
+        (2, 5),
+        (3, -2),
+        (16, -4.3)])
+
+    numbers_schema = scheme.Scheme([("id", "int"),
+                                    ("val", "float")])
+
+    numbers_key = "andrew:adhoc:numbers"
+
     def setUp(self):
         self.db = raco.fakedb.FakeDatabase()
 
@@ -50,6 +62,10 @@ class TestQueryFunctions(unittest.TestCase):
         self.db.ingest(TestQueryFunctions.dept_key,
                        TestQueryFunctions.dept_table,
                        TestQueryFunctions.dept_schema)
+
+        self.db.ingest(TestQueryFunctions.numbers_key,
+                       TestQueryFunctions.numbers_table,
+                       TestQueryFunctions.numbers_schema)
 
         self.parser = parser.Parser()
         self.processor = interpreter.StatementProcessor(self.db)
@@ -660,3 +676,75 @@ class TestQueryFunctions(unittest.TestCase):
 
         with self.assertRaises(raco.myrial.unpack_from.ColumnIndexOutOfBounds):
             self.__run_test(query, collections.Counter())
+
+    def test_abs(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, ABS(val)];
+        DUMP(out);
+        """ % self.numbers_key
+
+        expected = collections.Counter(
+            [(a,abs(b)) for a,b in self.numbers_table.elements()])
+        self.__run_test(query, expected)
+
+    def test_ceil(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, CEIL(val)];
+        DUMP(out);
+        """ % self.numbers_key
+
+        expected = collections.Counter(
+            [(a,math.ceil(b)) for a,b in self.numbers_table.elements()])
+        self.__run_test(query, expected)
+
+    def test_cos(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, COS(val)];
+        DUMP(out);
+        """ % self.numbers_key
+
+        expected = collections.Counter(
+            [(a,math.cos(b)) for a,b in self.numbers_table.elements()])
+        self.__run_test(query, expected)
+
+    def test_floor(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, FLOOR(val)];
+        DUMP(out);
+        """ % self.numbers_key
+
+        expected = collections.Counter(
+            [(a,math.floor(b)) for a,b in self.numbers_table.elements()])
+        self.__run_test(query, expected)
+
+    def test_sin(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, SIN(val)];
+        DUMP(out);
+        """ % self.numbers_key
+
+        expected = collections.Counter(
+            [(a,math.sin(b)) for a,b in self.numbers_table.elements()])
+        self.__run_test(query, expected)
+
+    def test_sqrt(self):
+        query = """
+        out = [FROM X=SCAN(%s) WHERE val >= 0 EMIT id, SQRT(val)];
+        DUMP(out);
+        """ % self.numbers_key
+
+        expected = collections.Counter(
+            [(a,math.sqrt(b)) for a,b in self.numbers_table.elements()
+             if b >= 0])
+        self.__run_test(query, expected)
+
+    def test_tan(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, TAN(val)];
+        DUMP(out);
+        """ % self.numbers_key
+
+        expected = collections.Counter(
+            [(a,math.tan(b)) for a,b in self.numbers_table.elements()])
+        self.__run_test(query, expected)
+
