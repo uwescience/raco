@@ -3,6 +3,7 @@
 import raco.myrial.parser as parser
 import raco.myrial.unbox as unbox
 import raco.myrial.groupby as groupby
+import raco.myrial.unpack_from as unpack_from
 import raco.algebra
 import raco.expression as sexpr
 import raco.catalog
@@ -12,6 +13,10 @@ import collections
 import random
 import sys
 import types
+
+class DuplicateAliasException(Exception):
+    """Bag comprehension arguments must have different alias names."""
+    pass
 
 class ExpressionProcessor:
     '''Convert syntactic expressions into a relational algebra operation'''
@@ -40,9 +45,39 @@ class ExpressionProcessor:
         op = raco.algebra.SingletonRelation()
         return raco.algebra.Apply(mappings=mappings, input=op)
 
-    def bagcomp(self, from_expression, where_clause, emit_clause):
-        # Evaluate the nested expression to get a RA operator
-        op = self.evaluate(from_expression)
+    def bagcomp(self, from_clause, where_clause, emit_clause):
+        """Evaluate a bag comprehsion.
+
+        from_clause: A list of tuples of the form (id, expr).  expr can
+        be None, which means "read the value from the symbol table".
+
+        where_clause: An optional scalar expression (raco.expression).
+
+        emit_clause: An optional list of tuples of the form
+        (column_name, scalar_expression).  The column name can be None, in
+        which case the system concocts a column name.  If the emit_clause
+        is None, all columns are emitted -- i.e., "EMIT *".
+        """
+
+        # Make sure no aliases were reused: [FROM X, X EMIT *] is illegal
+        from_aliases = set([x[0] for x in from_clause])
+        if len(from_aliases) != len(from_clause):
+            raise DuplicateAliasException();
+
+        # For each FROM argument, create a mapping from ID to operator
+        # (id, raco.algebra.Operator)
+        from_args = collections.OrderedDict()
+
+        for _id, expr in from_clause:
+            if expr:
+                from_args[_id] =  self.evaluate(expr)
+            else:
+                from_args[_id] =  self.symbols[_id]
+
+        # Create a single RA operation that is the rollup of all from
+        # targets; re-write where and emit clauses to refer to its schema
+        op, where_clause, emit_clause = unpack_from.unpack(
+            from_args, where_clause, emit_clause)
 
         orig_scheme = op.scheme()
         op, where_clause, emit_clause = unbox.unbox(op, where_clause,

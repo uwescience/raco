@@ -7,6 +7,7 @@ import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme as scheme
 import raco.myrial.groupby
+import raco.myrial.unpack_from
 
 class TestQueryFunctions(unittest.TestCase):
 
@@ -308,7 +309,16 @@ class TestQueryFunctions(unittest.TestCase):
 
         self.__run_test(query, expected)
 
-    def test_join(self):
+    join_expected = collections.Counter(
+        [('Bill Howe', 'human resources'),
+         ('Dan Halperin', 'accounting'),
+         ('Andrew Whitaker','accounting'),
+         ('Shumo Chu', 'human resources'),
+         ('Victor Almeida', 'accounting'),
+         ('Dan Suciu', 'engineering'),
+         ('Magdalena Balazinska', 'accounting')])
+
+    def test_explicit_join(self):
         query = """
         emp = SCAN(%s);
         dept = SCAN(%s);
@@ -317,20 +327,31 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
-        expected = collections.Counter(
-            [('Bill Howe', 'human resources'),
-             ('Dan Halperin', 'accounting'),
-             ('Andrew Whitaker','accounting'),
-             ('Shumo Chu', 'human resources'),
-             ('Victor Almeida', 'accounting'),
-             ('Dan Suciu', 'engineering'),
-             ('Magdalena Balazinska', 'accounting')])
+        self.__run_test(query, self.join_expected)
 
-        self.__run_test(query, expected)
+    def test_bagcomp_join_via_names(self):
+        query = """
+        out = [FROM E=SCAN(%s),D=SCAN(%s) WHERE E.dept_id == D.id
+              EMIT emp_name=E.name, dept_name=D.name];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        self.__run_test(query, self.join_expected)
+
+    def test_bagcomp_join_via_pos(self):
+        query = """
+        E = SCAN(%s);
+        D = SCAN(%s);
+        out = [FROM E, D WHERE E.$1 == D.$0
+              EMIT emp_name=E.name, dept_name=D.$1];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        self.__run_test(query, self.join_expected)
 
     # TODO: test with multiple join attributes
 
-    def test_cross(self):
+    def test_explicit_cross(self):
         query = """
         out = CROSS(SCAN(%s), SCAN(%s));
         DUMP(out);
@@ -342,9 +363,21 @@ class TestQueryFunctions(unittest.TestCase):
 
         self.__run_test(query, expected)
 
+    def test_bagcomp_cross(self):
+        query = """
+        out = [FROM E=SCAN(%s),D=SCAN(%s) EMIT *];
+        DUMP(out);
+        """  % (self.emp_key, self.dept_key)
+
+        tuples = [e + d for e in self.emp_table.elements() for
+                  d in self.dept_table.elements()]
+        expected = collections.Counter(tuples)
+
+        self.__run_test(query, expected)
+
     def test_distinct(self):
         query = """
-        out = DISTINCT([FROM SCAN(%s) EMIT salary]);
+        out = DISTINCT([FROM X=SCAN(%s) EMIT salary]);
         DUMP(out);
         """ % self.emp_key
 
@@ -363,7 +396,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_table_literal(self):
         query = """
-        X = [FROM ["Andrew", salary=(50 * (500 + 500))] EMIT salary];
+        X = [FROM Z=["Andrew", salary=(50 * (500 + 500))] EMIT salary];
         DUMP(X);
         """
         expected = collections.Counter([(50000,)])
@@ -464,7 +497,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_max(self):
         query = """
-        out = [FROM SCAN(%s) EMIT dept_id, MAX(salary)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, MAX(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -472,7 +505,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_min(self):
         query = """
-        out = [FROM SCAN(%s) EMIT dept_id, MIN(salary)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, MIN(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -480,7 +513,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_sum(self):
         query = """
-        out = [FROM SCAN(%s) EMIT dept_id, SUM(salary)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, SUM(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -488,7 +521,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_count(self):
         query = """
-        out = [FROM SCAN(%s) EMIT dept_id, COUNT(salary)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, COUNT(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -496,7 +529,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_max_reversed(self):
         query = """
-        out = [FROM SCAN(%s) EMIT max_salary=MAX(salary), dept_id];
+        out = [FROM X=SCAN(%s) EMIT max_salary=MAX(salary), dept_id];
         DUMP(out);
         """ % self.emp_key
 
@@ -506,7 +539,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_compound_aggregate(self):
         query = """
-        out = [FROM SCAN(%s) EMIT range=( 2 * (MAX(salary) - MIN(salary))),
+        out = [FROM X=SCAN(%s) EMIT range=( 2 * (MAX(salary) - MIN(salary))),
         did=dept_id];
         out = [FROM out EMIT dept_id=did, rng=range];
         DUMP(out);
@@ -525,7 +558,7 @@ class TestQueryFunctions(unittest.TestCase):
     def test_aggregate_with_unbox(self):
         query = """
         C = [one=1, two=2];
-        out = [FROM SCAN(%s) EMIT range=MAX(*C.two * salary) -
+        out = [FROM X=SCAN(%s) EMIT range=MAX(*C.two * salary) -
         MIN( *C.$1 * salary), did=dept_id];
         out = [FROM out EMIT dept_id=did, rng=range];
         DUMP(out);
@@ -543,7 +576,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_nary_groupby(self):
         query = """
-        out = [FROM SCAN(%s) EMIT dept_id, salary, COUNT(name)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, salary, COUNT(name)];
         DUMP(out);
         """ % self.emp_key
 
@@ -558,7 +591,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_empty_groupby(self):
         query = """
-        out = [FROM SCAN(%s) EMIT MAX(salary), COUNT($0), MIN(dept_id*4)];
+        out = [FROM X=SCAN(%s) EMIT MAX(salary), COUNT($0), MIN(dept_id*4)];
         DUMP(out);
         """ % self.emp_key
 
@@ -567,7 +600,7 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_compound_groupby(self):
         query = """
-        out = [FROM SCAN(%s) EMIT id+dept_id, COUNT(salary)];
+        out = [FROM X=SCAN(%s) EMIT id+dept_id, COUNT(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -581,9 +614,49 @@ class TestQueryFunctions(unittest.TestCase):
 
     def test_nested_aggregates_are_illegal(self):
         query = """
-        out = [FROM SCAN(%s) EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
+        out = [FROM X=SCAN(%s) EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
         DUMP(out);
         """ % self.emp_key
 
         with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
+            self.__run_test(query, collections.Counter())
+
+    def test_multiway_bagcomp_with_unbox(self):
+        """Return all employees in accounting making less than 30000"""
+        query = """
+        Salary = [30000];
+        Dept = ["accounting"];
+
+        out = [FROM E=SCAN(%s), D=SCAN(%s)
+               WHERE E.dept_id == D.id AND D.name == *Dept
+               AND E.salary < *Salary EMIT name=E.$2];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = collections.Counter([
+            ("Andrew Whitaker",),
+            ("Victor Almeida",),
+            ("Magdalena Balazinska",)])
+        self.__run_test(query, expected)
+
+    def test_duplicate_bagcomp_aliases_are_illegal(self):
+        query = """
+        X = SCAN(%s);
+        out = [FROM X, X EMIT *];
+        DUMP(out);
+        """ % (self.emp_key,)
+
+        with self.assertRaises(interpreter.DuplicateAliasException):
+            self.__run_test(query, collections.Counter())
+
+    def test_bagcomp_column_index_out_of_bounds(self):
+        query = """
+        E = SCAN(%s);
+        D = SCAN(%s);
+        out = [FROM E, D WHERE E.$1 == D.$77
+              EMIT emp_name=E.name, dept_name=D.$1];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        with self.assertRaises(raco.myrial.unpack_from.ColumnIndexOutOfBounds):
             self.__run_test(query, collections.Counter())
