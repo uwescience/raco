@@ -1,0 +1,24 @@
+Points = SCAN(public:adhoc:Points,
+              v:int);
+
+aggs = [FROM Points EMIT summ=SUM(v), sumsq=SUM(v*v), cnt=COUNT(v)];
+newBad = SCAN(empty, v:int);
+bounds = [FROM Points EMIT lower=MIN(v), upper=MAX(v)];
+
+--DO
+	-- Incrementally update aggs and stats
+	aggs = [FROM newBad EMIT summ=*aggs.summ-SUM(v),
+	                         sumsq=*aggs.sumsq-SUM(v*v),
+				 cnt=*aggs.cnt-COUNT(v)];
+	stats = [FROM aggs EMIT mean=summ/cnt,
+	                        std=SQRT(1/(cnt*(cnt-1)) * (cnt * sumsq - summ*summ))];
+	-- Compute the new bounds
+	newBounds = [FROM stats EMIT lower=mean-std, upper=mean+std];
+
+	tooLow = [FROM Points WHERE *newBounds.lower > v AND v >= *bounds.lower EMIT *];
+	tooHigh = [FROM Points WHERE *newBounds.upper < v AND v <= *bounds.upper EMIT *];
+	newBad = UNIONALL tooLow, tooHigh;
+
+	bounds = newBounds;
+	continue = [FROM newBad EMIT COUNT(v) > 0];
+--WHILE continue;
