@@ -107,7 +107,7 @@ class ExpressionProcessor:
     def unionall(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
-        return raco.algebra.UnionAll(e1, e2)
+        return raco.algebra.UnionAll(left, right)
 
     def countall(self, expr):
         op = self.evaluate(expr)
@@ -120,12 +120,12 @@ class ExpressionProcessor:
     def intersect(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
-        return raco.algebra.Intersection(e1, e2)
+        return raco.algebra.Intersection(left, right)
 
     def diff(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
-        return raco.algebra.Difference(e1, e2)
+        return raco.algebra.Difference(left, right)
 
     def limit(self, expr, count):
         op = self.evaluate(expr)
