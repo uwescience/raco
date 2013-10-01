@@ -123,6 +123,9 @@ class Operator(Printable):
     # Return the graph
     return graph
 
+  def is_leaf(self):
+    return False
+
 class ZeroaryOperator(Operator):
   """Operator with no arguments"""
   def __init__(self):
@@ -756,6 +759,9 @@ class Scan(ZeroaryOperator):
     """Resolve an attribute reference in this operator's schema to its definition: 
     An attribute in an EDB or an expression."""
     return self.relation.scheme().resolve(attributereference)
+
+  def is_leaf(self):
+    return True
 
 class CollapseSelect(Rule):
   """A rewrite rule for combining two selections"""
