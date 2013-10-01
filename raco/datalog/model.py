@@ -14,7 +14,11 @@ import raco.catalog
 class Program:
   def __init__(self, rules):
     self.rules = rules
-    self.compiledrules = {}
+    self.compiledidbs = {}
+
+  def isIDB(self, term):
+    """Is this term also an IDB?"""
+    return self.IDB(term) != []
 
   def IDB(self, term):
     """Return a list of rules that define an IDB corresponding to the given term: relation names are the same, and the number of columns are the same."""
@@ -34,37 +38,34 @@ class Program:
     return False
 
   def intermediateRule(self, rule):
-    """Return True if the head does not appear in the body of any other rule."""
+    """Return True if the head appears in the body of any other rule."""
     for other in self.rules:
       if other.refersTo(rule.head) and other.head != rule.head:
         return True
     return False
 
-  def compileRule(self, rule):
-    """Return a compiled rule as a relational algebra expression."""
-    if rule in self.compiledrules:
-      return self.compiledrules[rule]
-    else:
-      ra = rule.toRA(self)
-      self.compiledrules[rule] = ra
-      return ra
-
   def toRA(self):
     """Return a set of relational algebra expressions implementing this program."""
+    self.idbs = {}
     for rule in self.rules:
-      ra = self.compileRule(rule)
+      block = self.idbs.setdefault(rule.head.name, [])
+      block.append(rule)
 
-    # Multiple rules with the same head are interpreted as a union
-    plans = [(rule.head.name, plan) for (rule, plan) in self.compiledrules.iteritems() if not self.intermediateRule(rule)]
+    newplans = [(idb, self.compileIDB(idb)) for (idb, rules) in self.idbs.items() if any([not self.intermediateRule(r) for r in rules])]
 
-    unioned_plans = {}
-    for name, plan in plans:
-      union_list = unioned_plans.setdefault(name, [])
-      union_list.append(plan)
-
-    newplans = [(name, reduce(raco.algebra.Union,union_list)) for name, union_list in unioned_plans.iteritems()]
     return newplans
       
+  def compileIDB(self, idb):
+    """Compile an idb by name.  Uses the self.idbs data structure creaetd in self.toRA"""
+
+    if idb in self.compiledidbs:
+      return self.compiledidbs[idb]
+    else:
+      rules = self.idbs[idb]
+      plans = [r.toRA(self) for r in rules]
+      ra = reduce(raco.algebra.Union, plans)
+      self.compiledidbs[self] = ra
+      return ra
 
   def __repr__(self):
     return "\n".join([str(r) for r in self.rules])
@@ -180,19 +181,8 @@ This one is simple -- it just adds the joins according to a breadth first search
     # get a BFS ordering of the edges.  Ignores costs.
     edgesequence = [x for x in nx.bfs_edges(self.joingraph, firstnode)]
 
-    # Make it deterministic but still in BFS order
-    deterministic_edge_sequence = []
-    while len(edgesequence) > 0:
-        # Consider all edges that have the same first node -- these are all "ties" in BFS order.
-        (firstx, firsty) = edgesequence[0]
-        new_edges = [(x,y) for (x,y) in edgesequence if x == firstx]
-        # Sort those edges on the originalorder tuple of the source and destination
-        deterministic_edge_sequence.extend(sorted(new_edges, key=lambda (x,y) : (x.originalorder,y.originalorder)))
-        # Remove all those edges from edgesequence
-        edgesequence = [(x,y) for (x,y) in edgesequence if x != firstx]
-
     # Generate a concrete sequence of terms with conditions properly adjusted
-    joinsequence = self.toJoinSequence(deterministic_edge_sequence)
+    joinsequence = self.toJoinSequence(edgesequence)
     return joinsequence
 
 class Rule:
@@ -314,8 +304,21 @@ class Rule:
     for newplan in component_plans[1:]:
       plan = raco.algebra.CrossProduct(plan, newplan)
  
+    def attr(i,r, relation_alias): 
+      if isinstance(r,Var):
+        name = r.var
+        attrtype = None
+      elif isinstance(r,raco.boolean.Literal):
+        name = "pos%s" % i 
+        attrtype = type(r.value)
+      return (name, attrtype)
+
+    try:
+      scheme = plan.scheme()
+    except AttributeError:  #raco.algebra.RecursionError:
+      scheme = raco.scheme.Scheme([attr(i,r,self.head.name) for i,r in enumerate(self.head.valuerefs)])
+
     # Helper function for the next two steps (TODO: move this to a method?)
-    scheme = plan.scheme()
     def findvar(variable):
       var = variable.var
       if var not in scheme:
@@ -509,6 +512,42 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
               rightpos = raco.expression.UnnamedAttributeRef(j)
               yield raco.boolean.EQ(leftpos, rightpos)
  
+  def renameIDB(self, plan):
+    """Rename the attributes of the plan to match the current rule. Used when chaining multiple rules."""
+    term = self
+    
+    # Do we know the actual scheme? If it's recursive, we don't
+    # So derive it from the rule head
+    # Not really satisfied with this.
+    try:
+      sch = plan.scheme()
+    except raco.algebra.RecursionError:
+      sch = raco.scheme.Scheme([attr(i,r,term.name) for i,r in enumerate(term.valuerefs)])
+
+    oldscheme = [name for name, typ in sch]
+    termscheme = [expr for expr in term.valuerefs]
+
+    if len(oldscheme) != len(termscheme):
+      raise TypeError("Rule with head %s does not match Term %s" % (term.name, term))
+
+    pairs = zip(termscheme, oldscheme)
+
+    # Merge the old and new schemes.  Use new where we can.
+    def choosename(new, old):
+      if isinstance(new,Var):
+        # Then use this new var as the column name
+        return new.var
+      else:
+        # It's an implicit selection condition
+        return old
+
+    mappings = [(choosename(new,old),raco.expression.UnnamedAttributeRef(i)) for i, (new,old) in enumerate(pairs)]
+
+    # Use an apply operator to implement the renaming
+    plan = raco.algebra.Apply(mappings, plan)
+
+    return plan 
+
   def makeLeaf(term, conditions, program):
     """Return an RA plan that Scans the appropriate relation and applies all selection conditions
   Two sources of conditions: the term itself, like A(X,"foo") -> Select(pos1="foo", Scan(A))
@@ -526,49 +565,9 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
       #return AttributeSpec(relation_alias, name, attrtype)
 
     # Chain rules together
-    idbs = program.IDB(term)
-    if idbs: # This term refers to an IDB
-      def wrap(idb):
-        plan = program.compileRule(idb)
-
-        # Rename attributes as needed.  
-        
-        # Do we know the actual scheme? If it's recursive, we don't
-        # So derive it from the rule head
-        # Not really satisfied with this.
-        try:
-          sch = plan.scheme()
-        except raco.algebra.RecursionError:
-          sch = raco.scheme.Scheme([attr(i,r,idb.head.name) for i,r in enumerate(idb.head.valuerefs)])
-
-        oldscheme = [name for name, typ in sch]
-        termscheme = [expr for expr in term.valuerefs]
-
-        if len(oldscheme) != len(termscheme):
-          raise TypeError("Rule with head %s does not match Term %s" % (idb.head, term))
-
-        pairs = zip(termscheme, oldscheme)
-
-        # Merge the old and new schemes.  Use new where we can.
-        def choosename(new, old):
-          if isinstance(new,Var):
-            # Then use this new var as the column name
-            return new.var
-          else:
-            # It's an implicit selection condition
-            return old
-
-        mappings = [(choosename(new,old),raco.expression.UnnamedAttributeRef(i)) for i, (new,old) in enumerate(pairs)]
-
-        # Use an apply operator to implement the renaming
-        plan = raco.algebra.Apply(mappings, plan)
-        
-        if isinstance(plan, raco.algebra.State):
-          # This is the same rule we are currently compiling
-          return plan
-        else:
-          return raco.algebra.Store(idb.head.name, plan)
-      scan = reduce(raco.algebra.Union,[wrap(idb) for idb in idbs])
+    if program.isIDB(term): 
+      plan = program.compileIDB(term.name)
+      scan = term.renameIDB(plan)
     else:
       # TODO: A call to some catalog?
       sch = raco.scheme.Scheme([attr(i,r,term.name) for i,r in enumerate(term.valuerefs)])
@@ -587,7 +586,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
       conjunction = reduce(raco.boolean.AND, allconditions)
       plan = raco.algebra.Select(conjunction, scan)
     else:
-      plan = scan  # TODO: This is only correct for EDBs
+      plan = scan  
 
     plan.set_alias(term)
     return plan
