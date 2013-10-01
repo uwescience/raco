@@ -118,10 +118,14 @@ class ExpressionProcessor:
                                     input=op)
 
     def intersect(self, e1, e2):
-        raise NotImplementedError()
+        left = self.evaluate(e1)
+        right = self.evaluate(e2)
+        return raco.algebra.Intersection(e1, e2)
 
     def diff(self, e1, e2):
-        raise NotImplementedError()
+        left = self.evaluate(e1)
+        right = self.evaluate(e2)
+        return raco.algebra.Difference(e1, e2)
 
     def limit(self, expr, count):
         op = self.evaluate(expr)
