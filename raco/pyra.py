@@ -6,7 +6,9 @@ class Tuple:
       self.__dict__[n] = t(v)
 
 class Relation:
-  def __init__(self, scheme, tuples=[], name=None):
+  def __init__(self, scheme, tuples=None, name=None):
+    if tuples is None:
+      tuples = []
     self.scheme = scheme
     self.tuples = []
     self.name = name

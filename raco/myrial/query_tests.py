@@ -717,6 +717,17 @@ class TestQueryFunctions(unittest.TestCase):
             [(a,math.floor(b)) for a,b in self.numbers_table.elements()])
         self.__run_test(query, expected)
 
+    def test_log(self):
+        query = """
+        out = [FROM X=SCAN(%s) WHERE val > 0 EMIT id, LOG(val)];
+        DUMP(out);
+        """ % self.numbers_key
+
+        expected = collections.Counter(
+            [(a,math.log(b)) for a,b in self.numbers_table.elements()
+             if b > 0])
+        self.__run_test(query, expected)
+
     def test_sin(self):
         query = """
         out = [FROM X=SCAN(%s) EMIT id, SIN(val)];

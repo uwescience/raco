@@ -8,7 +8,9 @@ Add an attribute to the scheme
 Type is a function that returns true for any value that is of the correct type
   '''
   salt = "1"
-  def __init__(self,attributes=[]):
+  def __init__(self,attributes=None):
+    if attributes is None:
+      attributes = []
     self.attributes = []
     self.asdict = OrderedDict()
     for n,t in attributes:
