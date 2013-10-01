@@ -18,6 +18,9 @@ class DuplicateAliasException(Exception):
     """Bag comprehension arguments must have different alias names."""
     pass
 
+class InvalidStatementException(Exception):
+    pass
+
 class ExpressionProcessor:
     '''Convert syntactic expressions into a relational algebra operation'''
     def __init__(self, symbols, db):
@@ -238,4 +241,24 @@ class StatementProcessor:
         raise NotImplementedError()
 
     def dowhile(self, statement_list, termination_ex):
-        raise NotImplementedError()
+        body_ops = []
+        for statement in statement_list:
+            if statement[0] != 'ASSIGN':
+                # TODO: Better error message
+                raise InvalidStatementException('%s not allowed in do/while' %
+                                                statement[0].lower())
+            _id = statement[1]
+            expr = statement[2]
+
+            child_op = self.ep.evaluate(expr)
+            key = self.transient_prefix + _id
+            store_op = raco.algebra.Store(key, child_op)
+            body_ops.append(store_op)
+
+            relkey = raco.catalog.Relation(key, child_op.scheme())
+            scan_op = raco.algebra.Scan(relkey)
+            self.symbols[_id] = scan_op
+
+        term_op = self.ep.evaluate(termination_ex)
+        op = raco.algebra.DoWhile(body_ops, term_op)
+        self.output_symbols.append(("do/while", op))
