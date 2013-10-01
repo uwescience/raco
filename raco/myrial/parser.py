@@ -216,7 +216,7 @@ class Parser:
         p[0] = ('COUNTALL', p[3])
 
     def p_expression_binary_set_operation(self, p):
-        'expression : setop ID COMMA ID'
+        'expression : setop LPAREN ID COMMA ID RPAREN'
         p[0] = (p[1], p[2], p[4])
 
     def p_setop(self, p):
