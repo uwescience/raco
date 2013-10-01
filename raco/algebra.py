@@ -763,6 +763,26 @@ class Scan(ZeroaryOperator):
   def is_leaf(self):
     return True
 
+class DoWhile(Printable):
+  def __init__(self, body_ops, term_op):
+    """Repeatedly execute a sequence of plans until a termination condtion.
+
+    body_ops is a list of plans with no output (i.e., they are rooted by Store
+    operations).
+
+    term_op is an operation that should map to a single row, single column
+    relation.  The loop continues if its value is True.
+    """
+
+    self.body_ops = body_ops
+    self.term_op = term_op
+
+    def __repr__(self):
+      return 'DoWhile(%s,%s)' % (repr(self.body_ops), repr(self.term_op))
+
+    def shortStr(self):
+      return 'DoWhile'
+
 class CollapseSelect(Rule):
   """A rewrite rule for combining two selections"""
   def fire(self, expr):
