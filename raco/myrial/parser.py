@@ -217,7 +217,7 @@ class Parser:
 
     def p_expression_binary_set_operation(self, p):
         'expression : setop LPAREN expression COMMA expression RPAREN'
-        p[0] = (p[1], p[2], p[4])
+        p[0] = (p[1], p[3], p[5])
 
     def p_setop(self, p):
         '''setop : INTERSECT
