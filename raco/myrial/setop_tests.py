@@ -58,3 +58,21 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
 
         expected = self.emp_table1 + self.emp_table2
         self.run_test(query, expected)
+
+    def test_diff1(self):
+        query = """
+        out = DIFF(SCAN(%s), SCAN(%s));
+        DUMP(out);
+        """ % (self.emp_key1, self.emp_key2)
+
+        expected = self.emp_table1 - self.emp_table2
+        self.run_test(query, expected)
+
+    def test_diff2(self):
+        query = """
+        out = DIFF(SCAN(%s), SCAN(%s));
+        DUMP(out);
+        """ % (self.emp_key2, self.emp_key1)
+
+        expected = self.emp_table2 - self.emp_table1
+        self.run_test(query, expected)
