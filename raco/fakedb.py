@@ -121,6 +121,22 @@ class FakeDatabase:
             yield(key + tuple(agg_fields))
 
 
+    def dowhile(self, op):
+        try:
+            while True:
+                for body_op in op.body_ops:
+                    self.evaluate(body_op)
+
+                result = self.evaluate(op.term_op)
+                tpl = result.next()
+                # XXX should we use python truthiness here?
+                if not tpl[0]:
+                    break
+        except StopIteration:
+            pass
+        except IndexError:
+            pass
+
     def store(self, op):
         # Materialize the result
         bag = self.evaluate_to_bag(op.input)

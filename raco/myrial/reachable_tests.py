@@ -56,6 +56,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
             (3,),
             (4,),
             (5,),
+            (9,),
             (13,),
             ])
 
