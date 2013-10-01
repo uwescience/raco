@@ -120,3 +120,10 @@ class FakeDatabase:
                 tuples, op.input.scheme()) for agg_expr in op.aggregatelist]
             yield(key + tuple(agg_fields))
 
+
+    def store(self, op):
+        # Materialize the result
+        bag = self.evaluate_to_bag(op.input)
+        scheme = op.input.scheme()
+        self.tables[op.name] = (bag, scheme)
+        return None

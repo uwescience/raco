@@ -188,6 +188,10 @@ class StatementProcessor:
         self.db = db
         self.ep = ExpressionProcessor(self.symbols, db)
 
+        # Create a unique prefix name for storing transient tables
+        rnd  = str(random.randint(0,0x1000000000))
+        self.transient_prefix = '__transient-' + rnd + "-"
+
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
         for statement in statements:
@@ -197,8 +201,22 @@ class StatementProcessor:
 
     def assign(self, _id, expr):
         '''Assign to a variable by modifying the symbol table'''
-        op = self.ep.evaluate(expr)
-        self.symbols[_id] = op
+        # Evaluate the expression; store its result in a temporary table
+        # TODO: Apply chaining when it is safe to do so
+        # TODO: implement a leaf optimization to avoid duplicate
+        # scan/insertions
+
+        child_op = self.ep.evaluate(expr)
+        key = self.transient_prefix + _id
+        store_op = raco.algebra.Store(key, child_op)
+        self.output_symbols.append((_id, store_op))
+
+        # Point future references of this symbol to a scan of the
+        # materialized table.
+        # TODO: Make scan operate on the same relation key as store!
+        relkey = raco.catalog.Relation(key, child_op.scheme())
+        scan_op = raco.algebra.Scan(relkey)
+        self.symbols[_id] = scan_op
 
     def store(self, _id, relation_key):
         child_op = self.symbols[_id]
