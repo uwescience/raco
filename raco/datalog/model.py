@@ -56,7 +56,7 @@ class Program:
     return newplans
       
   def compileIDB(self, idb):
-    """Compile an idb by name.  Uses the self.idbs data structure creaetd in self.toRA"""
+    """Compile an idb by name.  Uses the self.idbs data structure created in self.toRA"""
 
     if idb in self.compiledidbs:
       return self.compiledidbs[idb]
