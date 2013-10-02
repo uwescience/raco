@@ -136,18 +136,18 @@ class FakeDatabase:
 
     def dowhile(self, op):
         i = 0
-        try:
-            while True:
-                for body_op in op.body_ops:
-                    self.evaluate(body_op)
+        while True:
+            for body_op in op.body_ops:
+                self.evaluate(body_op)
 
-                result = self.evaluate(op.term_op)
+            result = self.evaluate(op.term_op)
 
-                if debug:
-                    i += 1
-                    print '-------- Iteration %d ------------' % i
-                    self.dump_all()
+            if debug:
+                i += 1
+                print '-------- Iteration %d ------------' % i
+                self.dump_all()
 
+            try:
                 tpl = result.next()
 
                 if debug:
@@ -156,10 +156,10 @@ class FakeDatabase:
                 # XXX should we use python truthiness here?
                 if not tpl[0]:
                     break
-        except StopIteration:
-            pass
-        except IndexError:
-            pass
+            except StopIteration:
+                break
+            except IndexError:
+                break
 
     def store(self, op):
         # Materialize the result
