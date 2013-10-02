@@ -5,6 +5,8 @@ import itertools
 import raco.algebra
 import raco.scheme
 
+debug = False
+
 class FakeDatabase:
     """An in-memory implementation of relational algebra operators"""
 
@@ -32,6 +34,11 @@ class FakeDatabase:
     def get_scheme(self, relation_key):
         bag, scheme = self.tables[relation_key]
         return scheme
+
+    def dump_all(self):
+        for key, val in self.tables.iteritems():
+            bag = val[0]
+            print '%s: (%s)' % (key, bag)
 
     def scan(self, op):
         bag, scheme = self.tables[op.relation.name]
@@ -122,13 +129,24 @@ class FakeDatabase:
 
 
     def dowhile(self, op):
+        i = 0
         try:
             while True:
                 for body_op in op.body_ops:
                     self.evaluate(body_op)
 
                 result = self.evaluate(op.term_op)
+
+                if debug:
+                    i += 1
+                    print '-------- Iteration %d ------------' % i
+                    self.dump_all()
+
                 tpl = result.next()
+
+                if debug:
+                    print 'Term: %s' % str(tpl)
+
                 # XXX should we use python truthiness here?
                 if not tpl[0]:
                     break
