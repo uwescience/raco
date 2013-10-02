@@ -277,6 +277,10 @@ class Parser:
         'sexpr : STRING_LITERAL'
         p[0] = sexpr.StringLiteral(p[1])
 
+    def p_sexpr_float_literal(self, p):
+        'sexpr : FLOAT_LITERAL'
+        p[0] = sexpr.NumericLiteral(p[1])
+
     def p_sexpr_id(self, p):
         'sexpr : ID'
         p[0] = sexpr.NamedAttributeRef(p[1])
