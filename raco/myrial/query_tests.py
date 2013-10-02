@@ -640,6 +640,27 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(tuples)
         self.run_test(query, expected)
 
+    def test_impure_aggregate_colref(self):
+        """Test of aggregate expression that refers to a grouping column"""
+        query = """
+        out = [FROM X=SCAN(%s) EMIT
+               val=( X.dept_id +  (MAX(X.salary) - MIN(X.salary))),
+               did=X.dept_id];
+
+        out = [FROM out EMIT dept_id=did, rng=val];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, key + (max(values) - min(values))) for key, values in
+                  result_dict.iteritems()]
+
+        expected = collections.Counter(tuples)
+        self.run_test(query, expected)
+
     def test_nested_aggregates_are_illegal(self):
         query = """
         out = [FROM X=SCAN(%s) EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
