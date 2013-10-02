@@ -9,8 +9,9 @@ import raco.myrial.parser as parser
 import raco.scheme as scheme
 import raco.myrial.groupby
 import raco.myrial.unpack_from
+import raco.myrial.myrial_test as myrial_test
 
-class TestQueryFunctions(unittest.TestCase):
+class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     emp_table = collections.Counter([
         # id dept_id name salary
@@ -53,7 +54,7 @@ class TestQueryFunctions(unittest.TestCase):
     numbers_key = "andrew:adhoc:numbers"
 
     def setUp(self):
-        self.db = raco.fakedb.FakeDatabase()
+        super(TestQueryFunctions, self).setUp()
 
         self.db.ingest(TestQueryFunctions.emp_key,
                        TestQueryFunctions.emp_table,
@@ -67,21 +68,6 @@ class TestQueryFunctions(unittest.TestCase):
                        TestQueryFunctions.numbers_table,
                        TestQueryFunctions.numbers_schema)
 
-        self.parser = parser.Parser()
-        self.processor = interpreter.StatementProcessor(self.db)
-
-    def __execute_query(self, query):
-        '''Run a test query against the fake database'''
-        statements = self.parser.parse(query)
-        self.processor.evaluate(statements)
-
-        _var, op = self.processor.output_symbols[0]
-        return self.db.evaluate_to_bag(op)
-
-    def __run_test(self, query, expected):
-        '''Execute a test query with an expected output'''
-        actual = self.__execute_query(query)
-        self.assertEquals(actual, expected)
 
     def test_scan_emp(self):
         query = """
@@ -89,7 +75,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(emp);
         """ % self.emp_key
 
-        self.__run_test(query, self.emp_table)
+        self.run_test(query, self.emp_table)
 
     def test_scan_dept(self):
         query = """
@@ -97,7 +83,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(dept);
         """ % self.dept_key
 
-        self.__run_test(query, self.dept_table)
+        self.run_test(query, self.dept_table)
 
 
     def test_bag_comp_emit_star(self):
@@ -107,7 +93,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(bc);
         """ % self.emp_key
 
-        self.__run_test(query, self.emp_table)
+        self.run_test(query, self.emp_table)
 
     salary_filter_query = """
     emp = SCAN(%s);
@@ -121,11 +107,11 @@ class TestQueryFunctions(unittest.TestCase):
     def test_bag_comp_filter_large_salary_by_name(self):
         query =  TestQueryFunctions.salary_filter_query % (self.emp_key,
                                                            'salary')
-        self.__run_test(query, TestQueryFunctions.salary_expected_result)
+        self.run_test(query, TestQueryFunctions.salary_expected_result)
 
     def test_bag_comp_filter_large_salary_by_position(self):
         query =  TestQueryFunctions.salary_filter_query % (self.emp_key, '$3')
-        self.__run_test(query, TestQueryFunctions.salary_expected_result)
+        self.run_test(query, TestQueryFunctions.salary_expected_result)
 
     def test_bag_comp_filter_empty_result(self):
         query = """
@@ -135,7 +121,7 @@ class TestQueryFunctions(unittest.TestCase):
         """ % self.emp_key
 
         expected = collections.Counter()
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_column_compare_ge(self):
         query = """
@@ -146,7 +132,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if 2 * x[1] >= x[0]])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_column_compare_le(self):
         query = """
@@ -157,7 +143,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[1] <= 2 * x[0]])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_column_compare_gt(self):
         query = """
@@ -168,7 +154,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if 2 * x[1] > x[0]])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_column_compare_lt(self):
         query = """
@@ -179,7 +165,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[1] < 2 * x[0]])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_column_compare_eq(self):
         query = """
@@ -190,7 +176,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[0] * 2 == x[1]])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_column_compare_ne(self):
         query = """
@@ -201,7 +187,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[0] / x[1] != x[1]])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_minus(self):
         query = """
@@ -212,7 +198,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[0] - x[1] ==  x[1]])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_and(self):
         query = """
@@ -224,7 +210,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[3] == 25000 and
              x[0] > x[1]])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_or(self):
         query = """
@@ -236,7 +222,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[3] > 25000 or
              x[0] > x[1]])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_not(self):
         query = """
@@ -247,7 +233,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if not x[3] > 25000])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_or_and(self):
         query = """
@@ -260,7 +246,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[3] == 25000 or
              (x[3] == 5000 and x[1] == 1)])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_filter_or_and_not(self):
         query = """
@@ -273,7 +259,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[3] == 25000 or not
              x[3] == 5000 and x[1] == 1])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_emit_columns(self):
         query = """
@@ -284,7 +270,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [(x[2], x[3]) for x in self.emp_table.elements() if x[1] == 1])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_emit_literal(self):
         query = """
@@ -296,7 +282,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [(x[3], "bugga bugga")  for x in self.emp_table.elements()])
 
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_emit_with_math(self):
         query = """
@@ -309,7 +295,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [(x[3] + 5000, x[3] - 5000, x[3] / 5000, x[3] * 5000) \
              for x in self.emp_table.elements()])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bag_comp_rename(self):
         query = """
@@ -323,7 +309,7 @@ class TestQueryFunctions(unittest.TestCase):
             [(x[2], x[3] * 2) for x in self.emp_table.elements() if
              x[3] * 2 > 10000])
 
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     join_expected = collections.Counter(
         [('Bill Howe', 'human resources'),
@@ -343,7 +329,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
-        self.__run_test(query, self.join_expected)
+        self.run_test(query, self.join_expected)
 
     def test_bagcomp_join_via_names(self):
         query = """
@@ -352,7 +338,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
-        self.__run_test(query, self.join_expected)
+        self.run_test(query, self.join_expected)
 
     def test_bagcomp_join_via_pos(self):
         query = """
@@ -363,7 +349,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
-        self.__run_test(query, self.join_expected)
+        self.run_test(query, self.join_expected)
 
     # TODO: test with multiple join attributes
 
@@ -377,7 +363,7 @@ class TestQueryFunctions(unittest.TestCase):
                   d in self.dept_table.elements()]
         expected = collections.Counter(tuples)
 
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_bagcomp_cross(self):
         query = """
@@ -389,7 +375,7 @@ class TestQueryFunctions(unittest.TestCase):
                   d in self.dept_table.elements()]
         expected = collections.Counter(tuples)
 
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_distinct(self):
         query = """
@@ -398,7 +384,7 @@ class TestQueryFunctions(unittest.TestCase):
         """ % self.emp_key
 
         expected = collections.Counter([(25000,),(5000,),(90000,)])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_limit(self):
         query = """
@@ -406,7 +392,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % self.emp_key
 
-        result = self.__execute_query(query)
+        result = self.execute_query(query)
         self.assertEquals(len(result), 3)
 
 
@@ -416,7 +402,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(X);
         """
         expected = collections.Counter([(50000,)])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_unbox_from_where_single(self):
         query = """
@@ -428,7 +414,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[3] > 25000])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_unbox_from_where_multi(self):
         query = """
@@ -441,7 +427,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % self.emp_key
 
-        self.__run_test(query, self.emp_table)
+        self.run_test(query, self.emp_table)
 
     def test_unbox_from_where_nary_name(self):
         query = """
@@ -456,7 +442,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[3] == 25000])
 
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_unbox_from_where_nary_pos(self):
         query = """
@@ -471,7 +457,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [x for x in self.emp_table.elements() if x[3] == 25000])
 
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_unbox_from_emit_single(self):
         query = """
@@ -483,7 +469,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [(x[3] * 1000,) for x in self.emp_table.elements()])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_unbox_kitchen_sink(self):
         query = """
@@ -499,7 +485,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [(x[1] * 2,) for x in self.emp_table.elements() if
              x[3] == 5000 or x[3] == 25000])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
 
     def __aggregate_expected_result(self, apply_func):
@@ -517,7 +503,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % self.emp_key
 
-        self.__run_test(query, self.__aggregate_expected_result(max))
+        self.run_test(query, self.__aggregate_expected_result(max))
 
     def test_min(self):
         query = """
@@ -525,7 +511,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % self.emp_key
 
-        self.__run_test(query, self.__aggregate_expected_result(min))
+        self.run_test(query, self.__aggregate_expected_result(min))
 
     def test_sum(self):
         query = """
@@ -533,7 +519,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % self.emp_key
 
-        self.__run_test(query, self.__aggregate_expected_result(sum))
+        self.run_test(query, self.__aggregate_expected_result(sum))
 
     def test_count(self):
         query = """
@@ -541,7 +527,7 @@ class TestQueryFunctions(unittest.TestCase):
         DUMP(out);
         """ % self.emp_key
 
-        self.__run_test(query, self.__aggregate_expected_result(len))
+        self.run_test(query, self.__aggregate_expected_result(len))
 
     def test_max_reversed(self):
         query = """
@@ -551,7 +537,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         ex = self.__aggregate_expected_result(max)
         ex = collections.Counter([(y,x) for (x,y) in ex])
-        self.__run_test(query, ex)
+        self.run_test(query, ex)
 
     def test_compound_aggregate(self):
         query = """
@@ -569,7 +555,7 @@ class TestQueryFunctions(unittest.TestCase):
                   result_dict.iteritems()]
 
         expected = collections.Counter(tuples)
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_aggregate_with_unbox(self):
         query = """
@@ -588,7 +574,7 @@ class TestQueryFunctions(unittest.TestCase):
                   result_dict.iteritems()]
 
         expected = collections.Counter(tuples)
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_nary_groupby(self):
         query = """
@@ -603,7 +589,7 @@ class TestQueryFunctions(unittest.TestCase):
         tuples = [key + (len(values),)
                   for key, values in result_dict.iteritems()]
         expected = collections.Counter(tuples)
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_empty_groupby(self):
         query = """
@@ -612,7 +598,7 @@ class TestQueryFunctions(unittest.TestCase):
         """ % self.emp_key
 
         expected = collections.Counter([(90000, len(self.emp_table), 4)])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_compound_groupby(self):
         query = """
@@ -626,7 +612,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         tuples = [(key, len(values)) for key, values in result_dict.iteritems()]
         expected = collections.Counter(tuples)
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_nested_aggregates_are_illegal(self):
         query = """
@@ -635,7 +621,7 @@ class TestQueryFunctions(unittest.TestCase):
         """ % self.emp_key
 
         with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
-            self.__run_test(query, collections.Counter())
+            self.run_test(query, collections.Counter())
 
     def test_multiway_bagcomp_with_unbox(self):
         """Return all employees in accounting making less than 30000"""
@@ -653,7 +639,7 @@ class TestQueryFunctions(unittest.TestCase):
             ("Andrew Whitaker",),
             ("Victor Almeida",),
             ("Magdalena Balazinska",)])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_duplicate_bagcomp_aliases_are_illegal(self):
         query = """
@@ -663,7 +649,7 @@ class TestQueryFunctions(unittest.TestCase):
         """ % (self.emp_key,)
 
         with self.assertRaises(interpreter.DuplicateAliasException):
-            self.__run_test(query, collections.Counter())
+            self.run_test(query, collections.Counter())
 
     def test_bagcomp_column_index_out_of_bounds(self):
         query = """
@@ -675,7 +661,7 @@ class TestQueryFunctions(unittest.TestCase):
         """ % (self.emp_key, self.dept_key)
 
         with self.assertRaises(raco.myrial.unpack_from.ColumnIndexOutOfBounds):
-            self.__run_test(query, collections.Counter())
+            self.run_test(query, collections.Counter())
 
     def test_abs(self):
         query = """
@@ -685,7 +671,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [(a,abs(b)) for a,b in self.numbers_table.elements()])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_ceil(self):
         query = """
@@ -695,7 +681,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [(a,math.ceil(b)) for a,b in self.numbers_table.elements()])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_cos(self):
         query = """
@@ -705,7 +691,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [(a,math.cos(b)) for a,b in self.numbers_table.elements()])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_floor(self):
         query = """
@@ -715,7 +701,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [(a,math.floor(b)) for a,b in self.numbers_table.elements()])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_log(self):
         query = """
@@ -726,7 +712,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [(a,math.log(b)) for a,b in self.numbers_table.elements()
              if b > 0])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_sin(self):
         query = """
@@ -736,7 +722,7 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [(a,math.sin(b)) for a,b in self.numbers_table.elements()])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_sqrt(self):
         query = """
@@ -747,7 +733,7 @@ class TestQueryFunctions(unittest.TestCase):
         expected = collections.Counter(
             [(a,math.sqrt(b)) for a,b in self.numbers_table.elements()
              if b >= 0])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_tan(self):
         query = """
@@ -757,5 +743,5 @@ class TestQueryFunctions(unittest.TestCase):
 
         expected = collections.Counter(
             [(a,math.tan(b)) for a,b in self.numbers_table.elements()])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 

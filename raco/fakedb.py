@@ -85,6 +85,21 @@ class FakeDatabase:
     def singletonrelation(self, op):
         return iter([()])
 
+    def unionall(self, op):
+        left_it = self.evaluate(op.left)
+        right_it = self.evaluate(op.right)
+        return itertools.chain(left_it, right_it)
+
+    def difference(self, op):
+        its = [self.evaluate(op.left), self.evaluate(op.right)]
+        bags = [collections.Counter(it) for it in its]
+        return (bags[0] - bags[1]).elements()
+
+    def intersection(self, op):
+        its = [self.evaluate(op.left), self.evaluate(op.right)]
+        bags = [collections.Counter(it) for it in its]
+        return (bags[0] & bags[1]).elements()
+
     def groupby(self, op):
         child_it = self.evaluate(op.input)
 

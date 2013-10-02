@@ -17,7 +17,7 @@ bounds = [FROM Points EMIT lower=MIN(v), upper=MAX(v)];
 
 	tooLow = [FROM Points WHERE *newBounds.lower > v AND v >= *bounds.lower EMIT *];
 	tooHigh = [FROM Points WHERE *newBounds.upper < v AND v <= *bounds.upper EMIT *];
-	newBad = UNIONALL tooLow, tooHigh;
+	newBad = UNIONALL(tooLow, tooHigh);
 
 	bounds = newBounds;
 	continue = [FROM newBad EMIT COUNT(v) > 0];

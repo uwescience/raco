@@ -104,16 +104,10 @@ class ExpressionProcessor:
         op = self.evaluate(expr)
         return raco.algebra.Distinct(input=op)
 
-    def __process_bitop(self, _type, id1, id2):
-        left = self.symbols[id1]
-        right = self.symbols[id2]
-        raise NotImplementedError()
-
-    def unionall(self, id1, id2):
-        left = self.symbols[id1]
-        right = self.symbols[id2]
-        # TODO: Figure out set/bag semantics here
-        return raco.algebra.Union(left, right)
+    def unionall(self, e1, e2):
+        left = self.evaluate(e1)
+        right = self.evaluate(e2)
+        return raco.algebra.UnionAll(left, right)
 
     def countall(self, expr):
         op = self.evaluate(expr)
@@ -123,11 +117,15 @@ class ExpressionProcessor:
         return raco.algebra.GroupBy(columnlist=grouping_list+agg_list,
                                     input=op)
 
-    def intersect(self, id1, id2):
-        raise NotImplementedError()
+    def intersect(self, e1, e2):
+        left = self.evaluate(e1)
+        right = self.evaluate(e2)
+        return raco.algebra.Intersection(left, right)
 
-    def diff(self, id1, id2):
-        raise NotImplementedError()
+    def diff(self, e1, e2):
+        left = self.evaluate(e1)
+        right = self.evaluate(e2)
+        return raco.algebra.Difference(left, right)
 
     def limit(self, expr, count):
         op = self.evaluate(expr)
