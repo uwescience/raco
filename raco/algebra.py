@@ -783,6 +783,10 @@ class DoWhile(Printable):
     def shortStr(self):
       return 'DoWhile'
 
+    def copy(self, other):
+      other.body_ops = self.body_ops[:]
+      other.term_op = self.term_op
+
 class CollapseSelect(Rule):
   """A rewrite rule for combining two selections"""
   def fire(self, expr):
