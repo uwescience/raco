@@ -307,6 +307,39 @@ class Union(BinaryOperator):
   def shortStr(self):
     return self.opname()
 
+class UnionAll(BinaryOperator):
+  """Bag union."""
+  def scheme(self):
+    return self.left.scheme()
+
+  def resolveAttribute(self, attributereference):
+    return self.left.resolveAttribute(attributereference)
+
+  def shortStr(self):
+    return self.opname()
+
+class Intersection(BinaryOperator):
+  """Bag intersection."""
+  def scheme(self):
+    return self.left.scheme()
+
+  def resolveAttribute(self, attributereference):
+    return self.left.resolveAttribute(attributereference)
+
+  def shortStr(self):
+    return self.opname()
+
+class Difference(BinaryOperator):
+  """Bag difference"""
+  def scheme(self):
+    return self.left.scheme()
+
+  def resolveAttribute(self, attributereference):
+    return self.left.resolveAttribute(attributereference)
+
+  def shortStr(self):
+    return self.opname()
+
 class CrossProduct(BinaryOperator):
   """Logical Cross Product operator"""
   def __init__(self, left=None, right=None):
