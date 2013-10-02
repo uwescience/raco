@@ -712,7 +712,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(
             [(a,math.log(b)) for a,b in self.numbers_table.elements()
              if b > 0])
-        self.__run_test(query, expected)
+        self.run_test(query, expected)
 
     def test_sin(self):
         query = """
