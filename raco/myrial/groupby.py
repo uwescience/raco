@@ -41,6 +41,10 @@ class NestedAggregateException(Exception):
     '''Nested aggregate functions are not allowed'''
     pass
 
+class InvalidAttributeRef(Exception):
+    '''Attempting to access a non-grouping term in an aggregate expression'''
+    pass
+
 def __aggregate_count(sexpr):
     def count(sexpr):
         if isinstance(sexpr, raco.expression.AggregateExpression):
@@ -48,7 +52,7 @@ def __aggregate_count(sexpr):
         return 0
     return sum(sexpr.postorder(count))
 
-class GroupbyState(object):
+class AggregateState(object):
     def __init__(self, initial_aggregate_pos):
         # Mapping from an aggregate scalar expression (e.g., MAX(salary)) to
         # a non-aggregate scalar expression (a raw column index).
@@ -57,20 +61,31 @@ class GroupbyState(object):
         # Next index to be assigned for aggregate expressions
         self.aggregate_pos = initial_aggregate_pos
 
-def __hoist_aggregates(sexpr, gb_state):
+def __hoist_aggregates(sexpr, agg_state, group_mappings, input_scheme):
     def hoist_node(sexpr):
+        if isinstance(sexpr, raco.expression.AttributeRef):
+            # Translate the attribute ref to the schema that will exist
+            # after the GroupBy
+            input_pos = sexpr.get_position(input_scheme)
+            if not input_pos in group_mappings:
+                raise InvalidAttributeRef(str(sexpr))
+            output_pos = group_mappings[input_pos]
+            return raco.expression.UnnamedAttributeRef(output_pos)
+
         if not isinstance(sexpr, raco.expression.AggregateExpression):
             return sexpr
-        elif sexpr in gb_state.aggregates:
-            return gb_state.aggregates[sexpr];
+
+        if sexpr in agg_state.aggregates:
+            return agg_state.aggregates[sexpr];
         else:
-            # Check for nested aggregate expressions
+            # A new aggregate expression: Add it to our map, first checking for
+            # illegal nested aggregates.
             if __aggregate_count(sexpr) != 1:
                 raise NestedAggregateException(str(sexpr))
 
-            out = raco.expression.UnnamedAttributeRef(gb_state.aggregate_pos)
-            gb_state.aggregates[sexpr] = out
-            gb_state.aggregate_pos += 1
+            out = raco.expression.UnnamedAttributeRef(agg_state.aggregate_pos)
+            agg_state.aggregates[sexpr] = out
+            agg_state.aggregate_pos += 1
             return out
 
     def recursive_eval(sexpr):
@@ -82,42 +97,60 @@ def __hoist_aggregates(sexpr, gb_state):
     return recursive_eval(sexpr)
 
 def sexpr_contains_aggregate(sexpr):
-    """Return 1 if a scalar expression contains 1 or more aggregates"""
+    """Return True if a scalar expression contains 1 or more aggregates"""
     def is_aggregate(sexpr):
         return isinstance(sexpr, raco.expression.AggregateExpression)
 
-    if any(sexpr.postorder(is_aggregate)):
-        return 1
-    else:
-        return 0
+    return any(sexpr.postorder(is_aggregate))
 
 def groupby(op, emit_clause):
-    """Process any groupby/aggregation expressions."""
+    """Process groupby/aggregation expressions."""
 
     if not emit_clause:
         return op, emit_clause
 
-    # Perform a simple count of output columns with aggregate expressions
-    num_agg_columns = sum([sexpr_contains_aggregate(sexpr) for _, sexpr in
-                           emit_clause])
+    # A mapping from input position (before the GroupBy) to output position
+    # (after the GroupBy) for grouping terms.  This allows aggregate terms
+    # to refer to grouping fields.
+    group_mappings = {}
 
-    if num_agg_columns == 0:
+    scheme = op.scheme()
+    num_group_terms = 0
+
+    for name, sexpr in emit_clause:
+        if not sexpr_contains_aggregate(sexpr):
+            if isinstance(sexpr, raco.expression.AttributeRef):
+                group_mappings[sexpr.get_position(scheme)] = num_group_terms
+            num_group_terms += 1
+
+    if num_group_terms == len(emit_clause):
         return op, emit_clause # No aggregates: not a groupby query
 
-    state = GroupbyState(len(emit_clause) - num_agg_columns)
-    output_mappings = [] # mappings from column name to sexpr
-    grouping_terms = [] # list of sexpr without aggregate functions
+    # State about scalar expressions with aggregates
+    agg_state = AggregateState(num_group_terms)
+
+    # mappings from column name to scalar expressions; these mappings are
+    # applied after the GroupBy operator to stitch up column names and values.
+    output_mappings = []
+
+    # A subset of the scalar expressions in the emit clause that do
+    # not contain aggregate expressions; these become the grouping terms
+    # to the GroupBy operator.
+    group_terms = []
 
     for name, sexpr in emit_clause:
         if sexpr_contains_aggregate(sexpr):
-            output_mappings.append((name,  __hoist_aggregates(sexpr, state)))
+            output_mappings.append(
+                (name, __hoist_aggregates(sexpr, agg_state, group_mappings,
+                                          scheme)))
         else:
-            out = raco.expression.UnnamedAttributeRef(len(grouping_terms))
-            output_mappings.append((name, out))
-            grouping_terms.append(sexpr)
+            output_mappings.append((
+                name, raco.expression.UnnamedAttributeRef(len(group_terms))))
+            group_terms.append(sexpr)
 
-    # TODO: Need to resolve this with the new group by 
-    #op = raco.algebra.GroupBy(grouping_terms, state.aggregates.keys(), op)
-    columnlist = grouping_terms + state.aggregates.keys()
+    # TODO: It's dumb to combine the grouping terms and the aggregate terms,
+    # since the GroupBy operator just rips them apart.
+    #op = raco.algebra.GroupBy(group_terms, state.aggregates.keys(), op)
+    columnlist = group_terms + agg_state.aggregates.keys()
     op = raco.algebra.GroupBy(columnlist, op)
     return op, output_mappings

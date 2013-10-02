@@ -132,7 +132,11 @@ class NumericLiteral(Literal):
   pass
 
 class AttributeRef(Expression):
-  pass
+  def evaluate(self, _tuple, scheme):
+    return _tuple[self.get_position(scheme)]
+
+  def get_position(self, scheme):
+    raise NotImplementedError()
 
 class NamedAttributeRef(AttributeRef):
   def __init__(self, attributename):
@@ -144,9 +148,8 @@ class NamedAttributeRef(AttributeRef):
   def __str__(self):
     return "%s" % (self.name)
 
-  def evaluate(self, _tuple, scheme):
-    pos = scheme.getPosition(self.name)
-    return _tuple[pos]
+  def get_position(self, scheme):
+    return scheme.getPosition(self.name)
 
 class UnnamedAttributeRef(AttributeRef):
   def __init__(self, position):
@@ -168,8 +171,8 @@ class UnnamedAttributeRef(AttributeRef):
     """Add an offset to this positional reference.  Used when building a plan from a set of joins"""
     self.position = self.position + offset
 
-  def evaluate(self, _tuple, scheme):
-    return _tuple[self.position]
+  def get_position(self, scheme):
+    return self.position
 
 class DottedAttributeRef(AttributeRef):
   def __init__(self, relation_name, field):
