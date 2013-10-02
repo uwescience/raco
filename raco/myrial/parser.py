@@ -339,13 +339,17 @@ class Parser:
         '''unary_aggregate_func : MAX
                                 | MIN
                                 | SUM
-                                | COUNT'''
+                                | COUNT
+                                | AVERAGE
+                                | STDEV'''
 
-        # TODO: support average once we have floating point
+
         if p[1] == 'MAX': func = sexpr.MAX
         if p[1] == 'MIN': func = sexpr.MIN
         if p[1] == 'SUM': func = sexpr.SUM
         if p[1] == 'COUNT': func = sexpr.COUNT
+        if p[1] == 'AVERAGE': func = sexpr.AVERAGE
+        if p[1] == 'STDEV': func = sexpr.STDEV
 
         p[0] = func
 

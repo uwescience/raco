@@ -1,5 +1,7 @@
 import math
+
 from utility import emit, Printable
+
 """
 An expression language for datalog: Function calls, arithmetic, simple string functions
 """
@@ -314,6 +316,35 @@ class SUM(UnaryFunction,AggregateExpression):
       if t is not None:
         sum += t
     return sum
+
+class AVERAGE(UnaryFunction,AggregateExpression):
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    filtered = (x for x in inputs if x is not None)
+
+    sum = 0
+    count = 0
+    for t in filtered:
+        sum += t
+        count += 1
+    return sum / count
+
+class STDEV(UnaryFunction,AggregateExpression):
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    filtered = [x for x in inputs if x is not None]
+
+    n = len(filtered)
+    if (n < 2):
+      return 0.0
+
+    mean = sum(filtered) / n
+
+    std = 0
+    for a in filtered:
+      std = std + (a - mean)**2
+    std = math.sqrt(std / float(n-1))
+    return std
 
 class BooleanExpression(Printable):
   pass
