@@ -80,13 +80,22 @@ class DatalogTest(unittest.TestCase):
     testresult = RATest(query)
     self.assertEqual(testresult, desiredresult)
 
+  def test_union(self):
+    query = """
+A(x) :- B(x,y)
+A(x) :- C(y,x)
+"""
+    desiredresult = """[('A', Union[Project($0)[Scan(B)], Project($1)[Scan(C)]])]"""
+    testresult = RATest(query)
+    self.assertEqual(testresult, desiredresult)
+
   def test_chained(self):
     query = """
 JustXBill(x) :- TwitterK(x,y)
 JustXBill2(x) :- JustXBill(x)
 JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
 """
-    desiredresult = """[('JustXBillSquared', Project($0)[Join($0 = $0)[Store(JustXBill)[Apply(x=$0)[Project($0)[Scan(TwitterK)]]], Store(JustXBill2)[Apply(x=$0)[Project($0)[Store(JustXBill)[Apply(x=$0)[Project($0)[Scan(TwitterK)]]]]]]]])]"""
+    desiredresult = """[('JustXBillSquared', Project($0)[Join($0 = $0)[Apply(x=$0)[Project($0)[Scan(TwitterK)]], Apply(x=$0)[Project($0)[Apply(x=$0)[Project($0)[Scan(TwitterK)]]]]]])]"""
     testresult = RATest(query)
     self.assertEqual(testresult, desiredresult)
 
@@ -95,7 +104,7 @@ JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
     A(x,z) :- R(x,y,z);
     B(w) :- A(3,w)
 """
-    desiredresult = """[('B', Project($1)[Select($0 = 3)[Store(A)[Apply(x=$0,w=$1)[Project($0,$2)[Scan(R)]]]]])]"""
+    desiredresult = """[('B', Project($1)[Select($0 = 3)[Apply(x=$0,w=$1)[Project($0,$2)[Scan(R)]]]])]"""
     testresult = RATest(query)
     self.assertEqual(testresult, desiredresult)
 
