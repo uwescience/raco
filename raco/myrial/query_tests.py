@@ -521,9 +521,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.__aggregate_expected_result(sum))
 
-    def test_average(self):
+    def test_avg(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT dept_id, AVERAGE(salary)];
+        out = [FROM X=SCAN(%s) EMIT dept_id, AVG(salary)];
         DUMP(out);
         """ % self.emp_key
 

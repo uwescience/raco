@@ -344,7 +344,7 @@ class Parser:
                                 | MIN
                                 | SUM
                                 | COUNT
-                                | AVERAGE
+                                | AVG
                                 | STDEV'''
 
 
@@ -352,7 +352,7 @@ class Parser:
         if p[1] == 'MIN': func = sexpr.MIN
         if p[1] == 'SUM': func = sexpr.SUM
         if p[1] == 'COUNT': func = sexpr.COUNT
-        if p[1] == 'AVERAGE': func = sexpr.AVERAGE
+        if p[1] == 'AVG': func = sexpr.AVERAGE
         if p[1] == 'STDEV': func = sexpr.STDEV
 
         p[0] = func

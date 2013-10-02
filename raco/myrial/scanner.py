@@ -8,7 +8,7 @@ reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
             'FLOAT', 'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN',
             'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'MAX', 'MIN',
             'SUM', 'COUNT', 'ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT',
-            'TAN', 'AVERAGE', 'STDEV']
+            'TAN', 'AVG', 'STDEV']
 
 # Token types; required by ply to have this variable name
 

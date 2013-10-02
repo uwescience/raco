@@ -7,7 +7,7 @@ Good = SCAN(public:adhoc:Points, v:float);
 N = [2];
 
 DO
-    mean = [FROM Good EMIT val=AVERAGE(v)];
+    mean = [FROM Good EMIT val=AVG(v)];
     std = [FROM Good EMIT val=STDEV(v)];
     NewBad = [FROM Good WHERE ABS(Good.v - *mean) > *N * *std EMIT *];
     Good = DIFF(Good, NewBad);
