@@ -521,6 +521,32 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.__aggregate_expected_result(sum))
 
+    def test_average(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT dept_id, AVERAGE(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        def avg(it):
+            sum = 0
+            cnt = 0
+            for val in it:
+                sum += val
+                cnt += 1
+            return sum / cnt
+
+        self.run_test(query, self.__aggregate_expected_result(avg))
+
+    def test_stdev(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT STDEV(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        res = self.execute_query(query)
+        tp = res.elements().next()
+        self.assertAlmostEqual(tp[0], 34001.8006726)
+
     def test_count(self):
         query = """
         out = [FROM X=SCAN(%s) EMIT dept_id, COUNT(salary)];

@@ -338,12 +338,12 @@ class STDEV(UnaryFunction,AggregateExpression):
     if (n < 2):
       return 0.0
 
-    mean = sum(filtered) / n
+    mean = float(sum(filtered)) / n
 
-    std = 0
+    std = 0.0
     for a in filtered:
       std = std + (a - mean)**2
-    std = math.sqrt(std / float(n-1))
+    std = math.sqrt(std / n)
     return std
 
 class BooleanExpression(Printable):
