@@ -549,7 +549,9 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
         # Then use this new var as the column name
         return new.var
       else:
-        # It's an implicit selection condition
+        # It's an implicit selection condition, like R(x,3). In R's schema,
+        # don't call the column name '3' (new), instead call it whatever the column
+        # name was in the prior rule where R is the head variable R (old).
         return old
 
     mappings = [(choosename(new,old),raco.expression.UnnamedAttributeRef(i)) for i, (new,old) in enumerate(pairs)]
