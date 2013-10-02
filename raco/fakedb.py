@@ -115,11 +115,17 @@ class FakeDatabase:
                   sexpr in op.groupinglist]
             return tuple(ls)
 
-        # calculate groups of matching input tuples
+        # Calculate groups of matching input tuples.
+        # If there are no grouping terms, then all tuples are added
+        # to a single bin.
         results = collections.defaultdict(list)
-        for input_tuple in child_it:
-            output_tuple = process_grouping_columns(input_tuple)
-            results[output_tuple].append(input_tuple)
+
+        if len(op.groupinglist) == 0:
+            results[()] = list(child_it)
+        else:
+            for input_tuple in child_it:
+                grouped_tuple = process_grouping_columns(input_tuple)
+                results[grouped_tuple].append(input_tuple)
 
         # resolve aggregate functions
         for key, tuples in results.iteritems():
