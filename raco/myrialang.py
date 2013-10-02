@@ -8,6 +8,7 @@
 import algebra
 import boolean
 import json
+from operator import and_
 import rules
 import scheme
 import sys
@@ -140,16 +141,6 @@ class MyriaSelect(algebra.Select, MyriaOperator):
         "op_name" : resultsym,
         "op_type" : "HardcodedFilter",
         "arg_condition" : self.language.compile_boolean(self.condition),
-        "arg_child" : inputsym
-      }
-
-class MyriaProject(algebra.Project, MyriaOperator):
-  def compileme(self, resultsym, inputsym):
-    cols = [x.position for x in self.columnlist]
-    return {
-        "op_name" : resultsym,
-        "op_type" : "Project",
-        "arg_field_list" : cols,
         "arg_child" : inputsym
       }
 
@@ -306,6 +297,15 @@ class MyriaCollect(algebra.Collect, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     raise NotImplementedError('shouldn''t ever get here, should be turned into CP-CC pair')
 
+class MyriaDupElim(algebra.Distinct, MyriaOperator):
+  """Represents duplicate elimination"""
+  def compileme(self, resultsym, inputsym):
+    return {
+        "op_name" : resultsym,
+        "op_type" : "DupElim",
+        "arg_child" : inputsym,
+    }
+
 class MyriaApply(algebra.Apply, MyriaOperator):
   """Represents a simple apply operator"""
   def is_a_rename(self):
@@ -329,7 +329,21 @@ class MyriaApply(algebra.Apply, MyriaOperator):
     # Okay, if all those conditions are met, it's a rename
     return True
 
+  def is_a_col_select(self):
+    return reduce(and_, [isinstance(expr, expression.AttributeRef) for (name,expr) in self.mappings], True)
+
+  def compile_to_col_select(self, resultsym, inputsym):
+    child_scheme = self.input.scheme()
+    return {
+        "op_name" : resultsym,
+        "op_type" : "ColumnSelect",
+        "arg_child" : inputsym,
+        "arg_field_list" : [expression.toUnnamed(expr, child_scheme).position for (name,expr) in self.mappings],
+    }
+
   def compileme(self, resultsym, inputsym):
+    if self.is_a_col_select():
+      return self.compile_to_col_select(resultsym, inputsym)
     raise NotImplementedError('shouldn''t get here, should be getting removed by rules')
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
@@ -579,6 +593,21 @@ class SplitSelects(rules.Rule):
 
     return expr
 
+class ProjectToDistinctColumnSelect(rules.Rule):
+  def fire(self, expr):
+    # If not a Project, who cares?
+    if not isinstance(expr, algebra.Project):
+      return expr
+
+    mappings = [(None, x) for x in expr.columnlist]
+    colSelect = algebra.Apply(mappings, expr.input)
+    # TODO(dhalperi) the distinct logic is broken because we don't have a
+    # locality-aware optimizer. For now, don't insert Distinct for a logical
+    # project. This is BROKEN.
+    # distinct = algebra.Distinct(colSelect)
+    # return distinct
+    return colSelect
+
 DEFAULT_HARDCODED_SCHEMA = {
     'R': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
     'R3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
@@ -596,7 +625,6 @@ class MyriaAlgebra:
   operators = [
       MyriaLocalJoin
       , MyriaSelect
-      , MyriaProject
       , MyriaScan
       , MyriaInsert
   ]
@@ -615,14 +643,15 @@ class MyriaAlgebra:
       , BroadcastBeforeCross()
       , TransferBeforeGroupBy()
       , SplitSelects()
+      , ProjectToDistinctColumnSelect()
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
       , rules.OneToOne(algebra.GroupBy,MyriaGroupBy)
       , rules.OneToOne(algebra.Store,MyriaInsert)
       , rules.OneToOne(algebra.Apply,MyriaApply)
       , rules.OneToOne(algebra.Select,MyriaSelect)
+      , rules.OneToOne(algebra.Distinct,MyriaDupElim)
       , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
       , rules.OneToOne(algebra.Collect,MyriaCollect)
-      , rules.OneToOne(algebra.Project,MyriaProject)
       , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
       , RemoveRenames()
