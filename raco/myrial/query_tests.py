@@ -661,6 +661,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(tuples)
         self.run_test(query, expected)
 
+    def test_aggregate_illegal_colref(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT
+               val=X.dept_id + COUNT(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(
+                raco.myrial.groupby.InvalidAttributeRefException):
+            self.run_test(query, None)
+
     def test_nested_aggregates_are_illegal(self):
         query = """
         out = [FROM X=SCAN(%s) EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
