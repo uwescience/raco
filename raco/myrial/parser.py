@@ -142,7 +142,8 @@ class Parser:
 
     def p_type_name(self, p):
         '''type_name : STRING
-                     | INT'''
+                     | INT
+                     | FLOAT'''
         p[0] = p[1]
 
     def p_string_arg(self, p):
