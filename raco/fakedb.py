@@ -138,6 +138,8 @@ class FakeDatabase:
         i = 0
         while True:
             for body_op in op.body_ops:
+                if debug:
+                    print 'Evaluating: %s' % str(body_op)
                 self.evaluate(body_op)
 
             result = self.evaluate(op.term_op)
