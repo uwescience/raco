@@ -522,7 +522,9 @@ class Project(UnaryOperator):
 
 class GroupBy(UnaryOperator):
   """Logical projection operator"""
-  def __init__(self, columnlist=[],input=None):
+  def __init__(self, columnlist=None, input=None):
+    if not columnlist:
+      columnlist = []
     self.columnlist = columnlist
 
     self.groupinglist = [e for e in self.columnlist if not expression.isaggregate(e)]
