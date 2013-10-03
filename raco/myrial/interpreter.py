@@ -83,23 +83,21 @@ class ExpressionProcessor:
             from_args, where_clause, emit_clause)
 
         orig_scheme = op.scheme()
-        op, where_clause, emit_clause = unbox.unbox(op, where_clause,
-                                                    emit_clause, self.symbols)
+        op, where_clause, emit_clause, unbox_columns = unbox.unbox(
+            op, where_clause, emit_clause, self.symbols)
 
         if where_clause:
             op = raco.algebra.Select(condition=where_clause, input=op)
 
-        op, emit_clause = groupby.groupby(op, emit_clause)
-
-        if emit_clause:
-            op = raco.algebra.Apply(mappings=emit_clause, input=op)
-        else:
+        if not emit_clause:
             # Strip off any cross-product columns that we artificially added
             # during unboxing.
             mappings = [(orig_scheme.getName(i),
                          raco.expression.UnnamedAttributeRef(i))
                         for i in range(len(orig_scheme))]
             op = raco.algebra.Apply(mappings=mappings, input=op)
+        else:
+            op = groupby.groupby(op, emit_clause, unbox_columns)
 
         return op
 

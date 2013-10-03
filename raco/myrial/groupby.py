@@ -103,11 +103,10 @@ def sexpr_contains_aggregate(sexpr):
 
     return any(sexpr.postorder(is_aggregate))
 
-def groupby(op, emit_clause):
+def groupby(op, emit_clause, extra_grouping_columns):
     """Process groupby/aggregation expressions."""
 
-    if not emit_clause:
-        return op, emit_clause
+    assert emit_clause
 
     # A mapping from input position (before the GroupBy) to output position
     # (after the GroupBy) for grouping terms.  This allows aggregate terms
@@ -124,7 +123,14 @@ def groupby(op, emit_clause):
             num_group_terms += 1
 
     if num_group_terms == len(emit_clause):
-        return op, emit_clause # No aggregates: not a groupby query
+        return raco.algebra.Apply(mappings=emit_clause, input=op)
+
+    # Add extra grouping columns; we group by these terms, but the output
+    # is not preserved in the final apply invocation.  These are columns
+    # that were referenced in unbox expressions.
+    for col in extra_grouping_columns:
+        group_mappings[col] = num_group_terms
+        num_group_terms += 1
 
     # State about scalar expressions with aggregates
     agg_state = AggregateState(num_group_terms)
@@ -148,9 +154,14 @@ def groupby(op, emit_clause):
                 name, raco.expression.UnnamedAttributeRef(len(group_terms))))
             group_terms.append(sexpr)
 
+    # Add extra grouping columns; note that these are not present in the
+    # output mappings.
+    group_terms.extend([raco.expression.UnnamedAttributeRef(c)
+                        for c in extra_grouping_columns])
+
     # TODO: It's dumb to combine the grouping terms and the aggregate terms,
     # since the GroupBy operator just rips them apart.
     #op = raco.algebra.GroupBy(group_terms, state.aggregates.keys(), op)
     columnlist = group_terms + agg_state.aggregates.keys()
-    op = raco.algebra.GroupBy(columnlist, op)
-    return op, output_mappings
+    op1 = raco.algebra.GroupBy(columnlist, op)
+    return raco.algebra.Apply(mappings=output_mappings, input=op1)

@@ -20,6 +20,9 @@ def gensym():
 class RecursionError(ValueError):
   pass
 
+class SchemaError(Exception):
+  pass
+
 class Operator(Printable):
   """Operator base classs"""
   def __init__(self):
@@ -359,15 +362,8 @@ class CrossProduct(BinaryOperator):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
 
-  def resolveAttribute(self, attributereference):
-    """Join has to check to see if this attribute is in the left or right argument."""
-    try:
-      return self.left.resolveAttribute(attributereference)
-    except SchemaError:
-      try:
-        return self.right.resolveAttribute(attributereference)
-      except SchemaError:
-        raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
+  def resolveAttribute(self, ref):
+    return self.scheme().resolve(ref)
 
 class Join(BinaryOperator):
   """Logical Join operator"""
@@ -547,17 +543,15 @@ class GroupBy(UnaryOperator):
     UnaryOperator.copy(self, other)
 
   def scheme(self):
-    """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
+    """scheme of the result."""
     def resolve(i, attr):
-      if expression.isaggregate(attr):
-        return ("%s%s" % (attr.__class__.__name__,i), attr.typeof())
-      elif isinstance(attr,expression.AttributeRef):
+      if isinstance(attr,expression.AttributeRef):
         return self.input.resolveAttribute(attr)
       else:
-        # Must be some complex expression.  
-        # TODO: I'm thinking we should require these expressions to be handled exclusively in Apply, where the assigned name is unambiguous.
         return ("%s%s" % (attr.__class__.__name__,i), attr.typeof())
-    return scheme.Scheme([resolve(i, e) for i, e in enumerate(self.columnlist)])
+
+    attrs = [resolve(i, e) for i, e in enumerate(self.columnlist)]
+    return scheme.Scheme(attrs)
 
 class ProjectingJoin(Join):
   """Logical Projecting Join operator"""
