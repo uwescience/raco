@@ -722,6 +722,15 @@ class Scan(ZeroaryOperator):
   def is_leaf(self):
     return True
 
+class Sequence(NaryOperator):
+  """Execute a sequence of plans in serial order."""
+  def __init__(self, ops):
+    NaryOperator.__init__(self, ops)
+
+  def shortStr(self):
+    return self.opname()
+
+
 class DoWhile(Printable):
   def __init__(self, body_ops, term_op):
     """Repeatedly execute a sequence of plans until a termination condtion.
