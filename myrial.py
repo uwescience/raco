@@ -2,9 +2,20 @@
 
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
+from raco import algebra
 
 import argparse
 import sys
+
+def print_pretty_plan(plan):
+    for (label, root_op) in plan:
+        if isinstance(root_op, algebra.DoWhile):
+            print root_op.shortStr()
+            for inner_statement in root_op.body_ops:
+                print '\t%s' % inner_statement
+            print '\tContinue if: %s' % root_op.term_op
+        else:
+            print "%s = %s" % (label, root_op)
 
 def parse_options(args):
     parser = argparse.ArgumentParser()
@@ -28,4 +39,4 @@ if __name__ == "__main__":
             print statement_list
         else:
             processor.evaluate(statement_list)
-            print processor.output_symbols
+            print_pretty_plan(processor.output_symbols)
