@@ -135,6 +135,11 @@ class FakeDatabase:
             yield(key + tuple(agg_fields))
 
 
+    def sequence(self, op):
+        for child_op in op.children():
+            self.evaluate(child_op)
+        return None
+
     def dowhile(self, op):
         i = 0
         while True:
