@@ -779,15 +779,40 @@ class DoWhile(Printable):
     self.body_ops = body_ops
     self.term_op = term_op
 
-    def __repr__(self):
-      return 'DoWhile(%s,%s)' % (repr(self.body_ops), repr(self.term_op))
-
-    def shortStr(self):
-      return 'DoWhile'
-
-    def copy(self, other):
-      other.body_ops = self.body_ops[:]
-      other.term_op = self.term_op
+  def __repr__(self):
+    return 'DoWhile(%s,%s)' % (repr(self.body_ops), repr(self.term_op))
+  
+  def shortStr(self):
+    return 'DoWhile'
+  
+  def copy(self, other):
+    other.body_ops = self.body_ops[:]
+    other.term_op = self.term_op
+  
+  def collectGraph(self, graph=None):
+    """Collects the operator graph for a given query. Input parameter graph
+    has the format { 'nodes' : list(), 'edges' : list() }, initialized to empty
+    lists by default. An input graph will be mutated."""
+  
+    # Initialize graph if necessary
+    if graph is None:
+        graph = { 'nodes' : list(), 'edges' : list() }
+  
+    # Cycle detection - continue, but don't re-add this node to the graph
+    if id(self) in [id(n) for n in graph['nodes']]:
+        return graph
+  
+    # Add this node to the graph
+    graph['nodes'].append(self)
+    # Add all edges
+    children = self.body_ops + [self.term_op]
+    graph['edges'].extend([(x, self) for x in children])
+    for x in children:
+        # Recursively add children and edges to the graph. This mutates graph
+        x.collectGraph(graph)
+  
+    # Return the graph
+    return graph
 
 class CollapseSelect(Rule):
   """A rewrite rule for combining two selections"""
