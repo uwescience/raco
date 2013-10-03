@@ -126,6 +126,11 @@ class Operator(Printable):
     # Return the graph
     return graph
 
+  def resolveAttribute(self, ref):
+    """Return a tuple of (column_name, type) for a given AttributeRef."""
+    assert isinstance(ref, expression.AttributeRef)
+    return self.scheme().resolve(ref)
+
   def is_leaf(self):
     return False
 
@@ -192,9 +197,6 @@ class UnaryOperator(Operator):
   def scheme(self):
     """Default scheme is the same as the input.  Usually overriden"""
     return self.input.scheme()
-
-  def resolveAttribute(self, attributereference):
-    return self.input.resolveAttribute(attributereference)
 
   def apply(self, f):
     """Apply a function to your children"""
@@ -273,14 +275,6 @@ class NaryOperator(Operator):
   def children(self):
     return self.args
 
-  def resolveAttribute(self, attributeReference):
-    for arg in self.args:
-      try:
-        return arg.resolveAttribute(attributeReference)
-      except SchemaError:
-        pass
-    raise SchemaError("Cannot resolve %s in Nary operator with schema %s" % (attributeReference, self.scheme()))
-
   def copy(self, other):
     """deep copy"""
     self.args = [a for a in other.args]
@@ -306,10 +300,6 @@ class Union(BinaryOperator):
     """Same semantics as SQL: Assume first schema "wins" and throw an  error if they don't match during evaluation"""
     return self.left.scheme()
 
-  def resolveAttribute(self, attributereference):
-    """Union assumes the schema of its left argument"""
-    return self.left.resolveAttribute(attributereference)
-
   def shortStr(self):
     return self.opname()
 
@@ -317,9 +307,6 @@ class UnionAll(BinaryOperator):
   """Bag union."""
   def scheme(self):
     return self.left.scheme()
-
-  def resolveAttribute(self, attributereference):
-    return self.left.resolveAttribute(attributereference)
 
   def shortStr(self):
     return self.opname()
@@ -329,9 +316,6 @@ class Intersection(BinaryOperator):
   def scheme(self):
     return self.left.scheme()
 
-  def resolveAttribute(self, attributereference):
-    return self.left.resolveAttribute(attributereference)
-
   def shortStr(self):
     return self.opname()
 
@@ -339,9 +323,6 @@ class Difference(BinaryOperator):
   """Bag difference"""
   def scheme(self):
     return self.left.scheme()
-
-  def resolveAttribute(self, attributereference):
-    return self.left.resolveAttribute(attributereference)
 
   def shortStr(self):
     return self.opname()
@@ -361,9 +342,6 @@ class CrossProduct(BinaryOperator):
   def scheme(self):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
-
-  def resolveAttribute(self, ref):
-    return self.scheme().resolve(ref)
 
 class Join(BinaryOperator):
   """Logical Join operator"""
@@ -385,16 +363,6 @@ class Join(BinaryOperator):
   def scheme(self):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
-
-  def resolveAttribute(self, attributereference):
-    """Join has to check to see if this attribute is in the left or right argument."""
-    try:
-      return self.left.resolveAttribute(attributereference)
-    except SchemaError:
-      try:
-        return self.right.resolveAttribute(attributereference)
-      except SchemaError:
-        raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
 class Apply(UnaryOperator):
   def __init__(self, mappings=None, input=None):
@@ -750,11 +718,6 @@ class Scan(ZeroaryOperator):
   def scheme(self):
     """Scheme of the result, which is just the scheme of the relation."""
     return self.relation.scheme()
-
-  def resolveAttribute(self, attributereference):
-    """Resolve an attribute reference in this operator's schema to its definition: 
-    An attribute in an EDB or an expression."""
-    return self.relation.scheme().resolve(attributereference)
 
   def is_leaf(self):
     return True
