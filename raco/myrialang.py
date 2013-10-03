@@ -645,7 +645,7 @@ def apply_schema_recursive(operator, catalog):
       # The Catalog has an entry for this relation
       if len(operator.relation._scheme) != len(rel_scheme):
         raise ValueError("query scheme for %s (%d columns) does not match the catalog scheme (%d columns)" % (rel_name, len(operator.relation._scheme), len(rel_scheme)))
-      operator.relation._scheme = scheme.Scheme(rel_scheme)
+      operator.relation._scheme = rel_scheme
     else:
       # The specified relation is not in the Catalog, replace its scheme's
       # .. types with "unknown"
