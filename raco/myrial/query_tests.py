@@ -641,7 +641,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.run_test(query, expected)
 
     def test_impure_aggregate_colref(self):
-        """Test of aggregate expression that refers to a grouping column"""
+        """Test of aggregate column that refers to a grouping column"""
         query = """
         out = [FROM X=SCAN(%s) EMIT
                val=( X.dept_id +  (MAX(X.salary) - MIN(X.salary))),
@@ -660,6 +660,27 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         expected = collections.Counter(tuples)
         self.run_test(query, expected)
+
+    def test_inpure_aggregate_unbox(self):
+        """Test of an aggregate column that contains an unbox."""
+        query = """
+        TWO = [2];
+        out = [FROM X=SCAN(%s) EMIT range=( *TWO * (MAX(salary) - MIN(salary))),
+        did=dept_id];
+        out = [FROM out EMIT dept_id=did, rng=range];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, 2 * (max(values) - min(values))) for key, values in
+                  result_dict.iteritems()]
+
+        expected = collections.Counter(tuples)
+        self.run_test(query, expected)
+
 
     def test_aggregate_illegal_colref(self):
         query = """
