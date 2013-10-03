@@ -779,9 +779,9 @@ class DoWhile(Printable):
     self.body_ops = body_ops
     self.term_op = term_op
 
-  def __repr__(self):
+  def __str__(self):
     return 'DoWhile(%s,%s)' % (repr(self.body_ops), repr(self.term_op))
-  
+
   def shortStr(self):
     return 'DoWhile'
   
