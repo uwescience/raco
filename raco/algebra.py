@@ -744,9 +744,9 @@ class StoreTemp(UnaryOperator):
 class ScanTemp(ZeroaryOperator):
   """Read the contents of a temporary relation."""
 
-  def __init__(self, name, scheme):
+  def __init__(self, name, _scheme):
     self.name = name
-    self.scheme = scheme
+    self._scheme = _scheme
     ZeroaryOperator.__init__(self)
 
   def __eq__(self,other):
@@ -762,7 +762,7 @@ class ScanTemp(ZeroaryOperator):
     ZeroaryOperator.copy(self, other)
 
   def scheme(self):
-    return self.scheme
+    return self._scheme
 
   def is_leaf(self):
     return True

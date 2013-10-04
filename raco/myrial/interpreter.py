@@ -189,10 +189,6 @@ class StatementProcessor:
         self.db = db
         self.ep = ExpressionProcessor(self.symbols, db)
 
-        # Create a unique prefix name for storing transient tables
-        rnd  = str(random.randint(0,0x1000000000))
-        self.transient_prefix = '__transient-' + rnd + "-"
-
         # Unique identifiers for temporary tables created by DUMP operations
         self.dump_output_id = 0
 
@@ -211,16 +207,12 @@ class StatementProcessor:
         # scan/insertions
 
         child_op = self.ep.evaluate(expr)
-        key = self.transient_prefix + _id
-        store_op = raco.algebra.Store(key, child_op)
+        store_op = raco.algebra.StoreTemp(_id, child_op)
         self.output_symbols.append((_id, store_op))
 
         # Point future references of this symbol to a scan of the
         # materialized table.
-        # TODO: Make scan operate on the same relation key as store!
-        relkey = raco.catalog.Relation(key, child_op.scheme())
-        scan_op = raco.algebra.Scan(relkey)
-        self.symbols[_id] = scan_op
+        self.symbols[_id] = raco.algebra.ScanTemp(_id, child_op.scheme())
 
     def store(self, _id, relation_key):
         child_op = self.symbols[_id]
@@ -255,13 +247,10 @@ class StatementProcessor:
             expr = statement[2]
 
             child_op = self.ep.evaluate(expr)
-            key = self.transient_prefix + _id
-            store_op = raco.algebra.Store(key, child_op)
+            store_op = raco.algebra.StoreTemp(_id, child_op)
             body_ops.append(store_op)
 
-            relkey = raco.catalog.Relation(key, child_op.scheme())
-            scan_op = raco.algebra.Scan(relkey)
-            self.symbols[_id] = scan_op
+            self.symbols[_id] = raco.algebra.ScanTemp(_id, child_op.scheme())
 
         term_op = self.ep.evaluate(termination_ex)
         op = raco.algebra.DoWhile(body_ops, term_op)
