@@ -19,7 +19,7 @@ class MyrialTestCase(unittest.TestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
 
-        for op in self.processor.output_ops:
+        for op in self.processor.get_output():
             self.db.evaluate(op)
 
         return self.db.get_temp_table('__OUTPUT0__')

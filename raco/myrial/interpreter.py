@@ -227,10 +227,9 @@ class StatementProcessor:
         self.dump_output_id += 1
         self.output_ops.append(op)
 
-    @property
-    def output_ops(self):
-        """Return a sequence operator containing the output of the query."""
-        return raco.algebra.Sequence(self.output_ops)
+    def get_output(self):
+        """Return a list of operators containing the output of the query."""
+        return [raco.algebra.Sequence(self.output_ops)]
 
     def explain(self, _id):
         raise NotImplementedError()
