@@ -23,9 +23,9 @@ class InvalidStatementException(Exception):
 
 class ExpressionProcessor:
     '''Convert syntactic expressions into a relational algebra operation'''
-    def __init__(self, symbols, db):
+    def __init__(self, symbols, catalog):
         self.symbols = symbols
-        self.db = db
+        self.catalog = catalog
 
     def evaluate(self, expr):
         method = getattr(self, expr[0].lower())
@@ -36,7 +36,7 @@ class ExpressionProcessor:
 
     def scan(self, relation_key, scheme):
         if not scheme:
-            scheme = self.db.get_scheme(relation_key)
+            scheme = self.catalog.get_scheme(relation_key)
 
         rel = raco.catalog.Relation(relation_key, scheme)
         return raco.algebra.Scan(rel)
@@ -177,15 +177,15 @@ class ExpressionProcessor:
 class StatementProcessor:
     '''Evaluate a list of statements'''
 
-    def __init__(self, db=None):
+    def __init__(self, catalog=None):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
         # A sequence of plans to be executed by the database
         self.output_ops = []
 
-        self.db = db
-        self.ep = ExpressionProcessor(self.symbols, db)
+        self.catalog = catalog
+        self.ep = ExpressionProcessor(self.symbols, catalog)
 
         # Unique identifiers for temporary tables created by DUMP operations
         self.dump_output_id = 0
