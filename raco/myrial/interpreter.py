@@ -240,12 +240,12 @@ class StatementProcessor:
 
     def dowhile(self, statement_list, termination_ex):
         body_ops = []
-        for statement in statement_list:
-            if statement[0] != 'ASSIGN':
+        for _type, _id, expr in statement_list:
+            if _type != 'ASSIGN':
                 # TODO: Better error message
                 raise InvalidStatementException('%s not allowed in do/while' %
-                                                statement[0].lower())
-            self.__materialize_result(statement[1], statement[2], body_ops)
+                                                _type.lower())
+            self.__materialize_result(_id, expr, body_ops)
 
         term_op = self.ep.evaluate(termination_ex)
         op = raco.algebra.DoWhile(raco.algebra.Sequence(body_ops), term_op)
