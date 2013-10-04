@@ -38,6 +38,9 @@ class FakeDatabase:
         bag, scheme = self.tables[relation_key]
         return scheme
 
+    def get_temp_table(self, key):
+        return self.temp_tables[key]
+
     def dump_all(self):
         for key, val in self.tables.iteritems():
             bag = val[0]

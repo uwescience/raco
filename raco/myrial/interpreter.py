@@ -193,6 +193,9 @@ class StatementProcessor:
         rnd  = str(random.randint(0,0x1000000000))
         self.transient_prefix = '__transient-' + rnd + "-"
 
+        # Unique identifiers for temporary tables created by DUMP operations
+        self.dump_output_id = 0
+
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
         for statement in statements:
@@ -226,7 +229,10 @@ class StatementProcessor:
 
     def dump(self, _id):
         child_op = self.symbols[_id]
-        self.output_symbols.append((_id, child_op))
+        op = raco.algebra.StoreTemp("__OUTPUT%d__" % self.dump_output_id,
+                                    child_op)
+        self.dump_output_id += 1
+        self.output_symbols.append((_id, op))
 
     @property
     def output_symbols(self):
