@@ -776,54 +776,19 @@ class Sequence(NaryOperator):
     return self.opname()
 
 
-class DoWhile(Printable):
-  def __init__(self, body_ops, term_op):
+class DoWhile(BinaryOperator):
+  def __init__(self, body_op, term_op):
     """Repeatedly execute a sequence of plans until a termination condtion.
 
-    body_ops is a list of plans with no output (i.e., they are rooted by Store
-    operations).
+    body_op is an operation with no output.
 
     term_op is an operation that should map to a single row, single column
     relation.  The loop continues if its value is True.
     """
-
-    self.body_ops = body_ops
-    self.term_op = term_op
-
-  def __str__(self):
-    return 'DoWhile(%s,%s)' % (repr(self.body_ops), repr(self.term_op))
+    BinaryOperator.__init__(self, body_op, term_op)
 
   def shortStr(self):
-    return 'DoWhile'
-  
-  def copy(self, other):
-    other.body_ops = self.body_ops[:]
-    other.term_op = self.term_op
-  
-  def collectGraph(self, graph=None):
-    """Collects the operator graph for a given query. Input parameter graph
-    has the format { 'nodes' : list(), 'edges' : list() }, initialized to empty
-    lists by default. An input graph will be mutated."""
-  
-    # Initialize graph if necessary
-    if graph is None:
-        graph = { 'nodes' : list(), 'edges' : list() }
-  
-    # Cycle detection - continue, but don't re-add this node to the graph
-    if id(self) in [id(n) for n in graph['nodes']]:
-        return graph
-  
-    # Add this node to the graph
-    graph['nodes'].append(self)
-    # Add all edges
-    children = self.body_ops + [self.term_op]
-    graph['edges'].extend([(x, self) for x in children])
-    for x in children:
-        # Recursively add children and edges to the graph. This mutates graph
-        x.collectGraph(graph)
-  
-    # Return the graph
-    return graph
+    return self.opname()
 
 class CollapseSelect(Rule):
   """A rewrite rule for combining two selections"""

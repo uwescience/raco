@@ -46,6 +46,9 @@ class FakeDatabase:
             bag = val[0]
             print '%s: (%s)' % (key, bag)
 
+        for key, bag in self.temp_tables.iteritems():
+            print '%s: (%s)' % (key, bag)
+
     def scan(self, op):
         bag, scheme = self.tables[op.relation.name]
         return bag.elements()
@@ -140,7 +143,6 @@ class FakeDatabase:
                 tuples, op.input.scheme()) for agg_expr in op.aggregatelist]
             yield(key + tuple(agg_fields))
 
-
     def sequence(self, op):
         for child_op in op.children():
             self.evaluate(child_op)
@@ -149,12 +151,8 @@ class FakeDatabase:
     def dowhile(self, op):
         i = 0
         while True:
-            for body_op in op.body_ops:
-                if debug:
-                    print 'Evaluating: %s' % str(body_op)
-                self.evaluate(body_op)
-
-            result = self.evaluate(op.term_op)
+            self.evaluate(op.left)
+            result_iterator = self.evaluate(op.right)
 
             if debug:
                 i += 1
@@ -162,7 +160,7 @@ class FakeDatabase:
                 self.dump_all()
 
             try:
-                tpl = result.next()
+                tpl = result_iterator.next()
 
                 if debug:
                     print 'Term: %s' % str(tpl)

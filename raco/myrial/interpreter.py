@@ -197,20 +197,23 @@ class StatementProcessor:
             method = getattr(self, statement[0].lower())
             method(*statement[1:])
 
-    def assign(self, _id, expr):
-        '''Assign to a variable by modifying the symbol table'''
-        # Evaluate the expression; store its result in a temporary table
-        # TODO: Apply chaining when it is safe to do so
-        # TODO: implement a leaf optimization to avoid duplicate
-        # scan/insertions
-
+    def __materialize_result(self, _id, expr, op_list):
+        '''Materialize an expression as a temporary table.'''
         child_op = self.ep.evaluate(expr)
         store_op = raco.algebra.StoreTemp(_id, child_op)
-        self.output_ops.append(store_op)
+        op_list.append(store_op)
 
         # Point future references of this symbol to a scan of the
         # materialized table.
         self.symbols[_id] = raco.algebra.ScanTemp(_id, child_op.scheme())
+
+    def assign(self, _id, expr):
+        '''Map a variable to the value of an expression.'''
+
+        # TODO: Apply chaining when it is safe to do so
+        # TODO: implement a leaf optimization to avoid duplicate
+        # scan/insertions
+        self.__materialize_result(_id, expr, self.output_ops)
 
     def store(self, _id, relation_key):
         child_op = self.symbols[_id]
@@ -242,15 +245,8 @@ class StatementProcessor:
                 # TODO: Better error message
                 raise InvalidStatementException('%s not allowed in do/while' %
                                                 statement[0].lower())
-            _id = statement[1]
-            expr = statement[2]
-
-            child_op = self.ep.evaluate(expr)
-            store_op = raco.algebra.StoreTemp(_id, child_op)
-            body_ops.append(store_op)
-
-            self.symbols[_id] = raco.algebra.ScanTemp(_id, child_op.scheme())
+            self.__materialize_result(statement[1], statement[2], body_ops)
 
         term_op = self.ep.evaluate(termination_ex)
-        op = raco.algebra.DoWhile(body_ops, term_op)
+        op = raco.algebra.DoWhile(raco.algebra.Sequence(body_ops), term_op)
         self.output_ops.append(op)
