@@ -5,6 +5,9 @@ newBad = SCAN(empty, v:float);
 
 bounds = [FROM Points EMIT lower=MIN(v), upper=MAX(v)];
 
+-- number of allowed standard deviations
+N = [2];
+
 DO
     -- Incrementally update aggs and stats
     new_aggs = [FROM newBad EMIT _sum=SUM(v), sumsq=SUM(v*v), cnt=COUNT(v)];
@@ -15,7 +18,7 @@ DO
              std=SQRT(1.0/(cnt*(cnt-1)) * (cnt * sumsq - _sum * _sum))];
 
     -- Compute the new bounds
-    newBounds = [FROM stats EMIT lower=mean - 2 * std, upper=mean + 2 * std];
+    newBounds = [FROM stats EMIT lower=mean - *N * std, upper=mean + *N * std];
 
     tooLow = [FROM Points, bounds, newBounds WHERE newBounds.lower > v
               AND v >= bounds.lower EMIT v=Points.v];
