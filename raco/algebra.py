@@ -722,6 +722,51 @@ class Scan(ZeroaryOperator):
   def is_leaf(self):
     return True
 
+class StoreTemp(UnaryOperator):
+  """Store an input relation to a "temporary" relation.
+
+  Temporary relations exist for the lifetime of a query.
+  """
+  def __init__(self, name, input):
+    UnaryOperator.__init__(self, input)
+    self.name = name
+
+  def shortStr(self):
+    return 'StoreTemp(%s)' % self.name
+
+  def copy(self, other):
+    self.name = other.name
+    UnaryOperator.copy(self, other)
+
+  def __eq__(self, other):
+    return UnaryOperator.__eq__(self,other) and self.name == other.name
+
+class ScanTemp(ZeroaryOperator):
+  """Read the contents of a temporary relation."""
+
+  def __init__(self, name, scheme):
+    self.name = name
+    self.scheme = scheme
+    ZeroaryOperator.__init__(self)
+
+  def __eq__(self,other):
+    return ZeroaryOperator.__eq__(self,other) and self.name == other.name \
+      and self.scheme == other.scheme
+
+  def shortStr(self):
+    return "%s(%s,%s)" % (self.opname(), self.name, str(self.scheme))
+
+  def copy(self, other):
+    other.name = self.name
+    other.scheme = self.scheme
+    ZeroaryOperator.copy(self, other)
+
+  def scheme(self):
+    return self.scheme
+
+  def is_leaf(self):
+    return True
+
 class Sequence(NaryOperator):
   """Execute a sequence of plans in serial order."""
   def __init__(self, ops):

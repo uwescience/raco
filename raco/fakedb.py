@@ -14,6 +14,9 @@ class FakeDatabase:
         # Map from relation names (strings) to tuples of (Bag, scheme.Scheme)
         self.tables = {}
 
+        # Map from relation names to bags; schema is tracked by the runtime.
+        self.temp_tables = {}
+
     def evaluate(self, op):
         '''Evaluate a relational algebra operation.
 
@@ -175,3 +178,11 @@ class FakeDatabase:
         scheme = op.input.scheme()
         self.tables[op.name] = (bag, scheme)
         return None
+
+    def storetemp(self, op):
+        bag = self.evaluate_to_bag(op.input)
+        self.temp_tables[op.name] = bag
+
+    def scantemp(self, op):
+        bag = self.temp_tables[op.name]
+        return bag.elements()
