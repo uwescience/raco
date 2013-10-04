@@ -181,10 +181,8 @@ class StatementProcessor:
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
-        # Identifiers that the user has asked us to materialize
-        # (via store, dump, etc.).  Contains tuples of the form:
-        # (id, raco.algebra.Operation)
-        self.output_symbols = []
+        # A sequence of plans to be executed by the database
+        self.output_ops = []
 
         self.db = db
         self.ep = ExpressionProcessor(self.symbols, db)
@@ -208,7 +206,7 @@ class StatementProcessor:
 
         child_op = self.ep.evaluate(expr)
         store_op = raco.algebra.StoreTemp(_id, child_op)
-        self.output_symbols.append((_id, store_op))
+        self.output_ops.append(store_op)
 
         # Point future references of this symbol to a scan of the
         # materialized table.
@@ -217,18 +215,18 @@ class StatementProcessor:
     def store(self, _id, relation_key):
         child_op = self.symbols[_id]
         op = raco.algebra.Store(relation_key, child_op)
-        self.output_symbols.append((_id, op))
+        self.output_ops.append(op)
 
     def dump(self, _id):
         child_op = self.symbols[_id]
         op = raco.algebra.StoreTemp("__OUTPUT%d__" % self.dump_output_id,
                                     child_op)
         self.dump_output_id += 1
-        self.output_symbols.append((_id, op))
+        self.output_ops.append(op)
 
     @property
-    def output_symbols(self):
-        return self.output_symbols
+    def output_ops(self):
+        return self.output_ops
 
     def explain(self, _id):
         raise NotImplementedError()
@@ -254,4 +252,4 @@ class StatementProcessor:
 
         term_op = self.ep.evaluate(termination_ex)
         op = raco.algebra.DoWhile(body_ops, term_op)
-        self.output_symbols.append(("do/while", op))
+        self.output_ops.append(op)
