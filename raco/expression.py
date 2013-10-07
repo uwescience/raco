@@ -1,5 +1,7 @@
 import math
+
 from utility import emit, Printable
+
 """
 An expression language for datalog: Function calls, arithmetic, simple string functions
 """
@@ -130,7 +132,11 @@ class NumericLiteral(Literal):
   pass
 
 class AttributeRef(Expression):
-  pass
+  def evaluate(self, _tuple, scheme):
+    return _tuple[self.get_position(scheme)]
+
+  def get_position(self, scheme):
+    raise NotImplementedError()
 
 class NamedAttributeRef(AttributeRef):
   def __init__(self, attributename):
@@ -142,9 +148,8 @@ class NamedAttributeRef(AttributeRef):
   def __str__(self):
     return "%s" % (self.name)
 
-  def evaluate(self, _tuple, scheme):
-    pos = scheme.getPosition(self.name)
-    return _tuple[pos]
+  def get_position(self, scheme):
+    return scheme.getPosition(self.name)
 
 class UnnamedAttributeRef(AttributeRef):
   def __init__(self, position):
@@ -166,8 +171,8 @@ class UnnamedAttributeRef(AttributeRef):
     """Add an offset to this positional reference.  Used when building a plan from a set of joins"""
     self.position = self.position + offset
 
-  def evaluate(self, _tuple, scheme):
-    return _tuple[self.position]
+  def get_position(self, scheme):
+    return self.position
 
 class DottedAttributeRef(AttributeRef):
   def __init__(self, relation_name, field):
@@ -314,6 +319,35 @@ class SUM(UnaryFunction,AggregateExpression):
       if t is not None:
         sum += t
     return sum
+
+class AVERAGE(UnaryFunction,AggregateExpression):
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    filtered = (x for x in inputs if x is not None)
+
+    sum = 0
+    count = 0
+    for t in filtered:
+        sum += t
+        count += 1
+    return sum / count
+
+class STDEV(UnaryFunction,AggregateExpression):
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
+    filtered = [x for x in inputs if x is not None]
+
+    n = len(filtered)
+    if (n < 2):
+      return 0.0
+
+    mean = float(sum(filtered)) / n
+
+    std = 0.0
+    for a in filtered:
+      std = std + (a - mean)**2
+    std = math.sqrt(std / n)
+    return std
 
 class BooleanExpression(Printable):
   pass

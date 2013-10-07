@@ -521,6 +521,32 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.__aggregate_expected_result(sum))
 
+    def test_avg(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT dept_id, AVG(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        def avg(it):
+            sum = 0
+            cnt = 0
+            for val in it:
+                sum += val
+                cnt += 1
+            return sum / cnt
+
+        self.run_test(query, self.__aggregate_expected_result(avg))
+
+    def test_stdev(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT STDEV(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        res = self.execute_query(query)
+        tp = res.elements().next()
+        self.assertAlmostEqual(tp[0], 34001.8006726)
+
     def test_count(self):
         query = """
         out = [FROM X=SCAN(%s) EMIT dept_id, COUNT(salary)];
@@ -613,6 +639,59 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         tuples = [(key, len(values)) for key, values in result_dict.iteritems()]
         expected = collections.Counter(tuples)
         self.run_test(query, expected)
+
+    def test_impure_aggregate_colref(self):
+        """Test of aggregate column that refers to a grouping column"""
+        query = """
+        out = [FROM X=SCAN(%s) EMIT
+               val=( X.dept_id +  (MAX(X.salary) - MIN(X.salary))),
+               did=X.dept_id];
+
+        out = [FROM out EMIT dept_id=did, rng=val];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, key + (max(values) - min(values))) for key, values in
+                  result_dict.iteritems()]
+
+        expected = collections.Counter(tuples)
+        self.run_test(query, expected)
+
+    def test_inpure_aggregate_unbox(self):
+        """Test of an aggregate column that contains an unbox."""
+        query = """
+        TWO = [2];
+        out = [FROM X=SCAN(%s) EMIT range=( *TWO * (MAX(salary) - MIN(salary))),
+        did=dept_id];
+        out = [FROM out EMIT dept_id=did, rng=range];
+        DUMP(out);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = [(key, 2 * (max(values) - min(values))) for key, values in
+                  result_dict.iteritems()]
+
+        expected = collections.Counter(tuples)
+        self.run_test(query, expected)
+
+
+    def test_aggregate_illegal_colref(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT
+               val=X.dept_id + COUNT(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(
+                raco.myrial.groupby.InvalidAttributeRefException):
+            self.run_test(query, None)
 
     def test_nested_aggregates_are_illegal(self):
         query = """
