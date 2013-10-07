@@ -1,3 +1,5 @@
+from raco import algebra
+
 def graph_to_dot(graph):
     """Graph is expected to be a dict of the form { 'nodes' : list(), 'edges' :
     list() }. This function returns a string that will be input to dot."""
@@ -44,3 +46,12 @@ def plan_to_dot(label_op_list):
     for (label, root_operator) in label_op_list:
         graph = root_operator.collectGraph(graph)
     return graph_to_dot(graph)
+
+def get_dot(obj):
+    if isinstance(obj, dict) and 'nodes' in dict and 'edges' in dict:
+        return graph_to_dot(obj)
+    elif isinstance(obj, algebra.Operator):
+        return operator_to_dot(obj)
+    elif isinstance(obj, list):
+        return plan_to_dot(obj)
+    raise NotImplementedError('Unable to get dot from object type %s' % type(obj))
