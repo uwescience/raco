@@ -41,6 +41,5 @@ if __name__ == "__main__":
             print statement_list
         else:
             processor.evaluate(statement_list)
-            plans = processor.get_output()
-            for plan in plans:
-                print_pretty_plan(plan)
+            plan = processor.get_output()
+            print_pretty_plan(plan)
