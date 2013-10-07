@@ -754,7 +754,7 @@ class ScanTemp(ZeroaryOperator):
       and self.scheme == other.scheme
 
   def shortStr(self):
-    return "%s(%s,%s)" % (self.opname(), self.name, str(self.scheme))
+    return "%s(%s,%s)" % (self.opname(), self.name, str(self._scheme))
 
   def copy(self, other):
     other.name = self.name
