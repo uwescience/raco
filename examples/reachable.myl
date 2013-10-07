@@ -1,0 +1,13 @@
+Edge = SCAN(edges, src:INT, dst:INT);
+Source = [addr=1];
+Reachable = Source;
+Delta = Source;
+
+DO
+NewlyReachable = DISTINCT([FROM Delta, Edge
+WHERE Delta.addr == Edge.src EMIT addr=Edge.dst]);
+Delta = DIFF(NewlyReachable, Reachable);
+Reachable = UNIONALL(Delta, Reachable);
+WHILE Delta;
+
+DUMP (Reachable);

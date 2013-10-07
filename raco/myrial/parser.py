@@ -142,7 +142,8 @@ class Parser:
 
     def p_type_name(self, p):
         '''type_name : STRING
-                     | INT'''
+                     | INT
+                     | FLOAT'''
         p[0] = p[1]
 
     def p_string_arg(self, p):
@@ -276,6 +277,10 @@ class Parser:
         'sexpr : STRING_LITERAL'
         p[0] = sexpr.StringLiteral(p[1])
 
+    def p_sexpr_float_literal(self, p):
+        'sexpr : FLOAT_LITERAL'
+        p[0] = sexpr.NumericLiteral(p[1])
+
     def p_sexpr_id(self, p):
         'sexpr : ID'
         p[0] = sexpr.NamedAttributeRef(p[1])
@@ -338,13 +343,17 @@ class Parser:
         '''unary_aggregate_func : MAX
                                 | MIN
                                 | SUM
-                                | COUNT'''
+                                | COUNT
+                                | AVG
+                                | STDEV'''
 
-        # TODO: support average once we have floating point
+
         if p[1] == 'MAX': func = sexpr.MAX
         if p[1] == 'MIN': func = sexpr.MIN
         if p[1] == 'SUM': func = sexpr.SUM
         if p[1] == 'COUNT': func = sexpr.COUNT
+        if p[1] == 'AVG': func = sexpr.AVERAGE
+        if p[1] == 'STDEV': func = sexpr.STDEV
 
         p[0] = func
 

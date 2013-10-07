@@ -20,6 +20,9 @@ def gensym():
 class RecursionError(ValueError):
   pass
 
+class SchemaError(Exception):
+  pass
+
 class Operator(Printable):
   """Operator base classs"""
   def __init__(self):
@@ -123,6 +126,14 @@ class Operator(Printable):
     # Return the graph
     return graph
 
+  def resolveAttribute(self, ref):
+    """Return a tuple of (column_name, type) for a given AttributeRef."""
+    assert isinstance(ref, expression.AttributeRef)
+    return self.scheme().resolve(ref)
+
+  def is_leaf(self):
+    return False
+
 class ZeroaryOperator(Operator):
   """Operator with no arguments"""
   def __init__(self):
@@ -186,9 +197,6 @@ class UnaryOperator(Operator):
   def scheme(self):
     """Default scheme is the same as the input.  Usually overriden"""
     return self.input.scheme()
-
-  def resolveAttribute(self, attributereference):
-    return self.input.resolveAttribute(attributereference)
 
   def apply(self, f):
     """Apply a function to your children"""
@@ -267,14 +275,6 @@ class NaryOperator(Operator):
   def children(self):
     return self.args
 
-  def resolveAttribute(self, attributeReference):
-    for arg in self.args:
-      try:
-        return arg.resolveAttribute(attributeReference)
-      except SchemaError:
-        pass
-    raise SchemaError("Cannot resolve %s in Nary operator with schema %s" % (attributeReference, self.scheme()))
-
   def copy(self, other):
     """deep copy"""
     self.args = [a for a in other.args]
@@ -300,10 +300,6 @@ class Union(BinaryOperator):
     """Same semantics as SQL: Assume first schema "wins" and throw an  error if they don't match during evaluation"""
     return self.left.scheme()
 
-  def resolveAttribute(self, attributereference):
-    """Union assumes the schema of its left argument"""
-    return self.left.resolveAttribute(attributereference)
-
   def shortStr(self):
     return self.opname()
 
@@ -311,9 +307,6 @@ class UnionAll(BinaryOperator):
   """Bag union."""
   def scheme(self):
     return self.left.scheme()
-
-  def resolveAttribute(self, attributereference):
-    return self.left.resolveAttribute(attributereference)
 
   def shortStr(self):
     return self.opname()
@@ -323,9 +316,6 @@ class Intersection(BinaryOperator):
   def scheme(self):
     return self.left.scheme()
 
-  def resolveAttribute(self, attributereference):
-    return self.left.resolveAttribute(attributereference)
-
   def shortStr(self):
     return self.opname()
 
@@ -333,9 +323,6 @@ class Difference(BinaryOperator):
   """Bag difference"""
   def scheme(self):
     return self.left.scheme()
-
-  def resolveAttribute(self, attributereference):
-    return self.left.resolveAttribute(attributereference)
 
   def shortStr(self):
     return self.opname()
@@ -355,16 +342,6 @@ class CrossProduct(BinaryOperator):
   def scheme(self):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
-
-  def resolveAttribute(self, attributereference):
-    """Join has to check to see if this attribute is in the left or right argument."""
-    try:
-      return self.left.resolveAttribute(attributereference)
-    except SchemaError:
-      try:
-        return self.right.resolveAttribute(attributereference)
-      except SchemaError:
-        raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
 class Join(BinaryOperator):
   """Logical Join operator"""
@@ -386,16 +363,6 @@ class Join(BinaryOperator):
   def scheme(self):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
-
-  def resolveAttribute(self, attributereference):
-    """Join has to check to see if this attribute is in the left or right argument."""
-    try:
-      return self.left.resolveAttribute(attributereference)
-    except SchemaError:
-      try:
-        return self.right.resolveAttribute(attributereference)
-      except SchemaError:
-        raise SchemaError("Cannot resolve attribute reference %s in Join schema %s" % (attributereference, self.scheme()))
 
 class Apply(UnaryOperator):
   def __init__(self, mappings=None, input=None):
@@ -544,17 +511,15 @@ class GroupBy(UnaryOperator):
     UnaryOperator.copy(self, other)
 
   def scheme(self):
-    """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
+    """scheme of the result."""
     def resolve(i, attr):
-      if expression.isaggregate(attr):
-        return ("%s%s" % (attr.__class__.__name__,i), attr.typeof())
-      elif isinstance(attr,expression.AttributeRef):
+      if isinstance(attr,expression.AttributeRef):
         return self.input.resolveAttribute(attr)
       else:
-        # Must be some complex expression.  
-        # TODO: I'm thinking we should require these expressions to be handled exclusively in Apply, where the assigned name is unambiguous.
         return ("%s%s" % (attr.__class__.__name__,i), attr.typeof())
-    return scheme.Scheme([resolve(i, e) for i, e in enumerate(self.columnlist)])
+
+    attrs = [resolve(i, e) for i, e in enumerate(self.columnlist)]
+    return scheme.Scheme(attrs)
 
 class ProjectingJoin(Join):
   """Logical Projecting Join operator"""
@@ -754,10 +719,76 @@ class Scan(ZeroaryOperator):
     """Scheme of the result, which is just the scheme of the relation."""
     return self.relation.scheme()
 
-  def resolveAttribute(self, attributereference):
-    """Resolve an attribute reference in this operator's schema to its definition: 
-    An attribute in an EDB or an expression."""
-    return self.relation.scheme().resolve(attributereference)
+  def is_leaf(self):
+    return True
+
+class StoreTemp(UnaryOperator):
+  """Store an input relation to a "temporary" relation.
+
+  Temporary relations exist for the lifetime of a query.
+  """
+  def __init__(self, name, input):
+    UnaryOperator.__init__(self, input)
+    self.name = name
+
+  def shortStr(self):
+    return 'StoreTemp(%s)' % self.name
+
+  def copy(self, other):
+    self.name = other.name
+    UnaryOperator.copy(self, other)
+
+  def __eq__(self, other):
+    return UnaryOperator.__eq__(self,other) and self.name == other.name
+
+class ScanTemp(ZeroaryOperator):
+  """Read the contents of a temporary relation."""
+
+  def __init__(self, name, _scheme):
+    self.name = name
+    self._scheme = _scheme
+    ZeroaryOperator.__init__(self)
+
+  def __eq__(self,other):
+    return ZeroaryOperator.__eq__(self,other) and self.name == other.name \
+      and self.scheme == other.scheme
+
+  def shortStr(self):
+    return "%s(%s,%s)" % (self.opname(), self.name, str(self._scheme))
+
+  def copy(self, other):
+    other.name = self.name
+    other.scheme = self.scheme
+    ZeroaryOperator.copy(self, other)
+
+  def scheme(self):
+    return self._scheme
+
+  def is_leaf(self):
+    return True
+
+class Sequence(NaryOperator):
+  """Execute a sequence of plans in serial order."""
+  def __init__(self, ops):
+    NaryOperator.__init__(self, ops)
+
+  def shortStr(self):
+    return self.opname()
+
+
+class DoWhile(BinaryOperator):
+  def __init__(self, body_op, term_op):
+    """Repeatedly execute a sequence of plans until a termination condtion.
+
+    body_op is an operation with no output.
+
+    term_op is an operation that should map to a single row, single column
+    relation.  The loop continues if its value is True.
+    """
+    BinaryOperator.__init__(self, body_op, term_op)
+
+  def shortStr(self):
+    return self.opname()
 
 class CollapseSelect(Rule):
   """A rewrite rule for combining two selections"""

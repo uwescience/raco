@@ -5,12 +5,17 @@ import itertools
 import raco.algebra
 import raco.scheme
 
+debug = False
+
 class FakeDatabase:
     """An in-memory implementation of relational algebra operators"""
 
     def __init__(self):
         # Map from relation names (strings) to tuples of (Bag, scheme.Scheme)
         self.tables = {}
+
+        # Map from relation names to bags; schema is tracked by the runtime.
+        self.temp_tables = {}
 
     def evaluate(self, op):
         '''Evaluate a relational algebra operation.
@@ -33,6 +38,17 @@ class FakeDatabase:
         bag, scheme = self.tables[relation_key]
         return scheme
 
+    def get_temp_table(self, key):
+        return self.temp_tables[key]
+
+    def dump_all(self):
+        for key, val in self.tables.iteritems():
+            bag = val[0]
+            print '%s: (%s)' % (key, bag)
+
+        for key, bag in self.temp_tables.iteritems():
+            print '%s: (%s)' % (key, bag)
+
     def scan(self, op):
         bag, scheme = self.tables[op.relation.name]
         return bag.elements()
@@ -50,9 +66,10 @@ class FakeDatabase:
 
     def apply(self, op):
         child_it = self.evaluate(op.input)
+        scheme = op.input.scheme()
 
         def make_tuple(input_tuple):
-            ls = [colexpr.evaluate(input_tuple, op.input.scheme()) \
+            ls = [colexpr.evaluate(input_tuple, scheme)
                   for var, colexpr in op.mappings]
             return tuple(ls)
         return (make_tuple(t) for t in child_it)
@@ -108,11 +125,17 @@ class FakeDatabase:
                   sexpr in op.groupinglist]
             return tuple(ls)
 
-        # calculate groups of matching input tuples
+        # Calculate groups of matching input tuples.
+        # If there are no grouping terms, then all tuples are added
+        # to a single bin.
         results = collections.defaultdict(list)
-        for input_tuple in child_it:
-            output_tuple = process_grouping_columns(input_tuple)
-            results[output_tuple].append(input_tuple)
+
+        if len(op.groupinglist) == 0:
+            results[()] = list(child_it)
+        else:
+            for input_tuple in child_it:
+                grouped_tuple = process_grouping_columns(input_tuple)
+                results[grouped_tuple].append(input_tuple)
 
         # resolve aggregate functions
         for key, tuples in results.iteritems():
@@ -120,3 +143,47 @@ class FakeDatabase:
                 tuples, op.input.scheme()) for agg_expr in op.aggregatelist]
             yield(key + tuple(agg_fields))
 
+    def sequence(self, op):
+        for child_op in op.children():
+            self.evaluate(child_op)
+        return None
+
+    def dowhile(self, op):
+        i = 0
+        while True:
+            self.evaluate(op.left)
+            result_iterator = self.evaluate(op.right)
+
+            if debug:
+                i += 1
+                print '-------- Iteration %d ------------' % i
+                self.dump_all()
+
+            try:
+                tpl = result_iterator.next()
+
+                if debug:
+                    print 'Term: %s' % str(tpl)
+
+                # XXX should we use python truthiness here?
+                if not tpl[0]:
+                    break
+            except StopIteration:
+                break
+            except IndexError:
+                break
+
+    def store(self, op):
+        # Materialize the result
+        bag = self.evaluate_to_bag(op.input)
+        scheme = op.input.scheme()
+        self.tables[op.name] = (bag, scheme)
+        return None
+
+    def storetemp(self, op):
+        bag = self.evaluate_to_bag(op.input)
+        self.temp_tables[op.name] = bag
+
+    def scantemp(self, op):
+        bag = self.temp_tables[op.name]
+        return bag.elements()

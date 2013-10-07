@@ -18,11 +18,14 @@ class DuplicateAliasException(Exception):
     """Bag comprehension arguments must have different alias names."""
     pass
 
+class InvalidStatementException(Exception):
+    pass
+
 class ExpressionProcessor:
     '''Convert syntactic expressions into a relational algebra operation'''
-    def __init__(self, symbols, db):
+    def __init__(self, symbols, catalog):
         self.symbols = symbols
-        self.db = db
+        self.catalog = catalog
 
     def evaluate(self, expr):
         method = getattr(self, expr[0].lower())
@@ -33,7 +36,7 @@ class ExpressionProcessor:
 
     def scan(self, relation_key, scheme):
         if not scheme:
-            scheme = self.db.get_scheme(relation_key)
+            scheme = self.catalog.get_scheme(relation_key)
 
         rel = raco.catalog.Relation(relation_key, scheme)
         return raco.algebra.Scan(rel)
@@ -80,23 +83,21 @@ class ExpressionProcessor:
             from_args, where_clause, emit_clause)
 
         orig_scheme = op.scheme()
-        op, where_clause, emit_clause = unbox.unbox(op, where_clause,
-                                                    emit_clause, self.symbols)
+        op, where_clause, emit_clause, unbox_columns = unbox.unbox(
+            op, where_clause, emit_clause, self.symbols)
 
         if where_clause:
             op = raco.algebra.Select(condition=where_clause, input=op)
 
-        op, emit_clause = groupby.groupby(op, emit_clause)
-
-        if emit_clause:
-            op = raco.algebra.Apply(mappings=emit_clause, input=op)
-        else:
+        if not emit_clause:
             # Strip off any cross-product columns that we artificially added
             # during unboxing.
             mappings = [(orig_scheme.getName(i),
                          raco.expression.UnnamedAttributeRef(i))
                         for i in range(len(orig_scheme))]
             op = raco.algebra.Apply(mappings=mappings, input=op)
+        else:
+            op = groupby.groupby(op, emit_clause, unbox_columns)
 
         return op
 
@@ -176,17 +177,18 @@ class ExpressionProcessor:
 class StatementProcessor:
     '''Evaluate a list of statements'''
 
-    def __init__(self, db=None):
+    def __init__(self, catalog=None):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
-        # Identifiers that the user has asked us to materialize
-        # (via store, dump, etc.).  Contains tuples of the form:
-        # (id, raco.algebra.Operation)
-        self.output_symbols = []
+        # A sequence of plans to be executed by the database
+        self.output_ops = []
 
-        self.db = db
-        self.ep = ExpressionProcessor(self.symbols, db)
+        self.catalog = catalog
+        self.ep = ExpressionProcessor(self.symbols, catalog)
+
+        # Unique identifiers for temporary tables created by DUMP operations
+        self.dump_output_id = 0
 
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
@@ -195,23 +197,39 @@ class StatementProcessor:
             method = getattr(self, statement[0].lower())
             method(*statement[1:])
 
+    def __materialize_result(self, _id, expr, op_list):
+        '''Materialize an expression as a temporary table.'''
+        child_op = self.ep.evaluate(expr)
+        store_op = raco.algebra.StoreTemp(_id, child_op)
+        op_list.append(store_op)
+
+        # Point future references of this symbol to a scan of the
+        # materialized table.
+        self.symbols[_id] = raco.algebra.ScanTemp(_id, child_op.scheme())
+
     def assign(self, _id, expr):
-        '''Assign to a variable by modifying the symbol table'''
-        op = self.ep.evaluate(expr)
-        self.symbols[_id] = op
+        '''Map a variable to the value of an expression.'''
+
+        # TODO: Apply chaining when it is safe to do so
+        # TODO: implement a leaf optimization to avoid duplicate
+        # scan/insertions
+        self.__materialize_result(_id, expr, self.output_ops)
 
     def store(self, _id, relation_key):
         child_op = self.symbols[_id]
         op = raco.algebra.Store(relation_key, child_op)
-        self.output_symbols.append((_id, op))
+        self.output_ops.append(op)
 
     def dump(self, _id):
         child_op = self.symbols[_id]
-        self.output_symbols.append((_id, child_op))
+        op = raco.algebra.StoreTemp("__OUTPUT%d__" % self.dump_output_id,
+                                    child_op)
+        self.dump_output_id += 1
+        self.output_ops.append(op)
 
-    @property
-    def output_symbols(self):
-        return self.output_symbols
+    def get_output(self):
+        """Return an operator representing the output of the query."""
+        return raco.algebra.Sequence(self.output_ops)
 
     def explain(self, _id):
         raise NotImplementedError()
@@ -220,4 +238,14 @@ class StatementProcessor:
         raise NotImplementedError()
 
     def dowhile(self, statement_list, termination_ex):
-        raise NotImplementedError()
+        body_ops = []
+        for _type, _id, expr in statement_list:
+            if _type != 'ASSIGN':
+                # TODO: Better error message
+                raise InvalidStatementException('%s not allowed in do/while' %
+                                                _type.lower())
+            self.__materialize_result(_id, expr, body_ops)
+
+        term_op = self.ep.evaluate(termination_ex)
+        op = raco.algebra.DoWhile(raco.algebra.Sequence(body_ops), term_op)
+        self.output_ops.append(op)

@@ -14,6 +14,9 @@ class UnboxState(object):
         # The next column index to be assigned
         self.pos = initial_pos
 
+        # A set of column integers that are referenced by unbox operations
+        self.column_refs = set()
+
 def __unbox_expression(expr, ub_state):
     def unbox_node(expr):
         if not isinstance(expr, raco.expression.Unbox):
@@ -27,16 +30,17 @@ def __unbox_expression(expr, ub_state):
                 ub_state.local_symbols[expr.table] = ub_state.pos
                 ub_state.pos += len(scheme)
 
+            offset = ub_state.local_symbols[expr.table]
             if not expr.field:
-                offset = 0
+                pass
             elif type(expr.field) == types.IntType:
-                offset = expr.field
+                offset += expr.field
             else:
                 # resolve name into position
-                offset = scheme.getPosition(expr.field)
+                offset += scheme.getPosition(expr.field)
 
-            return raco.expression.UnnamedAttributeRef(
-                offset + ub_state.local_symbols[expr.table])
+            ub_state.column_refs.add(offset)
+            return raco.expression.UnnamedAttributeRef(offset)
 
     def recursive_eval(expr):
         """Apply unbox to a node and all its descendents"""
@@ -62,4 +66,4 @@ def unbox(op, where_clause, emit_clause, symbols):
     # Update the op to be the cross product of all unboxed tables
     cps = [symbols[key] for key in ub_state.local_symbols.keys()]
     op = reduce(cross, cps, op)
-    return op, where_clause, emit_clause
+    return op, where_clause, emit_clause, ub_state.column_refs

@@ -5,16 +5,17 @@ import ply.lex as lex
 # identifiers with special meaning; case-insensitive
 reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
             'INTERSECT', 'DUMP', 'FILTER', 'BY', 'WHILE', 'INT', 'STRING',
-            'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN', 'COUNTALL', 'FROM',
-            'WHERE', 'AND', 'OR', 'NOT', 'MAX', 'MIN', 'SUM', 'COUNT',
-            'ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT', 'TAN']
+            'FLOAT', 'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN',
+            'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'MAX', 'MIN',
+            'SUM', 'COUNT', 'ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT',
+            'TAN', 'AVG', 'STDEV']
 
 # Token types; required by ply to have this variable name
 
 tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT',
           'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ',
           'NE', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
-          'STRING_LITERAL', 'INTEGER_LITERAL'] + reserved
+          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL'] + reserved
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('
@@ -54,6 +55,11 @@ def t_ID(t):
     else:
         t.type = 'ID'
         return t
+
+def t_FLOAT_LITERAL(t):
+    r"""\d*\.\d+"""
+    t.value = float(t.value)
+    return t
 
 def t_INTEGER_LITERAL(t):
     r'\d+'

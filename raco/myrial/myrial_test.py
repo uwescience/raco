@@ -18,9 +18,9 @@ class MyrialTestCase(unittest.TestCase):
         '''Run a test query against the fake database'''
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
+        self.db.evaluate(self.processor.get_output())
 
-        _var, op = self.processor.output_symbols[0]
-        return self.db.evaluate_to_bag(op)
+        return self.db.get_temp_table('__OUTPUT0__')
 
     def run_test(self, query, expected):
         '''Execute a test query with an expected output'''
