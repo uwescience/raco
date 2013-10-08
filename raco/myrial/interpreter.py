@@ -55,9 +55,32 @@ class ExpressionProcessor:
     def load(self, path, schema):
         raise NotImplementedError()
 
+    def __unbox_filter_group(self, op, where_clause, emit_clause):
+        """Apply unboxing, filtering, and groupby."""
+
+        # Record the original schema, so we can later strip off unboxed
+        # columns.
+        orig_scheme = op.scheme()
+        op, where_clause, emit_clause, unbox_columns = unbox.unbox(
+            op, where_clause, emit_clause, self.symbols)
+
+        if where_clause:
+            op = raco.algebra.Select(condition=where_clause, input=op)
+
+        if not emit_clause:
+            # Strip off any columns that were added by unbox
+            mappings = [(orig_scheme.getName(i),
+                         raco.expression.UnnamedAttributeRef(i))
+                        for i in range(len(orig_scheme))]
+            return raco.algebra.Apply(mappings=mappings, input=op)
+        else:
+            # Apply any grouping operators
+            return groupby.groupby(op, emit_clause, unbox_columns)
+
     def table(self, mappings):
+        """Emit a single-row table literal."""
         op = raco.algebra.SingletonRelation()
-        return raco.algebra.Apply(mappings=mappings, input=op)
+        return self.__unbox_filter_group(op, None, mappings)
 
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehsion.
@@ -89,28 +112,11 @@ class ExpressionProcessor:
                 from_args[_id] =  self.symbols[_id]
 
         # Create a single RA operation that is the rollup of all from
-        # targets; re-write where and emit clauses to refer to its schema
+        # targets; re-write where and emit clauses to refer to its schema.
         op, where_clause, emit_clause = unpack_from.unpack(
             from_args, where_clause, emit_clause)
 
-        orig_scheme = op.scheme()
-        op, where_clause, emit_clause, unbox_columns = unbox.unbox(
-            op, where_clause, emit_clause, self.symbols)
-
-        if where_clause:
-            op = raco.algebra.Select(condition=where_clause, input=op)
-
-        if not emit_clause:
-            # Strip off any cross-product columns that we artificially added
-            # during unboxing.
-            mappings = [(orig_scheme.getName(i),
-                         raco.expression.UnnamedAttributeRef(i))
-                        for i in range(len(orig_scheme))]
-            op = raco.algebra.Apply(mappings=mappings, input=op)
-        else:
-            op = groupby.groupby(op, emit_clause, unbox_columns)
-
-        return op
+        return self.__unbox_filter_group(op, where_clause, emit_clause)
 
     def distinct(self, expr):
         op = self.evaluate(expr)
