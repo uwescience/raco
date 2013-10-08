@@ -12,29 +12,24 @@ import raco.myrial.myrial_test as myrial_test
 
 class EmptyAggregateTests(myrial_test.MyrialTestCase):
 
-    empty_schema = scheme.Scheme([("v", "int")])
-    empty_key = "andrew:adhoc:empty"
-
     def setUp(self):
         super(EmptyAggregateTests, self).setUp()
-
-        self.db.ingest(EmptyAggregateTests.empty_key,
-                       collections.Counter(),
-                       EmptyAggregateTests.empty_schema)
 
 
     def test_count(self):
         query = """
-        X = [FROM X=SCAN(%s) EMIT COUNT(v)];
+        W = EMPTY(v:int);
+        X = [FROM W EMIT COUNT(v)];
         DUMP(X);
-        """ % self.empty_key
+        """
 
         self.run_test(query, collections.Counter([(0,)]))
 
     def test_sum(self):
         query = """
-        X = [FROM X=SCAN(%s) EMIT SUM(v)];
+        W = EMPTY(v:int);
+        X = [FROM W EMIT SUM(v)];
         DUMP(X);
-        """ % self.empty_key
+        """
 
         self.run_test(query, collections.Counter([(0,)]))

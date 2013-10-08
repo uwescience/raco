@@ -1,7 +1,7 @@
 Points = SCAN(public:adhoc:Points, v:float);
 
 aggs = [FROM Points EMIT _sum=SUM(v), sumsq=SUM(v*v), cnt=COUNT(v)];
-newBad = SCAN(empty, v:float);
+newBad = EMPTY(v:float);
 
 bounds = [FROM Points EMIT lower=MIN(v), upper=MAX(v)];
 
