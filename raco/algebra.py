@@ -374,11 +374,12 @@ class Apply(UnaryOperator):
     column_name can be None, in which case the system will infer a name based on
     the expression."""
 
-    def resolve_name(name, expr):
+    def resolve_name(name, sexpr):
       if name:
         return name
+      elif isinstance(sexpr ,expression.AttributeRef):
+        return input.resolveAttribute(sexpr)[0]
       else:
-        # TODO: This isn't right; we should resolve $1 into a column name
         return str(expr)
 
     if mappings is not None:

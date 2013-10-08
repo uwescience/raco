@@ -351,6 +351,19 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.join_expected)
 
+    def test_bagcomp_projection(self):
+        """Test that column names are preserved across projection."""
+        query = """
+        E = SCAN(%s);
+        F = [FROM E EMIT $2];
+        out = [FROM F EMIT name];
+        DUMP(out);
+        """ % (self.emp_key,)
+
+        tpls = [tuple([x[2]]) for x in self.emp_table]
+        expected = collections.Counter(tpls)
+        self.run_test(query, expected)
+
     # TODO: test with multiple join attributes
 
     def test_explicit_cross(self):
