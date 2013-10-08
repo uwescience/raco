@@ -396,12 +396,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.assertEquals(len(result), 3)
 
 
-    def test_table_literal(self):
+    def test_table_literal_scalar_expression(self):
         query = """
         X = [FROM Z=["Andrew", salary=(50 * (500 + 500))] EMIT salary];
         DUMP(X);
         """
         expected = collections.Counter([(50000,)])
+        self.run_test(query, expected)
+
+    def test_table_literal_unbox(self):
+        query = """
+        A = [one=1, two=2, three=3];
+        B = [one=1, two=2, three=3];
+        C = [*A.two * *B.three];
+        DUMP(C);
+        """
+        expected = collections.Counter([(6,)])
         self.run_test(query, expected)
 
     def test_unbox_from_where_single(self):
