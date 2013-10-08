@@ -43,7 +43,6 @@ class ExpressionProcessor:
         The scheme is an optional argument that overrides any schema
         in the database catalog.  TODO: get rid of this?
         """
-
         if not scheme:
             try:
                 scheme = self.catalog.get_scheme(relation_key)
@@ -81,6 +80,11 @@ class ExpressionProcessor:
         """Emit a single-row table literal."""
         op = raco.algebra.SingletonRelation()
         return self.__unbox_filter_group(op, None, mappings)
+
+    def empty(self, _scheme):
+        if not _scheme:
+            _scheme = raco.scheme.Scheme()
+        return raco.algebra.EmptyRelation(_scheme)
 
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehsion.
