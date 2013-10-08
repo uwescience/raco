@@ -173,7 +173,7 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
     allright = [i.position for i in self.right.scheme().ascolumnlist()]
     return {
         "op_name" : resultsym,
-        "op_type" : "LocalJoin",
+        "op_type" : "SymmetricHashJoin",
         "arg_column_names" : column_names,
         "arg_child1" : leftsym,
         "arg_child2" : rightsym,
@@ -199,7 +199,7 @@ class MyriaInsert(algebra.Store, MyriaOperator):
         "arg_child" : inputsym,
       }
 
-class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
+class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
   @classmethod
   def convertcondition(self, condition):
     """Convert the joincondition to a list of left columns and a list of right columns representing a conjunction"""
@@ -229,7 +229,7 @@ class MyriaLocalJoin(algebra.ProjectingJoin, MyriaOperator):
 
     join = {
         "op_name" : resultsym,
-        "op_type" : "LocalJoin",
+        "op_type" : "SymmetricHashJoin",
         "arg_column_names" : column_names,
         "arg_child1" : "%s" % leftsym,
         "arg_columns1" : leftcols,
@@ -532,7 +532,7 @@ class ShuffleBeforeJoin(rules.Rule):
     condition = MyriaLanguage.unnamed(expr.condition, expr.scheme())
 
     # Figure out which columns go in the shuffle
-    left_cols, right_cols = MyriaLocalJoin.convertcondition(expr.condition)
+    left_cols, right_cols = MyriaSymmetricHashJoin.convertcondition(expr.condition)
 
     # Left shuffle
     if isinstance(expr.left, algebra.Shuffle):
@@ -647,7 +647,7 @@ class MyriaAlgebra:
   language = MyriaLanguage
 
   operators = [
-      MyriaLocalJoin
+      MyriaSymmetricHashJoin
       , MyriaSelect
       , MyriaScan
       , MyriaInsert
@@ -676,7 +676,7 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.Distinct,MyriaDupElim)
       , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
       , rules.OneToOne(algebra.Collect,MyriaCollect)
-      , rules.OneToOne(algebra.ProjectingJoin,MyriaLocalJoin)
+      , rules.OneToOne(algebra.ProjectingJoin,MyriaSymmetricHashJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
       , RemoveRenames()
       , RemoveStores()
