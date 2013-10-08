@@ -10,10 +10,12 @@ from generateDot import generateDot
 
 #query = 'A(a1) :- R(a1,x),S(x,y),T(y,z),U(z,a1),100=z,y=50'
 #query = 'Triangle(x,y,z) :- R(x,y),S(y,z),T(z,x)'
-#query = 'Triangle(x,y,z) :- edges(x,y),edges(y,z),edges(z,x),x<y,y<z'
+query = 'Triangle(x,y,z) :- edges(x,y),edges(y,z),edges(z,x),x<y,y<z'
 query = 'California(x,z) :- edges1(x,y1),edges1(y1,y2),edges2(y2,z)'
 #query = 'A(x,z) :- edges(x,y1),edges(y1,y2),edges(y2,z)'
 #query = 'we(a,c) :- edges(a,b),edges(b,c)'
+query = 'mutual(a,b) :- edges(a,b),edges(b,a)'
+query = 'symmetric(a,b) :- edges1(a,b),edges2(b,a)'
 
 print "query:", query, "\n"
 
