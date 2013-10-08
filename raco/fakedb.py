@@ -50,7 +50,7 @@ class FakeDatabase:
             print '%s: (%s)' % (key, bag)
 
     def scan(self, op):
-        bag, scheme = self.tables[op.relation.name]
+        bag, scheme = self.tables[op.relation_key]
         return bag.elements()
 
     def select(self, op):

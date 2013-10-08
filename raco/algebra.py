@@ -649,16 +649,20 @@ class State(ZeroaryOperator):
     return self.fixpoint.scheme()
 
 class Store(UnaryOperator):
-  """A logical no-op. Captures the fact that the user used this result in the head of a rule, which may have intended it to be a materialized result.  May be ignored in compiled languages."""
-  def __init__(self, name=None, plan=None):
+  """Store output to a relational table.
+
+  relation_key is a string of the form "program:user:relation".
+  """
+
+  def __init__(self, relation_key=None, plan=None):
     UnaryOperator.__init__(self, plan)
-    self.name = name
-    
+    self.relation_key = relation_key
+
   def shortStr(self):
-    return "%s(%s)" % (self.opname(),self.name)
+    return "%s(%s)" % (self.opname(),self.relation_key)
 
   def copy(self, other):
-    self.name = other.name
+    self.relation_key = other.relation_key
     UnaryOperator.copy(self, other)
 
 class EmptyRelation(ZeroaryOperator):
@@ -692,32 +696,43 @@ class SingletonRelation(ZeroaryOperator):
     return scheme.Scheme()
 
 class Scan(ZeroaryOperator):
-  """Logical Scan operator"""
-  def __init__(self, relation=None):
-    self.relation = relation
+  """Logical Scan operator."""
+
+  def __init__(self, relation_key=None, _scheme=None):
+    """Initalize a scan operator.
+
+    relation_key is a string of the form "program:user:relation"
+    scheme is the schema of the relation.
+    """
+    self.relation_key = relation_key
+    self._scheme = _scheme
     ZeroaryOperator.__init__(self)
 
   def __eq__(self,other):
-    return ZeroaryOperator.__eq__(self,other) and self.relation == other.relation
+    return ZeroaryOperator.__eq__(self,other) and \
+      self.relation_key == other.relation_key and \
+      self.scheme() == other.scheme()
 
   def shortStr(self):
-    return "%s(%s)" % (self.opname(), self.relation.name)
+    return "%s(%s)" % (self.opname(), self.relation_key)
 
   def __repr__(self):
     return str(self)
 
   def copy(self, other):
     """deep copy"""
-    self.relation = other.relation
+    self.relation_key = other.relation_key
+    self._scheme = other._scheme
+
     # TODO: need a cleaner and more general way of tracing information through 
     # the compilation process for debugging purposes
-    if hasattr(other, "originalterm"): 
+    if hasattr(other, "originalterm"):
       self.originalterm = other.originalterm
     ZeroaryOperator.copy(self, other)
 
   def scheme(self):
     """Scheme of the result, which is just the scheme of the relation."""
-    return self.relation.scheme()
+    return self._scheme
 
   def is_leaf(self):
     return True

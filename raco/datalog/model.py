@@ -584,7 +584,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
     else:
       # TODO: A call to some catalog?
       sch = raco.scheme.Scheme([attr(i,r,term.name) for i,r in enumerate(term.valuerefs)])
-      scan = raco.algebra.Scan(raco.catalog.Relation(term.name, sch))
+      scan = raco.algebra.Scan(term.name, sch)
       scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))
 
     # collect conditions within the term itself, like A(X,3) or A(Y,Y)

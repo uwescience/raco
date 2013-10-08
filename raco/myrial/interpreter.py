@@ -25,7 +25,7 @@ class NoSuchRelationException(Exception):
     pass
 
 class ExpressionProcessor:
-    '''Convert syntactic expressions into a relational algebra operation'''
+    """Convert syntactic expressions into relational algebra operations."""
     def __init__(self, symbols, catalog):
         self.symbols = symbols
         self.catalog = catalog
@@ -50,8 +50,7 @@ class ExpressionProcessor:
             except KeyError:
                 raise NoSuchRelationException(relation_key)
 
-        rel = raco.catalog.Relation(relation_key, scheme)
-        return raco.algebra.Scan(rel)
+        return raco.algebra.Scan(relation_key, scheme)
 
     def load(self, path, schema):
         raise NotImplementedError()

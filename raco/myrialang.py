@@ -28,6 +28,26 @@ def scheme_to_schema(s):
   types = [r[1] for r in descrs]
   return {"column_types" : types, "column_names" : names}
 
+def resolve_relation_key(key):
+  """Extract user, program, relation strings from a colon-delimited string.
+
+  User and program can be omitted, in which case the system chooses default
+  values."""
+
+  toks = key.split(':')
+
+  user = 'public'
+  program = 'adhoc'
+  relation = toks[-1]
+
+  try:
+    program = toks[-2]
+    user = toks[-3]
+  except IndexError:
+    pass
+
+  return user, program, relation
+
 class MyriaLanguage(Language):
   reusescans = False
 
@@ -69,13 +89,15 @@ class MyriaOperator:
 
 class MyriaScan(algebra.Scan, MyriaOperator):
   def compileme(self, resultsym):
+    user, program, relation = resolve_relation_key(self.relation_key)
+
     return {
         "op_name" : resultsym,
         "op_type" : "TableScan",
         "relation_key" : {
-          "user_name" : "public",
-          "program_name" : "adhoc",
-          "relation_name" : self.relation.name
+          "user_name" : user,
+          "program_name" : program,
+          "relation_name" : relation
         }
       }
 
@@ -163,13 +185,15 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
 
 class MyriaInsert(algebra.Store, MyriaOperator):
   def compileme(self, resultsym, inputsym):
+    user, program, relation = resolve_relation_key(self.relation_key)
+
     return {
         "op_name" : resultsym,
         "op_type" : "DbInsert",
         "relation_key" : {
-          "user_name" : "public",
-          "program_name" : "adhoc",
-          "relation_name" : self.name
+          "user_name" : user,
+          "program_name" : program,
+          "relation_name" : relation
         },
         "arg_overwrite_table" : True,
         "arg_child" : inputsym,
@@ -668,19 +692,21 @@ def apply_schema_recursive(operator, catalog):
 
   # We found a scan, let's fill in its scheme
   if isinstance(operator, MyriaScan):
-    rel_name = operator.relation.name
-    rel_scheme = catalog.get_scheme(rel_name)
+    rel_key = operator.relation_key
+    rel_scheme = catalog.get_scheme(rel_key)
     if rel_scheme:
       # The Catalog has an entry for this relation
-      if len(operator.relation._scheme) != len(rel_scheme):
-        raise ValueError("query scheme for %s (%d columns) does not match the catalog scheme (%d columns)" % (rel_name, len(operator.relation._scheme), len(rel_scheme)))
-      operator.relation._scheme = rel_scheme
+      if len(operator.scheme()) != len(rel_scheme):
+        s = "scheme for %s (%d cols) does not match the catalog (%d cols)" % (
+          rel_key, len(operator._scheme), len(rel_scheme))
+        raise ValueError(s)
+      operator._scheme = rel_scheme
     else:
-      # The specified relation is not in the Catalog, replace its scheme's
-      # .. types with "unknown"
-      old_sch = operator.relation._scheme
+      # The specified relation is not in the Catalog; replace its schemes
+      # types with "unknown"
+      old_sch = operator.scheme()
       new_sch = [(old_sch.getName(i), "unknown") for i in range(len(old_sch))]
-      operator.relation._scheme = scheme.Scheme(new_sch)
+      operator._scheme = scheme.Scheme(new_sch)
 
   # Recurse through all children
   for child in operator.children():
@@ -790,7 +816,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
       else:
           # Otherwise, add an insert at the top to store this relation to a
           # table named (label).
-          frag_root = MyriaInsert(plan=rootOp, name=label)
+          frag_root = MyriaInsert(plan=rootOp, relation_key=label)
       # Make sure the root is in the symbol dictionary, but rather than using a
       # generated symbol use the IDB label.
       syms[id(frag_root)] = label
