@@ -102,6 +102,9 @@ class FakeDatabase:
     def singletonrelation(self, op):
         return iter([()])
 
+    def emptyrelation(self, op):
+        return iter([])
+
     def unionall(self, op):
         left_it = self.evaluate(op.left)
         right_it = self.evaluate(op.right)
