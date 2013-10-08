@@ -21,6 +21,9 @@ class DuplicateAliasException(Exception):
 class InvalidStatementException(Exception):
     pass
 
+class NoSuchRelationException(Exception):
+    pass
+
 class ExpressionProcessor:
     '''Convert syntactic expressions into a relational algebra operation'''
     def __init__(self, symbols, catalog):
@@ -35,8 +38,17 @@ class ExpressionProcessor:
         return self.symbols[_id]
 
     def scan(self, relation_key, scheme):
+        """Scan a database table.
+
+        The scheme is an optional argument that overrides any schema
+        in the database catalog.  TODO: get rid of this?
+        """
+
         if not scheme:
-            scheme = self.catalog.get_scheme(relation_key)
+            try:
+                scheme = self.catalog.get_scheme(relation_key)
+            except KeyError:
+                raise NoSuchRelationException(relation_key)
 
         rel = raco.catalog.Relation(relation_key, scheme)
         return raco.algebra.Scan(rel)
