@@ -666,17 +666,21 @@ class Store(UnaryOperator):
     UnaryOperator.copy(self, other)
 
 class EmptyRelation(ZeroaryOperator):
-  """Empty Relation.  Used in certain optimizations."""
+  """Relation with no tuples."""
+
+  def __init__(self, _scheme=None):
+    self._scheme = _scheme
+
   def shortStr(self):
-    return "EmptySet"
+    return "EmptyRelation"
 
   def copy(self, other):
     """deep copy"""
-    pass
+    other._scheme = self._scheme
 
   def scheme(self):
     """scheme of the result."""
-    return scheme.Scheme()
+    return self._scheme
 
 class SingletonRelation(ZeroaryOperator):
   """Relation with a single empty tuple.
