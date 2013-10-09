@@ -33,6 +33,7 @@ binops = {
     '==' : sexpr.EQ,
     'AND' : sexpr.AND,
     'OR' : sexpr.OR,
+    'POW' : sexpr.POW,
 }
 
 # Mapping from source symbols to raco.expression.UnaryOperator classes
@@ -337,6 +338,10 @@ class Parser:
                    | sexpr AND sexpr
                    | sexpr OR sexpr'''
         p[0] = binops[p[2]](p[1], p[3])
+
+    def p_sexpr_pow(self, p):
+        'sexpr : POW LPAREN sexpr COMMA sexpr RPAREN'
+        p[0] = sexpr.POW(p[3], p[5])
 
     def p_sexpr_not(self, p):
         'sexpr : NOT sexpr'
