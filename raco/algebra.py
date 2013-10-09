@@ -380,10 +380,10 @@ class Apply(UnaryOperator):
       elif isinstance(sexpr ,expression.AttributeRef):
         return input.resolveAttribute(sexpr)[0]
       else:
-        return str(expr)
+        return str(sexpr)
 
     if mappings is not None:
-      self.mappings = [(resolve_name(name, expr), expr) for name, expr
+      self.mappings = [(resolve_name(name, sexpr), sexpr) for name, sexpr
                        in mappings]
     UnaryOperator.__init__(self, input)
 

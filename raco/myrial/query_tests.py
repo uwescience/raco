@@ -364,6 +364,19 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(tpls)
         self.run_test(query, expected)
 
+    def test_bagcomp_no_column_name(self):
+        """Test that the system handles an omitted output column name."""
+        query = """
+        E = SCAN(%s);
+        F = [FROM E EMIT salary*E.salary];
+        out = [FROM F EMIT $0];
+        DUMP(out);
+        """ % (self.emp_key,)
+
+        tpls = [tuple([x[3]* x[3]]) for x in self.emp_table]
+        expected = collections.Counter(tpls)
+        self.run_test(query, expected)
+
     # TODO: test with multiple join attributes
 
     def test_explicit_cross(self):
