@@ -351,6 +351,32 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.join_expected)
 
+    def test_bagcomp_projection(self):
+        """Test that column names are preserved across projection."""
+        query = """
+        E = SCAN(%s);
+        F = [FROM E EMIT $2];
+        out = [FROM F EMIT name];
+        DUMP(out);
+        """ % (self.emp_key,)
+
+        tpls = [tuple([x[2]]) for x in self.emp_table]
+        expected = collections.Counter(tpls)
+        self.run_test(query, expected)
+
+    def test_bagcomp_no_column_name(self):
+        """Test that the system handles an omitted output column name."""
+        query = """
+        E = SCAN(%s);
+        F = [FROM E EMIT salary*E.salary];
+        out = [FROM F EMIT $0];
+        DUMP(out);
+        """ % (self.emp_key,)
+
+        tpls = [tuple([x[3]* x[3]]) for x in self.emp_table]
+        expected = collections.Counter(tpls)
+        self.run_test(query, expected)
+
     # TODO: test with multiple join attributes
 
     def test_explicit_cross(self):
@@ -396,12 +422,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.assertEquals(len(result), 3)
 
 
-    def test_table_literal(self):
+    def test_table_literal_scalar_expression(self):
         query = """
         X = [FROM Z=["Andrew", salary=(50 * (500 + 500))] EMIT salary];
         DUMP(X);
         """
         expected = collections.Counter([(50000,)])
+        self.run_test(query, expected)
+
+    def test_table_literal_unbox(self):
+        query = """
+        A = [one=1, two=2, three=3];
+        B = [one=1, two=2, three=3];
+        C = [*A.two * *B.three];
+        DUMP(C);
+        """
+        expected = collections.Counter([(6,)])
         self.run_test(query, expected)
 
     def test_unbox_from_where_single(self):
@@ -824,3 +860,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [(a,math.tan(b)) for a,b in self.numbers_table.elements()])
         self.run_test(query, expected)
 
+    def test_no_such_relation(self):
+        query = """
+        out = [FROM X=SCAN(foo:bar:baz) EMIT id, TAN(val)];
+        DUMP(out);
+        """
+
+        with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):
+            self.run_test(query, collections.Counter())

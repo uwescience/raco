@@ -107,11 +107,17 @@ class Parser:
         'expression : LBRACKET emit_arg_list RBRACKET'
         p[0] = ('TABLE', p[2])
 
-    def p_expression_scan(self, p):
-        'expression : SCAN LPAREN relation_key optional_schema RPAREN'
-        # TODO(AJW): Nix optional schema argument once we can read this from
-        # myrial?
-        p[0] = ('SCAN', p[3], p[4])
+    def p_expression_empty(self, p):
+        'expression : EMPTY LPAREN optional_schema RPAREN'
+        p[0] = ('EMPTY', p[3])
+
+    def p_expression_scan_with_schema(self, p):
+        'expression : SCAN LPAREN relation_key COMMA column_def_list RPAREN'
+        p[0] = ('SCAN', p[3], scheme.Scheme(p[5]))
+
+    def p_expression_scan_without_schema(self, p):
+        'expression : SCAN LPAREN relation_key RPAREN'
+        p[0] = ('SCAN', p[3], None)
 
     def p_relation_key(self, p):
         '''relation_key : string_arg
@@ -120,13 +126,14 @@ class Parser:
         p[0] = ''.join(p[1:])
 
     def p_optional_schema(self, p):
-        '''optional_schema : COMMA column_def_list
+        '''optional_schema : column_def_list
                            | empty'''
-        if len(p) == 3:
-            p[0] = scheme.Scheme(p[2])
+        if len(p) == 2:
+            p[0] = scheme.Scheme(p[1])
         else:
             p[0] = None
 
+    # Note: column list cannot be empty
     def p_column_def_list(self, p):
         '''column_def_list : column_def_list COMMA column_def
                            | column_def'''

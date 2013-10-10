@@ -374,15 +374,16 @@ class Apply(UnaryOperator):
     column_name can be None, in which case the system will infer a name based on
     the expression."""
 
-    def resolve_name(name, expr):
+    def resolve_name(name, sexpr):
       if name:
         return name
+      elif isinstance(sexpr ,expression.AttributeRef):
+        return input.resolveAttribute(sexpr)[0]
       else:
-        # TODO: This isn't right; we should resolve $1 into a column name
-        return str(expr)
+        return str(sexpr)
 
     if mappings is not None:
-      self.mappings = [(resolve_name(name, expr), expr) for name, expr
+      self.mappings = [(resolve_name(name, sexpr), sexpr) for name, sexpr
                        in mappings]
     UnaryOperator.__init__(self, input)
 
@@ -649,30 +650,38 @@ class State(ZeroaryOperator):
     return self.fixpoint.scheme()
 
 class Store(UnaryOperator):
-  """A logical no-op. Captures the fact that the user used this result in the head of a rule, which may have intended it to be a materialized result.  May be ignored in compiled languages."""
-  def __init__(self, name=None, plan=None):
+  """Store output to a relational table.
+
+  relation_key is a string of the form "program:user:relation".
+  """
+
+  def __init__(self, relation_key=None, plan=None):
     UnaryOperator.__init__(self, plan)
-    self.name = name
-    
+    self.relation_key = relation_key
+
   def shortStr(self):
-    return "%s(%s)" % (self.opname(),self.name)
+    return "%s(%s)" % (self.opname(),self.relation_key)
 
   def copy(self, other):
-    self.name = other.name
+    self.relation_key = other.relation_key
     UnaryOperator.copy(self, other)
 
 class EmptyRelation(ZeroaryOperator):
-  """Empty Relation.  Used in certain optimizations."""
+  """Relation with no tuples."""
+
+  def __init__(self, _scheme=None):
+    self._scheme = _scheme
+
   def shortStr(self):
-    return "EmptySet"
+    return "EmptyRelation"
 
   def copy(self, other):
     """deep copy"""
-    pass
+    other._scheme = self._scheme
 
   def scheme(self):
     """scheme of the result."""
-    return scheme.Scheme()
+    return self._scheme
 
 class SingletonRelation(ZeroaryOperator):
   """Relation with a single empty tuple.
@@ -692,32 +701,43 @@ class SingletonRelation(ZeroaryOperator):
     return scheme.Scheme()
 
 class Scan(ZeroaryOperator):
-  """Logical Scan operator"""
-  def __init__(self, relation=None):
-    self.relation = relation
+  """Logical Scan operator."""
+
+  def __init__(self, relation_key=None, _scheme=None):
+    """Initalize a scan operator.
+
+    relation_key is a string of the form "program:user:relation"
+    scheme is the schema of the relation.
+    """
+    self.relation_key = relation_key
+    self._scheme = _scheme
     ZeroaryOperator.__init__(self)
 
   def __eq__(self,other):
-    return ZeroaryOperator.__eq__(self,other) and self.relation == other.relation
+    return ZeroaryOperator.__eq__(self,other) and \
+      self.relation_key == other.relation_key and \
+      self.scheme() == other.scheme()
 
   def shortStr(self):
-    return "%s(%s)" % (self.opname(), self.relation.name)
+    return "%s(%s)" % (self.opname(), self.relation_key)
 
   def __repr__(self):
     return str(self)
 
   def copy(self, other):
     """deep copy"""
-    self.relation = other.relation
+    self.relation_key = other.relation_key
+    self._scheme = other._scheme
+
     # TODO: need a cleaner and more general way of tracing information through 
     # the compilation process for debugging purposes
-    if hasattr(other, "originalterm"): 
+    if hasattr(other, "originalterm"):
       self.originalterm = other.originalterm
     ZeroaryOperator.copy(self, other)
 
   def scheme(self):
     """Scheme of the result, which is just the scheme of the relation."""
-    return self.relation.scheme()
+    return self._scheme
 
   def is_leaf(self):
     return True
