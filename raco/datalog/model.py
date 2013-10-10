@@ -96,7 +96,8 @@ and offset([A(X,Y), B(Y,Z)], A) == 0"""
     """Make a relational plan. The selection_conditions are explicit conditions from the Datalog rule, like X=3"""
     leaves = [t.makeLeaf(selection_conditions, program) for t in self.terms]
 
-    if not leaves: return raco.algebra.EmptyRelation()
+    if not leaves:
+      return raco.algebra.EmptyRelation(raco.scheme.Scheme())
 
     leftmost = leaves[0]
     pairs = zip(self.conditions, leaves[1:])
@@ -584,7 +585,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
     else:
       # TODO: A call to some catalog?
       sch = raco.scheme.Scheme([attr(i,r,term.name) for i,r in enumerate(term.valuerefs)])
-      scan = raco.algebra.Scan(raco.catalog.Relation(term.name, sch))
+      scan = raco.algebra.Scan(term.name, sch)
       scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))
 
     # collect conditions within the term itself, like A(X,3) or A(Y,Y)

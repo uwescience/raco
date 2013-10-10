@@ -21,8 +21,11 @@ class DuplicateAliasException(Exception):
 class InvalidStatementException(Exception):
     pass
 
+class NoSuchRelationException(Exception):
+    pass
+
 class ExpressionProcessor:
-    '''Convert syntactic expressions into a relational algebra operation'''
+    """Convert syntactic expressions into relational algebra operations."""
     def __init__(self, symbols, catalog):
         self.symbols = symbols
         self.catalog = catalog
@@ -35,18 +38,53 @@ class ExpressionProcessor:
         return self.symbols[_id]
 
     def scan(self, relation_key, scheme):
-        if not scheme:
-            scheme = self.catalog.get_scheme(relation_key)
+        """Scan a database table.
 
-        rel = raco.catalog.Relation(relation_key, scheme)
-        return raco.algebra.Scan(rel)
+        The scheme is an optional argument that overrides any schema
+        in the database catalog.  TODO: get rid of this?
+        """
+        if not scheme:
+            try:
+                scheme = self.catalog.get_scheme(relation_key)
+            except KeyError:
+                raise NoSuchRelationException(relation_key)
+
+        return raco.algebra.Scan(relation_key, scheme)
 
     def load(self, path, schema):
         raise NotImplementedError()
 
+    def __unbox_filter_group(self, op, where_clause, emit_clause):
+        """Apply unboxing, filtering, and groupby."""
+
+        # Record the original schema, so we can later strip off unboxed
+        # columns.
+        orig_scheme = op.scheme()
+        op, where_clause, emit_clause, unbox_columns = unbox.unbox(
+            op, where_clause, emit_clause, self.symbols)
+
+        if where_clause:
+            op = raco.algebra.Select(condition=where_clause, input=op)
+
+        if not emit_clause:
+            # Strip off any columns that were added by unbox
+            mappings = [(orig_scheme.getName(i),
+                         raco.expression.UnnamedAttributeRef(i))
+                        for i in range(len(orig_scheme))]
+            return raco.algebra.Apply(mappings=mappings, input=op)
+        else:
+            # Apply any grouping operators
+            return groupby.groupby(op, emit_clause, unbox_columns)
+
     def table(self, mappings):
+        """Emit a single-row table literal."""
         op = raco.algebra.SingletonRelation()
-        return raco.algebra.Apply(mappings=mappings, input=op)
+        return self.__unbox_filter_group(op, None, mappings)
+
+    def empty(self, _scheme):
+        if not _scheme:
+            _scheme = raco.scheme.Scheme()
+        return raco.algebra.EmptyRelation(_scheme)
 
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehsion.
@@ -78,28 +116,11 @@ class ExpressionProcessor:
                 from_args[_id] =  self.symbols[_id]
 
         # Create a single RA operation that is the rollup of all from
-        # targets; re-write where and emit clauses to refer to its schema
+        # targets; re-write where and emit clauses to refer to its schema.
         op, where_clause, emit_clause = unpack_from.unpack(
             from_args, where_clause, emit_clause)
 
-        orig_scheme = op.scheme()
-        op, where_clause, emit_clause, unbox_columns = unbox.unbox(
-            op, where_clause, emit_clause, self.symbols)
-
-        if where_clause:
-            op = raco.algebra.Select(condition=where_clause, input=op)
-
-        if not emit_clause:
-            # Strip off any cross-product columns that we artificially added
-            # during unboxing.
-            mappings = [(orig_scheme.getName(i),
-                         raco.expression.UnnamedAttributeRef(i))
-                        for i in range(len(orig_scheme))]
-            op = raco.algebra.Apply(mappings=mappings, input=op)
-        else:
-            op = groupby.groupby(op, emit_clause, unbox_columns)
-
-        return op
+        return self.__unbox_filter_group(op, where_clause, emit_clause)
 
     def distinct(self, expr):
         op = self.evaluate(expr)
