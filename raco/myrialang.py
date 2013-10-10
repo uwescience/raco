@@ -702,8 +702,8 @@ def apply_schema_recursive(operator, catalog):
         raise ValueError(s)
       operator._scheme = rel_scheme
     else:
-      # The specified relation is not in the Catalog; replace its schemes
-      # types with "unknown"
+      # The specified relation is not in the Catalog; replace its scheme's
+      # types with "unknown".
       old_sch = operator.scheme()
       new_sch = [(old_sch.getName(i), "unknown") for i in range(len(old_sch))]
       operator._scheme = scheme.Scheme(new_sch)
