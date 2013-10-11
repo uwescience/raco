@@ -37,17 +37,12 @@ class ExpressionProcessor:
     def alias(self, _id):
         return self.symbols[_id]
 
-    def scan(self, relation_key, scheme):
-        """Scan a database table.
-
-        The scheme is an optional argument that overrides any schema
-        in the database catalog.  TODO: get rid of this?
-        """
-        if not scheme:
-            try:
-                scheme = self.catalog.get_scheme(relation_key)
-            except KeyError:
-                raise NoSuchRelationException(relation_key)
+    def scan(self, relation_key):
+        """Scan a database table."""
+        try:
+            scheme = self.catalog.get_scheme(relation_key)
+        except KeyError:
+            raise NoSuchRelationException(relation_key)
 
         return raco.algebra.Scan(relation_key, scheme)
 

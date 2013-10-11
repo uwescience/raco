@@ -112,13 +112,9 @@ class Parser:
         'expression : EMPTY LPAREN optional_schema RPAREN'
         p[0] = ('EMPTY', p[3])
 
-    def p_expression_scan_with_schema(self, p):
-        'expression : SCAN LPAREN relation_key COMMA column_def_list RPAREN'
-        p[0] = ('SCAN', p[3], scheme.Scheme(p[5]))
-
-    def p_expression_scan_without_schema(self, p):
+    def p_expression_scan(self, p):
         'expression : SCAN LPAREN relation_key RPAREN'
-        p[0] = ('SCAN', p[3], None)
+        p[0] = ('SCAN', p[3])
 
     def p_relation_key(self, p):
         '''relation_key : string_arg
