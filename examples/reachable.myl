@@ -9,6 +9,7 @@ DO
                               EMIT addr=Edge.dst]);
     Delta = DIFF(NewlyReachable, Reachable);
     Reachable = UNIONALL(Delta, Reachable);
-WHILE Delta;
+    Continue = [FROM Delta EMIT COUNT(addr)  > 0];
+WHILE Continue;
 
 DUMP (Reachable);
