@@ -307,6 +307,10 @@ class MIN(UnaryFunction,AggregateExpression):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return min(inputs)
 
+class COUNTALL(ZeroaryOperator, AggregateExpression):
+  def evaluate_aggregate(self, tuple_iterator, scheme):
+    return len(tuple_iterator)
+
 class COUNT(UnaryFunction,AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)

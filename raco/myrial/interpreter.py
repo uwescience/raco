@@ -134,8 +134,7 @@ class ExpressionProcessor:
     def countall(self, expr):
         op = self.evaluate(expr)
         grouping_list = []
-        # COUNT must take a column ref. Use the first column
-        agg_list = [sexpr.COUNT(raco.expression.UnnamedAttributeRef(0))]
+        agg_list = [sexpr.COUNTALL()]
         return raco.algebra.GroupBy(columnlist=grouping_list+agg_list,
                                     input=op)
 
