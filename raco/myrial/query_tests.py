@@ -591,6 +591,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.__aggregate_expected_result(len))
 
+    def test_countall(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT dept_id, COUNTALL()];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.run_test(query, self.__aggregate_expected_result(len))
+
     def test_max_reversed(self):
         query = """
         out = [FROM X=SCAN(%s) EMIT max_salary=MAX(salary), dept_id];
@@ -738,7 +746,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
             self.run_test(query, collections.Counter())
 
-    def test_countall(self):
+    def test_standalone_countall(self):
         query = """
         out = COUNTALL(SCAN(%s));
         DUMP(out);

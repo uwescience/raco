@@ -347,6 +347,10 @@ class Parser:
         'sexpr : NOT sexpr'
         p[0] = sexpr.NOT(p[2])
 
+    def p_sexpr_countall(self, p):
+        'sexpr : COUNTALL LPAREN RPAREN'
+        p[0] = sexpr.COUNTALL()
+
     def p_sexpr_unary_aggregate(self, p):
         'sexpr : unary_aggregate_func LPAREN sexpr RPAREN'
         p[0] = p[1](p[3])
