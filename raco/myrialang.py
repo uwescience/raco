@@ -643,6 +643,14 @@ DEFAULT_HARDCODED_SCHEMA = {
     'TwitterK': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
 }
 
+class DropTemps(rules.Rule):
+  def fire(self, expr):
+    if isinstance(expr, algebra.ScanTemp):
+      return algebra.Scan(expr.name, expr._scheme)
+    if isinstance(expr, algebra.StoreTemp):
+      return algebra.Store(expr.name, expr.input)
+    return expr
+
 class MyriaAlgebra:
   language = MyriaLanguage
 
@@ -661,7 +669,8 @@ class MyriaAlgebra:
   )
 
   rules = [
-      rules.ProjectingJoin()
+      DropTemps()
+      , rules.ProjectingJoin()
       , rules.JoinToProjectingJoin()
       , ShuffleBeforeJoin()
       , BroadcastBeforeCross()
