@@ -1,4 +1,4 @@
-Points = SCAN(public:adhoc:Points, v:float);
+Points = SCAN(public:adhoc:sc_points);
 
 aggs = [FROM Points EMIT _sum=SUM(v), sumsq=SUM(v*v), cnt=COUNT(v)];
 newBad = EMPTY(v:float);
