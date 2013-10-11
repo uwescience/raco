@@ -28,9 +28,8 @@ def parse_options(args):
     ns = parser.parse_args(args)
     return ns
 
-if __name__ == "__main__":
-
-    opt = parse_options(sys.argv[1:])
+def main(args):
+    opt = parse_options(args)
     _parser = parser.Parser()
     processor = interpreter.StatementProcessor()
 
@@ -43,3 +42,8 @@ if __name__ == "__main__":
             processor.evaluate(statement_list)
             plan = processor.get_output()
             print_pretty_plan(plan)
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
