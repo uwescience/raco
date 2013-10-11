@@ -3,6 +3,9 @@ import raco.algebra as alg
 import raco.clang as clang
 import raco.boolean as rbool
 from collections import deque
+
+import logging
+LOG = logging.getLogger(__name__)
    
 class cpp_code :
 
@@ -22,7 +25,7 @@ class cpp_code :
         self.hashes = set()
         self.structs = set()
         self.relation_to_index = {}
-        self.relation_to_tuple = {}
+        self.relation_to_tupleType = {}
         self.distinct = dis
         self.result_tuple = 'results_tuple'
 
@@ -30,30 +33,35 @@ class cpp_code :
 
     #generate code call
     def gen_code(self) :
+        # generate header file
         f = open(self.query_name + '.h','w')
         f.write(self.generate_header(self.query_name))
         f.close()
 
-        self.cpp_code += '#include "' + self.query_name + '.h"\n\n'
+        # include header file
+        # TODO: this should be part of the file template
+        self.emit('#include "' + self.query_name + '.h"\n\n')
 
+        # the plan appears to so far have only one root element
         for s,c in self.plan :
+            LOG.debug("s=%s c=%s",s,c)
             self.initial_walk(c)
 
         if self.distinct :
-            self.cpp_code += self.generate_results_tuple()
+            self.emit(self.generate_results_tuple())
 
-        self.cpp_code += '\n\nvoid query () {\n'
+        self.emit('\n\nvoid query () {\n')
         self.indent += 4
 
-        self.cpp_code += self.setup_code()
+        self.emit(self.setup_code())
 
         #generate_files call
         for s,c in self.plan :
             self.visit(c)
 
-        self.cpp_code += self.wrapup_code()
+        self.emit(self.wrapup_code())
 
-        self.cpp_code +='\n}\n\nint main() { query(); }'
+        self.emit('\n}\n\nint main() { query(); }')
         self.indent -= 4
 
         f = open(self.query_name + '.cpp','w')
@@ -113,24 +121,34 @@ class cpp_code :
 
     #-----------------------------------------------------------------------
 
+    def emit(self, codeStr):
+      self.cpp_code+=codeStr
+      
+
     def struct_definition(self,n) :
-        varname = n.relation.name
-        t_name = varname + '_tuple'
-
-        if varname in self.structs :
-            self.relation_to_tuple[n] = t_name
-            return ''
-
+      struct_def_template = """
+struct %(relationTupleName)s {
+  %(fields)s
+};
+"""
+      
+      relname = n.relation.name
+      t_name = relname + '_tuple'
+      
+      self.relation_to_tupleType[n] = t_name
+      
+      # if not seen relation yet then add a definition 
+      if relname not in self.structs :
+        self.structs.add(relname)
         numcols = len(n.relation.scheme())
-
-        self.cpp_code += 'struct ' + t_name + '{\n'
+        
+        declTemp = """int a%(id)s;\n  """ 
+        fieldsStr = ""
         for i in range(numcols) :
-            self.cpp_code += '    int a' + str(i) + ';\n'
-
-        self.cpp_code += '};\n\n'
-
-        self.structs.add(varname)
-        self.relation_to_tuple[n] = t_name
+          fieldsStr += declTemp % { 'id':i }
+      
+        self.emit(struct_def_template % { 'relationTupleName': t_name, 'fields':fieldsStr})
+  
 
     #-----------------------------------------------------------------------
 
@@ -153,18 +171,18 @@ class cpp_code :
 
     #load scan template
     def gen_code_for_scan(self,n) :
-        varname = n.relation.name
+        relName = n.relation.name
 
-        if varname in self.relations :
-            self.node_to_name[n] = varname
+        if relName in self.relations :
+            self.node_to_name[n] = relName
             return ''
 
         filename = n.relation.name #could be changed later
         numcols = len(n.relation.scheme())
         code = open('templates_ver2/scan.template').read()
-        code = code.replace('$$varname$$',varname)
+        code = code.replace('$$varname$$',relName)
         code = code.replace('$$filename$$','"' + str(filename) + '"')
-        code = code.replace('$$tuple$$',self.relation_to_tuple[n])
+        code = code.replace('$$tuple$$',self.relation_to_tupleType[n])
         #code = code.replace('$$numcolumns$$',str(numcols))
         code = code.replace('$$tmp_tuple$$','tmp_tuple' + str(self.scan_count))
         code = code.replace('$$f$$','f' + str(self.scan_count))
@@ -178,9 +196,9 @@ class cpp_code :
             tuple_code += tmp_code
 
         code = code.replace('$$code_to_create_tuple$$',tuple_code)
-        self.node_to_name[n] = varname
+        self.node_to_name[n] = relName
         self.scan_count += 1
-        self.relations.add(varname)
+        self.relations.add(relName)
         return code.replace('\n','\n' + ' '*self.indent)
 
     #-----------------------------------------------------------------------
@@ -203,7 +221,7 @@ class cpp_code :
         code = code.replace('$$hashname$$',hashname)
         code = code.replace('$$relation$$',relation)
         code = code.replace('$$column$$',str(column))
-        code = code.replace('$$tuple$$', self.relation_to_tuple[n])
+        code = code.replace('$$tuple$$', self.relation_to_tupleType[n])
         return code.replace('\n','\n' + ' '*self.indent)
 
     #-----------------------------------------------------------------------
@@ -215,7 +233,7 @@ class cpp_code :
         code = code.replace('$$column$$',str(column))
         code = code.replace('$$new_table$$',new_table)
         code = code.replace('$$index$$','index' + str(self.index))
-        code = code.replace('$$tuple$$',self.relation_to_tuple[hashname])
+        code = code.replace('$$tuple$$',self.relation_to_tupleType[hashname])
         self.index += 1
         return code.replace('\n','\n' + ' '*self.indent)
 
@@ -229,7 +247,7 @@ class cpp_code :
         code = code.replace('$$new_table$$',new_table)
         code = code.replace('$$index$$','index' + str(self.index))
         code = code.replace('$$clause$$',clause)
-        code = code.replace('$$tuple$$',self.relation_to_tuple[hashname])
+        code = code.replace('$$tuple$$',self.relation_to_tupleType[hashname])
         self.index += 1
         return code.replace('\n','\n' + ' '*self.indent)
 
@@ -241,7 +259,7 @@ class cpp_code :
         code = code.replace('$$column$$',str(column))
         code = code.replace('$$index$$','index' + str(self.index))
         self.index += 1
-        code = code.replace('$$tuple$$',self.relation_to_tuple[hashname])
+        code = code.replace('$$tuple$$',self.relation_to_tupleType[hashname])
         code = code.replace('$$new_table$$',new_table)
         return code.replace('\n','\n' + ' '*self.indent)
 
@@ -285,9 +303,9 @@ class cpp_code :
             pos = n.joinconditions[i].right.position
             node = n.args[i+1]
             name = node.relation.name + str(pos) + '_hash'
-            self.cpp_code += self.generate_hash_code(name,node.relation.name,pos,node)
+            self.emit(self.generate_hash_code(name,node.relation.name,pos,node))
             self.node_to_hash[node] = name
-            self.relation_to_tuple[name] = self.relation_to_tuple[node]
+            self.relation_to_tupleType[name] = self.relation_to_tupleType[node]
 
         first = True
         new_table=''
@@ -309,12 +327,12 @@ class cpp_code :
             self.node_to_table[n.args[i]] = table
             new_table = "table" + str(self.index + 1)
             if first and self.distinct :
-                self.cpp_code += self.generate_outer_loop_distinct(hashname,column,new_table)
+                self.emit(self.generate_outer_loop_distinct(hashname,column,new_table))
                 self.indent += 4
             elif clause == '1' :
-                self.cpp_code += self.generate_loop_code(table,column,hashname,new_table)
+                self.emit(self.generate_loop_code(table,column,hashname,new_table))
             else :
-                self.cpp_code += self.generate_loop_code_clause(table,column,hashname,new_table,clause)
+                self.emit(self.generate_loop_code_clause(table,column,hashname,new_table,clause))
             self.indent += 4
             first = False
 
@@ -324,16 +342,16 @@ class cpp_code :
         clause = self.handle_clause(new_table,n.rightconditions[-1])
         if not rbool.isTaut(n.finalcondition) :
             clause += ' && ' + self.handle_final_cond(n.finalcondition,index)
-        self.cpp_code += self.generate_result('table' + str(self.index),clause) + '}'
+        self.emit(self.generate_result('table' + str(self.index),clause) + '}')
 
-        self.cpp_code += '\n'
+        self.emit('\n')
         #step 4: close it up
         for i in range(0,len(n.joinconditions)) :
             if i == len(n.joinconditions)-1 and self.distinct :
                 self.indent -= 4
-                self.cpp_code += ' ' * self.indent + '}\n' + ' ' *self.indent + 'result += d_result.size();\n'
+                self.emit(' ' * self.indent + '}\n' + ' ' *self.indent + 'result += d_result.size();\n')
             self.indent -= 4
-            self.cpp_code += ' ' * self.indent + '}\n'
+            self.emit(' ' * self.indent + '}\n')
         return
 
     #-----------------------------------------------------------------------
@@ -407,7 +425,7 @@ class cpp_code :
         #generate code for a scan
         if isinstance(n,alg.ZeroaryOperator) :
             if isinstance(n,alg.Scan) :
-                self.cpp_code += self.gen_code_for_scan(n)
+                self.emit(self.gen_code_for_scan(n))
             #else :
                 #nothing?
 
@@ -433,21 +451,25 @@ class cpp_code :
         if isinstance(n,alg.ZeroaryOperator) :
             if isinstance(n,alg.Scan) :
                 self.struct_definition(n)
+
         #nothing here yet
         elif isinstance(n,alg.UnaryOperator) :
+            LOG.warning("UnaryOperator unsupported")
             self.initial_walk(n.input)
 
         #nothing here yet
         elif isinstance(n,alg.BinaryOperator) :
+            LOG.warning("BinaryOperator unsupported")
             self.initial_walk(n.right)
             self.initial_walk(n.left)
 
         #generate code for a join chain
         elif isinstance(n,alg.NaryOperator) :
             if isinstance(n,clang.FilteringNLJoinChain) :
-                for arg in n.args :
-                    self.initial_walk(arg)
-                #handle this differently later
+                for child in n.args :
+                    LOG.debug("join chain child: %s", child)
+                    self.initial_walk(child)
+                # TODO handle this differently later
                 self.eliminate_non_equijoins(n)
-                print 'joinconds=',n.joinconditions
+                LOG.debug('joinconds=%s',n.joinconditions)
 
