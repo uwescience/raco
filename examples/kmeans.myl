@@ -1,6 +1,6 @@
 
 -- Load some points; assume each point has a unique ID
-Point = SCAN(points, id:int, x:float, y:float);
+Point = SCAN(public:adhoc:points);
 
 -- Create some initial cluster centers from the first K points
 -- TODO: We should choose these at random somehow...

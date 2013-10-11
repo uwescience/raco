@@ -2,5 +2,6 @@
 
 {
     'public:adhoc:edges': [('src','int'), ('dst', 'int')],
-    'public:adhoc:vertices': [('id','int')]
+    'public:adhoc:vertices': [('id','int')],
+    'public:adhoc:points': [('id','int'), ('x','float'), ('y', 'float')]
 }
