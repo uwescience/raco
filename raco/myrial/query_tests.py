@@ -738,6 +738,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
             self.run_test(query, collections.Counter())
 
+    def test_countall(self):
+        query = """
+        out = COUNTALL(SCAN(%s));
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(len(self.emp_table),)])
+        self.run_test(query, expected)
+
     def test_multiway_bagcomp_with_unbox(self):
         """Return all employees in accounting making less than 30000"""
         query = """
