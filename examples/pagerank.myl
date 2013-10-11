@@ -4,8 +4,8 @@
 alpha = [.85];
 epsilon = [.0001];
 
-Edge = SCAN(public:adhoc:edges, src:int, dst:int);
-Vertex = SCAN(public:adhoc:vertices, id:int);
+Edge = SCAN(public:adhoc:edges);
+Vertex = SCAN(public:adhoc:vertices);
 
 N = [FROM Vertex EMIT val=COUNT(id)];
 min_rank = [(1 - *alpha) / *N];
