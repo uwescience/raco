@@ -47,7 +47,7 @@ class FakeDatabase:
             print '%s: (%s)' % (key, bag)
 
         for key, bag in self.temp_tables.iteritems():
-            print '%s: (%s)' % (key, bag)
+            print '__%s: (%s)' % (key, bag)
 
     def scan(self, op):
         bag, scheme = self.tables[op.relation_key]
@@ -153,6 +153,11 @@ class FakeDatabase:
 
     def dowhile(self, op):
         i = 0
+
+        if debug:
+            print '---------- Values at top of do/while -----'
+            self.dump_all()
+
         while True:
             self.evaluate(op.left)
             result_iterator = self.evaluate(op.right)
