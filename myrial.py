@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Compile a Myrial program into logical relational algebra."""
+
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 from raco import algebra
