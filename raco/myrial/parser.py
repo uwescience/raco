@@ -106,7 +106,7 @@ class Parser:
 
     def p_expression_table_literal(self, p):
         'expression : LBRACKET emit_arg_list RBRACKET'
-        p[0] = ('TABLE', p[2])
+        p[0] = ('TABLE', tuple(p[2]))
 
     def p_expression_empty(self, p):
         'expression : EMPTY LPAREN optional_schema RPAREN'
@@ -190,7 +190,7 @@ class Parser:
 
     def p_emit_clause_list(self, p):
         '''emit_clause : EMIT emit_arg_list'''
-        p[0] = p[2]
+        p[0] = tuple(p[2])
 
     def p_emit_arg_list(self, p):
         '''emit_arg_list : emit_arg_list COMMA emit_arg
@@ -359,7 +359,6 @@ class Parser:
                                 | AVG
                                 | STDEV'''
 
-
         if p[1] == 'MAX': func = sexpr.MAX
         if p[1] == 'MIN': func = sexpr.MIN
         if p[1] == 'SUM': func = sexpr.SUM
@@ -369,17 +368,17 @@ class Parser:
 
         p[0] = func
 
-    def p_sexpr_unbox_implicit(self, p):
-        'sexpr : TIMES ID'
-        p[0] = sexpr.Unbox(p[2], None)
+    def p_sexpr_unbox(self, p):
+        'sexpr : TIMES expression optional_column_ref'
+        p[0] = sexpr.Unbox(p[2], p[3])
 
-    def p_sexpr_unbox_explicit_name(self, p):
-        'sexpr : TIMES ID DOT ID'
-        p[0] = sexpr.Unbox(p[2], p[4])
-
-    def p_sexpr_unbox_explicit_pos(self, p):
-        'sexpr : TIMES ID DOT DOLLAR INTEGER_LITERAL'
-        p[0] = sexpr.Unbox(p[2], p[5])
+    def p_optional_column_ref(self, p):
+        '''optional_column_ref : DOT column_ref
+                               | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = None
 
     def p_empty(self, p):
         'empty :'

@@ -447,16 +447,23 @@ reverse = {
 }
 
 class Unbox(ZeroaryOperator):
-  def __init__(self, table, field):
-    self.table = table
+  def __init__(self, relational_expression, field):
+    """Initialize an unbox expression.
+
+    relational_expression is an expression in the Myrial langauge that
+    evaluates to a relation.
+
+    field is an optional column name/index within the relation.  If None,
+    the system uses index 0.
+    """
+    self.relational_expression = relational_expression
     self.field = field
 
   def evaluate(self, _tuple, scheme):
     """Raise an error on attempted evaluation.
 
-    Unbox should never be "evaluated" in the usual sense.  Rather it should
-    be replaced by a cross-product with a single-element table.  This operator
-    is just a placeholder.
+    Unbox expressions are not "evaluated" in the usual sense.  Rather, they
+    are replaced with raw attribute references at evaluation time.
     """
     raise NotImplementedError()
 

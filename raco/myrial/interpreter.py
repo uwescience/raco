@@ -24,9 +24,13 @@ class NoSuchRelationException(Exception):
     pass
 
 class UnboxState(object):
+    """State maintained during the unbox phase of a bag comprehension."""
     def __init__(self, initial_pos):
-        # A mapping from relation name to column index
-        self.local_symbols = collections.OrderedDict()
+        # This mapping keeps track of where unboxed expressions reside
+        # in the output schema that is created from cross products of
+        # all unboxed expressions.  The keys are relational expressions and
+        # the values are tuples of the form: (operation, first_column_index)
+        self.unbox_ops = collections.OrderedDict()
 
         # The next column index to be assigned
         self.pos = initial_pos
@@ -64,28 +68,31 @@ class ExpressionProcessor:
             if not isinstance(expr, raco.expression.Unbox):
                 return expr
             else:
-                # Convert the unbox operation into a simple attribute reference
-                # on the forthcoming cross-product table.
-                scheme = self.symbols[expr.table].scheme()
-
-                if not expr.table in ub_state.local_symbols:
-                    ub_state.local_symbols[expr.table] = ub_state.pos
+                rex = expr.relational_expression
+                if not rex in ub_state.unbox_ops:
+                    unbox_op = self.evaluate(rex)
+                    scheme = unbox_op.scheme()
+                    ub_state.unbox_ops[rex] = (unbox_op, ub_state.pos)
                     ub_state.pos += len(scheme)
+                else:
+                    unbox_op = ub_state.unbox_ops[rex][0]
+                    scheme = unbox_op.scheme()
 
-                offset = ub_state.local_symbols[expr.table]
+                offset = ub_state.unbox_ops[rex][1]
                 if not expr.field:
+                    # Default to column zero
                     pass
                 elif type(expr.field) == types.IntType:
                     offset += expr.field
                 else:
-                    # resolve name into position
+                    # resolve column name into a position
                     offset += scheme.getPosition(expr.field)
 
                 ub_state.column_refs.add(offset)
                 return raco.expression.UnnamedAttributeRef(offset)
 
         def recursive_eval(expr):
-            """Apply unbox to a node and all its descendents"""
+            """Apply unbox to a node and all its descendents."""
             newexpr = unbox_node(expr)
             newexpr.apply(recursive_eval)
             return newexpr
@@ -106,8 +113,8 @@ class ExpressionProcessor:
         def cross(x,y):
             return raco.algebra.CrossProduct(x,y)
 
-        # Update the op to be the cross product of all unboxed tables
-        cps = [self.symbols[key] for key in ub_state.local_symbols.keys()]
+        # Update the op to be the cross product of all unboxed relations
+        cps = [v[0] for v in ub_state.unbox_ops.values()]
         op = reduce(cross, cps, op)
         return op, where_clause, emit_clause, ub_state.column_refs
 
