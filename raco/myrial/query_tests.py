@@ -860,6 +860,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [(a,math.tan(b)) for a,b in self.numbers_table.elements()])
         self.run_test(query, expected)
 
+    def test_pow(self):
+        query = """
+        THREE = [3];
+        out = [FROM X=SCAN(%s) EMIT id, POW(X.val, *THREE)];
+        DUMP(out);
+        """ % self.numbers_key
+
+        expected = collections.Counter(
+            [(a,pow(b, 3)) for a, b in self.numbers_table.elements()])
+        self.run_test(query, expected)
+
     def test_no_such_relation(self):
         query = """
         out = [FROM X=SCAN(foo:bar:baz) EMIT id, TAN(val)];

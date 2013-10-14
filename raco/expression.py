@@ -204,6 +204,12 @@ class NaryOperator(Expression):
 class UDF(NaryOperator):
   pass
 
+class POW(BinaryOperator):
+  literals = ['POW']
+  def evaluate(self, _tuple, scheme):
+    return pow(self.left.evaluate(_tuple, scheme),
+               self.right.evaluate(_tuple, scheme))
+
 class PLUS(BinaryOperator):
   literals = ["+"]
 
