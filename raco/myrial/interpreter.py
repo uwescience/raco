@@ -63,12 +63,12 @@ class ExpressionProcessor:
     def load(self, path, schema):
         raise NotImplementedError()
 
-    def __unbox_expression(self, expr, ub_state):
-        def unbox_node(expr):
-            if not isinstance(expr, raco.expression.Unbox):
-                return expr
+    def __unbox_scalar_expression(self, sexpr, ub_state):
+        def unbox_node(sexpr):
+            if not isinstance(sexpr, raco.expression.Unbox):
+                return sexpr
             else:
-                rex = expr.relational_expression
+                rex = sexpr.relational_expression
                 if not rex in ub_state.unbox_ops:
                     unbox_op = self.evaluate(rex)
                     scheme = unbox_op.scheme()
@@ -79,36 +79,38 @@ class ExpressionProcessor:
                     scheme = unbox_op.scheme()
 
                 offset = ub_state.unbox_ops[rex][1]
-                if not expr.field:
+                if not sexpr.field:
                     # Default to column zero
                     pass
-                elif type(expr.field) == types.IntType:
-                    offset += expr.field
+                elif type(sexpr.field) == types.IntType:
+                    offset += sexpr.field
                 else:
                     # resolve column name into a position
-                    offset += scheme.getPosition(expr.field)
+                    offset += scheme.getPosition(sexpr.field)
 
                 ub_state.column_refs.add(offset)
                 return raco.expression.UnnamedAttributeRef(offset)
 
-        def recursive_eval(expr):
+        def recursive_eval(sexpr):
             """Apply unbox to a node and all its descendents."""
-            newexpr = unbox_node(expr)
+            newexpr = unbox_node(sexpr)
             newexpr.apply(recursive_eval)
             return newexpr
 
-        return recursive_eval(expr)
+        return recursive_eval(sexpr)
 
     def __unbox(self, op, where_clause, emit_clause):
         """Apply unboxing to the clauses of a bag comprehension."""
         ub_state = UnboxState(len(op.scheme()))
 
         if where_clause:
-            where_clause = self.__unbox_expression(where_clause, ub_state)
+            where_clause = self.__unbox_scalar_expression(where_clause,
+                                                          ub_state)
 
         if emit_clause:
-            emit_clause = [(name, self.__unbox_expression(sexpr, ub_state)) for
-                           (name, sexpr) in emit_clause]
+            emit_clause = [(name,
+                            self.__unbox_scalar_expression(sexpr, ub_state))
+                           for name, sexpr in emit_clause]
 
         def cross(x,y):
             return raco.algebra.CrossProduct(x,y)
