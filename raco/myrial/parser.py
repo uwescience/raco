@@ -5,14 +5,12 @@ import ply.yacc as yacc
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
 import raco.expression as sexpr
+import raco.myrial.exceptions
 
 import collections
 import sys
 
 class JoinColumnCountMismatchException(Exception):
-    pass
-
-class ParseException(Exception):
     pass
 
 # ID is a symbol name that identifies an input expression; columns is a list of
@@ -389,4 +387,4 @@ class Parser:
         return parser.parse(s, lexer=scanner.lexer, tracking=True)
 
     def p_error(self, p):
-        self.log.error("Syntax error: %s", str(p))
+        raise raco.myrial.exceptions.MyrialParseException(str(p))

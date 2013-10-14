@@ -10,6 +10,7 @@ import raco.scheme as scheme
 import raco.myrial.groupby
 import raco.myrial.unpack_from
 import raco.myrial.myrial_test as myrial_test
+import raco.myrial.exceptions
 
 class TestQueryFunctions(myrial_test.MyrialTestCase):
 
@@ -920,4 +921,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """
 
         with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):
+            self.run_test(query, collections.Counter())
+
+    def test_scan_error(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, FROG(val)];
+        DUMP(out);
+        """
+
+        with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
+            self.run_test(query, collections.Counter())
+
+    def test_parse_error(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, $(val)];
+        DUMP(out);
+        """
+
+        with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
             self.run_test(query, collections.Counter())
