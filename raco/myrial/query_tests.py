@@ -523,6 +523,31 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              x[3] == 5000 or x[3] == 25000])
         self.run_test(query, expected)
 
+    def test_unbox_arbitrary_expression(self):
+        query = """
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        out = [FROM emp WHERE id > *COUNTALL(dept) EMIT emp.id];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = collections.Counter(
+            [(x[0],) for x in self.emp_table.elements() if
+             x[0] > len(self.dept_table)])
+        self.run_test(query, expected)
+
+    def test_unbox_inline_literal(self):
+        query = """
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        out = [FROM emp WHERE id > *[3] EMIT emp.id];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = collections.Counter(
+            [(x[0],) for x in self.emp_table.elements() if
+             x[0] > 3])
+        self.run_test(query, expected)
 
     def __aggregate_expected_result(self, apply_func):
         result_dict = collections.defaultdict(list)
