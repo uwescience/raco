@@ -578,13 +578,17 @@ class RemoveRenames(rules.Rule):
 
     return expr
 
-class RemoveStores(rules.Rule):
+class RemoveInnerStores(rules.Rule):
+  is_root = True
   def fire(self, expr):
     # This rule only works because, currently, the compiler adds a MyriaInsert
     # during compilation (and after this rule is fired).
 
-    if isinstance(expr, algebra.Store):
+    if not self.is_root and isinstance(expr, algebra.Store):
       return expr.input
+
+    if self.is_root:
+      self.is_root = False
 
     return expr
 
@@ -688,7 +692,7 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.ProjectingJoin,MyriaSymmetricHashJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
       , RemoveRenames()
-      , RemoveStores()
+      , RemoveInnerStores()
       , BreakShuffle()
       , BreakCollect()
       , BreakBroadcast()
