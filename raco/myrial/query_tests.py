@@ -10,6 +10,7 @@ import raco.scheme as scheme
 import raco.myrial.groupby
 import raco.myrial.unpack_from
 import raco.myrial.myrial_test as myrial_test
+import raco.myrial.exceptions
 
 class TestQueryFunctions(myrial_test.MyrialTestCase):
 
@@ -523,6 +524,31 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              x[3] == 5000 or x[3] == 25000])
         self.run_test(query, expected)
 
+    def test_unbox_arbitrary_expression(self):
+        query = """
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        out = [FROM emp WHERE id > *COUNTALL(dept) EMIT emp.id];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = collections.Counter(
+            [(x[0],) for x in self.emp_table.elements() if
+             x[0] > len(self.dept_table)])
+        self.run_test(query, expected)
+
+    def test_unbox_inline_table_literal(self):
+        query = """
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        out = [FROM emp WHERE id > *[1,2,3].$2 EMIT emp.id];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = collections.Counter(
+            [(x[0],) for x in self.emp_table.elements() if
+             x[0] > 3])
+        self.run_test(query, expected)
 
     def __aggregate_expected_result(self, apply_func):
         result_dict = collections.defaultdict(list)
@@ -586,6 +612,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_count(self):
         query = """
         out = [FROM X=SCAN(%s) EMIT dept_id, COUNT(salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.run_test(query, self.__aggregate_expected_result(len))
+
+    def test_countall(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT dept_id, COUNTALL()];
         DUMP(out);
         """ % self.emp_key
 
@@ -738,6 +772,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
             self.run_test(query, collections.Counter())
 
+    def test_standalone_countall(self):
+        query = """
+        out = COUNTALL(SCAN(%s));
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(len(self.emp_table),)])
+        self.run_test(query, expected)
+
     def test_multiway_bagcomp_with_unbox(self):
         """Return all employees in accounting making less than 30000"""
         query = """
@@ -878,4 +921,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """
 
         with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):
+            self.run_test(query, collections.Counter())
+
+    def test_scan_error(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, FROG(val)];
+        DUMP(out);
+        """
+
+        with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
+            self.run_test(query, collections.Counter())
+
+    def test_parse_error(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, $(val)];
+        DUMP(out);
+        """
+
+        with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
             self.run_test(query, collections.Counter())

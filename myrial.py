@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
+"""Compile a Myrial program into logical relational algebra."""
+
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
+import raco.scheme
 from raco import algebra
 
 import argparse
+import os
 import sys
 
 def print_pretty_plan(plan, indent=0):
@@ -28,11 +32,29 @@ def parse_options(args):
     ns = parser.parse_args(args)
     return ns
 
-if __name__ == "__main__":
+class FakeCatalog(object):
+    def __init__(self, catalog):
+        self.catalog = catalog
 
-    opt = parse_options(sys.argv[1:])
+    def get_scheme(self, relation_key):
+        return raco.Scheme(self.catalog[relation_key])
+
+    @classmethod
+    def load_from_file(cls, path):
+        with open(path) as fh:
+            return cls(eval(fh.read()))
+
+def main(args):
+    opt = parse_options(args)
+
+    # Search for a catalog definition file
+    catalog_path = os.path.join(os.path.dirname(opt.file), 'catalog.py')
+    catalog = None
+    if os.path.exists(catalog_path):
+        catalog = FakeCatalog.load_from_file(catalog_path)
+
     _parser = parser.Parser()
-    processor = interpreter.StatementProcessor()
+    processor = interpreter.StatementProcessor(catalog)
 
     with open(opt.file) as fh:
         statement_list = _parser.parse(fh.read())
@@ -43,3 +65,8 @@ if __name__ == "__main__":
             processor.evaluate(statement_list)
             plan = processor.get_output()
             print_pretty_plan(plan)
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
