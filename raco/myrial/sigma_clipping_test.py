@@ -10,8 +10,8 @@ class SigmaClippingTest(myrial_test.MyrialTestCase):
     points_tuples = [tuple([x]) for x in points]
     points_table = collections.Counter(points_tuples)
 
-    points_schema = scheme.Scheme([('v', 'float')]),
-    points_key = "public:adhoc:Points"
+    points_schema = scheme.Scheme([('v', 'float')])
+    points_key = "public:adhoc:sc_points"
 
     def setUp(self):
         super(SigmaClippingTest, self).setUp()

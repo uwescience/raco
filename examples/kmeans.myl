@@ -1,11 +1,12 @@
 
 -- Load some points; assume each point has a unique ID
-Point = SCAN(points, id:int, x:float, y:float);
+Point = SCAN(public:adhoc:points);
 
 -- Create some initial cluster centers from the first K points
 -- TODO: We should choose these at random somehow...
 -- TODO: The cluster count should be expressable as a constant
 Centroid = [FROM K=LIMIT(Point, 3) EMIT cluster_id=id, x=x,y=y];
+
 
 -- Assign each point to the first cluster
 FirstCluster = LIMIT(Centroid, 1);
@@ -15,14 +16,16 @@ DO
   -- Calculate distance from each point to each centroid
   Distance = [FROM Point, Centroid
               EMIT id=Point.id,
-              cluster_id=Centroid.cluster_id,
-              distance=SQRT(POW(Point.x - Centroid.x, 2) +
-                            POW(Point.y - Centroid.y, 2))];
+                   cluster_id=Centroid.cluster_id,
+                   distance=SQRT(POW(Point.x - Centroid.x, 2) +
+                                 POW(Point.y - Centroid.y, 2))];
                                            
   -- Choose closest cluster for each point
-  A = [FROM Distance EMIT id, dist=MIN(distance)];
-  NewKmeans = [FROM A, Distance WHERE A.id == Distance.id EMIT
-               id=A.id, cluster_id=MIN(Distance.cluster_id)];
+  Closest = [FROM Distance EMIT id, distance=MIN(distance)];
+  NewKmeans = [FROM Closest, Distance
+               WHERE Closest.id == Distance.id AND
+                     ABS(Closest.distance - Distance.distance) < .000001
+               EMIT id=Closest.id, cluster_id=MIN(Distance.cluster_id)];
 
   -- Compute delta from the previous iteration
   Delta = DIFF(NewKmeans, Kmeans);
@@ -31,8 +34,13 @@ DO
   Kmeans = NewKmeans;
 
   -- Update centroids
-  Centroid = [FROM Kmeans EMIT cluster_id, x=avg(x), y=avg(y)];
+  PointsInCentroid = [FROM Centroid, Kmeans, Point
+                      WHERE Centroid.cluster_id == Kmeans.cluster_id AND
+                            Point.id == Kmeans.id
+                      EMIT cluster_id=Centroid.cluster_id, x=Point.x,y=Point.y];
+
+  Centroid = [FROM PointsInCentroid EMIT cluster_id, x=avg(x), y=avg(y)];
 
 WHILE Continue;
 
-DUMP(Centroid);
+DUMP(Kmeans);

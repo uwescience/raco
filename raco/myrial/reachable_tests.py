@@ -23,7 +23,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
 
     edge_schema = scheme.Scheme([("src", "int"),
                                  ("dst", "int")])
-    edge_key = "andrew:adhoc:edges"
+    edge_key = "public:adhoc:edges"
 
     def setUp(self):
         super(ReachableTest, self).setUp()
@@ -34,21 +34,8 @@ class ReachableTest(myrial_test.MyrialTestCase):
 
 
     def test_reachable(self):
-        query = """
-        Edge = SCAN(%s);
-        Source = [addr=1];
-        Reachable = Source;
-        Delta = Source;
-
-        DO
-        NewlyReachable = DISTINCT([FROM Delta, Edge
-        WHERE Delta.addr == Edge.src EMIT addr=Edge.dst]);
-        Delta = DIFF(NewlyReachable, Reachable);
-        Reachable = UNIONALL(Delta, Reachable);
-        WHILE Delta;
-
-        DUMP (Reachable);
-        """ % self.edge_key
+        with open ('examples/reachable.myl') as fh:
+            query = fh.read()
 
         expected = collections.Counter([
             (1,),

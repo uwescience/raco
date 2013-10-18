@@ -5,14 +5,12 @@ import ply.yacc as yacc
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
 import raco.expression as sexpr
+import raco.myrial.exceptions
 
 import collections
 import sys
 
 class JoinColumnCountMismatchException(Exception):
-    pass
-
-class ParseException(Exception):
     pass
 
 # ID is a symbol name that identifies an input expression; columns is a list of
@@ -106,19 +104,15 @@ class Parser:
 
     def p_expression_table_literal(self, p):
         'expression : LBRACKET emit_arg_list RBRACKET'
-        p[0] = ('TABLE', p[2])
+        p[0] = ('TABLE', tuple(p[2]))
 
     def p_expression_empty(self, p):
         'expression : EMPTY LPAREN optional_schema RPAREN'
         p[0] = ('EMPTY', p[3])
 
-    def p_expression_scan_with_schema(self, p):
-        'expression : SCAN LPAREN relation_key COMMA column_def_list RPAREN'
-        p[0] = ('SCAN', p[3], scheme.Scheme(p[5]))
-
-    def p_expression_scan_without_schema(self, p):
+    def p_expression_scan(self, p):
         'expression : SCAN LPAREN relation_key RPAREN'
-        p[0] = ('SCAN', p[3], None)
+        p[0] = ('SCAN', p[3])
 
     def p_relation_key(self, p):
         '''relation_key : string_arg
@@ -194,7 +188,7 @@ class Parser:
 
     def p_emit_clause_list(self, p):
         '''emit_clause : EMIT emit_arg_list'''
-        p[0] = p[2]
+        p[0] = tuple(p[2])
 
     def p_emit_arg_list(self, p):
         '''emit_arg_list : emit_arg_list COMMA emit_arg
@@ -347,6 +341,10 @@ class Parser:
         'sexpr : NOT sexpr'
         p[0] = sexpr.NOT(p[2])
 
+    def p_sexpr_countall(self, p):
+        'sexpr : COUNTALL LPAREN RPAREN'
+        p[0] = sexpr.COUNTALL()
+
     def p_sexpr_unary_aggregate(self, p):
         'sexpr : unary_aggregate_func LPAREN sexpr RPAREN'
         p[0] = p[1](p[3])
@@ -359,7 +357,6 @@ class Parser:
                                 | AVG
                                 | STDEV'''
 
-
         if p[1] == 'MAX': func = sexpr.MAX
         if p[1] == 'MIN': func = sexpr.MIN
         if p[1] == 'SUM': func = sexpr.SUM
@@ -369,17 +366,17 @@ class Parser:
 
         p[0] = func
 
-    def p_sexpr_unbox_implicit(self, p):
-        'sexpr : TIMES ID'
-        p[0] = sexpr.Unbox(p[2], None)
+    def p_sexpr_unbox(self, p):
+        'sexpr : TIMES expression optional_column_ref'
+        p[0] = sexpr.Unbox(p[2], p[3])
 
-    def p_sexpr_unbox_explicit_name(self, p):
-        'sexpr : TIMES ID DOT ID'
-        p[0] = sexpr.Unbox(p[2], p[4])
-
-    def p_sexpr_unbox_explicit_pos(self, p):
-        'sexpr : TIMES ID DOT DOLLAR INTEGER_LITERAL'
-        p[0] = sexpr.Unbox(p[2], p[5])
+    def p_optional_column_ref(self, p):
+        '''optional_column_ref : DOT column_ref
+                               | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = None
 
     def p_empty(self, p):
         'empty :'
@@ -390,4 +387,4 @@ class Parser:
         return parser.parse(s, lexer=scanner.lexer, tracking=True)
 
     def p_error(self, p):
-        self.log.error("Syntax error: %s", str(p))
+        raise raco.myrial.exceptions.MyrialParseException(str(p))
