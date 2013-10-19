@@ -112,6 +112,14 @@ class MyriaSingleton(algebra.SingletonRelation, MyriaOperator):
         "op_type" : "Singleton",
       }
 
+class MyriaEmptyRelation(algebra.EmptyRelation, MyriaOperator):
+  def compileme(self, resultsym):
+    return {
+        "op_name" : resultsym,
+        "op_type" : "Empty",
+        'arg_schema' : scheme_to_schema(self.scheme())
+        }
+
 class MyriaSelect(algebra.Select, MyriaOperator):
   @staticmethod
   def get_simple_predicate(condition, scheme):
@@ -378,6 +386,11 @@ class MyriaApply(algebra.Apply, MyriaOperator):
           'type' : 'Lt',
           'left' : MyriaApply.compile_expr(op.left, child_scheme),
           'right' : MyriaApply.compile_expr(op.right, child_scheme)
+      }
+    elif isinstance(op, expression.SQRT):
+      return {
+          'type' : 'Sqrt',
+          'operand' : MyriaApply.compile_expr(op.input, child_scheme)
       }
     raise NotImplementedError("Compiling expr of class %s" % op.__class__)
 
@@ -659,11 +672,26 @@ class SimpleGroupBy(rules.Rule):
     if not isinstance(expr, algebra.GroupBy):
       return expr
 
+    child_scheme = expr.input.scheme()
+    agg_child_refs = [agg for agg in expr.aggregatelist \
+                      if isinstance(agg.input, expression.AttributeRef)]
+    agg_expr_refs = [agg for agg in expr.aggregatelist \
+                     if not isinstance(agg.input, expression.AttributeRef)]
 
+    if len(agg_expr_refs) == 0:
+      return expr
 
-    t = MyriaGroupBy()
-    t.copy(expr)
-    return t
+    # Let's construct the Apply operator instead, and update the agg list
+    mappings = [(None, expression.UnnamedAttributeRef(i))
+                for i in range(len(child_scheme))]
+    for agg_expr in agg_expr_refs:
+      mappings.append((None, agg_expr.input))
+      agg_expr.input = expression.UnnamedAttributeRef(len(mappings)-1)
+      agg_child_refs.append(agg_expr)
+
+    new_apply = algebra.Apply(mappings, expr.input)
+    expr.input = new_apply
+    return expr
 
 class DropTemps(rules.Rule):
   def fire(self, expr):
@@ -704,12 +732,14 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.Store,MyriaInsert)
       , rules.OneToOne(algebra.Apply,MyriaApply)
       , rules.OneToOne(algebra.Select,MyriaSelect)
+      , rules.OneToOne(algebra.GroupBy,MyriaGroupBy)
       , rules.OneToOne(algebra.Distinct,MyriaDupElim)
       , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
       , rules.OneToOne(algebra.Collect,MyriaCollect)
       , rules.OneToOne(algebra.ProjectingJoin,MyriaSymmetricHashJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
       , rules.OneToOne(algebra.SingletonRelation,MyriaSingleton)
+      , rules.OneToOne(algebra.EmptyRelation,MyriaEmptyRelation)
       , RemoveInnerStores()
       , BreakShuffle()
       , BreakCollect()
