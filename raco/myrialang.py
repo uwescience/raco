@@ -266,37 +266,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
     elif isinstance(agg_expr, expression.SUM):
       return "AGG_OP_SUM"
 
-  def compileme_nogrouping(self, resultsym, inputsym):
-    child_scheme = self.input.scheme()
-    agg_fields = [expression.toUnnamed(expr.input, child_scheme) \
-                  for expr in self.aggregatelist]
-    agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)] \
-                 for agg_expr in self.aggregatelist]
-    return {
-        "op_name" : resultsym,
-        "op_type" : "Aggregate",
-        "arg_child" : inputsym,
-        "arg_agg_fields" : [agg_field.position for agg_field in agg_fields],
-        "arg_agg_operators" : agg_types,
-        }
-
-  def compileme_one_group(self, resultsym, inputsym):
-    child_scheme = self.input.scheme()
-    group_field = expression.toUnnamed(self.groupinglist[0], child_scheme)
-    agg_fields = [expression.toUnnamed(expr.input, child_scheme) \
-                  for expr in self.aggregatelist]
-    agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)] \
-                 for agg_expr in self.aggregatelist]
-    return {
-        "op_name" : resultsym,
-        "op_type" : "SingleGroupByAggregateNoBuffer",
-        "arg_child" : inputsym,
-        "arg_group_field" : group_field.position,
-        "arg_agg_fields" : [agg_field.position for agg_field in agg_fields],
-        "arg_agg_operators" : agg_types,
-        }
-
-  def compileme_multi_group(self, resultsym, inputsym):
+  def compileme(self, resultsym, inputsym):
     child_scheme = self.input.scheme()
     group_fields = [expression.toUnnamed(ref, child_scheme) \
                     for ref in self.groupinglist]
@@ -304,23 +274,23 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
                   for expr in self.aggregatelist]
     agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)] \
                  for agg_expr in self.aggregatelist]
-    return {
+    ret = {
         "op_name" : resultsym,
-        "op_type" : "MultiGroupByAggregate",
         "arg_child" : inputsym,
-        "arg_group_fields" : [field.position for field in group_fields],
         "arg_agg_fields" : [agg_field.position for agg_field in agg_fields],
         "arg_agg_operators" : agg_types,
         }
 
-  def compileme(self, resultsym, inputsym):
     num_fields = len(self.groupinglist)
     if num_fields == 0:
-      return self.compileme_nogrouping(resultsym, inputsym)
+      ret["op_type"] = "Aggregate"
     elif num_fields == 1:
-      return self.compileme_one_group(resultsym, inputsym)
+      ret["op_type"] = "SingleGroupByAggregateNoBuffer"
+      ret["arg_group_field"] = group_fields[0].position
     else:
-      return self.compileme_multi_group(resultsym, inputsym)
+      ret["op_type"] = "MultiGroupByAggregate"
+      ret["arg_group_fields"] = [field.position for field in group_fields]
+    return ret
 
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
   """Represents a simple shuffle operator"""
@@ -684,16 +654,16 @@ class ProjectToDistinctColumnSelect(rules.Rule):
     # return distinct
     return colSelect
 
-DEFAULT_HARDCODED_SCHEMA = {
-    'R': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
-    'R3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
-    'S': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
-    'S3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
-    'T': [('x', 'INT_TYPE'), ('y', 'INT_TYPE')],
-    'T3': [('x', 'INT_TYPE'), ('y', 'INT_TYPE'), ('z', 'INT_TYPE')],
-    'Twitter': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
-    'TwitterK': [('followee', 'INT_TYPE'), ('follower', 'INT_TYPE')],
-}
+class SimpleGroupBy(rules.Rule):
+  def fire(self, expr):
+    if not isinstance(expr, algebra.GroupBy):
+      return expr
+
+
+
+    t = MyriaGroupBy()
+    t.copy(expr)
+    return t
 
 class DropTemps(rules.Rule):
   def fire(self, expr):
@@ -728,9 +698,9 @@ class MyriaAlgebra:
       , BroadcastBeforeCross()
       , TransferBeforeGroupBy()
       , SplitSelects()
+      , SimpleGroupBy()
       , ProjectToDistinctColumnSelect()
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
-      , rules.OneToOne(algebra.GroupBy,MyriaGroupBy)
       , rules.OneToOne(algebra.Store,MyriaInsert)
       , rules.OneToOne(algebra.Apply,MyriaApply)
       , rules.OneToOne(algebra.Select,MyriaSelect)
