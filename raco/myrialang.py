@@ -23,9 +23,13 @@ def gen_op_id():
   return "operator%d" % op_id
 
 def scheme_to_schema(s):
-  names, descrs = zip(*s.asdict.items())
-  names = ["%s" % n for n in names]
-  types = [r[1] for r in descrs]
+  if s:
+    names, descrs = zip(*s.asdict.items())
+    names = ["%s" % n for n in names]
+    types = [r[1] for r in descrs]
+  else:
+    names = []
+    types = []
   return {"column_types" : types, "column_names" : names}
 
 def resolve_relation_key(key):
@@ -99,6 +103,13 @@ class MyriaScan(algebra.Scan, MyriaOperator):
           "program_name" : program,
           "relation_name" : relation
         }
+      }
+
+class MyriaSingleton(algebra.SingletonRelation, MyriaOperator):
+  def compileme(self, resultsym):
+    return {
+        "op_name" : resultsym,
+        "op_type" : "Singleton",
       }
 
 class MyriaSelect(algebra.Select, MyriaOperator):
@@ -330,45 +341,93 @@ class MyriaDupElim(algebra.Distinct, MyriaOperator):
         "arg_child" : inputsym,
     }
 
+
 class MyriaApply(algebra.Apply, MyriaOperator):
   """Represents a simple apply operator"""
-  def is_a_rename(self):
-    """Returns true if this Apply is just a rename."""
-    child_scheme = self.input.scheme()
 
-    # If the number of input and output fields are different, obviously not a rename
-    num_input_fields = len(child_scheme)
-    num_output_fields = len(self.mappings)
-    if num_input_fields != num_output_fields:
-      return False
+  @staticmethod
+  def compile_expr(op, child_scheme):
+    if isinstance(op, expression.NumericLiteral):
+      if type(op.value) == int:
+        if op.value <= 2**31-1 and op.value >= -2**31:
+          myria_type = 'INT_TYPE'
+        else:
+          myria_type = 'LONG_TYPE'
+      elif type(op.value) == float:
+        myria_type = 'DOUBLE_TYPE'
+      else:
+        raise NotImplementedError("Compiling NumericLiteral of type %s" % type(op.value))
 
-    for (i, (out, out_expr)) in enumerate(self.mappings):
-      # In a rename, the expression must be a simple attribute reference
-      if not isinstance(out_expr, expression.AttributeRef):
-        return False
-      # And mapping[i] better be a reference to the ith child input
-      if expression.toUnnamed(out_expr, child_scheme).position != i:
-        return False
+      return {
+          'type' : 'Constant',
+          'value' : str(op.value),
+          'value_type' : myria_type
+      }
+    elif isinstance(op, expression.AttributeRef):
+      return {
+          'type' : 'Variable',
+          'column_idx' : op.get_position(child_scheme)
+      }
+    elif isinstance(op, expression.PLUS):
+      return {
+          'type' : 'Plus',
+          'left' : MyriaApply.compile_expr(op.left, child_scheme),
+          'right' : MyriaApply.compile_expr(op.right, child_scheme)
+      }
+    elif isinstance(op, expression.MINUS):
+      return {
+          'type' : 'Minus',
+          'left' : MyriaApply.compile_expr(op.left, child_scheme),
+          'right' : MyriaApply.compile_expr(op.right, child_scheme)
+      }
+    elif isinstance(op, expression.TIMES):
+      return {
+          'type' : 'Times',
+          'left' : MyriaApply.compile_expr(op.left, child_scheme),
+          'right' : MyriaApply.compile_expr(op.right, child_scheme)
+      }
+    elif isinstance(op, expression.DIVIDE):
+      return {
+          'type' : 'Divide',
+          'left' : MyriaApply.compile_expr(op.left, child_scheme),
+          'right' : MyriaApply.compile_expr(op.right, child_scheme)
+      }
+    elif isinstance(op, expression.ABS):
+      return {
+          'type' : 'Abs',
+          'operand' : MyriaApply.compile_expr(op.input, child_scheme)
+      }
+    elif isinstance(op, expression.GT):
+      return {
+          'type' : 'Gt',
+          'left' : MyriaApply.compile_expr(op.left, child_scheme),
+          'right' : MyriaApply.compile_expr(op.right, child_scheme)
+      }
+    elif isinstance(op, expression.LT):
+      return {
+          'type' : 'Lt',
+          'left' : MyriaApply.compile_expr(op.left, child_scheme),
+          'right' : MyriaApply.compile_expr(op.right, child_scheme)
+      }
+    raise NotImplementedError("Compiling expr of class %s" % op.__class__)
 
-    # Okay, if all those conditions are met, it's a rename
-    return True
-
-  def is_a_col_select(self):
-    return reduce(and_, [isinstance(expr, expression.AttributeRef) for (name,expr) in self.mappings], True)
-
-  def compile_to_col_select(self, resultsym, inputsym):
-    child_scheme = self.input.scheme()
+  @staticmethod
+  def compile_mapping(expr, child_scheme):
+    output_name, root_op = expr
     return {
-        "op_name" : resultsym,
-        "op_type" : "ColumnSelect",
-        "arg_child" : inputsym,
-        "arg_field_list" : [expression.toUnnamed(expr, child_scheme).position for (name,expr) in self.mappings],
+        'output_name' : output_name,
+        'root_expression_operator' : MyriaApply.compile_expr(root_op, child_scheme)
     }
 
   def compileme(self, resultsym, inputsym):
-    if self.is_a_col_select():
-      return self.compile_to_col_select(resultsym, inputsym)
-    raise NotImplementedError('shouldn''t get here, should be getting removed by rules')
+    child_scheme = self.input.scheme()
+    exprs = [MyriaApply.compile_mapping(x, child_scheme) for x in self.mappings]
+    return {
+        'type' : 'Apply',
+        'name' : resultsym,
+        'arg_child' : inputsym,
+        'expressions' : exprs
+    }
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
   """A Myria BroadcastProducer"""
@@ -567,17 +626,6 @@ class BroadcastBeforeCross(rules.Rule):
 
     return expr
 
-class RemoveRenames(rules.Rule):
-  def fire(self, expr):
-    # If not a MyriaApply, who cares?
-    if not isinstance(expr, MyriaApply):
-      return expr
-
-    if expr.is_a_rename():
-      return expr.input
-
-    return expr
-
 class RemoveInnerStores(rules.Rule):
   is_root = True
   def fire(self, expr):
@@ -691,7 +739,7 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.Collect,MyriaCollect)
       , rules.OneToOne(algebra.ProjectingJoin,MyriaSymmetricHashJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
-      , RemoveRenames()
+      , rules.OneToOne(algebra.SingletonRelation,MyriaSingleton)
       , RemoveInnerStores()
       , BreakShuffle()
       , BreakCollect()
