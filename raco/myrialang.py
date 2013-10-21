@@ -620,8 +620,6 @@ class SplitSelects(rules.Rule):
           isinstance(expr.condition, expression.AND):
         first_filter = algebra.Select(expr.condition.left, expr.input)
         return algebra.Select(expr.condition.right, first_filter)
-      else:
-        print "not splitting %s because it is a %s" % (expr.condition, expr.condition.__class__)
     return expr
 
 class ProjectToDistinctColumnSelect(rules.Rule):
