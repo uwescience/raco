@@ -178,12 +178,7 @@ class MyriaSelect(algebra.Select, MyriaOperator):
         "arg_child" : inputsym,
         "arg_predicate" : pred
       }
-    return {
-        "op_name" : resultsym,
-        "op_type" : "HardcodedFilter",
-        "arg_condition" : self.language.compile_boolean(self.condition),
-        "arg_child" : inputsym
-      }
+    raise NotImplementedError("ruh roh - we need SELECT to handle arbitrary predicates: %s" % self.condition)
 
 class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
   def compileme(self, resultsym, leftsym, rightsym):
@@ -646,10 +641,12 @@ class SplitSelects(rules.Rule):
   """If a select has an AND, replace it with two consecutive selects."""
   def fire(self, expr):
     if isinstance(expr, algebra.Select):
-      if isinstance(expr.condition, boolean.AND):
+      if isinstance(expr.condition, boolean.AND) or \
+          isinstance(expr.condition, expression.AND):
         first_filter = algebra.Select(expr.condition.left, expr.input)
         return algebra.Select(expr.condition.right, first_filter)
-
+      else:
+        print "not splitting %s because it is a %s" % (expr.condition, expr.condition.__class__)
     return expr
 
 class ProjectToDistinctColumnSelect(rules.Rule):
