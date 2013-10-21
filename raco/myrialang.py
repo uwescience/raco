@@ -103,15 +103,33 @@ def compile_expr(op, child_scheme):
         'type' : 'Abs',
         'operand' : compile_expr(op.input, child_scheme)
     }
+  elif isinstance(op, expression.EQ):
+    return {
+        'type' : 'Eq',
+        'left' : compile_expr(op.left, child_scheme),
+        'right' : compile_expr(op.right, child_scheme)
+    }
   elif isinstance(op, expression.GT):
     return {
         'type' : 'Gt',
         'left' : compile_expr(op.left, child_scheme),
         'right' : compile_expr(op.right, child_scheme)
     }
+  elif isinstance(op, expression.GTEQ):
+    return {
+        'type' : 'Gte',
+        'left' : compile_expr(op.left, child_scheme),
+        'right' : compile_expr(op.right, child_scheme)
+    }
   elif isinstance(op, expression.LT):
     return {
         'type' : 'Lt',
+        'left' : compile_expr(op.left, child_scheme),
+        'right' : compile_expr(op.right, child_scheme)
+    }
+  elif isinstance(op, expression.LTEQ):
+    return {
+        'type' : 'Lte',
         'left' : compile_expr(op.left, child_scheme),
         'right' : compile_expr(op.right, child_scheme)
     }
@@ -180,6 +198,14 @@ class MyriaScan(algebra.Scan, MyriaOperator):
           "program_name" : program,
           "relation_name" : relation
         }
+      }
+
+class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
+  def compileme(self, resultsym, leftsym, rightsym):
+    return {
+        "op_name" : resultsym,
+        "op_type" : "UnionAll",
+        "arg_children" : [leftsym, rightsym]
       }
 
 class MyriaSingleton(algebra.SingletonRelation, MyriaOperator):
@@ -686,6 +712,7 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.Scan,MyriaScan)
       , rules.OneToOne(algebra.SingletonRelation,MyriaSingleton)
       , rules.OneToOne(algebra.EmptyRelation,MyriaEmptyRelation)
+      , rules.OneToOne(algebra.UnionAll,MyriaUnionAll)
       , RemoveInnerStores()
       , BreakShuffle()
       , BreakCollect()

@@ -305,6 +305,13 @@ class Union(BinaryOperator):
 
 class UnionAll(BinaryOperator):
   """Bag union."""
+  def __init__(self, left=None, right=None):
+    BinaryOperator.__init__(self, left, right)
+
+  def copy(self, other):
+    """deep copy"""
+    BinaryOperator.copy(self, other)
+
   def scheme(self):
     return self.left.scheme()
 
