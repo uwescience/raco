@@ -52,6 +52,83 @@ def resolve_relation_key(key):
 
   return user, program, relation
 
+def compile_expr(op, child_scheme):
+  if isinstance(op, expression.NumericLiteral):
+    if type(op.value) == int:
+      if op.value <= 2**31-1 and op.value >= -2**31:
+        myria_type = 'INT_TYPE'
+      else:
+        myria_type = 'LONG_TYPE'
+    elif type(op.value) == float:
+      myria_type = 'DOUBLE_TYPE'
+    else:
+      raise NotImplementedError("Compiling NumericLiteral of type %s" % type(op.value))
+
+    return {
+        'type' : 'Constant',
+        'value' : str(op.value),
+        'value_type' : myria_type
+    }
+  elif isinstance(op, expression.AttributeRef):
+    return {
+        'type' : 'Variable',
+        'column_idx' : op.get_position(child_scheme)
+    }
+  elif isinstance(op, expression.PLUS):
+    return {
+        'type' : 'Plus',
+        'left' : compile_expr(op.left, child_scheme),
+        'right' : compile_expr(op.right, child_scheme)
+    }
+  elif isinstance(op, expression.MINUS):
+    return {
+        'type' : 'Minus',
+        'left' : compile_expr(op.left, child_scheme),
+        'right' : compile_expr(op.right, child_scheme)
+    }
+  elif isinstance(op, expression.TIMES):
+    return {
+        'type' : 'Times',
+        'left' : compile_expr(op.left, child_scheme),
+        'right' : compile_expr(op.right, child_scheme)
+    }
+  elif isinstance(op, expression.DIVIDE):
+    return {
+        'type' : 'Divide',
+        'left' : compile_expr(op.left, child_scheme),
+        'right' : compile_expr(op.right, child_scheme)
+    }
+  elif isinstance(op, expression.ABS):
+    return {
+        'type' : 'Abs',
+        'operand' : compile_expr(op.input, child_scheme)
+    }
+  elif isinstance(op, expression.GT):
+    return {
+        'type' : 'Gt',
+        'left' : compile_expr(op.left, child_scheme),
+        'right' : compile_expr(op.right, child_scheme)
+    }
+  elif isinstance(op, expression.LT):
+    return {
+        'type' : 'Lt',
+        'left' : compile_expr(op.left, child_scheme),
+        'right' : compile_expr(op.right, child_scheme)
+    }
+  elif isinstance(op, expression.SQRT):
+    return {
+        'type' : 'Sqrt',
+        'operand' : compile_expr(op.input, child_scheme)
+    }
+  raise NotImplementedError("Compiling expr of class %s" % op.__class__)
+
+def compile_mapping(expr, child_scheme):
+  output_name, root_op = expr
+  return {
+      'output_name' : output_name,
+      'root_expression_operator' : compile_expr(root_op, child_scheme)
+  }
+
 class MyriaLanguage(Language):
   reusescans = False
 
@@ -121,64 +198,14 @@ class MyriaEmptyRelation(algebra.EmptyRelation, MyriaOperator):
         }
 
 class MyriaSelect(algebra.Select, MyriaOperator):
-  @staticmethod
-  def get_simple_predicate(condition, scheme):
-    # In case we have to swap left-right operands
-    swap = { "LESS_THAN" : "GREATER_THAN",
-             "GREATHER_THAN" : "LESS_THAN",
-             "LESS_THAN_OR_EQ" : "GREATER_THAN_OR_EQ",
-             "GREATER_THAN_OR_EQ" : "LESS_THAN_OR_EQ",
-             # Note that if we swap a = b left/right, we still use ==. Not <>!
-             "EQUALS" : "EQUALS",
-             "NOT_EQUALS" : "NOT_EQUALS" }
-
-    # Is it one of the supported operators?
-    if isinstance(condition, boolean.LT):
-      op = "LESS_THAN"
-    elif isinstance(condition, boolean.GT):
-      op = "GREATER_THAN"
-    elif isinstance(condition, boolean.LTEQ):
-      op = "LESS_THAN_OR_EQ"
-    elif isinstance(condition, boolean.GTEQ):
-      op = "GREATER_THAN_OR_EQ"
-    elif isinstance(condition, boolean.EQ):
-      op = "EQUALS"
-    elif isinstance(condition, boolean.NEQ):
-      op = "NOT_EQUALS"
-    else:
-      return None
-
-    # Reference on left, literal on right
-    if isinstance(condition.left, expression.AttributeRef) \
-        and isinstance(condition.right, boolean.Literal):
-      ref = condition.left
-      lit = condition.right
-    # Reference on right, literal on left - swap op
-    elif isinstance(condition.right, expression.AttributeRef) \
-        and isinstance(condition.left, boolean.Literal):
-      op = swap[op]
-      ref = condition.right
-      lit = condition.left
-    else:
-      return None
-
-    return {
-        "type" : "SimplePredicate",
-        "arg_compare_index" : expression.toUnnamed(ref, scheme).position,
-        "arg_compare_value" : str(lit.value),
-        "arg_op" : op
-      }
-
   def compileme(self, resultsym, inputsym):
-    pred = MyriaSelect.get_simple_predicate(self.condition, self.scheme())
-    if pred is not None:
-      return {
-        "op_name" : resultsym,
-        "op_type" : "Filter",
-        "arg_child" : inputsym,
-        "arg_predicate" : pred
-      }
-    raise NotImplementedError("ruh roh - we need SELECT to handle arbitrary predicates: %s" % self.condition)
+    pred = compile_expr(self.condition, self.scheme())
+    return {
+      "op_name" : resultsym,
+      "op_type" : "Filter",
+      "arg_child" : inputsym,
+      "arg_predicate" : pred
+    }
 
 class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
   def compileme(self, resultsym, leftsym, rightsym):
@@ -318,88 +345,10 @@ class MyriaDupElim(algebra.Distinct, MyriaOperator):
 class MyriaApply(algebra.Apply, MyriaOperator):
   """Represents a simple apply operator"""
 
-  @staticmethod
-  def compile_expr(op, child_scheme):
-    if isinstance(op, expression.NumericLiteral):
-      if type(op.value) == int:
-        if op.value <= 2**31-1 and op.value >= -2**31:
-          myria_type = 'INT_TYPE'
-        else:
-          myria_type = 'LONG_TYPE'
-      elif type(op.value) == float:
-        myria_type = 'DOUBLE_TYPE'
-      else:
-        raise NotImplementedError("Compiling NumericLiteral of type %s" % type(op.value))
-
-      return {
-          'type' : 'Constant',
-          'value' : str(op.value),
-          'value_type' : myria_type
-      }
-    elif isinstance(op, expression.AttributeRef):
-      return {
-          'type' : 'Variable',
-          'column_idx' : op.get_position(child_scheme)
-      }
-    elif isinstance(op, expression.PLUS):
-      return {
-          'type' : 'Plus',
-          'left' : MyriaApply.compile_expr(op.left, child_scheme),
-          'right' : MyriaApply.compile_expr(op.right, child_scheme)
-      }
-    elif isinstance(op, expression.MINUS):
-      return {
-          'type' : 'Minus',
-          'left' : MyriaApply.compile_expr(op.left, child_scheme),
-          'right' : MyriaApply.compile_expr(op.right, child_scheme)
-      }
-    elif isinstance(op, expression.TIMES):
-      return {
-          'type' : 'Times',
-          'left' : MyriaApply.compile_expr(op.left, child_scheme),
-          'right' : MyriaApply.compile_expr(op.right, child_scheme)
-      }
-    elif isinstance(op, expression.DIVIDE):
-      return {
-          'type' : 'Divide',
-          'left' : MyriaApply.compile_expr(op.left, child_scheme),
-          'right' : MyriaApply.compile_expr(op.right, child_scheme)
-      }
-    elif isinstance(op, expression.ABS):
-      return {
-          'type' : 'Abs',
-          'operand' : MyriaApply.compile_expr(op.input, child_scheme)
-      }
-    elif isinstance(op, expression.GT):
-      return {
-          'type' : 'Gt',
-          'left' : MyriaApply.compile_expr(op.left, child_scheme),
-          'right' : MyriaApply.compile_expr(op.right, child_scheme)
-      }
-    elif isinstance(op, expression.LT):
-      return {
-          'type' : 'Lt',
-          'left' : MyriaApply.compile_expr(op.left, child_scheme),
-          'right' : MyriaApply.compile_expr(op.right, child_scheme)
-      }
-    elif isinstance(op, expression.SQRT):
-      return {
-          'type' : 'Sqrt',
-          'operand' : MyriaApply.compile_expr(op.input, child_scheme)
-      }
-    raise NotImplementedError("Compiling expr of class %s" % op.__class__)
-
-  @staticmethod
-  def compile_mapping(expr, child_scheme):
-    output_name, root_op = expr
-    return {
-        'output_name' : output_name,
-        'root_expression_operator' : MyriaApply.compile_expr(root_op, child_scheme)
-    }
 
   def compileme(self, resultsym, inputsym):
     child_scheme = self.input.scheme()
-    exprs = [MyriaApply.compile_mapping(x, child_scheme) for x in self.mappings]
+    exprs = [compile_mapping(x, child_scheme) for x in self.mappings]
     return {
         'type' : 'Apply',
         'name' : resultsym,
