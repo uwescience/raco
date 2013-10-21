@@ -695,7 +695,7 @@ class MyriaAlgebra:
       , ShuffleBeforeJoin()
       , BroadcastBeforeCross()
       , TransferBeforeGroupBy()
-      , SplitSelects()
+#      , SplitSelects()
       , SimpleGroupBy()
       , ProjectToDistinctColumnSelect()
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
