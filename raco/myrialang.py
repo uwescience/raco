@@ -53,6 +53,7 @@ def resolve_relation_key(key):
   return user, program, relation
 
 def compile_expr(op, child_scheme):
+  # Put special handling at the top!
   if isinstance(op, expression.NumericLiteral):
     if type(op.value) == int:
       if op.value <= 2**31-1 and op.value >= -2**31:
@@ -74,68 +75,16 @@ def compile_expr(op, child_scheme):
         'type' : 'Variable',
         'column_idx' : op.get_position(child_scheme)
     }
-  elif isinstance(op, expression.PLUS):
+  # Everything below here is compiled automatically
+  elif isinstance(op, expression.BinaryOperator):
     return {
-        'type' : 'Plus',
+        'type' : op.opname(),
         'left' : compile_expr(op.left, child_scheme),
         'right' : compile_expr(op.right, child_scheme)
     }
-  elif isinstance(op, expression.MINUS):
+  elif isinstance(op, expression.UnaryOperator):
     return {
-        'type' : 'Minus',
-        'left' : compile_expr(op.left, child_scheme),
-        'right' : compile_expr(op.right, child_scheme)
-    }
-  elif isinstance(op, expression.TIMES):
-    return {
-        'type' : 'Times',
-        'left' : compile_expr(op.left, child_scheme),
-        'right' : compile_expr(op.right, child_scheme)
-    }
-  elif isinstance(op, expression.DIVIDE):
-    return {
-        'type' : 'Divide',
-        'left' : compile_expr(op.left, child_scheme),
-        'right' : compile_expr(op.right, child_scheme)
-    }
-  elif isinstance(op, expression.ABS):
-    return {
-        'type' : 'Abs',
-        'operand' : compile_expr(op.input, child_scheme)
-    }
-  elif isinstance(op, expression.EQ):
-    return {
-        'type' : 'Eq',
-        'left' : compile_expr(op.left, child_scheme),
-        'right' : compile_expr(op.right, child_scheme)
-    }
-  elif isinstance(op, expression.GT):
-    return {
-        'type' : 'Gt',
-        'left' : compile_expr(op.left, child_scheme),
-        'right' : compile_expr(op.right, child_scheme)
-    }
-  elif isinstance(op, expression.GTEQ):
-    return {
-        'type' : 'Gte',
-        'left' : compile_expr(op.left, child_scheme),
-        'right' : compile_expr(op.right, child_scheme)
-    }
-  elif isinstance(op, expression.LT):
-    return {
-        'type' : 'Lt',
-        'left' : compile_expr(op.left, child_scheme),
-        'right' : compile_expr(op.right, child_scheme)
-    }
-  elif isinstance(op, expression.LTEQ):
-    return {
-        'type' : 'Lte',
-        'left' : compile_expr(op.left, child_scheme),
-        'right' : compile_expr(op.right, child_scheme)
-    }
-  elif isinstance(op, expression.SQRT):
-    return {
-        'type' : 'Sqrt',
+        'type' : op.opname(),
         'operand' : compile_expr(op.input, child_scheme)
     }
   raise NotImplementedError("Compiling expr of class %s" % op.__class__)
