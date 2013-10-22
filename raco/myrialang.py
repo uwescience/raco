@@ -53,7 +53,9 @@ def resolve_relation_key(key):
   return user, program, relation
 
 def compile_expr(op, child_scheme):
+  ####
   # Put special handling at the top!
+  ####
   if isinstance(op, expression.NumericLiteral):
     if type(op.value) == int:
       if op.value <= 2**31-1 and op.value >= -2**31:
@@ -66,26 +68,28 @@ def compile_expr(op, child_scheme):
       raise NotImplementedError("Compiling NumericLiteral of type %s" % type(op.value))
 
     return {
-        'type' : 'Constant',
+        'type' : 'CONSTANT',
         'value' : str(op.value),
         'value_type' : myria_type
     }
   elif isinstance(op, expression.AttributeRef):
     return {
-        'type' : 'Variable',
+        'type' : 'VARIABLE',
         'column_idx' : op.get_position(child_scheme)
     }
+  ####
   # Everything below here is compiled automatically
+  ####
+  elif isinstance(op, expression.UnaryOperator):
+    return {
+        'type' : op.opname(),
+        'operand' : compile_expr(op.input, child_scheme)
+    }
   elif isinstance(op, expression.BinaryOperator):
     return {
         'type' : op.opname(),
         'left' : compile_expr(op.left, child_scheme),
         'right' : compile_expr(op.right, child_scheme)
-    }
-  elif isinstance(op, expression.UnaryOperator):
-    return {
-        'type' : op.opname(),
-        'operand' : compile_expr(op.input, child_scheme)
     }
   raise NotImplementedError("Compiling expr of class %s" % op.__class__)
 
