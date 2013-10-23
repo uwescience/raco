@@ -39,19 +39,6 @@ def optimize(exprs, target, source, eliminate_common_subexpressions=False):
     return newexpr
   return [(var, opt(exp)) for var, exp in exprs]
 
-def compile(exprs):
-  """Compile a list of RA expressions.  Each expression is a pair Var, Plan
-Emit any initialization and call compile method on top-level operator
-"""
-  algebra.reset()
-  exprcode = []
-  for resultsym, expr in exprs:
-    init = expr.language.initialize(resultsym)
-    body = expr.compile(resultsym)
-    final = expr.language.finalize(resultsym)
-    exprcode.append(emit(init,body,final))
-  return  emit(*exprcode)
-
 def search(expr, tofind):
   """yield a sequence of subexpressions equal to tofind"""
   def match(node):
