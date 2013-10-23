@@ -3,10 +3,13 @@
 import raco.myrial.parser as parser
 import raco.myrial.groupby as groupby
 import raco.myrial.unpack_from as unpack_from
+import raco.optimize
 import raco.algebra
 import raco.expression as sexpr
 import raco.catalog
 import raco.scheme
+from raco.language import MyriaAlgebra
+from raco.algebra import LogicalAlgebra
 
 import collections
 import random
@@ -313,9 +316,20 @@ class StatementProcessor:
         self.dump_output_id += 1
         self.output_ops.append(op)
 
-    def get_output(self):
-        """Return an operator representing the output of the query."""
+    def get_logical_plan(self):
+        """Return an operator representing the logical query plan."""
         return raco.algebra.Sequence(self.output_ops)
+
+    def get_physical_plan(self):
+        """Return an operator representing the physical query plan."""
+
+        # TODO: Get rid of the dummy label argument here.
+        # Return first (only) plan; strip off dummy label.
+        logical_plan = self.get_logical_plan()
+        physical_plans = raco.optimize.optimize(
+            [('root', logical_plan)], target=MyriaAlgebra,
+            source=LogicalAlgebra)
+        return physical_plans[0][1]
 
     def explain(self, _id):
         raise NotImplementedError()
