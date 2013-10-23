@@ -1,6 +1,6 @@
 from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra
 from raco.algebra import Select, Scan, Join, LogicalAlgebra
-from raco.compile import compile, optimize
+from raco.optimize import optimize
 from raco.boolean import EQ, AND, OR, Attribute, StringLiteral, NumericLiteral
 
 from sampledb import btc_schema, Rr

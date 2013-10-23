@@ -3,7 +3,7 @@ from raco.scheme import Scheme
 from raco.catalog import ASCIIFile
 from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra, MyriaAlgebra#, ProtobufAlgebra
 from raco.algebra import LogicalAlgebra
-from raco.compile import compile, optimize, common_subexpression_elimination, showids
+from raco.optimize import optimize, common_subexpression_elimination, showids
 
 query = """
 A(x) :- R(x,3)
@@ -45,4 +45,3 @@ physicalplan = result
 # generate code in the target language
 #print compile(physicalplan)
 #compile(physicalplan)
-print compile(physicalplan)
