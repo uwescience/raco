@@ -5,7 +5,7 @@ from raco.scheme import Scheme
 from raco.algebra import Select, Scan, Join, Apply, LogicalAlgebra
 from raco.boolean import EQ, AND, OR, StringLiteral, NumericLiteral
 from sampledb import btc_schema, Rr
-from raco.compile import compile, optimize
+from raco.optimize import optimize
 import raco.catalog
 
 plus = e.PLUS(e.UnnamedAttributeRef(0), e.NamedAttributeRef("x"))
@@ -48,12 +48,6 @@ def testDatalog():
   print "************ PHYSICAL PLAN *************"
   dlog.optimize(target=MyriaAlgebra, eliminate_common_subexpressions=False)
   print dlog.physicalplan
-  print
-
-  # generate code in the target language
-  code = dlog.compile()
-  print "************ CODE *************"
-  print code
   print
 
 
