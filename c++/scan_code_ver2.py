@@ -131,8 +131,9 @@ struct %(relationTupleName)s {
   %(fields)s
 };
 """
+      LOG.debug(n)
       
-      relname = n.relation.name
+      relname = n.relation_key
       t_name = relname + '_tuple'
       
       self.relation_to_tupleType[n] = t_name
@@ -140,7 +141,7 @@ struct %(relationTupleName)s {
       # if not seen relation yet then add a definition 
       if relname not in self.structs :
         self.structs.add(relname)
-        numcols = len(n.relation.scheme())
+        numcols = len(n.scheme().attributes)
         
         declTemp = """int a%(id)s;\n  """ 
         fieldsStr = ""
@@ -171,14 +172,14 @@ struct %(relationTupleName)s {
 
     #load scan template
     def gen_code_for_scan(self,n) :
-        relName = n.relation.name
+        relName = n.relation_key
 
         if relName in self.relations :
             self.node_to_name[n] = relName
             return ''
 
-        filename = n.relation.name #could be changed later
-        numcols = len(n.relation.scheme())
+        filename = n.relation_key #could be changed later
+        numcols = len(n.scheme().attributes)
         code = open('templates_ver2/scan.template').read()
         code = code.replace('$$varname$$',relName)
         code = code.replace('$$filename$$','"' + str(filename) + '"')
@@ -294,16 +295,16 @@ struct %(relationTupleName)s {
         tot = 0
         index = {}
         for arg in n.args :
-            for i in range(tot,tot+len(arg.relation.scheme())) :
+            for i in range(tot,tot+len(arg.scheme().attributes)) :
                 index[i] = (i - tot,arg)
-            tot += len(arg.relation.scheme())
+            tot += len(arg.scheme().attributes)
 
         #step 2: create necessary hashes
         for i in range(0,len(n.joinconditions)) :
             pos = n.joinconditions[i].right.position
             node = n.args[i+1]
-            name = node.relation.name + str(pos) + '_hash'
-            self.emit(self.generate_hash_code(name,node.relation.name,pos,node))
+            name = node.relation_key + str(pos) + '_hash'
+            self.emit(self.generate_hash_code(name,node.relation_key,pos,node))
             self.node_to_hash[node] = name
             self.relation_to_tupleType[name] = self.relation_to_tupleType[node]
 
