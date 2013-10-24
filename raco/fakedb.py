@@ -195,3 +195,18 @@ class FakeDatabase:
     def scantemp(self, op):
         bag = self.temp_tables[op.name]
         return bag.elements()
+
+    def myriascan(self, op):
+        return self.scan(op)
+
+    def myriaapply(self, op):
+        return self.apply(op)
+
+    def myriadupelim(self, op):
+        return self.distinct(op)
+
+    def myriaselect(self, op):
+        return self.select(op)
+
+    def myriacrossproduct(self, op):
+        self.crossproduct(op)
