@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-"""Compile a Myrial program into logical relational algebra."""
+"""Compile a Myrial program into a physical plan."""
 
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
+
 import raco.scheme
 from raco import algebra
 
@@ -25,8 +26,12 @@ def print_pretty_plan(plan, indent=0):
 
 def parse_options(args):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', dest='parse_only',
-                        help="Parse only", action='store_true')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-p', dest='parse',
+                        help="Generate AST (parse tree)", action='store_true')
+    group.add_argument('-l', dest='logical',
+                        help="Generate logical plan", action='store_true')
+
     parser.add_argument('file', help='File containing Myrial source program')
 
     ns = parser.parse_args(args)
@@ -59,12 +64,14 @@ def main(args):
     with open(opt.file) as fh:
         statement_list = _parser.parse(fh.read())
 
-        if opt.parse_only:
+        if opt.parse:
             print statement_list
         else:
             processor.evaluate(statement_list)
-            plan = processor.get_output()
-            print_pretty_plan(plan)
+            if opt.logical:
+                print_pretty_plan(processor.get_logical_plan())
+            else:
+                print_pretty_plan(processor.get_physical_plan())
 
     return 0
 
