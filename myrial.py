@@ -26,9 +26,10 @@ def print_pretty_plan(plan, indent=0):
 
 def parse_options(args):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', dest='parse',
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-p', dest='parse',
                         help="Generate AST (parse tree)", action='store_true')
-    parser.add_argument('-l', dest='logical',
+    group.add_argument('-l', dest='logical',
                         help="Generate logical plan", action='store_true')
 
     parser.add_argument('file', help='File containing Myrial source program')
