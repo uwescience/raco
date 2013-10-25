@@ -260,7 +260,7 @@ class ExpressionProcessor:
             """Merge two scalar expressions with an AND"""
             return sexpr.AND(x,y)
 
-        condition = reduce(andify, join_conditions[1:], join_conditions[0])
+        condition = reduce(andify, join_conditions)
         return raco.algebra.Join(condition, left, right)
 
 class StatementProcessor:

@@ -14,16 +14,21 @@ class MyrialTestCase(unittest.TestCase):
         self.parser = parser.Parser()
         self.processor = interpreter.StatementProcessor(self.db)
 
-    def execute_query(self, query):
+    def execute_query(self, query, test_logical=False):
         '''Run a test query against the fake database'''
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
-        self.db.evaluate(self.processor.get_logical_plan())
+
+        if test_logical:
+            plan = self.processor.get_logical_plan()
+        else:
+            plan = self.processor.get_physical_plan()
+        self.db.evaluate(plan)
 
         return self.db.get_temp_table('__OUTPUT0__')
 
-    def run_test(self, query, expected):
+    def run_test(self, query, expected, test_logical=False):
         '''Execute a test query with an expected output'''
-        actual = self.execute_query(query)
+        actual = self.execute_query(query, test_logical)
         self.assertEquals(actual, expected)
 
