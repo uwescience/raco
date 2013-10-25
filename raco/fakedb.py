@@ -209,4 +209,25 @@ class FakeDatabase:
         return self.select(op)
 
     def myriacrossproduct(self, op):
-        self.crossproduct(op)
+        return self.crossproduct(op)
+
+    def myriagroupby(self, op):
+        return self.groupby(op)
+
+    def myriashuffleconsumer(self, op):
+        return self.evaluate(op.input)
+
+    def myriashuffleproducer(self, op):
+        return self.evaluate(op.input)
+
+    def myriacollectconsumer(self, op):
+        return self.evaluate(op.input)
+
+    def myriacollectproducer(self, op):
+        return self.evaluate(op.input)
+
+    def myriabroadcastconsumer(self, op):
+        return self.evaluate(op.input)
+
+    def myriabroadcastproducer(self, op):
+        return self.evaluate(op.input)
