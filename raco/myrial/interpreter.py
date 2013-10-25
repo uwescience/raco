@@ -3,13 +3,14 @@
 import raco.myrial.parser as parser
 import raco.myrial.groupby as groupby
 import raco.myrial.unpack_from as unpack_from
-import raco.optimize
 import raco.algebra
 import raco.expression as sexpr
 import raco.catalog
 import raco.scheme
 from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
+
+from raco.compile import optimize
 
 import collections
 import random
@@ -326,9 +327,9 @@ class StatementProcessor:
         # TODO: Get rid of the dummy label argument here.
         # Return first (only) plan; strip off dummy label.
         logical_plan = self.get_logical_plan()
-        physical_plans = raco.optimize.optimize(
-            [('root', logical_plan)], target=MyriaAlgebra,
-            source=LogicalAlgebra)
+        physical_plans = optimize([('root', logical_plan)],
+                                  target=MyriaAlgebra,
+                                  source=LogicalAlgebra)
         return physical_plans[0][1]
 
     def explain(self, _id):
