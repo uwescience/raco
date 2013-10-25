@@ -523,12 +523,12 @@ class BroadcastBeforeCross(rules.Rule):
     if not isinstance(expr, algebra.CrossProduct):
       return expr
 
-    # Left broadcast
-    if not isinstance(expr.left, algebra.Broadcast):
-      expr.left = algebra.Broadcast(expr.left)
-    # Right broadcast
-    if not isinstance(expr.right, algebra.Broadcast):
-      expr.right = algebra.Broadcast(expr.right)
+    if isinstance(expr.left, algebra.Broadcast) or \
+        isinstance(expr.right, algebra.Broadcast):
+      return expr
+
+    # By default, broadcast the right child
+    expr.right = algebra.Broadcast(expr.right)
 
     return expr
 
