@@ -288,7 +288,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
     if num_fields == 0:
       ret["op_type"] = "Aggregate"
     elif num_fields == 1:
-      ret["op_type"] = "SingleGroupByAggregateNoBuffer"
+      ret["op_type"] = "SingleGroupByAggregate"
       ret["arg_group_field"] = group_fields[0].position
     else:
       ret["op_type"] = "MultiGroupByAggregate"
