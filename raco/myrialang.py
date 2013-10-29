@@ -601,44 +601,66 @@ class ProjectToDistinctColumnSelect(rules.Rule):
     return colSelect
 
 class SimpleGroupBy(rules.Rule):
+  # A "Simple" GroupBy is one that has only AttributeRefs as its grouping
+  # fields, and only AggregateExpression(AttributeRef) as its aggregate fields.
+  #
+  # Even AggregateExpression(Literal) is more complicated than Myria's
+  # GroupBy wants to handle. Thus we will insert Apply before a GroupBy to take
+  # all the "Complex" expressions away.
+
   def fire(self, expr):
     if not isinstance(expr, algebra.GroupBy):
       return expr
 
     child_scheme = expr.input.scheme()
-    def is_child_ref(agg):
+
+    # A simple grouping expression is an AttributeRef
+    def is_simple_grp_expr(grp):
+      return isinstance(grp, expression.AttributeRef)
+
+    complex_grp_exprs = [(i,grp)
+                             for (i, grp) in enumerate(expr.groupinglist) \
+                             if not is_simple_grp_expr(grp)]
+
+    # A simple aggregate expression is an aggregate whose input is an AttributeRef
+    def is_simple_agg_expr(agg):
       return isinstance(agg, expression.COUNTALL) or \
-          isinstance(agg, expression.UnaryOperator) and isinstance(agg.input, expression.AttributeRef)
+          isinstance(agg, expression.UnaryOperator) and \
+          isinstance(agg, expression.AggregateExpression) and \
+          isinstance(agg.input, expression.AttributeRef)
 
-   # Complicated expressions are those that aggregate over something that is not a child_ref
-    agg_expr_refs = [agg for agg in expr.aggregatelist if not is_child_ref(agg)]
+    complex_agg_exprs = [agg for agg in expr.aggregatelist \
+                             if not is_simple_agg_expr(agg)]
 
-    if len(agg_expr_refs) == 0:
-      # There are no complicated expressions, we're okay.
+    # There are no complicated expressions, we're okay with the existing GroupBy.
+    if not complex_grp_exprs and not complex_agg_exprs:
       return expr
 
-    agg_child_refs = [agg for agg in expr.aggregatelist if is_child_ref(agg)]
+    # Construct the Apply we're going to stick before the GroupBy
 
-    # Let's construct the Apply operator instead, and update the agg list
+    # First: copy every column from the input verbatim
     mappings = [(None, expression.UnnamedAttributeRef(i))
                 for i in range(len(child_scheme))]
-    for agg_expr in agg_expr_refs:
+
+    # Next: move the complex grouping expressions into the Apply, replace with
+    # simple refs
+    for i, grp_expr in complex_grp_exprs:
+      mappings.append((None, grp_expr))
+      expr.groupinglist[i] = expression.UnnamedAttributeRef(len(mappings)-1)
+
+    # Finally: move the complex aggregate expressions into the Apply, replace
+    # with simple refs
+    for agg_expr in complex_agg_exprs:
       mappings.append((None, agg_expr.input))
       agg_expr.input = expression.UnnamedAttributeRef(len(mappings)-1)
-      agg_child_refs.append(agg_expr)
 
+    # Construct and prepend the new Apply
     new_apply = algebra.Apply(mappings, expr.input)
     expr.input = new_apply
-    # Don't overwrite expr.aggregatelist, instead we are mutating the objects
-    # it contains when we modify agg_expr in the above for loop.
-    return expr
 
-class DropTemps(rules.Rule):
-  def fire(self, expr):
-    if isinstance(expr, algebra.ScanTemp):
-      return algebra.Scan(expr.name, expr._scheme)
-    if isinstance(expr, algebra.StoreTemp):
-      return algebra.Store(expr.name, expr.input)
+    # Don't overwrite expr.groupinglist or expr.aggregatelist, instead we are
+    # mutating the objects it contains when we modify grp_expr or agg_expr in
+    # the above for loops.
     return expr
 
 class MyriaAlgebra:
@@ -659,14 +681,13 @@ class MyriaAlgebra:
   )
 
   rules = [
-#      DropTemps()
-      rules.ProjectingJoin()
+      SimpleGroupBy()
+      , rules.ProjectingJoin()
       , rules.JoinToProjectingJoin()
       , ShuffleBeforeJoin()
       , BroadcastBeforeCross()
       , TransferBeforeGroupBy()
 #      , SplitSelects()
-      , SimpleGroupBy()
       , ProjectToDistinctColumnSelect()
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
       , rules.OneToOne(algebra.Store,MyriaStore)

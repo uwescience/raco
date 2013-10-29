@@ -709,8 +709,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         tuples = [(key, len(values)) for key, values in result_dict.iteritems()]
         expected = collections.Counter(tuples)
 
-        # TODO: Fix physical plan test
-        self.run_test(query, expected, True)
+        self.run_test(query, expected)
 
     def test_impure_aggregate_colref(self):
         """Test of aggregate column that refers to a grouping column"""
