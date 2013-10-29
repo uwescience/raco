@@ -202,6 +202,9 @@ class FakeDatabase:
     def myriascantemp(self, op):
         return self.scantemp(op)
 
+    def myriasymmetrichashjoin(self, op):
+        return self.join(op)
+
     def myriastore(self, op):
         return self.store(op)
 

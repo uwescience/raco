@@ -249,15 +249,15 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
     """Convert the joincondition to a list of left columns and a list of right columns representing a conjunction"""
 
 
-    if isinstance(condition, boolean.AND):
+    if isinstance(condition, boolean.AND) or isinstance(condition, expression.AND):
       leftcols1, rightcols1 = self.convertcondition(condition.left)
       leftcols2, rightcols2 = self.convertcondition(condition.right)
       return leftcols1 + leftcols2, rightcols1 + rightcols2
 
-    if isinstance(condition, boolean.EQ):
+    if isinstance(condition, boolean.EQ) or isinstance(condition, expression.EQ):
       return [condition.left.position], [condition.right.position]
 
-    raise NotImplementedError("Myria only supports EquiJoins")
+    raise NotImplementedError("Myria only supports EquiJoins, not %s" % condition)
   
   def compileme(self, resultsym, leftsym, rightsym):
     """Compile the operator to a sequence of json operators"""
@@ -609,11 +609,15 @@ class SimpleGroupBy(rules.Rule):
     def is_child_ref(agg):
       return isinstance(agg, expression.COUNTALL) or \
           isinstance(agg, expression.UnaryOperator) and isinstance(agg.input, expression.AttributeRef)
-    agg_child_refs = [agg for agg in expr.aggregatelist if is_child_ref(agg)]
+
+   # Complicated expressions are those that aggregate over something that is not a child_ref
     agg_expr_refs = [agg for agg in expr.aggregatelist if not is_child_ref(agg)]
 
     if len(agg_expr_refs) == 0:
+      # There are no complicated expressions, we're okay.
       return expr
+
+    agg_child_refs = [agg for agg in expr.aggregatelist if is_child_ref(agg)]
 
     # Let's construct the Apply operator instead, and update the agg list
     mappings = [(None, expression.UnnamedAttributeRef(i))
@@ -625,6 +629,8 @@ class SimpleGroupBy(rules.Rule):
 
     new_apply = algebra.Apply(mappings, expr.input)
     expr.input = new_apply
+    # Don't overwrite expr.aggregatelist, instead we are mutating the objects
+    # it contains when we modify agg_expr in the above for loop.
     return expr
 
 class DropTemps(rules.Rule):

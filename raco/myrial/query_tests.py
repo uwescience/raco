@@ -330,8 +330,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
-        # TODO: Fix physical plan
-        self.run_test(query, self.join_expected, True)
+        self.run_test(query, self.join_expected)
 
     def test_bagcomp_join_via_names(self):
         query = """
