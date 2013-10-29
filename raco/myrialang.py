@@ -16,12 +16,6 @@ import expression
 from language import Language
 from utility import emit
 
-op_id = 0
-def gen_op_id():
-  global op_id
-  op_id += 1
-  return "operator%d" % op_id
-
 def scheme_to_schema(s):
   if s:
     names, descrs = zip(*s.asdict.items())
@@ -323,8 +317,6 @@ class MyriaDupElim(algebra.Distinct, MyriaOperator):
 
 class MyriaApply(algebra.Apply, MyriaOperator):
   """Represents a simple apply operator"""
-
-
   def compileme(self, resultsym, inputsym):
     child_scheme = self.input.scheme()
     exprs = [compile_mapping(x, child_scheme) for x in self.mappings]
@@ -337,48 +329,38 @@ class MyriaApply(algebra.Apply, MyriaOperator):
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
   """A Myria BroadcastProducer"""
-  def __init__(self, input, opid):
+  def __init__(self, input):
     algebra.UnaryOperator.__init__(self, input)
-    self.opid = opid
-
-  def shortStr(self):
-    return "%s(%s)" % (self.opname(), self.opid)
 
   def compileme(self, resultsym, inputsym):
     return {
         "op_name" : resultsym,
         "op_type" : "BroadcastProducer",
         "arg_child" : inputsym,
-        "arg_operator_id" : self.opid
       }
 
 class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
   """A Myria BroadcastConsumer"""
-  def __init__(self, input, opid):
+  def __init__(self, input):
     algebra.UnaryOperator.__init__(self, input)
-    self.opid = opid
 
   def compileme(self, resultsym, inputsym):
     return {
         'op_name' : resultsym,
         'op_type' : 'BroadcastConsumer',
-        'arg_operator_id' : self.opid,
+        'arg_child' : inputsym,
         'arg_schema' : scheme_to_schema(self.scheme())
       }
 
-  def shortStr(self):
-    return "%s(%s)" % (self.opname(), self.opid)
-
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
   """A Myria ShuffleProducer"""
-  def __init__(self, input, opid, hash_columns):
+  def __init__(self, input, hash_columns):
     algebra.UnaryOperator.__init__(self, input)
-    self.opid = opid
     self.hash_columns = hash_columns
 
   def shortStr(self):
     hash_string = ','.join([str(x) for x in self.hash_columns])
-    return "%s(h(%s), %s)" % (self.opname(), hash_string, self.opid)
+    return "%s(h(%s))" % (self.opname(), hash_string)
 
   def compileme(self, resultsym, inputsym):
     if len(self.hash_columns) == 1:
@@ -396,81 +378,68 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         "op_name" : resultsym,
         "op_type" : "ShuffleProducer",
         "arg_child" : inputsym,
-        "arg_operator_id" : self.opid,
         "arg_pf" : pf
       }
 
 class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
   """A Myria ShuffleConsumer"""
-  def __init__(self, input, opid):
+  def __init__(self, input):
     algebra.UnaryOperator.__init__(self, input)
-    self.opid = opid
 
   def compileme(self, resultsym, inputsym):
     return {
         'op_name' : resultsym,
         'op_type' : 'ShuffleConsumer',
-        'arg_operator_id' : self.opid,
+        'arg_child' : inputsym,
         'arg_schema' : scheme_to_schema(self.scheme())
       }
-
-  def shortStr(self):
-    return "%s(%s)" % (self.opname(), self.opid)
 
 class BreakShuffle(rules.Rule):
   def fire(self, expr):
     if not isinstance(expr, MyriaShuffle):
       return expr
 
-    opid = gen_op_id()
-    producer = MyriaShuffleProducer(expr.input, opid, expr.columnlist)
-    consumer = MyriaShuffleConsumer(producer, opid)
+    producer = MyriaShuffleProducer(expr.input, expr.columnlist)
+    consumer = MyriaShuffleConsumer(producer)
     return consumer
 
 
 class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
   """A Myria CollectProducer"""
-  def __init__(self, input, opid, server):
+  def __init__(self, input, server):
     algebra.UnaryOperator.__init__(self, input)
-    self.opid = opid
     self.server = server
 
   def shortStr(self):
-    return "%s(@%s, %s)" % (self.opname(), self.server, self.opid)
+    return "%s(@%s)" % (self.opname(), self.server)
 
   def compileme(self, resultsym, inputsym):
     return {
         "op_name" : resultsym,
         "op_type" : "CollectProducer",
         "arg_child" : inputsym,
-        "arg_operator_id" : self.opid
       }
 
 class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
   """A Myria CollectConsumer"""
-  def __init__(self, input, opid):
+  def __init__(self, input):
     algebra.UnaryOperator.__init__(self, input)
-    self.opid = opid
 
   def compileme(self, resultsym, inputsym):
     return {
         'op_name' : resultsym,
         'op_type' : 'CollectConsumer',
-        'arg_operator_id' : self.opid,
+        'arg_child' : self.inputsym,
         'arg_schema' : scheme_to_schema(self.scheme())
       }
-
-  def shortStr(self):
-    return "%s(%s)" % (self.opname(), self.opid)
 
 class BreakCollect(rules.Rule):
   def fire(self, expr):
     if not isinstance(expr, MyriaCollect):
       return expr
 
-    opid = gen_op_id()
-    producer = MyriaCollectProducer(expr.input, opid, None)
-    consumer = MyriaCollectConsumer(producer, opid)
+    producer = MyriaCollectProducer(expr.input, None)
+    consumer = MyriaCollectConsumer(producer)
     return consumer
 
 class BreakBroadcast(rules.Rule):
@@ -478,9 +447,8 @@ class BreakBroadcast(rules.Rule):
     if not isinstance(expr, algebra.Broadcast):
       return expr
 
-    opid = gen_op_id()
-    producer = MyriaBroadcastProducer(expr.input, opid)
-    consumer = MyriaBroadcastConsumer(producer, opid)
+    producer = MyriaBroadcastProducer(expr.input)
+    consumer = MyriaBroadcastConsumer(producer)
     return consumer
 
 class ShuffleBeforeJoin(rules.Rule):
