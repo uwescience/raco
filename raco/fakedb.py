@@ -231,3 +231,10 @@ class FakeDatabase:
 
     def myriabroadcastproducer(self, op):
         return self.evaluate(op.input)
+
+    def myriasingleton(self, op):
+        return self.singletonrelation(op)
+
+    def myriaemptyrelation(self, op):
+        return self.emptyrelation(op)
+
