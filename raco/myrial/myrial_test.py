@@ -6,6 +6,7 @@ import unittest
 import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
+from raco.myrialang import compile_to_json
 
 class MyrialTestCase(unittest.TestCase):
 
@@ -23,7 +24,10 @@ class MyrialTestCase(unittest.TestCase):
             plan = self.processor.get_logical_plan()
         else:
             plan = self.processor.get_physical_plan()
+            json = compile_to_json(query, '', [('A', plan)])
+
         self.db.evaluate(plan)
+
 
         return self.db.get_temp_table('__OUTPUT0__')
 
