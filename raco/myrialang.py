@@ -606,10 +606,11 @@ class SimpleGroupBy(rules.Rule):
       return expr
 
     child_scheme = expr.input.scheme()
-    agg_child_refs = [agg for agg in expr.aggregatelist \
-                      if isinstance(agg.input, expression.AttributeRef)]
-    agg_expr_refs = [agg for agg in expr.aggregatelist \
-                     if not isinstance(agg.input, expression.AttributeRef)]
+    def is_child_ref(agg):
+      return isinstance(agg, expression.COUNTALL) or \
+          isinstance(agg, expression.UnaryOperator) and isinstance(agg.input, expression.AttributeRef)
+    agg_child_refs = [agg for agg in expr.aggregatelist if is_child_ref(agg)]
+    agg_expr_refs = [agg for agg in expr.aggregatelist if not is_child_ref(agg)]
 
     if len(agg_expr_refs) == 0:
       return expr
