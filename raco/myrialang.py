@@ -50,7 +50,7 @@ def compile_expr(op, child_scheme):
   ####
   # Put special handling at the top!
   ####
-  if isinstance(op, expression.NumericLiteral):
+  if isinstance(op, expression.NumericLiteral) or isinstance(op, boolean.NumericLiteral):
     if type(op.value) == int:
       if op.value <= 2**31-1 and op.value >= -2**31:
         myria_type = 'INT_TYPE'
@@ -59,7 +59,7 @@ def compile_expr(op, child_scheme):
     elif type(op.value) == float:
       myria_type = 'DOUBLE_TYPE'
     else:
-      raise NotImplementedError("Compiling NumericLiteral of type %s" % type(op.value))
+      raise NotImplementedError("Compiling NumericLiteral %s of type %s" % (op, type(op.value)))
 
     return {
         'type' : 'CONSTANT',
@@ -79,7 +79,7 @@ def compile_expr(op, child_scheme):
         'type' : op.opname(),
         'operand' : compile_expr(op.input, child_scheme)
     }
-  elif isinstance(op, expression.BinaryOperator):
+  elif isinstance(op, expression.BinaryOperator) or isinstance(op, boolean.BinaryBooleanOperator):
     return {
         'type' : op.opname(),
         'left' : compile_expr(op.left, child_scheme),
