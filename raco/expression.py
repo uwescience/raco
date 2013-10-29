@@ -115,6 +115,9 @@ class Literal(ZeroaryOperator):
   def __repr__(self):
     return str(self.value)
 
+  def __str__(self):
+    return str(self.value)
+
   def typeof(self):
     # TODO: DANGEROUS
     return type(self.value)
