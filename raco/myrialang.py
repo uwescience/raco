@@ -147,6 +147,20 @@ class MyriaScan(algebra.Scan, MyriaOperator):
         }
       }
 
+class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
+  def compileme(self, resultsym):
+    user, program, relation = resolve_relation_key(self.name)
+
+    return {
+        "op_name" : resultsym,
+        "op_type" : "TableScan",
+        "relation_key" : {
+          "user_name" : user,
+          "program_name" : program,
+          "relation_name" : relation
+        }
+      }
+
 class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
   def compileme(self, resultsym, leftsym, rightsym):
     return {
@@ -200,6 +214,22 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
 class MyriaStore(algebra.Store, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     user, program, relation = resolve_relation_key(self.relation_key)
+
+    return {
+        "op_name" : resultsym,
+        "op_type" : "DbInsert",
+        "relation_key" : {
+          "user_name" : user,
+          "program_name" : program,
+          "relation_name" : relation
+        },
+        "arg_overwrite_table" : True,
+        "arg_child" : inputsym,
+      }
+
+class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
+  def compileme(self, resultsym, inputsym):
+    user, program, relation = resolve_relation_key(self.name)
 
     return {
         "op_name" : resultsym,
@@ -332,6 +362,9 @@ class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
   def __init__(self, input):
     algebra.UnaryOperator.__init__(self, input)
 
+  def shortStr(self):
+    return "%s" % self.opname()
+
   def compileme(self, resultsym, inputsym):
     return {
         "op_name" : resultsym,
@@ -343,6 +376,9 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
   """A Myria BroadcastConsumer"""
   def __init__(self, input):
     algebra.UnaryOperator.__init__(self, input)
+
+  def shortStr(self):
+    return "%s" % self.opname()
 
   def compileme(self, resultsym, inputsym):
     return {
@@ -386,6 +422,9 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
   def __init__(self, input):
     algebra.UnaryOperator.__init__(self, input)
 
+  def shortStr(self):
+    return "%s" % self.opname()
+
   def compileme(self, resultsym, inputsym):
     return {
         'op_name' : resultsym,
@@ -424,6 +463,9 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
   """A Myria CollectConsumer"""
   def __init__(self, input):
     algebra.UnaryOperator.__init__(self, input)
+
+  def shortStr(self):
+    return "%s" % self.opname()
 
   def compileme(self, resultsym, inputsym):
     return {
@@ -610,8 +652,8 @@ class MyriaAlgebra:
   )
 
   rules = [
-      DropTemps()
-      , rules.ProjectingJoin()
+#      DropTemps()
+      rules.ProjectingJoin()
       , rules.JoinToProjectingJoin()
       , ShuffleBeforeJoin()
       , BroadcastBeforeCross()
@@ -621,6 +663,7 @@ class MyriaAlgebra:
       , ProjectToDistinctColumnSelect()
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
       , rules.OneToOne(algebra.Store,MyriaStore)
+      , rules.OneToOne(algebra.StoreTemp,MyriaStoreTemp)
       , rules.OneToOne(algebra.Apply,MyriaApply)
       , rules.OneToOne(algebra.Select,MyriaSelect)
       , rules.OneToOne(algebra.GroupBy,MyriaGroupBy)
@@ -629,6 +672,7 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.Collect,MyriaCollect)
       , rules.OneToOne(algebra.ProjectingJoin,MyriaSymmetricHashJoin)
       , rules.OneToOne(algebra.Scan,MyriaScan)
+      , rules.OneToOne(algebra.ScanTemp,MyriaScanTemp)
       , rules.OneToOne(algebra.SingletonRelation,MyriaSingleton)
       , rules.OneToOne(algebra.EmptyRelation,MyriaEmptyRelation)
       , rules.OneToOne(algebra.UnionAll,MyriaUnionAll)

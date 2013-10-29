@@ -199,8 +199,14 @@ class FakeDatabase:
     def myriascan(self, op):
         return self.scan(op)
 
+    def myriascantemp(self, op):
+        return self.scantemp(op)
+
     def myriastore(self, op):
         return self.store(op)
+
+    def myriastoretemp(self, op):
+        return self.storetemp(op)
 
     def myriaapply(self, op):
         return self.apply(op)
