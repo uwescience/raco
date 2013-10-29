@@ -53,11 +53,11 @@ arithSign = Word("+-",exact=1)
 realNum = Combine( Optional(arithSign) + ( Word( nums ) + "." + Optional( Word(nums) )  |
             ( "." + Word(nums) ) ) + 
             Optional( E + Optional(arithSign) + Word(nums) ) )
-realNum.setParseAction(lambda x: raco.boolean.NumericLiteral(x[0])) 
+realNum.setParseAction(lambda x: raco.boolean.NumericLiteral(float(x[0])))
 
 intNum = Combine( Optional(arithSign) + Word( nums ) + 
             Optional( E + Optional("+") + Word(nums) ) )
-intNum.setParseAction(lambda x: raco.boolean.NumericLiteral(x[0]))
+intNum.setParseAction(lambda x: raco.boolean.NumericLiteral(int(x[0])))
 
 number = realNum | intNum 
 
