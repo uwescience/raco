@@ -632,7 +632,7 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.SingletonRelation,MyriaSingleton)
       , rules.OneToOne(algebra.EmptyRelation,MyriaEmptyRelation)
       , rules.OneToOne(algebra.UnionAll,MyriaUnionAll)
-      , RemoveInnerStores()
+#      , RemoveInnerStores()
       , BreakShuffle()
       , BreakCollect()
       , BreakBroadcast()
