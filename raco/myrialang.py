@@ -197,7 +197,7 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
         "arg_select2" : allright
       }
 
-class MyriaInsert(algebra.Store, MyriaOperator):
+class MyriaStore(algebra.Store, MyriaOperator):
   def compileme(self, resultsym, inputsym):
     user, program, relation = resolve_relation_key(self.relation_key)
 
@@ -503,7 +503,7 @@ class BroadcastBeforeCross(rules.Rule):
 class RemoveInnerStores(rules.Rule):
   is_root = True
   def fire(self, expr):
-    # This rule only works because, currently, the compiler adds a MyriaInsert
+    # This rule only works because, currently, the compiler adds a MyriaStore
     # during compilation (and after this rule is fired).
 
     if not self.is_root and isinstance(expr, algebra.Store):
@@ -599,7 +599,7 @@ class MyriaAlgebra:
       MyriaSymmetricHashJoin
       , MyriaSelect
       , MyriaScan
-      , MyriaInsert
+      , MyriaStore
   ]
 
   fragment_leaves = (
@@ -620,7 +620,7 @@ class MyriaAlgebra:
       , SimpleGroupBy()
       , ProjectToDistinctColumnSelect()
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
-      , rules.OneToOne(algebra.Store,MyriaInsert)
+      , rules.OneToOne(algebra.Store,MyriaStore)
       , rules.OneToOne(algebra.Apply,MyriaApply)
       , rules.OneToOne(algebra.Select,MyriaSelect)
       , rules.OneToOne(algebra.GroupBy,MyriaGroupBy)
@@ -763,13 +763,13 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
   # them back to a relation named (label).
   for (label, rootOp) in physical_plan:
       if isinstance(rootOp, algebra.Store):
-          # If there is already a store (including MyriaInsert) at the top, do
+          # If there is already a store (including MyriaStore) at the top, do
           # nothing.
           frag_root = rootOp
       else:
           # Otherwise, add an insert at the top to store this relation to a
           # table named (label).
-          frag_root = MyriaInsert(plan=rootOp, relation_key=label)
+          frag_root = MyriaStore(plan=rootOp, relation_key=label)
       # Make sure the root is in the symbol dictionary, but rather than using a
       # generated symbol use the IDB label.
       syms[id(frag_root)] = label
