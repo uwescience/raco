@@ -17,19 +17,22 @@ import json
 import os
 import sys
 
-def evaluate(plan, connection=None):
+def evaluate(plan, connection=None, validate=False):
     if isinstance(plan, algebra.DoWhile):
-        evaluate(plan.left, connection)
-        evaluate(plan.right, connection)
+        evaluate(plan.left, connection, validate)
+        evaluate(plan.right, connection, validate)
     elif isinstance(plan, algebra.Sequence):
         for child in plan.children():
-            evaluate(child, connection)
+            evaluate(child, connection, validate)
     else:
         logical = str(plan)
         physical = [('', plan)]
         phys = myrialang.compile_to_json(logical, logical, physical)
         if connection is not None:
-            print json.dumps(connection.validate_query(phys))
+            if validate:
+                print json.dumps(connection.validate_query(phys))
+            else:
+                print json.dumps(connection.submit_query(phys))
         print
 
 def print_pretty_plan(plan, indent=0):
@@ -50,6 +53,8 @@ def parse_options(args):
                         help="Hostname of the REST server", type=str, default="localhost")
     parser.add_argument('-p', dest='port',
                         help="Port of the REST server", type=int, default=8753)
+    parser.add_argument('-v', dest='validate', action="store_true",
+                        help="Validate the program, but do not submit it")
     parser.add_argument('file', help='File containing Myrial source program')
 
     ns = parser.parse_args(args)
@@ -85,7 +90,7 @@ def main(args):
 
         processor.evaluate(statement_list)
         plan = processor.get_physical_plan()
-        evaluate(plan, myria_connection)
+        evaluate(plan, myria_connection, opt.validate)
 
     return 0
 
