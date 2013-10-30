@@ -408,7 +408,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     else:
       pf = {
           "type" : "MultiFieldHash",
-          "index" : self.hash_columns
+          "field_indexes" : self.hash_columns
         }
 
     return {
