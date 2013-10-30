@@ -713,22 +713,23 @@ class CrossToJoin(rules.Rule):
       if _sum == 1:
         join_cols.append((col1, col2))
 
-    if not join_cols:
-      return op
-
     def andify(x,y):
       """Merge two scalar expressions with an AND"""
       return expression.AND(x,y)
 
-    eqs = [expression.EQ(expression.UnnamedAttributeRef(col1),
-                         expression.UnnamedAttributeRef(col2)) for \
-           col1, col2 in join_cols]
-    condition = reduce(andify, eqs)
-
     new_left = CrossToJoin.descend_cross_tree(op.left, all_join_columns)
     # Cross product trees are left-deep: no need to descend right
-    join = algebra.Join(condition, new_left, op.right)
-    return join
+
+    if join_cols:
+      eqs = [expression.EQ(expression.UnnamedAttributeRef(col1),
+                           expression.UnnamedAttributeRef(col2)) for \
+             col1, col2 in join_cols]
+      condition = reduce(andify, eqs)
+      op = algebra.Join(condition, new_left, op.right)
+    else:
+      op.left = new_left
+
+    return op
 
   def fire(self, op):
     if not isinstance(op, algebra.Select):
