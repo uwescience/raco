@@ -817,18 +817,6 @@ class DoWhile(BinaryOperator):
   def shortStr(self):
     return self.opname()
 
-class CollapseSelect(Rule):
-  """A rewrite rule for combining two selections"""
-  def fire(self, expr):
-    if isinstance(expr, Select):
-      if isinstance(expr.input, Select):
-         newcondition = boolean.AND(expr.condition, expr.input.condition)
-         return Select(newcondition, expr.input.input)
-    return expr
-
-  def __str__(self):
-    return "Select, Select => Select"
-
 def attribute_references(condition):
   """Generates a list of attributes referenced in the condition"""
   if isinstance(condition, BinaryBooleanOperator):
@@ -857,8 +845,6 @@ class LogicalAlgebra:
   Select,
   Scan
 ]
-  rules = [
-  CollapseSelect()
-]
+  rules = []
 
 
