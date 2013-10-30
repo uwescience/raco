@@ -1,6 +1,7 @@
 
 import collections
 
+import raco.algebra
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 
@@ -48,3 +49,25 @@ class ReachableTest(myrial_test.MyrialTestCase):
             ])
 
         self.run_test(query, expected)
+
+    def test_cross_plus_selection_becomes_join(self):
+        """Test that the optimizer compiles away cross-products."""
+        with open ('examples/reachable.myl') as fh:
+            query = fh.read()
+
+        def plan_contains_cross(plan):
+            def f(op):
+                if isinstance(op, raco.algebra.CrossProduct) and not \
+                   isinstance(op.left, raco.algebra.SingletonRelation):
+                    yield True
+
+            return any(plan.postorder(f))
+
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+
+        lp = self.processor.get_logical_plan()
+        self.assertTrue(plan_contains_cross(lp))
+
+        pp = self.processor.get_physical_plan()
+        self.assertFalse(plan_contains_cross(pp))
