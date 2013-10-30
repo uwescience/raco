@@ -60,7 +60,10 @@ class ReachableTest(myrial_test.MyrialTestCase):
                      EMIT src=E1.src, dst=E1.dst];
         Dump(Symmetric);
         """
-        expected = collections.Counter([(3,4),(4, 13)])
+        table = ReachableTest.edge_table
+        expected = collections.Counter(
+            [(a, b) for (a, b) in table for (c, d) in table if a==d and b==c \
+             and a < b])
         self.run_test(query, expected)
 
     def test_cross_plus_selection_becomes_join(self):
