@@ -1,6 +1,7 @@
 
 import collections
 
+import raco.algebra
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 
@@ -10,6 +11,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
         (1, 2),
         (2, 3),
         (3, 4),
+        (4, 3),
         (3, 5),
         (4, 13),
         (5, 4),
@@ -19,6 +21,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
         (10, 11),
         (11, 12),
         (12, 10),
+        (13, 4),
         (10, 1)])
 
     edge_schema = scheme.Scheme([("src", "int"),
@@ -48,3 +51,39 @@ class ReachableTest(myrial_test.MyrialTestCase):
             ])
 
         self.run_test(query, expected)
+
+    def test_multi_condition_join(self):
+        query = """
+        Edge = SCAN(public:adhoc:edges);
+        Symmetric = [FROM E1=Edge, E2=Edge
+                     WHERE E1.src==E2.dst AND E2.src==E1.dst AND E1.src < E1.dst
+                     EMIT src=E1.src, dst=E1.dst];
+        Dump(Symmetric);
+        """
+        table = ReachableTest.edge_table
+        expected = collections.Counter(
+            [(a, b) for (a, b) in table for (c, d) in table if a==d and b==c \
+             and a < b])
+        self.run_test(query, expected)
+
+    def test_cross_plus_selection_becomes_join(self):
+        """Test that the optimizer compiles away cross-products."""
+        with open ('examples/reachable.myl') as fh:
+            query = fh.read()
+
+        def plan_contains_cross(plan):
+            def f(op):
+                if isinstance(op, raco.algebra.CrossProduct) and not \
+                   isinstance(op.left, raco.algebra.SingletonRelation):
+                    yield True
+
+            return any(plan.postorder(f))
+
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+
+        lp = self.processor.get_logical_plan()
+        self.assertTrue(plan_contains_cross(lp))
+
+        pp = self.processor.get_physical_plan()
+        self.assertFalse(plan_contains_cross(pp))

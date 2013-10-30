@@ -663,6 +663,95 @@ class SimpleGroupBy(rules.Rule):
     # the above for loops.
     return expr
 
+class CrossToJoin(rules.Rule):
+  """Combine cross-products + selection into joins."""
+
+  @staticmethod
+  def extract_join_columns(sexpr, scheme):
+    """Return a list of join column tuples from a scalar expression."""
+
+    if isinstance(sexpr, expression.EQ):
+      if isinstance(sexpr.left, expression.AttributeRef) and \
+         isinstance(sexpr.right, expression.AttributeRef):
+        return [(expression.toUnnamed(sexpr.left, scheme).position,
+                 expression.toUnnamed(sexpr.right, scheme).position)]
+      else:
+        return []
+    elif isinstance(sexpr, expression.AND):
+      left = CrossToJoin.extract_join_columns(sexpr.left, scheme)
+      right = CrossToJoin.extract_join_columns(sexpr.right, scheme)
+      return left + right
+    else:
+      # Note: we don't descend into OR, NOT expressions
+      return []
+
+  @staticmethod
+  def descend_cross_tree(op, all_join_columns):
+    """Descend a tree of cross-products.
+
+    Returns a (possibly modified) operator.
+    """
+    if not isinstance(op, algebra.CrossProduct):
+      return op
+
+    left_end = len(op.left.scheme())
+    right_end = left_end + len(op.right.scheme())
+
+    def get_tree_for_column(c):
+      if c < left_end:
+        return 0
+      elif c < right_end:
+        return 1
+      else:
+        return 2
+
+    join_cols = []
+
+    for col1, col2 in all_join_columns:
+      # Search for pairs of columns that involve both sub-trees
+      _sum = get_tree_for_column(col1) + get_tree_for_column(col2)
+      if _sum == 1:
+        join_cols.append((col1, col2))
+
+    def andify(x,y):
+      """Merge two scalar expressions with an AND"""
+      return expression.AND(x,y)
+
+    new_left = CrossToJoin.descend_cross_tree(op.left, all_join_columns)
+    # Cross product trees are left-deep: no need to descend right
+
+    if join_cols:
+      eqs = [expression.EQ(expression.UnnamedAttributeRef(col1),
+                           expression.UnnamedAttributeRef(col2)) for \
+             col1, col2 in join_cols]
+      condition = reduce(andify, eqs)
+      op = algebra.Join(condition, new_left, op.right)
+    else:
+      op.left = new_left
+
+    return op
+
+  def fire(self, op):
+    if not isinstance(op, algebra.Select):
+      return op
+    if not isinstance(op.input, algebra.CrossProduct):
+      return op
+
+    all_join_columns = CrossToJoin.extract_join_columns(op.condition,
+                                                        op.scheme())
+    if not all_join_columns:
+      return op
+
+    # Descend the left-deep cross-product tree, looking for operators
+    # we can convert into joins.
+    # TODO: we should consider different join orders beyond what the
+    # user specified in the FROM clause.
+    op.input = CrossToJoin.descend_cross_tree(op.input, all_join_columns)
+    return op
+
+  def __str__(self):
+    return "Cross, Select => Join"
+
 class MyriaAlgebra:
   language = MyriaLanguage
 
@@ -682,6 +771,7 @@ class MyriaAlgebra:
 
   rules = [
       SimpleGroupBy()
+      , CrossToJoin()
       , rules.ProjectingJoin()
       , rules.JoinToProjectingJoin()
       , ShuffleBeforeJoin()

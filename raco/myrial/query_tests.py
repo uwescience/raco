@@ -378,8 +378,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(tpls)
         self.run_test(query, expected)
 
-    # TODO: test with multiple join attributes
-
     def test_explicit_cross(self):
         query = """
         out = CROSS(SCAN(%s), SCAN(%s));
