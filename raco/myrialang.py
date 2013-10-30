@@ -663,6 +663,76 @@ class SimpleGroupBy(rules.Rule):
     # the above for loops.
     return expr
 
+class CrossToJoin(rules.Rule):
+  """Combine cross-products + selection into joins."""
+
+  @staticmethod
+  def extract_join_columns(sexpr, scheme):
+    """Return a list of join column tuples from a scalar expression."""
+    if isinstance(sexpr, expression.EQ):
+      if isinstance(sexpr.left, expression.AttributeRef) and \
+         isinstance(sexpr.right, expression.AttributeRef):
+        return [(expression.toUnnamed(sexpr.left, scheme).position,
+                 expression.toUnnamed(sexpr.right, scheme).position)]
+      else:
+        return []
+    elif isinstance(sexpr, expression.AND):
+      left = CrossToJoin.extract_join_columns(sexpr.left, scheme)
+      right = CrossToJoin.extract_join_columns(sexpr.right, scheme)
+      return left + right
+    else:
+      # Note: we don't descend into OR, NOT expressions
+      return []
+
+  def fire(self, expr):
+    if not isinstance(expr, algebra.Select):
+      return expr
+    if not isinstance(expr.input, algebra.CrossProduct):
+      return expr
+
+
+    all_join_columns = CrossToJoin.extract_join_columns(expr.condition,
+                                                        expr.scheme())
+    if not all_join_columns:
+      return expr
+
+    # Descend the left-deep cross-product tree, looking for operators
+    # we can convert into joins.
+    # TODO: we should consider different join orders beyond what the
+    # user specified in the FROM clause.
+    cross = expr.input
+    left_len = len(cross.left.scheme())
+    join_cols = []
+
+    for col1, col2 in all_join_columns:
+      col1_in_right = (col1 >= left_len)
+      col2_in_right = (col2 >= left_len)
+
+      if col1_in_right == col2_in_right:
+        # The crazy user combined a join/cross with a single-table selection.
+        # TODO: push the selection below the cross/join
+        pass
+      else:
+        join_cols.append((col1, col2))
+
+    if not join_cols:
+      return expr
+
+    def andify(x,y):
+      """Merge two scalar expressions with an AND"""
+      return expression.AND(x,y)
+
+    eqs = [expression.EQ(expression.UnnamedAttributeRef(col1),
+                         expression.UnnamedAttributeRef(col2)) for \
+           col1, col2 in join_cols]
+    condition = reduce(andify, eqs)
+    join = algebra.Join(condition, cross.left, cross.right)
+    expr.input = join
+    return expr
+
+  def __str__(self):
+    return "Cross, Select => Join"
+
 class MyriaAlgebra:
   language = MyriaLanguage
 
@@ -682,6 +752,7 @@ class MyriaAlgebra:
 
   rules = [
       SimpleGroupBy()
+      , CrossToJoin()
       , rules.ProjectingJoin()
       , rules.JoinToProjectingJoin()
       , ShuffleBeforeJoin()
