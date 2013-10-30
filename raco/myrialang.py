@@ -384,8 +384,7 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
     return {
         'op_name' : resultsym,
         'op_type' : 'BroadcastConsumer',
-        'arg_child' : inputsym,
-        'arg_schema' : scheme_to_schema(self.scheme())
+        'arg_child' : inputsym
       }
 
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
@@ -429,8 +428,7 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     return {
         'op_name' : resultsym,
         'op_type' : 'ShuffleConsumer',
-        'arg_child' : inputsym,
-        'arg_schema' : scheme_to_schema(self.scheme())
+        'arg_child' : inputsym
       }
 
 class BreakShuffle(rules.Rule):
@@ -471,8 +469,7 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
     return {
         'op_name' : resultsym,
         'op_type' : 'CollectConsumer',
-        'arg_child' : inputsym,
-        'arg_schema' : scheme_to_schema(self.scheme())
+        'arg_child' : inputsym
       }
 
 class BreakCollect(rules.Rule):
