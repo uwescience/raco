@@ -774,6 +774,7 @@ class MyriaAlgebra:
       , MyriaCollectConsumer
       , MyriaBroadcastConsumer
       , MyriaScan
+      , MyriaScanTemp
   )
 
   rules = [
@@ -818,9 +819,17 @@ def apply_schema_recursive(operator, catalog):
   relations in the map."""
 
   # We found a scan, let's fill in its scheme
-  if isinstance(operator, MyriaScan):
-    rel_key = operator.relation_key
-    rel_scheme = catalog.get_scheme(rel_key)
+  if isinstance(operator, MyriaScan) or isinstance(operator, MyriaScanTemp):
+
+    if isinstance(operator, MyriaScan):
+      # Normal Scan
+      rel_key = operator.relation_key
+      rel_scheme = catalog.get_scheme(rel_key)
+    elif isinstance(operator, MyriaScanTemp):
+      # Temp Scan. Is this handled correctly? No clue.
+      rel_key = operator.name
+      rel_scheme = catalog.get_scheme(rel_key)
+
     if rel_scheme:
       # The Catalog has an entry for this relation
       if len(operator.scheme()) != len(rel_scheme):
@@ -936,7 +945,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
   # For each IDB, generate a plan that assembles all its fragments and stores
   # them back to a relation named (label).
   for (label, rootOp) in physical_plan:
-      if isinstance(rootOp, algebra.Store):
+      if isinstance(rootOp, algebra.Store) or isinstance(rootOp, algebra.StoreTemp):
           # If there is already a store (including MyriaStore) at the top, do
           # nothing.
           frag_root = rootOp
