@@ -26,10 +26,11 @@ def evaluate(plan, connection=None):
             evaluate(child, connection)
     else:
         logical = str(plan)
-        physical = optimize([('', plan)], target=MyriaAlgebra, source=algebra.LogicalAlgebra)
+        physical = [('', plan)]
         phys = myrialang.compile_to_json(logical, logical, physical)
         if connection is not None:
-            print connection.validate_query(phys)
+            print json.dumps(connection.validate_query(phys))
+        print
 
 def print_pretty_plan(plan, indent=0):
     if isinstance(plan, algebra.DoWhile):
