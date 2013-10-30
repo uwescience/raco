@@ -181,7 +181,7 @@ class MyriaEmptyRelation(algebra.EmptyRelation, MyriaOperator):
     return {
         "op_name" : resultsym,
         "op_type" : "Empty",
-        'arg_schema' : scheme_to_schema(self.scheme())
+        'schema' : scheme_to_schema(self.scheme())
         }
 
 class MyriaSelect(algebra.Select, MyriaOperator):
@@ -191,7 +191,9 @@ class MyriaSelect(algebra.Select, MyriaOperator):
       "op_name" : resultsym,
       "op_type" : "Filter",
       "arg_child" : inputsym,
-      "arg_predicate" : pred
+      "arg_predicate" : {
+        "root_expression_operator" : pred
+      }
     }
 
 class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
@@ -351,10 +353,10 @@ class MyriaApply(algebra.Apply, MyriaOperator):
     child_scheme = self.input.scheme()
     exprs = [compile_mapping(x, child_scheme) for x in self.mappings]
     return {
-        'type' : 'Apply',
-        'name' : resultsym,
+        'op_name' : resultsym,
+        'op_type' : 'Apply',
         'arg_child' : inputsym,
-        'expressions' : exprs
+        'generic_expressions' : exprs
     }
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
