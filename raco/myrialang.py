@@ -576,14 +576,30 @@ class TransferBeforeGroupBy(rules.Rule):
     return expr
 
 class SplitSelects(rules.Rule):
-  """If a select has an AND, replace it with two consecutive selects."""
-  def fire(self, expr):
-    if isinstance(expr, algebra.Select):
-      if isinstance(expr.condition, boolean.AND) or \
-          isinstance(expr.condition, expression.AND):
-        first_filter = algebra.Select(expr.condition.left, expr.input)
-        return algebra.Select(expr.condition.right, first_filter)
-    return expr
+  """Replace AND clauses with multiple consecutive selects."""
+
+  @staticmethod
+  def extract_conjuncs(sexpr):
+    """Return a list of conjunctions from a scalar expression."""
+
+    if isinstance(sexpr, boolean.AND) or isinstance(sexpr, expression.AND):
+      left = SplitSelects.extract_conjuncs(sexpr.left)
+      right = SplitSelects.extract_conjuncs(sexpr.right)
+      return left + right
+    else:
+      return [sexpr]
+
+  def fire(self, op):
+    if not isinstance(op, algebra.Select):
+      return op
+
+    conjuncs = self.extract_conjuncs(op.condition)
+    assert conjuncs # Must be at least 1
+
+    op.condition = conjuncs[0]
+    for conjunc in conjuncs[1:]:
+      op = algebra.Select(conjunc, op)
+    return op
 
 class ProjectToDistinctColumnSelect(rules.Rule):
   def fire(self, expr):
@@ -771,13 +787,15 @@ class MyriaAlgebra:
 
   rules = [
       SimpleGroupBy()
+
+      , SplitSelects()
       , CrossToJoin()
+
       , rules.ProjectingJoin()
       , rules.JoinToProjectingJoin()
       , ShuffleBeforeJoin()
       , BroadcastBeforeCross()
       , TransferBeforeGroupBy()
-#      , SplitSelects()
       , ProjectToDistinctColumnSelect()
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
       , rules.OneToOne(algebra.Store,MyriaStore)
