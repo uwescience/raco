@@ -25,6 +25,11 @@ class Expression(Printable):
     raise NotImplementedError()
 
   def postorder(self, f):
+    """Apply a function to each node in an expression tree.
+
+    The function argument should return a scalar.  The return value
+    of postorder is an iterator over these scalars.
+    """
     yield f(self)
 
   def apply(self, f):
