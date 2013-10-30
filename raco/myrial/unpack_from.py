@@ -76,7 +76,7 @@ def unpack(from_args, where_clause, emit_clause):
         return raco.algebra.CrossProduct(x,y)
 
     from_ops = from_args.values()
-    op = reduce(cross, from_ops[1:], from_ops[0])
+    op = reduce(cross, from_ops)
 
     offsets = __calculate_offsets(from_args)
 
