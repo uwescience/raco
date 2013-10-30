@@ -185,7 +185,7 @@ class FakeDatabase:
         # Materialize the result
         bag = self.evaluate_to_bag(op.input)
         scheme = op.input.scheme()
-        self.tables[op.name] = (bag, scheme)
+        self.tables[op.relation_key] = (bag, scheme)
         return None
 
     def storetemp(self, op):
@@ -198,6 +198,18 @@ class FakeDatabase:
 
     def myriascan(self, op):
         return self.scan(op)
+
+    def myriascantemp(self, op):
+        return self.scantemp(op)
+
+    def myriasymmetrichashjoin(self, op):
+        return self.join(op)
+
+    def myriastore(self, op):
+        return self.store(op)
+
+    def myriastoretemp(self, op):
+        return self.storetemp(op)
 
     def myriaapply(self, op):
         return self.apply(op)
@@ -231,3 +243,12 @@ class FakeDatabase:
 
     def myriabroadcastproducer(self, op):
         return self.evaluate(op.input)
+
+    def myriasingleton(self, op):
+        return self.singletonrelation(op)
+
+    def myriaemptyrelation(self, op):
+        return self.emptyrelation(op)
+
+    def myriaunionall(self, op):
+        return self.unionall(op)

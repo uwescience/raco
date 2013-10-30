@@ -108,6 +108,34 @@ JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
     testresult = RATest(query)
     self.assertEqual(testresult, desiredresult)
 
+  def test_filter_expression(self):
+    query = """
+filtered(src, dst, time) :- nccdc(src, dst, proto, time, a, b, c), time > 1366475761, time < 1366475821
+"""
+    desiredresult="[('filtered', Project($0,$1,$3)[Select($3 > 1366475761 and $3 < 1366475821)[Scan(nccdc)]])]"
+    testresult = RATest(query)
+    self.assertEquals(testresult, desiredresult)
+
+  def test_aggregate_no_groups(self):
+    query = "Total(count(y)) :- R(x,y)"
+    desiredresult="[('Total', GroupBy(; COUNT($1))[Scan(R)])]"
+    testresult = RATest(query)
+    self.assertEquals(testresult, desiredresult)
+
+  def test_multigroupby_count(self):
+    query = "Total(y, z, count(x)) :- R(x,y,z)"
+    desiredresult="[('Total', GroupBy($1,$2; COUNT($0))[Scan(R)])]"
+    testresult = RATest(query)
+    self.assertEquals(testresult, desiredresult)
+
+  def test_multigroupby_sum_reorder(self):
+    query = """Total(sum(x), z, y) :- R(x,y,z);
+Output(s) :- Total(s,z,y)
+    """
+    desiredresult="[('Output', Project($0)[Apply(s=$0,z=$1,y=$2)[GroupBy($2,$1; SUM($0))[Scan(R)]]])]"
+    testresult = RATest(query)
+    self.assertEquals(testresult, desiredresult)
+
 class ExpressionTest(unittest.TestCase):
   def test_postorder(self):
     expr1 = e.MINUS(e.MAX(e.NamedAttributeRef("salary")), e.MIN(e.NamedAttributeRef("salary")))

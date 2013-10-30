@@ -305,6 +305,13 @@ class Union(BinaryOperator):
 
 class UnionAll(BinaryOperator):
   """Bag union."""
+  def __init__(self, left=None, right=None):
+    BinaryOperator.__init__(self, left, right)
+
+  def copy(self, other):
+    """deep copy"""
+    BinaryOperator.copy(self, other)
+
   def scheme(self):
     return self.left.scheme()
 
@@ -747,7 +754,7 @@ class StoreTemp(UnaryOperator):
 
   Temporary relations exist for the lifetime of a query.
   """
-  def __init__(self, name, input):
+  def __init__(self, name=None, input=None):
     UnaryOperator.__init__(self, input)
     self.name = name
 
@@ -764,21 +771,21 @@ class StoreTemp(UnaryOperator):
 class ScanTemp(ZeroaryOperator):
   """Read the contents of a temporary relation."""
 
-  def __init__(self, name, _scheme):
+  def __init__(self, name=None, _scheme=None):
     self.name = name
     self._scheme = _scheme
     ZeroaryOperator.__init__(self)
 
   def __eq__(self,other):
     return ZeroaryOperator.__eq__(self,other) and self.name == other.name \
-      and self.scheme == other.scheme
+      and self._scheme == other._scheme
 
   def shortStr(self):
     return "%s(%s,%s)" % (self.opname(), self.name, str(self._scheme))
 
   def copy(self, other):
-    other.name = self.name
-    other.scheme = self.scheme
+    self.name = other.name
+    self._scheme = other._scheme
     ZeroaryOperator.copy(self, other)
 
   def scheme(self):

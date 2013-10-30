@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from raco import RACompiler
 from raco.language import MyriaAlgebra
 from raco.myrialang import compile_to_json

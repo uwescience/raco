@@ -330,8 +330,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
-        # TODO: Fix physical plan
-        self.run_test(query, self.join_expected, True)
+        self.run_test(query, self.join_expected)
 
     def test_bagcomp_join_via_names(self):
         query = """
@@ -710,8 +709,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         tuples = [(key, len(values)) for key, values in result_dict.iteritems()]
         expected = collections.Counter(tuples)
 
-        # TODO: Fix physical plan test
-        self.run_test(query, expected, True)
+        self.run_test(query, expected)
 
     def test_impure_aggregate_colref(self):
         """Test of aggregate column that refers to a grouping column"""
