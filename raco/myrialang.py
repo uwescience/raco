@@ -471,7 +471,7 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
     return {
         'op_name' : resultsym,
         'op_type' : 'CollectConsumer',
-        'arg_child' : self.inputsym,
+        'arg_child' : inputsym,
         'arg_schema' : scheme_to_schema(self.scheme())
       }
 
