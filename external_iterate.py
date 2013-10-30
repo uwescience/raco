@@ -10,24 +10,26 @@ from raco import myrialang
 from raco.compile import optimize
 from raco.language import MyriaAlgebra
 
+import myria
+
 import argparse
 import json
 import os
 import sys
 
-def evaluate(plan):
+def evaluate(plan, connection=None):
     if isinstance(plan, algebra.DoWhile):
-        evaluate(plan.left)
-        evaluate(plan.right)
+        evaluate(plan.left, connection)
+        evaluate(plan.right, connection)
     elif isinstance(plan, algebra.Sequence):
         for child in plan.children():
-            evaluate(child)
+            evaluate(child, connection)
     else:
         logical = str(plan)
         physical = optimize([('', plan)], target=MyriaAlgebra, source=algebra.LogicalAlgebra)
         phys = myrialang.compile_to_json(logical, logical, physical)
-        print phys
-        json.dumps(phys)
+        if connection is not None:
+            print connection.validate_query(phys)
 
 def print_pretty_plan(plan, indent=0):
     if isinstance(plan, algebra.DoWhile):
@@ -43,8 +45,10 @@ def print_pretty_plan(plan, indent=0):
 
 def parse_options(args):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', dest='parse_only',
-                        help="Parse only", action='store_true')
+    parser.add_argument('-s', dest='server',
+                        help="Hostname of the REST server", type=str, default="localhost")
+    parser.add_argument('-p', dest='port',
+                        help="Port of the REST server", type=int, default=8753)
     parser.add_argument('file', help='File containing Myrial source program')
 
     ns = parser.parse_args(args)
@@ -73,16 +77,14 @@ def main(args):
 
     _parser = parser.Parser()
     processor = interpreter.StatementProcessor(catalog)
+    myria_connection = myria.MyriaConnection(hostname=opt.server, port=opt.port)
 
     with open(opt.file) as fh:
         statement_list = _parser.parse(fh.read())
 
-        if opt.parse_only:
-            print statement_list
-        else:
-            processor.evaluate(statement_list)
-            plan = processor.get_physical_plan()
-            evaluate(plan)
+        processor.evaluate(statement_list)
+        plan = processor.get_physical_plan()
+        evaluate(plan, myria_connection)
 
     return 0
 
