@@ -69,9 +69,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, CrossProduct), 1)
 
         pp = self.logical_to_physical(lp)
+        self.assertEquals(self.get_count(pp, Select), 1)
 
         # TODO: Fix these by pushing selects!
-        #self.assertEquals(self.get_count(lp, Select), 1)
         #self.assertEquals(self.get_count(lp, CrossProduct), 0)
 
         self.db.evaluate(pp)

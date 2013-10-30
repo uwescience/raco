@@ -601,6 +601,24 @@ class SplitSelects(rules.Rule):
       op = algebra.Select(conjunc, op)
     return op
 
+  def __str__(self):
+    return "Select => Select, Select"
+
+class MergeSelects(rules.Rule):
+  """Merge consecutive Selects into a single conjunctive selection."""
+  def fire(self, op):
+    if not isinstance(op, algebra.Select):
+      return op
+
+    while isinstance(op.input, algebra.Select):
+      conjunc = expression.AND(op.condition, op.input.condition)
+      op = algebra.Select(conjunc, op.input.input)
+
+    return op
+
+  def __str__(self):
+    return "Select, Select => Select"
+
 class ProjectToDistinctColumnSelect(rules.Rule):
   def fire(self, expr):
     # If not a Project, who cares?
@@ -790,6 +808,7 @@ class MyriaAlgebra:
 
       , SplitSelects()
       , CrossToJoin()
+      , MergeSelects()
 
       , rules.ProjectingJoin()
       , rules.JoinToProjectingJoin()
