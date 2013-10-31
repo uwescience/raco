@@ -712,11 +712,11 @@ class EmptyRelation(ZeroaryOperator):
     self._scheme = _scheme
 
   def shortStr(self):
-    return "EmptyRelation"
+    return "%s(%s)" % (self.opname(), self._scheme)
 
   def copy(self, other):
     """deep copy"""
-    other._scheme = self._scheme
+    self._scheme = other._scheme
 
   def scheme(self):
     """scheme of the result."""
