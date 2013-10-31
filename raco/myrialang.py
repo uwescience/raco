@@ -755,6 +755,8 @@ class PushSelects(rules.Rule):
       else:
         pass # TODO: Push non-equijoins into a subtree
 
+    # This exception serves as an abort; this avoids an infinite loop
+    # where we try to push the selection yet again.
     # TODO: Push selects across union, apply, etc.
     raise SelectNotPushableException()
 
