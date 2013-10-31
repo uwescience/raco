@@ -17,10 +17,24 @@ from language import Language
 from utility import emit
 
 def scheme_to_schema(s):
+  def convert_typestr(t):
+    if t.lower() in ['bool', 'boolean']:
+      return 'BOOLEAN_TYPE'
+    if t.lower() in ['float', 'double']:
+      return 'DOUBLE_TYPE'
+#    if t.lower() in ['float']:
+#      return 'FLOAT_TYPE'
+#    if t.lower() in ['int', 'integer']:
+#      return 'INT_TYPE'
+    if t.lower() in ['int', 'integer', 'long']:
+      return 'LONG_TYPE'
+    if t.lower() in ['str', 'string']:
+      return 'STRING_TYPE'
+    return t
   if s:
     names, descrs = zip(*s.asdict.items())
     names = ["%s" % n for n in names]
-    types = [r[1] for r in descrs]
+    types = [convert_typestr(r[1]) for r in descrs]
   else:
     names = []
     types = []
