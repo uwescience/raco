@@ -115,7 +115,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected)
 
-    def test_multiway_join(self):
+    def test_multi_condition_join(self):
         s = expression.AND(expression.EQ(AttRef("c"),AttRef("d")),
                            expression.EQ(AttRef("a"),AttRef("f")))
 
@@ -135,4 +135,38 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, expected)
+
+    def test_multiway_join(self):
+
+        e = collections.Counter([(1,2),(2,3),(1,2),(3,4)])
+        self.db.ingest('public:adhoc:Z', e, scheme.Scheme(
+            [('src','int'),('dst','int')]))
+
+        query = """
+        T = SCAN(public:adhoc:Z);
+        U = [FROM T1=T, T2=T, T3=T WHERE T1.dst==T2.src AND T2.dst==T3.src
+             EMIT x=T1.src, y=T3.dst];
+        DUMP(U);
+        """
+
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        lp = self.processor.get_logical_plan()
+
+        self.assertEquals(self.get_count(lp, CrossProduct), 2)
+
+        pp = self.logical_to_physical(lp)
+
+        # TODO: fix select push
+        # self.assertEquals(self.get_count(lp, CrossProduct), 0)
+
+        self.db.evaluate(pp)
+
+        result = self.db.get_temp_table('__OUTPUT0__')
+
+        expected = collections.Counter(
+            [(s1, d3) for (s1, d1) in e.elements() for (s2, d2) in e.elements()
+             for (s3, d3) in e.elements() if d1==s2 and d2==s3])
+
         self.assertEquals(result, expected)
