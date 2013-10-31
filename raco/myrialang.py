@@ -697,8 +697,11 @@ class SimpleGroupBy(rules.Rule):
     # the above for loops.
     return expr
 
-class CrossToJoin(rules.Rule):
-  """Combine cross-products + selection into joins."""
+class PushSelects(rules.Rule):
+  """Push selections down the tree.
+
+  Also, convert cross-products to joins when applicable.
+  """
 
   @staticmethod
   def extract_join_columns(sexpr, scheme):
@@ -712,8 +715,8 @@ class CrossToJoin(rules.Rule):
       else:
         return []
     elif isinstance(sexpr, expression.AND):
-      left = CrossToJoin.extract_join_columns(sexpr.left, scheme)
-      right = CrossToJoin.extract_join_columns(sexpr.right, scheme)
+      left = PushSelects.extract_join_columns(sexpr.left, scheme)
+      right = PushSelects.extract_join_columns(sexpr.right, scheme)
       return left + right
     else:
       # Note: we don't descend into OR, NOT expressions
@@ -751,7 +754,7 @@ class CrossToJoin(rules.Rule):
       """Merge two scalar expressions with an AND"""
       return expression.AND(x,y)
 
-    new_left = CrossToJoin.descend_cross_tree(op.left, all_join_columns)
+    new_left = PushSelects.descend_cross_tree(op.left, all_join_columns)
     # Cross product trees are left-deep: no need to descend right
 
     if join_cols:
@@ -771,7 +774,7 @@ class CrossToJoin(rules.Rule):
     if not isinstance(op.input, algebra.CrossProduct):
       return op
 
-    all_join_columns = CrossToJoin.extract_join_columns(op.condition,
+    all_join_columns = PushSelects.extract_join_columns(op.condition,
                                                         op.scheme())
     if not all_join_columns:
       return op
@@ -780,7 +783,7 @@ class CrossToJoin(rules.Rule):
     # we can convert into joins.
     # TODO: we should consider different join orders beyond what the
     # user specified in the FROM clause.
-    op.input = CrossToJoin.descend_cross_tree(op.input, all_join_columns)
+    op.input = PushSelects.descend_cross_tree(op.input, all_join_columns)
     return op
 
   def __str__(self):
@@ -807,7 +810,7 @@ class MyriaAlgebra:
       SimpleGroupBy()
 
       , SplitSelects()
-      , CrossToJoin()
+      , PushSelects()
       , MergeSelects()
 
       , rules.ProjectingJoin()
