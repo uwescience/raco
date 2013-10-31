@@ -697,6 +697,9 @@ class SimpleGroupBy(rules.Rule):
     # the above for loops.
     return expr
 
+class SelectNotPushableException(Exception):
+  pass
+
 class PushSelects(rules.Rule):
   """Push selections down the tree.
 
@@ -704,87 +707,61 @@ class PushSelects(rules.Rule):
   """
 
   @staticmethod
-  def extract_join_columns(sexpr, scheme):
-    """Return a list of join column tuples from a scalar expression."""
-
-    if isinstance(sexpr, expression.EQ):
-      if isinstance(sexpr.left, expression.AttributeRef) and \
-         isinstance(sexpr.right, expression.AttributeRef):
-        return [(expression.toUnnamed(sexpr.left, scheme).position,
-                 expression.toUnnamed(sexpr.right, scheme).position)]
-      else:
-        return []
-    elif isinstance(sexpr, expression.AND):
-      left = PushSelects.extract_join_columns(sexpr.left, scheme)
-      right = PushSelects.extract_join_columns(sexpr.right, scheme)
-      return left + right
+  def get_tree_for_column(c, left_max, right_max):
+    """Locate the input schema that contributes a given column index."""
+    if c < left_max:
+      return 0
+    elif c < right_max:
+      return 1
     else:
-      # Note: we don't descend into OR, NOT expressions
-      return []
+      return 2 # out-of-bounds
 
   @staticmethod
-  def descend_cross_tree(op, all_join_columns):
-    """Descend a tree of cross-products.
+  def descend_tree(op, sexpr):
+    """Recursively push a selection condition down a tree of operators.
 
     Returns a (possibly modified) operator.
     """
-    if not isinstance(op, algebra.CrossProduct):
+
+    if isinstance(op, algebra.Select):
+      # Keep pushing; selects are commutative
+      op.input = PushSelects.descend_tree(op.input, sexpr)
       return op
 
-    left_end = len(op.left.scheme())
-    right_end = left_end + len(op.right.scheme())
+    scheme = op.scheme()
+    cols = expression.is_column_comparison(sexpr, scheme)
+    if not cols:
+      # TODO: Handle non-trivial select clauses
+      raise SelectNotPushableException()
 
-    def get_tree_for_column(c):
-      if c < left_end:
-        return 0
-      elif c < right_end:
-        return 1
-      else:
-        return 2
+    if isinstance(op, algebra.CrossProduct):
+      left_max = len(op.left.scheme())
+      right_max = left_max + len(op.right.scheme())
 
-    join_cols = []
+      assert len(cols) == 2
+      _sum = sum([PushSelects.get_tree_for_column(x, left_max, right_max)
+                  for x in cols])
+      is_equijoin = (_sum == 1)
 
-    for col1, col2 in all_join_columns:
-      # Search for pairs of columns that involve both sub-trees
-      _sum = get_tree_for_column(col1) + get_tree_for_column(col2)
-      if _sum == 1:
-        join_cols.append((col1, col2))
+      if not is_equijoin:
+        # TODO: Push select down the appropriate branch
+        raise SelectNotPushableException()
 
-    def andify(x,y):
-      """Merge two scalar expressions with an AND"""
-      return expression.AND(x,y)
+      return algebra.Join(expression.to_unnamed_recursive(sexpr, scheme),
+                          op.left, op.right)
 
-    new_left = PushSelects.descend_cross_tree(op.left, all_join_columns)
-    # Cross product trees are left-deep: no need to descend right
-
-    if join_cols:
-      eqs = [expression.EQ(expression.UnnamedAttributeRef(col1),
-                           expression.UnnamedAttributeRef(col2)) for \
-             col1, col2 in join_cols]
-      condition = reduce(andify, eqs)
-      op = algebra.Join(condition, new_left, op.right)
     else:
-      op.left = new_left
-
-    return op
+      # TODO: Push selects across join, union, apply, etc.
+      raise SelectNotPushableException()
 
   def fire(self, op):
     if not isinstance(op, algebra.Select):
       return op
-    if not isinstance(op.input, algebra.CrossProduct):
-      return op
 
-    all_join_columns = PushSelects.extract_join_columns(op.condition,
-                                                        op.scheme())
-    if not all_join_columns:
+    try:
+      return PushSelects.descend_tree(op.input, op.condition)
+    except SelectNotPushableException:
       return op
-
-    # Descend the left-deep cross-product tree, looking for operators
-    # we can convert into joins.
-    # TODO: we should consider different join orders beyond what the
-    # user specified in the FROM clause.
-    op.input = PushSelects.descend_cross_tree(op.input, all_join_columns)
-    return op
 
   def __str__(self):
     return "Cross, Select => Join"
@@ -809,6 +786,8 @@ class MyriaAlgebra:
   rules = [
       SimpleGroupBy()
 
+      # These rules form a logical group; PushSelects assumes that
+      # AND clauses have been broken apart into multiple selections.
       , SplitSelects()
       , PushSelects()
       , MergeSelects()

@@ -39,6 +39,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                        self.y_data,
                        OptimizerTest.y_scheme)
 
+        self.expected = collections.Counter(
+            [(a,b,c,d,e,f) for (a,b,c) in self.x_data
+             for (d,e,f) in self.y_data if a > b and e <= f and c==d])
+
     @staticmethod
     def logical_to_physical(lp):
         physical_plans = optimize([('root', lp)],
@@ -57,7 +61,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                 yield 0
         return sum(op.postorder(count))
 
-    def test_push_selects(self):
+    def test_merge_selects(self):
         lp = StoreTemp('OUTPUT',
                Select(expression.LTEQ(AttRef("e"), AttRef("f")),
                  Select(expression.EQ(AttRef("c"),AttRef("d")),
@@ -70,15 +74,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         pp = self.logical_to_physical(lp)
         self.assertEquals(self.get_count(pp, Select), 1)
-
-        # TODO: Fix these by pushing selects!
-        #self.assertEquals(self.get_count(lp, CrossProduct), 0)
+        self.assertEquals(self.get_count(pp, CrossProduct), 0)
 
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
 
-        expected = collections.Counter(
-            [(a,b,c,d,e,f) for (a,b,c) in self.x_data
-             for (d,e,f) in self.y_data if a > b and e <= f and c==d])
-
-        self.assertEquals(result, expected)
+        self.assertEquals(result, self.expected)
