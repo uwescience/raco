@@ -24,7 +24,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         random.seed(387) # make results deterministic
         rng = 20
-        count = 10
+        count = 30
         self.x_data = collections.Counter(
             [(random.randrange(rng), random.randrange(rng),
               random.randrange(rng)) for x in range(count)])
@@ -114,3 +114,27 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected)
+
+    def test_multiway_join(self):
+        s = expression.AND(expression.EQ(AttRef("c"),AttRef("d")),
+                           expression.EQ(AttRef("a"),AttRef("f")))
+
+        lp = StoreTemp('OUTPUT', Select(s, CrossProduct(
+            Scan(self.x_key, self.x_scheme),
+            Scan(self.y_key, self.y_scheme))))
+
+        self.assertEquals(self.get_num_select_conjuncs(lp), 2)
+
+        pp = self.logical_to_physical(lp)
+        self.assertEquals(self.get_count(pp, CrossProduct), 0)
+
+        # TODO: inline the selection into the join
+        #        self.assertEquals(self.get_count(pp, Select), 0)
+
+        expected = collections.Counter(
+            [(a,b,c,d,e,f) for (a,b,c) in self.x_data
+             for (d,e,f) in self.y_data if a==f and c==d])
+
+        self.db.evaluate(pp)
+        result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, expected)
