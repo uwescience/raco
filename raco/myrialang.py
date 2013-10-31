@@ -969,7 +969,10 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
           frag_root = MyriaStore(plan=rootOp, relation_key=label)
       # Make sure the root is in the symbol dictionary, but rather than using a
       # generated symbol use the IDB label.
-      syms[id(frag_root)] = label
+      if label is not None and len(label) > 0:
+        syms[id(frag_root)] = label
+      else:
+        syms[id(frag_root)] = algebra.gensym()
       # Determine the fragments.
       frags = fragments(frag_root)
       # Build the fragments.
