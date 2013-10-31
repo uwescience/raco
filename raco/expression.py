@@ -1,5 +1,6 @@
 import math
 
+import boolean
 from utility import emit, Printable
 
 """
@@ -488,6 +489,17 @@ def is_column_comparison(expr, scheme):
             toUnnamed(expr.right, scheme).position)
   else:
     return None
+
+
+def extract_conjuncs(sexpr):
+  """Return a list of conjunctions from a scalar expression."""
+
+  if isinstance(sexpr, boolean.AND) or isinstance(sexpr, AND):
+      left = extract_conjuncs(sexpr.left)
+      right = extract_conjuncs(sexpr.right)
+      return left + right
+  else:
+    return [sexpr]
 
 def toUnnamed(ref, scheme):
   """Convert a reference to the unnamed perspective"""

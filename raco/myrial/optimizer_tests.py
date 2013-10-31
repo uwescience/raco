@@ -61,6 +61,16 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                 yield 0
         return sum(op.postorder(count))
 
+    @staticmethod
+    def get_num_select_conjuncs(op):
+        """Get the number of conjuntions within all select operations."""
+        def count(_op):
+            if isinstance(_op, Select):
+                yield len(expression.extract_conjuncs(_op.condition))
+            else:
+                yield 0
+        return sum(op.postorder(count))
+
     def test_merge_selects(self):
         lp = StoreTemp('OUTPUT',
                Select(expression.LTEQ(AttRef("e"), AttRef("f")),
@@ -78,5 +88,29 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, self.expected)
 
+
+    def test_extract_join(self):
+        """Extract a join condition from the middle of complex select."""
+        s = expression.AND(expression.LTEQ(AttRef("e"), AttRef("f")),
+                           expression.AND(
+                               expression.EQ(AttRef("c"),AttRef("d")),
+                               expression.GT(AttRef("a"),AttRef("b"))))
+
+        lp = StoreTemp('OUTPUT', Select(s, CrossProduct(
+            Scan(self.x_key, self.x_scheme),
+            Scan(self.y_key, self.y_scheme))))
+
+        self.assertEquals(self.get_num_select_conjuncs(lp), 3)
+
+        pp = self.logical_to_physical(lp)
+        self.assertEquals(self.get_count(pp, Select), 1)
+        self.assertEquals(self.get_count(pp, CrossProduct), 0)
+
+        # One select condition should get folded into the join
+        self.assertEquals(self.get_num_select_conjuncs(lp), 2)
+
+        self.db.evaluate(pp)
+        result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected)

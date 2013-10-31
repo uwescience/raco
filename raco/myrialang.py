@@ -578,22 +578,11 @@ class TransferBeforeGroupBy(rules.Rule):
 class SplitSelects(rules.Rule):
   """Replace AND clauses with multiple consecutive selects."""
 
-  @staticmethod
-  def extract_conjuncs(sexpr):
-    """Return a list of conjunctions from a scalar expression."""
-
-    if isinstance(sexpr, boolean.AND) or isinstance(sexpr, expression.AND):
-      left = SplitSelects.extract_conjuncs(sexpr.left)
-      right = SplitSelects.extract_conjuncs(sexpr.right)
-      return left + right
-    else:
-      return [sexpr]
-
   def fire(self, op):
     if not isinstance(op, algebra.Select):
       return op
 
-    conjuncs = self.extract_conjuncs(op.condition)
+    conjuncs = expression.extract_conjuncs(op.condition)
     assert conjuncs # Must be at least 1
 
     op.condition = conjuncs[0]
