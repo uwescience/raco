@@ -334,7 +334,44 @@ class Difference(BinaryOperator):
   def shortStr(self):
     return self.opname()
 
-class CrossProduct(BinaryOperator):
+class CompositeBinaryOperator(BinaryOperator):
+  """Join-like operations whose output schema combines its input schemas."""
+
+  def add_equijion_condition(self, col0, col1):
+    """Attempt to add a selection filter to this operation.
+
+    Returns a (possibly modified) operator or None if the columns do not
+    refer to different children of the join/cross-product.
+    """
+    raise NotImplementedException()
+
+  def get_tree_for_column(self, c):
+    """Locate the input schema that contributes a given column index."""
+
+    left_max = len(self.left.scheme())
+    right_max = left_max + len(self.right.scheme())
+
+    if c < left_max:
+      return 0
+    elif c < right_max:
+      return 1
+    else:
+      return 2 # out-of-bounds
+
+  def get_equijoin_condition(self, col0, col1):
+    """Return a boolean expression if the two columns are an equijoin.
+
+    Returns None if the two columns do not refer to the different sides
+    of the join/cross-product."""
+
+    _sum = self.get_tree_for_column(col0) + self.get_tree_for_column(col1)
+    if _sum == 1:
+      return expression.EQ(expression.UnnamedAttributeRef(col0),
+                           expression.UnnamedAttributeRef(col1))
+    else:
+      return None
+
+class CrossProduct(CompositeBinaryOperator):
   """Logical Cross Product operator"""
   def __init__(self, left=None, right=None):
     BinaryOperator.__init__(self, left, right)
@@ -350,7 +387,15 @@ class CrossProduct(BinaryOperator):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
 
-class Join(BinaryOperator):
+  def add_equijoin_condition(self, col0, col1):
+    """Convert the cross-product into a join whenever possible."""
+    condition = self.get_equijoin_condition(col0, col1)
+    if condition:
+      return Join(condition, self.left, self.right)
+    else:
+      return None
+
+class Join(CompositeBinaryOperator):
   """Logical Join operator"""
   def __init__(self, condition=None, left=None, right=None):
     self.condition = condition
@@ -370,6 +415,14 @@ class Join(BinaryOperator):
   def scheme(self):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
+
+  def add_equijoin_condition(self, col0, col1):
+    condition = self.get_equijoin_condition(col0, col1)
+    if condition:
+      self.condition = expression.AND(self.condition, condition)
+      return self
+    else:
+      return None
 
 class Apply(UnaryOperator):
   def __init__(self, mappings=None, input=None):
@@ -555,6 +608,10 @@ class ProjectingJoin(Join):
     combined = self.left.scheme() + self.right.scheme()
     # TODO: columnlist should perhaps be a list of arbitrary column expressions, TBD
     return scheme.Scheme([combined[p.position] for p in self.columnlist])
+
+  def add_equijoin_condition(self, col0, col1):
+    # projects are pushed after selections
+    raise NotImplementedException()
 
 class Shuffle(UnaryOperator):
   """Send the input to the specified servers"""

@@ -152,14 +152,12 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
-        lp = self.processor.get_logical_plan()
 
+        lp = self.processor.get_logical_plan()
         self.assertEquals(self.get_count(lp, CrossProduct), 2)
 
         pp = self.logical_to_physical(lp)
-
-        # TODO: fix select push
-        # self.assertEquals(self.get_count(lp, CrossProduct), 0)
+        self.assertEquals(self.get_count(pp, CrossProduct), 0)
 
         self.db.evaluate(pp)
 

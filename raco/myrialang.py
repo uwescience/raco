@@ -696,64 +696,29 @@ class PushSelects(rules.Rule):
   """
 
   @staticmethod
-  def get_tree_for_column(c, left_max, right_max):
-    """Locate the input schema that contributes a given column index."""
-    if c < left_max:
-      return 0
-    elif c < right_max:
-      return 1
-    else:
-      return 2 # out-of-bounds
-
-  @staticmethod
-  def get_equijoin_condition(op, sexpr):
-    """Extract an equijoin condition from an operation.
-
-    Return None if the scalar expression is not an equijoin."""
-
-    scheme = op.scheme()
-
-    cols = expression.is_column_comparison(sexpr, scheme)
-    if not cols:
-      return None
-
-    left_max = len(op.left.scheme())
-    right_max = left_max + len(op.right.scheme())
-
-    assert len(cols) == 2
-    _sum = sum([PushSelects.get_tree_for_column(x, left_max, right_max)
-                for x in cols])
-    if _sum != 1:
-      return None
-
-    return expression.to_unnamed_recursive(sexpr, scheme)
-
-  @staticmethod
-  def descend_tree(op, sexpr):
-    """Recursively push a selection condition down a tree of operators.
+  def descend_tree(op, col0, col1):
+    """Recursively push an equality condition down a tree of operators.
 
     Returns a (possibly modified) operator.
     """
 
     if isinstance(op, algebra.Select):
       # Keep pushing; selects are commutative
-      op.input = PushSelects.descend_tree(op.input, sexpr)
+      op.input = PushSelects.descend_tree(op.input, col0, col1)
       return op
 
-    elif isinstance(op, algebra.CrossProduct):
-      join_condition = PushSelects.get_equijoin_condition(op, sexpr)
-      if join_condition:
-        return algebra.Join(join_condition, op.left, op.right)
+    elif isinstance(op, algebra.CompositeBinaryOperator):
+      # Joins and cross-products
+      new_op = op.add_equijoin_condition(col0, col1)
+      if new_op:
+        return new_op
       else:
-        pass # TODO: Push non-equijoins into a subtree
-
-    elif isinstance(op, algebra.Join):
-      join_condition = PushSelects.get_equijoin_condition(op, sexpr)
-      if join_condition:
-        op.condition = expression.AND(join_condition, op.condition)
+        # Push the select into the left sub-tree.  Myrial only emits left-deep
+        # trees, so this suffices to capture the majority of cases.
+        # Note that pushing into the right sub-tree would require re-writing
+        # the column index values.
+        op.left = PushSelects.descend_tree(op.left, col0, col1)
         return op
-      else:
-        pass # TODO: Push non-equijoins into a subtree
 
     # This exception serves as an abort; this avoids an infinite loop
     # where we try to push the selection yet again.
@@ -764,8 +729,14 @@ class PushSelects(rules.Rule):
     if not isinstance(op, algebra.Select):
       return op
 
+    # TODO: push selects that are not simple equijoin conditions
+    scheme = op.scheme()
+    cols = expression.is_column_comparison(op.condition, scheme)
+    if not cols:
+      return op
+
     try:
-      new_op = PushSelects.descend_tree(op.input, op.condition)
+      new_op = PushSelects.descend_tree(op.input, *cols)
       # The new root may also be a select, so fire the rule recursively
       return self.fire(new_op)
     except SelectNotPushableException:
