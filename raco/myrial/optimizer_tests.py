@@ -127,9 +127,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         pp = self.logical_to_physical(lp)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
-
-        # TODO: inline the selection into the join
-        #        self.assertEquals(self.get_count(pp, Select), 0)
+        self.assertEquals(self.get_count(pp, Select), 0)
 
         expected = collections.Counter(
             [(a,b,c,d,e,f) for (a,b,c) in self.x_data

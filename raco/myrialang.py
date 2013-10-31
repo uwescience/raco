@@ -706,6 +706,29 @@ class PushSelects(rules.Rule):
       return 2 # out-of-bounds
 
   @staticmethod
+  def get_equijoin_condition(op, sexpr):
+    """Extract an equijoin condition from an operation.
+
+    Return None if the scalar expression is not an equijoin."""
+
+    scheme = op.scheme()
+
+    cols = expression.is_column_comparison(sexpr, scheme)
+    if not cols:
+      return None
+
+    left_max = len(op.left.scheme())
+    right_max = left_max + len(op.right.scheme())
+
+    assert len(cols) == 2
+    _sum = sum([PushSelects.get_tree_for_column(x, left_max, right_max)
+                for x in cols])
+    if _sum != 1:
+      return None
+
+    return expression.to_unnamed_recursive(sexpr, scheme)
+
+  @staticmethod
   def descend_tree(op, sexpr):
     """Recursively push a selection condition down a tree of operators.
 
@@ -717,38 +740,32 @@ class PushSelects(rules.Rule):
       op.input = PushSelects.descend_tree(op.input, sexpr)
       return op
 
-    scheme = op.scheme()
-    cols = expression.is_column_comparison(sexpr, scheme)
-    if not cols:
-      # TODO: Handle non-trivial select clauses
-      raise SelectNotPushableException()
+    elif isinstance(op, algebra.CrossProduct):
+      join_condition = PushSelects.get_equijoin_condition(op, sexpr)
+      if join_condition:
+        return algebra.Join(join_condition, op.left, op.right)
+      else:
+        pass # TODO: Push non-equijoins into a subtree
 
-    if isinstance(op, algebra.CrossProduct):
-      left_max = len(op.left.scheme())
-      right_max = left_max + len(op.right.scheme())
+    elif isinstance(op, algebra.Join):
+      join_condition = PushSelects.get_equijoin_condition(op, sexpr)
+      if join_condition:
+        op.condition = expression.AND(join_condition, op.condition)
+        return op
+      else:
+        pass # TODO: Push non-equijoins into a subtree
 
-      assert len(cols) == 2
-      _sum = sum([PushSelects.get_tree_for_column(x, left_max, right_max)
-                  for x in cols])
-      is_equijoin = (_sum == 1)
-
-      if not is_equijoin:
-        # TODO: Push select down the appropriate branch
-        raise SelectNotPushableException()
-
-      return algebra.Join(expression.to_unnamed_recursive(sexpr, scheme),
-                          op.left, op.right)
-
-    else:
-      # TODO: Push selects across join, union, apply, etc.
-      raise SelectNotPushableException()
+    # TODO: Push selects across union, apply, etc.
+    raise SelectNotPushableException()
 
   def fire(self, op):
     if not isinstance(op, algebra.Select):
       return op
 
     try:
-      return PushSelects.descend_tree(op.input, op.condition)
+      new_op = PushSelects.descend_tree(op.input, op.condition)
+      # The new root may also be a select, so fire the rule recursively
+      return self.fire(new_op)
     except SelectNotPushableException:
       return op
 
