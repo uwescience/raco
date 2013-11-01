@@ -16,11 +16,30 @@ import argparse
 import json
 import os
 import sys
+import time
 
 def evaluate(plan, connection=None, validate=False):
     if isinstance(plan, algebra.DoWhile):
         evaluate(plan.left, connection, validate)
         evaluate(plan.right, connection, validate)
+
+        if not connection or validate:
+            return
+        if isinstance(plan.right, algebra.ScanTemp):
+            name = plan.right.name
+        elif isinstance(plan.right, algebra.Scan):
+            name = plan.right.relation_key
+        else:
+            return
+        user_name, program_name, relation_name = myrialang.resolve_relation_key(name)
+        relation_key = {'user_name' : user_name,
+                        'program_name' : program_name,
+                        'relation_name' : relation_name }
+        d = connection.download_dataset(relation_key)
+        if d[0].values()[0]:
+            evaluate(plan, connection, validate)
+        
+
     elif isinstance(plan, algebra.Sequence):
         for child in plan.children():
             evaluate(child, connection, validate)
@@ -32,7 +51,15 @@ def evaluate(plan, connection=None, validate=False):
             if validate:
                 print json.dumps(connection.validate_query(phys))
             else:
-                print json.dumps(connection.submit_query(phys))
+                print >> sys.stderr, "Submitting %s" % logical
+                query = connection.submit_query(phys)
+                while query['status'] in [ 'ACCEPTED', 'RUNNING' , 'PAUSED' ]:
+                    time.sleep(0.0001)
+                    query = connection.get_query_status(query['query_id'])
+                if query['status'] != 'SUCCESS':
+                    raise IOError('Query %s failed: %s' % (logical, json.dumps(query)))
+                else:
+                    print >> sys.stderr, 'Query %s finished in %d ms' % (logical, query['elapsed_nanos'] / 1e6)
         print
 
 def print_pretty_plan(plan, indent=0):
@@ -84,6 +111,19 @@ def main(args):
     _parser = parser.Parser()
     processor = interpreter.StatementProcessor(catalog)
     myria_connection = myria.MyriaConnection(hostname=opt.server, port=opt.port)
+
+    # For sigma clipping, we need to ingest the points file
+    try:
+        myria_connection.upload_fp(
+                { 'user_name' : 'public', 'program_name' : 'adhoc', 'relation_name':'sc_points'},
+                { 'column_names' : ['v'], 'column_types' : ['DOUBLE_TYPE'] },
+                open('examples/sigma_clipping_points.txt', 'r'))
+    except myria.MyriaError as e:
+        if '409' in str(e):
+            # Dataset has already been ingested, we can safely ignore
+            pass
+        else:
+            raise e
 
     with open(opt.file) as fh:
         statement_list = _parser.parse(fh.read())
