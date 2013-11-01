@@ -689,11 +689,8 @@ class SimpleGroupBy(rules.Rule):
 class SelectNotPushableException(Exception):
   pass
 
-class PushSelects(rules.Rule):
-  """Push selections down the tree.
-
-  Also, convert cross-products to joins when applicable.
-  """
+class SelectToEquijoin(rules.Rule):
+  """Push selections into joins and cross-products whenever possible."""
 
   @staticmethod
   def descend_tree(op, col0, col1):
@@ -704,7 +701,7 @@ class PushSelects(rules.Rule):
 
     if isinstance(op, algebra.Select):
       # Keep pushing; selects are commutative
-      op.input = PushSelects.descend_tree(op.input, col0, col1)
+      op.input = SelectToEquijoin.descend_tree(op.input, col0, col1)
       return op
 
     elif isinstance(op, algebra.CompositeBinaryOperator):
@@ -717,7 +714,7 @@ class PushSelects(rules.Rule):
         # trees, so this suffices to capture the majority of cases.
         # Note that pushing into the right sub-tree would require re-writing
         # the column index values.
-        op.left = PushSelects.descend_tree(op.left, col0, col1)
+        op.left = SelectToEquijoin.descend_tree(op.left, col0, col1)
         return op
 
     # This exception serves as an abort; this avoids an infinite loop
@@ -729,21 +726,20 @@ class PushSelects(rules.Rule):
     if not isinstance(op, algebra.Select):
       return op
 
-    # TODO: push selects that are not simple equijoin conditions
     scheme = op.scheme()
     cols = expression.is_column_comparison(op.condition, scheme)
     if not cols:
       return op
 
     try:
-      new_op = PushSelects.descend_tree(op.input, *cols)
+      new_op = SelectToEquijoin.descend_tree(op.input, *cols)
       # The new root may also be a select, so fire the rule recursively
       return self.fire(new_op)
     except SelectNotPushableException:
       return op
 
   def __str__(self):
-    return "Cross, Select => Join"
+    return "Select, Cross/Join => Join"
 
 class MyriaAlgebra:
   language = MyriaLanguage
@@ -765,10 +761,10 @@ class MyriaAlgebra:
   rules = [
       SimpleGroupBy()
 
-      # These rules form a logical group; PushSelects assumes that
+      # These rules form a logical group; SelectToEquijoin assumes that
       # AND clauses have been broken apart into multiple selections.
       , SplitSelects()
-      , PushSelects()
+      , SelectToEquijoin()
       , MergeSelects()
 
       , rules.ProjectingJoin()
