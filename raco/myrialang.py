@@ -555,20 +555,6 @@ class BroadcastBeforeCross(rules.Rule):
 
     return expr
 
-class RemoveInnerStores(rules.Rule):
-  is_root = True
-  def fire(self, expr):
-    # This rule only works because, currently, the compiler adds a MyriaStore
-    # during compilation (and after this rule is fired).
-
-    if not self.is_root and isinstance(expr, algebra.Store):
-      return expr.input
-
-    if self.is_root:
-      self.is_root = False
-
-    return expr
-
 class TransferBeforeGroupBy(rules.Rule):
   def fire(self, expr):
     # If not a GroupBy, who cares?
@@ -821,7 +807,6 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.SingletonRelation,MyriaSingleton)
       , rules.OneToOne(algebra.EmptyRelation,MyriaEmptyRelation)
       , rules.OneToOne(algebra.UnionAll,MyriaUnionAll)
-#      , RemoveInnerStores()
       , BreakShuffle()
       , BreakCollect()
       , BreakBroadcast()
