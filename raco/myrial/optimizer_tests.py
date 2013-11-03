@@ -4,6 +4,7 @@ import random
 
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
+from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
@@ -42,6 +43,16 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.expected = collections.Counter(
             [(a,b,c,d,e,f) for (a,b,c) in self.x_data
              for (d,e,f) in self.y_data if a > b and e <= f and c==d])
+
+        self.z_key = "public:adhoc:Z"
+        self.z_data = collections.Counter([(1,2),(2,3),(1,2),(3,4)])
+        self.z_scheme = scheme.Scheme([('src','int'),('dst','int')])
+        self.db.ingest('public:adhoc:Z', self.z_data, self.z_scheme)
+
+        self.expected2 = collections.Counter(
+            [(s1, d3) for (s1, d1) in self.z_data.elements()
+             for (s2, d2) in self.z_data.elements()
+             for (s3, d3) in self.z_data.elements() if d1==s2 and d2==s3])
 
     @staticmethod
     def logical_to_physical(lp):
@@ -139,10 +150,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
     def test_multiway_join(self):
 
-        e = collections.Counter([(1,2),(2,3),(1,2),(3,4)])
-        self.db.ingest('public:adhoc:Z', e, scheme.Scheme(
-            [('src','int'),('dst','int')]))
-
         query = """
         T = SCAN(public:adhoc:Z);
         U = [FROM T1=T, T2=T, T3=T WHERE T1.dst==T2.src AND T2.dst==T3.src
@@ -162,9 +169,30 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.db.evaluate(pp)
 
         result = self.db.get_temp_table('__OUTPUT0__')
+        self.assertEquals(result, self.expected2)
 
-        expected = collections.Counter(
-            [(s1, d3) for (s1, d1) in e.elements() for (s2, d2) in e.elements()
-             for (s3, d3) in e.elements() if d1==s2 and d2==s3])
+    def test_right_deep_join(self):
+        """Test pushing a selection into a right-deep join tree.
 
-        self.assertEquals(result, expected)
+        Myrial doesn't emit these, so we need to cook up a plan by hand."""
+
+        s = expression.AND(expression.EQ(AttIndex(1),AttIndex(2)),
+                           expression.EQ(AttIndex(3),AttIndex(4)))
+
+        lp = Apply([('x',AttIndex(0)),('y', AttIndex(5))],
+                   Select(s,
+                          CrossProduct(Scan(self.z_key, self.z_scheme),
+                                       CrossProduct(
+                                           Scan(self.z_key, self.z_scheme),
+                                           Scan(self.z_key, self.z_scheme)))))
+        lp = StoreTemp('OUTPUT', lp)
+
+        self.assertEquals(self.get_count(lp, CrossProduct), 2)
+
+        pp = self.logical_to_physical(lp)
+        self.assertEquals(self.get_count(pp, CrossProduct), 0)
+
+        self.db.evaluate(pp)
+
+        result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, self.expected2)
