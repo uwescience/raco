@@ -337,7 +337,7 @@ class Difference(BinaryOperator):
 class CompositeBinaryOperator(BinaryOperator):
   """Join-like operations whose output schema combines its input schemas."""
 
-  def add_equijion_condition(self, col0, col1):
+  def add_equijoin_condition(self, col0, col1):
     """Attempt to add a selection filter to this operation.
 
     Returns a (possibly modified) operator or None if the columns do not
