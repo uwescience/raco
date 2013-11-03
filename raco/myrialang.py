@@ -693,6 +693,19 @@ class SelectToEquijoin(rules.Rule):
   """Push selections into joins and cross-products whenever possible."""
 
   @staticmethod
+  def get_tree_for_column(op, c):
+    """Locate the input schema that contributes a given column index."""
+
+    left_max = len(op.left.scheme())
+    right_max = left_max + len(op.right.scheme())
+
+    if c < left_max:
+      return 0
+    else:
+      assert c < right_max
+      return 1
+
+  @staticmethod
   def descend_tree(op, col0, col1):
     """Recursively push an equality condition down a tree of operators.
 
@@ -706,15 +719,21 @@ class SelectToEquijoin(rules.Rule):
 
     elif isinstance(op, algebra.CompositeBinaryOperator):
       # Joins and cross-products
-      new_op = op.add_equijoin_condition(col0, col1)
-      if new_op:
-        return new_op
-      else:
-        # Push the select into the left sub-tree.  Myrial only emits left-deep
-        # trees, so this suffices to capture the majority of cases.
-        # Note that pushing into the right sub-tree would require re-writing
-        # the column index values.
+      c1 = SelectToEquijoin.get_tree_for_column(op, col0)
+      c2 = SelectToEquijoin.get_tree_for_column(op, col1)
+      _sum = c1 + c2
+
+      if _sum == 1:
+        return op.add_equijoin_condition(col0, col1)
+      elif _sum == 0:
+        # Push the select into the left sub-tree.
         op.left = SelectToEquijoin.descend_tree(op.left, col0, col1)
+        return op
+      elif _sum == 2:
+        # Rebase column indexes for the right subtree
+        rebase = len(op.left.scheme())
+        op.right = SelectToEquijoin.descend_tree(op.right, col0 - rebase,
+                                                 col1 - rebase)
         return op
 
     # This exception serves as an abort; this avoids an infinite loop

@@ -345,31 +345,12 @@ class CompositeBinaryOperator(BinaryOperator):
     """
     raise NotImplementedException()
 
-  def get_tree_for_column(self, c):
-    """Locate the input schema that contributes a given column index."""
+  @staticmethod
+  def get_equijoin_condition(col0, col1):
+    """Return a boolean expression representing an equijoin."""
 
-    left_max = len(self.left.scheme())
-    right_max = left_max + len(self.right.scheme())
-
-    if c < left_max:
-      return 0
-    elif c < right_max:
-      return 1
-    else:
-      return 2 # out-of-bounds
-
-  def get_equijoin_condition(self, col0, col1):
-    """Return a boolean expression if the two columns are an equijoin.
-
-    Returns None if the two columns do not refer to the different sides
-    of the join/cross-product."""
-
-    _sum = self.get_tree_for_column(col0) + self.get_tree_for_column(col1)
-    if _sum == 1:
-      return expression.EQ(expression.UnnamedAttributeRef(col0),
-                           expression.UnnamedAttributeRef(col1))
-    else:
-      return None
+    return expression.EQ(expression.UnnamedAttributeRef(col0),
+                         expression.UnnamedAttributeRef(col1))
 
 class CrossProduct(CompositeBinaryOperator):
   """Logical Cross Product operator"""
@@ -390,10 +371,7 @@ class CrossProduct(CompositeBinaryOperator):
   def add_equijoin_condition(self, col0, col1):
     """Convert the cross-product into a join whenever possible."""
     condition = self.get_equijoin_condition(col0, col1)
-    if condition:
-      return Join(condition, self.left, self.right)
-    else:
-      return None
+    return Join(condition, self.left, self.right)
 
 class Join(CompositeBinaryOperator):
   """Logical Join operator"""
@@ -418,11 +396,8 @@ class Join(CompositeBinaryOperator):
 
   def add_equijoin_condition(self, col0, col1):
     condition = self.get_equijoin_condition(col0, col1)
-    if condition:
-      self.condition = expression.AND(self.condition, condition)
-      return self
-    else:
-      return None
+    self.condition = expression.AND(self.condition, condition)
+    return self
 
 class Apply(UnaryOperator):
   def __init__(self, mappings=None, input=None):
