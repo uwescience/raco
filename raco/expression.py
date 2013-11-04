@@ -1,5 +1,6 @@
 import math
 
+import boolean
 from utility import emit, Printable
 
 """
@@ -25,6 +26,11 @@ class Expression(Printable):
     raise NotImplementedError()
 
   def postorder(self, f):
+    """Apply a function to each node in an expression tree.
+
+    The function argument should return a scalar.  The return value
+    of postorder is an iterator over these scalars.
+    """
     yield f(self)
 
   def apply(self, f):
@@ -470,6 +476,31 @@ class Unbox(ZeroaryOperator):
     """
     raise NotImplementedError()
 
+def is_column_comparison(expr, scheme):
+  """Return a truthy value if the expression is a comparison between columns.
+
+  The return value is a tuple containing the column indexes, or
+  None if the expression is not a simple column comparison.
+  """
+
+  if isinstance(expr, EQ) and isinstance(expr.left, AttributeRef) \
+     and isinstance(expr.right, AttributeRef):
+    return (toUnnamed(expr.left, scheme).position,
+            toUnnamed(expr.right, scheme).position)
+  else:
+    return None
+
+
+def extract_conjuncs(sexpr):
+  """Return a list of conjunctions from a scalar expression."""
+
+  if isinstance(sexpr, boolean.AND) or isinstance(sexpr, AND):
+      left = extract_conjuncs(sexpr.left)
+      right = extract_conjuncs(sexpr.right)
+      return left + right
+  else:
+    return [sexpr]
+
 def toUnnamed(ref, scheme):
   """Convert a reference to the unnamed perspective"""
   if issubclass(ref.__class__, UnnamedAttributeRef):
@@ -489,6 +520,14 @@ def toNamed(ref, scheme):
   else:
     raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference.")
 
+def to_unnamed_recursive(sexpr, scheme):
+  """Convert all named column references to unnamed column references."""
+  def convert(n):
+    if isinstance(n, NamedAttributeRef):
+      n = toUnnamed(n, scheme)
+    n.apply(convert)
+    return n
+  return convert(sexpr)
 
 def all_classes():
   import raco.expression as expr

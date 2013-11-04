@@ -576,14 +576,37 @@ class TransferBeforeGroupBy(rules.Rule):
     return expr
 
 class SplitSelects(rules.Rule):
-  """If a select has an AND, replace it with two consecutive selects."""
-  def fire(self, expr):
-    if isinstance(expr, algebra.Select):
-      if isinstance(expr.condition, boolean.AND) or \
-          isinstance(expr.condition, expression.AND):
-        first_filter = algebra.Select(expr.condition.left, expr.input)
-        return algebra.Select(expr.condition.right, first_filter)
-    return expr
+  """Replace AND clauses with multiple consecutive selects."""
+
+  def fire(self, op):
+    if not isinstance(op, algebra.Select):
+      return op
+
+    conjuncs = expression.extract_conjuncs(op.condition)
+    assert conjuncs # Must be at least 1
+
+    op.condition = conjuncs[0]
+    for conjunc in conjuncs[1:]:
+      op = algebra.Select(conjunc, op)
+    return op
+
+  def __str__(self):
+    return "Select => Select, Select"
+
+class MergeSelects(rules.Rule):
+  """Merge consecutive Selects into a single conjunctive selection."""
+  def fire(self, op):
+    if not isinstance(op, algebra.Select):
+      return op
+
+    while isinstance(op.input, algebra.Select):
+      conjunc = expression.AND(op.condition, op.input.condition)
+      op = algebra.Select(conjunc, op.input.input)
+
+    return op
+
+  def __str__(self):
+    return "Select, Select => Select"
 
 class ProjectToDistinctColumnSelect(rules.Rule):
   def fire(self, expr):
@@ -663,94 +686,79 @@ class SimpleGroupBy(rules.Rule):
     # the above for loops.
     return expr
 
-class CrossToJoin(rules.Rule):
-  """Combine cross-products + selection into joins."""
+class SelectNotPushableException(Exception):
+  pass
+
+class SelectToEquijoin(rules.Rule):
+  """Push selections into joins and cross-products whenever possible."""
 
   @staticmethod
-  def extract_join_columns(sexpr, scheme):
-    """Return a list of join column tuples from a scalar expression."""
+  def get_tree_for_column(op, c):
+    """Locate the input schema that contributes a given column index."""
 
-    if isinstance(sexpr, expression.EQ):
-      if isinstance(sexpr.left, expression.AttributeRef) and \
-         isinstance(sexpr.right, expression.AttributeRef):
-        return [(expression.toUnnamed(sexpr.left, scheme).position,
-                 expression.toUnnamed(sexpr.right, scheme).position)]
-      else:
-        return []
-    elif isinstance(sexpr, expression.AND):
-      left = CrossToJoin.extract_join_columns(sexpr.left, scheme)
-      right = CrossToJoin.extract_join_columns(sexpr.right, scheme)
-      return left + right
+    left_max = len(op.left.scheme())
+    right_max = left_max + len(op.right.scheme())
+
+    if c < left_max:
+      return 0
     else:
-      # Note: we don't descend into OR, NOT expressions
-      return []
+      assert c < right_max
+      return 1
 
   @staticmethod
-  def descend_cross_tree(op, all_join_columns):
-    """Descend a tree of cross-products.
+  def descend_tree(op, col0, col1):
+    """Recursively push an equality condition down a tree of operators.
 
     Returns a (possibly modified) operator.
     """
-    if not isinstance(op, algebra.CrossProduct):
+
+    if isinstance(op, algebra.Select):
+      # Keep pushing; selects are commutative
+      op.input = SelectToEquijoin.descend_tree(op.input, col0, col1)
       return op
 
-    left_end = len(op.left.scheme())
-    right_end = left_end + len(op.right.scheme())
+    elif isinstance(op, algebra.CompositeBinaryOperator):
+      # Joins and cross-products
+      c1 = SelectToEquijoin.get_tree_for_column(op, col0)
+      c2 = SelectToEquijoin.get_tree_for_column(op, col1)
+      _sum = c1 + c2
 
-    def get_tree_for_column(c):
-      if c < left_end:
-        return 0
-      elif c < right_end:
-        return 1
-      else:
-        return 2
-
-    join_cols = []
-
-    for col1, col2 in all_join_columns:
-      # Search for pairs of columns that involve both sub-trees
-      _sum = get_tree_for_column(col1) + get_tree_for_column(col2)
       if _sum == 1:
-        join_cols.append((col1, col2))
+        return op.add_equijoin_condition(col0, col1)
+      elif _sum == 0:
+        # Push the select into the left sub-tree.
+        op.left = SelectToEquijoin.descend_tree(op.left, col0, col1)
+        return op
+      elif _sum == 2:
+        # Rebase column indexes for the right subtree
+        rebase = len(op.left.scheme())
+        op.right = SelectToEquijoin.descend_tree(op.right, col0 - rebase,
+                                                 col1 - rebase)
+        return op
 
-    def andify(x,y):
-      """Merge two scalar expressions with an AND"""
-      return expression.AND(x,y)
-
-    new_left = CrossToJoin.descend_cross_tree(op.left, all_join_columns)
-    # Cross product trees are left-deep: no need to descend right
-
-    if join_cols:
-      eqs = [expression.EQ(expression.UnnamedAttributeRef(col1),
-                           expression.UnnamedAttributeRef(col2)) for \
-             col1, col2 in join_cols]
-      condition = reduce(andify, eqs)
-      op = algebra.Join(condition, new_left, op.right)
-    else:
-      op.left = new_left
-
-    return op
+    # This exception serves as an abort; this avoids an infinite loop
+    # where we try to push the selection yet again.
+    # TODO: Push selects across union, apply, etc.
+    raise SelectNotPushableException()
 
   def fire(self, op):
     if not isinstance(op, algebra.Select):
       return op
-    if not isinstance(op.input, algebra.CrossProduct):
+
+    scheme = op.scheme()
+    cols = expression.is_column_comparison(op.condition, scheme)
+    if not cols:
       return op
 
-    all_join_columns = CrossToJoin.extract_join_columns(op.condition,
-                                                        op.scheme())
-    if not all_join_columns:
+    try:
+      new_op = SelectToEquijoin.descend_tree(op.input, *cols)
+      # The new root may also be a select, so fire the rule recursively
+      return self.fire(new_op)
+    except SelectNotPushableException:
       return op
-
-    # Descend the left-deep cross-product tree, looking for operators
-    # we can convert into joins.
-    # TODO: we should consider different join orders beyond what the
-    # user specified in the FROM clause.
-    op.input = CrossToJoin.descend_cross_tree(op.input, all_join_columns)
-    return op
 
   def __str__(self):
-    return "Cross, Select => Join"
+    return "Select, Cross/Join => Join"
 
 class MyriaAlgebra:
   language = MyriaLanguage
@@ -771,13 +779,18 @@ class MyriaAlgebra:
 
   rules = [
       SimpleGroupBy()
-      , CrossToJoin()
+
+      # These rules form a logical group; SelectToEquijoin assumes that
+      # AND clauses have been broken apart into multiple selections.
+      , SplitSelects()
+      , SelectToEquijoin()
+      , MergeSelects()
+
       , rules.ProjectingJoin()
       , rules.JoinToProjectingJoin()
       , ShuffleBeforeJoin()
       , BroadcastBeforeCross()
       , TransferBeforeGroupBy()
-#      , SplitSelects()
       , ProjectToDistinctColumnSelect()
       , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
       , rules.OneToOne(algebra.Store,MyriaStore)

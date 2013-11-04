@@ -334,7 +334,25 @@ class Difference(BinaryOperator):
   def shortStr(self):
     return self.opname()
 
-class CrossProduct(BinaryOperator):
+class CompositeBinaryOperator(BinaryOperator):
+  """Join-like operations whose output schema combines its input schemas."""
+
+  def add_equijoin_condition(self, col0, col1):
+    """Attempt to add a selection filter to this operation.
+
+    Returns a (possibly modified) operator or None if the columns do not
+    refer to different children of the join/cross-product.
+    """
+    raise NotImplementedException()
+
+  @staticmethod
+  def get_equijoin_condition(col0, col1):
+    """Return a boolean expression representing an equijoin."""
+
+    return expression.EQ(expression.UnnamedAttributeRef(col0),
+                         expression.UnnamedAttributeRef(col1))
+
+class CrossProduct(CompositeBinaryOperator):
   """Logical Cross Product operator"""
   def __init__(self, left=None, right=None):
     BinaryOperator.__init__(self, left, right)
@@ -350,7 +368,12 @@ class CrossProduct(BinaryOperator):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
 
-class Join(BinaryOperator):
+  def add_equijoin_condition(self, col0, col1):
+    """Convert the cross-product into a join whenever possible."""
+    condition = self.get_equijoin_condition(col0, col1)
+    return Join(condition, self.left, self.right)
+
+class Join(CompositeBinaryOperator):
   """Logical Join operator"""
   def __init__(self, condition=None, left=None, right=None):
     self.condition = condition
@@ -370,6 +393,11 @@ class Join(BinaryOperator):
   def scheme(self):
     """Return the scheme of the result."""
     return self.left.scheme() + self.right.scheme()
+
+  def add_equijoin_condition(self, col0, col1):
+    condition = self.get_equijoin_condition(col0, col1)
+    self.condition = expression.AND(self.condition, condition)
+    return self
 
 class Apply(UnaryOperator):
   def __init__(self, mappings=None, input=None):
@@ -555,6 +583,10 @@ class ProjectingJoin(Join):
     combined = self.left.scheme() + self.right.scheme()
     # TODO: columnlist should perhaps be a list of arbitrary column expressions, TBD
     return scheme.Scheme([combined[p.position] for p in self.columnlist])
+
+  def add_equijoin_condition(self, col0, col1):
+    # projects are pushed after selections
+    raise NotImplementedException()
 
 class Shuffle(UnaryOperator):
   """Send the input to the specified servers"""
@@ -817,18 +849,6 @@ class DoWhile(BinaryOperator):
   def shortStr(self):
     return self.opname()
 
-class CollapseSelect(Rule):
-  """A rewrite rule for combining two selections"""
-  def fire(self, expr):
-    if isinstance(expr, Select):
-      if isinstance(expr.input, Select):
-         newcondition = boolean.AND(expr.condition, expr.input.condition)
-         return Select(newcondition, expr.input.input)
-    return expr
-
-  def __str__(self):
-    return "Select, Select => Select"
-
 def attribute_references(condition):
   """Generates a list of attributes referenced in the condition"""
   if isinstance(condition, BinaryBooleanOperator):
@@ -857,8 +877,6 @@ class LogicalAlgebra:
   Select,
   Scan
 ]
-  rules = [
-  CollapseSelect()
-]
+  rules = []
 
 
