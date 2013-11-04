@@ -20,8 +20,10 @@ import time
 
 def evaluate(plan, connection=None, validate=False):
     if isinstance(plan, algebra.DoWhile):
+        # Left is the body of the loop
         evaluate(plan.left, connection, validate)
-        evaluate(plan.right, connection, validate)
+        # Right is just a scan of the "continue" relation. Don't execute it,
+        # just use it to get the name of that relation.
 
         if not connection or validate:
             return
@@ -30,6 +32,8 @@ def evaluate(plan, connection=None, validate=False):
         elif isinstance(plan.right, algebra.Scan):
             name = plan.right.relation_key
         else:
+            print >> sys.stderr, "Unknown while condition %s of class %s. executing then quitting loop." % (plan.right, plan.right.__class__)
+            evaluate(plan.right, connection, validate)
             return
         user_name, program_name, relation_name = myrialang.resolve_relation_key(name)
         relation_key = {'user_name' : user_name,

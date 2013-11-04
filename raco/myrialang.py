@@ -944,20 +944,23 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
   # For each IDB, generate a plan that assembles all its fragments and stores
   # them back to a relation named (label).
   for (label, rootOp) in physical_plan:
+      # Sometimes the root operator is not labeled, usually because we were
+      # lazy when submitting a manual plan. In this case, generate a new label.
+      if not label:
+          label = algebra.gensym()
+
       if isinstance(rootOp, algebra.Store) or isinstance(rootOp, algebra.StoreTemp):
           # If there is already a store (including MyriaStore) at the top, do
           # nothing.
           frag_root = rootOp
       else:
+          print rootOp.__class__
           # Otherwise, add an insert at the top to store this relation to a
           # table named (label).
           frag_root = MyriaStore(plan=rootOp, relation_key=label)
       # Make sure the root is in the symbol dictionary, but rather than using a
       # generated symbol use the IDB label.
-      if label is not None and len(label) > 0:
-        syms[id(frag_root)] = label
-      else:
-        syms[id(frag_root)] = algebra.gensym()
+      syms[id(frag_root)] = label
       # Determine the fragments.
       frags = fragments(frag_root)
       # Build the fragments.
