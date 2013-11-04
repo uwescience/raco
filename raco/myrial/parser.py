@@ -264,10 +264,6 @@ class Parser:
         'column_ref : DOLLAR INTEGER_LITERAL'
         p[0] = p[2]
 
-    def p_expression_filter(self, p):
-        'expression : FILTER ID BY sexpr'
-        p[0] = ('FILTER', p[2], p[4])
-
     # scalar expressions map to raco.Expression instances; these are operations
     # that return scalar types.
 
