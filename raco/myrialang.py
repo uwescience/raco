@@ -954,7 +954,6 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
           # nothing.
           frag_root = rootOp
       else:
-          print rootOp.__class__
           # Otherwise, add an insert at the top to store this relation to a
           # table named (label).
           frag_root = MyriaStore(plan=rootOp, relation_key=label)
