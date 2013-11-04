@@ -17,10 +17,24 @@ from language import Language
 from utility import emit
 
 def scheme_to_schema(s):
+  def convert_typestr(t):
+    if t.lower() in ['bool', 'boolean']:
+      return 'BOOLEAN_TYPE'
+    if t.lower() in ['float', 'double']:
+      return 'DOUBLE_TYPE'
+#    if t.lower() in ['float']:
+#      return 'FLOAT_TYPE'
+#    if t.lower() in ['int', 'integer']:
+#      return 'INT_TYPE'
+    if t.lower() in ['int', 'integer', 'long']:
+      return 'LONG_TYPE'
+    if t.lower() in ['str', 'string']:
+      return 'STRING_TYPE'
+    return t
   if s:
     names, descrs = zip(*s.asdict.items())
     names = ["%s" % n for n in names]
-    types = [r[1] for r in descrs]
+    types = [convert_typestr(r[1]) for r in descrs]
   else:
     names = []
     types = []
@@ -181,7 +195,7 @@ class MyriaEmptyRelation(algebra.EmptyRelation, MyriaOperator):
     return {
         "op_name" : resultsym,
         "op_type" : "Empty",
-        'arg_schema' : scheme_to_schema(self.scheme())
+        'schema' : scheme_to_schema(self.scheme())
         }
 
 class MyriaSelect(algebra.Select, MyriaOperator):
@@ -191,7 +205,9 @@ class MyriaSelect(algebra.Select, MyriaOperator):
       "op_name" : resultsym,
       "op_type" : "Filter",
       "arg_child" : inputsym,
-      "arg_predicate" : pred
+      "arg_predicate" : {
+        "root_expression_operator" : pred
+      }
     }
 
 class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
@@ -351,10 +367,10 @@ class MyriaApply(algebra.Apply, MyriaOperator):
     child_scheme = self.input.scheme()
     exprs = [compile_mapping(x, child_scheme) for x in self.mappings]
     return {
-        'type' : 'Apply',
-        'name' : resultsym,
+        'op_name' : resultsym,
+        'op_type' : 'Apply',
         'arg_child' : inputsym,
-        'expressions' : exprs
+        'generic_expressions' : exprs
     }
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
@@ -384,8 +400,7 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
     return {
         'op_name' : resultsym,
         'op_type' : 'BroadcastConsumer',
-        'arg_child' : inputsym,
-        'arg_schema' : scheme_to_schema(self.scheme())
+        'arg_operator_id' : inputsym
       }
 
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
@@ -407,7 +422,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     else:
       pf = {
           "type" : "MultiFieldHash",
-          "index" : self.hash_columns
+          "field_indexes" : self.hash_columns
         }
 
     return {
@@ -429,8 +444,7 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     return {
         'op_name' : resultsym,
         'op_type' : 'ShuffleConsumer',
-        'arg_child' : inputsym,
-        'arg_schema' : scheme_to_schema(self.scheme())
+        'arg_operator_id' : inputsym
       }
 
 class BreakShuffle(rules.Rule):
@@ -471,8 +485,7 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
     return {
         'op_name' : resultsym,
         'op_type' : 'CollectConsumer',
-        'arg_child' : self.inputsym,
-        'arg_schema' : scheme_to_schema(self.scheme())
+        'arg_operator_id' : inputsym
       }
 
 class BreakCollect(rules.Rule):
@@ -539,20 +552,6 @@ class BroadcastBeforeCross(rules.Rule):
 
     # By default, broadcast the right child
     expr.right = algebra.Broadcast(expr.right)
-
-    return expr
-
-class RemoveInnerStores(rules.Rule):
-  is_root = True
-  def fire(self, expr):
-    # This rule only works because, currently, the compiler adds a MyriaStore
-    # during compilation (and after this rule is fired).
-
-    if not self.is_root and isinstance(expr, algebra.Store):
-      return expr.input
-
-    if self.is_root:
-      self.is_root = False
 
     return expr
 
@@ -775,6 +774,7 @@ class MyriaAlgebra:
       , MyriaCollectConsumer
       , MyriaBroadcastConsumer
       , MyriaScan
+      , MyriaScanTemp
   )
 
   rules = [
@@ -807,7 +807,6 @@ class MyriaAlgebra:
       , rules.OneToOne(algebra.SingletonRelation,MyriaSingleton)
       , rules.OneToOne(algebra.EmptyRelation,MyriaEmptyRelation)
       , rules.OneToOne(algebra.UnionAll,MyriaUnionAll)
-#      , RemoveInnerStores()
       , BreakShuffle()
       , BreakCollect()
       , BreakBroadcast()
@@ -819,9 +818,17 @@ def apply_schema_recursive(operator, catalog):
   relations in the map."""
 
   # We found a scan, let's fill in its scheme
-  if isinstance(operator, MyriaScan):
-    rel_key = operator.relation_key
-    rel_scheme = catalog.get_scheme(rel_key)
+  if isinstance(operator, MyriaScan) or isinstance(operator, MyriaScanTemp):
+
+    if isinstance(operator, MyriaScan):
+      # Normal Scan
+      rel_key = operator.relation_key
+      rel_scheme = catalog.get_scheme(rel_key)
+    elif isinstance(operator, MyriaScanTemp):
+      # Temp Scan. Is this handled correctly? No clue.
+      rel_key = operator.name
+      rel_scheme = catalog.get_scheme(rel_key)
+
     if rel_scheme:
       # The Catalog has an entry for this relation
       if len(operator.scheme()) != len(rel_scheme):
@@ -937,7 +944,12 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
   # For each IDB, generate a plan that assembles all its fragments and stores
   # them back to a relation named (label).
   for (label, rootOp) in physical_plan:
-      if isinstance(rootOp, algebra.Store):
+      # Sometimes the root operator is not labeled, usually because we were
+      # lazy when submitting a manual plan. In this case, generate a new label.
+      if not label:
+          label = algebra.gensym()
+
+      if isinstance(rootOp, algebra.Store) or isinstance(rootOp, algebra.StoreTemp):
           # If there is already a store (including MyriaStore) at the top, do
           # nothing.
           frag_root = rootOp

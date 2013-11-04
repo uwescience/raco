@@ -10,24 +10,61 @@ from raco import myrialang
 from raco.compile import optimize
 from raco.language import MyriaAlgebra
 
+import myria
+
 import argparse
 import json
 import os
 import sys
+import time
 
-def evaluate(plan):
+def evaluate(plan, connection=None, validate=False):
     if isinstance(plan, algebra.DoWhile):
-        evaluate(plan.left)
-        evaluate(plan.right)
+        # Left is the body of the loop
+        evaluate(plan.left, connection, validate)
+        # Right is just a scan of the "continue" relation. Don't execute it,
+        # just use it to get the name of that relation.
+
+        if not connection or validate:
+            return
+        if isinstance(plan.right, algebra.ScanTemp):
+            name = plan.right.name
+        elif isinstance(plan.right, algebra.Scan):
+            name = plan.right.relation_key
+        else:
+            print >> sys.stderr, "Unknown while condition %s of class %s. executing then quitting loop." % (plan.right, plan.right.__class__)
+            evaluate(plan.right, connection, validate)
+            return
+        user_name, program_name, relation_name = myrialang.resolve_relation_key(name)
+        relation_key = {'user_name' : user_name,
+                        'program_name' : program_name,
+                        'relation_name' : relation_name }
+        d = connection.download_dataset(relation_key)
+        if d[0].values()[0]:
+            evaluate(plan, connection, validate)
+        
+
     elif isinstance(plan, algebra.Sequence):
         for child in plan.children():
-            evaluate(child)
+            evaluate(child, connection, validate)
     else:
         logical = str(plan)
-        physical = optimize([('', plan)], target=MyriaAlgebra, source=algebra.LogicalAlgebra)
+        physical = [('', plan)]
         phys = myrialang.compile_to_json(logical, logical, physical)
-        print phys
-        json.dumps(phys)
+        if connection is not None:
+            if validate:
+                print json.dumps(connection.validate_query(phys))
+            else:
+                print >> sys.stderr, "Submitting %s" % logical
+                query = connection.submit_query(phys)
+                while query['status'] in [ 'ACCEPTED', 'RUNNING' , 'PAUSED' ]:
+                    time.sleep(0.0001)
+                    query = connection.get_query_status(query['query_id'])
+                if query['status'] != 'SUCCESS':
+                    raise IOError('Query %s failed: %s' % (logical, json.dumps(query)))
+                else:
+                    print >> sys.stderr, 'Query %s finished in %d ms' % (logical, query['elapsed_nanos'] / 1e6)
+        print
 
 def print_pretty_plan(plan, indent=0):
     if isinstance(plan, algebra.DoWhile):
@@ -43,8 +80,12 @@ def print_pretty_plan(plan, indent=0):
 
 def parse_options(args):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', dest='parse_only',
-                        help="Parse only", action='store_true')
+    parser.add_argument('-s', dest='server',
+                        help="Hostname of the REST server", type=str, default="localhost")
+    parser.add_argument('-p', dest='port',
+                        help="Port of the REST server", type=int, default=8753)
+    parser.add_argument('-v', dest='validate', action="store_true",
+                        help="Validate the program, but do not submit it")
     parser.add_argument('file', help='File containing Myrial source program')
 
     ns = parser.parse_args(args)
@@ -73,16 +114,27 @@ def main(args):
 
     _parser = parser.Parser()
     processor = interpreter.StatementProcessor(catalog)
+    myria_connection = myria.MyriaConnection(hostname=opt.server, port=opt.port)
+
+    # For sigma clipping, we need to ingest the points file
+    try:
+        myria_connection.upload_fp(
+                { 'user_name' : 'public', 'program_name' : 'adhoc', 'relation_name':'sc_points'},
+                { 'column_names' : ['v'], 'column_types' : ['DOUBLE_TYPE'] },
+                open('examples/sigma_clipping_points.txt', 'r'))
+    except myria.MyriaError as e:
+        if '409' in str(e):
+            # Dataset has already been ingested, we can safely ignore
+            pass
+        else:
+            raise e
 
     with open(opt.file) as fh:
         statement_list = _parser.parse(fh.read())
 
-        if opt.parse_only:
-            print statement_list
-        else:
-            processor.evaluate(statement_list)
-            plan = processor.get_physical_plan()
-            evaluate(plan)
+        processor.evaluate(statement_list)
+        plan = processor.get_physical_plan()
+        evaluate(plan, myria_connection, opt.validate)
 
     return 0
 
