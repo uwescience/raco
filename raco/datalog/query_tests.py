@@ -36,6 +36,27 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
 
     dept_key = "public:adhoc:department"
 
+    edge_table = collections.Counter([
+        (1, 2),
+        (2, 3),
+        (3, 4),
+        (4, 3),
+        (3, 5),
+        (4, 13),
+        (5, 4),
+        (1, 9),
+        (7, 1),
+        (6, 1),
+        (10, 11),
+        (11, 12),
+        (12, 10),
+        (13, 4),
+        (10, 1)])
+
+    edge_schema = scheme.Scheme([("src", "int"),
+                                 ("dst", "int")])
+    edge_key = "public:adhoc:Edge"
+
     def setUp(self):
         super(TestQueryFunctions, self).setUp()
 
@@ -46,6 +67,10 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         self.db.ingest(TestQueryFunctions.dept_key,
                        TestQueryFunctions.dept_table,
                        TestQueryFunctions.dept_schema)
+
+        self.db.ingest(TestQueryFunctions.edge_key,
+                       TestQueryFunctions.edge_table,
+                       TestQueryFunctions.edge_schema)
 
     def test_simple_join(self):
         expected = collections.Counter(
@@ -58,3 +83,22 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         """
 
         self.run_test(query, expected)
+
+    def test_multiway_join_chained(self):
+        query = """
+        OneHop(x) :- Edge(1, x);
+        TwoHop(x) :- OneHop(y), Edge(y, x);
+        ThreeHop(x) :- TwoHop(y), Edge(y, x)
+        """
+
+        expected = collections.Counter([(4,),(5,)])
+        self.run_test(query, expected)
+
+    # TODO: fixme.  This test should return the same result
+    # as test_multiway_join_chained
+    # def test_multiway_join(self):
+    #     query = """
+    #     ThreeHop(z) :- Edge(1, x), Edge(x,y), Edge(y, z);
+    #     """
+    #     expected = collections.Counter([(4,),(5,)])
+    #     self.run_test(query, expected)

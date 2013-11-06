@@ -113,6 +113,10 @@ class OR(BinaryBooleanOperator):
 class EQ(BinaryComparisonOperator):
   literals = ["=", "=="]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) ==
+            self.right.evaluate(_tuple, scheme))
+
 class LT(BinaryComparisonOperator):
   literals = ["<", "lt"]
 
@@ -166,6 +170,9 @@ class Literal:
   def rightoffset(self, offset):
     """Add an offset to this positional reference.  Used when building a plan from a set of joins"""
     pass 
+
+  def evaluate(self, _tuple, scheme):
+    return self.value
 
 class StringLiteral(Literal):
   pass

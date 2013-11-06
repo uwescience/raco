@@ -18,7 +18,7 @@ class DatalogTestCase(unittest.TestCase):
         dlog = RACompiler()
         dlog.fromDatalog(query)
 
-#        print dlog.logicalplan
+        print dlog.logicalplan
 
         dlog.optimize(target=MyriaAlgebra,
                       eliminate_common_subexpressions=False)
