@@ -84,6 +84,29 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
 
         self.run_test(query, expected)
 
+    def test_filter(self):
+        query = """
+        RichGuys(name) :- employee(a, b, name, salary), salary > 25000
+        """
+
+        expected = collections.Counter(
+            [(x[2],) for x in TestQueryFunctions.emp_table.elements()
+             if x[3] > 25000])
+        self.run_test(query, expected)
+
+    def test_count(self):
+        query = """
+        OutDegree(src, count(dst)) :- Edge(src, dst)
+        """
+
+        counter = collections.Counter()
+        for src, dst in self.edge_table.elements():
+            counter[src] += 1
+
+        ex = [(src, cnt) for src, cnt in counter.iteritems()]
+        expected = collections.Counter(ex)
+        self.run_test(query, expected)
+
     def test_multiway_join_chained(self):
         query = """
         OneHop(x) :- Edge(1, x);

@@ -123,6 +123,10 @@ class LT(BinaryComparisonOperator):
 class GT(BinaryComparisonOperator):
   literals = [">", "gt"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) >
+            self.right.evaluate(_tuple, scheme))
+
 class GTEQ(BinaryComparisonOperator):
   literals = [">=", "gteq", "gte"]
 
