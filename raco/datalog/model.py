@@ -10,6 +10,8 @@ import raco.algebra
 import raco.scheme
 import raco.catalog
 
+DEFAULT_USER = 'public'
+DEFAULT_PROGRAM = 'adhoc'
 
 class Program:
   def __init__(self, rules):
@@ -585,7 +587,10 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
     else:
       # TODO: A call to some catalog?
       sch = raco.scheme.Scheme([attr(i,r,term.name) for i,r in enumerate(term.valuerefs)])
-      scan = raco.algebra.Scan(term.name, sch)
+
+      # TODO: Allow user to specify user, program
+      fqn = '%s:%s:%s' % (DEFAULT_USER, DEFAULT_PROGRAM, term.name)
+      scan = raco.algebra.Scan(fqn, sch)
       scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))
 
     # collect conditions within the term itself, like A(X,3) or A(Y,Y)
