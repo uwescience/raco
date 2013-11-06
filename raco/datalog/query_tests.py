@@ -107,6 +107,14 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         expected = collections.Counter(ex)
         self.run_test(query, expected)
 
+    def test_aggregate_no_groups(self):
+        query = """
+        Total(count(x)) :- Edge(x, y)
+        """
+        expected = collections.Counter([
+            (len(self.edge_table),)])
+        self.run_test(query, expected)
+
     def test_multiway_join_chained(self):
         query = """
         OneHop(x) :- Edge(1, x);
