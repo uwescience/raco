@@ -3,9 +3,34 @@ import collections
 import itertools
 
 import raco.algebra
+import raco.boolean
+import raco.expression
+from raco.expression import UnnamedAttributeRef
 import raco.scheme
 
 debug = False
+
+def normalize_equijoin_condition(cond, left_len):
+    """Convert datalog-style equijoin conditions to Myrial-style conditions.
+
+    https://github.com/uwescience/datalogcompiler/issues/65
+    """
+
+    def normalize_recursive(x):
+        if isinstance(x, raco.boolean.EQ):
+            # only equijoins supported
+            assert isinstance(x.left, UnnamedAttributeRef)
+            assert isinstance(x.right, UnnamedAttributeRef)
+
+            n = raco.expression.EQ(
+                UnnamedAttributeRef(x.left.position),
+                UnnamedAttributeRef(x.right.position + left_len))
+        else:
+            n = x
+        n.apply(normalize_recursive)
+        return n
+
+    return normalize_recursive(cond)
 
 class FakeDatabase:
     """An in-memory implementation of relational algebra operators"""
@@ -81,8 +106,10 @@ class FakeDatabase:
         p1 = itertools.product(left_it, right_it)
         p2 = (x + y for (x,y) in p1)
 
+        cond = normalize_equijoin_condition(op.condition, len(op.left.scheme()))
+
         # Return tuples that match on the join conditions
-        return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
+        return (tpl for tpl in p2 if cond.evaluate(tpl, op.scheme()))
 
     def crossproduct(self, op):
         left_it = self.evaluate(op.left)
@@ -203,7 +230,13 @@ class FakeDatabase:
         return self.scantemp(op)
 
     def myriasymmetrichashjoin(self, op):
-        return self.join(op)
+        it = self.join(op)
+
+        # project-out columns
+        def project(input_tuple):
+            output = [input_tuple[x.position] for x in op.columnlist]
+            return tuple(output)
+        return (project(t) for t in it)
 
     def myriastore(self, op):
         return self.store(op)
