@@ -23,7 +23,7 @@ class DatalogTestCase(unittest.TestCase):
         dlog.optimize(target=MyriaAlgebra,
                       eliminate_common_subexpressions=False)
 
-        print dlog.physicalplan
+#        print dlog.physicalplan
 
         op = dlog.physicalplan[0][1]
         output_op = raco.algebra.StoreTemp('__OUTPUT__', op)
