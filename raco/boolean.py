@@ -104,29 +104,65 @@ E.g., 3>X becomes X<3. Useful for normalizing plans."""
 class NOT(UnaryBooleanOperator):
   literals = ["not", "NOT", "-"]
 
+  def evaluate(self, _tuple, scheme):
+    return not self.input.evaluate(_tuple, scheme)
+
 class AND(BinaryBooleanOperator):
   literals = ["and", "AND"]
+
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) and
+            self.right.evaluate(_tuple, scheme))
 
 class OR(BinaryBooleanOperator):
   literals = ["or", "OR"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) or
+            self.right.evaluate(_tuple, scheme))
+
 class EQ(BinaryComparisonOperator):
   literals = ["=", "=="]
+
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) ==
+            self.right.evaluate(_tuple, scheme))
 
 class LT(BinaryComparisonOperator):
   literals = ["<", "lt"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) <
+            self.right.evaluate(_tuple, scheme))
+
 class GT(BinaryComparisonOperator):
   literals = [">", "gt"]
+
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) >
+            self.right.evaluate(_tuple, scheme))
 
 class GTEQ(BinaryComparisonOperator):
   literals = [">=", "gteq", "gte"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) >=
+            self.right.evaluate(_tuple, scheme))
+
 class LTEQ(BinaryComparisonOperator):
   literals = ["<=", "lteq", "lte"]
 
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) <=
+            self.right.evaluate(_tuple, scheme))
+
 class NEQ(BinaryComparisonOperator):
   literals = ["!=", "neq", "ne"]
+
+  def evaluate(self, _tuple, scheme):
+    return (self.left.evaluate(_tuple, scheme) !=
+            self.right.evaluate(_tuple, scheme))
+
 
 reverse = {
   NEQ:NEQ,
@@ -166,6 +202,9 @@ class Literal:
   def rightoffset(self, offset):
     """Add an offset to this positional reference.  Used when building a plan from a set of joins"""
     pass 
+
+  def evaluate(self, _tuple, scheme):
+    return self.value
 
 class StringLiteral(Literal):
   pass

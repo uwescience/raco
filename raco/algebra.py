@@ -745,7 +745,7 @@ class Scan(ZeroaryOperator):
   def __init__(self, relation_key=None, _scheme=None):
     """Initalize a scan operator.
 
-    relation_key is a string of the form "program:user:relation"
+    relation_key is a string of the form "user:program:relation"
     scheme is the schema of the relation.
     """
     self.relation_key = relation_key
