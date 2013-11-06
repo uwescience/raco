@@ -9,7 +9,7 @@ import raco.catalog
 import raco.scheme
 from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
-
+from raco.myrialang import compile_to_json
 from raco.compile import optimize
 
 import collections
@@ -331,6 +331,13 @@ class StatementProcessor:
                                   target=MyriaAlgebra,
                                   source=LogicalAlgebra)
         return physical_plans[0][1]
+
+    def get_json(self):
+        lp = self.get_logical_plan()
+        lp_str = str(lp)
+        pps = optimize([('root', lp)], target=MyriaAlgebra,
+                       source=LogicalAlgebra)
+        return compile_to_json(lp, lp, pps)
 
     def explain(self, _id):
         raise NotImplementedError()
