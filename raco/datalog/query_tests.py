@@ -22,7 +22,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
                                 ("name", "string"),
                                 ("salary", "int")])
 
-    emp_key = "public:adhoc:employee"
+    emp_key = "employee"
 
     dept_table = collections.Counter([
         (1,"accounting",5),
@@ -34,7 +34,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
                                  ("name", "string"),
                                  ("manager", "int")])
 
-    dept_key = "public:adhoc:department"
+    dept_key = "department"
 
     edge_table = collections.Counter([
         (1, 2),
@@ -55,7 +55,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
 
     edge_schema = scheme.Scheme([("src", "int"),
                                  ("dst", "int")])
-    edge_key = "public:adhoc:Edge"
+    edge_key = "Edge"
 
     def setUp(self):
         super(TestQueryFunctions, self).setUp()
