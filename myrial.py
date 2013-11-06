@@ -10,6 +10,7 @@ from raco import algebra
 
 import argparse
 import os
+import json
 import sys
 
 def print_pretty_plan(plan, indent=0):
@@ -31,6 +32,8 @@ def parse_options(args):
                         help="Generate AST (parse tree)", action='store_true')
     group.add_argument('-l', dest='logical',
                         help="Generate logical plan", action='store_true')
+    group.add_argument('-j', dest='json',
+                        help="Encode plan as JSON", action='store_true')
 
     parser.add_argument('file', help='File containing Myrial source program')
 
@@ -70,6 +73,8 @@ def main(args):
             processor.evaluate(statement_list)
             if opt.logical:
                 print_pretty_plan(processor.get_logical_plan())
+            elif opt.json:
+                print json.dumps(processor.get_json())
             else:
                 print_pretty_plan(processor.get_physical_plan())
 

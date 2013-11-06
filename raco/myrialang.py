@@ -259,33 +259,46 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
         "arg_child" : inputsym,
       }
 
+
+def convertcondition(condition, left_len):
+  """Convert an equijoin condition to a pair of column lists."""
+
+  if isinstance(condition, boolean.AND) or \
+     isinstance(condition, expression.AND):
+    leftcols1, rightcols1 = convertcondition(condition.left, left_len)
+    leftcols2, rightcols2 = convertcondition(condition.right, left_len)
+    return leftcols1 + leftcols2, rightcols1 + rightcols2
+
+    # Myrial emits equijoin conditions whose schema refers to the join output,
+    # whereas datalog emits conditions that refer to the input schemas.
+    # TODO: reconcile these models
+  if isinstance(condition, boolean.EQ):
+    # Datalog-style equijoins
+    return [condition.left.position], [condition.right.position]
+  if isinstance(condition, expression.EQ):
+    # Myrial-stye equijoins
+    leftcol = min(condition.left.position, condition.right.position)
+    rightcol = max(condition.left.position, condition.right.position)
+    assert rightcol >= left_len
+    return [leftcol], [rightcol - left_len]
+
+  raise NotImplementedError("Myria only supports EquiJoins, not %s" % condition)
+
 class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
-  @classmethod
-  def convertcondition(self, condition):
-    """Convert the joincondition to a list of left columns and a list of right columns representing a conjunction"""
 
-
-    if isinstance(condition, boolean.AND) or isinstance(condition, expression.AND):
-      leftcols1, rightcols1 = self.convertcondition(condition.left)
-      leftcols2, rightcols2 = self.convertcondition(condition.right)
-      return leftcols1 + leftcols2, rightcols1 + rightcols2
-
-    if isinstance(condition, boolean.EQ) or isinstance(condition, expression.EQ):
-      return [condition.left.position], [condition.right.position]
-
-    raise NotImplementedError("Myria only supports EquiJoins, not %s" % condition)
-  
   def compileme(self, resultsym, leftsym, rightsym):
     """Compile the operator to a sequence of json operators"""
-  
-    leftcols, rightcols = self.convertcondition(self.condition)
+
+    left_len = len(self.left.scheme())
+    leftcols, rightcols = convertcondition(self.condition, left_len)
 
     if self.columnlist is None:
       self.columnlist = self.scheme().ascolumnlist()
-    column_names = [name for (name,type) in self.scheme()]
+    column_names = [name for (name, _type) in self.scheme()]
 
-    allleft = [i.position for i in self.columnlist if i.position < len(self.left.scheme())]
-    allright = [i.position-len(self.left.scheme()) for i in self.columnlist if i.position >= len(self.left.scheme())]
+    allleft = [i.position for i in self.columnlist if i.position < left_len]
+    allright = [i.position - left_len for i in self.columnlist
+                if i.position >= left_len]
 
     join = {
         "op_name" : resultsym,
@@ -520,7 +533,8 @@ class ShuffleBeforeJoin(rules.Rule):
     condition = MyriaLanguage.unnamed(expr.condition, expr.scheme())
 
     # Figure out which columns go in the shuffle
-    left_cols, right_cols = MyriaSymmetricHashJoin.convertcondition(expr.condition)
+    left_cols, right_cols = convertcondition(expr.condition,
+                                             len(expr.left.scheme()))
 
     # Left shuffle
     if isinstance(expr.left, algebra.Shuffle):
