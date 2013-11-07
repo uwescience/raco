@@ -414,17 +414,30 @@ class Term:
     """Return a list of variable names used in this term."""
     return [vr.var for vr in self.valuerefs if isinstance(vr, Var)]
 
+  def varpos(self):
+    """Return a list of (position, variable name) tuples for variables used in this term."""
+    return [(pos,vr.var) for (pos, vr) in enumerate(self.valuerefs) if isinstance(vr, Var)]
+
   def joinsto(self, other, conditions):
     """Return the join conditions between this term and the argument term.  The second argument is a list of explicit conditions, like X=3 or Y=Z"""
     # get the implicit join conditions
-    yourvars = other.vars()
-    myvars = self.vars()
+    yourvars = other.varpos()
+    myvars = self.varpos()
     joins = []
     Pos = raco.expression.UnnamedAttributeRef
-    for i, var in enumerate(myvars):
-      if var in yourvars:
+    for i, var in myvars:
+      match = [j for (j, var2) in yourvars if var2 == var]
+      if match:
         myposition = Pos(i)
-        yourposition = Pos(yourvars.index(var))
+        # TODO this code only picks the first matching variable. Consider:
+        #    A(x) :- R(x), S(x,x). We will end up with
+        #
+        #    Project($0)[Join($0=$0)[Scan(R),Select($0=$1)]Scan(S)]
+        #
+        # Might it be better to emit both Join conditions instead of the
+        # select? In addition to the select?? Might it be better to Join on
+        # the second attribute instead? TODO
+        yourposition = Pos(match[0])
         joins.append(raco.boolean.EQ(myposition, yourposition))
 
     # get the explicit join conditions
