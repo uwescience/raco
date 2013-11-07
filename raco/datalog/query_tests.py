@@ -134,11 +134,9 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         expected = collections.Counter([(4,),(5,)])
         self.run_test(query, expected)
 
-    # TODO: fixme.  This test should return the same result
-    # as test_multiway_join_chained
-    # def test_multiway_join(self):
-    #     query = """
-    #     ThreeHop(z) :- Edge(1, x), Edge(x,y), Edge(y, z);
-    #     """
-    #     expected = collections.Counter([(4,),(5,)])
-    #     self.run_test(query, expected)
+    def test_multiway_join(self):
+        query = """
+        ThreeHop(z) :- Edge(1, x), Edge(x,y), Edge(y, z);
+        """
+        expected = collections.Counter([(4,),(5,)])
+        self.run_test(query, expected)
