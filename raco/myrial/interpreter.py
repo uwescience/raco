@@ -272,7 +272,7 @@ class ExpressionProcessor:
 class StatementProcessor:
     '''Evaluate a list of statements'''
 
-    def __init__(self, catalog=None, use_dummy_scheme=False):
+    def __init__(self, catalog=None, use_dummy_schema=False):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
@@ -280,7 +280,7 @@ class StatementProcessor:
         self.output_ops = []
 
         self.catalog = catalog
-        self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_scheme)
+        self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
 
         # Unique identifiers for temporary tables created by DUMP operations
         self.dump_output_id = 0
