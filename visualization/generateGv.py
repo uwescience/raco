@@ -27,14 +27,14 @@ def main():
         v1 = graph_to_dot(graph)
         v2 = operator_to_dot(root_operator)
         assert v1 == v2
-        print "Dot for individual IDB %s: " % label
-        print v1
-        print
+#        print "Dot for individual IDB %s: " % label
+#        print v1
+#        print
 
     v3 = plan_to_dot(dlog.logicalplan)
-    print "Dot for combined IDBs:"
+#    print "Dot for combined IDBs:"
     print v3
-    print
+#    print
     if len(dlog.logicalplan) == 1:
         assert v1 == v3
 
