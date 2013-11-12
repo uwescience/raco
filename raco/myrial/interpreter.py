@@ -44,9 +44,10 @@ class UnboxState(object):
 
 class ExpressionProcessor:
     """Convert syntactic expressions into relational algebra operations."""
-    def __init__(self, symbols, catalog):
+    def __init__(self, symbols, catalog, use_dummy_schema=False):
         self.symbols = symbols
         self.catalog = catalog
+        self.use_dummy_schema = use_dummy_schema
 
     def evaluate(self, expr):
         method = getattr(self, expr[0].lower())
@@ -60,7 +61,11 @@ class ExpressionProcessor:
         try:
             scheme = self.catalog.get_scheme(relation_key)
         except KeyError:
-            raise NoSuchRelationException(relation_key)
+            if not self.use_dummy_schema:
+                raise NoSuchRelationException(relation_key)
+
+            # Create a dummy schema suitable for emitting plans
+            scheme = raco.scheme.DummyScheme()
 
         return raco.algebra.Scan(relation_key, scheme)
 
@@ -267,7 +272,7 @@ class ExpressionProcessor:
 class StatementProcessor:
     '''Evaluate a list of statements'''
 
-    def __init__(self, catalog=None):
+    def __init__(self, catalog=None, use_dummy_scheme=False):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
@@ -275,7 +280,7 @@ class StatementProcessor:
         self.output_ops = []
 
         self.catalog = catalog
-        self.ep = ExpressionProcessor(self.symbols, catalog)
+        self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_scheme)
 
         # Unique identifiers for temporary tables created by DUMP operations
         self.dump_output_id = 0

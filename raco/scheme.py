@@ -2,6 +2,14 @@ import boolean
 from collections import OrderedDict
 import expression
 
+class DummyScheme:
+  """Dummy scheme used to generate plans in the absence of catalog info."""
+  def __len__(self):
+    return 0
+
+  def __repr__(self):
+    return "DummyScheme"
+
 class Scheme:
   '''
 Add an attribute to the scheme
