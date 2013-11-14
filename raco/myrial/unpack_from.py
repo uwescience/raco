@@ -12,11 +12,9 @@ are converted into raw indexes.
 """
 
 import raco.expression
+from raco.myrial.exceptions import ColumnIndexOutOfBounds
 
 import types
-
-class ColumnIndexOutOfBounds(Exception):
-    pass
 
 def __calculate_offsets(from_args):
     """Calculate the first column of each relation in the rollup schema."""

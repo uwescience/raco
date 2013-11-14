@@ -7,3 +7,6 @@ class MyrialParseException(MyrialCompileException):
 
 class MyrialScanException(MyrialCompileException):
     pass
+
+class ColumnIndexOutOfBounds(Exception):
+    pass

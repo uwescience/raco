@@ -837,7 +837,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
-        with self.assertRaises(raco.myrial.unpack_from.ColumnIndexOutOfBounds):
+        with self.assertRaises(raco.myrial.exceptions.ColumnIndexOutOfBounds):
             self.run_test(query, collections.Counter())
 
     def test_abs(self):
