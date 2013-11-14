@@ -62,7 +62,7 @@ def main(args):
         catalog = FakeCatalog.load_from_file(catalog_path)
 
     _parser = parser.Parser()
-    processor = interpreter.StatementProcessor(catalog)
+    processor = interpreter.StatementProcessor(catalog, True)
 
     with open(opt.file) as fh:
         statement_list = _parser.parse(fh.read())
