@@ -50,7 +50,7 @@ class TableWildcardEmitArg(EmitArg):
     def expand(self, symbols):
         return expand_relation(self.relation_name, symbols)
 
-class FullWildCardEmitArg(EmitArg):
+class FullWildcardEmitArg(EmitArg):
     """Emit all columns from the input.
 
     This is basically 'select *'
