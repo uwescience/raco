@@ -372,6 +372,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.join_expected)
 
+    def test_sql_join(self):
+        """SQL-style select-from-where join"""
+
+        query = """
+        E = SCAN(%s);
+        D = SCAN(%s);
+        out = SELECT E.name, D.name FROM E, D WHERE E.dept_id == D.id;
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        self.run_test(query, self.join_expected)
+
     def test_bagcomp_projection(self):
         """Test that column names are preserved across projection."""
         query = """

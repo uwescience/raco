@@ -210,6 +210,10 @@ class Parser:
         '''emit_arg : TIMES'''
         p[0] = emitarg.FullWildcardEmitArg()
 
+    def p_expression_select_from_where(self, p):
+        'expression : SELECT emit_arg_list FROM from_arg_list opt_where_clause'
+        p[0] = ('BAGCOMP', p[4], p[5], p[2])
+
     def p_expression_limit(self, p):
         'expression : LIMIT LPAREN expression COMMA INTEGER_LITERAL RPAREN'
         p[0] = ('LIMIT', p[3], p[5])
