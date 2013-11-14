@@ -459,8 +459,7 @@ class Unbox(ZeroaryOperator):
   def __init__(self, relational_expression, field):
     """Initialize an unbox expression.
 
-    relational_expression is an expression in the Myrial langauge that
-    evaluates to a relation.
+    relational_expression is a Myrial AST that evaluates to a relation.
 
     field is an optional column name/index within the relation.  If None,
     the system uses index 0.
