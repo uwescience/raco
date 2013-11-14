@@ -104,6 +104,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.emp_table)
 
+    def test_hybrid_emit_clause(self):
+        query = """
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        x = [FROM dept, X=emp EMIT 5, k=X.salary * 2, X.*, *];
+        DUMP(x);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = [(5,e[3] * 2) + e + d + e for e in self.emp_table
+                    for d in self.dept_table]
+        self.run_test(query, collections.Counter(expected))
+
     salary_filter_query = """
     emp = SCAN(%s);
     rich = [FROM emp WHERE %s > 25 * 10 * 10 * (5 + 5) EMIT *];
