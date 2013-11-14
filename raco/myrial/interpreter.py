@@ -27,13 +27,19 @@ class InvalidStatementException(Exception):
 class NoSuchRelationException(Exception):
     pass
 
+# State maintained for unboxed expressions.  Operation refers to the
+# operator tree; first_column_index is the start of the expression in
+# the output schema of the containing operation.
+UnboxOperation = collections.namedtuple("UnboxOperation",
+                                        ["operation", "first_column_index"])
+
 class UnboxState(object):
     """State maintained during the unbox phase of a bag comprehension."""
     def __init__(self, initial_pos):
         # This mapping keeps track of where unboxed expressions reside
         # in the output schema that is created from cross products of
         # all unboxed expressions.  The keys are relational expressions and
-        # the values are tuples of the form: (operation, first_column_index)
+        # the values are UnboxedOperation instances
         self.unbox_ops = collections.OrderedDict()
 
         # The next column index to be assigned
@@ -81,13 +87,13 @@ class ExpressionProcessor:
             if not rex in ub_state.unbox_ops:
                 unbox_op = self.evaluate(rex)
                 scheme = unbox_op.scheme()
-                ub_state.unbox_ops[rex] = (unbox_op, ub_state.pos)
+                ub_state.unbox_ops[rex] = UnboxOperation(unbox_op, ub_state.pos)
                 ub_state.pos += len(scheme)
             else:
-                unbox_op = ub_state.unbox_ops[rex][0]
+                unbox_op = ub_state.unbox_ops[rex].operation
                 scheme = unbox_op.scheme()
 
-            offset = ub_state.unbox_ops[rex][1]
+            offset = ub_state.unbox_ops[rex].first_column_index
             if not sexpr.field:
                 # Default to column zero
                 pass
@@ -123,7 +129,7 @@ class ExpressionProcessor:
             return raco.algebra.CrossProduct(x,y)
 
         # Update the op to be the cross product of all unboxed relations
-        cps = [v[0] for v in ub_state.unbox_ops.values()]
+        cps = [v.operation for v in ub_state.unbox_ops.values()]
         op = reduce(cross, cps, op)
         return op, where_clause, emit_args, ub_state.column_refs
 
