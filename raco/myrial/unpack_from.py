@@ -56,18 +56,18 @@ def __rewrite_expression(sexpr, from_args, base_offsets):
 
     return recursive_eval(sexpr)
 
-def unpack(from_args, where_clause, emit_clause):
+def unpack(from_args, where_clause, emit_args):
     """Proceess a list of from arguments.   Inputs:
 
     - from_args: A dictionary: id => raco.algebra.Operation
     - where_clause: An optional scalar expression (raco.expression)
-    - emit_clause: An optional list of tuples of the form:
-    (column_name, scalar_expression)
+    - emit_args: An list of tuples of the form:
+      (column_name, scalar_expression)
 
     Return values:
     - A single raco.algebra.Operation instance
     - A (possibly modified) where_clause
-    - A (possibly modified) emit_clause
+    - A (possibly modified) emit_args
     """
 
     assert len(from_args) > 0
@@ -83,9 +83,8 @@ def unpack(from_args, where_clause, emit_clause):
     if where_clause:
         where_clause = __rewrite_expression(where_clause, from_args, offsets)
 
-    if emit_clause:
-        emit_clause = [(name, __rewrite_expression(sexpr, from_args, offsets))
-                       for (name, sexpr) in emit_clause]
+    emit_args = [(name, __rewrite_expression(sexpr, from_args, offsets))
+                 for (name, sexpr) in emit_args]
 
-    return op, where_clause, emit_clause
+    return op, where_clause, emit_args
 
