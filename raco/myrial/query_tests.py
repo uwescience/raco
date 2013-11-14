@@ -86,11 +86,19 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.dept_table)
 
-
     def test_bag_comp_emit_star(self):
         query = """
         emp = SCAN(%s);
         bc = [FROM emp EMIT *];
+        DUMP(bc);
+        """ % self.emp_key
+
+        self.run_test(query, self.emp_table)
+
+    def test_bag_comp_emit_table_wildcard(self):
+        query = """
+        emp = SCAN(%s);
+        bc = [FROM emp EMIT emp.*];
         DUMP(bc);
         """ % self.emp_key
 
