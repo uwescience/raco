@@ -39,7 +39,7 @@ class UnboxState(object):
         # The next column index to be assigned
         self.pos = initial_pos
 
-        # A set of column integers that are referenced by unbox operations
+        # A set of column indexes that are referenced by unbox operations
         self.column_refs = set()
 
 class ExpressionProcessor:
@@ -76,29 +76,29 @@ class ExpressionProcessor:
         def unbox_node(sexpr):
             if not isinstance(sexpr, raco.expression.Unbox):
                 return sexpr
+
+            rex = sexpr.relational_expression
+            if not rex in ub_state.unbox_ops:
+                unbox_op = self.evaluate(rex)
+                scheme = unbox_op.scheme()
+                ub_state.unbox_ops[rex] = (unbox_op, ub_state.pos)
+                ub_state.pos += len(scheme)
             else:
-                rex = sexpr.relational_expression
-                if not rex in ub_state.unbox_ops:
-                    unbox_op = self.evaluate(rex)
-                    scheme = unbox_op.scheme()
-                    ub_state.unbox_ops[rex] = (unbox_op, ub_state.pos)
-                    ub_state.pos += len(scheme)
-                else:
-                    unbox_op = ub_state.unbox_ops[rex][0]
-                    scheme = unbox_op.scheme()
+                unbox_op = ub_state.unbox_ops[rex][0]
+                scheme = unbox_op.scheme()
 
-                offset = ub_state.unbox_ops[rex][1]
-                if not sexpr.field:
-                    # Default to column zero
-                    pass
-                elif type(sexpr.field) == types.IntType:
-                    offset += sexpr.field
-                else:
-                    # resolve column name into a position
-                    offset += scheme.getPosition(sexpr.field)
+            offset = ub_state.unbox_ops[rex][1]
+            if not sexpr.field:
+                # Default to column zero
+                pass
+            elif type(sexpr.field) == types.IntType:
+                offset += sexpr.field
+            else:
+                # resolve column name into a position
+                offset += scheme.getPosition(sexpr.field)
 
-                ub_state.column_refs.add(offset)
-                return raco.expression.UnnamedAttributeRef(offset)
+            ub_state.column_refs.add(offset)
+            return raco.expression.UnnamedAttributeRef(offset)
 
         def recursive_eval(sexpr):
             """Apply unbox to a node and all its descendents."""
