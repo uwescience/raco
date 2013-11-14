@@ -108,7 +108,7 @@ class ExpressionProcessor:
 
         return recursive_eval(sexpr)
 
-    def __unbox(self, op, where_clause, emit_clause):
+    def __unbox(self, op, where_clause, emit_args):
         """Apply unboxing to the clauses of a bag comprehension."""
         ub_state = UnboxState(len(op.scheme()))
 
@@ -116,10 +116,8 @@ class ExpressionProcessor:
             where_clause = self.__unbox_scalar_expression(where_clause,
                                                           ub_state)
 
-        if emit_clause:
-            emit_clause = [(name,
-                            self.__unbox_scalar_expression(sexpr, ub_state))
-                           for name, sexpr in emit_clause]
+        emit_args = [(name, self.__unbox_scalar_expression(sexpr, ub_state))
+                     for name, sexpr in emit_args]
 
         def cross(x,y):
             return raco.algebra.CrossProduct(x,y)
@@ -127,34 +125,30 @@ class ExpressionProcessor:
         # Update the op to be the cross product of all unboxed relations
         cps = [v[0] for v in ub_state.unbox_ops.values()]
         op = reduce(cross, cps, op)
-        return op, where_clause, emit_clause, ub_state.column_refs
+        return op, where_clause, emit_args, ub_state.column_refs
 
-    def __unbox_filter_group(self, op, where_clause, emit_clause):
+    def __unbox_filter_group(self, op, where_clause, emit_args):
         """Apply unboxing, filtering, and groupby."""
 
         # Record the original schema, so we can later strip off unboxed
         # columns.
         orig_scheme = op.scheme()
-        op, where_clause, emit_clause, unbox_columns = self.__unbox(
-            op, where_clause, emit_clause)
+        op, where_clause, emit_args, unbox_columns = self.__unbox(
+            op, where_clause, emit_args)
 
         if where_clause:
             op = raco.algebra.Select(condition=where_clause, input=op)
 
-        if not emit_clause:
-            # Strip off any columns that were added by unbox
-            mappings = [(orig_scheme.getName(i),
-                         raco.expression.UnnamedAttributeRef(i))
-                        for i in range(len(orig_scheme))]
-            return raco.algebra.Apply(mappings=mappings, input=op)
-        else:
-            # Apply any grouping operators
-            return groupby.groupby(op, emit_clause, unbox_columns)
+        # Apply any grouping operators
+        return groupby.groupby(op, emit_args, unbox_columns)
 
-    def table(self, mappings):
+    def table(self, emit_clause):
         """Emit a single-row table literal."""
         op = raco.algebra.SingletonRelation()
-        return self.__unbox_filter_group(op, None, mappings)
+        emit_args = []
+        for clause in emit_clause:
+            emit_args.extend(clause.expand({}))
+        return self.__unbox_filter_group(op, None, emit_args)
 
     def empty(self, _scheme):
         if not _scheme:
@@ -169,10 +163,8 @@ class ExpressionProcessor:
 
         where_clause: An optional scalar expression (raco.expression).
 
-        emit_clause: An optional list of tuples of the form
-        (column_name, scalar_expression).  The column name can be None, in
-        which case the system concocts a column name.  If the emit_clause
-        is None, all columns are emitted -- i.e., "EMIT *".
+        emit_clause: A list of EmitArg instances, each defining one or more
+        output columns.
         """
 
         # Make sure no aliases were reused: [FROM X, X EMIT *] is illegal
@@ -190,12 +182,18 @@ class ExpressionProcessor:
             else:
                 from_args[_id] =  self.symbols[_id]
 
+        # Expand wildcards into a list of output columns
+        assert emit_clause # There should always be something to emit
+        emit_args = []
+        for clause in emit_clause:
+            emit_args.extend(clause.expand(from_args))
+
         # Create a single RA operation that is the rollup of all from
         # targets; re-write where and emit clauses to refer to its schema.
-        op, where_clause, emit_clause = unpack_from.unpack(
-            from_args, where_clause, emit_clause)
+        op, where_clause, emit_args = unpack_from.unpack(
+            from_args, where_clause, emit_args)
 
-        return self.__unbox_filter_group(op, where_clause, emit_clause)
+        return self.__unbox_filter_group(op, where_clause, emit_args)
 
     def distinct(self, expr):
         op = self.evaluate(expr)
