@@ -60,9 +60,10 @@ def main(args):
 
     # Search for a catalog definition file
     catalog_path = os.path.join(os.path.dirname(opt.file), 'catalog.py')
-    catalog = None
     if os.path.exists(catalog_path):
         catalog = FakeCatalog.load_from_file(catalog_path)
+    else:
+        catalog = FakeCatalog({})
 
     _parser = parser.Parser()
     processor = interpreter.StatementProcessor(catalog, True)
