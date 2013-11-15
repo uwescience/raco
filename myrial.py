@@ -4,9 +4,9 @@
 
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
-
 import raco.scheme
 from raco import algebra
+from raco.viz import operator_to_dot
 
 import argparse
 import os
@@ -32,6 +32,9 @@ def parse_options(args):
                         help="Generate AST (parse tree)", action='store_true')
     group.add_argument('-l', dest='logical',
                         help="Generate logical plan", action='store_true')
+    group.add_argument('-d', dest='dot',
+                       help="Generate dot output for logical plan",
+                       action='store_true')
     group.add_argument('-j', dest='json',
                         help="Encode plan as JSON", action='store_true')
 
@@ -73,6 +76,8 @@ def main(args):
             processor.evaluate(statement_list)
             if opt.logical:
                 print_pretty_plan(processor.get_logical_plan())
+            elif opt.dot:
+                print operator_to_dot(processor.get_logical_plan())
             elif opt.json:
                 print json.dumps(processor.get_json())
             else:
