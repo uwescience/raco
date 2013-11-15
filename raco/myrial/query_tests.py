@@ -86,7 +86,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.dept_table)
 
-
     def test_bag_comp_emit_star(self):
         query = """
         emp = SCAN(%s);
@@ -95,6 +94,27 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.run_test(query, self.emp_table)
+
+    def test_bag_comp_emit_table_wildcard(self):
+        query = """
+        emp = SCAN(%s);
+        bc = [FROM emp EMIT emp.*];
+        DUMP(bc);
+        """ % self.emp_key
+
+        self.run_test(query, self.emp_table)
+
+    def test_hybrid_emit_clause(self):
+        query = """
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        x = [FROM dept, X=emp EMIT 5, k=X.salary * 2, X.*, *];
+        DUMP(x);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = [(5,e[3] * 2) + e + d + e for e in self.emp_table
+                    for d in self.dept_table]
+        self.run_test(query, collections.Counter(expected))
 
     salary_filter_query = """
     emp = SCAN(%s);
@@ -347,6 +367,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         D = SCAN(%s);
         out = [FROM E, D WHERE E.$1 == D.$0
               EMIT emp_name=E.name, dept_name=D.$1];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        self.run_test(query, self.join_expected)
+
+    def test_sql_join(self):
+        """SQL-style select-from-where join"""
+
+        query = """
+        E = SCAN(%s);
+        D = SCAN(%s);
+        out = SELECT E.name, D.name FROM E, D WHERE E.dept_id == D.id;
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
@@ -817,7 +849,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
-        with self.assertRaises(raco.myrial.unpack_from.ColumnIndexOutOfBounds):
+        with self.assertRaises(raco.myrial.exceptions.ColumnIndexOutOfBounds):
             self.run_test(query, collections.Counter())
 
     def test_abs(self):

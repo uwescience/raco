@@ -5,6 +5,7 @@ import ply.yacc as yacc
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
 import raco.expression as sexpr
+import raco.myrial.emitarg as emitarg
 import raco.myrial.exceptions
 
 import collections
@@ -104,7 +105,7 @@ class Parser:
 
     def p_expression_table_literal(self, p):
         'expression : LBRACKET emit_arg_list RBRACKET'
-        p[0] = ('TABLE', tuple(p[2]))
+        p[0] = ('TABLE', p[2])
 
     def p_expression_empty(self, p):
         'expression : EMPTY LPAREN optional_schema RPAREN'
@@ -155,8 +156,8 @@ class Parser:
 
     def p_expression_bagcomp(self, p):
         'expression : LBRACKET FROM from_arg_list opt_where_clause \
-        emit_clause RBRACKET'
-        p[0] = ('BAGCOMP', p[3], p[4], p[5])
+        EMIT emit_arg_list RBRACKET'
+        p[0] = ('BAGCOMP', p[3], p[4], p[6])
 
     def p_from_arg_list(self, p):
         '''from_arg_list : from_arg_list COMMA from_arg
@@ -182,29 +183,36 @@ class Parser:
         else:
             p[0] = None
 
-    def p_emit_clause_star(self, p):
-        '''emit_clause : EMIT TIMES'''
-        p[0] = None
-
-    def p_emit_clause_list(self, p):
-        '''emit_clause : EMIT emit_arg_list'''
-        p[0] = tuple(p[2])
-
     def p_emit_arg_list(self, p):
         '''emit_arg_list : emit_arg_list COMMA emit_arg
                          | emit_arg'''
         if len(p) == 4:
-            p[0] = p[1] + [p[3]]
+            p[0] = p[1] + (p[3],)
         else:
-            p[0] = [p[1]]
+            p[0] = (p[1],)
 
-    def p_emit_arg(self, p):
-        '''emit_arg : string_arg EQUALS sexpr
+    def p_emit_arg_singleton(self, p):
+        '''emit_arg : ID EQUALS sexpr
                     | sexpr'''
         if len(p) == 4:
-            p[0] = (p[1], p[3])
+            name = p[1]
+            sexpr = p[3]
         else:
-            p[0] = (None, p[1])
+            name = None
+            sexpr = p[1]
+        p[0] = emitarg.SingletonEmitArg(name, sexpr)
+
+    def p_emit_arg_table_wildcard(self, p):
+        '''emit_arg : ID DOT TIMES'''
+        p[0] = emitarg.TableWildcardEmitArg(p[1])
+
+    def p_emit_arg_full_wildcard(self, p):
+        '''emit_arg : TIMES'''
+        p[0] = emitarg.FullWildcardEmitArg()
+
+    def p_expression_select_from_where(self, p):
+        'expression : SELECT emit_arg_list FROM from_arg_list opt_where_clause'
+        p[0] = ('BAGCOMP', p[4], p[5], p[2])
 
     def p_expression_limit(self, p):
         'expression : LIMIT LPAREN expression COMMA INTEGER_LITERAL RPAREN'
