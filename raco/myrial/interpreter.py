@@ -16,6 +16,7 @@ import collections
 import random
 import sys
 import types
+import copy
 
 class DuplicateAliasException(Exception):
     """Bag comprehension arguments must have different alias names."""
@@ -42,6 +43,9 @@ class UnboxState(object):
         # A set of column integers that are referenced by unbox operations
         self.column_refs = set()
 
+def lookup_symbol(symbols, _id):
+    return copy.copy(symbols[_id])
+
 class ExpressionProcessor:
     """Convert syntactic expressions into relational algebra operations."""
     def __init__(self, symbols, catalog, use_dummy_schema=False):
@@ -54,7 +58,7 @@ class ExpressionProcessor:
         return method(*expr[1:])
 
     def alias(self, _id):
-        return self.symbols[_id]
+        return lookup_symbol(self.symbols, _id)
 
     def scan(self, relation_key):
         """Scan a database table."""
@@ -188,7 +192,7 @@ class ExpressionProcessor:
             if expr:
                 from_args[_id] =  self.evaluate(expr)
             else:
-                from_args[_id] =  self.symbols[_id]
+                from_args[_id] = lookup_symbol(self.symbols, _id)
 
         # Create a single RA operation that is the rollup of all from
         # targets; re-write where and emit clauses to refer to its schema.
@@ -311,12 +315,12 @@ class StatementProcessor:
         self.__materialize_result(_id, expr, self.output_ops)
 
     def store(self, _id, relation_key):
-        child_op = self.symbols[_id]
+        child_op = lookup_symbol(self.symbols, _id)
         op = raco.algebra.Store(relation_key, child_op)
         self.output_ops.append(op)
 
     def dump(self, _id):
-        child_op = self.symbols[_id]
+        child_op = lookup_symbol(self.symbols, _id)
         op = raco.algebra.StoreTemp("__OUTPUT%d__" % self.dump_output_id,
                                     child_op)
         self.dump_output_id += 1
