@@ -10,28 +10,6 @@ import raco.scheme
 
 debug = False
 
-def normalize_equijoin_condition(cond, left_len):
-    """Convert datalog-style equijoin conditions to Myrial-style conditions.
-
-    https://github.com/uwescience/datalogcompiler/issues/65
-    """
-
-    def normalize_recursive(x):
-        if isinstance(x, raco.boolean.EQ):
-            # only equijoins supported
-            assert isinstance(x.left, UnnamedAttributeRef)
-            assert isinstance(x.right, UnnamedAttributeRef)
-
-            n = raco.expression.EQ(
-                UnnamedAttributeRef(x.left.position),
-                UnnamedAttributeRef(x.right.position + left_len))
-        else:
-            n = x
-        n.apply(normalize_recursive)
-        return n
-
-    return normalize_recursive(cond)
-
 class FakeDatabase:
     """An in-memory implementation of relational algebra operators"""
 
@@ -106,10 +84,8 @@ class FakeDatabase:
         p1 = itertools.product(left_it, right_it)
         p2 = (x + y for (x,y) in p1)
 
-        cond = normalize_equijoin_condition(op.condition, len(op.left.scheme()))
-
         # Return tuples that match on the join conditions
-        return (tpl for tpl in p2 if cond.evaluate(tpl, op.scheme()))
+        return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
 
     def crossproduct(self, op):
         left_it = self.evaluate(op.left)
