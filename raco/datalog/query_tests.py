@@ -134,6 +134,15 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         expected = collections.Counter([(4,),(5,)])
         self.run_test(query, expected)
 
+    def test_triangles(self):
+        query = """
+        T(x,y,z) :- Edge(x,y), Edge(y,z), Edge(z,x);
+        A(x,y,z) :- T(x,y,z), x < y, x < z.
+        """
+
+        expected = collections.Counter([(3,5,4), (10,11,12)])
+        self.run_test(query, expected)
+
     def test_multiway_join(self):
         query = """
         ThreeHop(z) :- Edge(1, x), Edge(x,y), Edge(y, z);
