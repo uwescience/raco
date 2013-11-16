@@ -272,10 +272,8 @@ def convertcondition(condition, left_len):
     # Myrial emits equijoin conditions whose schema refers to the join output,
     # whereas datalog emits conditions that refer to the input schemas.
     # TODO: reconcile these models
-  if isinstance(condition, boolean.EQ):
-    # Datalog-style equijoins
-    return [condition.left.position], [condition.right.position]
-  if isinstance(condition, expression.EQ):
+  if isinstance(condition, boolean.EQ) or \
+     isinstance(condition, expression.EQ):
     # Myrial-stye equijoins
     leftcol = min(condition.left.position, condition.right.position)
     rightcol = max(condition.left.position, condition.right.position)
