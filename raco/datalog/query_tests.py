@@ -135,6 +135,9 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         self.run_test(query, expected)
 
     def test_triangles(self):
+        # TODO. Right now we have do this separately so that the x<y and y<z
+        # conditions are not put in the Join, rather rendered as Selects.
+        # Myrialang barfs on theta-joins.
         query = """
         T(x,y,z) :- Edge(x,y), Edge(y,z), Edge(z,x);
         A(x,y,z) :- T(x,y,z), x < y, x < z.
