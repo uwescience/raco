@@ -1,7 +1,7 @@
 import math
 
 import boolean
-from utility import emit, Printable
+from raco.utility import emit, Printable
 
 """
 An expression language for datalog: Function calls, arithmetic, simple string functions

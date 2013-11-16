@@ -1,4 +1,4 @@
-from utility import Printable
+from raco.utility import Printable
 
 """
 Boolean logic
