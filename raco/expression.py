@@ -482,7 +482,7 @@ def is_column_comparison(expr, scheme):
   None if the expression is not a simple column comparison.
   """
 
-  if isinstance(expr, EQ) and isinstance(expr.left, AttributeRef) \
+  if (isinstance(expr, EQ) or isinstance(expr, boolean.EQ)) and isinstance(expr.left, AttributeRef) \
      and isinstance(expr.right, AttributeRef):
     return (toUnnamed(expr.left, scheme).position,
             toUnnamed(expr.right, scheme).position)
