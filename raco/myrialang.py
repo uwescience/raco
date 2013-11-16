@@ -6,7 +6,6 @@
 #     :set modelines?       -> should be > 0
 
 import algebra
-import boolean
 import json
 from operator import and_
 import rules
@@ -64,7 +63,7 @@ def compile_expr(op, child_scheme):
   ####
   # Put special handling at the top!
   ####
-  if isinstance(op, expression.NumericLiteral) or isinstance(op, boolean.NumericLiteral):
+  if isinstance(op, expression.NumericLiteral):
     if type(op.value) == int:
       if op.value <= 2**31-1 and op.value >= -2**31:
         myria_type = 'INT_TYPE'
@@ -93,7 +92,7 @@ def compile_expr(op, child_scheme):
         'type' : op.opname(),
         'operand' : compile_expr(op.input, child_scheme)
     }
-  elif isinstance(op, expression.BinaryOperator) or isinstance(op, boolean.BinaryBooleanOperator):
+  elif isinstance(op, expression.BinaryOperator):
     return {
         'type' : op.opname(),
         'left' : compile_expr(op.left, child_scheme),
@@ -263,8 +262,7 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
 def convertcondition(condition, left_len):
   """Convert an equijoin condition to a pair of column lists."""
 
-  if isinstance(condition, boolean.AND) or \
-     isinstance(condition, expression.AND):
+  if isinstance(condition, expression.AND):
     leftcols1, rightcols1 = convertcondition(condition.left, left_len)
     leftcols2, rightcols2 = convertcondition(condition.right, left_len)
     return leftcols1 + leftcols2, rightcols1 + rightcols2
@@ -272,8 +270,7 @@ def convertcondition(condition, left_len):
     # Myrial emits equijoin conditions whose schema refers to the join output,
     # whereas datalog emits conditions that refer to the input schemas.
     # TODO: reconcile these models
-  if isinstance(condition, boolean.EQ) or \
-     isinstance(condition, expression.EQ):
+  if isinstance(condition, expression.EQ):
     # Myrial-stye equijoins
     leftcol = min(condition.left.position, condition.right.position)
     rightcol = max(condition.left.position, condition.right.position)

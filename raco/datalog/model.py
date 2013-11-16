@@ -4,8 +4,7 @@ Classes for representing and manipulating Datalog programs.
 In particular, they can be compiled to (iterative) relational algebra expressions.
 '''
 import networkx as nx
-import raco.boolean
-import raco.expression
+from raco import expression
 import raco.algebra
 import raco.scheme
 import raco.catalog
@@ -249,7 +248,7 @@ class Rule:
     terms = [c for c in self.body if isinstance(c, Term)]
 
     # get the conditions, like Z=3
-    conditions = [c for c in self.body if isinstance(c, raco.boolean.BinaryBooleanOperator)]
+    conditions = [c for c in self.body if isinstance(c, expression.BinaryBooleanOperator)]
 
     # construct the join graph
     joingraph = nx.Graph()
@@ -263,7 +262,7 @@ class Rule:
         term2 = terms[j]
         joins = term1.joinsto(term2, conditions)
         if joins:
-          conjunction = reduce(raco.boolean.AND, joins) 
+          conjunction = reduce(expression.AND, joins) 
           joingraph.add_edge(term1, term2, condition=conjunction, order=(term1, term2)) 
 
     # find connected components (some non-determinism in the order here)
@@ -324,7 +323,7 @@ class Rule:
       if isinstance(r,Var):
         name = r.var
         attrtype = None
-      elif isinstance(r,raco.boolean.Literal):
+      elif isinstance(r,expression.Literal):
         name = "pos%s" % i 
         attrtype = type(r.value)
       return (name, attrtype)
@@ -446,7 +445,7 @@ class Term:
         # select? In addition to the select?? Might it be better to Join on
         # the second attribute instead? TODO
         yourposition = Pos(match[0])
-        joins.append(raco.boolean.EQ(myposition, yourposition))
+        joins.append(expression.EQ(myposition, yourposition))
 
     # get the explicit join conditions
     for c in conditions:
@@ -482,7 +481,7 @@ class Term:
     """Given a list of parsed Datalog boolean conditions, return an iterator over RA selection conditions that apply to this term.  Ignore join conditions."""
     # This method is written rather verbosely for clarity
 
-    Literal = raco.boolean.Literal
+    Literal = expression.Literal
 
     for condition in conditions:
     
@@ -528,9 +527,9 @@ class Term:
 For example, A(X,X) implies position0 == position1, and A(X,4) implies position1 == 4"""
     # Check for implicit literal equality conditions, like A(X,"foo")
     for i,b in enumerate(self.valuerefs):
-      if isinstance(b,raco.boolean.Literal):
+      if isinstance(b,expression.Literal):
         posref = raco.expression.UnnamedAttributeRef(i)
-        yield raco.boolean.EQ(posref, b)
+        yield expression.EQ(posref, b)
 
     # Check for repeated variable conditions, like A(X,X)
     N = len(self.valuerefs)
@@ -543,7 +542,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
             if x.var == y.var:
               leftpos = raco.expression.UnnamedAttributeRef(i)
               rightpos = raco.expression.UnnamedAttributeRef(j)
-              yield raco.boolean.EQ(leftpos, rightpos)
+              yield expression.EQ(leftpos, rightpos)
  
   def renameIDB(self, plan):
     """Rename the attributes of the plan to match the current rule. Used when chaining multiple rules."""
@@ -593,7 +592,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
       if isinstance(r,Var):
         name = r.var
         attrtype = None
-      elif isinstance(r,raco.boolean.Literal):
+      elif isinstance(r,expression.Literal):
         name = "pos%s" % i 
         attrtype = type(r.value)
       return (name, attrtype)
@@ -618,7 +617,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
     allconditions = implconds + explconds
 
     if allconditions:
-      conjunction = reduce(raco.boolean.AND, allconditions)
+      conjunction = reduce(expression.AND, allconditions)
       plan = raco.algebra.Select(conjunction, scan)
     else:
       plan = scan  

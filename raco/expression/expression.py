@@ -1,6 +1,5 @@
 import math
 
-import boolean
 from raco.utility import emit, Printable
 
 """
@@ -36,6 +35,21 @@ class Expression(Printable):
   def apply(self, f):
     """Replace children with the result of a function"""
     pass
+
+  def add_offset(self, offset):
+    """Add a constant offset to every positional reference in this tree"""
+    def doit(self):
+        if isinstance(self, UnnamedAttributeRef):
+            self.position += offset
+        return self
+
+    # We have to manually walk the postorder because otherwise nothing ever
+    # .. gets executed. Stupid generators.
+    #
+    # TODO(andrew) am I missing something crazy here? self.postorder(doit) does
+    # nothing.
+    for x in self.postorder(doit):
+        pass
 
 class ZeroaryOperator(Expression):
   def __init__(self):
@@ -105,6 +119,14 @@ class BinaryOperator(Expression):
     self.left = f(self.left)
     self.right = f(self.right)
 
+  def leftoffset(self, offset):
+    """Add a constant offset to all positional references in the left subtree"""
+    self.left.add_offset(offset)
+
+  def rightoffset(self, offset):
+    """Add a constant offset to all positional references in the right subtree"""
+    self.right.add_offset(offset)
+
 class Literal(ZeroaryOperator):
   def __init__(self, value):
     self.value = value
@@ -169,16 +191,6 @@ class UnnamedAttributeRef(AttributeRef):
 
   def __str__(self):
     return "$%s" % (self.position)
-
-  # TODO: These are artifacts of a messy way of handling attribute references
-  # Hopefully will go away.
-  def leftoffset(self, offset):
-    """Add an offset to this positional reference.  Used when building a plan from a set of joins"""
-    self.position = self.position + offset
-
-  def rightoffset(self, offset):
-    """Add an offset to this positional reference.  Used when building a plan from a set of joins"""
-    self.position = self.position + offset
 
   def get_position(self, scheme):
     return self.position
@@ -482,7 +494,7 @@ def is_column_comparison(expr, scheme):
   None if the expression is not a simple column comparison.
   """
 
-  if (isinstance(expr, EQ) or isinstance(expr, boolean.EQ)) and isinstance(expr.left, AttributeRef) \
+  if isinstance(expr, EQ) and isinstance(expr.left, AttributeRef) \
      and isinstance(expr.right, AttributeRef):
     return (toUnnamed(expr.left, scheme).position,
             toUnnamed(expr.right, scheme).position)
@@ -493,7 +505,7 @@ def is_column_comparison(expr, scheme):
 def extract_conjuncs(sexpr):
   """Return a list of conjunctions from a scalar expression."""
 
-  if isinstance(sexpr, boolean.AND) or isinstance(sexpr, AND):
+  if isinstance(sexpr, AND):
       left = extract_conjuncs(sexpr.left)
       right = extract_conjuncs(sexpr.right)
       return left + right

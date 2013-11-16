@@ -1,4 +1,3 @@
-import boolean
 import rules
 import algebra
 from language import Language

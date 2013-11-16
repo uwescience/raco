@@ -1,4 +1,3 @@
-import boolean
 import expression
 import scheme
 from utility import emit, Printable

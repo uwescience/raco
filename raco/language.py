@@ -1,4 +1,3 @@
-import boolean
 import expression
 
 class Language:
@@ -53,12 +52,12 @@ class Language:
     """
 Replace column names with positions
 """ 
-    if isinstance(condition, boolean.BinaryBooleanOperator):
+    if isinstance(condition, expression.BinaryBooleanOperator):
       condition.left = Language.unnamed(condition.left, sch)
       condition.right = Language.unnamed(condition.right, sch)
       result = condition
 
-    elif isinstance(condition, boolean.UnaryBooleanOperator):
+    elif isinstance(condition, expression.UnaryBooleanOperator):
       condition.input = Language.unnamed(condition.input, sch)
       result = condition
 
@@ -78,36 +77,36 @@ Replace column names with positions
     """
 Compile a boolean condition into the target language
   """
-    if isinstance(expr, boolean.UnaryBooleanOperator):
+    if isinstance(expr, expression.UnaryBooleanOperator):
       input = cls.compile_boolean(expr.input)
-      if isinstance(expr, boolean.NOT):
+      if isinstance(expr, expression.NOT):
         return cls.negation(input)
-    if isinstance(expr, boolean.BinaryBooleanOperator):
+    if isinstance(expr, expression.BinaryBooleanOperator):
       left, right = cls.compile_boolean(expr.left), cls.compile_boolean(expr.right)
-      if isinstance(expr, boolean.AND):
+      if isinstance(expr, expression.AND):
         return cls.conjunction(left, right)
-      if isinstance(expr, boolean.OR):
+      if isinstance(expr, expression.OR):
         return cls.disjunction(left, right)
-      if isinstance(expr, boolean.EQ):
+      if isinstance(expr, expression.EQ):
         return cls.boolean_combine([left, right], operator="==")
-      if isinstance(expr, boolean.NEQ):
+      if isinstance(expr, expression.NEQ):
         return cls.boolean_combine([left, right], operator="!=")
-      if isinstance(expr, boolean.GT):
+      if isinstance(expr, expression.GT):
         return cls.boolean_combine([left, right], operator=">")
-      if isinstance(expr, boolean.LT):
+      if isinstance(expr, expression.LT):
         return cls.boolean_combine([left, right], operator="<")
-      if isinstance(expr, boolean.GTEQ):
+      if isinstance(expr, expression.GTEQ):
         return cls.boolean_combine([left, right], operator=">=")
-      if isinstance(expr, boolean.LTEQ):
+      if isinstance(expr, expression.LTEQ):
         return cls.boolean_combine([left, right], operator="<=")
 
     elif isinstance(expr, expression.NamedAttributeRef):
       return cls.compile_attribute(expr)
 
-    elif isinstance(expr, boolean.StringLiteral):
+    elif isinstance(expr, expression.StringLiteral):
       return cls.compile_stringliteral(expr.value)
   
-    elif isinstance(expr, boolean.NumericLiteral):
+    elif isinstance(expr, expression.NumericLiteral):
       return cls.compile_numericliteral(expr.value)
   
     elif isinstance(expr, expression.UnnamedAttributeRef):

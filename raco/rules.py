@@ -1,4 +1,4 @@
-import boolean
+from raco import expression
 
 class Rule:
   """
@@ -14,7 +14,7 @@ class CrossProduct2Join(Rule):
   """A rewrite rule for removing Cross Product"""
   def fire(self, expr):
     if isinstance(expr, algebra.CrossProduct):
-      return algebra.Join(boolean.EQ(boolean.NumericLiteral(1),boolean.NumericLiteral(1)), expr.left, expr.right)
+      return algebra.Join(expression.EQ(expression.NumericLiteral(1),expression.NumericLiteral(1)), expr.left, expr.right)
     return expr
 
   def __str__(self):
