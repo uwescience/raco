@@ -6,8 +6,6 @@ import raco.expression as e
 def RATest(query):
   dlog = RACompiler()
   dlog.fromDatalog(query)
-  print query
-  print dlog.logicalplan
   # TODO: Testing for string equality, but we should do something like what Andrew does -- evaluate the expressions on test data.
   return "%s" % dlog.logicalplan
 

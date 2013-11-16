@@ -121,11 +121,23 @@ class BinaryOperator(Expression):
 
   def leftoffset(self, offset):
     """Add a constant offset to all positional references in the left subtree"""
-    self.left.add_offset(offset)
+    # TODO this is a very weird mechanism. It's really: take all terms that
+    # reference the left child and add the offset to them. The implementation
+    # is awkward and, is it correct? Elephant x Rhino!
+    if isinstance(self.left, BinaryOperator):
+        self.left.leftoffset(offset)
+        self.right.leftoffset(offset)
+    else:
+        self.left.add_offset(offset)
 
   def rightoffset(self, offset):
     """Add a constant offset to all positional references in the right subtree"""
-    self.right.add_offset(offset)
+    # TODO see leftoffset
+    if isinstance(self.right, BinaryOperator):
+        self.left.rightoffset(offset)
+        self.right.rightoffset(offset)
+    else:
+        self.right.add_offset(offset)
 
 class Literal(ZeroaryOperator):
   def __init__(self, value):
