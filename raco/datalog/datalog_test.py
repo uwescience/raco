@@ -15,15 +15,17 @@ class DatalogTestCase(unittest.TestCase):
     def execute_query(self, query):
         '''Run a test query against the fake database'''
 
+        #print query
+
         dlog = RACompiler()
         dlog.fromDatalog(query)
 
-#        print dlog.logicalplan
+        #print dlog.logicalplan
 
         dlog.optimize(target=MyriaAlgebra,
                       eliminate_common_subexpressions=False)
 
-#        print dlog.physicalplan
+        #print dlog.physicalplan
 
         op = dlog.physicalplan[0][1]
         output_op = raco.algebra.StoreTemp('__OUTPUT__', op)

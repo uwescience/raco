@@ -79,6 +79,7 @@ with respect to datalog terms"""
   def __init__(self):
     self.terms = []
     self.conditions = []
+    self.num_atoms = 0
 
   def offset(self, term):
     """Find the position offset for columns in term.  
@@ -111,10 +112,13 @@ and offset([A(X,Y), B(Y,Z)], A) == 0"""
     """Append a join to the sequence.  The left term should already appear somewhere in the sequence."""
     if not self.terms:
       self.terms.append(left)
+      self.num_atoms += len(left)
 
     leftoffset = self.offset(left)
     condition.leftoffset(leftoffset)
+    condition.rightoffset(self.num_atoms)
     self.terms.append(right)
+    self.num_atoms += len(right)
     self.conditions.append(condition)
 
   def __repr__(self):
@@ -398,6 +402,10 @@ class Term:
     self.name = parsedterm[0]
     self.alias = self.name
     self.valuerefs = [vr for vr in parsedterm[1]]
+
+  def __len__(self):
+    """How many atoms are in this term"""
+    return len(self.valuerefs)
 
   def setalias(self, alias):
     """Assign an alias for this term. Used when the same relation appears twice in one rule."""

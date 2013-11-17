@@ -6,32 +6,31 @@ import raco.expression as e
 def RATest(query):
   dlog = RACompiler()
   dlog.fromDatalog(query)
-  dlog.logicalplan
   # TODO: Testing for string equality, but we should do something like what Andrew does -- evaluate the expressions on test data.
   return "%s" % dlog.logicalplan
 
 class DatalogTest(unittest.TestCase):
   def test_join(self):
     join = """A(x,z) :- R(x,y), S(y,z)"""
-    desiredresult = """[('A', Project($0,$3)[Join($1 = $0)[Scan(R), Scan(S)]])]"""
+    desiredresult = """[('A', Project($0,$3)[Join($1 = $2)[Scan(R), Scan(S)]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
   def test_selfjoin(self):
     join = """A(x,z) :- R(x,y), R(y,z)"""
-    desiredresult = """[('A', Project($0,$3)[Join($1 = $0)[Scan(R), Scan(R)]])]"""
+    desiredresult = """[('A', Project($0,$3)[Join($1 = $2)[Scan(R), Scan(R)]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
-  #def test_triangle(self):
-  #  join = """A(x,y,z) :- R(x,y), S(y,z), T(z,x)"""
-  #  desiredresult = """[('A', Project($0,$1,$3)[Select($0 = $5)[Join($3 = $0)[Join($1 = $0)[Scan(R), Scan(S)], Scan(T)]]])]"""
-  #  testresult = RATest(join)
-  #  self.assertEqual(testresult, desiredresult)
+  def test_triangle(self):
+    join = """A(x,y,z) :- R(x,y), S(y,z), T(z,x)"""
+    desiredresult = """[('A', Project($0,$1,$3)[Select($3 = $4)[Join($0 = $5)[Join($1 = $2)[Scan(R), Scan(S)], Scan(T)]]])]"""
+    testresult = RATest(join)
+    self.assertEqual(testresult, desiredresult)
 
   def test_explicit_conditions(self):
     join = """A(x,y,z) :- R(x,y), S(w,z), x<y,y<z,y=w"""
-    desiredresult = """[('A', Project($0,$1,$3)[Join($1 < $1 and $1 = $0)[Select($0 < $1)[Scan(R)], Scan(S)]])]"""
+    desiredresult = """[('A', Project($0,$1,$3)[Join($1 < $3 and $1 = $2)[Select($0 < $1)[Scan(R)], Scan(S)]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
@@ -43,7 +42,7 @@ class DatalogTest(unittest.TestCase):
 
   def test_select2(self):
     select = "A(x) :- R(x,y), S(y,z,4), z<3"
-    desiredresult = """[('A', Project($0)[Join($1 = $0)[Scan(R), Select($2 = 4 and $1 < 3)[Scan(S)]]])]"""
+    desiredresult = """[('A', Project($0)[Join($1 = $2)[Scan(R), Select($2 = 4 and $1 < 3)[Scan(S)]]])]"""
     testresult = RATest(select)
     self.assertEqual(testresult, desiredresult)
 
@@ -95,7 +94,7 @@ JustXBill(x) :- TwitterK(x,y)
 JustXBill2(x) :- JustXBill(x)
 JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
 """
-    desiredresult = """[('JustXBillSquared', Project($0)[Join($0 = $0)[Apply(x=$0)[Project($0)[Scan(TwitterK)]], Apply(x=$0)[Project($0)[Apply(x=$0)[Project($0)[Scan(TwitterK)]]]]]])]"""
+    desiredresult = """[('JustXBillSquared', Project($0)[Join($0 = $1)[Apply(x=$0)[Project($0)[Scan(TwitterK)]], Apply(x=$0)[Project($0)[Apply(x=$0)[Project($0)[Scan(TwitterK)]]]]]])]"""
     testresult = RATest(query)
     self.assertEqual(testresult, desiredresult)
 
