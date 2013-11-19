@@ -1,7 +1,7 @@
 """
 An expression language for Raco: functions, booleans, aggregates, etc.
 
-Most complex expressions are in separate files in this package.
+Most non-trivial operators and functions are in separate files in this package.
 """
 
 from raco.utility import Printable
