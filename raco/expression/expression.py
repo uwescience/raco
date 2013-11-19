@@ -143,6 +143,14 @@ class BinaryOperator(Expression):
 class NaryOperator(Expression):
   pass
 
+class UnaryFunction(UnaryOperator):
+  def __str__(self):
+    return "%s(%s)" % (self.__class__.__name__, self.input)
+
+class BinaryFunction(BinaryOperator):
+  def __str__(self):
+    return "%s(%s, %s)" % (self.__class__.__name__, self.left, self.right)
+
 class Literal(ZeroaryOperator):
   def __init__(self, value):
     self.value = value
@@ -238,12 +246,6 @@ class DottedAttributeRef(AttributeRef):
 class UDF(NaryOperator):
   pass
 
-class POW(BinaryOperator):
-  literals = ['POW']
-  def evaluate(self, _tuple, scheme):
-    return pow(self.left.evaluate(_tuple, scheme),
-               self.right.evaluate(_tuple, scheme))
-
 class PLUS(BinaryOperator):
   literals = ["+"]
 
@@ -280,10 +282,6 @@ class NEG(UnaryOperator):
   def evaluate(self, _tuple, scheme):
     return -1 * self.input.evaluate(_tuple, scheme)
 
-class UnaryFunction(UnaryOperator):
-  def __str__(self):
-    return "%s(%s)" % (self.__class__.__name__, self.input)
-
 class ABS(UnaryFunction):
   def evaluate(self, _tuple, scheme):
     return abs(self.input.evaluate(_tuple, scheme))
@@ -315,6 +313,12 @@ class SQRT(UnaryFunction):
 class TAN(UnaryFunction):
   def evaluate(self, _tuple, scheme):
     return math.tan(self.input.evaluate(_tuple, scheme))
+
+class POW(BinaryFunction):
+  literals = ['POW']
+  def evaluate(self, _tuple, scheme):
+    return pow(self.left.evaluate(_tuple, scheme),
+               self.right.evaluate(_tuple, scheme))
 
 class Unbox(ZeroaryOperator):
   def __init__(self, relational_expression, field):
