@@ -2,7 +2,8 @@
 Boolean operators for use in Raco expression trees
 """
 
-from .expression import Expression, UnaryOperator, BinaryOperator, AttributeRef
+from .expression import Expression, UnaryOperator, BinaryOperator, \
+        AttributeRef, NumericLiteral
 
 class BooleanExpression(Expression):
   pass
@@ -90,6 +91,8 @@ reverse = {
   GT:LT,
   LT:GT
 }
+
+TAUTOLOGY = EQ(NumericLiteral(1), NumericLiteral(1))
 
 def is_column_comparison(expr, scheme):
   """Return a truthy value if the expression is a comparison between columns.
