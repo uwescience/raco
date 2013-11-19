@@ -140,6 +140,9 @@ class BinaryOperator(Expression):
     else:
         self.right.add_offset(offset)
 
+class NaryOperator(Expression):
+  pass
+
 class Literal(ZeroaryOperator):
   def __init__(self, value):
     self.value = value
@@ -231,9 +234,6 @@ class DottedAttributeRef(AttributeRef):
     evaluation.  See unpack_from.py.
     """
     raise NotImplementedError()
-
-class NaryOperator(Expression):
-  pass
 
 class UDF(NaryOperator):
   pass
