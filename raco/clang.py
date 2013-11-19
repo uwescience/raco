@@ -3,6 +3,7 @@ import algebra
 from language import Language
 import catalog
 
+import expression
 import os.path
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c_templates")
@@ -71,7 +72,7 @@ class CC(Language):
   def compile_attribute(cls, expr):
     if isinstance(expr, expression.NamedAttributeRef):
       raise TypeError("Error compiling attribute reference %s. C compiler only support unnamed perspective.  Use helper function unnamed." % expr)
-    if isinstance(expr, boolean.UnnamedAttributeRef):
+    if isinstance(expr, expression.UnnamedAttributeRef):
       position = expr.leaf_position
       relation = expr.relationsymbol
       rowvariable = expr.rowvariable
@@ -83,11 +84,11 @@ class CCOperator (object):
 class FileScan(algebra.Scan, CCOperator):
 
   def compileme(self, resultsym):
-    name = self.relation.name
+    name = self.relation_key
     #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
     #self.trace("// Original query position of %s: term %s (%s)" % tup)
 
-    if isinstance(self.relation, catalog.ASCIIFile):
+    if isinstance(self.relation_key, catalog.ASCIIFile):
       code = ascii_scan_template % locals()
     else:
       code = binary_scan_template % locals()
@@ -102,12 +103,12 @@ Count matches, allocate memory, loop again to populate result
     """Tag each position reference in the join condition with the relation symbol it should refer to in the compiled code. joinlevel is the index of the join in the chain."""
     # TODO: this function is also impossible to understand.  Attribute references need an overhaul.
     def helper(condition):
-      if isinstance(condition, boolean.UnaryBooleanOperator):
+      if isinstance(condition, expression.UnaryBooleanOperator):
         helper(condition.input)
-      if isinstance(condition, boolean.BinaryBooleanOperator):
+      if isinstance(condition, expression.BinaryBooleanOperator):
         helper(condition.left)
         helper(condition.right)
-      if isinstance(condition, boolean.BinaryComparisonOperator):
+      if isinstance(condition, expression.BinaryComparisonOperator):
         if isinstance(condition.left, expression.UnnamedAttributeRef):
           condition.left.rowvariable = "i"
           condition.left.relationsymbol = inputsym
@@ -136,7 +137,7 @@ class TwoPassHashJoin(algebra.Join, CCOperator):
 A Join that hashes its left input and constructs an output relation.
 """
   def compileme(self, resultsym, leftsym, rightsym):
-    if not isinstance(self.condition,boolean.EQ):
+    if not isinstance(self.condition,expression.EQ):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
     
@@ -187,7 +188,7 @@ class FilteringNestedLoopJoin(FilteringJoin, CCOperator):
 A nested loop join that applies a selection condition on each relation.
 """
   def compileme(self, resultsym, leftsym, rightsym):
-    if not isinstance(self.condition,boolean.EQ):
+    if not isinstance(self.condition,expression.EQ):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
 
@@ -283,7 +284,7 @@ A linear chain of joins, with selection predicates applied"""
     self.joinconditions = joinconditions
     self.leftconditions = leftconditions
     self.rightconditions = rightconditions
-    self.finalcondition = boolean.tautology
+    self.finalcondition = expression.TAUTOLOGY
     algebra.NaryOperator.__init__(self, inputs)
 
   def leafreference(self, column, argsyms):
@@ -306,12 +307,12 @@ A linear chain of joins, with selection predicates applied"""
     # TODO: this function is impossible to understand.  Attribute references need an overhaul.
     # TODO: May want to include a pipeline object that abstracts chains of non-blocking operators
     def helper(condition):
-      if isinstance(condition, boolean.UnaryBooleanOperator):
+      if isinstance(condition, expression.UnaryBooleanOperator):
         helper(condition.input)
-      if isinstance(condition, boolean.BinaryBooleanOperator):
+      if isinstance(condition, expression.BinaryBooleanOperator):
         helper(condition.left)
         helper(condition.right)
-      if isinstance(condition, boolean.BinaryComparisonOperator):
+      if isinstance(condition, expression.BinaryComparisonOperator):
 
         def localize(posref):
           assert(isinstance(posref, expression.UnnamedAttributeRef))
@@ -354,7 +355,7 @@ A linear chain of joins, with selection predicates applied"""
       if level < len(self.joinconditions):
 
         joincondition = self.joinconditions[level]
-        if not isinstance(joincondition, boolean.EQ):
+        if not isinstance(joincondition, expression.EQ):
           raise ValueError("The C compiler can only handle equi-join conditions of a single attribute")
 
         assert(isinstance(joincondition.left, expression.UnnamedAttributeRef))
@@ -460,7 +461,7 @@ class FilteringNestedLoopJoinRule(rules.Rule):
     if isinstance(expr, algebra.Join):
       left = isinstance(expr.left, algebra.Select)
       right = isinstance(expr.right, algebra.Select)
-      taut = boolean.tautology
+      taut = expression.TAUTOLOGY
       if left and right:
         return FilteringNestedLoopJoin(expr.condition
                                 ,expr.left.input
