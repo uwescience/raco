@@ -2,7 +2,8 @@
 Aggregate expressions for use in Raco
 """
 
-from .expression import Expression, ZeroaryOperator, UnaryFunction
+from .expression import Expression, ZeroaryOperator
+from .function import UnaryFunction
 
 import math
 

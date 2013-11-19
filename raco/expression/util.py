@@ -5,6 +5,7 @@ Utility functions for use in Raco expressions
 from .expression import *
 from .aggregate import *
 from .boolean import *
+from .function import *
 
 def toUnnamed(ref, scheme):
   """Convert a reference to the unnamed perspective"""
@@ -56,6 +57,7 @@ def binary_ops():
                    and opclass is not BinaryOperator
                    and opclass is not BinaryBooleanOperator
                    and opclass is not BinaryComparisonOperator
+                   and opclass is not BinaryFunction
                    and not issubclass(opclass,AggregateExpression)]
   return opclasses
 
