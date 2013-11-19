@@ -3,6 +3,7 @@ Utility functions for use in Raco expressions
 """
 
 from .expression import *
+from .aggregate import *
 from .boolean import *
 
 def toUnnamed(ref, scheme):
