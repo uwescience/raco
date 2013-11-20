@@ -1,4 +1,4 @@
-import boolean
+import expression
 import rules
 import algebra
 from language import Language
@@ -25,27 +25,11 @@ class CC(Language):
     return "( %s )" % conjunc
 
   """
-  Expects unnamed perspective
+  Expects unnamed perspective; use expression.to_unnamed_recursive e.g. to get there.
   """
   @staticmethod
   def compile_attribute(position):
     return 'tuple[%s]' % position
-
-"""
-Replace column names with positions
-"""
-def unnamed(condition, sch):
-  if isinstance(condition, boolean.BinaryBooleanOperator): 
-    condition.left = unnamed(condition.left, sch)
-    condition.right = unnamed(condition.right, sch)
-    return condition
-  elif isinstance(condition, boolean.Attribute):
-    # replace the attribute name with it's position in the relation
-    pos = sch.getPosition(condition.name)
-    return boolean.Attribute(pos)
-  else:  
-    # do nothing; it's a literal or something custom
-    return condition
 
 class CCOperator:
   language = CC
@@ -58,7 +42,7 @@ class FileScan(algebra.Scan, CCOperator):
 
 class TwoPassSelect(algebra.Select, CCOperator):
   def compileme(self, resultsym, inputsym):
-    pcondition = unnamed(self.condition, self.scheme())
+    pcondition = expression.to_unnamed_recursive(self.condition, self.scheme())
     condition = CC.compile_boolean(pcondition)
     code = """
 

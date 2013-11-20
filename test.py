@@ -1,7 +1,7 @@
 from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra
 from raco.algebra import Select, Scan, Join, LogicalAlgebra
 from raco.compile import compile, optimize
-from raco.boolean import EQ, AND, OR, Attribute, StringLiteral, NumericLiteral
+from raco.expression import EQ, AND, OR, NamedAttributeRef, StringLiteral, NumericLiteral
 
 from sampledb import btc_schema, Rr
 
@@ -12,17 +12,17 @@ def testpython():
   #sR = Select("lambda t: t.predicate == 'knows'", R)
   #sS = Select("lambda t: t.predicate == 'holdsAccount'", R)
   #sT = Select("lambda t: t.predicate == 'accountServiceHomepage'", R)
-  sR = Select(EQ(Attribute("predicate"), StringLiteral("knows")), R)
-  sS = Select(EQ(Attribute("predicate"), StringLiteral("holdsAccount")), R)
-  sT = Select(EQ(Attribute("predicate"), StringLiteral("accountServiceHomepage")), R)
+  sR = Select(EQ(NamedAttributeRef("predicate"), StringLiteral("knows")), R)
+  sS = Select(EQ(NamedAttributeRef("predicate"), StringLiteral("holdsAccount")), R)
+  sT = Select(EQ(NamedAttributeRef("predicate"), StringLiteral("accountServiceHomepage")), R)
 
   sRsS = Join([("object","subject")], sR, sS)
 
   sRsSsT = Join([("object1", "subject")], sRsS, sT)
 
-  ssR = Select(EQ(Attribute("predicate"), StringLiteral("holdsAccount")), sR)
+  ssR = Select(EQ(NamedAttributeRef("predicate"), StringLiteral("holdsAccount")), sR)
 
-  test = Select(OR(EQ(Attribute("predicate"), StringLiteral("knows")),EQ(Attribute("predicate"), StringLiteral("holdsAccount"))), R)
+  test = Select(OR(EQ(NamedAttributeRef("predicate"), StringLiteral("knows")),EQ(NamedAttributeRef("predicate"), StringLiteral("holdsAccount"))), R)
  
   #print ssR
   ossR = optimize(test, target=PythonAlgebra, source=LogicalAlgebra)
@@ -32,16 +32,16 @@ def testpython():
   #print compile(sRsSsT)
   #print [gensym() for i in range(5)]
  
-  #sR = Select(EQ(Attribute("predicate"), NumericLiteral(330337405)), R)
+  #sR = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(330337405)), R)
   osR = optimize(sRsSsT, target=PythonAlgebra, source=LogicalAlgebra)
   print compile(osR)
 
 def testcc():
  # c implementation doesn't support string literals
  R = Scan(btc_schema["trial"])
- sR = Select(EQ(Attribute("predicate"), NumericLiteral(1133564893)), R)
- sS = Select(EQ(Attribute("predicate"), NumericLiteral(77645021)), R)
- sT = Select(EQ(Attribute("predicate"), NumericLiteral(77645021)), R)
+ sR = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(1133564893)), R)
+ sS = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(77645021)), R)
+ sT = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(77645021)), R)
 
  
  sRsS = Join([("object","subject")], sR, sS)
@@ -49,7 +49,7 @@ def testcc():
  """
 
  """
- result = optimize(sRsSsT, target=CCAlgebra, source=LogicalAlgebra) 
+ result = optimize([('ans', sRsSsT)], target=CCAlgebra, source=LogicalAlgebra) 
  #result = optimize(sR, target=CCAlgebra, source=LogicalAlgebra) 
  return compile(result)
  def f(op):
