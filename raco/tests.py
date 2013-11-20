@@ -12,37 +12,37 @@ def RATest(query):
 class DatalogTest(unittest.TestCase):
   def test_join(self):
     join = """A(x,z) :- R(x,y), S(y,z)"""
-    desiredresult = """[('A', Project($0,$3)[Join($1 = $2)[Scan(R), Scan(S)]])]"""
+    desiredresult = """[('A', Project($0,$3)[Join(($1 = $2))[Scan(R), Scan(S)]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
   def test_selfjoin(self):
     join = """A(x,z) :- R(x,y), R(y,z)"""
-    desiredresult = """[('A', Project($0,$3)[Join($1 = $2)[Scan(R), Scan(R)]])]"""
+    desiredresult = """[('A', Project($0,$3)[Join(($1 = $2))[Scan(R), Scan(R)]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
   def test_triangle(self):
     join = """A(x,y,z) :- R(x,y), S(y,z), T(z,x)"""
-    desiredresult = """[('A', Project($0,$1,$3)[Select($3 = $4)[Join($0 = $5)[Join($1 = $2)[Scan(R), Scan(S)], Scan(T)]]])]"""
+    desiredresult = """[('A', Project($0,$1,$3)[Select(($3 = $4))[Join(($0 = $5))[Join(($1 = $2))[Scan(R), Scan(S)], Scan(T)]]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
   def test_explicit_conditions(self):
     join = """A(x,y,z) :- R(x,y), S(w,z), x<y,y<z,y=w"""
-    desiredresult = """[('A', Project($0,$1,$3)[Join($1 < $3 and $1 = $2)[Select($0 < $1)[Scan(R)], Scan(S)]])]"""
+    desiredresult = """[('A', Project($0,$1,$3)[Join((($1 < $3) and ($1 = $2)))[Select(($0 < $1))[Scan(R)], Scan(S)]])]"""
     testresult = RATest(join)
     self.assertEqual(testresult, desiredresult)
 
   def test_select(self):
     select = "A(x) :- R(x,3)"
-    desiredresult = """[('A', Project($0)[Select($1 = 3)[Scan(R)]])]"""
+    desiredresult = """[('A', Project($0)[Select(($1 = 3))[Scan(R)]])]"""
     testresult = RATest(select)
     self.assertEqual(testresult, desiredresult)
 
   def test_select2(self):
     select = "A(x) :- R(x,y), S(y,z,4), z<3"
-    desiredresult = """[('A', Project($0)[Join($1 = $2)[Scan(R), Select($2 = 4 and $1 < 3)[Scan(S)]]])]"""
+    desiredresult = """[('A', Project($0)[Join(($1 = $2))[Scan(R), Select((($2 = 4) and ($1 < 3)))[Scan(S)]]])]"""
     testresult = RATest(select)
     self.assertEqual(testresult, desiredresult)
 
@@ -94,7 +94,7 @@ JustXBill(x) :- TwitterK(x,y)
 JustXBill2(x) :- JustXBill(x)
 JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
 """
-    desiredresult = """[('JustXBillSquared', Project($0)[Join($0 = $1)[Apply(x=$0)[Project($0)[Scan(TwitterK)]], Apply(x=$0)[Project($0)[Apply(x=$0)[Project($0)[Scan(TwitterK)]]]]]])]"""
+    desiredresult = """[('JustXBillSquared', Project($0)[Join(($0 = $1))[Apply(x=$0)[Project($0)[Scan(TwitterK)]], Apply(x=$0)[Project($0)[Apply(x=$0)[Project($0)[Scan(TwitterK)]]]]]])]"""
     testresult = RATest(query)
     self.assertEqual(testresult, desiredresult)
 
@@ -103,7 +103,7 @@ JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
     A(x,z) :- R(x,y,z);
     B(w) :- A(3,w)
 """
-    desiredresult = """[('B', Project($1)[Select($0 = 3)[Apply(x=$0,w=$1)[Project($0,$2)[Scan(R)]]]])]"""
+    desiredresult = """[('B', Project($1)[Select(($0 = 3))[Apply(x=$0,w=$1)[Project($0,$2)[Scan(R)]]]])]"""
     testresult = RATest(query)
     self.assertEqual(testresult, desiredresult)
 
@@ -111,7 +111,7 @@ JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
     query = """
 filtered(src, dst, time) :- nccdc(src, dst, proto, time, a, b, c), time > 1366475761, time < 1366475821
 """
-    desiredresult="[('filtered', Project($0,$1,$3)[Select($3 > 1366475761 and $3 < 1366475821)[Scan(nccdc)]])]"
+    desiredresult="[('filtered', Project($0,$1,$3)[Select((($3 > 1366475761) and ($3 < 1366475821)))[Scan(nccdc)]])]"
     testresult = RATest(query)
     self.assertEquals(testresult, desiredresult)
 

@@ -1,4 +1,3 @@
-import boolean
 from collections import OrderedDict
 import expression
 

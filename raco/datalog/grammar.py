@@ -9,6 +9,7 @@ from pyparsing import Literal, CaselessLiteral, Word, Upcase, delimitedList, Opt
     ZeroOrMore, restOfLine, Keyword
 
 import raco
+from raco import expression
 import model as model
 
 def show(x):
@@ -27,7 +28,7 @@ E = CaselessLiteral("E")
 aggregate_functions = raco.expression.aggregate_functions()
 
 # Get all the infix boolean binary operator classes, like AND, OR
-booleanopclasses = raco.boolean.binary_ops()
+booleanopclasses = expression.binary_ops()
 
 # Get all the infix binary expression classes, like PLUS, DIVIDE, etc.
 expressionclasses = raco.expression.binary_ops()
@@ -53,18 +54,18 @@ arithSign = Word("+-",exact=1)
 realNum = Combine( Optional(arithSign) + ( Word( nums ) + "." + Optional( Word(nums) )  |
             ( "." + Word(nums) ) ) + 
             Optional( E + Optional(arithSign) + Word(nums) ) )
-realNum.setParseAction(lambda x: raco.boolean.NumericLiteral(float(x[0])))
+realNum.setParseAction(lambda x: expression.NumericLiteral(float(x[0])))
 
 intNum = Combine( Optional(arithSign) + Word( nums ) + 
             Optional( E + Optional("+") + Word(nums) ) )
-intNum.setParseAction(lambda x: raco.boolean.NumericLiteral(int(x[0])))
+intNum.setParseAction(lambda x: expression.NumericLiteral(int(x[0])))
 
 number = realNum | intNum 
 
 variable = ident.copy()
 variable.setParseAction(lambda x: model.Var(x[0]))
 
-quotedString.setParseAction(lambda x: raco.boolean.StringLiteral(x[0][1:-1]))
+quotedString.setParseAction(lambda x: expression.StringLiteral(x[0][1:-1]))
 
 literal = quotedString | number
 

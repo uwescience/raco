@@ -3,8 +3,7 @@ import collections
 import itertools
 
 import raco.algebra
-import raco.boolean
-import raco.expression
+from raco import expression
 from raco.expression import UnnamedAttributeRef
 import raco.scheme
 
