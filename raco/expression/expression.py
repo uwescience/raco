@@ -46,9 +46,6 @@ class Expression(Printable):
 
     # We have to manually walk the postorder because otherwise nothing ever
     # .. gets executed. Stupid generators.
-    #
-    # TODO(andrew) am I missing something crazy here? self.postorder(doit) does
-    # nothing.
     for x in self.postorder(doit):
         pass
 
