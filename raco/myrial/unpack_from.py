@@ -70,8 +70,8 @@ def unpack(from_args, where_clause, emit_args):
 
     assert len(from_args) > 0
 
-    def cross(x,y):
-        return raco.algebra.CrossProduct(x,y)
+    def cross(x, y):
+        return raco.algebra.CrossProduct(x, y)
 
     from_ops = from_args.values()
     op = reduce(cross, from_ops)

@@ -49,7 +49,7 @@ def parsebinop(opexpr):
       return opclass(left, right)
         
 binop = oneOf(binopstr)
-arithSign = Word("+-",exact=1)
+arithSign = Word("+-", exact=1)
 
 realNum = Combine( Optional(arithSign) + ( Word( nums ) + "." + Optional( Word(nums) )  |
             ( "." + Word(nums) ) ) + 

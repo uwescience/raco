@@ -15,28 +15,28 @@ Add an attribute to the scheme
 Type is a function that returns true for any value that is of the correct type
   '''
   salt = "1"
-  def __init__(self,attributes=None):
+  def __init__(self, attributes=None):
     if attributes is None:
       attributes = []
     self.attributes = []
     self.asdict = OrderedDict()
-    for n,t in attributes:
-      self.addAttribute(n,t)
+    for n, t in attributes:
+      self.addAttribute(n, t)
 
   def addAttribute(self, name, type):
     if self.asdict.has_key(name):
       # ugly.  I don't like throwing errors in this case, but it's worse not to
       return self.addAttribute(name + self.salt, type)
     self.asdict[name] = (len(self.attributes), type)
-    self.attributes.append((name,type))
+    self.attributes.append((name, type))
     # just in case we changed the name.  ugly.
     return name
 
   def typecheck(self, tup):
     try:
-      return all([tf(v) for (n,tf),v in zip(self.attributes,tup)])
+      return all([tf(v) for (n, tf), v in zip(self.attributes, tup)])
     except:
-      raise TypeError("%s not of type %s" % (tup,self.attributes))
+      raise TypeError("%s not of type %s" % (tup, self.attributes))
 
   def __eq__(self, other):
     return self.attributes == other.attributes
@@ -55,7 +55,7 @@ Type is a function that returns true for any value that is of the correct type
 
   def subScheme(self, attributes):
     """Return a scheme consisting of only the provided attribute names"""
-    return Scheme([(n,self.getType(n)) for n in attributes])
+    return Scheme([(n, self.getType(n)) for n in attributes])
 
   def subsumes(self, names):
     """Does this scheme contain all the names in the list?"""
@@ -67,7 +67,7 @@ Type is a function that returns true for any value that is of the correct type
 
   def resolve(self, attrref):
     """return the name and type of the attribute reference, resolved against this scheme"""
-    unnamed = expression.toUnnamed(attrref,self)
+    unnamed = expression.toUnnamed(attrref, self)
     return self.getName(unnamed.position), self.getType(unnamed.position)
 
   def ascolumnlist(self):
@@ -78,19 +78,19 @@ Type is a function that returns true for any value that is of the correct type
 
   def __contains__(self, attr, typ=None):
     if typ:
-      return (attr,type) in self.attributes
+      return (attr, type) in self.attributes
     else:
       return attr in self.asdict
 
   def project(self, tup, subscheme):
     """Return a tuple corresponding to the subscheme corresponding to the values in tup"""
-    return (tup[self.getPosition(n)] for n,t in subscheme.attributes)
+    return (tup[self.getPosition(n)] for n, t in subscheme.attributes)
 
   def rename(self, name1, name2):
     try:
-      i,t = self.asdict.pop(name1)
+      i, t = self.asdict.pop(name1)
       self.attributes[i] = (name2, t)
-      self.asdict[name2] = (i,t)
+      self.asdict[name2] = (i, t)
     except KeyError:
       pass
 
@@ -110,15 +110,15 @@ Type is a function that returns true for any value that is of the correct type
 
   def __add__(self, other):
     newsch = Scheme(self.attributes)
-    for (n,t) in other:
-      newsch.addAttribute(n,t)
+    for (n, t) in other:
+      newsch.addAttribute(n, t)
     return newsch
 
   def __sub__(self, other):
     newsch = Scheme()
-    for (n,t) in self:
+    for (n, t) in self:
       if not n in other: 
-        newsch.addAttribute(n,t)
+        newsch.addAttribute(n, t)
     return newsch
 
   def __str__(self):

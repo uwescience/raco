@@ -76,7 +76,7 @@ class FakeDatabase:
         left_it = self.evaluate(op.left)
         right_it = self.evaluate(op.right)
         p1 = itertools.product(left_it, right_it)
-        p2 = (x + y for (x,y) in p1)
+        p2 = (x + y for (x, y) in p1)
 
         # Return tuples that match on the join conditions
         return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
@@ -85,7 +85,7 @@ class FakeDatabase:
         left_it = self.evaluate(op.left)
         right_it = self.evaluate(op.right)
         p1 = itertools.product(left_it, right_it)
-        return (x + y for (x,y) in p1)
+        return (x + y for (x, y) in p1)
 
     def distinct(self, op):
         it = self.evaluate(op.input)

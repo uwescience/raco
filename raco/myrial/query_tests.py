@@ -110,7 +110,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DUMP(x);
         """ % (self.emp_key, self.dept_key)
 
-        expected = [(5,e[3] * 2) + e + d + e for e in self.emp_table
+        expected = [(5, e[3] * 2) + e + d + e for e in self.emp_table
                     for d in self.dept_table]
         self.run_test(query, collections.Counter(expected))
 
@@ -660,7 +660,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         ex = self.__aggregate_expected_result(max)
-        ex = collections.Counter([(y,x) for (x,y) in ex])
+        ex = collections.Counter([(y, x) for (x, y) in ex])
         self.run_test(query, ex)
 
     def test_compound_aggregate(self):

@@ -9,12 +9,12 @@ import os.path
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c_templates")
 
 def readtemplate(fname):
-  return file(os.path.join(template_path,fname)).read()
+  return file(os.path.join(template_path, fname)).read()
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c_templates")
 
 base_template = readtemplate("base_query.template")
-initialize,finalize = base_template.split("// SPLIT ME HERE")
+initialize, finalize = base_template.split("// SPLIT ME HERE")
 twopass_select_template = readtemplate("precount_select.template")
 hashjoin_template = readtemplate("hashjoin.template")
 filtering_nestedloop_join_chain_template = readtemplate("filtering_nestedloop_join_chain.template")
@@ -27,7 +27,7 @@ class CC(Language):
     return """
 %s
 %s
-""" % (cls.relation_decl(rvar), cls.assignment(rvar,val))
+""" % (cls.relation_decl(rvar), cls.assignment(rvar, val))
 
   @classmethod
   def relation_decl(cls, rvar):
@@ -35,7 +35,7 @@ class CC(Language):
 
   @classmethod
   def assignment(cls, x, y):
-    return "%s = %s;" % (x,y)
+    return "%s = %s;" % (x, y)
 
   @staticmethod
   def initialize(resultsym):
@@ -137,7 +137,7 @@ class TwoPassHashJoin(algebra.Join, CCOperator):
 A Join that hashes its left input and constructs an output relation.
 """
   def compileme(self, resultsym, leftsym, rightsym):
-    if not isinstance(self.condition,expression.EQ):
+    if not isinstance(self.condition, expression.EQ):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
     
@@ -188,7 +188,7 @@ class FilteringNestedLoopJoin(FilteringJoin, CCOperator):
 A nested loop join that applies a selection condition on each relation.
 """
   def compileme(self, resultsym, leftsym, rightsym):
-    if not isinstance(self.condition,expression.EQ):
+    if not isinstance(self.condition, expression.EQ):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
 
@@ -328,7 +328,7 @@ A linear chain of joins, with selection predicates applied"""
 
         elif conditiontype=="join":
           condition.left.relationsymbol, condition.left.rowvariable = localize(condition.left)
-          assert(isinstance(condition.right,expression.UnnamedAttributeRef))
+          assert(isinstance(condition.right, expression.UnnamedAttributeRef))
           relsym = argsyms[joinlevel + 1]
           condition.right.relationsymbol = relsym
           condition.right.rowvariable = self.rowvar(relsym)
@@ -362,18 +362,18 @@ A linear chain of joins, with selection predicates applied"""
         assert(isinstance(joincondition.right, expression.UnnamedAttributeRef))
     
         # change the addressing scheme for the left-hand attribute reference
-        self.tagcondition(level,joincondition,argsyms,conditiontype="join")
+        self.tagcondition(level, joincondition, argsyms, conditiontype="join")
         leftsym = joincondition.left.relationsymbol
         leftposition = joincondition.left.leaf_position
         rightsym = joincondition.right.relationsymbol
         rightposition = joincondition.right.leaf_position
 
         left_condition = self.leftconditions[level]
-        self.tagcondition(level,left_condition,argsyms,conditiontype="left")
+        self.tagcondition(level, left_condition, argsyms, conditiontype="left")
         left_condition = CC.compile_boolean(left_condition)
 
         right_condition = self.rightconditions[level]
-        self.tagcondition(level,right_condition,argsyms,conditiontype="right")
+        self.tagcondition(level, right_condition, argsyms, conditiontype="right")
         right_condition = CC.compile_boolean(right_condition)
 
         inner_plan_compiled = helper(level+1)
@@ -384,7 +384,7 @@ A linear chain of joins, with selection predicates applied"""
         depth = depth - 1
         if hasattr(self, "finalcondition"):
           # TODO: Attribute references once again brittle and ugly
-          self.tagcondition(depth,self.finalcondition,argsyms,conditiontype="final")
+          self.tagcondition(depth, self.finalcondition, argsyms, conditiontype="final")
           condition = CC.compile_boolean(self.finalcondition)
           wrapper = """
 if (%s) {%s}""" % (condition, "%s")
@@ -407,11 +407,11 @@ if (%s) {%s}""" % (condition, "%s")
     leftsym = argsyms[depth]
     # get attribute position in left relation
     firstjoin = self.joinconditions[depth]
-    assert(isinstance(firstjoin.left,expression.UnnamedAttributeRef))
+    assert(isinstance(firstjoin.left, expression.UnnamedAttributeRef))
     leftposition = self.joinconditions[depth].left.leaf_position
     # get condition on left relation
     left_condition = self.leftconditions[depth]
-    self.tagcondition(depth,left_condition,argsyms,conditiontype="left")
+    self.tagcondition(depth, left_condition, argsyms, conditiontype="left")
     left_condition = CC.compile_boolean(left_condition)
 
     inner_plan_compiled = helper(depth)
@@ -421,7 +421,7 @@ if (%s) {%s}""" % (condition, "%s")
   def __str__(self):
     args = ",".join(["%s" % arg for arg in self.args])
     # TODO: clean up this final condition nonsense
-    return "FilteringNLJoinChain(%s, %s, %s, %s)[%s]" % (self.joinconditions,self.leftconditions,self.rightconditions, self.finalcondition, args)
+    return "FilteringNLJoinChain(%s, %s, %s, %s)[%s]" % (self.joinconditions, self.leftconditions, self.rightconditions, self.finalcondition, args)
 
 class FilteringHashJoin(FilteringJoin, CCOperator):
   """

@@ -49,7 +49,7 @@ Emit any initialization and call compile method on top-level operator
     init = expr.language.initialize(resultsym)
     body = expr.compile(resultsym)
     final = expr.language.finalize(resultsym)
-    exprcode.append(emit(init,body,final))
+    exprcode.append(emit(init, body, final))
   return  emit(*exprcode)
 
 def search(expr, tofind):
@@ -68,7 +68,7 @@ def common_subexpression_elimination(expr):
   for x in expr.preorder(id):
     if not x in allfound:
       found = [x for x in search(expr, x)]
-      eqclasses.append((x,found))
+      eqclasses.append((x, found))
       allfound += found 
 
   def replace(expr):
@@ -78,7 +78,7 @@ def common_subexpression_elimination(expr):
         # record the fact that we eliminated the redundant branches
         if witness != expr:
           #witness.trace("replaces", expr)
-          for k,v in expr.gettrace():
+          for k, v in expr.gettrace():
             witness.trace(k, v) 
         return witness
 

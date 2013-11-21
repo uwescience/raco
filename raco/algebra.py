@@ -81,7 +81,7 @@ class Operator(Printable):
 
   def compiletrace(self):
     """Return the trace as a list of strings"""
-    return "".join([self.language.comment("%s=%s" % (k,v)) for k,v in self.gettrace()])
+    return "".join([self.language.comment("%s=%s" % (k, v)) for k, v in self.gettrace()])
 
   def set_alias(self, alias):
     """Set a user-defined identififer for this operator.  Used in optimization and transformation of plans"""
@@ -267,7 +267,7 @@ class NaryOperator(Operator):
       code += self.language.assignment(resultsym, self.bound)
     else:
       argsyms = [gensym() for arg in self.args]
-      code += emit([arg.compile(sym) for arg,sym in zip(self.args,argsyms)] + [self.compileme(resultsym, argsyms)])
+      code += emit([arg.compile(sym) for arg, sym in zip(self.args, argsyms)] + [self.compileme(resultsym, argsyms)])
     return code
 
   def children(self):
@@ -378,7 +378,7 @@ class Join(CompositeBinaryOperator):
     BinaryOperator.__init__(self, left, right)
 
   def __eq__(self, other):
-    return BinaryOperator.__eq__(self,other) and self.condition == other.condition
+    return BinaryOperator.__eq__(self, other) and self.condition == other.condition
 
   def copy(self, other):
     """deep copy"""
@@ -410,7 +410,7 @@ class Apply(UnaryOperator):
     def resolve_name(name, sexpr):
       if name:
         return name
-      elif isinstance(sexpr ,expression.AttributeRef):
+      elif isinstance(sexpr, expression.AttributeRef):
         return input.resolveAttribute(sexpr)[0]
       else:
         return str(sexpr)
@@ -421,7 +421,7 @@ class Apply(UnaryOperator):
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):
-    return UnaryOperator.__eq__(self,other) and \
+    return UnaryOperator.__eq__(self, other) and \
       self.expressions == other.expressions
 
   def copy(self, other):
@@ -431,7 +431,7 @@ class Apply(UnaryOperator):
 
   def scheme(self):
     """scheme of the result."""
-    new_attrs = [(name,expr.typeof()) for (name, expr) in self.mappings]
+    new_attrs = [(name, expr.typeof()) for (name, expr) in self.mappings]
     return scheme.Scheme(new_attrs)
 
   def shortStr(self):
@@ -457,7 +457,7 @@ class Limit(UnaryOperator):
     self.count = count
 
   def __eq__(self, other):
-    return UnaryOperator.__eq__(self,other) and self.count == other.count
+    return UnaryOperator.__eq__(self, other) and self.count == other.count
 
   def copy(self, other):
     self.count = other.count
@@ -476,10 +476,10 @@ class Select(UnaryOperator):
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):
-    return UnaryOperator.__eq__(self,other) and self.condition == other.condition
+    return UnaryOperator.__eq__(self, other) and self.condition == other.condition
 
   def shortStr(self):
-    if isinstance(self.condition,dict): 
+    if isinstance(self.condition, dict): 
       cond = self.condition["condition"]
     else:
       cond = self.condition
@@ -501,7 +501,7 @@ class Project(UnaryOperator):
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):
-    return UnaryOperator.__eq__(self,other) and self.columnlist == other.columnlist 
+    return UnaryOperator.__eq__(self, other) and self.columnlist == other.columnlist 
 
   def shortStr(self):
     colstring = ",".join([str(x) for x in self.columnlist])
@@ -547,10 +547,10 @@ class GroupBy(UnaryOperator):
   def scheme(self):
     """scheme of the result."""
     def resolve(i, attr):
-      if isinstance(attr,expression.AttributeRef):
+      if isinstance(attr, expression.AttributeRef):
         return self.input.resolveAttribute(attr)
       else:
-        return ("%s%s" % (attr.__class__.__name__,i), attr.typeof())
+        return ("%s%s" % (attr.__class__.__name__, i), attr.typeof())
 
     attrs = [resolve(i, e) for i, e in enumerate(self.columnlist)]
     return scheme.Scheme(attrs)
@@ -562,7 +562,7 @@ class ProjectingJoin(Join):
     Join.__init__(self, condition, left, right)
 
   def __eq__(self, other):
-    return Join.__eq__(self,other) and self.columnlist == other.columnlist
+    return Join.__eq__(self, other) and self.columnlist == other.columnlist
 
   def shortStr(self):
     if self.columnlist is None:
@@ -624,7 +624,7 @@ class PartitionBy(UnaryOperator):
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):
-    return UnaryOperator.__eq__(self,other) and self.columnlist == other.columnlist
+    return UnaryOperator.__eq__(self, other) and self.columnlist == other.columnlist
 
   def shortStr(self):
     colstring = ",".join([str(x) for x in self.columnlist])
@@ -669,7 +669,7 @@ class Fixpoint(Operator):
     else:
       raise RecursionError("No Scheme defined yet for fixpoint")
  
-  def loopBody(self,plan):
+  def loopBody(self, plan):
     self.body = plan
 
 class State(ZeroaryOperator):
@@ -697,7 +697,7 @@ class Store(UnaryOperator):
     self.relation_key = relation_key
 
   def shortStr(self):
-    return "%s(%s)" % (self.opname(),self.relation_key)
+    return "%s(%s)" % (self.opname(), self.relation_key)
 
   def copy(self, other):
     self.relation_key = other.relation_key
@@ -750,8 +750,8 @@ class Scan(ZeroaryOperator):
     self._scheme = _scheme
     ZeroaryOperator.__init__(self)
 
-  def __eq__(self,other):
-    return ZeroaryOperator.__eq__(self,other) and \
+  def __eq__(self, other):
+    return ZeroaryOperator.__eq__(self, other) and \
       self.relation_key == other.relation_key and \
       self.scheme() == other.scheme()
 
@@ -796,7 +796,7 @@ class StoreTemp(UnaryOperator):
     UnaryOperator.copy(self, other)
 
   def __eq__(self, other):
-    return UnaryOperator.__eq__(self,other) and self.name == other.name
+    return UnaryOperator.__eq__(self, other) and self.name == other.name
 
 class ScanTemp(ZeroaryOperator):
   """Read the contents of a temporary relation."""
@@ -806,8 +806,8 @@ class ScanTemp(ZeroaryOperator):
     self._scheme = _scheme
     ZeroaryOperator.__init__(self)
 
-  def __eq__(self,other):
-    return ZeroaryOperator.__eq__(self,other) and self.name == other.name \
+  def __eq__(self, other):
+    return ZeroaryOperator.__eq__(self, other) and self.name == other.name \
       and self._scheme == other._scheme
 
   def shortStr(self):

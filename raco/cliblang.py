@@ -5,7 +5,7 @@ from language import Language
 class CC(Language):
   @staticmethod
   def assignment(x, y):
-    return "%s = %s;" % (x,y)
+    return "%s = %s;" % (x, y)
 
   @staticmethod
   def initialize(resultsym):

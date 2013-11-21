@@ -9,7 +9,7 @@ class PseudoCode(Language):
     return """
 %s
 %s
-""" % (cls.relation_decl(rvar), cls.assignment(rvar,val))
+""" % (cls.relation_decl(rvar), cls.assignment(rvar, val))
 
   @classmethod
   def relation_decl(cls, rvar):
@@ -17,7 +17,7 @@ class PseudoCode(Language):
 
   @classmethod
   def assignment(cls, x, y):
-    return "%s = %s" % (x,y)
+    return "%s = %s" % (x, y)
 
   @staticmethod
   def comment(txt):
@@ -133,8 +133,8 @@ class PseudoCodeAlgebra:
 ]
   rules = [
   raco.rules.removeProject(),
-  raco.rules.OneToOne(algebra.Join,TwoPassHashJoin),
-  raco.rules.OneToOne(algebra.Select,TwoPassSelect),
-  raco.rules.OneToOne(algebra.Scan,FileScan)
+  raco.rules.OneToOne(algebra.Join, TwoPassHashJoin),
+  raco.rules.OneToOne(algebra.Select, TwoPassSelect),
+  raco.rules.OneToOne(algebra.Scan, FileScan)
 ]
  

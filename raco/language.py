@@ -6,11 +6,11 @@ class Language:
   reusescans = True
 
   @staticmethod
-  def preamble(query=None,plan=None):
+  def preamble(query=None, plan=None):
     return  ""
 
   @staticmethod
-  def postamble(query=None,plan=None):
+  def postamble(query=None, plan=None):
     return  ""
 
   @staticmethod
@@ -18,7 +18,7 @@ class Language:
     return  ""
 
   @staticmethod
-  def finalize(resultsym,body=""):
+  def finalize(resultsym, body=""):
     return ""
 
   @classmethod

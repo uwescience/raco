@@ -109,7 +109,7 @@ class MyriaLanguage(Language):
 
   @classmethod
   def new_relation_assignment(cls, rvar, val):
-    return emit(cls.relation_decl(rvar), cls.assignment(rvar,val))
+    return emit(cls.relation_decl(rvar), cls.assignment(rvar, val))
 
   @classmethod
   def relation_decl(cls, rvar):
@@ -208,7 +208,7 @@ class MyriaSelect(algebra.Select, MyriaOperator):
 
 class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
   def compileme(self, resultsym, leftsym, rightsym):
-    column_names = [name for (name,type) in self.scheme()]
+    column_names = [name for (name, type) in self.scheme()]
     allleft = [i.position for i in self.left.scheme().ascolumnlist()]
     allright = [i.position for i in self.right.scheme().ascolumnlist()]
     return {
@@ -646,7 +646,7 @@ class SimpleGroupBy(rules.Rule):
     def is_simple_grp_expr(grp):
       return isinstance(grp, expression.AttributeRef)
 
-    complex_grp_exprs = [(i,grp)
+    complex_grp_exprs = [(i, grp)
                              for (i, grp) in enumerate(expr.groupinglist) \
                              if not is_simple_grp_expr(grp)]
 
@@ -798,21 +798,21 @@ class MyriaAlgebra:
       , BroadcastBeforeCross()
       , TransferBeforeGroupBy()
       , ProjectToDistinctColumnSelect()
-      , rules.OneToOne(algebra.CrossProduct,MyriaCrossProduct)
-      , rules.OneToOne(algebra.Store,MyriaStore)
-      , rules.OneToOne(algebra.StoreTemp,MyriaStoreTemp)
-      , rules.OneToOne(algebra.Apply,MyriaApply)
-      , rules.OneToOne(algebra.Select,MyriaSelect)
-      , rules.OneToOne(algebra.GroupBy,MyriaGroupBy)
-      , rules.OneToOne(algebra.Distinct,MyriaDupElim)
-      , rules.OneToOne(algebra.Shuffle,MyriaShuffle)
-      , rules.OneToOne(algebra.Collect,MyriaCollect)
-      , rules.OneToOne(algebra.ProjectingJoin,MyriaSymmetricHashJoin)
-      , rules.OneToOne(algebra.Scan,MyriaScan)
-      , rules.OneToOne(algebra.ScanTemp,MyriaScanTemp)
-      , rules.OneToOne(algebra.SingletonRelation,MyriaSingleton)
-      , rules.OneToOne(algebra.EmptyRelation,MyriaEmptyRelation)
-      , rules.OneToOne(algebra.UnionAll,MyriaUnionAll)
+      , rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct)
+      , rules.OneToOne(algebra.Store, MyriaStore)
+      , rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp)
+      , rules.OneToOne(algebra.Apply, MyriaApply)
+      , rules.OneToOne(algebra.Select, MyriaSelect)
+      , rules.OneToOne(algebra.GroupBy, MyriaGroupBy)
+      , rules.OneToOne(algebra.Distinct, MyriaDupElim)
+      , rules.OneToOne(algebra.Shuffle, MyriaShuffle)
+      , rules.OneToOne(algebra.Collect, MyriaCollect)
+      , rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin)
+      , rules.OneToOne(algebra.Scan, MyriaScan)
+      , rules.OneToOne(algebra.ScanTemp, MyriaScanTemp)
+      , rules.OneToOne(algebra.SingletonRelation, MyriaSingleton)
+      , rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation)
+      , rules.OneToOne(algebra.UnionAll, MyriaUnionAll)
       , BreakShuffle()
       , BreakCollect()
       , BreakBroadcast()

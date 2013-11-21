@@ -16,7 +16,7 @@ class JoinColumnCountMismatchException(Exception):
 
 # ID is a symbol name that identifies an input expression; columns is a list of
 # columns expressed as either names or integer positions.
-JoinTarget = collections.namedtuple('JoinTarget',['expr', 'columns'])
+JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {

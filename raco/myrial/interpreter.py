@@ -126,8 +126,8 @@ class ExpressionProcessor:
         emit_args = [(name, self.__unbox_scalar_expression(sexpr, ub_state))
                      for name, sexpr in emit_args]
 
-        def cross(x,y):
-            return raco.algebra.CrossProduct(x,y)
+        def cross(x, y):
+            return raco.algebra.CrossProduct(x, y)
 
         # Update the op to be the cross product of all unboxed relations
         cps = [v.operation for v in ub_state.unbox_ops.values()]
@@ -262,14 +262,14 @@ class ExpressionProcessor:
         right_refs = [get_attribute_ref(c, right_scheme, len(left_scheme))
                       for c in right_target.columns]
 
-        join_conditions = [sexpr.EQ(x,y) for x,y in
+        join_conditions = [sexpr.EQ(x, y) for x, y in
                            zip(left_refs, right_refs)]
 
         # Merge the join conditions into a big AND expression
 
-        def andify(x,y):
+        def andify(x, y):
             """Merge two scalar expressions with an AND"""
-            return sexpr.AND(x,y)
+            return sexpr.AND(x, y)
 
         condition = reduce(andify, join_conditions)
         return raco.algebra.Join(condition, left, right)

@@ -45,7 +45,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
              for (d,e,f) in self.y_data if a > b and e <= f and c==d])
 
         self.z_key = "public:adhoc:Z"
-        self.z_data = collections.Counter([(1,2),(2,3),(1,2),(3,4)])
+        self.z_data = collections.Counter([(1, 2),(2, 3),(1, 2),(3, 4)])
         self.z_scheme = scheme.Scheme([('src','int'),('dst','int')])
         self.db.ingest('public:adhoc:Z', self.z_data, self.z_scheme)
 
@@ -127,8 +127,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(result, self.expected)
 
     def test_multi_condition_join(self):
-        s = expression.AND(expression.EQ(AttRef("c"),AttRef("d")),
-                           expression.EQ(AttRef("a"),AttRef("f")))
+        s = expression.AND(expression.EQ(AttRef("c"), AttRef("d")),
+                           expression.EQ(AttRef("a"), AttRef("f")))
 
         lp = StoreTemp('OUTPUT', Select(s, CrossProduct(
             Scan(self.x_key, self.x_scheme),
@@ -176,10 +176,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         Myrial doesn't emit these, so we need to cook up a plan by hand."""
 
-        s = expression.AND(expression.EQ(AttIndex(1),AttIndex(2)),
-                           expression.EQ(AttIndex(3),AttIndex(4)))
+        s = expression.AND(expression.EQ(AttIndex(1), AttIndex(2)),
+                           expression.EQ(AttIndex(3), AttIndex(4)))
 
-        lp = Apply([('x',AttIndex(0)),('y', AttIndex(5))],
+        lp = Apply([('x', AttIndex(0)),('y', AttIndex(5))],
                    Select(s,
                           CrossProduct(Scan(self.z_key, self.z_scheme),
                                        CrossProduct(

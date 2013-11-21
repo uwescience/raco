@@ -22,12 +22,12 @@ class AggregateExpression(Expression):
     """Evaluate an aggregate over a bag of tuples"""
     raise NotImplementedError()
 
-class MAX(UnaryFunction,AggregateExpression):
+class MAX(UnaryFunction, AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return max(inputs)
 
-class MIN(UnaryFunction,AggregateExpression):
+class MIN(UnaryFunction, AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     return min(inputs)
@@ -36,7 +36,7 @@ class COUNTALL(ZeroaryOperator, AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     return len(tuple_iterator)
 
-class COUNT(UnaryFunction,AggregateExpression):
+class COUNT(UnaryFunction, AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     count = 0
@@ -45,7 +45,7 @@ class COUNT(UnaryFunction,AggregateExpression):
         count += 1
     return count
 
-class SUM(UnaryFunction,AggregateExpression):
+class SUM(UnaryFunction, AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
 
@@ -55,7 +55,7 @@ class SUM(UnaryFunction,AggregateExpression):
         sum += t
     return sum
 
-class AVERAGE(UnaryFunction,AggregateExpression):
+class AVERAGE(UnaryFunction, AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     filtered = (x for x in inputs if x is not None)
@@ -67,7 +67,7 @@ class AVERAGE(UnaryFunction,AggregateExpression):
         count += 1
     return sum / count
 
-class STDEV(UnaryFunction,AggregateExpression):
+class STDEV(UnaryFunction, AggregateExpression):
   def evaluate_aggregate(self, tuple_iterator, scheme):
     inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
     filtered = [x for x in inputs if x is not None]

@@ -8,7 +8,7 @@ class Python(Language):
     return """
 %s
 %s
-""" % (cls.relation_decl(rvar), cls.assignment(rvar,val))
+""" % (cls.relation_decl(rvar), cls.assignment(rvar, val))
 
   @classmethod
   def relation_decl(cls, rvar):
@@ -17,7 +17,7 @@ class Python(Language):
 
   @staticmethod
   def assignment(x, y):
-    return "%s = %s" % (x,y)
+    return "%s = %s" % (x, y)
 
   @staticmethod
   def comment(txt):
@@ -61,8 +61,7 @@ class pyScan(algebra.Scan, PythonOperator):
 
 class pySelect(algebra.Select, PythonOperator):
   def compileme(self, resultsym, inputsym):
-    opcode = """pyra.select(%s, %s)""" % (Python.mklambda(Python.compile_boolean(self.condition))
-      ,inputsym)
+    opcode = """pyra.select(%s, %s)""" % (Python.mklambda(Python.compile_boolean(self.condition)), inputsym)
     code = self.language.new_relation_assignment(resultsym, opcode)
     return code
 
@@ -82,8 +81,8 @@ class PythonAlgebra:
 ]
   rules = [
   raco.rules.removeProject(),
-  raco.rules.OneToOne(algebra.Join,pyHashJoin),
-  raco.rules.OneToOne(algebra.Select,pySelect),
-  raco.rules.OneToOne(algebra.Scan,pyScan)
+  raco.rules.OneToOne(algebra.Join, pyHashJoin),
+  raco.rules.OneToOne(algebra.Select, pySelect),
+  raco.rules.OneToOne(algebra.Scan, pyScan)
 ]
  

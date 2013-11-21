@@ -41,7 +41,7 @@ class RACompiler:
       init = lang.initialize(result)
       body = expr.compile(result)
       final = lang.finalize(result)
-      exprcode.append(emit(init,body,final))
+      exprcode.append(emit(init, body, final))
     exprcode.append(lang.postamble(query=self.source, plan=self.logicalplan))
     return  emit(*exprcode)
 

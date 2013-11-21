@@ -2,7 +2,7 @@ from scheme import Scheme
 
 class Tuple:
   def __init__(self, tup, sch):
-    for (n,t), v in zip(sch, tup):
+    for (n, t), v in zip(sch, tup):
       self.__dict__[n] = t(v)
 
 class Relation:
@@ -23,7 +23,7 @@ class Relation:
 
   def __setitem__(self, k, tup):
     self.scheme.typecheck(tup)
-    self.tuples.__setitem__(k,tup)
+    self.tuples.__setitem__(k, tup)
 
   def insert(self, tup):
     self.scheme.typecheck(tup)
@@ -44,7 +44,7 @@ class Relation:
     return "%s\n%s" % (self.scheme, "\n".join([str(t) for t in self.tuples]))
 
 
-def product(rs,ss):
+def product(rs, ss):
   for r in rs:
     for t in ts:
       yield r + t
@@ -56,7 +56,7 @@ def select(condition, R):
   sch = R.getScheme()
   result = Relation(sch)
   for t in R:
-    if condition(Tuple(t,sch)):
+    if condition(Tuple(t, sch)):
       result.insert(t)
   return result
 
@@ -102,7 +102,7 @@ def hashjoin(attributes, Left, Right):
 
 if __name__ == '__main__':
   sch = Scheme([("subject", int), ("predicate", int), ("object", int)])
-  rel = Relation(sch, [(1,2,2),(1,3,2),(2,2,1),(2,3,3)])
+  rel = Relation(sch, [(1, 2, 2),(1, 3, 2),(2, 2, 1),(2, 3, 3)])
   sub = sch.subScheme(["subject"])
   print rel
   print sub

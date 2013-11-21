@@ -124,7 +124,7 @@ and offset([A(X,Y), B(Y,Z)], A) == 0"""
     if not self.terms:
       return "EmptyJoinSequence"
     else:
-      return " ".join(["%s *%s " % (t,c) for t,c in zip(self.terms, self.conditions)]) + "%s" % self.terms[-1]
+      return " ".join(["%s *%s " % (t, c) for t, c in zip(self.terms, self.conditions)]) + "%s" % self.terms[-1]
  
   def __iter__(self): 
     return self.terms.__iter__()
@@ -167,11 +167,11 @@ An edgesequence does not."""
     js = self.toJoinSequence(edgesequence[1:], joinsequence)
     return js
 
-def normalize(x,y):
+def normalize(x, y):
   if y < x:
-    edge = (y,x)
+    edge = (y, x)
   else:  
-    edge = (x,y)
+    edge = (x, y)
   return edge
 
 class BFSLeftDeepPlanner(Planner):
@@ -190,11 +190,11 @@ This one is simple -- it just adds the joins according to a breadth first search
     while len(edgesequence) > 0:
         # Consider all edges that have the same first node -- these are all "ties" in BFS order.
         (firstx, firsty) = edgesequence[0]
-        new_edges = [(x,y) for (x,y) in edgesequence if x == firstx]
+        new_edges = [(x, y) for (x, y) in edgesequence if x == firstx]
         # Sort those edges on the originalorder tuple of the source and destination
-        deterministic_edge_sequence.extend(sorted(new_edges, key=lambda (x,y) : (x.originalorder,y.originalorder)))
+        deterministic_edge_sequence.extend(sorted(new_edges, key=lambda (x, y) : (x.originalorder, y.originalorder)))
         # Remove all those edges from edgesequence
-        edgesequence = [(x,y) for (x,y) in edgesequence if x != firstx]
+        edgesequence = [(x, y) for (x, y) in edgesequence if x != firstx]
 
      # Generate a concrete sequence of terms with conditions properly adjusted
     joinsequence = self.toJoinSequence(deterministic_edge_sequence)
@@ -319,11 +319,11 @@ class Rule:
     for newplan in component_plans[1:]:
       plan = raco.algebra.CrossProduct(plan, newplan)
  
-    def attr(i,r, relation_alias): 
-      if isinstance(r,Var):
+    def attr(i, r, relation_alias): 
+      if isinstance(r, Var):
         name = r.var
         attrtype = None
-      elif isinstance(r,expression.Literal):
+      elif isinstance(r, expression.Literal):
         name = "pos%s" % i 
         attrtype = type(r.value)
       return (name, attrtype)
@@ -331,7 +331,7 @@ class Rule:
     try:
       scheme = plan.scheme()
     except AttributeError:  #raco.algebra.RecursionError:
-      scheme = raco.scheme.Scheme([attr(i,r,self.head.name) for i,r in enumerate(self.head.valuerefs)])
+      scheme = raco.scheme.Scheme([attr(i, r, self.head.name) for i, r in enumerate(self.head.valuerefs)])
 
     # Helper function for the next two steps (TODO: move this to a method?)
     def findvar(variable):
@@ -357,7 +357,7 @@ class Rule:
       if raco.expression.isaggregate(e):
         # assuming that every aggregate has exactly one argument
         return e.__class__(findvar(e.input))
-      elif isinstance(e,Var):
+      elif isinstance(e, Var):
         return findvar(e)
     columnlist = [toAttrRef(v) for v in self.head.valuerefs]
         
@@ -415,7 +415,7 @@ class Term:
     return self.name == term.name
 
   def __repr__(self):
-    return "%s_%s(%s)" % (self.__class__.__name__,self.name, ",".join([str(e) for e in self.valuerefs]))
+    return "%s_%s(%s)" % (self.__class__.__name__, self.name, ",".join([str(e) for e in self.valuerefs]))
 
   def vars(self):
     """Return a list of variable names used in this term."""
@@ -423,7 +423,7 @@ class Term:
 
   def varpos(self):
     """Return a list of (position, variable name) tuples for variables used in this term."""
-    return [(pos,vr.var) for (pos, vr) in enumerate(self.valuerefs) if isinstance(vr, Var)]
+    return [(pos, vr.var) for (pos, vr) in enumerate(self.valuerefs) if isinstance(vr, Var)]
 
   def joinsto(self, other, conditions):
     """Return the join conditions between this term and the argument term.  The second argument is a list of explicit conditions, like X=3 or Y=Z"""
@@ -485,11 +485,11 @@ class Term:
 
     for condition in conditions:
     
-      if isinstance(condition.left,Literal) and isinstance(condition.right,Literal):
+      if isinstance(condition.left, Literal) and isinstance(condition.right, Literal):
         # No variables
         yield condition.__class__(condition.left, condition.right)
 
-      elif isinstance(condition.left,Literal) and isinstance(condition.right, Var):
+      elif isinstance(condition.left, Literal) and isinstance(condition.right, Var):
         # left literal, right variable, like 3 = X
         if self.match(condition.right):
           yield condition.__class__(condition.left, self.convertvalref(condition.right))
@@ -526,14 +526,14 @@ class Term:
     """An iterator over implicit selection conditions derived from the datalog syntax.
 For example, A(X,X) implies position0 == position1, and A(X,4) implies position1 == 4"""
     # Check for implicit literal equality conditions, like A(X,"foo")
-    for i,b in enumerate(self.valuerefs):
-      if isinstance(b,expression.Literal):
+    for i, b in enumerate(self.valuerefs):
+      if isinstance(b, expression.Literal):
         posref = raco.expression.UnnamedAttributeRef(i)
         yield expression.EQ(posref, b)
 
     # Check for repeated variable conditions, like A(X,X)
     N = len(self.valuerefs)
-    for i,x in enumerate(self.valuerefs):
+    for i, x in enumerate(self.valuerefs):
       if isinstance(x, Var):
         for j in range(i + 1, N):
           y = self.valuerefs[j]
@@ -554,7 +554,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
     try:
       sch = plan.scheme()
     except raco.algebra.RecursionError:
-      sch = raco.scheme.Scheme([attr(i,r,term.name) for i,r in enumerate(term.valuerefs)])
+      sch = raco.scheme.Scheme([attr(i, r, term.name) for i, r in enumerate(term.valuerefs)])
 
     oldscheme = [name for name, typ in sch]
     termscheme = [expr for expr in term.valuerefs]
@@ -566,7 +566,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
 
     # Merge the old and new schemes.  Use new where we can.
     def choosename(new, old):
-      if isinstance(new,Var):
+      if isinstance(new, Var):
         # Then use this new var as the column name
         return new.var
       else:
@@ -575,7 +575,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
         # name was in the prior rule where R is the head variable R (old).
         return old
 
-    mappings = [(choosename(new,old),raco.expression.UnnamedAttributeRef(i)) for i, (new,old) in enumerate(pairs)]
+    mappings = [(choosename(new, old), raco.expression.UnnamedAttributeRef(i)) for i, (new, old) in enumerate(pairs)]
 
     # Use an apply operator to implement the renaming
     plan = raco.algebra.Apply(mappings, plan)
@@ -588,11 +588,11 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
   and separate condition terms, like A(X,Y), X=3 -> Select(pos0=3, Scan(A))
   separate condition terms are passed in as an argument.
   """
-    def attr(i,r, relation_alias): 
-      if isinstance(r,Var):
+    def attr(i, r, relation_alias): 
+      if isinstance(r, Var):
         name = r.var
         attrtype = None
-      elif isinstance(r,expression.Literal):
+      elif isinstance(r, expression.Literal):
         name = "pos%s" % i 
         attrtype = type(r.value)
       return (name, attrtype)
@@ -604,7 +604,7 @@ For example, A(X,X) implies position0 == position1, and A(X,4) implies position1
       scan = term.renameIDB(plan)
     else:
       # TODO: A call to some catalog?
-      sch = raco.scheme.Scheme([attr(i,r,term.name) for i,r in enumerate(term.valuerefs)])
+      sch = raco.scheme.Scheme([attr(i, r, term.name) for i, r in enumerate(term.valuerefs)])
       scan = raco.algebra.Scan(term.name, sch)
       scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))
 

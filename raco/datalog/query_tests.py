@@ -140,7 +140,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         A(x,y,z) :- T(x,y,z), x < y, x < z.
         """
 
-        expected = collections.Counter([(3,5,4), (10,11,12)])
+        expected = collections.Counter([(3, 5, 4), (10, 11, 12)])
         self.run_test(query, expected)
 
     def test_multiway_join(self):
