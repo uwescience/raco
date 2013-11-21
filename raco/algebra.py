@@ -1,7 +1,6 @@
 import expression
 import scheme
 from utility import emit, Printable
-from rules import Rule
 
 """
 Generate variables names

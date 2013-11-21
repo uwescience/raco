@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import raco.myrial.parser as parser
 import raco.myrial.groupby as groupby
 import raco.myrial.unpack_from as unpack_from
 import raco.algebra
@@ -13,8 +12,6 @@ from raco.myrialang import compile_to_json
 from raco.compile import optimize
 
 import collections
-import random
-import sys
 import types
 import copy
 

@@ -4,9 +4,9 @@ A parser for Purple programs.
 The result is a parse object that can return a (recursive) relational algebra expression.
 '''
 
-from pyparsing import Literal, CaselessLiteral, Word, Upcase, delimitedList, Optional, \
-    Combine, Group, alphas, nums, alphanums, ParseException, Forward, oneOf, quotedString, \
-    ZeroOrMore, restOfLine, Keyword
+from pyparsing import Literal, CaselessLiteral, Word, delimitedList, Optional, \
+    Combine, Group, alphas, nums, alphanums, oneOf, quotedString, \
+    ZeroOrMore, restOfLine
 
 import raco
 from raco import expression

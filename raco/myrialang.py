@@ -6,11 +6,8 @@
 #     :set modelines?       -> should be > 0
 
 import algebra
-import json
-from operator import and_
 import rules
 import scheme
-import sys
 import expression
 from language import Language
 from utility import emit

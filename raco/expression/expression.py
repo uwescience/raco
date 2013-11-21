@@ -5,7 +5,6 @@ Most non-trivial operators and functions are in separate files in this package.
 """
 
 from raco.utility import Printable
-import math
 
 class Expression(Printable):
   def typeof(self):

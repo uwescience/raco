@@ -8,10 +8,10 @@ from .expression import Expression, UnaryOperator, BinaryOperator, \
 class BooleanExpression(Expression):
   pass
 
-class UnaryBooleanOperator(UnaryOperator,BooleanExpression):
+class UnaryBooleanOperator(UnaryOperator, BooleanExpression):
   pass
 
-class BinaryBooleanOperator(BinaryOperator,BooleanExpression):
+class BinaryBooleanOperator(BinaryOperator, BooleanExpression):
   pass
 
 class BinaryComparisonOperator(BinaryBooleanOperator):

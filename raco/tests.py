@@ -1,5 +1,4 @@
 import unittest
-import sys
 from raco import RACompiler
 import raco.expression as e
 

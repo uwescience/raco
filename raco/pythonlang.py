@@ -1,5 +1,5 @@
-import rules
 import algebra
+import raco.rules
 from language import Language
 
 class Python(Language):
@@ -81,9 +81,9 @@ class PythonAlgebra:
   pyScan
 ]
   rules = [
-  rules.removeProject(),
-  rules.OneToOne(algebra.Join,pyHashJoin),
-  rules.OneToOne(algebra.Select,pySelect),
-  rules.OneToOne(algebra.Scan,pyScan)
+  raco.rules.removeProject(),
+  raco.rules.OneToOne(algebra.Join,pyHashJoin),
+  raco.rules.OneToOne(algebra.Select,pySelect),
+  raco.rules.OneToOne(algebra.Scan,pyScan)
 ]
  

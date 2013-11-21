@@ -1,11 +1,9 @@
 
 import collections
 import math
-import unittest
 
 import raco.fakedb
 import raco.myrial.interpreter as interpreter
-import raco.myrial.parser as parser
 import raco.scheme as scheme
 import raco.myrial.groupby
 import raco.myrial.unpack_from

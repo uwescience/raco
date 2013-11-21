@@ -1,5 +1,5 @@
-import rules
 import algebra
+import raco.rules
 from language import Language
 
 
@@ -132,9 +132,9 @@ class PseudoCodeAlgebra:
   FileScan
 ]
   rules = [
-  rules.removeProject(),
-  rules.OneToOne(algebra.Join,TwoPassHashJoin),
-  rules.OneToOne(algebra.Select,TwoPassSelect),
-  rules.OneToOne(algebra.Scan,FileScan)
+  raco.rules.removeProject(),
+  raco.rules.OneToOne(algebra.Join,TwoPassHashJoin),
+  raco.rules.OneToOne(algebra.Select,TwoPassSelect),
+  raco.rules.OneToOne(algebra.Scan,FileScan)
 ]
  

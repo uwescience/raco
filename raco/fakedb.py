@@ -2,11 +2,6 @@
 import collections
 import itertools
 
-import raco.algebra
-from raco import expression
-from raco.expression import UnnamedAttributeRef
-import raco.scheme
-
 debug = False
 
 class FakeDatabase:

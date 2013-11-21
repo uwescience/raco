@@ -7,7 +7,6 @@ SUM(empty) == 0
 
 import collections
 
-import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 
 class EmptyAggregateTests(myrial_test.MyrialTestCase):

@@ -1,8 +1,5 @@
 import collections
-import math
-import unittest
 
-import raco.fakedb
 import raco.scheme as scheme
 import raco.datalog.datalog_test as datalog_test
 

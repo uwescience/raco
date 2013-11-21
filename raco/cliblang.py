@@ -1,9 +1,6 @@
 import expression
-import rules
 import algebra
 from language import Language
-
-import os.path
 
 class CC(Language):
   @staticmethod
