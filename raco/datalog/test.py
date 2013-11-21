@@ -1,4 +1,4 @@
-import datalog as dlog
+import raco.datalog as dlog
 
 programtest = """
 A(X,Y) :- R(W,X,Y), R(Y,Z), Z=3.3, Z>2, X=Z, W<Z
