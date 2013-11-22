@@ -10,4 +10,3 @@ result = pyra.select(lambda t: ((t.predicate == "knows") or (t.predicate == "hol
 
 
 pyra.dump(result)
-

@@ -85,4 +85,3 @@ def unpack(from_args, where_clause, emit_args):
                  for (name, sexpr) in emit_args]
 
     return op, where_clause, emit_args
-

@@ -38,15 +38,15 @@ AWord(G,A,B,"foo", 5, 3.2)
 """
 
 def test(query):
-  print "Input:"
-  print query
-  parsedprogram = dlog.program.parseString(query)[0]
-  print "Parsed:"
-  print parsedprogram
-  print ""
-  print "As Relational Algebra:"
-  for rule in parsedprogram.rules:
-    print "Rule:", rule
-  print rule.toRA(parsedprogram)
+    print "Input:"
+    print query
+    parsedprogram = dlog.program.parseString(query)[0]
+    print "Parsed:"
+    print parsedprogram
+    print ""
+    print "As Relational Algebra:"
+    for rule in parsedprogram.rules:
+        print "Rule:", rule
+    print rule.toRA(parsedprogram)
 
 #test(debugquery)

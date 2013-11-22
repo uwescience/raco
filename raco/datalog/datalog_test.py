@@ -34,4 +34,3 @@ class DatalogTestCase(unittest.TestCase):
         '''Execute a test query with an expected output'''
         actual = self.execute_query(query)
         self.assertEquals(actual, expected)
-
