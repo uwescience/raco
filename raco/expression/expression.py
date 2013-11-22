@@ -52,7 +52,7 @@ class ZeroaryOperator(Expression):
   def __init__(self):
     pass
   def __eq__(self, other):
-    return self.__class__ == other.__class__ 
+    return self.__class__ == other.__class__
 
   def __hash__(self):
     return hash(self.__class__)

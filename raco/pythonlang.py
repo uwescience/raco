@@ -38,7 +38,7 @@ pyra.dump(%s)
 
   @classmethod
   def boolean_combine(cls, args, operator="and"):
-    opstr = " %s " % operator 
+    opstr = " %s " % operator
     conjunc = opstr.join(["%s" % cls.compile_boolean(arg) for arg in args])
     return "(%s)" % conjunc
 
@@ -85,4 +85,4 @@ class PythonAlgebra:
   raco.rules.OneToOne(algebra.Select, pySelect),
   raco.rules.OneToOne(algebra.Scan, pyScan)
 ]
- 
+

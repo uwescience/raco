@@ -43,24 +43,24 @@ binopstr = " ".join(opcodes)
 # parse action for binary operators
 def parsebinop(opexpr):
   left, opstr, right = opexpr
-  
+
   for opclass in binopclasses:
     if opstr in opclass.literals:
       return opclass(left, right)
-        
+
 binop = oneOf(binopstr)
 arithSign = Word("+-", exact=1)
 
 realNum = Combine( Optional(arithSign) + ( Word( nums ) + "." + Optional( Word(nums) )  |
-            ( "." + Word(nums) ) ) + 
+            ( "." + Word(nums) ) ) +
             Optional( E + Optional(arithSign) + Word(nums) ) )
 realNum.setParseAction(lambda x: expression.NumericLiteral(float(x[0])))
 
-intNum = Combine( Optional(arithSign) + Word( nums ) + 
+intNum = Combine( Optional(arithSign) + Word( nums ) +
             Optional( E + Optional("+") + Word(nums) ) )
 intNum.setParseAction(lambda x: expression.NumericLiteral(int(x[0])))
 
-number = realNum | intNum 
+number = realNum | intNum
 
 variable = ident.copy()
 variable.setParseAction(lambda x: model.Var(x[0]))
@@ -128,9 +128,9 @@ def mkIDB(x):
     else:
       idb = model.IDB(mkterm((x[0], x[2])), x[1])
   else:
-    idb = model.IDB(mkterm(x)) 
+    idb = model.IDB(mkterm(x))
   return idb
-  
+
 head = (headterm + Optional(timestep) + drop(":-")).setParseAction(mkIDB)
 #head.setParseAction(show)
 

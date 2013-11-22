@@ -359,43 +359,43 @@ DESCRIPTOR.message_types_by_name['LogicalCross'] = _LOGICALCROSS
 class LogicalRaQueryMessage(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _LOGICALRAQUERYMESSAGE
-  
+
   # @@protoc_insertion_point(class_scope:LogicalRaQueryMessage)
 
 class LogicalRaOperator(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _LOGICALRAOPERATOR
-  
+
   # @@protoc_insertion_point(class_scope:LogicalRaOperator)
 
 class LogicalScan(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _LOGICALSCAN
-  
+
   # @@protoc_insertion_point(class_scope:LogicalScan)
 
 class LogicalSelect(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _LOGICALSELECT
-  
+
   # @@protoc_insertion_point(class_scope:LogicalSelect)
 
 class LogicalProject(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _LOGICALPROJECT
-  
+
   # @@protoc_insertion_point(class_scope:LogicalProject)
 
 class LogicalEquiJoin(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _LOGICALEQUIJOIN
-  
+
   # @@protoc_insertion_point(class_scope:LogicalEquiJoin)
 
 class LogicalCross(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _LOGICALCROSS
-  
+
   # @@protoc_insertion_point(class_scope:LogicalCross)
 
 # @@protoc_insertion_point(module_scope)

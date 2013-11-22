@@ -41,9 +41,9 @@ Type is a function that returns true for any value that is of the correct type
   def __eq__(self, other):
     return self.attributes == other.attributes
 
-  def getPosition(self, name): 
+  def getPosition(self, name):
     return self.asdict[name][0]
-  
+
   def getName(self, position):
     return self[position][0]
 
@@ -117,7 +117,7 @@ Type is a function that returns true for any value that is of the correct type
   def __sub__(self, other):
     newsch = Scheme()
     for (n, t) in self:
-      if not n in other: 
+      if not n in other:
         newsch.addAttribute(n, t)
     return newsch
 

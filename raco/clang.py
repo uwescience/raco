@@ -64,7 +64,7 @@ class CC(Language):
 
   @classmethod
   def boolean_combine(cls, args, operator="&&"):
-    opstr = " %s " % operator 
+    opstr = " %s " % operator
     conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg in args])
     return "( %s )" % conjunc
 
@@ -140,18 +140,18 @@ A Join that hashes its left input and constructs an output relation.
     if not isinstance(self.condition, expression.EQ):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
-    
+
     template = "%s->relation"
     condition = CC.compile_boolean(self.condition)
     leftattribute = self.condition.left.position
     rightattribute = self.condition.right.position
-    
+
     #leftattribute, rightattribute = self.attributes[0]
     #leftpos = self.scheme().getPosition(leftattribute)
     #leftattribute = CC.compile_attribute(leftpos, template % leftsym)
     #rightpos = self.scheme().getPosition(rightattribute)
     #rightattribute = CC.compile_attribute(rightpos, template % rightsym)
-    
+
     code = hashjoin_template % locals()
     return code
 
@@ -234,13 +234,13 @@ def indentby(code, level):
 
 nextjointemplate = """
 { /* Begin Join Level %(depth)s */
- 
+
   #pragma mta trace "running join %(depth)s"
 
-  if (%(left_condition)s) { // filter on join%(depth)s.left 
+  if (%(left_condition)s) { // filter on join%(depth)s.left
     // Join %(depth)s
     for (uint64 %(rightsym)s_row = 0; %(rightsym)s_row < %(rightsym)s->tuples; %(rightsym)s_row++) {
-      if (%(right_condition)s) { // filter on join%(depth)s.right          
+      if (%(right_condition)s) { // filter on join%(depth)s.right
         if (equals(%(leftsym)s, %(leftsym)s_row, %(leftposition)s // left attribute ref
                  , %(rightsym)s, %(rightsym)s_row, %(rightposition)s)) { //right attribtue ref
 
@@ -249,7 +249,7 @@ nextjointemplate = """
         } // Join %(depth)s condition
       } // filter on join%(depth)s.right
     } // loop over join%(depth)s.right
-  } // filter on join%(depth)s.left 
+  } // filter on join%(depth)s.left
 
 }
 """
@@ -265,7 +265,7 @@ firstjointemplate = """
   getCounters(counters, currCounter);
   currCounter = currCounter + 1; // 1
 
-  // Loop over left leaf relation 
+  // Loop over left leaf relation
   for (uint64 %(leftsym)s_row = 0; %(leftsym)s_row < %(leftsym)s->tuples; %(leftsym)s_row++) {
 
 %(inner_plan_compiled)s
@@ -300,7 +300,7 @@ A linear chain of joins, with selection predicates applied"""
 
   @classmethod
   def rowvar(cls, relsym):
-    return "%s_row" % relsym 
+    return "%s_row" % relsym
 
   def tagcondition(self, joinlevel, condition, argsyms, conditiontype="join"):
     """Tag each position reference in the join condition with the relation symbol it should refer to in the compiled code. joinlevel is the index of the join in the chain."""
@@ -345,7 +345,7 @@ A linear chain of joins, with selection predicates applied"""
           if isinstance(condition.right, expression.NamedAttributeRef):
             condition.right.relationsymbol = relsym
             condition.right.rowvariable = self.rowvar(relsym)
- 
+
 
     helper(condition)
 
@@ -360,7 +360,7 @@ A linear chain of joins, with selection predicates applied"""
 
         assert(isinstance(joincondition.left, expression.UnnamedAttributeRef))
         assert(isinstance(joincondition.right, expression.UnnamedAttributeRef))
-    
+
         # change the addressing scheme for the left-hand attribute reference
         self.tagcondition(level, joincondition, argsyms, conditiontype="join")
         leftsym = joincondition.left.relationsymbol
@@ -379,7 +379,7 @@ A linear chain of joins, with selection predicates applied"""
         inner_plan_compiled = helper(level+1)
 
         code = nextjointemplate % locals()
-  
+
       else:
         depth = depth - 1
         if hasattr(self, "finalcondition"):
@@ -443,12 +443,12 @@ TODO: Remove the use of attributes and update to boolean condition
     rightattribute = CC.compile_attribute(rightpos, template % rightsym)
 
     code = filteringhashjoin_template % locals()
-    return code   
+    return code
 
 #def neededDownstream(ops, expr):
 #  if expr in ops:
-#    
-#   
+#
+#
 #
 #class FreeMemory(CCOperator):
 #  def fire(self, expr):
@@ -468,7 +468,7 @@ class FilteringNestedLoopJoinRule(rules.Rule):
                                 ,expr.right.input
                                 ,expr.left.condition
                                 ,expr.right.condition)
-      if left:  
+      if left:
         return FilteringNestedLoopJoin(expr.condition
                                 ,expr.left.input
                                 ,expr.right

@@ -90,7 +90,7 @@ class Operator(Printable):
   def shortStr(self):
     """Returns a short string describing the current operator and its
     arguments, but not its children. Consider:
-    
+
        query = "A(x) :- R(x,3)."
        logicalplan = dlog.fromDatalog(query)
        (label, root_op) = logicalplan[0]
@@ -147,7 +147,7 @@ class ZeroaryOperator(Operator):
     code = self.language.comment("Compiled subplan for %s" % self)
     self.trace("symbol", resultsym)
     if self.bound and self.language.reusescans:
-      code += self.language.new_relation_assignment(resultsym, self.bound)     
+      code += self.language.new_relation_assignment(resultsym, self.bound)
     else:
       code += "%s" % (self.compileme(resultsym),)
       #code += self.language.comment("Binding: %s" % resultsym)
@@ -172,13 +172,13 @@ class UnaryOperator(Operator):
 
   def __eq__(self, other):
     return self.__class__ == other.__class__ and self.input == other.input
-  
+
   def children(self):
     return [self.input]
 
   def compile(self, resultsym):
     """Compile this operator to the language specified."""
-    #TODO: Why is the language not an argument? 
+    #TODO: Why is the language not an argument?
     code = self.language.comment("Compiled subplan for %s" % self)
     if self.bound:
       code += self.language.assignment(resultsym, self.bound)
@@ -294,7 +294,7 @@ class NaryJoin(NaryOperator):
 """Logical Relational Algebra"""
 
 class Union(BinaryOperator):
-  def scheme(self): 
+  def scheme(self):
     """Same semantics as SQL: Assume first schema "wins" and throw an  error if they don't match during evaluation"""
     return self.left.scheme()
 
@@ -479,7 +479,7 @@ class Select(UnaryOperator):
     return UnaryOperator.__eq__(self, other) and self.condition == other.condition
 
   def shortStr(self):
-    if isinstance(self.condition, dict): 
+    if isinstance(self.condition, dict):
       cond = self.condition["condition"]
     else:
       cond = self.condition
@@ -501,7 +501,7 @@ class Project(UnaryOperator):
     UnaryOperator.__init__(self, input)
 
   def __eq__(self, other):
-    return UnaryOperator.__eq__(self, other) and self.columnlist == other.columnlist 
+    return UnaryOperator.__eq__(self, other) and self.columnlist == other.columnlist
 
   def shortStr(self):
     colstring = ",".join([str(x) for x in self.columnlist])
@@ -662,13 +662,13 @@ class Fixpoint(Operator):
     """Apply a function to your children"""
     self.body.apply(f)
     return self
- 
+
   def scheme(self):
     if self.body:
       return self.body.scheme()
     else:
       raise RecursionError("No Scheme defined yet for fixpoint")
- 
+
   def loopBody(self, plan):
     self.body = plan
 
@@ -766,7 +766,7 @@ class Scan(ZeroaryOperator):
     self.relation_key = other.relation_key
     self._scheme = other._scheme
 
-    # TODO: need a cleaner and more general way of tracing information through 
+    # TODO: need a cleaner and more general way of tracing information through
     # the compilation process for debugging purposes
     if hasattr(other, "originalterm"):
       self.originalterm = other.originalterm
@@ -867,7 +867,7 @@ class PushSelect(Rule):
           # push left
         if join.right.scheme().contains(attributes):
           # push right
-"""     
+"""
 
 class LogicalAlgebra:
   operators = [

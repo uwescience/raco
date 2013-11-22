@@ -3,7 +3,7 @@ from utility import emit
 
 """
 Apply rules to an expression
-If successful, output will 
+If successful, output will
 only involve operators in the
 target algebra
 """
@@ -29,7 +29,7 @@ def optimize_by_rules_breadth_first(expr, rules):
 
 
 def optimize(exprs, target, source, eliminate_common_subexpressions=False):
-  """Fire the rule-based optimizer on a list of exprs.  Fire all rules in the source algebra 
+  """Fire the rule-based optimizer on a list of exprs.  Fire all rules in the source algebra
 (logical) and the target algebra (physical)"""
   def opt(expr):
     so = optimize_by_rules(expr, source.rules)
@@ -69,7 +69,7 @@ def common_subexpression_elimination(expr):
     if not x in allfound:
       found = [x for x in search(expr, x)]
       eqclasses.append((x, found))
-      allfound += found 
+      allfound += found
 
   def replace(expr):
     for witness, ec in eqclasses:
@@ -79,7 +79,7 @@ def common_subexpression_elimination(expr):
         if witness != expr:
           #witness.trace("replaces", expr)
           for k, v in expr.gettrace():
-            witness.trace(k, v) 
+            witness.trace(k, v)
         return witness
 
   return expr.apply(replace)
@@ -88,6 +88,6 @@ def showids(expr):
   """Traverse the plan and show the operator ids"""
   def getid(node):
     yield node, id(node)
- 
+
   return expr.preorder(getid)
-  
+

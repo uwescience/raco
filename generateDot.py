@@ -26,7 +26,7 @@ def generateDot(inputs,output_file) :
     ID = u.next_id()
     s=['digraph G {',result + '-> ' + str(ID) + ';']
     #s = 'digraph G {\n'
-    
+
     generateDotRecursive(x,s,ID,u)
     #s += '}\n'
     #print '}'

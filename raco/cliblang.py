@@ -17,7 +17,7 @@ class CC(Language):
 
   @classmethod
   def boolean_combine(cls, args, operator="&&"):
-    opstr = " %s " % operator 
+    opstr = " %s " % operator
     conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg in args])
     return "( %s )" % conjunc
 
@@ -55,11 +55,11 @@ TwoPassSelect(&condition_%(inputsym)s, %(inputsym)s, %(resultsym)s);
 class TwoPassHashJoin(algebra.Join, CCOperator):
   def compileme(self, resultsym, leftsym, rightsym):
     if len(self.attributes) > 1: raise ValueError("The C compiler can only handle equi-join conditions of a single attribute")
- 
+
     leftattribute, rightattribute = self.attributes[0]
     leftattribute = CC.compile_attribute(leftattribute)
     rightattribute = CC.compile_attribute(rightattribute)
-    
+
     code = """
 
 HashJoin(&condition_%(inputsym)s, %(inputsym)s, %(resultsym)s);
@@ -81,4 +81,4 @@ class CCAlgebra:
   rules.OneToOne(algebra.Select,TwoPassSelect),
   rules.OneToOne(algebra.Scan,FileScan)
 ]
- 
+

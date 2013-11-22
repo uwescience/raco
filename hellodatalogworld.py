@@ -27,7 +27,7 @@ print ra
 print "//-------"
 
 
-# optimize applies a set of rules to translate a source 
+# optimize applies a set of rules to translate a source
 # expression to a target expression
 #result = optimize(ra, target=PseudoCodeAlgebra, source=LogicalAlgebra)
 #result = optimize(ra, target=ProtobufAlgebra, source=LogicalAlgebra)

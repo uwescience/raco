@@ -63,7 +63,7 @@ class JoinToProjectingJoin(Rule):
     if not isinstance(expr, algebra.Join) or isinstance(expr,
             algebra.ProjectingJoin):
       return expr
-     
+
     return algebra.ProjectingJoin(expr.condition, expr.left, expr.right, expr.scheme().ascolumnlist())
 
   def __str__(self):

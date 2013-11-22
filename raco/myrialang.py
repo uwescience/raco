@@ -128,7 +128,7 @@ class MyriaLanguage(Language):
 
   @classmethod
   def boolean_combine(cls, args, operator="and"):
-    opstr = " %s " % operator 
+    opstr = " %s " % operator
     conjunc = opstr.join(["%s" % cls.compile_boolean(arg) for arg in args])
     return "(%s)" % conjunc
 
@@ -881,7 +881,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
       """Given an operator that is the root of a query fragment/plan, extract
       the operators in the fragment. Assembles a list cur_frag of the operators
       in the current fragment, in preorder from the root.
-      
+
       This operator also assembles a queue of the discovered roots of later
       fragments, e.g., when there is a ShuffleProducer below. The list of
       operators that should be treated as fragment leaves is given by

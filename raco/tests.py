@@ -138,7 +138,7 @@ class ExpressionTest(unittest.TestCase):
   def test_postorder(self):
     expr1 = e.MINUS(e.MAX(e.NamedAttributeRef("salary")), e.MIN(e.NamedAttributeRef("salary")))
     expr2 = e.PLUS(e.LOG(e.NamedAttributeRef("salary")), e.ABS(e.NamedAttributeRef("salary")))
-    
+
     def isAggregate(expr):
       return isinstance(expr, e.AggregateExpression)
 

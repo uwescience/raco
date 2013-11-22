@@ -3,7 +3,7 @@ import raco.algebra as alg
 import raco.clang as clang
 import raco.boolean as rbool
 from collections import deque
-   
+
 class cpp_code :
 
     #constructor
@@ -71,7 +71,7 @@ class cpp_code :
 
     def count_startup_code(self) :
         code = open('templates/count_setup.template').read()
-        return code.replace('\n','\n' + ' '*self.indent) 
+        return code.replace('\n','\n' + ' '*self.indent)
 
     #-----------------------------------------------------------------------
 
@@ -83,7 +83,7 @@ class cpp_code :
 
     def count_wrapup_code(self) :
         code = open('templates/count_output.template').read()
-        return code.replace('\n','\n' + ' '*self.indent)  
+        return code.replace('\n','\n' + ' '*self.indent)
 
     #-----------------------------------------------------------------------
 
@@ -177,7 +177,7 @@ class cpp_code :
         print '---'
 
         for c in n.joinconditions :
-            print c 
+            print c
 
         #step 1: update columns in join conditions
         tot = 0
@@ -203,7 +203,7 @@ class cpp_code :
             column = index[pos][0]
             hashname = self.node_to_hash[n.args[i+1]]
             table = "table" + str(self.index)
-            
+
             clause = '1'
             if first :
                 table = self.node_to_name[n.args[0]]
@@ -268,7 +268,7 @@ class cpp_code :
             c += clause.right.value
         elif isinstance(clause.right,rbool.PositionReference) :
             c += table + '[' + self.relation_to_index[table] + '][' + str(clause.right.position) + ']'
-        
+
         return c
 
     #-----------------------------------------------------------------------
@@ -317,5 +317,5 @@ class cpp_code :
                     self.visit(arg)
                 self.generate_join_chain(n)
 
-    #-----------------------------------------------------------------------            
+    #-----------------------------------------------------------------------
 

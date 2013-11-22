@@ -36,7 +36,7 @@ class Relation:
 
   def __iter__(self):
     return self.tuples.__iter__()
-  
+
   def __len__(self):
     return len(self.tuples)
 
@@ -87,7 +87,7 @@ def dump(R):
 #    result.insert(rt)
 
 def hashjoin(attributes, Left, Right):
-  keys = zip(*attributes) 
+  keys = zip(*attributes)
   ht = hash(keys[0], Left)
   #probe(attributes, ht, Right)
   result = Relation(Left.getScheme() + Right.getScheme())
@@ -110,7 +110,7 @@ if __name__ == '__main__':
   sr = select(lambda t: t.predicate == 3, rel)
   print sr
   print hashjoin([("object", "subject")], sr, rel)
-  
+
 """
 Example program:
 

@@ -10,7 +10,7 @@ import raco.algebra
 
 class RACompiler:
   """Thin wrapper interface for lower level functions parse, optimize, compile"""
-  
+
   def fromDatalog(self, program):
     """Parse datalog and convert to RA"""
     self.physicalplan = None

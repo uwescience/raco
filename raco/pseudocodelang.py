@@ -39,7 +39,7 @@ int tuplesize = 4*64;
 
   @classmethod
   def boolean_combine(cls, args, operator="&&"):
-    opstr = " %s " % operator 
+    opstr = " %s " % operator
     conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg in args])
     return "( %s )" % conjunc
 
@@ -137,4 +137,4 @@ class PseudoCodeAlgebra:
   raco.rules.OneToOne(algebra.Select, TwoPassSelect),
   raco.rules.OneToOne(algebra.Scan, FileScan)
 ]
- 
+

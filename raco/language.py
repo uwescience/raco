@@ -1,7 +1,7 @@
 import expression
 
 class Language:
- 
+
   # By default, reuse scans
   reusescans = True
 
@@ -51,7 +51,7 @@ class Language:
   def unnamed(cls, condition, sch):
     """
 Replace column names with positions
-""" 
+"""
     if isinstance(condition, expression.BinaryBooleanOperator):
       condition.left = Language.unnamed(condition.left, sch)
       condition.right = Language.unnamed(condition.right, sch)
@@ -105,13 +105,13 @@ Compile a boolean condition into the target language
 
     elif isinstance(expr, expression.StringLiteral):
       return cls.compile_stringliteral(expr.value)
-  
+
     elif isinstance(expr, expression.NumericLiteral):
       return cls.compile_numericliteral(expr.value)
-  
+
     elif isinstance(expr, expression.UnnamedAttributeRef):
       return cls.compile_attribute(expr)
-  
+
     else:
       return expr
       #raise ValueError("Unknown class in boolean expression: %s (value is %s)" % (expr.__class__,expr))
