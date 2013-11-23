@@ -27,13 +27,8 @@ E = CaselessLiteral("E")
 # Get all the aggregate expression classes
 aggregate_functions = raco.expression.aggregate_functions()
 
-# Get all the infix boolean binary operator classes, like AND, OR
-booleanopclasses = expression.binary_ops()
-
-# Get all the infix binary expression classes, like PLUS, DIVIDE, etc.
-expressionclasses = raco.expression.binary_ops()
-
-binopclasses = booleanopclasses + expressionclasses
+# All binary operators
+binopclasses = expression.binary_ops()
 
 # a list of string literals representing opcodes
 opcodes = sum([oc.literals for oc in binopclasses], [])
