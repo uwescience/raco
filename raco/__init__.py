@@ -1,6 +1,6 @@
 from raco.datalog.grammar import parse
 from raco.scheme import Scheme
-from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra#, ProtobufAlgebra
+from raco.language import PythonAlgebra, PseudoCodeAlgebra#, CCAlgebra#, ProtobufAlgebra
 from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import compile, optimize, common_subexpression_elimination, showids
