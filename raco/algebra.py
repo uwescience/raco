@@ -38,6 +38,10 @@ class Operator(Printable):
     def children(self):
         """Return all the children of this operator."""
 
+    @abstractmethod
+    def scheme(self):
+        """Return the scheme of the tuples output by this operator."""
+
     def postorder(self, f):
         """Postorder traversal, applying a function to each operator.  The function
         returns an iterator"""
@@ -427,7 +431,7 @@ class Apply(UnaryOperator):
 
     def __eq__(self, other):
         return UnaryOperator.__eq__(self, other) and \
-          self.expressions == other.expressions
+          self.mappings == other.mappings
 
     def copy(self, other):
         """deep copy"""
@@ -837,6 +841,10 @@ class Sequence(NaryOperator):
     def shortStr(self):
         return self.opname()
 
+    def scheme(self):
+        """Sequence does not return any tuples."""
+        return None
+
 
 class DoWhile(BinaryOperator):
     def __init__(self, body_op, term_op):
@@ -851,6 +859,10 @@ class DoWhile(BinaryOperator):
 
     def shortStr(self):
         return self.opname()
+
+    def scheme(self):
+        """Do/While does not return any tuples."""
+        return None
 
 def attribute_references(condition):
     """Generates a list of attributes referenced in the condition"""
