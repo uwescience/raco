@@ -242,6 +242,12 @@ class DottedAttributeRef(AttributeRef):
         """
         raise NotImplementedError()
 
+    def get_position(self, scheme):
+        """Panic on attempted get_position. See above.
+
+        TODO(7andrew7): this still what we want?"""
+        raise NotImplementedError()
+
 class UDF(NaryOperator):
     pass
 
