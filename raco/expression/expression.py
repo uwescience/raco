@@ -10,16 +10,18 @@ from abc import ABCMeta, abstractmethod
 
 class Expression(Printable):
     __metaclass__ = ABCMeta
+    literals = None
 
     def typeof(self):
         # By default, we don't know the type
         return None
 
-    def opstr(self):
-        if not hasattr(self, "literals"):
-            return self.opname()
-        else:
-            return self.literals[0]
+    @classmethod
+    def opstr(cls):
+        """Return this operator as it would be printed in a string."""
+        if not cls.literals:
+            return cls.opname()
+        return cls.literals[0]
 
     @abstractmethod
     def evaluate(self, _tuple, scheme):
@@ -62,7 +64,7 @@ class ZeroaryOperator(Expression):
         return hash(self.__class__)
 
     def __str__(self):
-        return "%s" % (self.opstr(),)
+        return "%s" % self.opstr()
 
     def __repr__(self):
         return self.__str__()

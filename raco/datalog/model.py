@@ -407,6 +407,7 @@ class Term:
         self.name = parsedterm[0]
         self.alias = self.name
         self.valuerefs = [vr for vr in parsedterm[1]]
+        self.originalorder = None
 
     def __len__(self):
         """How many atoms are in this term"""

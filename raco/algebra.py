@@ -33,6 +33,7 @@ class Operator(Printable):
         self.cleanup = ""
         self.alias = self
         self._trace = []
+        self.language = None
 
     @abstractmethod
     def children(self):
@@ -173,6 +174,10 @@ class ZeroaryOperator(Operator):
         """Deep copy"""
         Operator.copy(self, other)
 
+    def compileme(self, resultsym):
+        """Compile this operator, storing its result in resultsym"""
+        raise NotImplementedError()
+
 class UnaryOperator(Operator):
     """Operator with one argument"""
     def __init__(self, input):
@@ -218,6 +223,10 @@ class UnaryOperator(Operator):
         self.input = other.input
         Operator.copy(self, other)
 
+    def compileme(self, resultsym, inputsym):
+        """Compile this operator with specified input and output symbol names"""
+        raise NotImplementedError()
+
 class BinaryOperator(Operator):
     """Operator with two arguments"""
     def __init__(self, left, right):
@@ -261,6 +270,10 @@ class BinaryOperator(Operator):
         self.right = other.right
         Operator.copy(self, other)
 
+    def compileme(self, resultsym, leftsym, rightsym):
+        """Compile this operator with specified left, right, and output symbol names"""
+        raise NotImplementedError()
+
 class NaryOperator(Operator):
     """Operator with N arguments.  e.g., multi-way joins in one step."""
     def __init__(self, args):
@@ -291,6 +304,11 @@ class NaryOperator(Operator):
         """Apply a function to your children"""
         self.args = [f(arg) for arg in self.args]
         return self
+
+    def compileme(self, resultsym, argsyms):
+        """Compile this operator with specified children and output symbol names"""
+        raise NotImplementedError()
+
 
 class NaryJoin(NaryOperator):
     def scheme(self):

@@ -8,5 +8,9 @@ class Printable(object):
     def opname(self):
         return str(self.__class__.__name__)
 
+    @classmethod
+    def opname(cls):
+        return str(cls.__name__)
+
     def __str__(self):
         return self.opname()
