@@ -2,6 +2,8 @@ import expression
 import scheme
 from utility import emit, Printable
 
+from abc import ABCMeta, abstractmethod, abstractproperty
+
 """
 Generate variables names
 """
@@ -23,6 +25,8 @@ class SchemaError(Exception):
 
 class Operator(Printable):
     """Operator base classs"""
+    __metaclass__ = ABCMeta
+
     def __init__(self):
         self.bound = None
         # Extra code to emit to cleanup
@@ -30,8 +34,9 @@ class Operator(Printable):
         self.alias = self
         self._trace = []
 
+    @abstractmethod
     def children(self):
-        raise NotImplementedError("Operator.children")
+        """Return all the children of this operator."""
 
     def postorder(self, f):
         """Postorder traversal, applying a function to each operator.  The function
@@ -87,6 +92,7 @@ class Operator(Printable):
         """Set a user-defined identififer for this operator.  Used in optimization and transformation of plans"""
         self.alias = alias
 
+    @abstractmethod
     def shortStr(self):
         """Returns a short string describing the current operator and its
         arguments, but not its children. Consider:
@@ -98,7 +104,6 @@ class Operator(Printable):
            str(root_op) returns "Project($0)[Select($1 = 3)[Scan(R)]]"
 
            shortStr(root_op) should return "Project($0)" """
-        raise NotImplementedError("Operator[%s] must override shortStr()" % self.opname())
 
     def collectGraph(self, graph=None):
         """Collects the operator graph for a given query. Input parameter graph

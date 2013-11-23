@@ -1,12 +1,20 @@
 from raco import expression
 
-class Rule:
-    """
-  Argument is an expression tree
-  Returns a possibly modified expression tree
-  """
+from abc import ABCMeta, abstractmethod
+
+class Rule(object):
+    """Argument is an expression tree
+
+    Returns a possibly modified expression tree"""
+
+    __metaclass__ = ABCMeta
+
     def __call__(self, expr):
         return self.fire(expr)
+
+    @abstractmethod
+    def fire(self, expr):
+        """Apply this rule to the supplied expression tree"""
 
 import algebra
 
