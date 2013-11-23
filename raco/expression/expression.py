@@ -12,7 +12,8 @@ class Expression(Printable):
     __metaclass__ = ABCMeta
     literals = None
 
-    def typeof(self):
+    @classmethod
+    def typeof(cls):
         # By default, we don't know the type
         return None
 
@@ -157,7 +158,8 @@ class Literal(ZeroaryOperator):
     def __hash__(self):
         return hash(self.__class__) + hash(self.value)
 
-    def vars(self):
+    @staticmethod
+    def vars():
         return []
 
     def __repr__(self):

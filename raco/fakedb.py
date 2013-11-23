@@ -96,10 +96,12 @@ class FakeDatabase:
         it = self.evaluate(op.input)
         return itertools.islice(it, op.count)
 
-    def singletonrelation(self, op):
+    @staticmethod
+    def singletonrelation(op):
         return iter([()])
 
-    def emptyrelation(self, op):
+    @staticmethod
+    def emptyrelation(op):
         return iter([])
 
     def unionall(self, op):

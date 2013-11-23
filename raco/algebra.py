@@ -139,9 +139,6 @@ class Operator(Printable):
         assert isinstance(ref, expression.AttributeRef)
         return self.scheme().resolve(ref)
 
-    def is_leaf(self):
-        return False
-
 class ZeroaryOperator(Operator):
     """Operator with no arguments"""
     def __init__(self):
@@ -362,13 +359,13 @@ class Difference(BinaryOperator):
 class CompositeBinaryOperator(BinaryOperator):
     """Join-like operations whose output schema combines its input schemas."""
 
+    @abstractmethod
     def add_equijoin_condition(self, col0, col1):
         """Attempt to add a selection filter to this operation.
 
         Returns a (possibly modified) operator or None if the columns do not
         refer to different children of the join/cross-product.
         """
-        raise NotImplementedException()
 
     @staticmethod
     def get_equijoin_condition(col0, col1):
@@ -803,9 +800,6 @@ class Scan(ZeroaryOperator):
         """Scheme of the result, which is just the scheme of the relation."""
         return self._scheme
 
-    def is_leaf(self):
-        return True
-
 class StoreTemp(UnaryOperator):
     """Store an input relation to a "temporary" relation.
 
@@ -847,9 +841,6 @@ class ScanTemp(ZeroaryOperator):
 
     def scheme(self):
         return self._scheme
-
-    def is_leaf(self):
-        return True
 
 class Sequence(NaryOperator):
     """Execute a sequence of plans in serial order."""

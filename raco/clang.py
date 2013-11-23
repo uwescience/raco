@@ -99,7 +99,8 @@ class TwoPassSelect(algebra.Select, CCOperator):
   Count matches, allocate memory, loop again to populate result
   """
 
-    def tagcondition(self, condition, inputsym):
+    @classmethod
+    def tagcondition(cls, condition, inputsym):
         """Tag each position reference in the join condition with the relation symbol it should refer to in the compiled code. joinlevel is the index of the join in the chain."""
         # TODO: this function is also impossible to understand.  Attribute references need an overhaul.
         def helper(condition):

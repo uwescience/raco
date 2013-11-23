@@ -156,7 +156,8 @@ class ExpressionProcessor:
             emit_args.extend(clause.expand({}))
         return self.__unbox_filter_group(op, None, emit_args)
 
-    def empty(self, _scheme):
+    @staticmethod
+    def empty(_scheme):
         if not _scheme:
             _scheme = raco.scheme.Scheme()
         return raco.algebra.EmptyRelation(_scheme)
