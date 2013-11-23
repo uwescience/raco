@@ -33,7 +33,7 @@ class CCOperator:
 
 class FileScan(algebra.Scan, CCOperator):
     def compileme(self, resultsym):
-        name = self.name
+        name = self.relation_key
         code = scan_template % locals()
         return code
 

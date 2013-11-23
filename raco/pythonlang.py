@@ -55,7 +55,7 @@ class PythonOperator:
 
 class pyScan(algebra.Scan, PythonOperator):
     def compileme(self, resultsym):
-        opcode = """pyra.scan("%s", sampledb.__dict__)""" % self.relation.name
+        opcode = """pyra.scan("%s", sampledb.__dict__)""" % self.relation_key
         code = self.language.new_relation_assignment(resultsym, opcode)
         return code
 

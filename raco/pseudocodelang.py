@@ -53,7 +53,7 @@ class PseudoCodeOperator:
 
 class FileScan(algebra.Scan, PseudoCodeOperator):
     def compileme(self, resultsym):
-        name = self.relation.name
+        name = self.relation_key
         code = """
     // Build the input relation from disk, maybe?
     Relation *%(resultsym)s = new Relation();
