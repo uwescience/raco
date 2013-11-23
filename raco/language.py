@@ -1,6 +1,9 @@
 import expression
 
-class Language:
+from abc import ABCMeta, abstractmethod
+
+class Language(object):
+    __metaclass__ = ABCMeta
 
     # By default, reuse scans
     reusescans = True
@@ -74,9 +77,7 @@ class Language:
 
     @classmethod
     def compile_boolean(cls, expr):
-        """
-    Compile a boolean condition into the target language
-      """
+        """Compile a boolean condition into the target language"""
         if isinstance(expr, expression.UnaryBooleanOperator):
             input = cls.compile_boolean(expr.input)
             if isinstance(expr, expression.NOT):
@@ -115,6 +116,10 @@ class Language:
         else:
             return expr
             #raise ValueError("Unknown class in boolean expression: %s (value is %s)" % (expr.__class__,expr))
+
+    @abstractmethod
+    def boolean_combine(cls, args, operator="and"):
+        """Combine the given arguments using the specified infix operator"""
 
 # import everything from each language
 from pythonlang import *
