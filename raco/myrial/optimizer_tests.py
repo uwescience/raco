@@ -2,7 +2,7 @@
 import collections
 import random
 
-from raco.algebra import *
+from raco.algebra import Apply, CrossProduct, Scan, Select, StoreTemp
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.language import MyriaAlgebra

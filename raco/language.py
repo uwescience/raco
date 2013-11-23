@@ -122,7 +122,7 @@ class Language(object):
         """Combine the given arguments using the specified infix operator"""
 
 # import everything from each language
-from pythonlang import *
-from pseudocodelang import *
-from clang import *
-from myrialang import *
+from pythonlang import PythonAlgebra
+from pseudocodelang import PseudoCodeAlgebra
+from clang import CCAlgebra
+from myrialang import MyriaAlgebra
