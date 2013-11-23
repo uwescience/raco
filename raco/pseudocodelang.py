@@ -53,16 +53,15 @@ class PseudoCodeOperator:
 
 class FileScan(algebra.Scan, PseudoCodeOperator):
     def compileme(self, resultsym):
-        name = self.relation_key
         code = """
     // Build the input relation from disk, maybe?
-    Relation *%(resultsym)s = new Relation();
+    Relation *{resultsym} = new Relation();
 
-    f = fopen(%(name)s);
+    f = fopen({name});
     while not EOF:
       t = parsetuple(read(tuplesize),f)
-      %(resultsym)s->insert(t);
-    """ % locals()
+      {resultsym}->insert(t);
+    """.format(resultsym=resultsym, name=self.relation_key)
         return code
 
 class TwoPassSelect(algebra.Select, PseudoCodeOperator):
@@ -72,22 +71,22 @@ class TwoPassSelect(algebra.Select, PseudoCodeOperator):
     int size = 0;
     Tuple *t;
     for (int i=0; i<N; i++) {
-      t = %(inputsym)s[i];
-      if (%(condition)s) {
+      t = {inputsym}[i];
+      if ({condition}) {
         size++
       }
     }
 
-    %(resultsym)s = malloc(size*tuplesize);
+    {resultsym} = malloc(size*tuplesize);
 
     for (int i=0; i<N; i++) {
-      t = %(inputsym)s[i];
-      if (%(condition)s) {
-        copy t to %(resultsym)s;
+      t = {inputsym}[i];
+      if ({condition}) {
+        copy t to {resultsym};
       }
     }
 
-    """ % locals()
+    """.format(resultsym=resultsym, condition=condition)
         return code
 
 class TwoPassHashJoin(algebra.Join, PseudoCodeOperator):

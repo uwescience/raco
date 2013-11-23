@@ -51,8 +51,7 @@ class Expression(Printable):
 
         # We have to manually walk the postorder because otherwise nothing ever
         # .. gets executed. Stupid generators.
-        for x in self.postorder(doit):
-            pass
+        list(self.postorder(doit))
 
 class ZeroaryOperator(Expression):
     def __init__(self):

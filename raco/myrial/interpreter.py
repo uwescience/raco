@@ -139,7 +139,6 @@ class ExpressionProcessor:
 
         # Record the original schema, so we can later strip off unboxed
         # columns.
-        orig_scheme = op.scheme()
         op, where_clause, emit_args, unbox_columns = self.__unbox(
             op, where_clause, emit_args)
 
@@ -344,7 +343,6 @@ class StatementProcessor:
 
     def get_json(self):
         lp = self.get_logical_plan()
-        lp_str = str(lp)
         pps = optimize([('root', lp)], target=MyriaAlgebra,
                        source=LogicalAlgebra)
         return compile_to_json(lp, lp, pps)

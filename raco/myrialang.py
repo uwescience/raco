@@ -201,7 +201,7 @@ class MyriaSelect(algebra.Select, MyriaOperator):
 
 class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
     def compileme(self, resultsym, leftsym, rightsym):
-        column_names = [name for (name, type) in self.scheme()]
+        column_names = [name for (name, _) in self.scheme()]
         allleft = [i.position for i in self.left.scheme().ascolumnlist()]
         allright = [i.position for i in self.right.scheme().ascolumnlist()]
         return {
@@ -279,7 +279,7 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
 
         if self.columnlist is None:
             self.columnlist = self.scheme().ascolumnlist()
-        column_names = [name for (name, _type) in self.scheme()]
+        column_names = [name for (name, _) in self.scheme()]
 
         allleft = [i.position for i in self.columnlist if i.position < left_len]
         allright = [i.position - left_len for i in self.columnlist
@@ -513,9 +513,6 @@ class ShuffleBeforeJoin(rules.Rule):
         # If both have shuffles already, who cares?
         if isinstance(expr.left, algebra.Shuffle) and isinstance(expr.right, algebra.Shuffle):
             return expr
-
-        # Convert to unnamed perspective
-        condition = MyriaLanguage.unnamed(expr.condition, expr.scheme())
 
         # Figure out which columns go in the shuffle
         left_cols, right_cols = convertcondition(expr.condition,

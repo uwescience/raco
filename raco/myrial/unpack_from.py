@@ -20,7 +20,7 @@ def __calculate_offsets(from_args):
     """Calculate the first column of each relation in the rollup schema."""
     index = 0
     offsets = {}
-    for _id, op in from_args.iteritems():
+    for _id in from_args.iterkeys():
         offsets[_id] = index
         index += len(from_args[_id].scheme())
 

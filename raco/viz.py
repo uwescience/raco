@@ -43,7 +43,7 @@ def plan_to_dot(label_op_list):
     where Operator is of type raco.algebra.Operator"""
 
     graph = None
-    for (label, root_operator) in label_op_list:
+    for (_, root_operator) in label_op_list:
         graph = root_operator.collectGraph(graph)
     return graph_to_dot(graph)
 

@@ -32,7 +32,7 @@ class FakeDatabase:
         self.tables[relation_key] = (contents, scheme)
 
     def get_scheme(self, relation_key):
-        bag, scheme = self.tables[relation_key]
+        (_, scheme) = self.tables[relation_key]
         return scheme
 
     def get_temp_table(self, key):
@@ -47,7 +47,7 @@ class FakeDatabase:
             print '__%s: (%s)' % (key, bag)
 
     def scan(self, op):
-        bag, scheme = self.tables[op.relation_key]
+        (bag, _) = self.tables[op.relation_key]
         return bag.elements()
 
     def select(self, op):
@@ -67,7 +67,7 @@ class FakeDatabase:
 
         def make_tuple(input_tuple):
             ls = [colexpr.evaluate(input_tuple, scheme)
-                  for var, colexpr in op.mappings]
+                  for (_, colexpr) in op.mappings]
             return tuple(ls)
         return (make_tuple(t) for t in child_it)
 

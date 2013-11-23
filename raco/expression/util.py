@@ -38,7 +38,7 @@ def to_unnamed_recursive(sexpr, scheme):
 def all_classes():
     """Return a list of all classes in the module"""
     import raco.expression as expr
-    return [obj for name, obj in inspect.getmembers(expr, inspect.isclass)]
+    return [obj for _, obj in inspect.getmembers(expr, inspect.isclass)]
 
 def aggregate_functions():
     """Return all the classes that can be used to construct an aggregate expression"""

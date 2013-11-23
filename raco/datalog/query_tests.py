@@ -97,7 +97,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         """
 
         counter = collections.Counter()
-        for src, dst in self.edge_table.elements():
+        for (src, _) in self.edge_table.elements():
             counter[src] += 1
 
         ex = [(src, cnt) for src, cnt in counter.iteritems()]

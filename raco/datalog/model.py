@@ -142,7 +142,7 @@ class Planner:
         leftterm, rightterm = joinedge
         data = self.joingraph.get_edge_data(*joinedge)
         condition = data["condition"]
-        left, right = data["order"]
+        left, _ = data["order"]
         # We may have traversed the graph in the opposite direction
         # if so, flip the condition
         if leftterm != left:
@@ -189,7 +189,7 @@ class BFSLeftDeepPlanner(Planner):
         deterministic_edge_sequence = []
         while len(edgesequence) > 0:
                 # Consider all edges that have the same first node -- these are all "ties" in BFS order.
-            (firstx, firsty) = edgesequence[0]
+            firstx = edgesequence[0][0]
             new_edges = [(x, y) for (x, y) in edgesequence if x == firstx]
             # Sort those edges on the originalorder tuple of the source and destination
             deterministic_edge_sequence.extend(sorted(new_edges, key=lambda (x, y) : (x.originalorder, y.originalorder)))
@@ -241,8 +241,6 @@ class Rule:
             return state
         else:
             self.compiling = True
-
-        newterms = []
 
         # get the terms, like A(X,Y,"foo")
         terms = [c for c in self.body if isinstance(c, Term)]
@@ -563,7 +561,7 @@ class Term:
         except raco.algebra.RecursionError:
             sch = raco.scheme.Scheme([attr(i, r, term.name) for i, r in enumerate(term.valuerefs)])
 
-        oldscheme = [name for name, typ in sch]
+        oldscheme = [name for (name, _) in sch]
         termscheme = [expr for expr in term.valuerefs]
 
         if len(oldscheme) != len(termscheme):

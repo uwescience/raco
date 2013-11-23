@@ -28,10 +28,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         count = 30
         self.x_data = collections.Counter(
             [(random.randrange(rng), random.randrange(rng),
-              random.randrange(rng)) for x in range(count)])
+              random.randrange(rng)) for _ in range(count)])
         self.y_data = collections.Counter(
             [(random.randrange(rng), random.randrange(rng),
-              random.randrange(rng)) for x in range(count)])
+              random.randrange(rng)) for _ in range(count)])
 
         self.db.ingest(OptimizerTest.x_key,
                        self.x_data,

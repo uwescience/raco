@@ -34,7 +34,7 @@ class Scheme:
 
     def typecheck(self, tup):
         try:
-            return all([tf(v) for (n, tf), v in zip(self.attributes, tup)])
+            return all([tf(v) for (_, tf), v in zip(self.attributes, tup)])
         except:
             raise TypeError("%s not of type %s" % (tup, self.attributes))
 
