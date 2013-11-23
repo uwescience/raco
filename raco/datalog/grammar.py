@@ -10,7 +10,7 @@ from pyparsing import Literal, CaselessLiteral, Word, delimitedList, Optional, \
 
 import raco
 from raco import expression
-import model as model
+import raco.datalog.model as model
 
 def show(x):
     print x

@@ -1,5 +1,5 @@
-import algebra
-from utility import emit
+from raco import algebra
+from raco.utility import emit
 
 """
 Apply rules to an expression

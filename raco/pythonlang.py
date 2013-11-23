@@ -1,6 +1,6 @@
-import algebra
+from raco import algebra
 import raco.rules
-from language import Language
+from raco.language import Language
 
 class Python(Language):
     @classmethod
@@ -50,7 +50,7 @@ class Python(Language):
     def compile_attribute(name):
         return 't.%s' % name
 
-class PythonOperator:
+class PythonOperator(object):
     language = Python
 
 class pyScan(algebra.Scan, PythonOperator):
@@ -71,7 +71,7 @@ class pyHashJoin(algebra.Join, PythonOperator):
         code = self.language.new_relation_assignment(resultsym, opcode)
         return code
 
-class PythonAlgebra:
+class PythonAlgebra(object):
     language = Python
 
     operators = [

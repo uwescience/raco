@@ -47,7 +47,7 @@ unops = {
     'TAN' : sexpr.TAN,
 }
 
-class Parser:
+class Parser(object):
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens

@@ -1,6 +1,6 @@
 
 
-class Relation:
+class Relation(object):
     def __init__(self, name, sch):
         self.name = name
         self._scheme = sch

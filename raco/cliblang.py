@@ -1,6 +1,6 @@
-import expression
-import algebra
-from language import Language
+from raco import expression
+from raco import algebra
+from raco.language import Language
 
 class CC(Language):
     @staticmethod
@@ -28,7 +28,7 @@ class CC(Language):
     def compile_attribute(position):
         return 'tuple[%s]' % position
 
-class CCOperator:
+class CCOperator(object):
     language = CC
 
 class FileScan(algebra.Scan, CCOperator):
@@ -68,7 +68,7 @@ class TwoPassHashJoin(algebra.Join, CCOperator):
 
         return code
 
-class CCAlgebra:
+class CCAlgebra(object):
     language = CC
 
     operators = [

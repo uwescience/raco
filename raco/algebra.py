@@ -1,6 +1,6 @@
-import expression
-import scheme
-from utility import emit, Printable
+from raco import expression
+from raco import scheme
+from raco.utility import emit, Printable
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 
@@ -895,7 +895,7 @@ class PushSelect(Rule):
           # push right
 """
 
-class LogicalAlgebra:
+class LogicalAlgebra(object):
     operators = [
     Join,
     Select,

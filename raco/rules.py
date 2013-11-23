@@ -1,3 +1,4 @@
+from raco import algebra
 from raco import expression
 
 from abc import ABCMeta, abstractmethod
@@ -15,8 +16,6 @@ class Rule(object):
     @abstractmethod
     def fire(self, expr):
         """Apply this rule to the supplied expression tree"""
-
-import algebra
 
 class CrossProduct2Join(Rule):
     """A rewrite rule for removing Cross Product"""

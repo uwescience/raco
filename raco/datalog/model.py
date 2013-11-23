@@ -10,7 +10,7 @@ import raco.scheme
 import raco.catalog
 
 
-class Program:
+class Program(object):
     def __init__(self, rules):
         self.rules = rules
         self.compiledidbs = {}
@@ -69,7 +69,7 @@ class Program:
     def __repr__(self):
         return "\n".join([str(r) for r in self.rules])
 
-class JoinSequence:
+class JoinSequence(object):
     """Convenience class for operating on a sequence of joins.
   A planner takes a joingraph and emits a join sequence.
   It's not yet a relational plan; we still need to do some bookkeeping
@@ -129,7 +129,7 @@ class JoinSequence:
     def __iter__(self):
         return self.terms.__iter__()
 
-class Planner:
+class Planner(object):
     """Given a join graph, produce a join sequence by choosing a join order with respect to
   some cost function.  Subclasses can implement this however they want."""
 
@@ -200,7 +200,7 @@ class BFSLeftDeepPlanner(Planner):
         joinsequence = self.toJoinSequence(deterministic_edge_sequence)
         return joinsequence
 
-class Rule:
+class Rule(object):
     def __init__(self, headbody):
         self.head = headbody[0]
         self.body = headbody[1]
@@ -400,7 +400,7 @@ class Var(raco.expression.Expression):
     def apply(self, f):
         raise NotImplementedError()
 
-class Term:
+class Term(object):
     def __init__(self, parsedterm):
         self.name = parsedterm[0]
         self.alias = self.name
@@ -643,7 +643,7 @@ class IDB(Term):
 class EDB(Term):
     pass
 
-class ServerSpecification:
+class ServerSpecification(object):
     pass
 
 class Broadcast(ServerSpecification):
@@ -653,7 +653,7 @@ class PartitionBy(ServerSpecification):
     def __init__(self, variables):
         self.variables = variables
 
-class Timestep:
+class Timestep(object):
     def __init__(self, spec):
         self.spec = spec
         pass

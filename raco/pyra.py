@@ -1,11 +1,11 @@
-from scheme import Scheme
+from raco.scheme import Scheme
 
-class Tuple:
+class Tuple(object):
     def __init__(self, tup, sch):
         for (n, t), v in zip(sch, tup):
             self.__dict__[n] = t(v)
 
-class Relation:
+class Relation(object):
     def __init__(self, scheme, tuples=None, name=None):
         if tuples is None:
             tuples = []

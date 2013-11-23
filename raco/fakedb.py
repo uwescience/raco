@@ -4,7 +4,7 @@ import itertools
 
 debug = False
 
-class FakeDatabase:
+class FakeDatabase(object):
     """An in-memory implementation of relational algebra operators"""
 
     def __init__(self):

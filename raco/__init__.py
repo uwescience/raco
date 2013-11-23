@@ -4,11 +4,11 @@ from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra#, Protobuf
 from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import compile, optimize, common_subexpression_elimination, showids
-from utility import emit
+from raco.utility import emit
 
 import raco.algebra
 
-class RACompiler:
+class RACompiler(object):
     """Thin wrapper interface for lower level functions parse, optimize, compile"""
 
     def fromDatalog(self, program):

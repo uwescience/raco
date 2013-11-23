@@ -1,5 +1,4 @@
-
-import pyra
+from raco import pyra
 import sampledb
 
 

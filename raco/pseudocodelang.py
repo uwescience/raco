@@ -1,6 +1,6 @@
-import algebra
+from raco import algebra
 import raco.rules
-from language import Language
+from raco.language import Language
 
 
 class PseudoCode(Language):
@@ -48,7 +48,7 @@ class PseudoCode(Language):
         return 't->%s' % name
 
 
-class PseudoCodeOperator:
+class PseudoCodeOperator(object):
     language = PseudoCode
 
 class FileScan(algebra.Scan, PseudoCodeOperator):
@@ -122,7 +122,7 @@ class TwoPassHashJoin(algebra.Join, PseudoCodeOperator):
         return code
 
 
-class PseudoCodeAlgebra:
+class PseudoCodeAlgebra(object):
     language = PseudoCode
 
     operators = [

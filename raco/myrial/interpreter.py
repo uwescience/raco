@@ -49,7 +49,7 @@ class UnboxState(object):
 def lookup_symbol(symbols, _id):
     return copy.copy(symbols[_id])
 
-class ExpressionProcessor:
+class ExpressionProcessor(object):
     """Convert syntactic expressions into relational algebra operations."""
     def __init__(self, symbols, catalog, use_dummy_schema=False):
         self.symbols = symbols
@@ -274,7 +274,7 @@ class ExpressionProcessor:
         condition = reduce(andify, join_conditions)
         return raco.algebra.Join(condition, left, right)
 
-class StatementProcessor:
+class StatementProcessor(object):
     '''Evaluate a list of statements'''
 
     def __init__(self, catalog=None, use_dummy_schema=False):

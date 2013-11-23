@@ -1,4 +1,4 @@
-import expression
+from raco import expression
 
 from abc import ABCMeta, abstractmethod
 
@@ -122,7 +122,7 @@ class Language(object):
         """Combine the given arguments using the specified infix operator"""
 
 # import everything from each language
-from pythonlang import PythonAlgebra
-from pseudocodelang import PseudoCodeAlgebra
-from clang import CCAlgebra
-from myrialang import MyriaAlgebra
+from raco.pythonlang import PythonAlgebra
+from raco.pseudocodelang import PseudoCodeAlgebra
+from raco.clang import CCAlgebra
+from raco.myrialang import MyriaAlgebra

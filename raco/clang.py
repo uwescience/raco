@@ -1,9 +1,9 @@
-import rules
-import algebra
-from language import Language
-import catalog
+from raco import algebra
+from raco import expression
+from raco import catalog
+from raco.language import Language
+from raco import rules
 
-import expression
 import os.path
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c_templates")
@@ -522,7 +522,7 @@ class LeftDeepFilteringJoinChainRule(rules.Rule):
         else:
             return expr
 
-class CCAlgebra:
+class CCAlgebra(object):
     language = CC
 
     operators = [

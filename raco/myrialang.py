@@ -1,9 +1,9 @@
-import algebra
-import rules
-import scheme
-import expression
-from language import Language
-from utility import emit
+from raco import algebra
+from raco import rules
+from raco import scheme
+from raco import expression
+from raco.language import Language
+from raco.utility import emit
 
 def scheme_to_schema(s):
     def convert_typestr(t):
@@ -133,7 +133,7 @@ class MyriaLanguage(Language):
     def compile_attribute(name):
         return '%s' % name
 
-class MyriaOperator:
+class MyriaOperator(object):
     language = MyriaLanguage
 
 class MyriaScan(algebra.Scan, MyriaOperator):
@@ -755,7 +755,7 @@ class SelectToEquijoin(rules.Rule):
     def __str__(self):
         return "Select, Cross/Join => Join"
 
-class MyriaAlgebra:
+class MyriaAlgebra(object):
     language = MyriaLanguage
 
     operators = [
@@ -846,7 +846,7 @@ def apply_schema_recursive(operator, catalog):
     # Done
     return
 
-class EmptyCatalog:
+class EmptyCatalog(object):
     @staticmethod
     def get_scheme(relation_name):
         return None

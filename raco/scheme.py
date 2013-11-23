@@ -1,7 +1,8 @@
-from collections import OrderedDict
-import expression
+from raco import expression
 
-class DummyScheme:
+from collections import OrderedDict
+
+class DummyScheme(object):
     """Dummy scheme used to generate plans in the absence of catalog info."""
     def __len__(self):
         return 0
@@ -9,7 +10,7 @@ class DummyScheme:
     def __repr__(self):
         return "DummyScheme()"
 
-class Scheme:
+class Scheme(object):
     '''
   Add an attribute to the scheme
   Type is a function that returns true for any value that is of the correct type
