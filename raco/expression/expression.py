@@ -6,7 +6,11 @@ Most non-trivial operators and functions are in separate files in this package.
 
 from raco.utility import Printable
 
+from abc import ABCMeta, abstractmethod
+
 class Expression(Printable):
+    __metaclass__ = ABCMeta
+
     def typeof(self):
         # By default, we don't know the type
         return None
@@ -17,12 +21,12 @@ class Expression(Printable):
         else:
             return self.literals[0]
 
+    @abstractmethod
     def evaluate(self, _tuple, scheme):
         '''Evaluate an expression in the context of a given tuple and schema.
 
         This is used for unit tests written against the fake database.
         '''
-        raise NotImplementedError()
 
     def postorder(self, f):
         """Apply a function to each node in an expression tree.
@@ -32,9 +36,9 @@ class Expression(Printable):
         """
         yield f(self)
 
+    @abstractmethod
     def apply(self, f):
         """Replace children with the result of a function"""
-        pass
 
     def add_offset(self, offset):
         """Add a constant offset to every positional reference in this tree"""
@@ -62,6 +66,9 @@ class ZeroaryOperator(Expression):
 
     def __repr__(self):
         return self.__str__()
+
+    def apply(self, f):
+        pass
 
 class UnaryOperator(Expression):
     def __init__(self, input):
@@ -178,8 +185,12 @@ class AttributeRef(Expression):
     def evaluate(self, _tuple, scheme):
         return _tuple[self.get_position(scheme)]
 
+    @abstractmethod
     def get_position(self, scheme):
-        raise NotImplementedError()
+        """Return the position of the referenced attribute in the given scheme"""
+
+    def apply(self, f):
+        pass
 
 class NamedAttributeRef(AttributeRef):
     def __init__(self, attributename):

@@ -2,10 +2,10 @@
 Utility functions for use in Raco expressions
 """
 
-from .expression import *
-from .aggregate import *
-from .boolean import *
-from .function import *
+from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef
+from .aggregate import AggregateExpression
+
+import inspect
 
 def toUnnamed(ref, scheme):
     """Convert a reference to the unnamed perspective"""
@@ -38,7 +38,6 @@ def to_unnamed_recursive(sexpr, scheme):
 def all_classes():
     """Return a list of all classes in the module"""
     import raco.expression as expr
-    import inspect
     return [obj for name, obj in inspect.getmembers(expr, inspect.isclass)]
 
 def aggregate_functions():
@@ -46,7 +45,7 @@ def aggregate_functions():
     allclasses = all_classes()
     opclasses = [opclass for opclass in allclasses
                      if issubclass(opclass, AggregateExpression)
-                     and opclass is not AggregateExpression]
+                     and not inspect.isabstract(opclass)]
 
     return opclasses
 
@@ -55,11 +54,7 @@ def binary_ops():
     allclasses = all_classes()
     opclasses = [opclass for opclass in allclasses
                      if issubclass(opclass, BinaryOperator)
-                     and opclass is not BinaryOperator
-                     and opclass is not BinaryBooleanOperator
-                     and opclass is not BinaryComparisonOperator
-                     and opclass is not BinaryFunction
-                     and not issubclass(opclass,AggregateExpression)]
+                     and not inspect.isabstract(opclass)]
     return opclasses
 
 def isaggregate(expr):

@@ -5,6 +5,7 @@ Aggregate expressions for use in Raco
 from .expression import Expression, ZeroaryOperator
 from .function import UnaryFunction
 
+from abc import abstractmethod
 import math
 
 class AggregateExpression(Expression):
@@ -18,9 +19,9 @@ class AggregateExpression(Expression):
         """
         return self.opname()
 
+    @abstractmethod
     def evaluate_aggregate(self, tuple_iterator, scheme):
         """Evaluate an aggregate over a bag of tuples"""
-        raise NotImplementedError()
 
 class MAX(UnaryFunction, AggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):

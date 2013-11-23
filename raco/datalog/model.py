@@ -396,6 +396,12 @@ class Var(raco.expression.Expression):
     def __repr__(self):
         return str(self.var)
 
+    def evaluate(self, _tuple, scheme):
+        raise NotImplementedError()
+
+    def apply(self, f):
+        raise NotImplementedError()
+
 class Term:
     def __init__(self, parsedterm):
         self.name = parsedterm[0]
