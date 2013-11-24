@@ -11,15 +11,15 @@ def is_package(path):
         )
 
 def find_packages(path=".", base="", exclude=None):
-    """ Find all packages in path """
+    """Find all packages in path"""
     if not exclude:
         exclude = []
     packages = {}
     for item in os.listdir(path):
         dir = os.path.join(path, item)
-        if is_package( dir ) and dir not in exclude:
+        if is_package(dir) and dir not in exclude:
             if base:
-                module_name = "%(base)s.%(item)s" % vars()
+                module_name = "{base}.{item}".format(base=base,item=item)
             else:
                 module_name = item
             packages[module_name] = dir
