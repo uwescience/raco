@@ -249,21 +249,19 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
           }
 
 
-def convertcondition(condition, left_len):
+def convertcondition(condition, left_len, combined_scheme):
     """Convert an equijoin condition to a pair of column lists."""
 
     if isinstance(condition, expression.AND):
-        leftcols1, rightcols1 = convertcondition(condition.left, left_len)
-        leftcols2, rightcols2 = convertcondition(condition.right, left_len)
+        leftcols1, rightcols1 = convertcondition(condition.left, left_len, combined_scheme)
+        leftcols2, rightcols2 = convertcondition(condition.right, left_len, combined_scheme)
         return leftcols1 + leftcols2, rightcols1 + rightcols2
 
-        # Myrial emits equijoin conditions whose schema refers to the join output,
-        # whereas datalog emits conditions that refer to the input schemas.
-        # TODO: reconcile these models
     if isinstance(condition, expression.EQ):
-        # Myrial-stye equijoins
-        leftcol = min(condition.left.position, condition.right.position)
-        rightcol = max(condition.left.position, condition.right.position)
+        leftpos = condition.left.get_position(combined_scheme)
+        rightpos = condition.right.get_position(combined_scheme)
+        leftcol = min(leftpos, rightpos)
+        rightcol = max(leftpos, rightpos)
         assert rightcol >= left_len
         return [leftcol], [rightcol - left_len]
 
@@ -275,15 +273,16 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
         """Compile the operator to a sequence of json operators"""
 
         left_len = len(self.left.scheme())
-        leftcols, rightcols = convertcondition(self.condition, left_len)
+        combined = self.left.scheme() + self.right.scheme()
+        leftcols, rightcols = convertcondition(self.condition, left_len, combined)
 
         if self.columnlist is None:
             self.columnlist = self.scheme().ascolumnlist()
         column_names = [name for (name, _) in self.scheme()]
 
-        allleft = [i.position for i in self.columnlist if i.position < left_len]
-        allright = [i.position - left_len for i in self.columnlist
-                    if i.position >= left_len]
+        pos = [i.get_position(combined) for i in self.columnlist]
+        allleft = [i for i in pos if i < left_len]
+        allright = [i - left_len for i in pos if i >= left_len]
 
         join = {
             "op_name" : resultsym,
@@ -516,7 +515,8 @@ class ShuffleBeforeJoin(rules.Rule):
 
         # Figure out which columns go in the shuffle
         left_cols, right_cols = convertcondition(expr.condition,
-                                                 len(expr.left.scheme()))
+                                                 len(expr.left.scheme()),
+                                                 expr.left.scheme() + expr.right.scheme())
 
         # Left shuffle
         if isinstance(expr.left, algebra.Shuffle):

@@ -604,7 +604,7 @@ class ProjectingJoin(Join):
             return Join.scheme(self)
         combined = self.left.scheme() + self.right.scheme()
         # TODO: columnlist should perhaps be a list of arbitrary column expressions, TBD
-        return scheme.Scheme([combined[p.position] for p in self.columnlist])
+        return scheme.Scheme([combined[p.get_position(combined)] for p in self.columnlist])
 
     def add_equijoin_condition(self, col0, col1):
         # projects are pushed after selections
