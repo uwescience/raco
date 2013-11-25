@@ -2,14 +2,9 @@
 import collections
 import itertools
 
-import raco.algebra
-from raco import expression
-from raco.expression import UnnamedAttributeRef
-import raco.scheme
-
 debug = False
 
-class FakeDatabase:
+class FakeDatabase(object):
     """An in-memory implementation of relational algebra operators"""
 
     def __init__(self):
@@ -37,7 +32,7 @@ class FakeDatabase:
         self.tables[relation_key] = (contents, scheme)
 
     def get_scheme(self, relation_key):
-        bag, scheme = self.tables[relation_key]
+        (_, scheme) = self.tables[relation_key]
         return scheme
 
     def get_temp_table(self, key):
@@ -52,7 +47,7 @@ class FakeDatabase:
             print '__%s: (%s)' % (key, bag)
 
     def scan(self, op):
-        bag, scheme = self.tables[op.relation_key]
+        (bag, _) = self.tables[op.relation_key]
         return bag.elements()
 
     def select(self, op):
@@ -72,7 +67,7 @@ class FakeDatabase:
 
         def make_tuple(input_tuple):
             ls = [colexpr.evaluate(input_tuple, scheme)
-                  for var, colexpr in op.mappings]
+                  for (_, colexpr) in op.mappings]
             return tuple(ls)
         return (make_tuple(t) for t in child_it)
 
@@ -81,7 +76,7 @@ class FakeDatabase:
         left_it = self.evaluate(op.left)
         right_it = self.evaluate(op.right)
         p1 = itertools.product(left_it, right_it)
-        p2 = (x + y for (x,y) in p1)
+        p2 = (x + y for (x, y) in p1)
 
         # Return tuples that match on the join conditions
         return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
@@ -90,7 +85,7 @@ class FakeDatabase:
         left_it = self.evaluate(op.left)
         right_it = self.evaluate(op.right)
         p1 = itertools.product(left_it, right_it)
-        return (x + y for (x,y) in p1)
+        return (x + y for (x, y) in p1)
 
     def distinct(self, op):
         it = self.evaluate(op.input)
@@ -101,10 +96,12 @@ class FakeDatabase:
         it = self.evaluate(op.input)
         return itertools.islice(it, op.count)
 
-    def singletonrelation(self, op):
+    @staticmethod
+    def singletonrelation(op):
         return iter([()])
 
-    def emptyrelation(self, op):
+    @staticmethod
+    def emptyrelation(op):
         return iter([])
 
     def unionall(self, op):

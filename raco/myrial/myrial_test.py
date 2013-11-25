@@ -1,6 +1,4 @@
 
-import collections
-import math
 import unittest
 
 import raco.fakedb
@@ -31,4 +29,3 @@ class MyrialTestCase(unittest.TestCase):
         '''Execute a test query with an expected output'''
         actual = self.execute_query(query, test_logical)
         self.assertEquals(actual, expected)
-

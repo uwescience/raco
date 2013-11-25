@@ -1,5 +1,4 @@
-
-import pyra
+from raco import pyra
 import sampledb
 
 
@@ -10,4 +9,3 @@ result = pyra.select(lambda t: ((t.predicate == "knows") or (t.predicate == "hol
 
 
 pyra.dump(result)
-

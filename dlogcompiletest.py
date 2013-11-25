@@ -29,26 +29,26 @@ R = ASCIIFile("R", sch)
 #query = """A(A,B,C) :- R(A, x, B), R(A, y, C), R(C, z, B)"""
 #query = """A(A,B,C) :- R(A, x, B), R(A, y, C)"""
 query= """
-Q2(p, auth, bookt, year, xref, ee, title, pages, url, abs) :- 
+Q2(p, auth, bookt, year, xref, ee, title, pages, url, abs) :-
 
-IsProceedings(p), 
+IsProceedings(p),
 Author(p, auth),
-Booktitle(p, bookt), 
-Year(p, year), 
-Crossref(p, xref), 
-Ee(p, ee), 
-Title(p, title), 
-Page(p, pages), 
-Url(p, url), 
+Booktitle(p, bookt),
+Year(p, year),
+Crossref(p, xref),
+Ee(p, ee),
+Title(p, title),
+Page(p, pages),
+Url(p, url),
 Abstract(p, abs)
 """
 query = """
-Q2(p, auth, url,ee) :- 
+Q2(p, auth, url,ee) :-
 
-IsProceedings(p), 
+IsProceedings(p),
 Author(p, auth),
 Url(p, url),
-Ee(p, ee), 
+Ee(p, ee),
 """
 query1 = """
 A(x,z) :- R(x,y,z)
@@ -82,15 +82,15 @@ query1 = """
    CL(cid, avg(x) ) :- C(pid, cid), P(pid, x)
 
 # Broadcast the local cid's (the @* notation means that the data is sent to all servers)
-   CL(@*, cid, a) :- CL(cid, a) 
+   CL(@*, cid, a) :- CL(cid, a)
 
 # Average the local averages: this is equal to the total average
    C(cid, avg(a)) :- CL(cid, a)
 
 # We have now computed the cluster centers. Next, we assign each point to the closest cluster center. This is an *update* step. The computation is local, since C is in every server.
-   PC(pid, argmin_{cid}(d(x, a)))@next :- P(pid, x), C(cid, a)  
+   PC(pid, argmin_{cid}(d(x, a)))@next :- P(pid, x), C(cid, a)
 
-# Finally, we need a stopping condition. Here, we say that the iterations stop as soon as each cluster center has moved at most E distance in consecutive iterations. We do not have a fixed notation for this, but @prev denotes the version of the relations with the previous timestamp.  
+# Finally, we need a stopping condition. Here, we say that the iterations stop as soon as each cluster center has moved at most E distance in consecutive iterations. We do not have a fixed notation for this, but @prev denotes the version of the relations with the previous timestamp.
    NoStop :- C(cid, a), C(cid, b)@prev, d(a,b) > E
 """
 query1 = """
@@ -119,7 +119,7 @@ dlog.fromDatalog(query)
 print dlog.logicalplan
 
 dlog.optimize(target=MyriaAlgebra, eliminate_common_subexpressions=False)
-    
+
 code = dlog.compile()
 print code
 

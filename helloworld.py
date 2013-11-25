@@ -8,7 +8,7 @@ import json
 def json_pretty_print(dictionary):
     """a function to pretty-print a JSON dictionary.
 From http://docs.python.org/2/library/json.html"""
-    return json.dumps(dictionary, sort_keys=True, 
+    return json.dumps(dictionary, sort_keys=True,
             indent=2, separators=(',', ': '))
 
 # A simple join

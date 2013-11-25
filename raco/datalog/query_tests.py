@@ -1,8 +1,5 @@
 import collections
-import math
-import unittest
 
-import raco.fakedb
 import raco.scheme as scheme
 import raco.datalog.datalog_test as datalog_test
 
@@ -100,7 +97,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         """
 
         counter = collections.Counter()
-        for src, dst in self.edge_table.elements():
+        for (src, _) in self.edge_table.elements():
             counter[src] += 1
 
         ex = [(src, cnt) for src, cnt in counter.iteritems()]
@@ -143,7 +140,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         A(x,y,z) :- T(x,y,z), x < y, x < z.
         """
 
-        expected = collections.Counter([(3,5,4), (10,11,12)])
+        expected = collections.Counter([(3, 5, 4), (10, 11, 12)])
         self.run_test(query, expected)
 
     def test_multiway_join(self):

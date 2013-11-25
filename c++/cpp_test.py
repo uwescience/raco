@@ -15,7 +15,7 @@ import sys
 
 if __name__ == "__main__":
   logging.basicConfig(level=logging.DEBUG)
-  
+
   if len(sys.argv) > 1:
       query = sys.argv[1]
       set_sem = bool(sys.argv[2])
@@ -32,24 +32,24 @@ if __name__ == "__main__":
       query = 'mutual(a,b) :- edges(a,b),edges(b,a)'
       #query = 'symmetric(a,b) :- edges1(a,b),edges2(b,a)'
       query = 'TwoPath(a,b,c) :- R(a,b),R(b,c)'
-  
+
   import re
   p = re.compile('[^(]*')
   headname = p.match(query).group(0)
-  
+
   print "query:", query, "\n"
-  
-  
+
+
   parsedprogram = parse(query)
   print "parsed:", parsedprogram, "\n"
-  
-  
+
+
   ra = parsedprogram.toRA()
   generateDot(ra,headname+'.dot')
   print "ra:", ra, "\n"
-  
+
   physicalplan = optimize(ra, target=CCAlgebra, source=LogicalAlgebra)
-  
+
   LOG.info("physical: %s",physicalplan[0])
   LOG.info('args=%s',physicalplan[0][1].args)
   LOG.info('joinconditions=%s',physicalplan[0][1].joinconditions)
@@ -59,4 +59,4 @@ if __name__ == "__main__":
   tmp = sc.cpp_code(physicalplan,headname,dis=set_sem)
   LOG.info('cpp_code obj:%s',tmp)
   tmp.gen_code()
-  
+

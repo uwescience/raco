@@ -23,13 +23,13 @@ sS = Select(EQ(Attribute("predicate"), NumericLiteral(77645021)), R)
 #sT = Select(EQ(Attribute("predicate"), NumericLiteral(77645021)), R)
 sT = Select(EQ(Attribute("object"), NumericLiteral(1018848684)), R)
 
-# Join([(w,x),(y,z)], R, S) means "JOIN R, S ON (R.w = S.x AND R.y = S.z)" 
+# Join([(w,x),(y,z)], R, S) means "JOIN R, S ON (R.w = S.x AND R.y = S.z)"
 sRsS = Join([("object","subject")], sR, sS)
 sRsSsT = Join([("object","subject")], sRsS, sT)
 
-# optimize applies a set of rules to translate a source 
+# optimize applies a set of rules to translate a source
 # expression to a target expression
-result = optimize([("Ans", sT)], target=CCAlgebra, source=LogicalAlgebra) 
+result = optimize([("Ans", sT)], target=CCAlgebra, source=LogicalAlgebra)
 
 # compile generates the linear code from the expression tree
 print compile(result)

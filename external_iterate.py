@@ -42,7 +42,7 @@ def evaluate(plan, connection=None, validate=False):
         d = connection.download_dataset(relation_key)
         if d[0].values()[0]:
             evaluate(plan, connection, validate)
-        
+
 
     elif isinstance(plan, algebra.Sequence):
         for child in plan.children():

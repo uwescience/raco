@@ -1,4 +1,4 @@
-import datalog as dlog
+import raco.datalog as dlog
 
 programtest = """
 A(X,Y) :- R(W,X,Y), R(Y,Z), Z=3.3, Z>2, X=Z, W<Z
@@ -38,15 +38,15 @@ AWord(G,A,B,"foo", 5, 3.2)
 """
 
 def test(query):
-  print "Input:"
-  print query
-  parsedprogram = dlog.program.parseString(query)[0]
-  print "Parsed:"
-  print parsedprogram
-  print ""
-  print "As Relational Algebra:"
-  for rule in parsedprogram.rules:
-    print "Rule:", rule
-  print rule.toRA(parsedprogram)
+    print "Input:"
+    print query
+    parsedprogram = dlog.program.parseString(query)[0]
+    print "Parsed:"
+    print parsedprogram
+    print ""
+    print "As Relational Algebra:"
+    for rule in parsedprogram.rules:
+        print "Rule:", rule
+    print rule.toRA(parsedprogram)
 
 #test(debugquery)

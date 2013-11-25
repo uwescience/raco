@@ -20,7 +20,7 @@ def __calculate_offsets(from_args):
     """Calculate the first column of each relation in the rollup schema."""
     index = 0
     offsets = {}
-    for _id, op in from_args.iteritems():
+    for _id in from_args.iterkeys():
         offsets[_id] = index
         index += len(from_args[_id].scheme())
 
@@ -70,8 +70,8 @@ def unpack(from_args, where_clause, emit_args):
 
     assert len(from_args) > 0
 
-    def cross(x,y):
-        return raco.algebra.CrossProduct(x,y)
+    def cross(x, y):
+        return raco.algebra.CrossProduct(x, y)
 
     from_ops = from_args.values()
     op = reduce(cross, from_ops)
@@ -85,4 +85,3 @@ def unpack(from_args, where_clause, emit_args):
                  for (name, sexpr) in emit_args]
 
     return op, where_clause, emit_args
-

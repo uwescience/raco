@@ -16,7 +16,7 @@ class JoinColumnCountMismatchException(Exception):
 
 # ID is a symbol name that identifies an input expression; columns is a list of
 # columns expressed as either names or integer positions.
-JoinTarget = collections.namedtuple('JoinTarget',['expr', 'columns'])
+JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
@@ -47,7 +47,7 @@ unops = {
     'TAN' : sexpr.TAN,
 }
 
-class Parser:
+class Parser(object):
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
@@ -67,7 +67,8 @@ class Parser:
             ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
         )
 
-    def p_statement_list(self, p):
+    @staticmethod
+    def p_statement_list(p):
         '''statement_list : statement_list statement
                           | statement'''
         if len(p) == 3:
@@ -75,53 +76,65 @@ class Parser:
         else:
             p[0] = [p[1]]
 
-    def p_statement_assign(self, p):
+    @staticmethod
+    def p_statement_assign(p):
         'statement : ID EQUALS expression SEMI'
         p[0] = ('ASSIGN', p[1], p[3])
 
-    def p_statement_dump(self, p):
+    @staticmethod
+    def p_statement_dump(p):
         'statement : DUMP LPAREN ID RPAREN SEMI'
         p[0] = ('DUMP', p[3])
 
-    def p_statement_describe(self, p):
+    @staticmethod
+    def p_statement_describe(p):
         'statement : DESCRIBE LPAREN ID RPAREN SEMI'
         p[0] = ('DESCRIBE', p[3])
 
-    def p_statement_explain(self, p):
+    @staticmethod
+    def p_statement_explain(p):
         'statement : EXPLAIN LPAREN ID RPAREN SEMI'
         p[0] = ('EXPLAIN', p[3])
 
-    def p_statement_dowhile(self, p):
+    @staticmethod
+    def p_statement_dowhile(p):
         'statement : DO statement_list WHILE expression SEMI'
         p[0] = ('DOWHILE', p[2], p[4])
 
-    def p_statement_store(self, p):
+    @staticmethod
+    def p_statement_store(p):
         'statement : STORE LPAREN ID COMMA relation_key RPAREN SEMI'
         p[0] = ('STORE', p[3], p[5])
 
-    def p_expression_id(self, p):
+    @staticmethod
+    def p_expression_id(p):
         'expression : ID'
         p[0] = ('ALIAS', p[1])
 
-    def p_expression_table_literal(self, p):
+    @staticmethod
+    def p_expression_table_literal(p):
         'expression : LBRACKET emit_arg_list RBRACKET'
         p[0] = ('TABLE', p[2])
 
-    def p_expression_empty(self, p):
+    @staticmethod
+    def p_expression_empty(p):
         'expression : EMPTY LPAREN optional_schema RPAREN'
         p[0] = ('EMPTY', p[3])
 
-    def p_expression_scan(self, p):
+    @staticmethod
+    def p_expression_scan(p):
         'expression : SCAN LPAREN relation_key RPAREN'
         p[0] = ('SCAN', p[3])
 
-    def p_relation_key(self, p):
+    @staticmethod
+    def p_relation_key(p):
         '''relation_key : string_arg
                         | string_arg COLON string_arg
                         | string_arg COLON string_arg COLON string_arg'''
         p[0] = ''.join(p[1:])
 
-    def p_optional_schema(self, p):
+    @staticmethod
+    def p_optional_schema(p):
         '''optional_schema : column_def_list
                            | empty'''
         if len(p) == 2:
@@ -130,7 +143,8 @@ class Parser:
             p[0] = None
 
     # Note: column list cannot be empty
-    def p_column_def_list(self, p):
+    @staticmethod
+    def p_column_def_list(p):
         '''column_def_list : column_def_list COMMA column_def
                            | column_def'''
         if len(p) == 4:
@@ -139,27 +153,32 @@ class Parser:
             cols = [p[1]]
         p[0] = cols
 
-    def p_column_def(self, p):
+    @staticmethod
+    def p_column_def(p):
         'column_def : ID COLON type_name'
         p[0] = (p[1], p[3])
 
-    def p_type_name(self, p):
+    @staticmethod
+    def p_type_name(p):
         '''type_name : STRING
                      | INT
                      | FLOAT'''
         p[0] = p[1]
 
-    def p_string_arg(self, p):
+    @staticmethod
+    def p_string_arg(p):
         '''string_arg : ID
                       | STRING_LITERAL'''
         p[0] = p[1]
 
-    def p_expression_bagcomp(self, p):
+    @staticmethod
+    def p_expression_bagcomp(p):
         'expression : LBRACKET FROM from_arg_list opt_where_clause \
         EMIT emit_arg_list RBRACKET'
         p[0] = ('BAGCOMP', p[3], p[4], p[6])
 
-    def p_from_arg_list(self, p):
+    @staticmethod
+    def p_from_arg_list(p):
         '''from_arg_list : from_arg_list COMMA from_arg
                          | from_arg'''
         if len(p) == 4:
@@ -167,7 +186,8 @@ class Parser:
         else:
             p[0] = [p[1]]
 
-    def p_from_arg(self, p):
+    @staticmethod
+    def p_from_arg(p):
         '''from_arg : ID EQUALS expression
                     | ID'''
         expr = None
@@ -175,7 +195,8 @@ class Parser:
             expr = p[3]
         p[0] = (p[1], expr)
 
-    def p_opt_where_clause(self, p):
+    @staticmethod
+    def p_opt_where_clause(p):
         '''opt_where_clause : WHERE sexpr
                             | empty'''
         if len(p) == 3:
@@ -183,7 +204,8 @@ class Parser:
         else:
             p[0] = None
 
-    def p_emit_arg_list(self, p):
+    @staticmethod
+    def p_emit_arg_list(p):
         '''emit_arg_list : emit_arg_list COMMA emit_arg
                          | emit_arg'''
         if len(p) == 4:
@@ -191,7 +213,8 @@ class Parser:
         else:
             p[0] = (p[1],)
 
-    def p_emit_arg_singleton(self, p):
+    @staticmethod
+    def p_emit_arg_singleton(p):
         '''emit_arg : ID EQUALS sexpr
                     | sexpr'''
         if len(p) == 4:
@@ -202,61 +225,74 @@ class Parser:
             sexpr = p[1]
         p[0] = emitarg.SingletonEmitArg(name, sexpr)
 
-    def p_emit_arg_table_wildcard(self, p):
+    @staticmethod
+    def p_emit_arg_table_wildcard(p):
         '''emit_arg : ID DOT TIMES'''
         p[0] = emitarg.TableWildcardEmitArg(p[1])
 
-    def p_emit_arg_full_wildcard(self, p):
+    @staticmethod
+    def p_emit_arg_full_wildcard(p):
         '''emit_arg : TIMES'''
         p[0] = emitarg.FullWildcardEmitArg()
 
-    def p_expression_select_from_where(self, p):
+    @staticmethod
+    def p_expression_select_from_where(p):
         'expression : SELECT emit_arg_list FROM from_arg_list opt_where_clause'
         p[0] = ('BAGCOMP', p[4], p[5], p[2])
 
-    def p_expression_limit(self, p):
+    @staticmethod
+    def p_expression_limit(p):
         'expression : LIMIT LPAREN expression COMMA INTEGER_LITERAL RPAREN'
         p[0] = ('LIMIT', p[3], p[5])
 
-    def p_expression_distinct(self, p):
+    @staticmethod
+    def p_expression_distinct(p):
         'expression : DISTINCT LPAREN expression RPAREN'
         p[0] = ('DISTINCT', p[3])
 
-    def p_expression_countall(self, p):
+    @staticmethod
+    def p_expression_countall(p):
         'expression : COUNTALL LPAREN expression RPAREN'
         p[0] = ('COUNTALL', p[3])
 
-    def p_expression_binary_set_operation(self, p):
+    @staticmethod
+    def p_expression_binary_set_operation(p):
         'expression : setop LPAREN expression COMMA expression RPAREN'
         p[0] = (p[1], p[3], p[5])
 
-    def p_setop(self, p):
+    @staticmethod
+    def p_setop(p):
         '''setop : INTERSECT
                  | DIFF
                  | UNIONALL'''
         p[0] = p[1]
 
-    def p_expression_cross(self, p):
+    @staticmethod
+    def p_expression_cross(p):
         'expression : CROSS LPAREN expression COMMA expression RPAREN'
         p[0] = ('CROSS', p[3], p[5])
 
-    def p_expression_join(self, p):
+    @staticmethod
+    def p_expression_join(p):
         'expression : JOIN LPAREN join_argument COMMA join_argument RPAREN'
         if len(p[3].columns) != len(p[5].columns):
             raise JoinColumnCountMismatchException()
         p[0] = ('JOIN', p[3], p[5])
 
-    def p_join_argument_list(self, p):
+    @staticmethod
+    def p_join_argument_list(p):
         'join_argument : expression COMMA LPAREN column_ref_list RPAREN'
         p[0] = JoinTarget(p[1], p[4])
 
-    def p_join_argument_single(self, p):
+    @staticmethod
+    def p_join_argument_single(p):
         'join_argument : expression COMMA column_ref'
         p[0] = JoinTarget(p[1], [p[3]])
 
     # column_ref refers to the name or position of a column; these serve
     # as arguments to join.
-    def p_column_ref_list(self, p):
+    @staticmethod
+    def p_column_ref_list(p):
         '''column_ref_list : column_ref_list COMMA column_ref
                            | column_ref'''
         if len(p) == 4:
@@ -264,54 +300,66 @@ class Parser:
         else:
             p[0] = [p[1]]
 
-    def p_column_ref_string(self, p):
+    @staticmethod
+    def p_column_ref_string(p):
         'column_ref : ID'
         p[0] = p[1]
 
-    def p_column_ref_index(self, p):
+    @staticmethod
+    def p_column_ref_index(p):
         'column_ref : DOLLAR INTEGER_LITERAL'
         p[0] = p[2]
 
     # scalar expressions map to raco.Expression instances; these are operations
     # that return scalar types.
 
-    def p_sexpr_integer_literal(self, p):
+    @staticmethod
+    def p_sexpr_integer_literal(p):
         'sexpr : INTEGER_LITERAL'
         p[0] = sexpr.NumericLiteral(p[1])
 
-    def p_sexpr_string_literal(self, p):
+    @staticmethod
+    def p_sexpr_string_literal(p):
         'sexpr : STRING_LITERAL'
         p[0] = sexpr.StringLiteral(p[1])
 
-    def p_sexpr_float_literal(self, p):
+    @staticmethod
+    def p_sexpr_float_literal(p):
         'sexpr : FLOAT_LITERAL'
         p[0] = sexpr.NumericLiteral(p[1])
 
-    def p_sexpr_id(self, p):
+    @staticmethod
+    def p_sexpr_id(p):
         'sexpr : ID'
         p[0] = sexpr.NamedAttributeRef(p[1])
 
-    def p_sexpr_index(self, p):
+    @staticmethod
+    def p_sexpr_index(p):
         'sexpr : DOLLAR INTEGER_LITERAL'
         p[0] = sexpr.UnnamedAttributeRef(p[2])
 
-    def p_sexpr_id_dot_id(self, p):
+    @staticmethod
+    def p_sexpr_id_dot_id(p):
         'sexpr : ID DOT ID'
         p[0] = sexpr.DottedAttributeRef(p[1], p[3])
 
-    def p_sexpr_id_dot_pos(self, p):
+    @staticmethod
+    def p_sexpr_id_dot_pos(p):
         'sexpr : ID DOT DOLLAR INTEGER_LITERAL'
         p[0] = sexpr.DottedAttributeRef(p[1], p[4])
 
-    def p_sexpr_group(self, p):
+    @staticmethod
+    def p_sexpr_group(p):
         'sexpr : LPAREN sexpr RPAREN'
         p[0] = p[2]
 
-    def p_sexpr_uminus(self, p):
+    @staticmethod
+    def p_sexpr_uminus(p):
         'sexpr : MINUS sexpr %prec UMINUS'
         p[0] = sexpr.TIMES(sexpr.NumericLiteral(-1), p[2])
 
-    def p_sexpr_unop(self, p):
+    @staticmethod
+    def p_sexpr_unop(p):
         '''sexpr : ABS LPAREN sexpr RPAREN
                    | CEIL LPAREN sexpr RPAREN
                    | COS LPAREN sexpr RPAREN
@@ -322,7 +370,8 @@ class Parser:
                    | TAN LPAREN sexpr RPAREN'''
         p[0] = unops[p[1]](p[3])
 
-    def p_sexpr_binop(self, p):
+    @staticmethod
+    def p_sexpr_binop(p):
         '''sexpr : sexpr PLUS sexpr
                    | sexpr MINUS sexpr
                    | sexpr TIMES sexpr
@@ -337,23 +386,28 @@ class Parser:
                    | sexpr OR sexpr'''
         p[0] = binops[p[2]](p[1], p[3])
 
-    def p_sexpr_pow(self, p):
+    @staticmethod
+    def p_sexpr_pow(p):
         'sexpr : POW LPAREN sexpr COMMA sexpr RPAREN'
         p[0] = sexpr.POW(p[3], p[5])
 
-    def p_sexpr_not(self, p):
+    @staticmethod
+    def p_sexpr_not(p):
         'sexpr : NOT sexpr'
         p[0] = sexpr.NOT(p[2])
 
-    def p_sexpr_countall(self, p):
+    @staticmethod
+    def p_sexpr_countall(p):
         'sexpr : COUNTALL LPAREN RPAREN'
         p[0] = sexpr.COUNTALL()
 
-    def p_sexpr_unary_aggregate(self, p):
+    @staticmethod
+    def p_sexpr_unary_aggregate(p):
         'sexpr : unary_aggregate_func LPAREN sexpr RPAREN'
         p[0] = p[1](p[3])
 
-    def p_unary_aggregate_func(self, p):
+    @staticmethod
+    def p_unary_aggregate_func(p):
         '''unary_aggregate_func : MAX
                                 | MIN
                                 | SUM
@@ -370,11 +424,13 @@ class Parser:
 
         p[0] = func
 
-    def p_sexpr_unbox(self, p):
+    @staticmethod
+    def p_sexpr_unbox(p):
         'sexpr : TIMES expression optional_column_ref'
         p[0] = sexpr.Unbox(p[2], p[3])
 
-    def p_optional_column_ref(self, p):
+    @staticmethod
+    def p_optional_column_ref(p):
         '''optional_column_ref : DOT column_ref
                                | empty'''
         if len(p) == 3:
@@ -382,7 +438,8 @@ class Parser:
         else:
             p[0] = None
 
-    def p_empty(self, p):
+    @staticmethod
+    def p_empty(p):
         'empty :'
         pass
 
@@ -390,5 +447,6 @@ class Parser:
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         return parser.parse(s, lexer=scanner.lexer, tracking=True)
 
-    def p_error(self, p):
+    @staticmethod
+    def p_error(p):
         raise raco.myrial.exceptions.MyrialParseException(str(p))

@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import raco.myrial.parser as parser
 import raco.myrial.groupby as groupby
 import raco.myrial.unpack_from as unpack_from
 import raco.algebra
@@ -13,8 +12,6 @@ from raco.myrialang import compile_to_json
 from raco.compile import optimize
 
 import collections
-import random
-import sys
 import types
 import copy
 
@@ -52,7 +49,7 @@ class UnboxState(object):
 def lookup_symbol(symbols, _id):
     return copy.copy(symbols[_id])
 
-class ExpressionProcessor:
+class ExpressionProcessor(object):
     """Convert syntactic expressions into relational algebra operations."""
     def __init__(self, symbols, catalog, use_dummy_schema=False):
         self.symbols = symbols
@@ -129,8 +126,8 @@ class ExpressionProcessor:
         emit_args = [(name, self.__unbox_scalar_expression(sexpr, ub_state))
                      for name, sexpr in emit_args]
 
-        def cross(x,y):
-            return raco.algebra.CrossProduct(x,y)
+        def cross(x, y):
+            return raco.algebra.CrossProduct(x, y)
 
         # Update the op to be the cross product of all unboxed relations
         cps = [v.operation for v in ub_state.unbox_ops.values()]
@@ -142,7 +139,6 @@ class ExpressionProcessor:
 
         # Record the original schema, so we can later strip off unboxed
         # columns.
-        orig_scheme = op.scheme()
         op, where_clause, emit_args, unbox_columns = self.__unbox(
             op, where_clause, emit_args)
 
@@ -160,7 +156,8 @@ class ExpressionProcessor:
             emit_args.extend(clause.expand({}))
         return self.__unbox_filter_group(op, None, emit_args)
 
-    def empty(self, _scheme):
+    @staticmethod
+    def empty(_scheme):
         if not _scheme:
             _scheme = raco.scheme.Scheme()
         return raco.algebra.EmptyRelation(_scheme)
@@ -265,19 +262,19 @@ class ExpressionProcessor:
         right_refs = [get_attribute_ref(c, right_scheme, len(left_scheme))
                       for c in right_target.columns]
 
-        join_conditions = [sexpr.EQ(x,y) for x,y in
+        join_conditions = [sexpr.EQ(x, y) for x, y in
                            zip(left_refs, right_refs)]
 
         # Merge the join conditions into a big AND expression
 
-        def andify(x,y):
+        def andify(x, y):
             """Merge two scalar expressions with an AND"""
-            return sexpr.AND(x,y)
+            return sexpr.AND(x, y)
 
         condition = reduce(andify, join_conditions)
         return raco.algebra.Join(condition, left, right)
 
-class StatementProcessor:
+class StatementProcessor(object):
     '''Evaluate a list of statements'''
 
     def __init__(self, catalog=None, use_dummy_schema=False):
@@ -347,7 +344,6 @@ class StatementProcessor:
 
     def get_json(self):
         lp = self.get_logical_plan()
-        lp_str = str(lp)
         pps = optimize([('root', lp)], target=MyriaAlgebra,
                        source=LogicalAlgebra)
         return compile_to_json(lp, lp, pps)

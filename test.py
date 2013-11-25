@@ -7,7 +7,7 @@ from sampledb import btc_schema, Rr
 
 def testpython():
   testexpr1 = Join([("object","subject")], Scan("R"), Scan("R"))
-  
+
   R = Scan(Rr)
   #sR = Select("lambda t: t.predicate == 'knows'", R)
   #sS = Select("lambda t: t.predicate == 'holdsAccount'", R)
@@ -23,7 +23,7 @@ def testpython():
   ssR = Select(EQ(NamedAttributeRef("predicate"), StringLiteral("holdsAccount")), sR)
 
   test = Select(OR(EQ(NamedAttributeRef("predicate"), StringLiteral("knows")),EQ(NamedAttributeRef("predicate"), StringLiteral("holdsAccount"))), R)
- 
+
   #print ssR
   ossR = optimize(test, target=PythonAlgebra, source=LogicalAlgebra)
   #ossR = optimize(ssR, target=PseudoCodeAlgebra, source=LogicalAlgebra)
@@ -31,7 +31,7 @@ def testpython():
   #print compile(ossR)
   #print compile(sRsSsT)
   #print [gensym() for i in range(5)]
- 
+
   #sR = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(330337405)), R)
   osR = optimize(sRsSsT, target=PythonAlgebra, source=LogicalAlgebra)
   print compile(osR)
@@ -43,14 +43,14 @@ def testcc():
  sS = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(77645021)), R)
  sT = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(77645021)), R)
 
- 
+
  sRsS = Join([("object","subject")], sR, sS)
  sRsSsT = Join([("object","subject")], sRsS, sT)
  """
 
  """
- result = optimize([('ans', sRsSsT)], target=CCAlgebra, source=LogicalAlgebra) 
- #result = optimize(sR, target=CCAlgebra, source=LogicalAlgebra) 
+ result = optimize([('ans', sRsSsT)], target=CCAlgebra, source=LogicalAlgebra)
+ #result = optimize(sR, target=CCAlgebra, source=LogicalAlgebra)
  return compile(result)
  def f(op):
    yield op #.__class__.__name__
@@ -58,7 +58,7 @@ def testcc():
  def g(op, vars):
    if op in vars: del vars[op]
    yield (op,vars.copy())
- 
+
  def show(op):
    yield op.test
 
@@ -67,7 +67,7 @@ def testcc():
 
  parents = {sRsSsT:[None]}
  sRsSsT.collectParents(parents)
- 
+
  #def f(op):
  #  ps = parents[op]
  #  if ps:

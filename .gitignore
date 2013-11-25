@@ -5,3 +5,4 @@ output.json
 .DS_Store
 parser.out
 parsetab.py
+build
