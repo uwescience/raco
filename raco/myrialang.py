@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from raco import algebra
 from raco import rules
 from raco import scheme
@@ -851,6 +853,18 @@ class EmptyCatalog(object):
     def get_scheme(relation_name):
         return None
 
+class SymbolFactory(object):
+    def __init__(self):
+        self.count = 0
+
+    def __get(self):
+        ret = "V{0}".format(self.count)
+        self.count += 1
+        return ret
+
+    def getter(self):
+        return lambda : self.__get()
+
 def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     """This function compiles a logical RA plan to the JSON suitable for
     submission to the Myria REST API server."""
@@ -865,7 +879,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     # A dictionary mapping each object to a unique, object-dependent symbol.
     # Since we want this to be truly unique for each object instance, even if two
     # objects are equal, we use id(obj) as the key.
-    syms = {}
+    syms = defaultdict(SymbolFactory().getter())
 
     def one_fragment(rootOp):
         """Given an operator that is the root of a query fragment/plan, extract
@@ -879,9 +893,6 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
 
         # The current fragment starts with the current root
         cur_frag = [rootOp]
-        # If necessary, assign a symbol to the root operator
-        if id(rootOp) not in syms:
-            syms[id(rootOp)] = algebra.gensym()
         # Initially, there are no new roots discovered below leaves of this
         # fragment.
         queue = []
@@ -943,7 +954,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
         # Sometimes the root operator is not labeled, usually because we were
         # lazy when submitting a manual plan. In this case, generate a new label.
         if not label:
-            label = algebra.gensym()
+            label = syms[id(rootOp)]
 
         if isinstance(rootOp, algebra.Store) or isinstance(rootOp, algebra.StoreTemp):
             # If there is already a store (including MyriaStore) at the top, do
