@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from raco import algebra
 from raco import rules
 from raco import scheme
@@ -249,21 +251,19 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
           }
 
 
-def convertcondition(condition, left_len):
+def convertcondition(condition, left_len, combined_scheme):
     """Convert an equijoin condition to a pair of column lists."""
 
     if isinstance(condition, expression.AND):
-        leftcols1, rightcols1 = convertcondition(condition.left, left_len)
-        leftcols2, rightcols2 = convertcondition(condition.right, left_len)
+        leftcols1, rightcols1 = convertcondition(condition.left, left_len, combined_scheme)
+        leftcols2, rightcols2 = convertcondition(condition.right, left_len, combined_scheme)
         return leftcols1 + leftcols2, rightcols1 + rightcols2
 
-        # Myrial emits equijoin conditions whose schema refers to the join output,
-        # whereas datalog emits conditions that refer to the input schemas.
-        # TODO: reconcile these models
     if isinstance(condition, expression.EQ):
-        # Myrial-stye equijoins
-        leftcol = min(condition.left.position, condition.right.position)
-        rightcol = max(condition.left.position, condition.right.position)
+        leftpos = condition.left.get_position(combined_scheme)
+        rightpos = condition.right.get_position(combined_scheme)
+        leftcol = min(leftpos, rightpos)
+        rightcol = max(leftpos, rightpos)
         assert rightcol >= left_len
         return [leftcol], [rightcol - left_len]
 
@@ -275,15 +275,16 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
         """Compile the operator to a sequence of json operators"""
 
         left_len = len(self.left.scheme())
-        leftcols, rightcols = convertcondition(self.condition, left_len)
+        combined = self.left.scheme() + self.right.scheme()
+        leftcols, rightcols = convertcondition(self.condition, left_len, combined)
 
         if self.columnlist is None:
             self.columnlist = self.scheme().ascolumnlist()
         column_names = [name for (name, _) in self.scheme()]
 
-        allleft = [i.position for i in self.columnlist if i.position < left_len]
-        allright = [i.position - left_len for i in self.columnlist
-                    if i.position >= left_len]
+        pos = [i.get_position(combined) for i in self.columnlist]
+        allleft = [i for i in pos if i < left_len]
+        allright = [i - left_len for i in pos if i >= left_len]
 
         join = {
             "op_name" : resultsym,
@@ -516,7 +517,8 @@ class ShuffleBeforeJoin(rules.Rule):
 
         # Figure out which columns go in the shuffle
         left_cols, right_cols = convertcondition(expr.condition,
-                                                 len(expr.left.scheme()))
+                                                 len(expr.left.scheme()),
+                                                 expr.left.scheme() + expr.right.scheme())
 
         # Left shuffle
         if isinstance(expr.left, algebra.Shuffle):
@@ -851,6 +853,18 @@ class EmptyCatalog(object):
     def get_scheme(relation_name):
         return None
 
+class SymbolFactory(object):
+    def __init__(self):
+        self.count = 0
+
+    def __get(self):
+        ret = "V{0}".format(self.count)
+        self.count += 1
+        return ret
+
+    def getter(self):
+        return lambda : self.__get()
+
 def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     """This function compiles a logical RA plan to the JSON suitable for
     submission to the Myria REST API server."""
@@ -865,7 +879,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     # A dictionary mapping each object to a unique, object-dependent symbol.
     # Since we want this to be truly unique for each object instance, even if two
     # objects are equal, we use id(obj) as the key.
-    syms = {}
+    syms = defaultdict(SymbolFactory().getter())
 
     def one_fragment(rootOp):
         """Given an operator that is the root of a query fragment/plan, extract
@@ -879,9 +893,6 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
 
         # The current fragment starts with the current root
         cur_frag = [rootOp]
-        # If necessary, assign a symbol to the root operator
-        if id(rootOp) not in syms:
-            syms[id(rootOp)] = algebra.gensym()
         # Initially, there are no new roots discovered below leaves of this
         # fragment.
         queue = []
@@ -943,7 +954,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
         # Sometimes the root operator is not labeled, usually because we were
         # lazy when submitting a manual plan. In this case, generate a new label.
         if not label:
-            label = algebra.gensym()
+            label = syms[id(rootOp)]
 
         if isinstance(rootOp, algebra.Store) or isinstance(rootOp, algebra.StoreTemp):
             # If there is already a store (including MyriaStore) at the top, do
