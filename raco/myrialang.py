@@ -71,6 +71,12 @@ def compile_expr(op, child_scheme):
             'value' : str(op.value),
             'value_type' : myria_type
         }
+    elif isinstance(op, expression.StringLiteral):
+        return {
+            'type' : 'CONSTANT',
+            'value' : str(op.value),
+            'value_type' : 'STRING_TYPE'
+        }
     elif isinstance(op, expression.AttributeRef):
         return {
             'type' : 'VARIABLE',
