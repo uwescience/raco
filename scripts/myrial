@@ -2,16 +2,19 @@
 
 """Compile a Myrial program into a physical plan."""
 
-import raco.myrial.interpreter as interpreter
-import raco.myrial.parser as parser
-import raco.scheme
-from raco import algebra
-from raco.viz import operator_to_dot
-
 import argparse
 import os
 import json
 import sys
+
+# Hackery to find raco paths when myrial is not installed
+sys.path.append(os.path.curdir)
+
+import raco.scheme
+from raco.myrial import interpreter
+from raco.myrial import parser
+from raco import algebra
+from raco.viz import operator_to_dot
 
 def print_pretty_plan(plan, indent=0):
     if isinstance(plan, algebra.DoWhile):
