@@ -188,12 +188,21 @@ class Parser(object):
 
     @staticmethod
     def p_from_arg(p):
-        '''from_arg : ID EQUALS expression
+        '''from_arg : expression optional_as ID
                     | ID'''
         expr = None
         if len(p) == 4:
-            expr = p[3]
-        p[0] = (p[1], expr)
+            expr = p[1]
+            _id = p[3]
+        else:
+            _id = p[1]
+        p[0] = (_id, expr)
+
+    @staticmethod
+    def p_optional_as(p):
+        '''optional_as : AS
+                       | empty'''
+        p[0] = None
 
     @staticmethod
     def p_opt_where_clause(p):

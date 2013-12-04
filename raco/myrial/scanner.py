@@ -10,7 +10,7 @@ reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
             'DO', 'EXPLAIN', 'DISTINCT', 'SCAN', 'COUNTALL', 'FROM', 'WHERE',
             'AND', 'OR', 'NOT', 'MAX', 'MIN', 'SUM', 'COUNT', 'ABS', 'CEIL',
             'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT', 'TAN', 'AVG', 'STDEV', 'POW',
-            'EMPTY', 'SELECT']
+            'EMPTY', 'SELECT', 'AS']
 
 # Token types; required by ply to have this variable name
 

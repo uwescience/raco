@@ -55,7 +55,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
     def test_multi_condition_join(self):
         query = """
         Edge = SCAN(public:adhoc:edges);
-        Symmetric = [FROM E1=Edge, E2=Edge
+        Symmetric = [FROM Edge AS E1, Edge AS E2
                      WHERE E1.src==E2.dst AND E2.src==E1.dst AND E1.src < E1.dst
                      EMIT src=E1.src, dst=E1.dst];
         Dump(Symmetric);
