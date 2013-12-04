@@ -29,6 +29,7 @@ binops = {
     '>=' : sexpr.GTEQ,
     '<=' : sexpr.LTEQ,
     '!=' : sexpr.NEQ,
+    '<>' : sexpr.NEQ,
     '==' : sexpr.EQ,
     '=' : sexpr.EQ,
     'AND' : sexpr.AND,
@@ -391,6 +392,7 @@ class Parser(object):
                    | sexpr GE sexpr
                    | sexpr LE sexpr
                    | sexpr NE sexpr
+                   | sexpr NE2 sexpr
                    | sexpr EQ sexpr
                    | sexpr EQUALS sexpr
                    | sexpr AND sexpr

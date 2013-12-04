@@ -16,7 +16,7 @@ reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
 
 tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT',
           'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ',
-          'NE', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
+          'NE', 'NE2', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
           'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL'] + reserved
 
 # Regular expression rules for simple tokens
@@ -29,12 +29,13 @@ t_MINUS  = r'-'
 t_TIMES  = r'\*'
 t_DIVIDE = r'/'
 
-t_LT               = r'<'
-t_GT               = r'>'
-t_LE               = r'<='
-t_GE               = r'>='
-t_EQ               = r'=='
-t_NE               = r'!='
+t_LT = r'<'
+t_GT = r'>'
+t_LE = r'<='
+t_GE = r'>='
+t_EQ = r'=='
+t_NE = r'!='
+t_NE2 = r'<>'
 
 t_DOT = r'\.'
 t_COMMA = r','

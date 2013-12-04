@@ -208,6 +208,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [x for x in self.emp_table.elements() if x[0] / x[1] != x[1]])
         self.run_test(query, expected)
 
+    def test_bag_comp_filter_column_compare_ne2(self):
+        query = """
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $0 / $1 <> $1 EMIT *];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[0] / x[1] != x[1]])
+        self.run_test(query, expected)
+
     def test_bag_comp_filter_minus(self):
         query = """
         emp = SCAN(%s);
