@@ -57,7 +57,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
         Edge = SCAN(public:adhoc:edges);
         Symmetric = [FROM Edge AS E1, Edge AS E2
                      WHERE E1.src==E2.dst AND E2.src==E1.dst AND E1.src < E1.dst
-                     EMIT src=E1.src, dst=E1.dst];
+                     EMIT E1.src AS src, E1.dst AS dst];
         Dump(Symmetric);
         """
         table = ReachableTest.edge_table
