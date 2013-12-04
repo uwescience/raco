@@ -167,6 +167,9 @@ class ExpressionProcessor(object):
         op = self.bagcomp(args.from_, args.where, args.select)
         if args.distinct:
             op = raco.algebra.Distinct(input=op)
+        if args.limit is not None:
+            op = raco.algebra.Limit(input=op, count=args.limit)
+
         return op
 
     def bagcomp(self, from_clause, where_clause, emit_clause):

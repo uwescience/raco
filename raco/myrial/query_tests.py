@@ -471,6 +471,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.assertEquals(len(result), 3)
 
 
+    def test_sql_limit(self):
+        query = """
+        out = SELECT * FROM SCAN(%s) as X LIMIT 3;
+        DUMP(out);
+        """ % self.emp_key
+
+        result = self.execute_query(query)
+        self.assertEquals(len(result), 3)
+
     def test_table_literal_scalar_expression(self):
         query = """
         X = [FROM ["Andrew", (50 * (500 + 500)) AS salary] Z EMIT salary];

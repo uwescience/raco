@@ -19,7 +19,7 @@ class JoinColumnCountMismatchException(Exception):
 JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 
 SelectFromWhere = collections.namedtuple(
-    'SelectFromWhere', ['distinct', 'select','from_', 'where'])
+    'SelectFromWhere', ['distinct', 'select','from_', 'where', 'limit'])
 
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
@@ -251,9 +251,9 @@ class Parser(object):
 
     @staticmethod
     def p_expression_select_from_where(p):
-        'expression : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause'
+        'expression : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause opt_limit'
         p[0] = ('SELECT', SelectFromWhere(distinct=p[2], select=p[3],
-                                          from_=p[5], where=p[6]))
+                                          from_=p[5], where=p[6], limit=p[7]))
 
     @staticmethod
     def p_opt_distinct(p):
@@ -263,6 +263,15 @@ class Parser(object):
             p[0] = True
         else:
             p[0] = False
+
+    @staticmethod
+    def p_opt_limit(p):
+        '''opt_limit : LIMIT INTEGER_LITERAL
+                     | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = None
 
     @staticmethod
     def p_expression_limit(p):
