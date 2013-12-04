@@ -162,6 +162,13 @@ class ExpressionProcessor(object):
             _scheme = raco.scheme.Scheme()
         return raco.algebra.EmptyRelation(_scheme)
 
+    def select(self, args):
+        """Evaluate a select-from-where expression."""
+        op = self.bagcomp(args.from_, args.where, args.select)
+        if args.distinct:
+            op = raco.algebra.Distinct(input=op)
+        return op
+
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehsion.
 

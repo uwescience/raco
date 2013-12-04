@@ -18,6 +18,9 @@ class JoinColumnCountMismatchException(Exception):
 # columns expressed as either names or integer positions.
 JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 
+SelectFromWhere = collections.namedtuple(
+    'SelectFromWhere', ['distinct', 'select','from_', 'where'])
+
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': sexpr.PLUS,
@@ -248,8 +251,18 @@ class Parser(object):
 
     @staticmethod
     def p_expression_select_from_where(p):
-        'expression : SELECT emit_arg_list FROM from_arg_list opt_where_clause'
-        p[0] = ('BAGCOMP', p[4], p[5], p[2])
+        'expression : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause'
+        p[0] = ('SELECT', SelectFromWhere(distinct=p[2], select=p[3],
+                                          from_=p[5], where=p[6]))
+
+    @staticmethod
+    def p_opt_distinct(p):
+        '''opt_distinct : DISTINCT
+                        | empty'''
+        if len(p) == 2:
+            p[0] = True
+        else:
+            p[0] = False
 
     @staticmethod
     def p_expression_limit(p):

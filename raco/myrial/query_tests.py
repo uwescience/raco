@@ -452,6 +452,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter([(25000,),(5000,),(90000,)])
         self.run_test(query, expected)
 
+    def test_sql_distinct(self):
+        query = """
+        out = SELECT DISTINCT salary AS salary FROM SCAN(%s) AS X;
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(25000,),(5000,),(90000,)])
+        self.run_test(query, expected)
+
     def test_limit(self):
         query = """
         out = LIMIT(SCAN(%s), 3);
