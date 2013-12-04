@@ -7,27 +7,27 @@ epsilon = [.0001];
 Edge = SCAN(public:adhoc:edges);
 Vertex = SCAN(public:adhoc:vertices);
 
-N = [FROM Vertex EMIT val=COUNT(id)];
+N = [FROM Vertex EMIT COUNT(id) AS val];
 min_rank = [(1 - *alpha) / *N];
 
-OutDegree = [FROM Edge EMIT id=Edge.src, cnt=COUNT(Edge.dst)];
-PageRank = [FROM Vertex EMIT id=Vertex.id, rank=1.0 / *N];
+OutDegree = [FROM Edge EMIT Edge.src AS id, COUNT(Edge.dst) AS cnt];
+PageRank = [FROM Vertex EMIT Vertex.id AS id, 1.0 / *N AS rank];
 
 DO
     -- Calculate each node's outbound page rank contribution
     PrOut = [FROM PageRank, OutDegree WHERE PageRank.id == OutDegree.id
-             EMIT id=PageRank.id, out_rank=PageRank.rank / OutDegree.cnt];
+             EMIT PageRank.id AS id, PageRank.rank / OutDegree.cnt AS out_rank];
 
     -- Compute the inbound summands for each node
     Summand = [FROM Vertex, Edge, PrOut
                 WHERE Edge.dst == Vertex.id AND Edge.src == PrOut.id
-                EMIT id=Vertex.id, summand=PrOut.out_rank];
+                EMIT Vertex.id AS id, PrOut.out_rank AS summand];
     
     -- Sum up the summands; adjust by alpha
-    NewPageRank = [FROM Summand EMIT id=id,
-                   rank=*min_rank + *alpha * SUM(Summand.summand)];
+    NewPageRank = [FROM Summand EMIT id AS id,
+                   *min_rank + *alpha * SUM(Summand.summand) AS rank];
     Delta = [FROM NewPageRank, PageRank WHERE NewPageRank.id == PageRank.id
-             EMIT val=ABS(NewPageRank.rank - PageRank.rank)];
+             EMIT ABS(NewPageRank.rank - PageRank.rank) AS val];
     Continue = [FROM Delta EMIT MAX(Delta.val) > *epsilon];
     PageRank = NewPageRank;
 WHILE Continue;

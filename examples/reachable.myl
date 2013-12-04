@@ -1,12 +1,12 @@
 Edge = SCAN(public:adhoc:edges);
-Source = [addr=1];
+Source = [1 AS addr];
 Reachable = Source;
 Delta = Source;
 
 DO
     NewlyReachable = DISTINCT([FROM Delta, Edge
                               WHERE Delta.addr == Edge.src
-                              EMIT addr=Edge.dst]);
+                              EMIT Edge.dst AS addr]);
     Delta = DIFF(NewlyReachable, Reachable);
     Reachable = UNIONALL(Delta, Reachable);
 WHILE [*COUNTALL(Delta) > 0];
