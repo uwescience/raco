@@ -5,7 +5,7 @@ Point = SCAN(public:adhoc:points);
 -- Create some initial cluster centers from the first K points
 -- TODO: We should choose these at random somehow...
 -- TODO: The cluster count should be expressable as a constant
-Centroid = [FROM K=LIMIT(Point, 3) EMIT cluster_id=id, x=x,y=y];
+Centroid = [FROM LIMIT(Point, 3) AS K EMIT cluster_id=id, x=x,y=y];
 
 
 -- Assign each point to the first cluster

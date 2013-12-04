@@ -106,7 +106,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         dept = SCAN(%s);
-        x = [FROM dept, X=emp EMIT 5, k=X.salary * 2, X.*, *];
+        x = [FROM dept, emp as X EMIT 5, k=X.salary * 2, X.*, *];
         DUMP(x);
         """ % (self.emp_key, self.dept_key)
 
@@ -352,7 +352,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_bagcomp_join_via_names(self):
         query = """
-        out = [FROM E=SCAN(%s),D=SCAN(%s) WHERE E.dept_id == D.id
+        out = [FROM SCAN(%s) E, SCAN(%s) AS D WHERE E.dept_id == D.id
               EMIT emp_name=E.name, dept_name=D.name];
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
@@ -422,7 +422,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_bagcomp_cross(self):
         query = """
-        out = [FROM E=SCAN(%s),D=SCAN(%s) EMIT *];
+        out = [FROM SCAN(%s) E, SCAN(%s) AS D EMIT *];
         DUMP(out);
         """  % (self.emp_key, self.dept_key)
 
@@ -434,7 +434,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_distinct(self):
         query = """
-        out = DISTINCT([FROM X=SCAN(%s) EMIT salary]);
+        out = DISTINCT([FROM SCAN(%s) AS X EMIT salary]);
         DUMP(out);
         """ % self.emp_key
 
@@ -589,7 +589,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_max(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT dept_id, MAX(salary)];
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MAX(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -597,7 +597,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_min(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT dept_id, MIN(salary)];
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MIN(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -639,7 +639,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_count(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT dept_id, COUNT(salary)];
+        out = [FROM SCAN(%s) AS X EMIT dept_id, COUNT(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -647,7 +647,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_countall(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT dept_id, COUNTALL()];
+        out = [FROM SCAN(%s) AS X EMIT dept_id, COUNTALL()];
         DUMP(out);
         """ % self.emp_key
 
@@ -655,7 +655,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_max_reversed(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT max_salary=MAX(salary), dept_id];
+        out = [FROM SCAN(%s) AS X EMIT max_salary=MAX(salary), dept_id];
         DUMP(out);
         """ % self.emp_key
 
@@ -665,7 +665,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_compound_aggregate(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT range=( 2 * (MAX(salary) - MIN(salary))),
+        out = [FROM SCAN(%s) AS X EMIT range=( 2 * (MAX(salary) - MIN(salary))),
         did=dept_id];
         out = [FROM out EMIT dept_id=did, rng=range];
         DUMP(out);
@@ -684,7 +684,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_aggregate_with_unbox(self):
         query = """
         C = [one=1, two=2];
-        out = [FROM X=SCAN(%s) EMIT range=MAX(*C.two * salary) -
+        out = [FROM SCAN(%s) AS X EMIT range=MAX(*C.two * salary) -
         MIN( *C.$1 * salary), did=dept_id];
         out = [FROM out EMIT dept_id=did, rng=range];
         DUMP(out);
@@ -702,7 +702,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_nary_groupby(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT dept_id, salary, COUNT(name)];
+        out = [FROM SCAN(%s) AS X EMIT dept_id, salary, COUNT(name)];
         DUMP(out);
         """ % self.emp_key
 
@@ -717,7 +717,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_empty_groupby(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT MAX(salary), COUNT($0), MIN(dept_id*4)];
+        out = [FROM SCAN(%s) AS X EMIT MAX(salary), COUNT($0), MIN(dept_id*4)];
         DUMP(out);
         """ % self.emp_key
 
@@ -726,7 +726,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_compound_groupby(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT id+dept_id, COUNT(salary)];
+        out = [FROM SCAN(%s) AS X EMIT id+dept_id, COUNT(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -742,7 +742,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_impure_aggregate_colref(self):
         """Test of aggregate column that refers to a grouping column"""
         query = """
-        out = [FROM X=SCAN(%s) EMIT
+        out = [FROM SCAN(%s) AS X EMIT
                val=( X.dept_id +  (MAX(X.salary) - MIN(X.salary))),
                did=X.dept_id];
 
@@ -764,7 +764,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """Test of an aggregate column that contains an unbox."""
         query = """
         TWO = [2];
-        out = [FROM X=SCAN(%s) EMIT range=( *TWO * (MAX(salary) - MIN(salary))),
+        out = [FROM SCAN(%s) AS X EMIT range=( *TWO * (MAX(salary) - MIN(salary))),
         did=dept_id];
         out = [FROM out EMIT dept_id=did, rng=range];
         DUMP(out);
@@ -783,7 +783,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_aggregate_illegal_colref(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT
+        out = [FROM SCAN(%s) AS X EMIT
                val=X.dept_id + COUNT(X.salary)];
         DUMP(out);
         """ % self.emp_key
@@ -794,7 +794,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_nested_aggregates_are_illegal(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
+        out = [FROM SCAN(%s) AS X EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
         DUMP(out);
         """ % self.emp_key
 
@@ -816,7 +816,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         Salary = [30000];
         Dept = ["accounting"];
 
-        out = [FROM E=SCAN(%s), D=SCAN(%s)
+        out = [FROM SCAN(%s) AS E, SCAN(%s) AS D
                WHERE E.dept_id == D.id AND D.name == *Dept
                AND E.salary < *Salary EMIT name=E.$2];
         DUMP(out);
@@ -852,7 +852,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_abs(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT id, ABS(val)];
+        out = [FROM SCAN(%s) AS X EMIT id, ABS(val)];
         DUMP(out);
         """ % self.numbers_key
 
@@ -862,7 +862,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_ceil(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT id, CEIL(val)];
+        out = [FROM SCAN(%s) AS X EMIT id, CEIL(val)];
         DUMP(out);
         """ % self.numbers_key
 
@@ -872,7 +872,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_cos(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT id, COS(val)];
+        out = [FROM SCAN(%s) AS X EMIT id, COS(val)];
         DUMP(out);
         """ % self.numbers_key
 
@@ -882,7 +882,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_floor(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT id, FLOOR(val)];
+        out = [FROM SCAN(%s) AS X EMIT id, FLOOR(val)];
         DUMP(out);
         """ % self.numbers_key
 
@@ -892,7 +892,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_log(self):
         query = """
-        out = [FROM X=SCAN(%s) WHERE val > 0 EMIT id, LOG(val)];
+        out = [FROM SCAN(%s) AS X WHERE val > 0 EMIT id, LOG(val)];
         DUMP(out);
         """ % self.numbers_key
 
@@ -903,7 +903,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_sin(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT id, SIN(val)];
+        out = [FROM SCAN(%s) AS X EMIT id, SIN(val)];
         DUMP(out);
         """ % self.numbers_key
 
@@ -945,7 +945,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_no_such_relation(self):
         query = """
-        out = [FROM X=SCAN(foo:bar:baz) EMIT id, TAN(val)];
+        out = [FROM SCAN(foo:bar:baz) x EMIT id, TAN(val)];
         DUMP(out);
         """
 
@@ -954,7 +954,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_scan_error(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT id, FROG(val)];
+        out = [FROM SCAN(%s) AS X EMIT id, FROG(val)];
         DUMP(out);
         """
 
@@ -963,7 +963,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_parse_error(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT id, $(val)];
+        out = [FROM SCAN(%s) AS X EMIT id, $(val)];
         DUMP(out);
         """
 

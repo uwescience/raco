@@ -152,7 +152,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         query = """
         T = SCAN(public:adhoc:Z);
-        U = [FROM T1=T, T2=T, T3=T WHERE T1.dst==T2.src AND T2.dst==T3.src
+        U = [FROM T AS T1, T AS T2, T AS T3
+             WHERE T1.dst==T2.src AND T2.dst==T3.src
              EMIT x=T1.src, y=T3.dst];
         DUMP(U);
         """
