@@ -1,15 +1,13 @@
-#!/usr/bin/env python
+import collections
+import sys
 
-import ply.yacc as yacc
+from ply import yacc
 
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
 import raco.myrial.exceptions
-
-import collections
-import sys
 
 class JoinColumnCountMismatchException(Exception):
     pass
