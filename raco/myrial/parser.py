@@ -224,11 +224,11 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_singleton(p):
-        '''emit_arg : ID EQUALS sexpr
+        '''emit_arg : sexpr AS ID
                     | sexpr'''
         if len(p) == 4:
-            name = p[1]
-            sexpr = p[3]
+            name = p[3]
+            sexpr = p[1]
         else:
             name = None
             sexpr = p[1]
