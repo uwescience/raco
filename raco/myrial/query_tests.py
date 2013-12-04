@@ -106,7 +106,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         dept = SCAN(%s);
-        x = [FROM dept, emp as X EMIT 5, k=X.salary * 2, X.*, *];
+        x = [FROM dept, emp as X EMIT 5, X.salary * 2 AS k, X.*, *];
         DUMP(x);
         """ % (self.emp_key, self.dept_key)
 
@@ -283,7 +283,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_bag_comp_emit_columns(self):
         query = """
         emp = SCAN(%s);
-        out = [FROM emp WHERE dept_id == 1 EMIT $2, salary=salary];
+        out = [FROM emp WHERE dept_id == 1 EMIT $2, salary AS salary];
         DUMP(out);
         """ % self.emp_key
 
@@ -319,7 +319,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_bag_comp_rename(self):
         query = """
         emp = SCAN(%s);
-        out = [FROM emp EMIT name, double_salary=salary * 2];
+        out = [FROM emp EMIT name, salary * 2 AS double_salary];
         out = [FROM out WHERE double_salary > 10000 EMIT *];
         DUMP(out);
         """ % self.emp_key
@@ -344,7 +344,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         dept = SCAN(%s);
         out = JOIN(emp, dept_id, dept, id);
-        out = [FROM out EMIT emp_name=$2, dept_name=$5];
+        out = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
@@ -353,7 +353,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_bagcomp_join_via_names(self):
         query = """
         out = [FROM SCAN(%s) E, SCAN(%s) AS D WHERE E.dept_id == D.id
-              EMIT emp_name=E.name, dept_name=D.name];
+              EMIT E.name AS emp_name, D.name AS dept_name];
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
@@ -364,7 +364,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         E = SCAN(%s);
         D = SCAN(%s);
         out = [FROM E, D WHERE E.$1 == D.$0
-              EMIT emp_name=E.name, dept_name=D.$1];
+              EMIT E.name AS emp_name, D.$1 AS dept_name];
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
@@ -453,7 +453,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_table_literal_scalar_expression(self):
         query = """
-        X = [FROM ["Andrew", salary=(50 * (500 + 500))] Z EMIT salary];
+        X = [FROM ["Andrew", (50 * (500 + 500)) AS salary] Z EMIT salary];
         DUMP(X);
         """
         expected = collections.Counter([(50000,)])
@@ -461,8 +461,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_table_literal_unbox(self):
         query = """
-        A = [one=1, two=2, three=3];
-        B = [one=1, two=2, three=3];
+        A = [1 AS one, 2 AS two, 3 AS three];
+        B = [1 AS one, 2 AS two, 3 AS three];
         C = [*A.two * *B.three];
         DUMP(C);
         """
@@ -496,7 +496,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_unbox_from_where_nary_name(self):
         query = """
-        CONST = [twenty_five=25, thousand=1000];
+        CONST = [25 AS twenty_five, 1000 AS thousand];
 
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == *CONST.twenty_five *
@@ -511,7 +511,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_unbox_from_where_nary_pos(self):
         query = """
-        CONST = [twenty_five=25, thousand=1000];
+        CONST = [25 AS twenty_five, 1000 AS thousand];
 
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == *CONST.$0 *
@@ -528,7 +528,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         THOUSAND = [1000];
         emp = SCAN(%s);
-        out = [FROM emp EMIT salary=salary * *THOUSAND];
+        out = [FROM emp EMIT salary * *THOUSAND AS salary];
         DUMP(out);
         """ % self.emp_key
 
@@ -538,8 +538,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_unbox_kitchen_sink(self):
         query = """
-        C1 = [a=25, b=100];
-        C2 = [a=50, b=1000];
+        C1 = [25 AS a, 100 AS b];
+        C2 = [50 AS a, 1000 AS b];
 
         emp = SCAN(%s);
         out = [FROM emp WHERE salary==*C1.a * *C2.b OR $3==*C1.b * *C2
@@ -655,7 +655,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_max_reversed(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT max_salary=MAX(salary), dept_id];
+        out = [FROM SCAN(%s) AS X EMIT MAX(salary) AS max_salary, dept_id];
         DUMP(out);
         """ % self.emp_key
 
@@ -665,9 +665,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_compound_aggregate(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT range=( 2 * (MAX(salary) - MIN(salary))),
-        did=dept_id];
-        out = [FROM out EMIT dept_id=did, rng=range];
+        out = [FROM SCAN(%s) AS X EMIT ( 2 * (MAX(salary) - MIN(salary))) AS range,
+        dept_id AS did];
+        out = [FROM out EMIT did AS dept_id, range AS rng];
         DUMP(out);
         """ % self.emp_key
 
@@ -683,10 +683,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_aggregate_with_unbox(self):
         query = """
-        C = [one=1, two=2];
+        C = [1 AS one, 2 AS two];
         out = [FROM SCAN(%s) AS X EMIT range=MAX(*C.two * salary) -
-        MIN( *C.$1 * salary), did=dept_id];
-        out = [FROM out EMIT dept_id=did, rng=range];
+        MIN( *C.$1 * salary), dept_id AS did];
+        out = [FROM out EMIT did AS dept_id, range AS rng];
         DUMP(out);
         """ % self.emp_key
 
@@ -743,10 +743,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """Test of aggregate column that refers to a grouping column"""
         query = """
         out = [FROM SCAN(%s) AS X EMIT
-               val=( X.dept_id +  (MAX(X.salary) - MIN(X.salary))),
-               did=X.dept_id];
+               ( X.dept_id +  (MAX(X.salary) - MIN(X.salary))) AS val,
+               X.dept_id AS did];
 
-        out = [FROM out EMIT dept_id=did, rng=val];
+        out = [FROM out EMIT did AS dept_id, val AS rng];
         DUMP(out);
         """ % self.emp_key
 
@@ -764,9 +764,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """Test of an aggregate column that contains an unbox."""
         query = """
         TWO = [2];
-        out = [FROM SCAN(%s) AS X EMIT range=( *TWO * (MAX(salary) - MIN(salary))),
-        did=dept_id];
-        out = [FROM out EMIT dept_id=did, rng=range];
+        out = [FROM SCAN(%s) AS X EMIT ( *TWO * (MAX(salary) - MIN(salary))) AS range,
+        dept_id AS did];
+        out = [FROM out EMIT did AS dept_id, range AS rng];
         DUMP(out);
         """ % self.emp_key
 
@@ -784,7 +784,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_aggregate_illegal_colref(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT
-               val=X.dept_id + COUNT(X.salary)];
+               X.dept_id + COUNT(X.salary) AS val];
         DUMP(out);
         """ % self.emp_key
 
@@ -794,7 +794,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_nested_aggregates_are_illegal(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT id+dept_id, foo=MIN(53 + MAX(salary))];
+        out = [FROM SCAN(%s) AS X EMIT id+dept_id, MIN(53 + MAX(salary)) AS foo];
         DUMP(out);
         """ % self.emp_key
 
@@ -818,7 +818,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         out = [FROM SCAN(%s) AS E, SCAN(%s) AS D
                WHERE E.dept_id == D.id AND D.name == *Dept
-               AND E.salary < *Salary EMIT name=E.$2];
+               AND E.salary < *Salary EMIT E.$2 AS name];
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
@@ -843,7 +843,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         E = SCAN(%s);
         D = SCAN(%s);
         out = [FROM E, D WHERE E.$1 == D.$77
-              EMIT emp_name=E.name, dept_name=D.$1];
+              EMIT E.name AS emp_name, D.$1 AS dept_name];
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
