@@ -22,7 +22,15 @@ Users can of course author programs by directly instantiating one of the interme
 
 # Setup
 
+For development use:
+
+    python setup.py develop
+
+For normal use:
+
     python setup.py install
+
+
 
 # Example
 
