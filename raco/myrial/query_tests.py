@@ -543,7 +543,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         emp = SCAN(%s);
         out = [FROM emp WHERE salary==*C1.a * *C2.b OR $3==*C1.b * *C2
-               EMIT kitchen_sink = dept_id * *C1.b / *C2.a];
+               EMIT dept_id * *C1.b / *C2.a];
         DUMP(out);
         """ % self.emp_key
 
@@ -684,8 +684,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_aggregate_with_unbox(self):
         query = """
         C = [1 AS one, 2 AS two];
-        out = [FROM SCAN(%s) AS X EMIT range=MAX(*C.two * salary) -
-        MIN( *C.$1 * salary), dept_id AS did];
+        out = [FROM SCAN(%s) AS X
+              EMIT MAX(*C.two * salary) - MIN( *C.$1 * salary) AS range,
+                   dept_id AS did];
         out = [FROM out EMIT did AS dept_id, range AS rng];
         DUMP(out);
         """ % self.emp_key
