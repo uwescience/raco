@@ -137,8 +137,6 @@ class ExpressionProcessor(object):
     def __unbox_filter_group(self, op, where_clause, emit_args):
         """Apply unboxing, filtering, and groupby."""
 
-        # Record the original schema, so we can later strip off unboxed
-        # columns.
         op, where_clause, emit_args, unbox_columns = self.__unbox(
             op, where_clause, emit_args)
 
