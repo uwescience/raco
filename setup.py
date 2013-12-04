@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 ### Add find_packages function, see
 # https://wiki.python.org/moin/Distutils/Cookbook/AutoPackageDiscovery

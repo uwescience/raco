@@ -6,3 +6,4 @@ output.json
 parser.out
 parsetab.py
 build
+raco.egg-info
