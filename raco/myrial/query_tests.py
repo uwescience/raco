@@ -376,7 +376,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         E = SCAN(%s);
         D = SCAN(%s);
-        out = SELECT E.name, D.name FROM E, D WHERE E.dept_id == D.id;
+        out = SELECT E.name, D.name FROM E, D WHERE E.dept_id = D.id;
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 

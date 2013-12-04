@@ -30,6 +30,7 @@ binops = {
     '<=' : sexpr.LTEQ,
     '!=' : sexpr.NEQ,
     '==' : sexpr.EQ,
+    '=' : sexpr.EQ,
     'AND' : sexpr.AND,
     'OR' : sexpr.OR,
     'POW' : sexpr.POW,
@@ -391,6 +392,7 @@ class Parser(object):
                    | sexpr LE sexpr
                    | sexpr NE sexpr
                    | sexpr EQ sexpr
+                   | sexpr EQUALS sexpr
                    | sexpr AND sexpr
                    | sexpr OR sexpr'''
         p[0] = binops[p[2]](p[1], p[3])
