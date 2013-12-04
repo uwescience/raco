@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import raco.myrial.groupby as groupby
-import raco.myrial.unpack_from as unpack_from
+import raco.myrial.multiway as multiway
 import raco.algebra
 import raco.expression as sexpr
 import raco.catalog
@@ -205,10 +205,14 @@ class ExpressionProcessor(object):
         for clause in emit_clause:
             emit_args.extend(clause.expand(from_args))
 
-        # Create a single RA operation that is the rollup of all from
-        # targets; re-write where and emit clauses to refer to its schema.
-        op, where_clause, emit_args = unpack_from.unpack(
-            from_args, where_clause, emit_args)
+        # Create a single RA operation that is the cross of all targets
+        op, info = multiway.merge(from_args)
+
+        # rewrite clauses in terms of the new schema
+        if where_clause:
+            where_clause = multiway.rewrite_refs(where_clause, from_args, info)
+        emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
+                      for (name, sexpr) in emit_args]
 
         return self.__unbox_filter_group(op, where_clause, emit_args)
 
