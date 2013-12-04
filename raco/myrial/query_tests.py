@@ -453,7 +453,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_table_literal_scalar_expression(self):
         query = """
-        X = [FROM Z=["Andrew", salary=(50 * (500 + 500))] EMIT salary];
+        X = [FROM ["Andrew", salary=(50 * (500 + 500))] Z EMIT salary];
         DUMP(X);
         """
         expected = collections.Counter([(50000,)])
@@ -605,7 +605,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_sum(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT dept_id, SUM(salary)];
+        out = [FROM SCAN(%s) as X EMIT dept_id, SUM(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -613,7 +613,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_avg(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT dept_id, AVG(salary)];
+        out = [FROM SCAN(%s) AS X EMIT dept_id, AVG(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -629,7 +629,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_stdev(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT STDEV(salary)];
+        out = [FROM SCAN(%s) AS X EMIT STDEV(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -913,7 +913,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_sqrt(self):
         query = """
-        out = [FROM X=SCAN(%s) WHERE val >= 0 EMIT id, SQRT(val)];
+        out = [FROM SCAN(%s) X WHERE val >= 0 EMIT id, SQRT(val)];
         DUMP(out);
         """ % self.numbers_key
 
@@ -924,7 +924,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_tan(self):
         query = """
-        out = [FROM X=SCAN(%s) EMIT id, TAN(val)];
+        out = [FROM SCAN(%s) AS X EMIT id, TAN(val)];
         DUMP(out);
         """ % self.numbers_key
 
@@ -935,7 +935,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_pow(self):
         query = """
         THREE = [3];
-        out = [FROM X=SCAN(%s) EMIT id, POW(X.val, *THREE)];
+        out = [FROM SCAN(%s) X EMIT id, POW(X.val, *THREE)];
         DUMP(out);
         """ % self.numbers_key
 
