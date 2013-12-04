@@ -435,6 +435,20 @@ class Parser(object):
         p[0] = sexpr.COUNTALL()
 
     @staticmethod
+    def p_sexpr_count(p):
+        'sexpr : COUNT LPAREN count_arg RPAREN'
+        if p[3] == '*':
+            p[0] = sexpr.COUNTALL()
+        else:
+            p[0] = sexpr.COUNT(p[3])
+
+    @staticmethod
+    def p_count_arg(p):
+        '''count_arg : TIMES
+                     | sexpr'''
+        p[0] = p[1]
+
+    @staticmethod
     def p_sexpr_unary_aggregate(p):
         'sexpr : unary_aggregate_func LPAREN sexpr RPAREN'
         p[0] = p[1](p[3])
@@ -444,14 +458,12 @@ class Parser(object):
         '''unary_aggregate_func : MAX
                                 | MIN
                                 | SUM
-                                | COUNT
                                 | AVG
                                 | STDEV'''
 
         if p[1] == 'MAX': func = sexpr.MAX
         if p[1] == 'MIN': func = sexpr.MIN
         if p[1] == 'SUM': func = sexpr.SUM
-        if p[1] == 'COUNT': func = sexpr.COUNT
         if p[1] == 'AVG': func = sexpr.AVERAGE
         if p[1] == 'STDEV': func = sexpr.STDEV
 

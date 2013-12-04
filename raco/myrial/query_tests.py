@@ -682,6 +682,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.__aggregate_expected_result(len))
 
+    def test_count_star(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT dept_id, COUNT(*)];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.run_test(query, self.__aggregate_expected_result(len))
+
+    def test_count_star_sql(self):
+        query = """
+        out = SELECT dept_id, COUNT(*) FROM SCAN(%s) AS X;
+        DUMP(out);
+        """ % self.emp_key
+
+        self.run_test(query, self.__aggregate_expected_result(len))
+
     def test_max_reversed(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT MAX(salary) AS max_salary, dept_id];
