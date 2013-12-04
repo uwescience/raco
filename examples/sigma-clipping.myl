@@ -1,29 +1,32 @@
 Points = SCAN(public:adhoc:sc_points);
 
-aggs = [FROM Points EMIT _sum=SUM(v), sumsq=SUM(v*v), cnt=COUNT(v)];
+aggs = [FROM Points EMIT SUM(v) AS _sum, SUM(v*v) AS sumsq, COUNT(v) AS cnt];
 newBad = EMPTY(v:float);
 
-bounds = [FROM Points EMIT lower=MIN(v), upper=MAX(v)];
+bounds = [FROM Points EMIT MIN(v) AS lower, MAX(v) AS upper];
 
 -- number of allowed standard deviations
 N = [2];
 
 DO
     -- Incrementally update aggs and stats
-    new_aggs = [FROM newBad EMIT _sum=SUM(v), sumsq=SUM(v*v), cnt=COUNT(v)];
-    aggs = [FROM aggs, new_aggs EMIT _sum=aggs._sum - new_aggs._sum,
-            sumsq=aggs.sumsq - new_aggs.sumsq, cnt=aggs.cnt - new_aggs.cnt];
+    new_aggs = [FROM newBad EMIT SUM(v) AS _sum, SUM(v*v) AS sumsq,
+                COUNT(v) AS cnt];
+    aggs = [FROM aggs, new_aggs EMIT aggs._sum - new_aggs._sum AS _sum,
+            aggs.sumsq - new_aggs.sumsq AS sumsq,
+            aggs.cnt - new_aggs.cnt AS cnt];
 
-    stats = [FROM aggs EMIT mean=_sum/cnt,
-             std=SQRT(1.0/(cnt*(cnt-1)) * (cnt * sumsq - _sum * _sum))];
+    stats = [FROM aggs EMIT _sum/cnt AS mean,
+             SQRT(1.0/(cnt*(cnt-1)) * (cnt * sumsq - _sum * _sum)) AS std];
 
     -- Compute the new bounds
-    newBounds = [FROM stats EMIT lower=mean - *N * std, upper=mean + *N * std];
+    newBounds = [FROM stats EMIT mean - *N * std AS lower,
+                  mean + *N * std AS upper];
 
     tooLow = [FROM Points, bounds, newBounds WHERE newBounds.lower > v
-              AND v >= bounds.lower EMIT v=Points.v];
+              AND v >= bounds.lower EMIT Points.v AS v];
     tooHigh = [FROM Points, bounds, newBounds WHERE newBounds.upper < v
-               AND v <= bounds.upper EMIT v=Points.v];
+               AND v <= bounds.upper EMIT Points.v AS v];
     newBad = UNIONALL(tooLow, tooHigh);
 
     bounds = newBounds;
@@ -31,5 +34,5 @@ DO
 WHILE continue;
 
 output = [FROM Points, bounds WHERE Points.v > bounds.lower AND
-          Points.v < bounds.upper EMIT v=Points.v];
+          Points.v < bounds.upper EMIT Points.v AS v];
 DUMP(output);
