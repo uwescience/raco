@@ -1,18 +1,19 @@
 #!/usr/bin/python
 
-import raco.myrial.parser as parser
-import raco.myrial.unbox as unbox
 import raco.myrial.groupby as groupby
 import raco.myrial.unpack_from as unpack_from
 import raco.algebra
 import raco.expression as sexpr
 import raco.catalog
 import raco.scheme
+from raco.language import MyriaAlgebra
+from raco.algebra import LogicalAlgebra
+from raco.myrialang import compile_to_json
+from raco.compile import optimize
 
 import collections
-import random
-import sys
 import types
+import copy
 
 class DuplicateAliasException(Exception):
     """Bag comprehension arguments must have different alias names."""
@@ -24,64 +25,139 @@ class InvalidStatementException(Exception):
 class NoSuchRelationException(Exception):
     pass
 
-class ExpressionProcessor:
+# State maintained for unboxed expressions.  Operation refers to the
+# operator tree; first_column_index is the start of the expression in
+# the output schema of the containing operation.
+UnboxOperation = collections.namedtuple("UnboxOperation",
+                                        ["operation", "first_column_index"])
+
+class UnboxState(object):
+    """State maintained during the unbox phase of a bag comprehension."""
+    def __init__(self, initial_pos):
+        # This mapping keeps track of where unboxed expressions reside
+        # in the output schema that is created from cross products of
+        # all unboxed expressions.  The keys are relational expressions and
+        # the values are UnboxedOperation instances
+        self.unbox_ops = collections.OrderedDict()
+
+        # The next column index to be assigned
+        self.pos = initial_pos
+
+        # A set of column indexes that are referenced by unbox operations
+        self.column_refs = set()
+
+def lookup_symbol(symbols, _id):
+    return copy.copy(symbols[_id])
+
+class ExpressionProcessor(object):
     """Convert syntactic expressions into relational algebra operations."""
-    def __init__(self, symbols, catalog):
+    def __init__(self, symbols, catalog, use_dummy_schema=False):
         self.symbols = symbols
         self.catalog = catalog
+        self.use_dummy_schema = use_dummy_schema
 
     def evaluate(self, expr):
         method = getattr(self, expr[0].lower())
         return method(*expr[1:])
 
     def alias(self, _id):
-        return self.symbols[_id]
+        return lookup_symbol(self.symbols, _id)
 
-    def scan(self, relation_key, scheme):
-        """Scan a database table.
-
-        The scheme is an optional argument that overrides any schema
-        in the database catalog.  TODO: get rid of this?
-        """
-        if not scheme:
-            try:
-                scheme = self.catalog.get_scheme(relation_key)
-            except KeyError:
+    def scan(self, relation_key):
+        """Scan a database table."""
+        try:
+            scheme = self.catalog.get_scheme(relation_key)
+        except KeyError:
+            if not self.use_dummy_schema:
                 raise NoSuchRelationException(relation_key)
+
+            # Create a dummy schema suitable for emitting plans
+            scheme = raco.scheme.DummyScheme()
 
         return raco.algebra.Scan(relation_key, scheme)
 
     def load(self, path, schema):
         raise NotImplementedError()
 
-    def __unbox_filter_group(self, op, where_clause, emit_clause):
+    def __unbox_scalar_expression(self, sexpr, ub_state):
+        def unbox_node(sexpr):
+            if not isinstance(sexpr, raco.expression.Unbox):
+                return sexpr
+
+            rex = sexpr.relational_expression
+            if not rex in ub_state.unbox_ops:
+                unbox_op = self.evaluate(rex)
+                scheme = unbox_op.scheme()
+                ub_state.unbox_ops[rex] = UnboxOperation(unbox_op, ub_state.pos)
+                ub_state.pos += len(scheme)
+            else:
+                unbox_op = ub_state.unbox_ops[rex].operation
+                scheme = unbox_op.scheme()
+
+            offset = ub_state.unbox_ops[rex].first_column_index
+            if not sexpr.field:
+                # Default to column zero
+                pass
+            elif type(sexpr.field) == types.IntType:
+                offset += sexpr.field
+            else:
+                # resolve column name into a position
+                offset += scheme.getPosition(sexpr.field)
+
+            ub_state.column_refs.add(offset)
+            return raco.expression.UnnamedAttributeRef(offset)
+
+        def recursive_eval(sexpr):
+            """Apply unbox to a node and all its descendents."""
+            newexpr = unbox_node(sexpr)
+            newexpr.apply(recursive_eval)
+            return newexpr
+
+        return recursive_eval(sexpr)
+
+    def __unbox(self, op, where_clause, emit_args):
+        """Apply unboxing to the clauses of a bag comprehension."""
+        ub_state = UnboxState(len(op.scheme()))
+
+        if where_clause:
+            where_clause = self.__unbox_scalar_expression(where_clause,
+                                                          ub_state)
+
+        emit_args = [(name, self.__unbox_scalar_expression(sexpr, ub_state))
+                     for name, sexpr in emit_args]
+
+        def cross(x, y):
+            return raco.algebra.CrossProduct(x, y)
+
+        # Update the op to be the cross product of all unboxed relations
+        cps = [v.operation for v in ub_state.unbox_ops.values()]
+        op = reduce(cross, cps, op)
+        return op, where_clause, emit_args, ub_state.column_refs
+
+    def __unbox_filter_group(self, op, where_clause, emit_args):
         """Apply unboxing, filtering, and groupby."""
 
         # Record the original schema, so we can later strip off unboxed
         # columns.
-        orig_scheme = op.scheme()
-        op, where_clause, emit_clause, unbox_columns = unbox.unbox(
-            op, where_clause, emit_clause, self.symbols)
+        op, where_clause, emit_args, unbox_columns = self.__unbox(
+            op, where_clause, emit_args)
 
         if where_clause:
             op = raco.algebra.Select(condition=where_clause, input=op)
 
-        if not emit_clause:
-            # Strip off any columns that were added by unbox
-            mappings = [(orig_scheme.getName(i),
-                         raco.expression.UnnamedAttributeRef(i))
-                        for i in range(len(orig_scheme))]
-            return raco.algebra.Apply(mappings=mappings, input=op)
-        else:
-            # Apply any grouping operators
-            return groupby.groupby(op, emit_clause, unbox_columns)
+        # Apply any grouping operators
+        return groupby.groupby(op, emit_args, unbox_columns)
 
-    def table(self, mappings):
+    def table(self, emit_clause):
         """Emit a single-row table literal."""
         op = raco.algebra.SingletonRelation()
-        return self.__unbox_filter_group(op, None, mappings)
+        emit_args = []
+        for clause in emit_clause:
+            emit_args.extend(clause.expand({}))
+        return self.__unbox_filter_group(op, None, emit_args)
 
-    def empty(self, _scheme):
+    @staticmethod
+    def empty(_scheme):
         if not _scheme:
             _scheme = raco.scheme.Scheme()
         return raco.algebra.EmptyRelation(_scheme)
@@ -94,10 +170,8 @@ class ExpressionProcessor:
 
         where_clause: An optional scalar expression (raco.expression).
 
-        emit_clause: An optional list of tuples of the form
-        (column_name, scalar_expression).  The column name can be None, in
-        which case the system concocts a column name.  If the emit_clause
-        is None, all columns are emitted -- i.e., "EMIT *".
+        emit_clause: A list of EmitArg instances, each defining one or more
+        output columns.
         """
 
         # Make sure no aliases were reused: [FROM X, X EMIT *] is illegal
@@ -113,14 +187,20 @@ class ExpressionProcessor:
             if expr:
                 from_args[_id] =  self.evaluate(expr)
             else:
-                from_args[_id] =  self.symbols[_id]
+                from_args[_id] = lookup_symbol(self.symbols, _id)
+
+        # Expand wildcards into a list of output columns
+        assert emit_clause # There should always be something to emit
+        emit_args = []
+        for clause in emit_clause:
+            emit_args.extend(clause.expand(from_args))
 
         # Create a single RA operation that is the rollup of all from
         # targets; re-write where and emit clauses to refer to its schema.
-        op, where_clause, emit_clause = unpack_from.unpack(
-            from_args, where_clause, emit_clause)
+        op, where_clause, emit_args = unpack_from.unpack(
+            from_args, where_clause, emit_args)
 
-        return self.__unbox_filter_group(op, where_clause, emit_clause)
+        return self.__unbox_filter_group(op, where_clause, emit_args)
 
     def distinct(self, expr):
         op = self.evaluate(expr)
@@ -134,8 +214,7 @@ class ExpressionProcessor:
     def countall(self, expr):
         op = self.evaluate(expr)
         grouping_list = []
-        # COUNT must take a column ref. Use the first column
-        agg_list = [sexpr.COUNT(raco.expression.UnnamedAttributeRef(0))]
+        agg_list = [sexpr.COUNTALL()]
         return raco.algebra.GroupBy(columnlist=grouping_list+agg_list,
                                     input=op)
 
@@ -183,22 +262,22 @@ class ExpressionProcessor:
         right_refs = [get_attribute_ref(c, right_scheme, len(left_scheme))
                       for c in right_target.columns]
 
-        join_conditions = [sexpr.EQ(x,y) for x,y in
+        join_conditions = [sexpr.EQ(x, y) for x, y in
                            zip(left_refs, right_refs)]
 
         # Merge the join conditions into a big AND expression
 
-        def andify(x,y):
+        def andify(x, y):
             """Merge two scalar expressions with an AND"""
-            return sexpr.AND(x,y)
+            return sexpr.AND(x, y)
 
-        condition = reduce(andify, join_conditions[1:], join_conditions[0])
+        condition = reduce(andify, join_conditions)
         return raco.algebra.Join(condition, left, right)
 
-class StatementProcessor:
+class StatementProcessor(object):
     '''Evaluate a list of statements'''
 
-    def __init__(self, catalog=None):
+    def __init__(self, catalog=None, use_dummy_schema=False):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
@@ -206,7 +285,7 @@ class StatementProcessor:
         self.output_ops = []
 
         self.catalog = catalog
-        self.ep = ExpressionProcessor(self.symbols, catalog)
+        self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
 
         # Unique identifiers for temporary tables created by DUMP operations
         self.dump_output_id = 0
@@ -237,20 +316,37 @@ class StatementProcessor:
         self.__materialize_result(_id, expr, self.output_ops)
 
     def store(self, _id, relation_key):
-        child_op = self.symbols[_id]
+        child_op = lookup_symbol(self.symbols, _id)
         op = raco.algebra.Store(relation_key, child_op)
         self.output_ops.append(op)
 
     def dump(self, _id):
-        child_op = self.symbols[_id]
+        child_op = lookup_symbol(self.symbols, _id)
         op = raco.algebra.StoreTemp("__OUTPUT%d__" % self.dump_output_id,
                                     child_op)
         self.dump_output_id += 1
         self.output_ops.append(op)
 
-    def get_output(self):
-        """Return an operator representing the output of the query."""
+    def get_logical_plan(self):
+        """Return an operator representing the logical query plan."""
         return raco.algebra.Sequence(self.output_ops)
+
+    def get_physical_plan(self):
+        """Return an operator representing the physical query plan."""
+
+        # TODO: Get rid of the dummy label argument here.
+        # Return first (only) plan; strip off dummy label.
+        logical_plan = self.get_logical_plan()
+        physical_plans = optimize([('root', logical_plan)],
+                                  target=MyriaAlgebra,
+                                  source=LogicalAlgebra)
+        return physical_plans[0][1]
+
+    def get_json(self):
+        lp = self.get_logical_plan()
+        pps = optimize([('root', lp)], target=MyriaAlgebra,
+                       source=LogicalAlgebra)
+        return compile_to_json(lp, lp, pps)
 
     def explain(self, _id):
         raise NotImplementedError()

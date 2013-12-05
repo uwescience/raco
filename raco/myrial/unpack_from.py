@@ -12,17 +12,15 @@ are converted into raw indexes.
 """
 
 import raco.expression
+from raco.myrial.exceptions import ColumnIndexOutOfBounds
 
 import types
-
-class ColumnIndexOutOfBounds(Exception):
-    pass
 
 def __calculate_offsets(from_args):
     """Calculate the first column of each relation in the rollup schema."""
     index = 0
     offsets = {}
-    for _id, op in from_args.iteritems():
+    for _id in from_args.iterkeys():
         offsets[_id] = index
         index += len(from_args[_id].scheme())
 
@@ -56,36 +54,34 @@ def __rewrite_expression(sexpr, from_args, base_offsets):
 
     return recursive_eval(sexpr)
 
-def unpack(from_args, where_clause, emit_clause):
+def unpack(from_args, where_clause, emit_args):
     """Proceess a list of from arguments.   Inputs:
 
     - from_args: A dictionary: id => raco.algebra.Operation
     - where_clause: An optional scalar expression (raco.expression)
-    - emit_clause: An optional list of tuples of the form:
-    (column_name, scalar_expression)
+    - emit_args: An list of tuples of the form:
+      (column_name, scalar_expression)
 
     Return values:
     - A single raco.algebra.Operation instance
     - A (possibly modified) where_clause
-    - A (possibly modified) emit_clause
+    - A (possibly modified) emit_args
     """
 
     assert len(from_args) > 0
 
-    def cross(x,y):
-        return raco.algebra.CrossProduct(x,y)
+    def cross(x, y):
+        return raco.algebra.CrossProduct(x, y)
 
     from_ops = from_args.values()
-    op = reduce(cross, from_ops[1:], from_ops[0])
+    op = reduce(cross, from_ops)
 
     offsets = __calculate_offsets(from_args)
 
     if where_clause:
         where_clause = __rewrite_expression(where_clause, from_args, offsets)
 
-    if emit_clause:
-        emit_clause = [(name, __rewrite_expression(sexpr, from_args, offsets))
-                       for (name, sexpr) in emit_clause]
+    emit_args = [(name, __rewrite_expression(sexpr, from_args, offsets))
+                 for (name, sexpr) in emit_args]
 
-    return op, where_clause, emit_clause
-
+    return op, where_clause, emit_args

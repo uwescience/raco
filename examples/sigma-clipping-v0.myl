@@ -1,7 +1,7 @@
 -- Simple and slow implementation of sigma clipping; this query is not
 -- incremental, so it can re-scans points on every iteration.
 
-Good = SCAN(public:adhoc:Points, v:float);
+Good = SCAN(public:adhoc:sc_points);
 
 -- number of allowed standard deviations
 N = [2];

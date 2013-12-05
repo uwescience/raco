@@ -6,7 +6,7 @@ from collections import deque
 
 import logging
 LOG = logging.getLogger(__name__)
-   
+
 class cpp_code :
 
     #constructor
@@ -95,7 +95,7 @@ class cpp_code :
 
     def count_startup_code(self) :
         code = open('templates_ver2/count_setup.template').read()
-        return code.replace('\n','\n' + ' '*self.indent) 
+        return code.replace('\n','\n' + ' '*self.indent)
 
     #-----------------------------------------------------------------------
 
@@ -117,13 +117,13 @@ class cpp_code :
 
     def count_wrapup_code(self) :
         code = open('templates_ver2/count_output.template').read()
-        return code.replace('\n','\n' + ' '*self.indent)  
+        return code.replace('\n','\n' + ' '*self.indent)
 
     #-----------------------------------------------------------------------
 
     def emit(self, codeStr):
       self.cpp_code+=codeStr
-      
+
 
     def struct_definition(self,n) :
       struct_def_template = """
@@ -134,11 +134,12 @@ struct %(relationTupleName)s {
       LOG.debug(n)
       
       relname = n.relation_key
+      
       t_name = relname + '_tuple'
-      
+
       self.relation_to_tupleType[n] = t_name
-      
-      # if not seen relation yet then add a definition 
+
+      # if not seen relation yet then add a definition
       if relname not in self.structs :
         self.structs.add(relname)
         numcols = len(n.scheme().attributes)
@@ -147,9 +148,9 @@ struct %(relationTupleName)s {
         fieldsStr = ""
         for i in range(numcols) :
           fieldsStr += declTemp % { 'id':i }
-      
+
         self.emit(struct_def_template % { 'relationTupleName': t_name, 'fields':fieldsStr})
-  
+
 
     #-----------------------------------------------------------------------
 
@@ -289,7 +290,7 @@ struct %(relationTupleName)s {
         print '---'
 
         for c in n.joinconditions :
-            print c 
+            print c
 
         #step 1: update columns in join conditions
         tot = 0
@@ -316,7 +317,7 @@ struct %(relationTupleName)s {
             column = index[pos][0]
             hashname = self.node_to_hash[n.args[i+1]]
             table = "table" + str(self.index)
-            
+
             clause = '1'
             if first :
                     table = self.node_to_name[n.args[0]]
@@ -387,7 +388,7 @@ struct %(relationTupleName)s {
             c += clause.right.value
         elif isinstance(clause.right,rbool.PositionReference) :
             c += table + '[' + self.relation_to_index[table] + '].a' + str(clause.right.position)
-        
+
         return c
 
     #-----------------------------------------------------------------------
@@ -446,7 +447,7 @@ struct %(relationTupleName)s {
                     self.visit(arg)
                 self.generate_join_chain(n)
 
-    #-----------------------------------------------------------------------      
+    #-----------------------------------------------------------------------
 
     def initial_walk(self,n) :
         if isinstance(n,alg.ZeroaryOperator) :

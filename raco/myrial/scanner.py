@@ -2,13 +2,15 @@
 
 import ply.lex as lex
 
+import raco.myrial.exceptions
+
 # identifiers with special meaning; case-insensitive
 reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
-            'INTERSECT', 'DUMP', 'FILTER', 'BY', 'WHILE', 'INT', 'STRING',
-            'FLOAT', 'DESCRIBE', 'DO', 'EXPLAIN', 'DISTINCT', 'SCAN',
-            'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'MAX', 'MIN',
-            'SUM', 'COUNT', 'ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT',
-            'TAN', 'AVG', 'STDEV', 'EMPTY']
+            'INTERSECT', 'DUMP', 'WHILE', 'INT', 'STRING', 'FLOAT', 'DESCRIBE',
+            'DO', 'EXPLAIN', 'DISTINCT', 'SCAN', 'COUNTALL', 'FROM', 'WHERE',
+            'AND', 'OR', 'NOT', 'MAX', 'MIN', 'SUM', 'COUNT', 'ABS', 'CEIL',
+            'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT', 'TAN', 'AVG', 'STDEV', 'POW',
+            'EMPTY', 'SELECT']
 
 # Token types; required by ply to have this variable name
 
@@ -89,6 +91,6 @@ t_ignore  = ' \t\v'
 
 # Error handling rule
 def t_error(t):
-    print "Illegal character token: " + str(t)
+    raise raco.myrial.exceptions.MyrialScanException(str(t))
 
 lexer = lex.lex()

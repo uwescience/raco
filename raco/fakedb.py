@@ -2,12 +2,9 @@
 import collections
 import itertools
 
-import raco.algebra
-import raco.scheme
-
 debug = False
 
-class FakeDatabase:
+class FakeDatabase(object):
     """An in-memory implementation of relational algebra operators"""
 
     def __init__(self):
@@ -35,7 +32,7 @@ class FakeDatabase:
         self.tables[relation_key] = (contents, scheme)
 
     def get_scheme(self, relation_key):
-        bag, scheme = self.tables[relation_key]
+        (_, scheme) = self.tables[relation_key]
         return scheme
 
     def get_temp_table(self, key):
@@ -47,10 +44,10 @@ class FakeDatabase:
             print '%s: (%s)' % (key, bag)
 
         for key, bag in self.temp_tables.iteritems():
-            print '%s: (%s)' % (key, bag)
+            print '__%s: (%s)' % (key, bag)
 
     def scan(self, op):
-        bag, scheme = self.tables[op.relation_key]
+        (bag, _) = self.tables[op.relation_key]
         return bag.elements()
 
     def select(self, op):
@@ -70,7 +67,7 @@ class FakeDatabase:
 
         def make_tuple(input_tuple):
             ls = [colexpr.evaluate(input_tuple, scheme)
-                  for var, colexpr in op.mappings]
+                  for (_, colexpr) in op.mappings]
             return tuple(ls)
         return (make_tuple(t) for t in child_it)
 
@@ -79,7 +76,7 @@ class FakeDatabase:
         left_it = self.evaluate(op.left)
         right_it = self.evaluate(op.right)
         p1 = itertools.product(left_it, right_it)
-        p2 = (x + y for (x,y) in p1)
+        p2 = (x + y for (x, y) in p1)
 
         # Return tuples that match on the join conditions
         return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
@@ -88,7 +85,7 @@ class FakeDatabase:
         left_it = self.evaluate(op.left)
         right_it = self.evaluate(op.right)
         p1 = itertools.product(left_it, right_it)
-        return (x + y for (x,y) in p1)
+        return (x + y for (x, y) in p1)
 
     def distinct(self, op):
         it = self.evaluate(op.input)
@@ -99,10 +96,12 @@ class FakeDatabase:
         it = self.evaluate(op.input)
         return itertools.islice(it, op.count)
 
-    def singletonrelation(self, op):
+    @staticmethod
+    def singletonrelation(op):
         return iter([()])
 
-    def emptyrelation(self, op):
+    @staticmethod
+    def emptyrelation(op):
         return iter([])
 
     def unionall(self, op):
@@ -153,6 +152,11 @@ class FakeDatabase:
 
     def dowhile(self, op):
         i = 0
+
+        if debug:
+            print '---------- Values at top of do/while -----'
+            self.dump_all()
+
         while True:
             self.evaluate(op.left)
             result_iterator = self.evaluate(op.right)
@@ -180,7 +184,7 @@ class FakeDatabase:
         # Materialize the result
         bag = self.evaluate_to_bag(op.input)
         scheme = op.input.scheme()
-        self.tables[op.name] = (bag, scheme)
+        self.tables[op.relation_key] = (bag, scheme)
         return None
 
     def storetemp(self, op):
@@ -190,3 +194,66 @@ class FakeDatabase:
     def scantemp(self, op):
         bag = self.temp_tables[op.name]
         return bag.elements()
+
+    def myriascan(self, op):
+        return self.scan(op)
+
+    def myriascantemp(self, op):
+        return self.scantemp(op)
+
+    def myriasymmetrichashjoin(self, op):
+        it = self.join(op)
+
+        # project-out columns
+        def project(input_tuple):
+            output = [input_tuple[x.position] for x in op.columnlist]
+            return tuple(output)
+        return (project(t) for t in it)
+
+    def myriastore(self, op):
+        return self.store(op)
+
+    def myriastoretemp(self, op):
+        return self.storetemp(op)
+
+    def myriaapply(self, op):
+        return self.apply(op)
+
+    def myriadupelim(self, op):
+        return self.distinct(op)
+
+    def myriaselect(self, op):
+        return self.select(op)
+
+    def myriacrossproduct(self, op):
+        return self.crossproduct(op)
+
+    def myriagroupby(self, op):
+        return self.groupby(op)
+
+    def myriashuffleconsumer(self, op):
+        return self.evaluate(op.input)
+
+    def myriashuffleproducer(self, op):
+        return self.evaluate(op.input)
+
+    def myriacollectconsumer(self, op):
+        return self.evaluate(op.input)
+
+    def myriacollectproducer(self, op):
+        return self.evaluate(op.input)
+
+    def myriabroadcastconsumer(self, op):
+        return self.evaluate(op.input)
+
+    def myriabroadcastproducer(self, op):
+        return self.evaluate(op.input)
+
+    def myriasingleton(self, op):
+        return self.singletonrelation(op)
+
+    def myriaemptyrelation(self, op):
+        return self.emptyrelation(op)
+
+    def myriaunionall(self, op):
+        return self.unionall(op)

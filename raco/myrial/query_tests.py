@@ -1,15 +1,14 @@
 
 import collections
 import math
-import unittest
 
 import raco.fakedb
 import raco.myrial.interpreter as interpreter
-import raco.myrial.parser as parser
 import raco.scheme as scheme
 import raco.myrial.groupby
 import raco.myrial.unpack_from
 import raco.myrial.myrial_test as myrial_test
+import raco.myrial.exceptions
 
 class TestQueryFunctions(myrial_test.MyrialTestCase):
 
@@ -85,7 +84,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.dept_table)
 
-
     def test_bag_comp_emit_star(self):
         query = """
         emp = SCAN(%s);
@@ -94,6 +92,27 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.run_test(query, self.emp_table)
+
+    def test_bag_comp_emit_table_wildcard(self):
+        query = """
+        emp = SCAN(%s);
+        bc = [FROM emp EMIT emp.*];
+        DUMP(bc);
+        """ % self.emp_key
+
+        self.run_test(query, self.emp_table)
+
+    def test_hybrid_emit_clause(self):
+        query = """
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        x = [FROM dept, X=emp EMIT 5, k=X.salary * 2, X.*, *];
+        DUMP(x);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = [(5, e[3] * 2) + e + d + e for e in self.emp_table
+                    for d in self.dept_table]
+        self.run_test(query, collections.Counter(expected))
 
     salary_filter_query = """
     emp = SCAN(%s);
@@ -351,6 +370,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.join_expected)
 
+    def test_sql_join(self):
+        """SQL-style select-from-where join"""
+
+        query = """
+        E = SCAN(%s);
+        D = SCAN(%s);
+        out = SELECT E.name, D.name FROM E, D WHERE E.dept_id == D.id;
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        self.run_test(query, self.join_expected)
+
     def test_bagcomp_projection(self):
         """Test that column names are preserved across projection."""
         query = """
@@ -376,8 +407,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         tpls = [tuple([x[3]* x[3]]) for x in self.emp_table]
         expected = collections.Counter(tpls)
         self.run_test(query, expected)
-
-    # TODO: test with multiple join attributes
 
     def test_explicit_cross(self):
         query = """
@@ -523,6 +552,31 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              x[3] == 5000 or x[3] == 25000])
         self.run_test(query, expected)
 
+    def test_unbox_arbitrary_expression(self):
+        query = """
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        out = [FROM emp WHERE id > *COUNTALL(dept) EMIT emp.id];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = collections.Counter(
+            [(x[0],) for x in self.emp_table.elements() if
+             x[0] > len(self.dept_table)])
+        self.run_test(query, expected)
+
+    def test_unbox_inline_table_literal(self):
+        query = """
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        out = [FROM emp WHERE id > *[1,2,3].$2 EMIT emp.id];
+        DUMP(out);
+        """ % (self.emp_key, self.dept_key)
+
+        expected = collections.Counter(
+            [(x[0],) for x in self.emp_table.elements() if
+             x[0] > 3])
+        self.run_test(query, expected)
 
     def __aggregate_expected_result(self, apply_func):
         result_dict = collections.defaultdict(list)
@@ -591,6 +645,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, self.__aggregate_expected_result(len))
 
+    def test_countall(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT dept_id, COUNTALL()];
+        DUMP(out);
+        """ % self.emp_key
+
+        self.run_test(query, self.__aggregate_expected_result(len))
+
     def test_max_reversed(self):
         query = """
         out = [FROM X=SCAN(%s) EMIT max_salary=MAX(salary), dept_id];
@@ -598,7 +660,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         ex = self.__aggregate_expected_result(max)
-        ex = collections.Counter([(y,x) for (x,y) in ex])
+        ex = collections.Counter([(y, x) for (x, y) in ex])
         self.run_test(query, ex)
 
     def test_compound_aggregate(self):
@@ -674,6 +736,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         tuples = [(key, len(values)) for key, values in result_dict.iteritems()]
         expected = collections.Counter(tuples)
+
         self.run_test(query, expected)
 
     def test_impure_aggregate_colref(self):
@@ -738,6 +801,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
             self.run_test(query, collections.Counter())
 
+    def test_standalone_countall(self):
+        query = """
+        out = COUNTALL(SCAN(%s));
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(len(self.emp_table),)])
+        self.run_test(query, expected)
+
     def test_multiway_bagcomp_with_unbox(self):
         """Return all employees in accounting making less than 30000"""
         query = """
@@ -775,7 +847,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DUMP(out);
         """ % (self.emp_key, self.dept_key)
 
-        with self.assertRaises(raco.myrial.unpack_from.ColumnIndexOutOfBounds):
+        with self.assertRaises(raco.myrial.exceptions.ColumnIndexOutOfBounds):
             self.run_test(query, collections.Counter())
 
     def test_abs(self):
@@ -860,6 +932,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [(a,math.tan(b)) for a,b in self.numbers_table.elements()])
         self.run_test(query, expected)
 
+    def test_pow(self):
+        query = """
+        THREE = [3];
+        out = [FROM X=SCAN(%s) EMIT id, POW(X.val, *THREE)];
+        DUMP(out);
+        """ % self.numbers_key
+
+        expected = collections.Counter(
+            [(a,pow(b, 3)) for a, b in self.numbers_table.elements()])
+        self.run_test(query, expected)
+
     def test_no_such_relation(self):
         query = """
         out = [FROM X=SCAN(foo:bar:baz) EMIT id, TAN(val)];
@@ -867,4 +950,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """
 
         with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):
+            self.run_test(query, collections.Counter())
+
+    def test_scan_error(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, FROG(val)];
+        DUMP(out);
+        """
+
+        with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
+            self.run_test(query, collections.Counter())
+
+    def test_parse_error(self):
+        query = """
+        out = [FROM X=SCAN(%s) EMIT id, $(val)];
+        DUMP(out);
+        """
+
+        with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
             self.run_test(query, collections.Counter())

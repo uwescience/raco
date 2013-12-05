@@ -1,0 +1,5 @@
+-- Scan of a table that has no schema in the catalog
+T1 = SCAN(foo:bar:baz);
+T2 = [FROM T1 EMIT x=$3];
+T3 = [FROM T2 EMIT y=MIN(x)];
+STORE (T3, bang:baz:bar);
