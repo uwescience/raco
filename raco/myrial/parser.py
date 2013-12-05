@@ -372,12 +372,12 @@ class Parser(object):
     @staticmethod
     def p_sexpr_id_dot_id(p):
         'sexpr : ID DOT ID'
-        p[0] = sexpr.DottedAttributeRef(p[1], p[3])
+        p[0] = sexpr.Unbox(p[1], p[3])
 
     @staticmethod
     def p_sexpr_id_dot_pos(p):
         'sexpr : ID DOT DOLLAR INTEGER_LITERAL'
-        p[0] = sexpr.DottedAttributeRef(p[1], p[4])
+        p[0] = sexpr.Unbox(p[1], p[4])
 
     @staticmethod
     def p_sexpr_group(p):

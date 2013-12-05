@@ -221,36 +221,6 @@ class UnnamedAttributeRef(AttributeRef):
     def get_position(self, scheme):
         return self.position
 
-class DottedAttributeRef(AttributeRef):
-    def __init__(self, relation_name, field):
-        """Initializse a DottedAttributeRef.
-
-        relation_name is a string that refers to a relation.
-        field refers to a column; its value is either a string or an integer.
-        """
-        self.relation_name = relation_name
-        self.field = field
-
-    def __repr__(self):
-        return "%s.%s" % (self.relation_name, str(self.field))
-
-    def __str__(self):
-        return "%s.%s" % (self.relation_name, str(self.field))
-
-    def evaluate(self, _tuple, scheme):
-        """Panic on attempted evaluation.
-
-        DottedAttributeRefs are compiled away into UnnamedAttributeRefs before
-        evaluation.  See unpack_from.py.
-        """
-        raise NotImplementedError()
-
-    def get_position(self, scheme):
-        """Panic on attempted get_position. See above.
-
-        TODO(7andrew7): this still what we want?"""
-        raise NotImplementedError()
-
 class UDF(NaryOperator):
     pass
 

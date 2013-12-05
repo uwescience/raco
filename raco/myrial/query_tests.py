@@ -806,7 +806,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(tuples)
         self.run_test(query, expected)
 
-    def test_inpure_aggregate_unbox(self):
+    def test_impure_aggregate_unbox(self):
         """Test of an aggregate column that contains an unbox."""
         query = """
         TWO = [2];

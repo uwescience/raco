@@ -1,29 +1,32 @@
 """Functionality for handling queries with multiple relational arguments."""
 
-import raco.expression
+from raco import algebra
+from raco import expression
 from raco.myrial.exceptions import ColumnIndexOutOfBounds
 
 import types
 
 def rewrite_refs(sexpr, from_args, base_offsets):
-    """Convert all DottedAttributRefs into raw indexes."""
+    """Convert all Unbox expressions into raw indexes."""
 
     def rewrite_node(sexpr):
-        if not isinstance(sexpr, raco.expression.DottedAttributeRef):
+        if not isinstance(sexpr, expression.Unbox):
             return sexpr
         else:
-            op = from_args[sexpr.relation_name]
+            op = from_args[sexpr.relational_expression]
             scheme = op.scheme()
 
-            if type(sexpr.field) == types.IntType:
+            if not sexpr.field:
+                offset = 0
+            elif type(sexpr.field) == types.IntType:
                 if sexpr.field >= len(scheme):
                     raise ColumnIndexOutOfBounds(str(sexpr))
                 offset = sexpr.field
             else:
                 offset = scheme.getPosition(sexpr.field)
 
-            offset += base_offsets[sexpr.relation_name]
-            return raco.expression.UnnamedAttributeRef(offset)
+            offset += base_offsets[sexpr.relational_expression]
+            return expression.UnnamedAttributeRef(offset)
 
     def recursive_eval(sexpr):
         """Rewrite a node and all its descendents"""
@@ -56,7 +59,7 @@ def merge(from_args):
     assert len(from_args) > 0
 
     def cross(x, y):
-        return raco.algebra.CrossProduct(x, y)
+        return algebra.CrossProduct(x, y)
 
     from_ops = from_args.values()
     op = reduce(cross, from_ops)
