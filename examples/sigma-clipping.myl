@@ -9,27 +9,33 @@ bounds = [FROM Points EMIT lower=MIN(v), upper=MAX(v)];
 N = [2];
 
 DO
-    -- Incrementally update aggs and stats
-    new_aggs = [FROM newBad EMIT _sum=SUM(v), sumsq=SUM(v*v), cnt=COUNT(v)];
-    aggs = [FROM aggs, new_aggs EMIT _sum=aggs._sum - new_aggs._sum,
-            sumsq=aggs.sumsq - new_aggs.sumsq, cnt=aggs.cnt - new_aggs.cnt];
+  -- Incrementally update aggs and stats
+  new_aggs = [FROM newBad EMIT _sum=SUM(v), sumsq=SUM(v*v), cnt=COUNT(v)];
+  aggs = [FROM aggs, new_aggs
+          EMIT _sum=aggs._sum - new_aggs._sum,
+               sumsq=aggs.sumsq - new_aggs.sumsq,
+               cnt=aggs.cnt - new_aggs.cnt];
 
-    stats = [FROM aggs EMIT mean=_sum/cnt,
-             std=SQRT(1.0/(cnt*(cnt-1)) * (cnt * sumsq - _sum * _sum))];
+  stats = [FROM aggs
+           EMIT mean=_sum/cnt,
+                std=SQRT(1.0/(cnt*(cnt-1)) * (cnt * sumsq - _sum * _sum))];
 
-    -- Compute the new bounds
-    newBounds = [FROM stats EMIT lower=mean - *N * std, upper=mean + *N * std];
+  -- Compute the new bounds
+  newBounds = [FROM stats EMIT lower=mean - *N * std, upper=mean + *N * std];
 
-    tooLow = [FROM Points, bounds, newBounds WHERE newBounds.lower > v
-              AND v >= bounds.lower EMIT v=Points.v];
-    tooHigh = [FROM Points, bounds, newBounds WHERE newBounds.upper < v
-               AND v <= bounds.upper EMIT v=Points.v];
-    newBad = UNIONALL(tooLow, tooHigh);
+  newBad = [FROM Points, bounds, newBounds
+            WHERE (newBounds.upper < v
+                   AND v <= bounds.upper)
+               OR (newBounds.lower > v
+                   AND v >= bounds.lower)
+            EMIT v=Points.v];
 
-    bounds = newBounds;
-    continue = [FROM newBad EMIT COUNT(v) > 0];
+  bounds = newBounds;
+  continue = [FROM newBad EMIT COUNT(v) > 0];
 WHILE continue;
 
-output = [FROM Points, bounds WHERE Points.v > bounds.lower AND
-          Points.v < bounds.upper EMIT v=Points.v];
+output = [FROM Points, bounds
+          WHERE Points.v > bounds.lower
+                AND Points.v < bounds.upper
+          EMIT v=Points.v];
 DUMP(output);
