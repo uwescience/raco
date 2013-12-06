@@ -9,30 +9,35 @@ bounds = [FROM Points EMIT MIN(v) AS lower, MAX(v) AS upper];
 N = [2];
 
 DO
-    -- Incrementally update aggs and stats
-    new_aggs = [FROM newBad EMIT SUM(v) AS _sum, SUM(v*v) AS sumsq,
-                COUNT(v) AS cnt];
-    aggs = [FROM aggs, new_aggs EMIT aggs._sum - new_aggs._sum AS _sum,
-            aggs.sumsq - new_aggs.sumsq AS sumsq,
-            aggs.cnt - new_aggs.cnt AS cnt];
+  -- Incrementally update aggs and stats
+  new_aggs = [FROM newBad EMIT SUM(v) AS _sum, SUM(v*v) AS sumsq,
+                               COUNT(v) AS cnt];
+  aggs = [FROM aggs, new_aggs
+          EMIT aggs._sum - new_aggs._sum AS _sum,
+               aggs.sumsq - new_aggs.sumsq AS sumsq,
+               aggs.cnt - new_aggs.cnt AS cnt];
 
-    stats = [FROM aggs EMIT _sum/cnt AS mean,
-             SQRT(1.0/(cnt*(cnt-1)) * (cnt * sumsq - _sum * _sum)) AS std];
+  stats = [FROM aggs
+           EMIT _sum/cnt AS mean,
+                SQRT(1.0/(cnt*(cnt-1)) * (cnt * sumsq - _sum * _sum)) AS std];
 
-    -- Compute the new bounds
-    newBounds = [FROM stats EMIT mean - *N * std AS lower,
-                  mean + *N * std AS upper];
+  -- Compute the new bounds
+  newBounds = [FROM stats EMIT mean - *N * std AS lower,
+                               mean + *N * std AS upper];
 
-    tooLow = [FROM Points, bounds, newBounds WHERE newBounds.lower > v
-              AND v >= bounds.lower EMIT Points.v AS v];
-    tooHigh = [FROM Points, bounds, newBounds WHERE newBounds.upper < v
-               AND v <= bounds.upper EMIT Points.v AS v];
-    newBad = UNIONALL(tooLow, tooHigh);
+  newBad = [FROM Points, bounds, newBounds
+            WHERE (newBounds.upper < v
+                   AND v <= bounds.upper)
+               OR (newBounds.lower > v
+                   AND v >= bounds.lower)
+            EMIT Points.v AS v];
 
-    bounds = newBounds;
-    continue = [FROM newBad EMIT COUNT(v) > 0];
+  bounds = newBounds;
+  continue = [FROM newBad EMIT COUNT(v) > 0];
 WHILE continue;
 
-output = [FROM Points, bounds WHERE Points.v > bounds.lower AND
-          Points.v < bounds.upper EMIT Points.v AS v];
+output = [FROM Points, bounds
+          WHERE Points.v > bounds.lower
+                AND Points.v < bounds.upper
+          EMIT Points.v AS v];
 DUMP(output);
