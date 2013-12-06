@@ -16,8 +16,10 @@ class RelationKey(object):
         return '%s:%s:%s' % (self.user, self.program, self.relation)
 
     def __eq__(self, other):
-        return self.user == other.user and self.program == other.program \
-            and self.relation == other.relation
+        return self.__dict__ == other.__dict__
+
+    def __hash__(self):
+        return hash(str(self))
 
     @classmethod
     def from_string(cls, s):
