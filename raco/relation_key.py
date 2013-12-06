@@ -3,7 +3,7 @@
 Myria relations are identified by a tuple of user, program, relation_name."""
 
 class RelationKey(object):
-    def __init__(user='public', program='adhoc', relation=None):
+    def __init__(self, user='public', program='adhoc', relation=None):
         assert relation
         self.user = user
         self.program = program
