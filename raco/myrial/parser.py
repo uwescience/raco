@@ -1,6 +1,7 @@
-#!/usr/bin/env python
+import collections
+import sys
 
-import ply.yacc as yacc
+from ply import yacc
 
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
@@ -8,15 +9,15 @@ import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
 import raco.myrial.exceptions
 
-import collections
-import sys
-
 class JoinColumnCountMismatchException(Exception):
     pass
 
 # ID is a symbol name that identifies an input expression; columns is a list of
 # columns expressed as either names or integer positions.
 JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
+
+SelectFromWhere = collections.namedtuple(
+    'SelectFromWhere', ['distinct', 'select','from_', 'where', 'limit'])
 
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
@@ -29,7 +30,9 @@ binops = {
     '>=' : sexpr.GTEQ,
     '<=' : sexpr.LTEQ,
     '!=' : sexpr.NEQ,
+    '<>' : sexpr.NEQ,
     '==' : sexpr.EQ,
+    '=' : sexpr.EQ,
     'AND' : sexpr.AND,
     'OR' : sexpr.OR,
     'POW' : sexpr.POW,
@@ -188,12 +191,21 @@ class Parser(object):
 
     @staticmethod
     def p_from_arg(p):
-        '''from_arg : ID EQUALS expression
+        '''from_arg : expression optional_as ID
                     | ID'''
         expr = None
         if len(p) == 4:
-            expr = p[3]
-        p[0] = (p[1], expr)
+            expr = p[1]
+            _id = p[3]
+        else:
+            _id = p[1]
+        p[0] = (_id, expr)
+
+    @staticmethod
+    def p_optional_as(p):
+        '''optional_as : AS
+                       | empty'''
+        p[0] = None
 
     @staticmethod
     def p_opt_where_clause(p):
@@ -215,11 +227,11 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_singleton(p):
-        '''emit_arg : ID EQUALS sexpr
+        '''emit_arg : sexpr AS ID
                     | sexpr'''
         if len(p) == 4:
-            name = p[1]
-            sexpr = p[3]
+            name = p[3]
+            sexpr = p[1]
         else:
             name = None
             sexpr = p[1]
@@ -237,8 +249,27 @@ class Parser(object):
 
     @staticmethod
     def p_expression_select_from_where(p):
-        'expression : SELECT emit_arg_list FROM from_arg_list opt_where_clause'
-        p[0] = ('BAGCOMP', p[4], p[5], p[2])
+        'expression : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause opt_limit'
+        p[0] = ('SELECT', SelectFromWhere(distinct=p[2], select=p[3],
+                                          from_=p[5], where=p[6], limit=p[7]))
+
+    @staticmethod
+    def p_opt_distinct(p):
+        '''opt_distinct : DISTINCT
+                        | empty'''
+        if len(p) == 2:
+            p[0] = True
+        else:
+            p[0] = False
+
+    @staticmethod
+    def p_opt_limit(p):
+        '''opt_limit : LIMIT INTEGER_LITERAL
+                     | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = None
 
     @staticmethod
     def p_expression_limit(p):
@@ -341,12 +372,12 @@ class Parser(object):
     @staticmethod
     def p_sexpr_id_dot_id(p):
         'sexpr : ID DOT ID'
-        p[0] = sexpr.DottedAttributeRef(p[1], p[3])
+        p[0] = sexpr.Unbox(p[1], p[3])
 
     @staticmethod
     def p_sexpr_id_dot_pos(p):
         'sexpr : ID DOT DOLLAR INTEGER_LITERAL'
-        p[0] = sexpr.DottedAttributeRef(p[1], p[4])
+        p[0] = sexpr.Unbox(p[1], p[4])
 
     @staticmethod
     def p_sexpr_group(p):
@@ -381,7 +412,9 @@ class Parser(object):
                    | sexpr GE sexpr
                    | sexpr LE sexpr
                    | sexpr NE sexpr
+                   | sexpr NE2 sexpr
                    | sexpr EQ sexpr
+                   | sexpr EQUALS sexpr
                    | sexpr AND sexpr
                    | sexpr OR sexpr'''
         p[0] = binops[p[2]](p[1], p[3])
@@ -402,6 +435,20 @@ class Parser(object):
         p[0] = sexpr.COUNTALL()
 
     @staticmethod
+    def p_sexpr_count(p):
+        'sexpr : COUNT LPAREN count_arg RPAREN'
+        if p[3] == '*':
+            p[0] = sexpr.COUNTALL()
+        else:
+            p[0] = sexpr.COUNT(p[3])
+
+    @staticmethod
+    def p_count_arg(p):
+        '''count_arg : TIMES
+                     | sexpr'''
+        p[0] = p[1]
+
+    @staticmethod
     def p_sexpr_unary_aggregate(p):
         'sexpr : unary_aggregate_func LPAREN sexpr RPAREN'
         p[0] = p[1](p[3])
@@ -411,14 +458,12 @@ class Parser(object):
         '''unary_aggregate_func : MAX
                                 | MIN
                                 | SUM
-                                | COUNT
                                 | AVG
                                 | STDEV'''
 
         if p[1] == 'MAX': func = sexpr.MAX
         if p[1] == 'MIN': func = sexpr.MIN
         if p[1] == 'SUM': func = sexpr.SUM
-        if p[1] == 'COUNT': func = sexpr.COUNT
         if p[1] == 'AVG': func = sexpr.AVERAGE
         if p[1] == 'STDEV': func = sexpr.STDEV
 

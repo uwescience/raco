@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import raco.myrial.groupby as groupby
-import raco.myrial.unpack_from as unpack_from
+import raco.myrial.multiway as multiway
 import raco.algebra
 import raco.expression as sexpr
 import raco.catalog
@@ -24,27 +24,6 @@ class InvalidStatementException(Exception):
 
 class NoSuchRelationException(Exception):
     pass
-
-# State maintained for unboxed expressions.  Operation refers to the
-# operator tree; first_column_index is the start of the expression in
-# the output schema of the containing operation.
-UnboxOperation = collections.namedtuple("UnboxOperation",
-                                        ["operation", "first_column_index"])
-
-class UnboxState(object):
-    """State maintained during the unbox phase of a bag comprehension."""
-    def __init__(self, initial_pos):
-        # This mapping keeps track of where unboxed expressions reside
-        # in the output schema that is created from cross products of
-        # all unboxed expressions.  The keys are relational expressions and
-        # the values are UnboxedOperation instances
-        self.unbox_ops = collections.OrderedDict()
-
-        # The next column index to be assigned
-        self.pos = initial_pos
-
-        # A set of column indexes that are referenced by unbox operations
-        self.column_refs = set()
 
 def lookup_symbol(symbols, _id):
     return copy.copy(symbols[_id])
@@ -79,88 +58,55 @@ class ExpressionProcessor(object):
     def load(self, path, schema):
         raise NotImplementedError()
 
-    def __unbox_scalar_expression(self, sexpr, ub_state):
-        def unbox_node(sexpr):
-            if not isinstance(sexpr, raco.expression.Unbox):
-                return sexpr
-
-            rex = sexpr.relational_expression
-            if not rex in ub_state.unbox_ops:
-                unbox_op = self.evaluate(rex)
-                scheme = unbox_op.scheme()
-                ub_state.unbox_ops[rex] = UnboxOperation(unbox_op, ub_state.pos)
-                ub_state.pos += len(scheme)
-            else:
-                unbox_op = ub_state.unbox_ops[rex].operation
-                scheme = unbox_op.scheme()
-
-            offset = ub_state.unbox_ops[rex].first_column_index
-            if not sexpr.field:
-                # Default to column zero
-                pass
-            elif type(sexpr.field) == types.IntType:
-                offset += sexpr.field
-            else:
-                # resolve column name into a position
-                offset += scheme.getPosition(sexpr.field)
-
-            ub_state.column_refs.add(offset)
-            return raco.expression.UnnamedAttributeRef(offset)
-
-        def recursive_eval(sexpr):
-            """Apply unbox to a node and all its descendents."""
-            newexpr = unbox_node(sexpr)
-            newexpr.apply(recursive_eval)
-            return newexpr
-
-        return recursive_eval(sexpr)
-
-    def __unbox(self, op, where_clause, emit_args):
-        """Apply unboxing to the clauses of a bag comprehension."""
-        ub_state = UnboxState(len(op.scheme()))
-
-        if where_clause:
-            where_clause = self.__unbox_scalar_expression(where_clause,
-                                                          ub_state)
-
-        emit_args = [(name, self.__unbox_scalar_expression(sexpr, ub_state))
-                     for name, sexpr in emit_args]
-
-        def cross(x, y):
-            return raco.algebra.CrossProduct(x, y)
-
-        # Update the op to be the cross product of all unboxed relations
-        cps = [v.operation for v in ub_state.unbox_ops.values()]
-        op = reduce(cross, cps, op)
-        return op, where_clause, emit_args, ub_state.column_refs
-
-    def __unbox_filter_group(self, op, where_clause, emit_args):
-        """Apply unboxing, filtering, and groupby."""
-
-        # Record the original schema, so we can later strip off unboxed
-        # columns.
-        op, where_clause, emit_args, unbox_columns = self.__unbox(
-            op, where_clause, emit_args)
-
-        if where_clause:
-            op = raco.algebra.Select(condition=where_clause, input=op)
-
-        # Apply any grouping operators
-        return groupby.groupby(op, emit_args, unbox_columns)
-
     def table(self, emit_clause):
         """Emit a single-row table literal."""
-        op = raco.algebra.SingletonRelation()
         emit_args = []
         for clause in emit_clause:
             emit_args.extend(clause.expand({}))
-        return self.__unbox_filter_group(op, None, emit_args)
+
+        from_args = collections.OrderedDict()
+        from_args['$$SINGLETON$$'] = raco.algebra.SingletonRelation()
+
+        # Add unbox relations to the from_args dictionary
+        for name, sexpr in emit_args:
+            self.extract_unbox_args(from_args, sexpr)
+
+        op, info = multiway.merge(from_args)
+
+        # rewrite clauses in terms of the new schema
+        emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
+                      for (name, sexpr) in emit_args]
+
+        return raco.algebra.Apply(mappings=emit_args, input=op)
 
     @staticmethod
     def empty(_scheme):
         if not _scheme:
             _scheme = raco.scheme.Scheme()
         return raco.algebra.EmptyRelation(_scheme)
+
+    def select(self, args):
+        """Evaluate a select-from-where expression."""
+        op = self.bagcomp(args.from_, args.where, args.select)
+        if args.distinct:
+            op = raco.algebra.Distinct(input=op)
+        if args.limit is not None:
+            op = raco.algebra.Limit(input=op, count=args.limit)
+
+        return op
+
+    def extract_unbox_args(self, from_args, sexpr):
+        def extract(sexpr):
+            if isinstance(sexpr, raco.expression.Unbox):
+                rex = sexpr.relational_expression
+                if not rex in from_args:
+                    unbox_op = self.evaluate(rex)
+                    from_args[rex] = unbox_op
+            return 0 # whatever
+
+        # TODO: get rid of stupid list (required to force evaluation)
+        l = list(sexpr.postorder(extract))
+        return
 
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehsion.
@@ -195,12 +141,33 @@ class ExpressionProcessor(object):
         for clause in emit_clause:
             emit_args.extend(clause.expand(from_args))
 
-        # Create a single RA operation that is the rollup of all from
-        # targets; re-write where and emit clauses to refer to its schema.
-        op, where_clause, emit_args = unpack_from.unpack(
-            from_args, where_clause, emit_args)
+        orig_op, _info = multiway.merge(from_args)
+        orig_schema_length = len(orig_op.scheme())
 
-        return self.__unbox_filter_group(op, where_clause, emit_args)
+        # Add unbox relations to the from_args dictionary
+        for name, sexpr in emit_args:
+            self.extract_unbox_args(from_args, sexpr)
+        if where_clause:
+            self.extract_unbox_args(from_args, where_clause)
+
+        # Create a single RA operation that is the cross of all targets
+        op, info = multiway.merge(from_args)
+
+        # HACK: calculate unboxed columns as implicit grouping columns,
+        # so they can be used in grouping terms.
+        new_schema_length = len(op.scheme())
+        implicit_group_by_cols = range(orig_schema_length, new_schema_length)
+
+        # rewrite clauses in terms of the new schema
+        if where_clause:
+            where_clause = multiway.rewrite_refs(where_clause, from_args, info)
+            op = raco.algebra.Select(condition=where_clause, input=op)
+
+        emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
+                      for (name, sexpr) in emit_args]
+
+        # Apply any grouping operators
+        return groupby.groupby(op, emit_args, implicit_group_by_cols)
 
     def distinct(self, expr):
         op = self.evaluate(expr)
