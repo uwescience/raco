@@ -6,6 +6,7 @@ from raco import scheme
 from raco import expression
 from raco.language import Language
 from raco.utility import emit
+from raco.relation_key import RelationKey
 
 def scheme_to_schema(s):
     def convert_typestr(t):
@@ -941,7 +942,8 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
         else:
             # Otherwise, add an insert at the top to store this relation to a
             # table named (label).
-            frag_root = MyriaStore(plan=rootOp, relation_key=label)
+            frag_root = MyriaStore(plan=rootOp,
+                                   relation_key=RelationKey.from_string(label))
         # Make sure the root is in the symbol dictionary, but rather than using a
         # generated symbol use the IDB label.
         syms[id(frag_root)] = label
