@@ -37,6 +37,8 @@ class FakeDatabase(object):
         self.tables[rel_key] = (contents, scheme)
 
     def get_scheme(self, rel_key):
+        assert isinstance(rel_key, relation_key.RelationKey)
+
         (_, scheme) = self.tables[rel_key]
         return scheme
 
@@ -52,7 +54,8 @@ class FakeDatabase(object):
             print '__%s: (%s)' % (key, bag)
 
     def scan(self, op):
-        (bag, _) = self.tables[op.rel_key]
+        assert isinstance(op.relation_key, relation_key.RelationKey)
+        (bag, _) = self.tables[op.relation_key]
         return bag.elements()
 
     def select(self, op):
@@ -186,10 +189,12 @@ class FakeDatabase(object):
                 break
 
     def store(self, op):
+        assert isinstance(op.relation_key, relation_key.RelationKey)
+
         # Materialize the result
         bag = self.evaluate_to_bag(op.input)
         scheme = op.input.scheme()
-        self.tables[op.rel_key] = (bag, scheme)
+        self.tables[op.relation_key] = (bag, scheme)
         return None
 
     def storetemp(self, op):
