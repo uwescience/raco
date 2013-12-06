@@ -31,26 +31,6 @@ def scheme_to_schema(s):
         types = []
     return {"column_types" : types, "column_names" : names}
 
-def resolve_relation_key(key):
-    """Extract user, program, relation strings from a colon-delimited string.
-
-    User and program can be omitted, in which case the system chooses default
-    values."""
-
-    toks = key.split(':')
-
-    user = 'public'
-    program = 'adhoc'
-    relation = toks[-1]
-
-    try:
-        program = toks[-2]
-        user = toks[-3]
-    except IndexError:
-        pass
-
-    return user, program, relation
-
 def compile_expr(op, child_scheme):
     ####
     # Put special handling at the top!
@@ -146,29 +126,25 @@ class MyriaOperator(object):
 
 class MyriaScan(algebra.Scan, MyriaOperator):
     def compileme(self, resultsym):
-        user, program, relation = resolve_relation_key(self.relation_key)
-
         return {
             "op_name" : resultsym,
             "op_type" : "TableScan",
             "relation_key" : {
-              "user_name" : user,
-              "program_name" : program,
-              "relation_name" : relation
+              "user_name" : self.relation_key.user,
+              "program_name" : self.relation_key.program,
+              "relation_name" : self.relation_key.relation
             }
           }
 
 class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
     def compileme(self, resultsym):
-        user, program, relation = resolve_relation_key(self.name)
-
         return {
             "op_name" : resultsym,
             "op_type" : "TableScan",
             "relation_key" : {
-              "user_name" : user,
-              "program_name" : program,
-              "relation_name" : relation
+              "user_name" : 'public',
+              "program_name" : '__TEMP__',
+              "relation_name" : self.name
             }
           }
 
@@ -226,15 +202,13 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
 
 class MyriaStore(algebra.Store, MyriaOperator):
     def compileme(self, resultsym, inputsym):
-        user, program, relation = resolve_relation_key(self.relation_key)
-
         return {
             "op_name" : resultsym,
             "op_type" : "DbInsert",
             "relation_key" : {
-              "user_name" : user,
-              "program_name" : program,
-              "relation_name" : relation
+              "user_name" : self.relation_key.user,
+              "program_name" : self.relation_key.program,
+              "relation_name" : self.relation_key.relation
             },
             "arg_overwrite_table" : True,
             "arg_child" : inputsym,
@@ -242,15 +216,13 @@ class MyriaStore(algebra.Store, MyriaOperator):
 
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
     def compileme(self, resultsym, inputsym):
-        user, program, relation = resolve_relation_key(self.name)
-
         return {
             "op_name" : resultsym,
             "op_type" : "DbInsert",
             "relation_key" : {
-              "user_name" : user,
-              "program_name" : program,
-              "relation_name" : relation
+              "user_name" : 'public',
+              "program_name" : '__TEMP__',
+              "relation_name" : self.name
             },
             "arg_overwrite_table" : True,
             "arg_child" : inputsym,
