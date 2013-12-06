@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 import raco.myrial.groupby as groupby
 import raco.myrial.multiway as multiway
 import raco.algebra
