@@ -33,7 +33,6 @@ class Operator(Printable):
         self.cleanup = ""
         self.alias = self
         self._trace = []
-        self.language = None
 
     @abstractmethod
     def children(self):
