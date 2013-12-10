@@ -73,7 +73,8 @@ class CC(Language):
         if isinstance(expr, expression.NamedAttributeRef):
             raise TypeError("Error compiling attribute reference %s. C compiler only support unnamed perspective.  Use helper function unnamed." % expr)
         if isinstance(expr, expression.UnnamedAttributeRef):
-            position = expr.leaf_position
+            #FIXME: need to support Named attribute by calling get_position(scheme)
+            position = expr.position
             relation = expr.relationsymbol
             rowvariable = expr.rowvariable
             return '%s->relation[%s*%s->fields + %s]' % (relation, rowvariable, relation, position)
@@ -121,6 +122,9 @@ class TwoPassSelect(algebra.Select, CCOperator):
 
 
     def compileme(self, resultsym, inputsym):
+        print "clang.compileme",self
+        print "schema",self.scheme()
+        print self.input
         pcondition = CC.unnamed(self.condition, self.scheme())
         self.tagcondition(pcondition, inputsym)
         condition = CC.compile_boolean(pcondition)
