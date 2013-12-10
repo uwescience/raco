@@ -32,11 +32,12 @@ class SingletonEmitArg(EmitArg):
 def expand_relation(relation_name, symbols):
     """Expand a given relation into a list of column mappings."""
     assert relation_name in symbols
+
     op = symbols[relation_name]
     scheme = op.scheme()
 
     colnames = [x[0] for x in iter(scheme)]
-    return [(colname, sexpr.DottedAttributeRef(relation_name, colname))
+    return [(colname, sexpr.Unbox(relation_name, colname))
             for colname in colnames]
 
 class TableWildcardEmitArg(EmitArg):
