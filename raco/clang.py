@@ -122,9 +122,6 @@ class TwoPassSelect(algebra.Select, CCOperator):
 
 
     def compileme(self, resultsym, inputsym):
-        print "clang.compileme",self
-        print "schema",self.scheme()
-        print self.input
         pcondition = CC.unnamed(self.condition, self.scheme())
         self.tagcondition(pcondition, inputsym)
         condition = CC.compile_boolean(pcondition)
@@ -369,9 +366,9 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
                 # change the addressing scheme for the left-hand attribute reference
                 self.tagcondition(level, joincondition, argsyms, conditiontype="join")
                 leftsym = joincondition.left.relationsymbol
-                leftposition = joincondition.left.leaf_position
+                leftposition = joincondition.left.position
                 rightsym = joincondition.right.relationsymbol
-                rightposition = joincondition.right.leaf_position
+                rightposition = joincondition.right.position
 
                 left_condition = self.leftconditions[level]
                 self.tagcondition(level, left_condition, argsyms, conditiontype="left")
@@ -413,7 +410,7 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
         # get attribute position in left relation
         firstjoin = self.joinconditions[depth]
         assert(isinstance(firstjoin.left, expression.UnnamedAttributeRef))
-        leftposition = self.joinconditions[depth].left.leaf_position
+        leftposition = self.joinconditions[depth].left.position
         # get condition on left relation
         left_condition = self.leftconditions[depth]
         self.tagcondition(depth, left_condition, argsyms, conditiontype="left")
