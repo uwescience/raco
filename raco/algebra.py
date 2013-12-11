@@ -1,6 +1,6 @@
 from raco import expression
 from raco import scheme
-from raco.utility import emit, Printable
+from raco.utility import emit, emitlist, Printable
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 
@@ -285,7 +285,7 @@ class NaryOperator(Operator):
             code += self.language.assignment(resultsym, self.bound)
         else:
             argsyms = [gensym() for arg in self.args]
-            code += emit([arg.compile(sym) for arg, sym in zip(self.args, argsyms)] + [self.compileme(resultsym, argsyms)])
+            code += emitlist([arg.compile(sym) for arg, sym in zip(self.args, argsyms)] + [self.compileme(resultsym, argsyms)])
         return code
 
     def children(self):
