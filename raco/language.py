@@ -124,5 +124,5 @@ class Language(object):
 # import everything from each language
 from raco.pythonlang import PythonAlgebra
 from raco.pseudocodelang import PseudoCodeAlgebra
-#from raco.clang import CCAlgebra
+from raco.clang import CCAlgebra
 from raco.myrialang import MyriaAlgebra
