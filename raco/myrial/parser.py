@@ -81,8 +81,16 @@ class Parser(object):
 
     @staticmethod
     def p_statement_assign(p):
-        'statement : ID EQUALS expression SEMI'
+        'statement : ID EQUALS rvalue SEMI'
         p[0] = ('ASSIGN', p[1], p[3])
+
+    # expressions must be embeddable in other expressions; certain constructs
+    # are not embeddable, but are available as r-values in an assignment 
+    @staticmethod
+    def p_rvalue(p):
+        """rvalue : expression
+                  | select_from_where"""
+        p[0] = p[1]
 
     @staticmethod
     def p_statement_dump(p):
@@ -249,7 +257,12 @@ class Parser(object):
 
     @staticmethod
     def p_expression_select_from_where(p):
-        'expression : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause opt_limit'
+        """expression : LPAREN select_from_where RPAREN"""
+        p[0] = p[2]
+
+    @staticmethod
+    def p_select_from_where(p):
+        'select_from_where : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause opt_limit'
         p[0] = ('SELECT', SelectFromWhere(distinct=p[2], select=p[3],
                                           from_=p[5], where=p[6], limit=p[7]))
 
