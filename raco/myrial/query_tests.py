@@ -458,7 +458,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DUMP(out);
         """ % self.emp_key
 
-        expected = collections.Counter([(25000,),(5000,),(90000,)])
+        expected = collections.Counter(set([(x[3],) for x in self.emp_table]))
+        self.run_test(query, expected)
+
+    def test_sql_repeated(self):
+        query = """
+        out = SELECT salary AS salary FROM SCAN(%s) AS X;
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(x[3],) for x in self.emp_table])
         self.run_test(query, expected)
 
     def test_limit(self):
