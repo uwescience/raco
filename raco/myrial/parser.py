@@ -257,10 +257,8 @@ class Parser(object):
     def p_opt_distinct(p):
         '''opt_distinct : DISTINCT
                         | empty'''
-        if len(p) == 2:
-            p[0] = True
-        else:
-            p[0] = False
+        # p[1] is either 'DISTINCT' or None. Use Python truthiness
+        p[0] = bool(p[1])
 
     @staticmethod
     def p_opt_limit(p):
