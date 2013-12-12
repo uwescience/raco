@@ -2,6 +2,8 @@
 import collections
 import itertools
 
+from raco import relation_key
+
 debug = False
 
 class FakeDatabase(object):
@@ -27,12 +29,17 @@ class FakeDatabase(object):
         '''Return a bag (collections.Counter instance) for the operation'''
         return collections.Counter(self.evaluate(op))
 
-    def ingest(self, relation_key, contents, scheme):
+    def ingest(self, rel_key, contents, scheme):
         '''Directly load raw data into the database'''
-        self.tables[relation_key] = (contents, scheme)
+        if isinstance(rel_key, str):
+            rel_key = relation_key.RelationKey.from_string(rel_key)
+        assert isinstance(rel_key, relation_key.RelationKey)
+        self.tables[rel_key] = (contents, scheme)
 
-    def get_scheme(self, relation_key):
-        (_, scheme) = self.tables[relation_key]
+    def get_scheme(self, rel_key):
+        assert isinstance(rel_key, relation_key.RelationKey)
+
+        (_, scheme) = self.tables[rel_key]
         return scheme
 
     def get_temp_table(self, key):
@@ -47,6 +54,7 @@ class FakeDatabase(object):
             print '__%s: (%s)' % (key, bag)
 
     def scan(self, op):
+        assert isinstance(op.relation_key, relation_key.RelationKey)
         (bag, _) = self.tables[op.relation_key]
         return bag.elements()
 
@@ -181,6 +189,8 @@ class FakeDatabase(object):
                 break
 
     def store(self, op):
+        assert isinstance(op.relation_key, relation_key.RelationKey)
+
         # Materialize the result
         bag = self.evaluate_to_bag(op.input)
         scheme = op.input.scheme()

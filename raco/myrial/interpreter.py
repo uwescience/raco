@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 import raco.myrial.groupby as groupby
 import raco.myrial.multiway as multiway
 import raco.algebra
@@ -10,6 +8,7 @@ from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.myrialang import compile_to_json
 from raco.compile import optimize
+from raco import relation_key
 
 import collections
 import types
@@ -42,18 +41,19 @@ class ExpressionProcessor(object):
     def alias(self, _id):
         return lookup_symbol(self.symbols, _id)
 
-    def scan(self, relation_key):
+    def scan(self, rel_key):
         """Scan a database table."""
+        assert isinstance(rel_key, relation_key.RelationKey)
         try:
-            scheme = self.catalog.get_scheme(relation_key)
+            scheme = self.catalog.get_scheme(rel_key)
         except KeyError:
             if not self.use_dummy_schema:
-                raise NoSuchRelationException(relation_key)
+                raise NoSuchRelationException(rel_key)
 
             # Create a dummy schema suitable for emitting plans
             scheme = raco.scheme.DummyScheme()
 
-        return raco.algebra.Scan(relation_key, scheme)
+        return raco.algebra.Scan(rel_key, scheme)
 
     def load(self, path, schema):
         raise NotImplementedError()
@@ -282,9 +282,11 @@ class StatementProcessor(object):
         # scan/insertions
         self.__materialize_result(_id, expr, self.output_ops)
 
-    def store(self, _id, relation_key):
+    def store(self, _id, rel_key):
+        assert isinstance(rel_key, relation_key.RelationKey)
+
         child_op = lookup_symbol(self.symbols, _id)
-        op = raco.algebra.Store(relation_key, child_op)
+        op = raco.algebra.Store(rel_key, child_op)
         self.output_ops.append(op)
 
     def dump(self, _id):
