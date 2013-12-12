@@ -3,11 +3,16 @@
 Myria relations are identified by a tuple of user, program, relation_name."""
 
 class RelationKey(object):
-    def __init__(self, user='public', program='adhoc', relation=None):
-        assert relation
-        self.user = user
-        self.program = program
-        self.relation = relation
+    def __init__(self, *args):
+        if len(args) == 1:
+            self.user = "public"
+            self.program = "adhoc"
+            self.relation = args[0]
+        else:
+            self.user, self.program, self.relation = args
+        assert self.user and isinstance(self.user, basestring)
+        assert self.program and isinstance(self.program, basestring)
+        assert self.relation and isinstance(self.relation, basestring)
 
     def __repr__(self):
         return 'RelationKey(%s,%s,%s)' % (self.user, self.program,
@@ -27,12 +32,4 @@ class RelationKey(object):
         toks = s.split(':')
         assert len(toks) <= 3
 
-        args = {'relation' : toks[-1]}
-
-        try:
-            args['program'] = toks[-2]
-            args['user'] = toks[-3]
-        except IndexError:
-            pass
-
-        return cls(**args)
+        return cls(*toks)
