@@ -96,7 +96,8 @@ class FakeCatalog(object):
         self.catalog = catalog
 
     def get_scheme(self, relation_key):
-        return raco.Scheme(self.catalog[relation_key])
+        string_key = str(relation_key)
+        return raco.Scheme(self.catalog[string_key])
 
     @classmethod
     def load_from_file(cls, path):
