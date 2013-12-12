@@ -424,6 +424,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.run_test(query, expected)
 
+    def test_sql_nested_bagcomp(self):
+        """Test nesting a bag compreshension inside SQL"""
+
+        query = """
+        out = SELECT Y.name, Y.salary FROM
+                [FROM SCAN(%s) AS X WHERE salary > 5000 EMIT X.*] AS Y
+                WHERE Y.salary < 80000;
+        DUMP(out);
+        """ % (self.emp_key,)
+
+        tuples = [(e[2], e[3]) for e in self.emp_table.elements()
+                  if e[3] < 80000 and e[3] > 5000]
+        expected = collections.Counter(tuples)
+
+        self.run_test(query, expected)
+
     def test_bagcomp_projection(self):
         """Test that column names are preserved across projection."""
         query = """
