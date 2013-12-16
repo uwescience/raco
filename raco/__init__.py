@@ -8,6 +8,9 @@ from raco.utility import emit
 
 import raco.algebra
 
+import logging
+LOG = logging.getLogger(__name__)
+
 class RACompiler(object):
     """Thin wrapper interface for lower level functions parse, optimize, compile"""
 
@@ -39,8 +42,11 @@ class RACompiler(object):
         exprcode.append(lang.preamble(query=self.source, plan=self.logicalplan))
         for result, expr in exprs:
             init = lang.initialize(result)
+            LOG.debug("init:\n%s", init)
             body = expr.compile(result)
+            LOG.debug("body:\n%s", body)
             final = lang.finalize(result)
+            LOG.debug("final:\n%s", final)
             exprcode.append(emit(init, body, final))
         exprcode.append(lang.postamble(query=self.source, plan=self.logicalplan))
         return  emit(*exprcode)
