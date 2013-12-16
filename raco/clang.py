@@ -4,6 +4,9 @@ from raco import catalog
 from raco.language import Language
 from raco import rules
 
+import logging
+LOG = logging.getLogger(__name__)
+
 import os.path
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c_templates")
@@ -66,6 +69,7 @@ class CC(Language):
     def boolean_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
         conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg in args])
+        LOG.debug("conjunc: %s", conjunc)
         return "( %s )" % conjunc
 
     @classmethod
@@ -94,6 +98,9 @@ class FileScan(algebra.Scan, CCOperator):
         else:
             code = binary_scan_template % locals()
         return code
+      
+    def __str__(self):
+      return "%s(%s)" % (self.opname(), self.relation_key)
 
 class TwoPassSelect(algebra.Select, CCOperator):
     """
@@ -123,8 +130,10 @@ class TwoPassSelect(algebra.Select, CCOperator):
 
     def compileme(self, resultsym, inputsym):
         pcondition = CC.unnamed(self.condition, self.scheme())
+        LOG.debug("CC.unnamed %s => %s", self.condition, pcondition)
         self.tagcondition(pcondition, inputsym)
         condition = CC.compile_boolean(pcondition)
+        LOG.debug("CC.compile_boolean %s => %s", pcondition, condition)
         # Preston's original
         #code = twopass_select_template % locals()
 
@@ -132,6 +141,9 @@ class TwoPassSelect(algebra.Select, CCOperator):
         code = twopass_select_template % locals()
 
         return code
+    
+    def __str__(self):
+        return "%s[%s]" % (self.opname(), self.condition)
 
 
 class TwoPassHashJoin(algebra.Join, CCOperator):
@@ -156,6 +168,14 @@ class TwoPassHashJoin(algebra.Join, CCOperator):
 
         code = hashjoin_template % locals()
         return code
+      
+    def __str__(self):
+        return "%s(%s,%s,%s)[%s, %s]" % (self.opname(),
+                                         self.condition,
+                                         self.leftcondition,
+                                         self.rightcondition,
+                                         self.left,
+                                         self.right)
 
 class FilteringJoin(algebra.Join, CCOperator):
     """Abstract class representing a join that applies selection
@@ -277,6 +297,8 @@ firstjointemplate = """
 } // End Filtering_NestedLoop_Join_Chain
 """
 
+
+
 class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
     """
   A linear chain of joins, with selection predicates applied"""
@@ -305,6 +327,7 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
         return "%s_row" % relsym
 
     def tagcondition(self, joinlevel, condition, argsyms, conditiontype="join"):
+        LOG.debug("tag condition %s,%s,%s,%s", joinlevel, condition, argsyms, self)
         """Tag each position reference in the join condition with the relation symbol it should refer to in the compiled code. joinlevel is the index of the join in the chain."""
         # TODO: this function is impossible to understand.  Attribute references need an overhaul.
         # TODO: May want to include a pipeline object that abstracts chains of non-blocking operators
@@ -352,6 +375,7 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
         helper(condition)
 
     def compileme(self, resultsym, argsyms):
+        LOG.debug("compiling %s: %s %s %s", self.__class__.__name__, resultsym, argsyms, self)
         def helper(level):
             depth = level
             if level < len(self.joinconditions):
@@ -364,7 +388,9 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
                 assert(isinstance(joincondition.right, expression.UnnamedAttributeRef))
 
                 # change the addressing scheme for the left-hand attribute reference
+                LOG.debug("before tag join %s %s %s", joincondition, joincondition.left, joincondition.right)
                 self.tagcondition(level, joincondition, argsyms, conditiontype="join")
+                LOG.debug("after tag join %s %s %s", joincondition, joincondition.left.relationsymbol, joincondition.right.relationsymbol)
                 leftsym = joincondition.left.relationsymbol
                 leftposition = joincondition.left.position
                 rightsym = joincondition.right.relationsymbol
@@ -496,6 +522,7 @@ class FilteringNestedLoopJoinRule(rules.Rule):
 
 class LeftDeepFilteringJoinChainRule(rules.Rule):
     """A rewrite rule for combining Select(Join(Select, Select)*) into one pipeline."""
+    """Turns separate FilteringNestedLoopJoins into a single FilteringNLJoinChain"""
     def fire(self, expr):
         topoperator = expr
         if isinstance(expr, algebra.Select):
@@ -506,7 +533,9 @@ class LeftDeepFilteringJoinChainRule(rules.Rule):
         def helper(expr, joinchain):
             """Follow a left deep chain of joins, gathering conditions"""
             if isinstance(expr, FilteringNestedLoopJoin):
+                # push args and conditions onto the front
                 joinchain.args[0:0] = [expr.right]
+                LOG.debug("joinchain.args = %s", joinchain.args)
                 joinchain.joinconditions[0:0] = [expr.condition]
                 joinchain.leftconditions[0:0] = [expr.leftcondition]
                 joinchain.rightconditions[0:0] = [expr.rightcondition]
@@ -519,10 +548,13 @@ class LeftDeepFilteringJoinChainRule(rules.Rule):
 
         if isinstance(topoperator, FilteringNestedLoopJoin):
             joinchain = FilteringNLJoinChain([], [], [], [])
-            return helper(topoperator, joinchain)
+            LOG.debug("before  select+join %s %s", topoperator, joinchain)
+            newexpr = helper(topoperator, joinchain)
+            LOG.debug("after selct+join %s", joinchain)
+            return newexpr
         else:
             return expr
-
+          
 class CCAlgebra(object):
     language = CC
 
