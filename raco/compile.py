@@ -1,6 +1,9 @@
 from raco import algebra
 from raco.utility import emit
 
+import logging
+LOG = logging.getLogger(__name__)
+
 """
 Apply rules to an expression
 If successful, output will
@@ -12,6 +15,7 @@ def optimize_by_rules(expr, rules):
     for rule in rules:
         def recursiverule(expr):
             newexpr = rule(expr)
+            LOG.debug("apply rule %s\n--- %s => %s", rule, expr, newexpr)
             newexpr.apply(recursiverule)
             return newexpr
         expr = recursiverule(expr)
@@ -19,7 +23,7 @@ def optimize_by_rules(expr, rules):
 
 def optimize_by_rules_breadth_first(expr, rules):
     def optimizeto(expr):
-        return optimize_by_rules(expr, rules)
+        return optimize_by_rules(expr, rules) #TODO: why isn't this BF too?
 
     for rule in rules:
         newexpr = rule(expr)
@@ -33,6 +37,8 @@ def optimize(exprs, target, source, eliminate_common_subexpressions=False):
   (logical) and the target algebra (physical)"""
     def opt(expr):
         so = optimize_by_rules(expr, source.rules)
+        #newexpr0 = optimize_by_rules(so, target.rules)
+        #newexpr = optimize_by_rules(newexpr0, target.rules)
         newexpr = optimize_by_rules(so, target.rules)
         if eliminate_common_subexpressions:
             newexpr = common_subexpression_elimination(newexpr)
@@ -45,7 +51,10 @@ def compile(exprs):
   """
     algebra.reset()
     exprcode = []
+    LOG.debug(exprs)
     for resultsym, expr in exprs:
+        LOG.debug(resultsym)
+        LOG.debug(expr, type(expr))
         init = expr.language.initialize(resultsym)
         body = expr.compile(resultsym)
         final = expr.language.finalize(resultsym)
