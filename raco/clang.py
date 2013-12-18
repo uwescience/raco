@@ -140,10 +140,28 @@ class FileScan(algebra.Scan, CCOperator):
     def __str__(self):
       return "%s(%s)" % (self.opname(), self.relation_key)
 
+
+def getTaggingFunc(t):
+  """ 
+  Return a visitor function that will tag 
+  UnnamedAttributes with the provided TupleRef
+  """
+
+  def tagAttributes(expr):
+    # TODO non mutable would be nice
+    if isinstance(expr, expression.UnnamedAttributeRef):
+      expr.tupleref = t
+
+    return None
+  
+  return tagAttributes
+
+
 class TwoPassSelect(algebra.Select, CCOperator):
     """
   Count matches, allocate memory, loop again to populate result
   """
+  
 
     @classmethod
     def tagcondition(cls, condition, inputsym):
@@ -805,15 +823,20 @@ class StagedTupleRef:
 
 
 class BasicSelect(algebra.Select, CCOperator):
-  def produce(self):
-    self.input.produce()
+  def produce(self, startIndex):
+    return self.input.produce(startIndex)
     
   def consume(self, t):
     basic_select_template = """if (%(conditioncode)s) {
       %(inner_code_compiled)s
+    }
     """
 
-    # TODO: tag or rewrite visitor with t
+    # tag the attributes with references
+    # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
+    [_ for _ in self.condition.postorder(getTaggingFunc(t))]
+    
+    # compile the predicate into code
     conditioncode = CC.compile_boolean(self.condition)
     
     inner_code_compiled = self.parent.consume(t)
@@ -829,7 +852,9 @@ class CCAlgebra(object):
     #TwoPassHashJoin,
     FilteringNestedLoopJoin,
     TwoPassSelect,
-    FileScan
+    #FileScan,
+    MemoryScan,
+    BasicSelect,
   ]
     rules = [
      #rules.OneToOne(algebra.Join,TwoPassHashJoin),
@@ -838,7 +863,8 @@ class CCAlgebra(object):
     FilteringNestedLoopJoinRule(),
     FilteringHashJoinChainRule(),
     LeftDeepFilteringJoinChainRule(),
-    rules.OneToOne(algebra.Select,TwoPassSelect),
+    rules.OneToOne(algebra.Select,BasicSelect),
+ #   rules.OneToOne(algebra.Select,TwoPassSelect),
     rules.OneToOne(algebra.Scan,MemoryScan),
   #  rules.FreeMemory()
   ]
