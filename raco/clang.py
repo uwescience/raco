@@ -683,7 +683,106 @@ class LeftDeepFilteringJoinChainRule(rules.Rule):
             return newexpr
         else:
             return expr
-          
+      
+# TODO:
+# The following is actually a staged materialized tuple ref.
+# we should also add a staged reference tuple ref that just has relationsymbol and row  
+class StagedTupleRef:
+  nextid = 0
+  
+  @classmethod
+  def genname(cls):
+    x = cls.nextid
+    cls.nextid+=1
+    return "t_%03d" % x
+  
+  def __init__(self, attrs, relsym, scheme):
+    self.name = self.genname()
+    self.attrs = attrs
+    self.relsym = relsym
+    self.scheme = scheme
+    self.__typename = None
+  
+  def getOffset(self, unnamedPos):
+    return self.attrs[unnamedPos]
+  
+  def getTupleTypename(self):
+    if self.__typename==None:
+      fields = ""
+      relsym = self.relsym
+      for i in range(0, len(self.scheme)):
+        fieldnum = i
+        fields += "_%(fieldnum)s" % locals()
+        
+      self.__typename = "MaterializedTupleRef_%(relsym)s%(fields)s" % locals()
+    
+    return self.__typename
+
+    
+  def generateDefition(self):
+    fielddeftemplate = """int _%(fieldnum)s;
+    """
+    switchcasetemplate = """case %(fieldnum)s:
+    return _%(fieldnum)s;
+    """
+    copytemplate = """rel->relation[row*rel->fields + %(fieldnum)],
+    """
+    template = """namespace %(relsym)s {
+          // can be just the necessary schema
+  struct %(tupletypename)s {
+    %(fielddefs)s
+
+    inline int get(int field) {
+      switch(field) {
+        %(switchcases)s
+        default:
+          // fail
+      }
+    }
+  }
+  %(tupletypename)s set(relationInfo * rel, int row) {
+    return %(tupletypename)s {
+      %(copies)s
+    }
+  }
+  }
+  """
+    fielddefs = ""
+    switchcases = ""
+    copies = ""
+    # TODO: actually list the trimmed schema offsets
+    for i in range(0, len(self.scheme)):
+      fieldnum = i
+      fielddefs += fielddeftemplate % locals()
+      switchcases += switchcasetemplate % locals()
+      copies += copytemplate % locals()
+
+    tupletypename = self.getTupleTypename()
+    relsym = self.relsym
+      
+    code = template % locals()
+    return code
+  
+
+
+class BasicSelect(algebra.Select, CCOperator):
+  def produce(self):
+    self.input.produce()
+    
+  def consume(self, t):
+    basic_select_template = """if (%(conditioncode)s) {
+      %(inner_code_compiled)s
+    """
+
+    # TODO: tag or rewrite visitor with t
+    conditioncode = CC.compile_boolean(self.condition)
+    
+    inner_code_compiled = self.parent.consume(t)
+    
+    code = basic_select_template % locals()
+    return code
+    
+
 class CCAlgebra(object):
     language = CC
 
