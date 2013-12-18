@@ -5,6 +5,7 @@ from raco.language import Language
 from raco import rules
 
 import logging
+from algebra import gensym
 LOG = logging.getLogger(__name__)
 
 import os.path
@@ -78,14 +79,50 @@ class CC(Language):
         if isinstance(expr, expression.NamedAttributeRef):
             raise TypeError("Error compiling attribute reference %s. C compiler only support unnamed perspective.  Use helper function unnamed." % expr)
         if isinstance(expr, expression.UnnamedAttributeRef):
-            #FIXME: need to support Named attribute by calling get_position(scheme)
-            position = expr.position
-            relation = expr.relationsymbol
-            rowvariable = expr.rowvariable
-            return '%s->relation[%s*%s->fields + %s]' % (relation, rowvariable, relation, position)
+            symbol = expr.tupleref.name
+            position = expr.tupleref.getOffset(expr.position)
+            return '%s.get(%s)' % (symbol, position)
 
 class CCOperator (object):
     language = CC
+    
+class MemoryScan(algebra.Scan, CCOperator):
+  def produce(self, startIndex): #startIndex could be alternatively tagged as a preprocessing mutate step
+    code = ""
+    #generate the materialization from file into memory
+    #TODO split the file scan apart from this in the physical plan
+
+    #TODO for now this will break whatever relies on self.bound like reusescans
+    #Scan is the only place where a relation is declared
+    resultsym = gensym()
+    
+    code += FileScan(self.relation_key, self._scheme).compileme(resultsym)
+
+    # now generate the scan from memory
+    inputsym = resultsym
+
+    #TODO: generate row variable to avoid naming conflict for nested scans
+    memory_scan_template = """for (int& i : %(inputsym)s->range()) {
+          %(tuple_type)s %(tuple_name)s = %(inputsym)s::set(%(inputsym)s, i);
+          
+          %(inner_plan_compiled)s
+       } // end scan over %(inputsym)s
+       """
+    
+    attrs = dict([(startIndex+i,i) for i,_ in enumerate(self.scheme())])
+    stagedTuple = StagedTupleRef(attrs, inputsym, self.scheme())
+    tuple_type = stagedTuple.getTupleTypename()
+    tuple_name = stagedTuple.name
+    
+    inner_plan_compiled = self.parent.consume(stagedTuple)
+
+    code += memory_scan_template % locals()
+    return code
+    
+  def consume(self, t):
+    assert False, "as a source, no need for consume"
+    
+    
 
 class FileScan(algebra.Scan, CCOperator):
 
@@ -800,6 +837,6 @@ class CCAlgebra(object):
     FilteringHashJoinChainRule(),
     LeftDeepFilteringJoinChainRule(),
     rules.OneToOne(algebra.Select,TwoPassSelect),
-    rules.OneToOne(algebra.Scan,FileScan),
+    rules.OneToOne(algebra.Scan,MemoryScan),
   #  rules.FreeMemory()
   ]
