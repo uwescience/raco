@@ -114,12 +114,12 @@ class MemoryScan(algebra.Scan, CCOperator):
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
     
-    inner_plan_compiled = self.parent.consume(stagedTuple)
+    inner_plan_compiled = self.parent.consume(stagedTuple, self)
 
     code += memory_scan_template % locals()
     return code
     
-  def consume(self, t):
+  def consume(self, t, src):
     assert False, "as a source, no need for consume"
     
     
@@ -202,6 +202,68 @@ class TwoPassSelect(algebra.Select, CCOperator):
     def __str__(self):
         return "%s[%s]" % (self.opname(), self.condition)
 
+class HashJoin(algebra.Join, CCOperator):
+  _i = 0
+
+  @classmethod
+  def __genHashName__(cls):
+    name = "hash_%03d" % cls._i;
+    cls._i += 1
+    return name
+  
+  def produce(self, startIndex):
+    if not isinstance(self.condition, expression.EQ):
+      msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
+      raise ValueError(msg)
+    
+    self._startIndex = startIndex
+    self._hashname = self.__genHashName__()
+    
+    code = ""
+    rightStartIndex = startIndex + len(self.left.scheme())
+    self.right.childtag = "right"
+    code += self.right.produce(rightStartIndex)
+    
+    self.left.childtag = "left"
+    code += self.left.produce(startIndex)
+
+    return code
+  
+  def consume(self, t, src):
+    if src.childtag == "right":
+      right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
+      """   
+      
+      hashname = self._hashname
+      keyname = t.name
+      keypos = t.getOffset(self.condition.right.position)
+      
+      # materialization point
+      code = right_template % locals()
+      
+      return code
+    
+    if src.childtag == "left":
+      left_template = """for (%(tuple_type)s %(tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
+     %(inner_plan_compiled)s 
+  }
+  """
+      hashname = self._hashname
+      keyname = t.name
+      keypos = t.getOffset(self.condition.left.position)
+      
+      attrs = dict([(self._startIndex+i,i) for i,_ in enumerate(self.scheme())])
+      stagedTuple = StagedTupleRef(attrs, gensym(), self.scheme())
+      tuple_type = stagedTuple.getTupleTypename()
+      tuple_name = stagedTuple.name
+      
+      inner_plan_compiled = self.parent.consume(stagedTuple, self)
+      
+      code = left_template % locals()
+      return code
+
+    assert False, "src not equal to left or right"
+      
 
 class TwoPassHashJoin(algebra.Join, CCOperator):
     """
@@ -761,6 +823,7 @@ class StagedTupleRef:
     self.__typename = None
   
   def getOffset(self, unnamedPos):
+    LOG.debug("get unnamed %s from %s", unnamedPos, self.attrs)
     return self.attrs[unnamedPos]
   
   def getTupleTypename(self):
@@ -826,7 +889,7 @@ class BasicSelect(algebra.Select, CCOperator):
   def produce(self, startIndex):
     return self.input.produce(startIndex)
     
-  def consume(self, t):
+  def consume(self, t, src):
     basic_select_template = """if (%(conditioncode)s) {
       %(inner_code_compiled)s
     }
@@ -839,7 +902,7 @@ class BasicSelect(algebra.Select, CCOperator):
     # compile the predicate into code
     conditioncode = CC.compile_boolean(self.condition)
     
-    inner_code_compiled = self.parent.consume(t)
+    inner_code_compiled = self.parent.consume(t, self)
     
     code = basic_select_template % locals()
     return code
@@ -860,11 +923,12 @@ class CCAlgebra(object):
      #rules.OneToOne(algebra.Join,TwoPassHashJoin),
     rules.removeProject(),
     rules.CrossProduct2Join(),
-    FilteringNestedLoopJoinRule(),
-    FilteringHashJoinChainRule(),
-    LeftDeepFilteringJoinChainRule(),
+#    FilteringNestedLoopJoinRule(),
+#    FilteringHashJoinChainRule(),
+#    LeftDeepFilteringJoinChainRule(),
     rules.OneToOne(algebra.Select,BasicSelect),
  #   rules.OneToOne(algebra.Select,TwoPassSelect),
     rules.OneToOne(algebra.Scan,MemoryScan),
+    rules.OneToOne(algebra.Join,HashJoin),
   #  rules.FreeMemory()
   ]
