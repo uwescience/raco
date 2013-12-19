@@ -80,14 +80,14 @@ class CC(Language):
             raise TypeError("Error compiling attribute reference %s. C compiler only support unnamed perspective.  Use helper function unnamed." % expr)
         if isinstance(expr, expression.UnnamedAttributeRef):
             symbol = expr.tupleref.name
-            position = expr.tupleref.getOffset(expr.position)
+            position = expr.position # NOTE: this will only work in Selects right now
             return '%s.get(%s)' % (symbol, position)
 
 class CCOperator (object):
     language = CC
     
 class MemoryScan(algebra.Scan, CCOperator):
-  def produce(self, startIndex): #startIndex could be alternatively tagged as a preprocessing mutate step
+  def produce(self):
     code = ""
     #generate the materialization from file into memory
     #TODO split the file scan apart from this in the physical plan
@@ -109,8 +109,7 @@ class MemoryScan(algebra.Scan, CCOperator):
        } // end scan over %(inputsym)s
        """
     
-    attrs = dict([(startIndex+i,i) for i,_ in enumerate(self.scheme())])
-    stagedTuple = StagedTupleRef(attrs, inputsym, self.scheme())
+    stagedTuple = StagedTupleRef(inputsym, self.scheme())
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
     
@@ -211,21 +210,19 @@ class HashJoin(algebra.Join, CCOperator):
     cls._i += 1
     return name
   
-  def produce(self, startIndex):
+  def produce(self):
     if not isinstance(self.condition, expression.EQ):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
     
-    self._startIndex = startIndex
     self._hashname = self.__genHashName__()
     
     code = ""
-    rightStartIndex = startIndex + len(self.left.scheme())
     self.right.childtag = "right"
-    code += self.right.produce(rightStartIndex)
+    code += self.right.produce()
     
     self.left.childtag = "left"
-    code += self.left.produce(startIndex)
+    code += self.left.produce()
 
     return code
   
@@ -236,7 +233,7 @@ class HashJoin(algebra.Join, CCOperator):
       
       hashname = self._hashname
       keyname = t.name
-      keypos = t.getOffset(self.condition.right.position)
+      keypos = self.condition.right.position-len(self.left.scheme())
       
       # materialization point
       code = right_template % locals()
@@ -250,10 +247,9 @@ class HashJoin(algebra.Join, CCOperator):
   """
       hashname = self._hashname
       keyname = t.name
-      keypos = t.getOffset(self.condition.left.position)
+      keypos = self.condition.left.position
       
-      attrs = dict([(self._startIndex+i,i) for i,_ in enumerate(self.scheme())])
-      stagedTuple = StagedTupleRef(attrs, gensym(), self.scheme())
+      stagedTuple = StagedTupleRef(gensym(), self.scheme())
       tuple_type = stagedTuple.getTupleTypename()
       tuple_name = stagedTuple.name
       
@@ -815,16 +811,11 @@ class StagedTupleRef:
     cls.nextid+=1
     return "t_%03d" % x
   
-  def __init__(self, attrs, relsym, scheme):
+  def __init__(self, relsym, scheme):
     self.name = self.genname()
-    self.attrs = attrs
     self.relsym = relsym
     self.scheme = scheme
     self.__typename = None
-  
-  def getOffset(self, unnamedPos):
-    LOG.debug("get unnamed %s from %s", unnamedPos, self.attrs)
-    return self.attrs[unnamedPos]
   
   def getTupleTypename(self):
     if self.__typename==None:
@@ -886,8 +877,8 @@ class StagedTupleRef:
 
 
 class BasicSelect(algebra.Select, CCOperator):
-  def produce(self, startIndex):
-    return self.input.produce(startIndex)
+  def produce(self):
+    return self.input.produce()
     
   def consume(self, t, src):
     basic_select_template = """if (%(conditioncode)s) {
