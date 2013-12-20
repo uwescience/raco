@@ -103,20 +103,22 @@ class MemoryScan(algebra.Scan, CCOperator):
 
     #TODO: generate row variable to avoid naming conflict for nested scans
     memory_scan_template = """for (int& i : %(inputsym)s->range()) {
-          %(tuple_type)s %(tuple_name)s = %(inputsym)s::set(%(inputsym)s, i);
+          %(tuple_type)s %(tuple_name)s = %(inputsym)s_set(%(inputsym)s, i);
           
           %(inner_plan_compiled)s
        } // end scan over %(inputsym)s
        """
     
     stagedTuple = StagedTupleRef(inputsym, self.scheme())
+
+    tuple_type_def = stagedTuple.generateDefition()
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
     
-    inner_plan_compiled = self.parent.consume(stagedTuple, self)
+    inner_plan_compiled, inner_decls = self.parent.consume(stagedTuple, self)
 
     code += memory_scan_template % locals()
-    return code
+    return code, [tuple_type_def]+inner_decls
     
   def consume(self, t, src):
     assert False, "as a source, no need for consume"
@@ -216,18 +218,21 @@ class HashJoin(algebra.Join, CCOperator):
       raise ValueError(msg)
     
     self._hashname = self.__genHashName__()
+    self.stagedTuple = StagedTupleRef(gensym(), self.scheme())
     
-    code = ""
     self.right.childtag = "right"
-    code += self.right.produce()
+    code_right, decls_right = self.right.produce()
     
     self.left.childtag = "left"
-    code += self.left.produce()
+    code_left, decls_left = self.left.produce()
 
-    return code
+    return code_right+code_left, decls_right+decls_left
   
   def consume(self, t, src):
     if src.childtag == "right":
+      declr_template =  """std::unordered_map<int64_t, %(tuple_type)s> %(hashname)s;
+      """
+      
       right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
       """   
       
@@ -235,13 +240,20 @@ class HashJoin(algebra.Join, CCOperator):
       keyname = t.name
       keypos = self.condition.right.position-len(self.left.scheme())
       
+      tuple_type_def = self.stagedTuple.generateDefition()
+      tuple_type = self.stagedTuple.getTupleTypename()
+
+      # declaration of hash map
+      hashdeclr =  declr_template % locals()
+      
       # materialization point
       code = right_template % locals()
       
-      return code
+      return code, [tuple_type_def,hashdeclr]
     
     if src.childtag == "left":
-      left_template = """for (%(tuple_type)s %(tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
+      left_template = """
+      for (%(tuple_type)s %(tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
      %(inner_plan_compiled)s 
   }
   """
@@ -249,14 +261,13 @@ class HashJoin(algebra.Join, CCOperator):
       keyname = t.name
       keypos = self.condition.left.position
       
-      stagedTuple = StagedTupleRef(gensym(), self.scheme())
-      tuple_type = stagedTuple.getTupleTypename()
-      tuple_name = stagedTuple.name
+      tuple_type = self.stagedTuple.getTupleTypename()
+      tuple_name = self.stagedTuple.name
       
-      inner_plan_compiled = self.parent.consume(stagedTuple, self)
+      inner_plan_compiled, inner_plan_declrs = self.parent.consume(self.stagedTuple, self)
       
       code = left_template % locals()
-      return code
+      return code, inner_plan_declrs
 
     assert False, "src not equal to left or right"
       
@@ -836,9 +847,9 @@ class StagedTupleRef:
     switchcasetemplate = """case %(fieldnum)s:
     return _%(fieldnum)s;
     """
-    copytemplate = """rel->relation[row*rel->fields + %(fieldnum)],
+    copytemplate = """_%(fieldnum)s = rel->relation[row*rel->fields + %(fieldnum)s];
     """
-    template = """namespace %(relsym)s {
+    template = """
           // can be just the necessary schema
   struct %(tupletypename)s {
     %(fielddefs)s
@@ -850,13 +861,11 @@ class StagedTupleRef:
           // fail
       }
     }
-  }
-  %(tupletypename)s set(relationInfo * rel, int row) {
-    return %(tupletypename)s {
+    
+    %(tupletypename)s (relationInfo * rel, int row) {
       %(copies)s
     }
-  }
-  }
+  };
   """
     fielddefs = ""
     switchcases = ""
@@ -893,10 +902,10 @@ class BasicSelect(algebra.Select, CCOperator):
     # compile the predicate into code
     conditioncode = CC.compile_boolean(self.condition)
     
-    inner_code_compiled = self.parent.consume(t, self)
+    inner_code_compiled, inner_decls = self.parent.consume(t, self)
     
     code = basic_select_template % locals()
-    return code
+    return code, inner_decls
     
 
 class CCAlgebra(object):
