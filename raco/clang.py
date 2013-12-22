@@ -103,7 +103,7 @@ class MemoryScan(algebra.Scan, CCOperator):
 
     #TODO: generate row variable to avoid naming conflict for nested scans
     memory_scan_template = """for (int& i : %(inputsym)s->range()) {
-          %(tuple_type)s %(tuple_name)s = %(inputsym)s_set(%(inputsym)s, i);
+          %(tuple_type)s %(tuple_name)s(%(inputsym)s, i);
           
           %(inner_plan_compiled)s
        } // end scan over %(inputsym)s
@@ -858,7 +858,7 @@ class StagedTupleRef:
       switch(field) {
         %(switchcases)s
         default:
-          // fail
+          return -9999; //fail
       }
     }
     

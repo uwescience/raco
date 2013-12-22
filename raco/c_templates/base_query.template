@@ -24,8 +24,12 @@ typedef unsigned uint64;
 #else
 #include <sys/time.h>
 
-typedef long int int64;
-typedef long unsigned uint64;
+#include <cstdint>
+typedef int64_t int64;
+typedef uint64_t uint64;
+ 
+ #include <unordered_map>
+#
 #endif
 
 #include "io_util.h"
