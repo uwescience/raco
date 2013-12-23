@@ -218,7 +218,7 @@ class HashJoin(algebra.Join, CCOperator):
       raise ValueError(msg)
     
     self._hashname = self.__genHashName__()
-    self.stagedTuple = StagedTupleRef(gensym(), self.scheme())
+    self.outTuple = StagedTupleRef(gensym(), self.scheme())
     
     self.right.childtag = "right"
     code_right, decls_right = self.right.produce()
@@ -240,8 +240,9 @@ class HashJoin(algebra.Join, CCOperator):
       keyname = t.name
       keypos = self.condition.right.position-len(self.left.scheme())
       
-      tuple_type_def = self.stagedTuple.generateDefition()
-      tuple_type = self.stagedTuple.getTupleTypename()
+      out_tuple_type_def = self.outTuple.generateDefition()
+      self.rightTuple = t #TODO: this induces a right->left dependency
+      in_tuple_type = self.rightTuple.getTupleTypename()
 
       # declaration of hash map
       hashdeclr =  declr_template % locals()
@@ -249,22 +250,30 @@ class HashJoin(algebra.Join, CCOperator):
       # materialization point
       code = right_template % locals()
       
-      return code, [tuple_type_def,hashdeclr]
+      return code, [out_tuple_type_def,hashdeclr]
     
     if src.childtag == "left":
       left_template = """
-      for (%(tuple_type)s %(tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
+      for (auto %(right_tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
+        %(out_tuple_type)s %(out_tuple_name)s = combine<%(out_tuple_type)s, %(keytype)s, %(right_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
      %(inner_plan_compiled)s 
   }
   """
       hashname = self._hashname
       keyname = t.name
+      keytype = t.getTupleTypename()
       keypos = self.condition.left.position
       
-      tuple_type = self.stagedTuple.getTupleTypename()
-      tuple_name = self.stagedTuple.name
+      right_tuple_type = self.rightTuple.getTupleTypename()
+      right_tuple_name = self.rightTuple.name
+
+      # or could make up another name
+      #right_tuple_name = StagedTupleRef.genname() 
+
+      out_tuple_type = self.outTuple.getTupleTypename()
+      out_tuple_name =self.outTuple.name
       
-      inner_plan_compiled, inner_plan_declrs = self.parent.consume(self.stagedTuple, self)
+      inner_plan_compiled, inner_plan_declrs = self.parent.consume(self.outTuple, self)
       
       code = left_template % locals()
       return code, inner_plan_declrs
@@ -842,39 +851,46 @@ class StagedTupleRef:
 
     
   def generateDefition(self):
-    fielddeftemplate = """int _%(fieldnum)s;
+    fielddeftemplate = """int _fields[%(numfields)s];
     """
-    switchcasetemplate = """case %(fieldnum)s:
-    return _%(fieldnum)s;
-    """
-    copytemplate = """_%(fieldnum)s = rel->relation[row*rel->fields + %(fieldnum)s];
+    copytemplate = """_fields[%(fieldnum)s] = rel->relation[row*rel->fields + %(fieldnum)s];
     """
     template = """
           // can be just the necessary schema
-  struct %(tupletypename)s {
+  class %(tupletypename)s {
+    private:
     %(fielddefs)s
-
-    inline int get(int field) {
-      switch(field) {
-        %(switchcases)s
-        default:
-          return -9999; //fail
-      }
+    
+    public:
+    int64_t get(int field) const {
+      return _fields[field];
+    }
+    
+    void set(int field, int64_t val) {
+      _fields[field] = val;
+    }
+    
+    int numFields() const {
+      return %(numfields)s;
     }
     
     %(tupletypename)s (relationInfo * rel, int row) {
       %(copies)s
     }
+    
+    %(tupletypename)s () {
+      // no-op
+    }
   };
   """
-    fielddefs = ""
-    switchcases = ""
+    getcases = ""
+    setcases = ""
     copies = ""
+    numfields = len(self.scheme)
+    fielddefs = fielddeftemplate % locals()
     # TODO: actually list the trimmed schema offsets
-    for i in range(0, len(self.scheme)):
+    for i in range(0, numfields):
       fieldnum = i
-      fielddefs += fielddeftemplate % locals()
-      switchcases += switchcasetemplate % locals()
       copies += copytemplate % locals()
 
     tupletypename = self.getTupleTypename()
