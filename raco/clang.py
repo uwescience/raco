@@ -102,7 +102,7 @@ class MemoryScan(algebra.Scan, CCOperator):
     inputsym = resultsym
 
     #TODO: generate row variable to avoid naming conflict for nested scans
-    memory_scan_template = """for (int& i : %(inputsym)s->range()) {
+    memory_scan_template = """for (uint64_t i : %(inputsym)s->range()) {
           %(tuple_type)s %(tuple_name)s(%(inputsym)s, i);
           
           %(inner_plan_compiled)s
@@ -230,7 +230,7 @@ class HashJoin(algebra.Join, CCOperator):
   
   def consume(self, t, src):
     if src.childtag == "right":
-      declr_template =  """std::unordered_map<int64_t, %(tuple_type)s> %(hashname)s;
+      declr_template =  """std::unordered_map<int64_t, std::vector<%(in_tuple_type)s>* > %(hashname)s;
       """
       
       right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
