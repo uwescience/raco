@@ -3,6 +3,7 @@ import sys
 
 from ply import yacc
 
+from raco import relation_key
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
 import raco.expression as sexpr
@@ -142,7 +143,7 @@ class Parser(object):
         '''relation_key : string_arg
                         | string_arg COLON string_arg
                         | string_arg COLON string_arg COLON string_arg'''
-        p[0] = ''.join(p[1:])
+        p[0] = relation_key.RelationKey.from_string(''.join(p[1:]))
 
     @staticmethod
     def p_optional_schema(p):

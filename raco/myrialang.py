@@ -6,6 +6,7 @@ from raco import scheme
 from raco import expression
 from raco.language import Language
 from raco.utility import emit
+from raco.relation_key import RelationKey
 
 def scheme_to_schema(s):
     def convert_typestr(t):
@@ -30,26 +31,6 @@ def scheme_to_schema(s):
         names = []
         types = []
     return {"column_types" : types, "column_names" : names}
-
-def resolve_relation_key(key):
-    """Extract user, program, relation strings from a colon-delimited string.
-
-    User and program can be omitted, in which case the system chooses default
-    values."""
-
-    toks = key.split(':')
-
-    user = 'public'
-    program = 'adhoc'
-    relation = toks[-1]
-
-    try:
-        program = toks[-2]
-        user = toks[-3]
-    except IndexError:
-        pass
-
-    return user, program, relation
 
 def compile_expr(op, child_scheme):
     ####
@@ -146,29 +127,25 @@ class MyriaOperator(object):
 
 class MyriaScan(algebra.Scan, MyriaOperator):
     def compileme(self, resultsym):
-        user, program, relation = resolve_relation_key(self.relation_key)
-
         return {
             "op_name" : resultsym,
             "op_type" : "TableScan",
             "relation_key" : {
-              "user_name" : user,
-              "program_name" : program,
-              "relation_name" : relation
+              "user_name" : self.relation_key.user,
+              "program_name" : self.relation_key.program,
+              "relation_name" : self.relation_key.relation
             }
           }
 
 class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
     def compileme(self, resultsym):
-        user, program, relation = resolve_relation_key(self.name)
-
         return {
             "op_name" : resultsym,
             "op_type" : "TableScan",
             "relation_key" : {
-              "user_name" : user,
-              "program_name" : program,
-              "relation_name" : relation
+              "user_name" : 'public',
+              "program_name" : '__TEMP__',
+              "relation_name" : self.name
             }
           }
 
@@ -226,15 +203,13 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
 
 class MyriaStore(algebra.Store, MyriaOperator):
     def compileme(self, resultsym, inputsym):
-        user, program, relation = resolve_relation_key(self.relation_key)
-
         return {
             "op_name" : resultsym,
             "op_type" : "DbInsert",
             "relation_key" : {
-              "user_name" : user,
-              "program_name" : program,
-              "relation_name" : relation
+              "user_name" : self.relation_key.user,
+              "program_name" : self.relation_key.program,
+              "relation_name" : self.relation_key.relation
             },
             "arg_overwrite_table" : True,
             "arg_child" : inputsym,
@@ -242,15 +217,13 @@ class MyriaStore(algebra.Store, MyriaOperator):
 
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
     def compileme(self, resultsym, inputsym):
-        user, program, relation = resolve_relation_key(self.name)
-
         return {
             "op_name" : resultsym,
             "op_type" : "DbInsert",
             "relation_key" : {
-              "user_name" : user,
-              "program_name" : program,
-              "relation_name" : relation
+              "user_name" : 'public',
+              "program_name" : '__TEMP__',
+              "relation_name" : self.name
             },
             "arg_overwrite_table" : True,
             "arg_child" : inputsym,
@@ -969,7 +942,8 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
         else:
             # Otherwise, add an insert at the top to store this relation to a
             # table named (label).
-            frag_root = MyriaStore(plan=rootOp, relation_key=label)
+            frag_root = MyriaStore(plan=rootOp,
+                                   relation_key=RelationKey.from_string(label))
         # Make sure the root is in the symbol dictionary, but rather than using a
         # generated symbol use the IDB label.
         syms[id(frag_root)] = label

@@ -8,7 +8,7 @@ from raco import expression
 import raco.algebra
 import raco.scheme
 import raco.catalog
-
+from raco import relation_key
 
 class Program(object):
     def __init__(self, rules):
@@ -610,7 +610,8 @@ class Term(object):
         else:
             # TODO: A call to some catalog?
             sch = raco.scheme.Scheme([attr(i, r, term.name) for i, r in enumerate(term.valuerefs)])
-            scan = raco.algebra.Scan(term.name, sch)
+            rel_key = relation_key.RelationKey.from_string(term.name)
+            scan = raco.algebra.Scan(rel_key, sch)
             scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))
 
         # collect conditions within the term itself, like A(X,3) or A(Y,Y)
