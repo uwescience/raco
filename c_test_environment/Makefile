@@ -1,7 +1,6 @@
-CPPC = g++
-CC = gcc
+CPPC = g++-4.7
 
-CFLAGS = -ggdb #-O3 #-m64 -Wno-deprecated -fPIC
+CFLAGS = -ggdb -std=c++11 #-O3 #-m64 -Wno-deprecated -fPIC
 LIBS = 
 INCL = 
 COMP = $(CPPC) $(CFLAGS) -c $< $(INCL) 

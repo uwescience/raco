@@ -85,8 +85,8 @@ uint64 convert(char *p) {
   for (p=p-2;p!=start;p--) {
     c = *p;
     printf("%c\t", c);
-    printf("%i\n", (c - '0')*pow);
-    printf("%i\n", pow);
+    printf("%d\n", (c - '0')*pow);
+    printf("%d\n", pow);
     n = n + (c - '0')*pow;
     pow *= 10;
   }
@@ -102,7 +102,7 @@ uint64 convert(char *p) {
 uint64 tuples;
 uint64 fields;
 
-uint64 *relation;
+int64 *relation;
 
 
 struct relationInfo * inhale(char *path, struct relationInfo *relInfo) {
@@ -111,7 +111,7 @@ struct relationInfo * inhale(char *path, struct relationInfo *relInfo) {
 #ifdef __MTA__
   snap_stat_buf stats;
   ASSERT(snap_stat(path, SNAP_ANY_SW, &stats, 0) == SNAP_ERR_OK, "snap_stat failed");
-  off_t bytes = stats.st_size;
+  uint64 bytes = stats.st_size;
   char *buf = (char *) malloc(bytes);
   ASSERT(buf, "failed to allocate memory for buf");
   ASSERT(snap_restore(path, buf, bytes, 0) == SNAP_ERR_OK, "snap_read failed");
@@ -120,8 +120,8 @@ struct relationInfo * inhale(char *path, struct relationInfo *relInfo) {
   ASSERT(f >= 0, strerror(errno));
   struct stat stats;
   ASSERT(fstat(f, &stats) >= 0, strerror(errno));
-  off_t bytes = stats.st_size;
-  printf("\tfile is %i bytes\n", bytes);
+  uint64 bytes = stats.st_size;
+  printf("\tfile is %lu bytes\n", bytes);
   char *buf = (char *) malloc(bytes);
   ASSERT(buf, "failed to allocate memory for buf");
   ASSERT(read(f, buf, bytes) >= 0, strerror(errno));
@@ -153,7 +153,7 @@ struct relationInfo * inhale(char *path, struct relationInfo *relInfo) {
 
   printf("\n\tfound %lu tuples and %lu fields\n", tuples, fields);
   printf("\ttrying to allocate %f Mbytes\n", 1.0*tuples*fields*sizeof(uint64)/(1<<20));
-  relation = (uint64 *) malloc(tuples*fields*sizeof(uint64));
+  relation = (int64 *) malloc(tuples*fields*sizeof(uint64));
   ASSERT(relation, "failed to allocate memory for relation");
 
   uint64 numbers = 0;
@@ -196,7 +196,7 @@ struct relationInfo * binary_inhale(char *path, struct relationInfo *relInfo) {
   snap_stat_buf stats;
   ASSERT(snap_stat(path, SNAP_ANY_SW, &stats, 0) == SNAP_ERR_OK, "snap_stat failed");
   off_t bytes = (stats.st_size + 24); // *3/4;
-  relation = (uint64 *) malloc(bytes);
+  relation = (int64 *) malloc(bytes);
   ASSERT(relation, "failed to allocate memory for relation");
   ASSERT(snap_restore(path, relation, bytes, 0) == SNAP_ERR_OK, "snap_read failed");
 #else
@@ -205,7 +205,7 @@ struct relationInfo * binary_inhale(char *path, struct relationInfo *relInfo) {
   struct stat stats;
   ASSERT(fstat(f, &stats) >= 0, strerror(errno));
   off_t bytes = stats.st_size;
-  relation = (uint64 *) malloc(bytes);
+  relation = (int64 *) malloc(bytes);
   ASSERT(relation, "failed to allocate memory for relation");
   ASSERT(read(f, relation, bytes) >= 0, strerror(errno));
   ASSERT(close(f) >= 0, strerror(errno));
@@ -227,7 +227,7 @@ struct relationInfo * binary_inhale(char *path, struct relationInfo *relInfo) {
 
 
 void printrelation(struct relationInfo *R) {
-  printf("tuples, fields: %i, %i\n", R->tuples, R->fields);
+  printf("tuples, fields: %lu, %lu\n", R->tuples, R->fields);
   for (uint64 i = 0; i < R->tuples; i++) {
     for( uint64 j = 0; j < R->fields; j=j+1 ) {
       printf("\t%ld", R->relation[(i*R->fields)+j]);
@@ -237,3 +237,40 @@ void printrelation(struct relationInfo *R) {
 }
 
 
+RangeIter::RangeIter(uint64_t num, bool asEnd) 
+  : num(num) {
+    next = (asEnd)?num:0;
+  }
+    
+uint64_t RangeIter::operator*() {
+  return next;
+}
+    
+RangeIter& RangeIter::operator++() {
+  // TODO assert in bounds
+  next++;
+  return *this;
+}
+    
+bool RangeIter::notequal(const RangeIter& o) const {
+  return (this->next!=o.next) || (this->num!=o.num);
+}
+
+
+bool operator!=(const RangeIter& o1, const RangeIter& o2) {
+  return o1.notequal(o2);
+}
+
+bool operator==(const RangeIter& o1, const RangeIter& o2) {
+  return !(o1 != o2);
+}
+    
+
+RangeIterable::RangeIterable(uint64_t num) : num(num) {}
+
+RangeIter RangeIterable::begin() {
+  return RangeIter(num);
+}
+RangeIter RangeIterable::end() {
+  return RangeIter(num, true);
+}
