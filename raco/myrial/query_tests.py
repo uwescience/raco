@@ -6,7 +6,6 @@ import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.scheme as scheme
 import raco.myrial.groupby
-import raco.myrial.unpack_from
 import raco.myrial.myrial_test as myrial_test
 import raco.myrial.exceptions
 
