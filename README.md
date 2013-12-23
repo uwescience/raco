@@ -3,6 +3,8 @@ Raco, the Relational Algebra COmpiler
 
 A pure Python compiler and optimization framework for relational algebra.
 
+Build status: ![build status from Travis CI](https://travis-ci.org/uwescience/datalogcompiler.png)
+
 Source languages include:
 
 * Datalog
