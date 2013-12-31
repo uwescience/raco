@@ -736,6 +736,18 @@ class SelectToEquijoin(rules.Rule):
     def __str__(self):
         return "Select, Cross/Join => Join"
 
+
+class RemoveTrivialSequences(rules.Rule):
+    def fire(self, expr):
+        if not isinstance(expr, algebra.Sequence):
+            return expr
+
+        if len(expr.args) == 1:
+            return expr.args[0]
+        else:
+            return expr
+
+
 class MyriaAlgebra(object):
     language = MyriaLanguage
 
@@ -755,7 +767,9 @@ class MyriaAlgebra(object):
     )
 
     rules = [
-        SimpleGroupBy()
+        RemoveTrivialSequences()
+
+        , SimpleGroupBy()
 
         # These rules form a logical group; SelectToEquijoin assumes that
         # AND clauses have been broken apart into multiple selections.
