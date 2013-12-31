@@ -866,6 +866,10 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     if catalog is None:
         catalog = EmptyCatalog()
 
+    # Some plans may just be an operator, others may be a list of operators
+    if isinstance(physical_plan, algebra.Operator):
+        physical_plan = [(None, physical_plan)]
+
     for (label, root_op) in physical_plan:
         apply_schema_recursive(root_op, catalog)
 
