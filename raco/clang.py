@@ -3,6 +3,7 @@ from raco import expression
 from raco import catalog
 from raco.language import Language
 from raco import rules
+from raco.utility import emitlist
 
 import logging
 from algebra import gensym
@@ -18,7 +19,7 @@ def readtemplate(fname):
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c_templates")
 
 base_template = readtemplate("base_query.template")
-initialize, finalize = base_template.split("// SPLIT ME HERE")
+initialize, querydef_init, finalize = base_template.split("// SPLIT ME HERE")
 twopass_select_template = readtemplate("precount_select.template")
 hashjoin_template = readtemplate("hashjoin.template")
 filteringhashjoin_template = ""
@@ -45,6 +46,12 @@ class CC(Language):
     @staticmethod
     def initialize(resultsym):
         return  initialize % locals()
+      
+    @staticmethod
+    def body(compileResult, resultsym):
+      code, decls = compileResult
+      querydef_init_filled = querydef_init % locals()
+      return emitlist(decls)+querydef_init_filled+code
 
     @staticmethod
     def finalize(resultsym):
@@ -881,7 +888,20 @@ class StagedTupleRef:
     %(tupletypename)s () {
       // no-op
     }
+    
+    std::ostream& dump(std::ostream& o) const {
+      o << "Materialized(";
+      for (int i=0; i<numFields(); i++) {
+        o << _fields[i] << ",";
+      }
+      o << ")";
+      return o;
+    }
   };
+  std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
+    return t.dump(o);
+  }
+
   """
     getcases = ""
     setcases = ""

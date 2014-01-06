@@ -22,6 +22,10 @@ class Language(object):
     @staticmethod
     def initialize(resultsym):
         return  ""
+      
+    @staticmethod
+    def body(compileResult):
+      return compileResult
 
     @staticmethod
     def finalize(resultsym, body=""):
