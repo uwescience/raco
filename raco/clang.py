@@ -1,3 +1,6 @@
+# TODO: To be refactored into shared memory lang,
+# where you plugin in the sequential shared memory language specific codegen
+
 from raco import algebra
 from raco import expression
 from raco import catalog
@@ -10,6 +13,7 @@ from algebra import gensym
 LOG = logging.getLogger(__name__)
 
 import os.path
+
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c_templates")
 
