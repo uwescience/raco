@@ -45,6 +45,7 @@ def optimize(exprs, target, source, eliminate_common_subexpressions=False):
         return newexpr
     return [(var, opt(exp)) for var, exp in exprs]
 
+# XXX: DEPRECATED?? It is essentially duplicated in raco.raco
 def compile(exprs):
     """Compile a list of RA expressions.  Each expression is a pair Var, Plan
   Emit any initialization and call compile method on top-level operator
@@ -53,8 +54,6 @@ def compile(exprs):
     exprcode = []
     LOG.debug(exprs)
     for resultsym, expr in exprs:
-        LOG.debug(resultsym)
-        LOG.debug(expr, type(expr))
         init = expr.language.initialize(resultsym)
         body = expr.compile(resultsym)
         final = expr.language.finalize(resultsym)
