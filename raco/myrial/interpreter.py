@@ -55,9 +55,6 @@ class ExpressionProcessor(object):
 
         return raco.algebra.Scan(rel_key, scheme)
 
-    def load(self, path, schema):
-        raise NotImplementedError()
-
     def table(self, emit_clause):
         """Emit a single-row table literal."""
         emit_args = []
