@@ -37,8 +37,6 @@ def optimize(exprs, target, source, eliminate_common_subexpressions=False):
   (logical) and the target algebra (physical)"""
     def opt(expr):
         so = optimize_by_rules(expr, source.rules)
-        #newexpr0 = optimize_by_rules(so, target.rules)
-        #newexpr = optimize_by_rules(newexpr0, target.rules)
         newexpr = optimize_by_rules(so, target.rules)
         if eliminate_common_subexpressions:
             newexpr = common_subexpression_elimination(newexpr)
