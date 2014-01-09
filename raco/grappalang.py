@@ -7,6 +7,7 @@ from raco import catalog
 from raco.language import Language
 from raco import rules
 from raco.utility import emitlist
+from raco.pipelines import Pipelined
 
 import logging
 from algebra import gensym
@@ -90,7 +91,7 @@ class GrappaLanguage(Language):
             position = expr.position # NOTE: this will only work in Selects right now
             return '%s.get(%s)' % (symbol, position)
 
-class GrappaOperator (object):
+class GrappaOperator (Pipelined):
     language = GrappaLanguage
     
 class MemoryScan(algebra.Scan, GrappaOperator):
@@ -148,7 +149,7 @@ forall_localized( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tu
     
     
 
-class FileScan(algebra.Scan, GrappaOperator):
+class FileScan(algebra.Scan):
 
     def compileme(self, resultsym, tuple_typename):
         name = self.relation_key

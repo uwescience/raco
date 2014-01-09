@@ -7,6 +7,7 @@ from raco import catalog
 from raco.language import Language
 from raco import rules
 from raco.utility import emitlist
+from raco.pipelines import Pipelined
 
 import logging
 from algebra import gensym
@@ -100,7 +101,7 @@ class CC(Language):
             position = expr.position # NOTE: this will only work in Selects right now
             return '%s.get(%s)' % (symbol, position)
 
-class CCOperator (object):
+class CCOperator (Pipelined):
     language = CC
     
 class MemoryScan(algebra.Scan, CCOperator):
@@ -142,7 +143,7 @@ class MemoryScan(algebra.Scan, CCOperator):
     
     
 
-class FileScan(algebra.Scan, CCOperator):
+class FileScan(algebra.Scan):
 
     def compileme(self, resultsym):
         name = self.relation_key
