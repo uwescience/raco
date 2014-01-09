@@ -56,6 +56,10 @@ class GrappaLanguage(Language):
     @staticmethod
     def log(txt):
         return  """LOG(INFO) << "%s";\n""" % txt
+    
+    @staticmethod
+    def log_unquoted(code): 
+      return """LOG(INFO) << %s;\n""" % code
 
     @staticmethod
     def comment(txt):

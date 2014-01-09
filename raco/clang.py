@@ -64,6 +64,10 @@ class CC(Language):
     @staticmethod
     def log(txt):
         return  """printf("%s\\n");\n""" % txt
+      
+    @staticmethod
+    def log_unquoted(code):
+      return """printf("%s\\n", %s);\n""" % ("%s", code)
 
     @staticmethod
     def comment(txt):
