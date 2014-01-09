@@ -3,6 +3,8 @@ Raco, the Relational Algebra COmpiler
 
 A pure Python compiler and optimization framework for relational algebra.
 
+Build status: ![build status from Travis CI](https://travis-ci.org/uwescience/datalogcompiler.png)
+
 Source languages include:
 
 * Datalog
@@ -86,4 +88,4 @@ Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
 # Authors and contract information
 
-Raco's authors include Bill Howe, Andrew Whitaker, and Daniel Halperin at the University of Washington. Contact us at <raco@cs.washington.edu>.
+Raco's authors include Bill Howe, Andrew Whitaker, Daniel Halperin, and Brandon Myers at the University of Washington. Contact us at <raco@cs.washington.edu>.

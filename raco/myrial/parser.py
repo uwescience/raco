@@ -3,6 +3,7 @@ import sys
 
 from ply import yacc
 
+from raco import relation_key
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
 import raco.expression as sexpr
@@ -81,8 +82,16 @@ class Parser(object):
 
     @staticmethod
     def p_statement_assign(p):
-        'statement : ID EQUALS expression SEMI'
+        'statement : ID EQUALS rvalue SEMI'
         p[0] = ('ASSIGN', p[1], p[3])
+
+    # expressions must be embeddable in other expressions; certain constructs
+    # are not embeddable, but are available as r-values in an assignment 
+    @staticmethod
+    def p_rvalue(p):
+        """rvalue : expression
+                  | select_from_where"""
+        p[0] = p[1]
 
     @staticmethod
     def p_statement_dump(p):
@@ -134,7 +143,7 @@ class Parser(object):
         '''relation_key : string_arg
                         | string_arg COLON string_arg
                         | string_arg COLON string_arg COLON string_arg'''
-        p[0] = ''.join(p[1:])
+        p[0] = relation_key.RelationKey.from_string(''.join(p[1:]))
 
     @staticmethod
     def p_optional_schema(p):
@@ -249,7 +258,12 @@ class Parser(object):
 
     @staticmethod
     def p_expression_select_from_where(p):
-        'expression : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause opt_limit'
+        """expression : LPAREN select_from_where RPAREN"""
+        p[0] = p[2]
+
+    @staticmethod
+    def p_select_from_where(p):
+        'select_from_where : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause opt_limit'
         p[0] = ('SELECT', SelectFromWhere(distinct=p[2], select=p[3],
                                           from_=p[5], where=p[6], limit=p[7]))
 
@@ -257,10 +271,8 @@ class Parser(object):
     def p_opt_distinct(p):
         '''opt_distinct : DISTINCT
                         | empty'''
-        if len(p) == 2:
-            p[0] = True
-        else:
-            p[0] = False
+        # p[1] is either 'DISTINCT' or None. Use Python truthiness
+        p[0] = bool(p[1])
 
     @staticmethod
     def p_opt_limit(p):

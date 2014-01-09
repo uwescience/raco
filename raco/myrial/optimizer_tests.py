@@ -8,6 +8,7 @@ from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
+from raco import relation_key
 
 import raco.expression as expression
 import raco.scheme as scheme
@@ -17,8 +18,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
     x_scheme = scheme.Scheme([("a", "int"),("b", "int"), ("c", "int")])
     y_scheme = scheme.Scheme([("d", "int"),("e", "int"), ("f", "int")])
-    x_key = "public:adhoc:X"
-    y_key = "public:adhoc:Y"
+    x_key = relation_key.RelationKey.from_string("public:adhoc:X")
+    y_key = relation_key.RelationKey.from_string("public:adhoc:Y")
 
     def setUp(self):
         super(OptimizerTest, self).setUp()
@@ -44,7 +45,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
             [(a,b,c,d,e,f) for (a,b,c) in self.x_data
              for (d,e,f) in self.y_data if a > b and e <= f and c==d])
 
-        self.z_key = "public:adhoc:Z"
+        self.z_key = relation_key.RelationKey.from_string("public:adhoc:Z")
         self.z_data = collections.Counter([(1, 2),(2, 3),(1, 2),(3, 4)])
         self.z_scheme = scheme.Scheme([('src','int'),('dst','int')])
         self.db.ingest('public:adhoc:Z', self.z_data, self.z_scheme)
