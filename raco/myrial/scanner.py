@@ -6,18 +6,18 @@ import raco.myrial.exceptions
 
 # identifiers with special meaning; case-insensitive
 reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
-            'INTERSECT', 'DUMP', 'WHILE', 'INT', 'STRING', 'FLOAT', 'DESCRIBE',
-            'DO', 'EXPLAIN', 'DISTINCT', 'SCAN', 'COUNTALL', 'FROM', 'WHERE',
-            'AND', 'OR', 'NOT', 'MAX', 'MIN', 'SUM', 'COUNT', 'ABS', 'CEIL',
-            'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT', 'TAN', 'AVG', 'STDEV', 'POW',
-            'EMPTY', 'SELECT', 'AS']
+            'INTERSECT', 'DUMP', 'WHILE', 'INT', 'STRING', 'FLOAT', 'DO',
+            'DISTINCT', 'SCAN', 'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR', 'NOT',
+            'MAX', 'MIN', 'SUM', 'COUNT', 'ABS', 'CEIL', 'COS', 'FLOOR', 'LOG',
+            'SIN', 'SQRT', 'TAN', 'AVG', 'STDEV', 'POW', 'EMPTY', 'SELECT',
+            'AS']
 
 # Token types; required by ply to have this variable name
 
-tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT',
-          'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ',
-          'NE', 'NE2', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
-          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL'] + reserved
+tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
+          'TIMES', 'DIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ', 'NE', 'NE2', 'COMMA',
+          'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID', 'STRING_LITERAL',
+          'INTEGER_LITERAL', 'FLOAT_LITERAL'] + reserved
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('

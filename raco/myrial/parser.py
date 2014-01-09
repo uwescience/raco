@@ -99,16 +99,6 @@ class Parser(object):
         p[0] = ('DUMP', p[3])
 
     @staticmethod
-    def p_statement_describe(p):
-        'statement : DESCRIBE LPAREN ID RPAREN SEMI'
-        p[0] = ('DESCRIBE', p[3])
-
-    @staticmethod
-    def p_statement_explain(p):
-        'statement : EXPLAIN LPAREN ID RPAREN SEMI'
-        p[0] = ('EXPLAIN', p[3])
-
-    @staticmethod
     def p_statement_dowhile(p):
         'statement : DO statement_list WHILE expression SEMI'
         p[0] = ('DOWHILE', p[2], p[4])

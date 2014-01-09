@@ -317,12 +317,6 @@ class StatementProcessor(object):
                        source=LogicalAlgebra)
         return compile_to_json(lp, lp, pps)
 
-    def explain(self, _id):
-        raise NotImplementedError()
-
-    def describe(self, _id):
-        raise NotImplementedError()
-
     def dowhile(self, statement_list, termination_ex):
         body_ops = []
         for _type, _id, expr in statement_list:
