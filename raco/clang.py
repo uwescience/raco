@@ -866,7 +866,7 @@ class StagedTupleRef:
 
     
   def generateDefition(self):
-    fielddeftemplate = """int _fields[%(numfields)s];
+    fielddeftemplate = """int64_t _fields[%(numfields)s];
     """
     copytemplate = """_fields[%(fieldnum)s] = rel->relation[row*rel->fields + %(fieldnum)s];
     """

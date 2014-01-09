@@ -103,35 +103,45 @@ class MemoryScan(algebra.Scan, GrappaOperator):
     #Scan is the only place where a relation is declared
     resultsym = gensym()
     
-    code += FileScan(self.relation_key, self._scheme).compileme(resultsym)
-    index_decl_template = """GlobalAddress<Graph<Vertex>> %(resultsym)s_index;"""
-    index_decl = index_decl_template % locals()
-
     # now generate the scan from memory
     inputsym = resultsym
 
-    #TODO: generate row variable to avoid naming conflict for nested scans
-    memory_scan_template = """forall_localized( %(inputsym)s_index->vs, %(inputsym)s_index->nv, [](int64_t ai, Vertex& a) {
-      forall_here_async<&impl::local_gce>( 0, a.nadj, [a,ai](int64_t start, int64_t iters) {
-      for (int64_t i=start; i<start+iters; i++) {
-        auto %(tuple_name)s = a.local_adj[i];
-          
-          %(inner_plan_compiled)s
-       } // end scan over %(inputsym)s (for)
-       }); // end scan over %(inputsym)s (forall_here_async)
-       }); // end scan over %(inputsym)s (forall_localized)
-       """
+# scan from index
+#    memory_scan_template = """forall_localized( %(inputsym)s_index->vs, %(inputsym)s_index->nv, [](int64_t ai, Vertex& a) {
+#      forall_here_async<&impl::local_gce>( 0, a.nadj, [=](int64_t start, int64_t iters) {
+#      for (int64_t i=start; i<start+iters; i++) {
+#        auto %(tuple_name)s = a.local_adj[i];
+#          
+#          %(inner_plan_compiled)s
+#       } // end scan over %(inputsym)s (for)
+#       }); // end scan over %(inputsym)s (forall_here_async)
+#       }); // end scan over %(inputsym)s (forall_localized)
+#       """
+
+    memory_scan_template = """
+forall_localized( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s& %(tuple_name)s) {
+%(inner_plan_compiled)s
+}); // end  scan over %(inputsym)s 
+"""
+
+    rel_decl_template = """Relation<%(tuple_type)s> %(resultsym)s;"""
     
     stagedTuple = StagedTupleRef(inputsym, self.scheme())
 
     tuple_type_def = stagedTuple.generateDefition()
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
+
+    # generate code for actual IO and materialization in memory
+    code += FileScan(self.relation_key, self._scheme).compileme(resultsym, tuple_type)
     
+    # generate declaration of the in-memory relation
+    rel_decl = rel_decl_template % locals()
+
     inner_plan_compiled, inner_decls = self.parent.consume(stagedTuple, self)
 
     code += memory_scan_template % locals()
-    return code, [index_decl, tuple_type_def]+inner_decls
+    return code, [rel_decl, tuple_type_def]+inner_decls
     
   def consume(self, t, src):
     assert False, "as a source, no need for consume"
@@ -140,16 +150,18 @@ class MemoryScan(algebra.Scan, GrappaOperator):
 
 class FileScan(algebra.Scan, GrappaOperator):
 
-    def compileme(self, resultsym):
+    def compileme(self, resultsym, tuple_typename):
         name = self.relation_key
         #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
         #self.trace("// Original query position of %s: term %s (%s)" % tup)
         
         #TODO: manage the concurrent synchronization objects
-        ascii_scan_template = """
+        
+        # graph-specific file scan
+        ascii_scan_template_GRAPH = """
           {
             tuple_graph tg;
-            tg = readTuples( %(name)s );
+            tg = readTuples( "%(name)s" );
             
             FullEmpty<GlobalAddress<Graph<Vertex>>> f1;
             privateTask( [&f1,tg] {
@@ -160,6 +172,16 @@ class FileScan(algebra.Scan, GrappaOperator):
             on_all_cores([=] {
               %(resultsym)s_index = l_%(resultsym)s_index;
             });
+        }
+        """
+        
+        ascii_scan_template = """
+        {
+        auto t = readTuples<%(tuple_typename)s>( "%(name)s", 30);
+        Relation<%(tuple_typename)s> l_V1;
+        l_%(resultsym)s.data = t;
+        l_%(resultsym)s.numtuples = 30;
+        on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
         }
         """
 
@@ -325,92 +347,6 @@ if (%(leftcondition)s) {
 #  def fire(self, expr):
 #    for ref in noReferences(expr)
 
-class FilteringHashJoinChainRule(rules.Rule):
-  def fire(self, expr):
-    if isinstance(expr, FilteringNLJoinChain):
-      assert False, "TODO: Need to check condition for UnnamedAttr==UnnamedAttr"
-      return FilteringHashJoinChain(expr.args,
-                                    expr.leftconditions,
-                                    expr.rightconditions, 
-                                    expr.joinconditions)
-    else:
-      return expr
-    
-  def __str__(self):
-    return "FilteringNLJoinChain => FilteringHashJoinChain"
-
-class FilteringNestedLoopJoinRule(rules.Rule):
-    """A rewrite rule for combining Select and Join"""
-    def fire(self, expr):
-
-        if isinstance(expr, algebra.Join):
-            left = isinstance(expr.left, algebra.Select)
-            right = isinstance(expr.right, algebra.Select)
-            taut = expression.TAUTOLOGY
-            if left and right:
-                return FilteringNestedLoopJoin(expr.condition
-                                        ,expr.left.input
-                                        ,expr.right.input
-                                        ,expr.left.condition
-                                        ,expr.right.condition)
-            if left:
-                return FilteringNestedLoopJoin(expr.condition
-                                        ,expr.left.input
-                                        ,expr.right
-                                        ,expr.left.condition
-                                        ,taut)
-            if right:
-                return FilteringNestedLoopJoin(expr.condition
-                                        ,expr.left
-                                        ,expr.right.input
-                                        ,taut
-                                        ,expr.right.condition)
-            else:
-                return FilteringNestedLoopJoin(expr.condition
-                                        ,expr.left
-                                        ,expr.right
-                                        ,taut
-                                        ,taut)
-
-        return expr
-
-    def __str__(self):
-        return "Join(Select, Select) => FilteringJoin"
-
-class LeftDeepFilteringJoinChainRule(rules.Rule):
-    """A rewrite rule for combining Select(Join(Select, Select)*) into one pipeline."""
-    """Turns separate FilteringNestedLoopJoins into a single FilteringNLJoinChain"""
-    def fire(self, expr):
-        topoperator = expr
-        if isinstance(expr, algebra.Select):
-            finalselect = topoperator
-            topoperator = expr.input
-        else:
-            finalselect = None
-        def helper(expr, joinchain):
-            """Follow a left deep chain of joins, gathering conditions"""
-            if isinstance(expr, FilteringNestedLoopJoin):
-                # push args and conditions onto the front
-                joinchain.args[0:0] = [expr.right]
-                LOG.debug("joinchain.args = %s", joinchain.args)
-                joinchain.joinconditions[0:0] = [expr.condition]
-                joinchain.leftconditions[0:0] = [expr.leftcondition]
-                joinchain.rightconditions[0:0] = [expr.rightcondition]
-                return helper(expr.left, joinchain)
-            else:
-                if finalselect:
-                    joinchain.finalcondition = finalselect.condition
-                joinchain.args[0:0] = [expr]
-                return joinchain
-
-        if isinstance(topoperator, FilteringNestedLoopJoin):
-            joinchain = FilteringNLJoinChain([], [], [], [])
-            LOG.debug("before  select+join %s %s", topoperator, joinchain)
-            newexpr = helper(topoperator, joinchain)
-            LOG.debug("after selct+join %s", joinchain)
-            return newexpr
-        else:
-            return expr
       
 # TODO:
 # The following is actually a staged materialized tuple ref.
@@ -444,7 +380,7 @@ class StagedTupleRef:
 
     
   def generateDefition(self):
-    fielddeftemplate = """int _fields[%(numfields)s];
+    fielddeftemplate = """int64_t _fields[%(numfields)s];
     """
     copytemplate = """_fields[%(fieldnum)s] = rel->relation[row*rel->fields + %(fieldnum)s];
     """
@@ -469,6 +405,10 @@ class StagedTupleRef:
     
     %(tupletypename)s (relationInfo * rel, int row) {
       %(copies)s
+    }
+    
+    %(tupletypename)s (std::vector<int64_t> vals) {
+      for (int i=0; i<vals.size(); i++) _fields[i] = vals[i];
     }
     
     %(tupletypename)s () {
@@ -513,9 +453,8 @@ class BasicSelect(algebra.Select, GrappaOperator):
     
   def consume(self, t, src):
     basic_select_template = """if (%(conditioncode)s) {
-      %(inner_code_compiled)s
-    }
-    """
+%(inner_code_compiled)s
+}"""
 
     # tag the attributes with references
     # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
