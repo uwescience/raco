@@ -92,6 +92,6 @@ t_ignore  = ' \t\v'
 
 # Error handling rule
 def t_error(t):
-    raise raco.myrial.exceptions.MyrialScanException(str(t))
+    raise raco.myrial.exceptions.MyrialScanException(t)
 
 lexer = lex.lex()

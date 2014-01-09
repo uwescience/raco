@@ -8,7 +8,7 @@ import raco.myrial.scanner as scanner
 import raco.scheme as scheme
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
-import raco.myrial.exceptions
+from .exceptions import *
 
 class JoinColumnCountMismatchException(Exception):
     pass
@@ -505,5 +505,8 @@ class Parser(object):
         return parser.parse(s, lexer=scanner.lexer, tracking=True)
 
     @staticmethod
-    def p_error(p):
-        raise raco.myrial.exceptions.MyrialParseException(str(p))
+    def p_error(token):
+        if token:
+            raise MyrialUnexpectedTokenException(token)
+        else:
+            raise MyrialUnexpectedEndOfFileException()
