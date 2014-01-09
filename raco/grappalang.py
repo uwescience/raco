@@ -141,7 +141,7 @@ forall_localized( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tu
     inner_plan_compiled, inner_decls = self.parent.consume(stagedTuple, self)
 
     code += memory_scan_template % locals()
-    return code, [rel_decl, tuple_type_def]+inner_decls
+    return code, [tuple_type_def,rel_decl]+inner_decls
     
   def consume(self, t, src):
     assert False, "as a source, no need for consume"
