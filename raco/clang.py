@@ -28,7 +28,7 @@ initialize, querydef_init, finalize = base_template.split("// SPLIT ME HERE")
 twopass_select_template = readtemplate("precount_select.template")
 hashjoin_template = readtemplate("hashjoin.template")
 filteringhashjoin_template = ""
-filtering_nestedloop_join_chain_template = readtemplate("filtering_nestedloop_join_chain.template")
+#filtering_nestedloop_join_chain_template = readtemplate("filtering_nestedloop_join_chain.template")
 ascii_scan_template = readtemplate("ascii_scan.template")
 binary_scan_template = readtemplate("binary_scan.template")
 
