@@ -403,10 +403,6 @@ class StagedTupleRef:
       return %(numfields)s;
     }
     
-    %(tupletypename)s (relationInfo * rel, int row) {
-      %(copies)s
-    }
-    
     %(tupletypename)s (std::vector<int64_t> vals) {
       for (int i=0; i<vals.size(); i++) _fields[i] = vals[i];
     }
