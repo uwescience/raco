@@ -152,7 +152,11 @@ forall_localized( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tu
 class FileScan(algebra.Scan):
 
     def compileme(self, resultsym, tuple_typename):
-        name = self.relation_key
+        # TODO use the identifiers (don't split str and extract)
+        LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
+        name = str(self.relation_key).split(':')[2]
+
+
         #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
         #self.trace("// Original query position of %s: term %s (%s)" % tup)
         
@@ -179,7 +183,7 @@ class FileScan(algebra.Scan):
         ascii_scan_template = """
         {
         auto t = readTuples<%(tuple_typename)s>( "%(name)s", 30);
-        Relation<%(tuple_typename)s> l_V1;
+        Relation<%(tuple_typename)s> l_%(resultsym)s;
         l_%(resultsym)s.data = t;
         l_%(resultsym)s.numtuples = 30;
         on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
@@ -234,6 +238,10 @@ class HashJoin(algebra.Join, GrappaOperator):
     
     self.right.childtag = "right"
     code_right, decls_right = self.right.produce()
+    init_template = """%(hashname)s.init_global_DHT( &%(hashname)s, 64 );""" 
+    setro_template = """%(hashname)s.set_RO_global( &%(hashname)s );"""
+    hashname = self._hashname
+    code_right = (init_template%locals()) + code_right + setro_template%locals()
     
     self.left.childtag = "left"
     code_left, decls_left = self.left.produce()
@@ -242,10 +250,11 @@ class HashJoin(algebra.Join, GrappaOperator):
   
   def consume(self, t, src):
     if src.childtag == "right":
-      declr_template =  """std::unordered_map<int64_t, std::vector<%(in_tuple_type)s>* > %(hashname)s;
+      declr_template =  """typedef MatchesDHT<int64_t, %(in_tuple_type)s, identity_hash> DHT_%(in_tuple_type)s;
+      DHT_%(in_tuple_type)s %(hashname)s;
       """
       
-      right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
+      right_template = """%(hashname)s.insert(%(keyname)s.get(%(keypos)s), %(keyname)s);
       """   
       
       hashname = self._hashname
@@ -266,11 +275,12 @@ class HashJoin(algebra.Join, GrappaOperator):
     
     if src.childtag == "left":
       left_template = """
-      for (auto %(right_tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
+      %(hashname)s.lookup_iter( %(keyname)s.get(%(keypos)s), [=](%(right_tuple_type)s& %(right_tuple_name)s) {
         %(out_tuple_type)s %(out_tuple_name)s = combine<%(out_tuple_type)s, %(keytype)s, %(right_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
-     %(inner_plan_compiled)s 
-  }
-  """
+        %(inner_plan_compiled)s
+      });
+    """
+
       hashname = self._hashname
       keyname = t.name
       keytype = t.getTupleTypename()
@@ -390,6 +400,7 @@ class StagedTupleRef:
   class %(tupletypename)s {
     private:
     %(fielddefs)s
+    %(padding)s
     
     public:
     int64_t get(int field) const {
@@ -431,6 +442,16 @@ class StagedTupleRef:
     copies = ""
     numfields = len(self.scheme)
     fielddefs = fielddeftemplate % locals()
+    
+    # hack to get tuples to divide evenly into grappas BLOCK_SIZE
+    grappa_block_size = 64 # sizeof(int64_t)*8
+    padding_map = { 1: 0, 2: 0, 3: 1, 4: 0, 5: 3, 6: 2, 7: 1, 8: 0}
+    assert numfields <= 8
+    padding_amt = padding_map[numfields]
+    if padding_amt > 0: padding = """// pad to grappa BLOCK_SIZE 
+    char _padding[8*%s];"""%padding_map[numfields]
+    else: padding = ""
+    
     # TODO: actually list the trimmed schema offsets
     for i in range(0, numfields):
       fieldnum = i
@@ -465,6 +486,13 @@ class BasicSelect(algebra.Select, GrappaOperator):
     code = basic_select_template % locals()
     return code, inner_decls
     
+class swapJoinSides(rules.Rule):
+  # swaps the inputs to a join
+  def fire(self, expr):
+    if isinstance(expr,algebra.Join):
+      return algebra.Join(expr.condition, expr.right, expr.left)
+    else:
+      return expr
 
 class GrappaAlgebra(object):
     language = GrappaLanguage
@@ -473,11 +501,13 @@ class GrappaAlgebra(object):
     #FileScan,
     MemoryScan,
     BasicSelect,
+    HashJoin
   ]
     rules = [
      #rules.OneToOne(algebra.Join,TwoPassHashJoin),
     rules.removeProject(),
     rules.CrossProduct2Join(),
+    #swapJoinSides(),
 #    FilteringNestedLoopJoinRule(),
 #    FilteringHashJoinChainRule(),
 #    LeftDeepFilteringJoinChainRule(),

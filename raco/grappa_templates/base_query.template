@@ -8,6 +8,8 @@
 
 // query library
 #include "relation_io.hpp"
+#include "MatchesDHT.hpp"
+#include "utils.h"
 
 // graph gen
 #include "generator/make_graph.h"
