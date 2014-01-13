@@ -1,6 +1,9 @@
 from raco import algebra
 from raco.utility import emit
 
+import logging
+LOG = logging.getLogger(__name__)
+
 """
 Apply rules to an expression
 If successful, output will
@@ -12,6 +15,7 @@ def optimize_by_rules(expr, rules):
     for rule in rules:
         def recursiverule(expr):
             newexpr = rule(expr)
+            LOG.debug("apply rule %s\n--- %s => %s", rule, expr, newexpr)
             newexpr.apply(recursiverule)
             return newexpr
         expr = recursiverule(expr)
@@ -19,7 +23,7 @@ def optimize_by_rules(expr, rules):
 
 def optimize_by_rules_breadth_first(expr, rules):
     def optimizeto(expr):
-        return optimize_by_rules(expr, rules)
+        return optimize_by_rules(expr, rules) #TODO: why isn't this BF too?
 
     for rule in rules:
         newexpr = rule(expr)
@@ -39,12 +43,14 @@ def optimize(exprs, target, source, eliminate_common_subexpressions=False):
         return newexpr
     return [(var, opt(exp)) for var, exp in exprs]
 
+# XXX: DEPRECATED?? It is essentially duplicated in raco.raco
 def compile(exprs):
     """Compile a list of RA expressions.  Each expression is a pair Var, Plan
   Emit any initialization and call compile method on top-level operator
   """
     algebra.reset()
     exprcode = []
+    LOG.debug(exprs)
     for resultsym, expr in exprs:
         init = expr.language.initialize(resultsym)
         body = expr.compile(resultsym)

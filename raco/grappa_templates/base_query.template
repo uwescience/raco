@@ -1,0 +1,48 @@
+// grappa
+#include <Grappa.hpp>
+#include <Collective.hpp>
+
+// stl
+#include <vector>
+#include <unordered_map>
+
+// query library
+#include "relation_io.hpp"
+
+// graph gen
+#include "generator/make_graph.h"
+#include "generator/utils.h"
+#include "grappa/timer.h"
+#include "grappa/common.h"
+#include "grappa/graph.hpp"
+#include "prng.h"
+
+template < typename T >                                                                                                
+struct Relation {
+    GlobalAddress<T> data;
+    size_t numtuples;
+};  
+
+// SPLIT ME HERE
+
+void query() {
+
+    // SPLIT ME HERE
+}
+
+void user_main( int * ignore ) {
+
+    query();
+
+    Grappa::Statistics::merge_and_print();
+}
+
+int main(int argc, char** argv) {
+    Grappa_init(&argc, &argv);
+    Grappa_activate();
+
+    Grappa_run_user_main(&user_main, (int*)NULL);
+
+    Grappa_finish(0);
+    return 0;
+}

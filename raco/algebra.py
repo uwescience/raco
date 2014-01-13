@@ -1,21 +1,20 @@
 from raco import expression
 from raco import scheme
-from raco.utility import emit, Printable
+from raco.utility import emit, emitlist, Printable
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 
-"""
-Generate variables names
-"""
-i = 0
+# BEGIN Code to generate variables names
+var_id = 0
 def reset():
-    global i
-    i = 0
+    global var_id
+    var_id = 0
 
 def gensym():
     global i
-    i += 1
-    return "V%s" % i
+    var_id += 1
+    return "V%s" % var_id
+# END Code to generate variables names
 
 class RecursionError(ValueError):
     pass
@@ -33,7 +32,6 @@ class Operator(Printable):
         self.cleanup = ""
         self.alias = self
         self._trace = []
-        self.language = None
 
     @abstractmethod
     def children(self):
@@ -67,7 +65,7 @@ class Operator(Printable):
             parent_map = {}
         for c in self.children():
             parent_map.setdefault(c, []).append(self)
-            c.collectParents(parentmap)
+            c.collectParents(parent_map)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__
@@ -286,7 +284,7 @@ class NaryOperator(Operator):
             code += self.language.assignment(resultsym, self.bound)
         else:
             argsyms = [gensym() for arg in self.args]
-            code += emit([arg.compile(sym) for arg, sym in zip(self.args, argsyms)] + [self.compileme(resultsym, argsyms)])
+            code += emitlist([arg.compile(sym) for arg, sym in zip(self.args, argsyms)] + [self.compileme(resultsym, argsyms)])
         return code
 
     def children(self):
@@ -608,7 +606,7 @@ class ProjectingJoin(Join):
 
     def add_equijoin_condition(self, col0, col1):
         # projects are pushed after selections
-        raise NotImplementedException()
+        raise NotImplementedError()
 
 class Shuffle(UnaryOperator):
     """Send the input to the specified servers"""
