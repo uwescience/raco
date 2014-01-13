@@ -445,8 +445,8 @@ class Apply(UnaryOperator):
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
-        return UnaryOperator.__eq__(self, other) and \
-          self.mappings == other.mappings
+        return (UnaryOperator.__eq__(self, other) and
+                self.mappings == other.mappings)
 
     def copy(self, other):
         """deep copy"""
@@ -461,6 +461,32 @@ class Apply(UnaryOperator):
     def shortStr(self):
         estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.mappings])
         return "%s(%s)" % (self.opname(), estrs)
+
+class StatefulApply(Apply):
+    """Create new attributes from expressions with additional
+    state passed from tuple to tuple.
+
+    inits is a list of expressions used to initialize the state
+
+    updates is a lost of expressions used to update the state
+
+    """
+    def __init__(self, mappings=None, inits=None, updates=None, input=None):
+        self.updates = updates
+        self.inits = inits
+        super(StatefulApply, self).__init__(mappings, input)
+
+    def __eq__(self, other):
+        return (super(StatefulApply, self).__eq__(self, other) and
+                self.updates == other.updates and
+                self.inits == other.inits)
+
+    def copy(self, other):
+        """deep copy"""
+        self.updates = other.updates
+        self.inits = other.inits
+        super(StatefulApply, self).copy(self, other)
+
 
 #TODO: Non-scheme-mutating operators
 class Distinct(UnaryOperator):
