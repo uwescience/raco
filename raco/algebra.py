@@ -425,11 +425,12 @@ class Apply(UnaryOperator):
     def __init__(self, mappings=None, input=None):
         """Create new attributes from expressions with optional rename.
 
-        mappings is a list of tuples of the form:
-        (column_name, raco.expression.Expression)
-
-        column_name can be None, in which case the system will infer a name based on
-        the expression."""
+        :param mappings: list of tuples of the form:
+            (column_name, raco.expression.Expression).
+            column_name can be None, in which case the system will infer a
+            name based on the expression
+        :type mappings: list of tuples
+        """
 
         def resolve_name(name, sexpr):
             if name:
@@ -466,10 +467,10 @@ class StatefulApply(Apply):
     """Create new attributes from expressions with additional
     state passed from tuple to tuple.
 
-    inits is a list of expressions used to initialize the state
-
-    updates is a lost of expressions used to update the state
-
+    :param inits: expressions used to initialize the state
+    :type inits: list
+    :param updates: expressions used to update the state
+    :type updates: list
     """
     def __init__(self, mappings=None, inits=None, updates=None, input=None):
         self.updates = updates
