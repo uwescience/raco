@@ -59,7 +59,7 @@ class Language(object):
 
     @classmethod
     def unnamed(cls, condition, sch):
-        LOG.debug("unnamed %s %s %s",cls,condition,sch)
+        LOG.debug("unnamed %s %s %s", cls, condition, sch)
         """
     Replace column names with positions
     """
@@ -93,9 +93,9 @@ class Language(object):
                 return cls.negation(input)
         if isinstance(expr, expression.BinaryBooleanOperator):
             left, right = cls.compile_boolean(expr.left), cls.compile_boolean(expr.right)
-            LOG.debug( "BinaryBooleanOperator %s",expr)
-            LOG.debug( "left: %s, compiled: %s",expr.left,left)
-            LOG.debug( "right: %s, compiled: %s",expr.right,right)
+            LOG.debug( "BinaryBooleanOperator %s", expr)
+            LOG.debug( "left: %s, compiled: %s", expr.left, left)
+            LOG.debug( "right: %s, compiled: %s", expr.right, right)
             if isinstance(expr, expression.AND):
                 return cls.conjunction(left, right)
             if isinstance(expr, expression.OR):
@@ -123,12 +123,12 @@ class Language(object):
             return cls.compile_numericliteral(expr.value)
 
         elif isinstance(expr, expression.UnnamedAttributeRef):
-            LOG.debug("expr %s is  UnnamedAttributeRef",expr)
+            LOG.debug("expr %s is UnnamedAttributeRef", expr)
             return cls.compile_attribute(expr)
 
         else:
             return expr
-            #raise ValueError("Unknown class in boolean expression: %s (value is %s)" % (expr.__class__,expr))
+            #raise ValueError("Unknown class in boolean expression: %s (value is %s)" % (expr.__class__, expr))
 
     @abstractmethod
     def boolean_combine(cls, args, operator="and"):
