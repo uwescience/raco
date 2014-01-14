@@ -532,7 +532,7 @@ class BroadcastBeforeCross(rules.Rule):
 
         return expr
 
-class TransferBeforeGroupBy(rules.Rule):
+class DistributedGroupBy(rules.Rule):
     def fire(self, expr):
         # If not a GroupBy, who cares?
         if not isinstance(expr, algebra.GroupBy):
@@ -781,7 +781,7 @@ class MyriaAlgebra(object):
         , rules.JoinToProjectingJoin()
         , ShuffleBeforeJoin()
         , BroadcastBeforeCross()
-        , TransferBeforeGroupBy()
+        , DistributedGroupBy()
         , ProjectToDistinctColumnSelect()
         , rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct)
         , rules.OneToOne(algebra.Store, MyriaStore)
