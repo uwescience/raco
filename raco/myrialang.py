@@ -736,6 +736,18 @@ class SelectToEquijoin(rules.Rule):
     def __str__(self):
         return "Select, Cross/Join => Join"
 
+
+class RemoveTrivialSequences(rules.Rule):
+    def fire(self, expr):
+        if not isinstance(expr, algebra.Sequence):
+            return expr
+
+        if len(expr.args) == 1:
+            return expr.args[0]
+        else:
+            return expr
+
+
 class MyriaAlgebra(object):
     language = MyriaLanguage
 
@@ -755,7 +767,9 @@ class MyriaAlgebra(object):
     )
 
     rules = [
-        SimpleGroupBy()
+        RemoveTrivialSequences()
+
+        , SimpleGroupBy()
 
         # These rules form a logical group; SelectToEquijoin assumes that
         # AND clauses have been broken apart into multiple selections.
@@ -851,6 +865,10 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     # No catalog supplied; create the empty catalog
     if catalog is None:
         catalog = EmptyCatalog()
+
+    # Some plans may just be an operator, others may be a list of operators
+    if isinstance(physical_plan, algebra.Operator):
+        physical_plan = [(None, physical_plan)]
 
     for (label, root_op) in physical_plan:
         apply_schema_recursive(root_op, catalog)
