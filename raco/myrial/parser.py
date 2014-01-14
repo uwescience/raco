@@ -491,6 +491,7 @@ class Parser(object):
         pass
 
     def parse(self, s):
+        scanner.lexer.lineno = 1
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         return parser.parse(s, lexer=scanner.lexer, tracking=True)
 
