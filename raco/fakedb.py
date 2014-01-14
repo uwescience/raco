@@ -79,6 +79,23 @@ class FakeDatabase(object):
             return tuple(ls)
         return (make_tuple(t) for t in child_it)
 
+    def statefulapply(self, op):
+        child_it = self.evaluate(op.input)
+        scheme = op.input.scheme()
+
+        states = [expr.evaluate(None, None, None) for expr in op.inits]
+
+        def make_tuple(input_tuple, states):
+            ls = [colexpr.evaluate(input_tuple, scheme, state)
+                  for ((_, colexpr), state) in zip(op.mappings, states)]
+            for i, new_state in enumerate(
+                    [colexpr.evaluate(input_tuple, scheme, state)
+                     for (colexpr, state) in zip(op.updaters, states)]):
+                states[i] = new_state
+
+            return tuple(ls)
+        return (make_tuple(t, states) for t in child_it)
+
     def join(self, op):
         # Compute the cross product of the children and flatten
         left_it = self.evaluate(op.left)
@@ -228,6 +245,9 @@ class FakeDatabase(object):
 
     def myriaapply(self, op):
         return self.apply(op)
+
+    def myriastatefulapply(self, op):
+        return self.statefulapply(op)
 
     def myriadupelim(self, op):
         return self.distinct(op)
