@@ -498,6 +498,6 @@ class Parser(object):
     @staticmethod
     def p_error(token):
         if token:
-            raise MyrialUnexpectedTokenException(token)
+            raise MyrialParseException(token)
         else:
             raise MyrialUnexpectedEndOfFileException()
