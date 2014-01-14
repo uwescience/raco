@@ -469,8 +469,8 @@ class StatefulApply(Apply):
 
     :param inits: expressions used to initialize the state
     :type inits: list
-    :param updates: expressions used to update the state
-    :type updates: list
+    :param updaters: expressions used to update the state
+    :type updaters: list
     """
     def __init__(self, mappings=None, inits=None, updaters=None, input=None):
         self.updaters = updaters
