@@ -9,7 +9,7 @@ from raco.expression import *
 import raco.relation_key as relation_key
 
 
-class TestQueryFunctions(myrial_test.MyrialTestCase):
+class TestQueryFunctions():
 
     emp_table = collections.Counter([
         # id dept_id name salary
@@ -36,7 +36,9 @@ class OperatorTest(unittest.TestCase):
                        TestQueryFunctions.emp_table,
                        TestQueryFunctions.emp_schema)
 
-    def test_stateful_apply(self):
+    def test_counter_stateful_apply(self):
+        """Test stateful apply operator that produces a
+        column of increasing numbers"""
         scan = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
 
         iterex = StateLiteral()
