@@ -394,7 +394,7 @@ class Var(raco.expression.Expression):
     def __repr__(self):
         return str(self.var)
 
-    def evaluate(self, _tuple, scheme):
+    def evaluate(self, _tuple, scheme, state=None):
         raise NotImplementedError()
 
     def apply(self, f):

@@ -25,7 +25,7 @@ class Expression(Printable):
         return cls.literals[0]
 
     @abstractmethod
-    def evaluate(self, _tuple, scheme):
+    def evaluate(self, _tuple, scheme, state=None):
         '''Evaluate an expression in the context of a given tuple and schema.
 
         This is used for unit tests written against the fake database.
@@ -172,7 +172,7 @@ class Literal(ZeroaryOperator):
         # TODO: DANGEROUS
         return type(self.value)
 
-    def evaluate(self, _tuple, scheme):
+    def evaluate(self, _tuple, scheme, state=None):
         return self.value
 
     def apply(self, f):
@@ -184,8 +184,12 @@ class StringLiteral(Literal):
 class NumericLiteral(Literal):
     pass
 
+class StateLiteral(ZeroaryOperator):
+    def evaluate(self, _tuple, scheme, state=None):
+        return state
+
 class AttributeRef(Expression):
-    def evaluate(self, _tuple, scheme):
+    def evaluate(self, _tuple, scheme, state=None):
         return _tuple[self.get_position(scheme)]
 
     @abstractmethod
@@ -227,38 +231,38 @@ class UDF(NaryOperator):
 class PLUS(BinaryOperator):
     literals = ["+"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) +
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) +
+                self.right.evaluate(_tuple, scheme, state))
 
 class MINUS(BinaryOperator):
     literals = ["-"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) -
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) -
+                self.right.evaluate(_tuple, scheme, state))
 
 class DIVIDE(BinaryOperator):
     literals = ["/"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) /
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) /
+                self.right.evaluate(_tuple, scheme, state))
 
 
 class TIMES(BinaryOperator):
     literals = ["*"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) *
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) *
+                self.right.evaluate(_tuple, scheme, state))
 
 
 class NEG(UnaryOperator):
     literals = ["-"]
 
-    def evaluate(self, _tuple, scheme):
-        return -1 * self.input.evaluate(_tuple, scheme)
+    def evaluate(self, _tuple, scheme, state=None):
+        return -1 * self.input.evaluate(_tuple, scheme, state)
 
 class Unbox(ZeroaryOperator):
     def __init__(self, relational_expression, field):
@@ -272,7 +276,7 @@ class Unbox(ZeroaryOperator):
         self.relational_expression = relational_expression
         self.field = field
 
-    def evaluate(self, _tuple, scheme):
+    def evaluate(self, _tuple, scheme, state=None):
         """Raise an error on attempted evaluation.
 
         Unbox expressions are not "evaluated" in the usual sense.  Rather, they
