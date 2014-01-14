@@ -23,19 +23,42 @@ class AggregateExpression(Expression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         """Evaluate an aggregate over a bag of tuples"""
 
-class MAX(UnaryFunction, AggregateExpression):
+class SimpleDecomposableAggregate(AggregateExpression):
+    """An aggregate expression that yields a trivial distibuted decomposition.
+
+    The goal is to split a single logical aggregate into two aggregates.  First,
+    a "local" aggregate is applied on each machine.  Next, the data is shuffled
+    on the grouping keys, and a second "combiner" aggregate is applied to the
+    resulting values.
+
+    We assume that the local aggregate is the same as the logical aggregate.
+    The combiner can be arbitrary.
+
+    """
+
+    def get_combiner_class(self):
+        """Return the class of the combiner aggregate.
+
+        By default, return the same class as the local aggregate.
+        """
+        return self.__class__
+
+class MAX(UnaryFunction, SimpleDecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return max(inputs)
 
-class MIN(UnaryFunction, AggregateExpression):
+class MIN(UnaryFunction, SimpleDecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return min(inputs)
 
-class COUNTALL(ZeroaryOperator, AggregateExpression):
+class COUNTALL(ZeroaryOperator, SimpleDecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         return len(tuple_iterator)
+
+    def get_combiner_class(self):
+        return SUM
 
 class COUNT(UnaryFunction, AggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
@@ -46,7 +69,10 @@ class COUNT(UnaryFunction, AggregateExpression):
                 count += 1
         return count
 
-class SUM(UnaryFunction, AggregateExpression):
+    def get_combiner_class(self):
+        return SUM
+
+class SUM(UnaryFunction, SimpleDecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
 
