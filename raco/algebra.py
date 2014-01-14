@@ -472,19 +472,19 @@ class StatefulApply(Apply):
     :param updates: expressions used to update the state
     :type updates: list
     """
-    def __init__(self, mappings=None, inits=None, updates=None, input=None):
-        self.updates = updates
+    def __init__(self, mappings=None, inits=None, updaters=None, input=None):
+        self.updaters = updaters
         self.inits = inits
         super(StatefulApply, self).__init__(mappings, input)
 
     def __eq__(self, other):
         return (super(StatefulApply, self).__eq__(self, other) and
-                self.updates == other.updates and
+                self.updaters == other.updaters and
                 self.inits == other.inits)
 
     def copy(self, other):
         """deep copy"""
-        self.updates = other.updates
+        self.updaters = other.updaters
         self.inits = other.inits
         super(StatefulApply, self).copy(self, other)
 
