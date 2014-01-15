@@ -60,7 +60,7 @@ class COUNTALL(ZeroaryOperator, SimpleDecomposableAggregate):
     def get_combiner_class(self):
         return SUM
 
-class COUNT(UnaryFunction, AggregateExpression):
+class COUNT(UnaryFunction, SimpleDecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         count = 0
