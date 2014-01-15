@@ -605,7 +605,7 @@ class DistributedGroupBy(rules.Rule):
             offset = num_grouping_terms + agg_offsets[pos]
 
             if fexpr is None:
-                return expresion.UnnamedAttributeRef(offset)
+                return expression.UnnamedAttributeRef(offset)
             else:
                 # Convert MergeAggregateOutput instances to absolute col refs
                 return expression.finalizer_expr_to_absolute(fexpr, offset)
