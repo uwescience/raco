@@ -23,44 +23,64 @@ class AggregateExpression(Expression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         """Evaluate an aggregate over a bag of tuples"""
 
-class SimpleDecomposableAggregate(AggregateExpression):
-    """An aggregate expression that yields a trivial distibuted decomposition.
+class LocalAggregateOutput(object):
+    """Dummy placeholder to refer to the output of a local aggregate."""
 
-    The goal is to split a single logical aggregate into two aggregates.  First,
-    a "local" aggregate is applied on each machine.  Next, the data is shuffled
-    on the grouping keys, and a second "combiner" aggregate is applied to the
-    resulting values.
+class DecomposableAggregate(AggregateExpression):
+    """An aggregate expression that yields a distributed execution plan.
 
-    We assume that the local aggregate is the same as the logical aggregate.
-    The combiner can be arbitrary.
+    Execution of a decomposable aggregate proceeds in three phases:
 
+    1) Each logical aggregate maps to one or more "local" aggregates that
+    are executed on each local machine.
+    2) The data is shuffled, and the output of each local aggregate is
+    passed to a "merge" aggregate.
+    3) The outputs of the merge aggregates are passed to a "finalizer"
+    expression, which produces a single output for each of the original logical
+    aggregates.
+
+    For example, the AVERAGE aggregate is expressed as:
+    Local = [SUM, COUNT]
+    Merge = [SUM, SUM]
+    Finalize = DIVIDE($0, $1)
     """
 
-    def get_combiner_class(self):
-        """Return the class of the combiner aggregate.
+    def get_local_aggregates(self):
+        """Return a list of local aggregates.
 
-        By default, return the same class as the local aggregate.
+        By default, local aggregates == logical aggregate"""
+        return [self]
+
+    def get_merge_aggregates(self):
+        """Return a list of merge aggregates.
+
+        By default, apply the same aggregate on the output of the local
+        aggregate.
         """
-        return self.__class__
+        return [self.__class__(LocalAggregateOutput())]
 
-class MAX(UnaryFunction, SimpleDecomposableAggregate):
+    def get_finalize_expression(self):
+        """Return a rule for extracting the result from the merge aggregats."""
+        return None # use the result from merge aggregate 0
+
+class MAX(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return max(inputs)
 
-class MIN(UnaryFunction, SimpleDecomposableAggregate):
+class MIN(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return min(inputs)
 
-class COUNTALL(ZeroaryOperator, SimpleDecomposableAggregate):
+class COUNTALL(ZeroaryOperator, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         return len(tuple_iterator)
 
-    def get_combiner_class(self):
-        return SUM
+    def get_merge_aggregates(self):
+        return [SUM(LocalAggregateOutput())]
 
-class COUNT(UnaryFunction, SimpleDecomposableAggregate):
+class COUNT(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         count = 0
@@ -69,10 +89,10 @@ class COUNT(UnaryFunction, SimpleDecomposableAggregate):
                 count += 1
         return count
 
-    def get_combiner_class(self):
-        return SUM
+    def get_merge_aggregates(self):
+        return [SUM(LocalAggregateOutput())]
 
-class SUM(UnaryFunction, SimpleDecomposableAggregate):
+class SUM(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
 

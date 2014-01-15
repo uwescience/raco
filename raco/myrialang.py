@@ -7,7 +7,7 @@ from raco import expression
 from raco.language import Language
 from raco.utility import emit
 from raco.relation_key import RelationKey
-from raco.expression.aggregate import SimpleDecomposableAggregate
+from raco.expression.aggregate import DecomposableAggregate
 
 def scheme_to_schema(s):
     def convert_typestr(t):
@@ -558,23 +558,38 @@ class DistributedGroupBy(rules.Rule):
             return op
 
         simple_aggs = [agg for agg in op.aggregate_list if
-                       isinstance(agg, SimpleDecomposableAggregate)]
+                       isinstance(agg, DecomposableAggregate)]
         if len(simple_aggs) != len(op.aggregate_list):
             return self.do_transfer(op)
         else:
-            # Split the aggregate into a local phase and a combiner phase.
-            # Copy op into a MyriaGroupBy to prevent infinite recursion :-(
-            local = MyriaGroupBy()
-            local.copy(op)
+            # Each logical aggregate generates one or more local aggregates:
+            # e.g., average requires a SUM and a COUNT.  In turn, these local
+            # aggregates are consumed by merge aggregates.
 
-            # Create a combiner op; grouping terms are passed through;
-            # local aggregates are replaced with an appropriate combiner.
-            groupings = [expression.UnnamedAttributeRef(i) for i in
-                         range(len(op.grouping_list))]
-            aggs = [expr.get_combiner_class()(expression.UnnamedAttributeRef(i))
-                    for i, expr in enumerate(op.aggregate_list, len(groupings))]
-            combiner = MyriaGroupBy(groupings, aggs, local)
-            return self.do_transfer(combiner)
+            local_aggs = [] # aggregates executed on each local machine
+            merge_aggs = [] # aggregates executed after local aggs
+            agg_offsets = [] # map from logical index to local/merge index.
+
+            for logical_agg in op.aggregate_list:
+                agg_offsets.append(len(local_aggs))
+                local_aggs.extend(logical_agg.get_local_aggregates())
+                merge_aggs.extend(logical_agg.get_merge_aggregates())
+
+            assert len(merge_aggs) == len(local_aggs)
+
+            local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input)
+
+            # Create a merge aggregate; grouping terms are passed through.
+            merge_groupings = [expression.UnnamedAttributeRef(i)
+                               for i in range(len(op.grouping_list))]
+
+            # Connect the output of local aggregates to merge aggregates
+            for pos, agg in enumerate(merge_aggs, len(op.grouping_list)):
+                agg.input = expression.UnnamedAttributeRef(pos)
+
+            merge_gb = MyriaGroupBy(merge_groupings, merge_aggs, local_gb)
+            # TODO: introduce apply for aggregates with finalizers
+            return self.do_transfer(merge_gb)
 
 class SplitSelects(rules.Rule):
     """Replace AND clauses with multiple consecutive selects."""
