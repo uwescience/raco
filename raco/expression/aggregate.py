@@ -2,8 +2,8 @@
 Aggregate expressions for use in Raco
 """
 
-from .expression import Expression, ZeroaryOperator, DIVIDE, UnnamedAttributeRef
-from .function import UnaryFunction
+from .expression import *
+from .function import UnaryFunction, SQRT, POW
 
 from abc import abstractmethod
 import math
@@ -148,7 +148,7 @@ class AVERAGE(UnaryFunction, DecomposableAggregate):
         # at least one member.
         return DIVIDE(MergeAggregateOutput(0), MergeAggregateOutput(1))
 
-class STDEV(UnaryFunction, AggregateExpression):
+class STDEV(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         filtered = [x for x in inputs if x is not None]
@@ -164,3 +164,21 @@ class STDEV(UnaryFunction, AggregateExpression):
             std = std + (a - mean)**2
         std = math.sqrt(std / n)
         return std
+
+    def get_local_aggregates(self):
+        return [SUM(self.input), SUM(TIMES(self.input, self.input)),
+                COUNT(self.input)]
+
+    def get_merge_aggregates(self):
+        return [SUM(LocalAggregateOutput()), SUM(LocalAggregateOutput()),
+                SUM(LocalAggregateOutput())]
+
+    def get_finalizer(self):
+        # variance(X) = E(X^2) - E(X)^2
+        _sum = MergeAggregateOutput(0)
+        ssq = MergeAggregateOutput(1)
+        count = MergeAggregateOutput(2)
+
+        return SQRT(MINUS(DIVIDE(FLOAT_CAST(ssq), count),
+                          POW(DIVIDE(FLOAT_CAST(_sum), count),
+                              NumericLiteral(2))))

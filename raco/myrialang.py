@@ -560,8 +560,11 @@ class DistributedGroupBy(rules.Rule):
         num_grouping_terms = len(op.grouping_list)
         decomposable_aggs = [agg for agg in op.aggregate_list if
                              isinstance(agg, DecomposableAggregate)]
-        if len(decomposable_aggs) != len(op.aggregate_list):
-            return self.do_transfer(op)
+
+        # All built-in aggregates are now decomposable
+        assert len(decomposable_aggs) == len(op.aggregate_list)
+        #if len(decomposable_aggs) != len(op.aggregate_list):
+            #return self.do_transfer(op)
 
         # Each logical aggregate generates one or more local aggregates:
         # e.g., average requires a SUM and a COUNT.  In turn, these local
