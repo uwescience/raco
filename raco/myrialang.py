@@ -534,6 +534,22 @@ class BroadcastBeforeCross(rules.Rule):
         return expr
 
 class DistributedGroupBy(rules.Rule):
+
+    @staticmethod
+    def get_combiner_columns(op):
+        """Return a column list where aggregates are replaced with combiners."""
+
+        def resolve(col_index, expr):
+            """Resolve aggregate expressions into their combiner."""
+            cexpr = expression.UnnamedAttributeRef(col_index)
+            if isinstance(expr, expression.AggregateExpression):
+                assert isinstance(expr, expression.SimpleDecomposableAggregate)
+                return expr.get_combiner_class()(cexpr)
+            else:
+                return cexpr
+
+        return [resolve(i, col) for i, col in enumerate(op.columnlist)]
+
     @staticmethod
     def do_transfer(op):
         """Introduce a network transfer before a groupby operation."""
@@ -553,7 +569,7 @@ class DistributedGroupBy(rules.Rule):
 
     def fire(self, op):
         # If not a GroupBy, who cares?
-        if not isinstance(op, algebra.GroupBy):
+        if op.__class__ != algebra.GroupBy:
             return op
 
         simple_aggs = [agg for agg in op.aggregatelist if
@@ -561,8 +577,14 @@ class DistributedGroupBy(rules.Rule):
         if len(simple_aggs) != len(op.aggregatelist):
             return self.do_transfer(op)
         else:
-            # TODO: optimize!
-            return self.do_transfer(op)
+            # Split the aggregate into a local phase and a combiner phase.
+            # Copy op into a MyriaGroupBy to prevent infinite recursion :-(
+            local = MyriaGroupBy()
+            local.copy(op)
+
+            cols = self.get_combiner_columns(local)
+            combiner = MyriaGroupBy(cols, local)
+            return self.do_transfer(combiner)
 
 class SplitSelects(rules.Rule):
     """Replace AND clauses with multiple consecutive selects."""
