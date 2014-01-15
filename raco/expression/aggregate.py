@@ -2,7 +2,7 @@
 Aggregate expressions for use in Raco
 """
 
-from .expression import Expression, ZeroaryOperator
+from .expression import Expression, ZeroaryOperator, DIVIDE, UnnamedAttributeRef
 from .function import UnaryFunction
 
 from abc import abstractmethod
@@ -25,6 +25,29 @@ class AggregateExpression(Expression):
 
 class LocalAggregateOutput(object):
     """Dummy placeholder to refer to the output of a local aggregate."""
+
+class MergeAggregateOutput(object):
+    """Dummy placeholder to refer to the output of a merge aggregate."""
+    def __init__(self, pos):
+        """Instantiate a merge aggregate object.
+
+        pos is the position relative to the start of the remote aggregate.
+        """
+        self.pos = pos
+
+    def to_absolute(self, offset):
+        return UnnamedAttributeRef(offset + self.pos)
+
+def finalizer_expr_to_absolute(expr, offset):
+    """Convert a finalizer expression to absolute column positions."""
+
+    assert isinstance(expr, Expression)
+    def convert(n):
+        if isinstance(n, MergeAggregateOutput):
+            n = n.to_absolute(offset)
+        n.apply(convert)
+        return n
+    return convert(expr)
 
 class DecomposableAggregate(AggregateExpression):
     """An aggregate expression that yields a distributed execution plan.
@@ -59,7 +82,7 @@ class DecomposableAggregate(AggregateExpression):
         """
         return [self.__class__(LocalAggregateOutput())]
 
-    def get_finalize_expression(self):
+    def get_finalizer(self):
         """Return a rule for extracting the result from the merge aggregats."""
         return None # use the result from merge aggregate 0
 
@@ -102,7 +125,7 @@ class SUM(UnaryFunction, DecomposableAggregate):
                 sum += t
         return sum
 
-class AVERAGE(UnaryFunction, AggregateExpression):
+class AVERAGE(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         filtered = (x for x in inputs if x is not None)
@@ -113,6 +136,17 @@ class AVERAGE(UnaryFunction, AggregateExpression):
             sum += t
             count += 1
         return sum / count
+
+    def get_local_aggregates(self):
+        return [SUM(self.input), COUNT(self.input)]
+
+    def get_merge_aggregates(self):
+        return [SUM(LocalAggregateOutput()), SUM(LocalAggregateOutput())]
+
+    def get_finalizer(self):
+        # Note: denominator cannot equal zero because groups always have
+        # at least one member.
+        return DIVIDE(MergeAggregateOutput(0), MergeAggregateOutput(1))
 
 class STDEV(UnaryFunction, AggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):

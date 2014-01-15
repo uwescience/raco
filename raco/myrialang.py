@@ -557,9 +557,10 @@ class DistributedGroupBy(rules.Rule):
         if op.__class__ != algebra.GroupBy:
             return op
 
-        simple_aggs = [agg for agg in op.aggregate_list if
-                       isinstance(agg, DecomposableAggregate)]
-        if len(simple_aggs) != len(op.aggregate_list):
+        num_grouping_terms = len(op.grouping_list)
+        decomposable_aggs = [agg for agg in op.aggregate_list if
+                             isinstance(agg, DecomposableAggregate)]
+        if len(decomposable_aggs) != len(op.aggregate_list):
             return self.do_transfer(op)
 
         # Each logical aggregate generates one or more local aggregates:
@@ -581,15 +582,41 @@ class DistributedGroupBy(rules.Rule):
 
         # Create a merge aggregate; grouping terms are passed through.
         merge_groupings = [expression.UnnamedAttributeRef(i)
-                           for i in range(len(op.grouping_list))]
+                           for i in range(num_grouping_terms)]
 
         # Connect the output of local aggregates to merge aggregates
-        for pos, agg in enumerate(merge_aggs, len(op.grouping_list)):
+        for pos, agg in enumerate(merge_aggs, num_grouping_terms):
             agg.input = expression.UnnamedAttributeRef(pos)
 
         merge_gb = MyriaGroupBy(merge_groupings, merge_aggs, local_gb)
-        # TODO: introduce apply for aggregates with finalizers
-        return self.do_transfer(merge_gb)
+        op_out = self.do_transfer(merge_gb)
+
+        # Extract a single result per logical aggregate using the finalizer
+        # expressions (if any)
+        has_finalizer = any([agg.get_finalizer() for agg in op.aggregate_list])
+        if not has_finalizer:
+            return op_out
+
+        def resolve_finalizer_expr(logical_agg, pos):
+            assert isinstance(logical_agg, DecomposableAggregate)
+            fexpr = logical_agg.get_finalizer()
+
+            # Start of merge aggregates for this logical aggregate
+            offset = num_grouping_terms + agg_offsets[pos]
+
+            if fexpr is None:
+                return expresion.UnnamedAttributeRef(offset)
+            else:
+                # Convert MergeAggregateOutput instances to absolute col refs
+                return expression.finalizer_expr_to_absolute(fexpr, offset)
+
+        # pass through grouping terms
+        gmappings = [(None, expression.UnnamedAttributeRef(i))
+                     for i in range(len(op.grouping_list))]
+        # extract a single result for aggregate terms
+        fmappings = [(None, resolve_finalizer_expr(agg, pos)) for pos, agg in
+                     enumerate(op.aggregate_list)]
+        return algebra.Apply(gmappings + fmappings, op_out)
 
 class SplitSelects(rules.Rule):
     """Replace AND clauses with multiple consecutive selects."""
