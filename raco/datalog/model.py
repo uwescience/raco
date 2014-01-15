@@ -376,7 +376,7 @@ class Rule(object):
                     agg_cols.append(col)
 
             groupby = raco.algebra.GroupBy(group_cols, agg_cols, plan)
-            mappings = [(str(i), raco.expression.UnnamedAttributeRef(i))
+            mappings = [(None, raco.expression.UnnamedAttributeRef(i))
                         for i in mappings]
             plan = raco.algebra.Apply(mappings, groupby)
         else:
