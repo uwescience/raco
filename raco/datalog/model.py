@@ -361,7 +361,23 @@ class Rule(object):
 
         # If any of the expressions in the head are aggregate expression, construct a group by
         if any([raco.expression.isaggregate(v) for v in self.head.valuerefs]):
-            plan = raco.algebra.GroupBy(columnlist, plan)
+            # GroupBy expects grouping terms to precede aggregate terms;
+            # rearrange terms and then fixup with an Apply operator
+            newcols = []
+            mappings = [] # original column positions
+            for i, col in enumerate(columnlist):
+                if not isinstance(col, raco.expression.AggregateExpression):
+                    mappings.append(i)
+                    newcols.append(col)
+            for i, col in enumerate(columnlist):
+                if isinstance(col, raco.expression.AggregateExpression):
+                    mappings.append(i)
+                    newcols.append(col)
+
+            groupby = raco.algebra.GroupBy(newcols, plan)
+            mappings = [(str(i), raco.expression.UnnamedAttributeRef(i))
+                        for i in mappings]
+            plan = raco.algebra.Apply(mappings, groupby)
         else:
             # otherwise, just build a project
             plan = raco.algebra.Project(columnlist, plan)
