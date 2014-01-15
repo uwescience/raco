@@ -544,26 +544,24 @@ class Project(UnaryOperator):
         return scheme.Scheme(attrs)
 
 class GroupBy(UnaryOperator):
-    """Logical projection operator"""
-    def __init__(self, columnlist=None, input=None):
-        if not columnlist:
-            columnlist = []
-        self.columnlist = columnlist
+    """Logical GroupBy operator"""
 
-        self.groupinglist = [e for e in self.columnlist if not expression.isaggregate(e)]
-        self.aggregatelist = [e for e in self.columnlist if expression.isaggregate(e)]
+    def __init__(self, grouping_list=None, aggregate_list=None, input=None):
+        self.grouping_list = grouping_list or []
+        self.aggregate_list = aggregate_list or []
+        self.column_list = self.grouping_list + self.aggregate_list
         UnaryOperator.__init__(self, input)
 
     def shortStr(self):
-        groupstring = ",".join([str(x) for x in self.groupinglist])
-        aggstr = ",".join([str(x) for x in self.aggregatelist])
+        groupstring = ",".join([str(x) for x in self.grouping_list])
+        aggstr = ",".join([str(x) for x in self.aggregate_list])
         return "%s(%s; %s)" % (self.opname(), groupstring, aggstr)
 
     def copy(self, other):
         """deep copy"""
-        self.columnlist = other.columnlist
-        self.groupinglist = other.groupinglist
-        self.aggregatelist = other.aggregatelist
+        self.column_list = other.column_list
+        self.grouping_list = other.grouping_list
+        self.aggregate_list = other.aggregate_list
         UnaryOperator.copy(self, other)
 
     def scheme(self):
@@ -574,7 +572,7 @@ class GroupBy(UnaryOperator):
             else:
                 return ("%s%s" % (attr.__class__.__name__, i), attr.typeof())
 
-        attrs = [resolve(i, e) for i, e in enumerate(self.columnlist)]
+        attrs = [resolve(i, e) for i, e in enumerate(self.column_list)]
         return scheme.Scheme(attrs)
 
 class ProjectingJoin(Join):

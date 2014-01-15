@@ -297,11 +297,11 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
     def compileme(self, resultsym, inputsym):
         child_scheme = self.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme) \
-                        for ref in self.groupinglist]
+                        for ref in self.grouping_list]
         agg_fields = [expression.toUnnamed(expr.input, child_scheme) \
-                      for expr in self.aggregatelist]
+                      for expr in self.aggregate_list]
         agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)] \
-                     for agg_expr in self.aggregatelist]
+                     for agg_expr in self.aggregate_list]
         ret = {
             "op_name" : resultsym,
             "arg_child" : inputsym,
@@ -309,7 +309,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             "arg_agg_operators" : agg_types,
             }
 
-        num_fields = len(self.groupinglist)
+        num_fields = len(self.grouping_list)
         if num_fields == 0:
             ret["op_type"] = "Aggregate"
         elif num_fields == 1:
@@ -536,28 +536,13 @@ class BroadcastBeforeCross(rules.Rule):
 class DistributedGroupBy(rules.Rule):
 
     @staticmethod
-    def get_combiner_columns(op):
-        """Return a column list where aggregates are replaced with combiners."""
-
-        def resolve(col_index, expr):
-            """Resolve aggregate expressions into their combiner."""
-            cexpr = expression.UnnamedAttributeRef(col_index)
-            if isinstance(expr, expression.AggregateExpression):
-                assert isinstance(expr, expression.SimpleDecomposableAggregate)
-                return expr.get_combiner_class()(cexpr)
-            else:
-                return cexpr
-
-        return [resolve(i, col) for i, col in enumerate(op.columnlist)]
-
-    @staticmethod
     def do_transfer(op):
         """Introduce a network transfer before a groupby operation."""
 
         # Get an array of position references to columns in the child scheme
         child_scheme = op.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme).position \
-                        for ref in op.groupinglist]
+                        for ref in op.grouping_list]
         if len(group_fields) == 0:
             # Need to Collect all tuples at once place
             op.input = algebra.Collect(op.input)
@@ -572,9 +557,9 @@ class DistributedGroupBy(rules.Rule):
         if op.__class__ != algebra.GroupBy:
             return op
 
-        simple_aggs = [agg for agg in op.aggregatelist if
+        simple_aggs = [agg for agg in op.aggregate_list if
                        isinstance(agg, SimpleDecomposableAggregate)]
-        if len(simple_aggs) != len(op.aggregatelist):
+        if len(simple_aggs) != len(op.aggregate_list):
             return self.do_transfer(op)
         else:
             # Split the aggregate into a local phase and a combiner phase.
@@ -582,8 +567,13 @@ class DistributedGroupBy(rules.Rule):
             local = MyriaGroupBy()
             local.copy(op)
 
-            cols = self.get_combiner_columns(local)
-            combiner = MyriaGroupBy(cols, local)
+            # Create a combiner op; grouping terms are passed through;
+            # local aggregates are replaced with an appropriate combiner.
+            groupings = [expression.UnnamedAttributeRef(i) for i in
+                         range(len(op.grouping_list))]
+            aggs = [expr.get_combiner_class()(expression.UnnamedAttributeRef(i))
+                    for i, expr in enumerate(op.aggregate_list, len(groupings))]
+            combiner = MyriaGroupBy(groupings, aggs, local)
             return self.do_transfer(combiner)
 
 class SplitSelects(rules.Rule):
@@ -653,8 +643,8 @@ class SimpleGroupBy(rules.Rule):
             return isinstance(grp, expression.AttributeRef)
 
         complex_grp_exprs = [(i, grp)
-                                 for (i, grp) in enumerate(expr.groupinglist) \
-                                 if not is_simple_grp_expr(grp)]
+                             for (i, grp) in enumerate(expr.grouping_list)
+                             if not is_simple_grp_expr(grp)]
 
         # A simple aggregate expression is an aggregate whose input is an AttributeRef
         def is_simple_agg_expr(agg):
@@ -663,10 +653,11 @@ class SimpleGroupBy(rules.Rule):
                  isinstance(agg, expression.AggregateExpression) and \
                  isinstance(agg.input, expression.AttributeRef))
 
-        complex_agg_exprs = [agg for agg in expr.aggregatelist \
+        complex_agg_exprs = [agg for agg in expr.aggregate_list
                                  if not is_simple_agg_expr(agg)]
 
-        # There are no complicated expressions, we're okay with the existing GroupBy.
+        # There are no complicated expressions, we're okay with the existing
+        # GroupBy.
         if not complex_grp_exprs and not complex_agg_exprs:
             return expr
 
@@ -676,11 +667,11 @@ class SimpleGroupBy(rules.Rule):
         mappings = [(None, expression.UnnamedAttributeRef(i))
                     for i in range(len(child_scheme))]
 
-        # Next: move the complex grouping expressions into the Apply, replace with
-        # simple refs
+        # Next: move the complex grouping expressions into the Apply, replace
+        # with simple refs
         for i, grp_expr in complex_grp_exprs:
             mappings.append((None, grp_expr))
-            expr.groupinglist[i] = expression.UnnamedAttributeRef(len(mappings)-1)
+            expr.grouping_list[i] = expression.UnnamedAttributeRef(len(mappings)-1)
 
         # Finally: move the complex aggregate expressions into the Apply, replace
         # with simple refs
@@ -692,7 +683,7 @@ class SimpleGroupBy(rules.Rule):
         new_apply = algebra.Apply(mappings, expr.input)
         expr.input = new_apply
 
-        # Don't overwrite expr.groupinglist or expr.aggregatelist, instead we are
+        # Don't overwrite expr.grouping_list or expr.aggregate_list, instead we are
         # mutating the objects it contains when we modify grp_expr or agg_expr in
         # the above for loops.
         return expr

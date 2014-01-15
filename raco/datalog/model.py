@@ -363,18 +363,19 @@ class Rule(object):
         if any([raco.expression.isaggregate(v) for v in self.head.valuerefs]):
             # GroupBy expects grouping terms to precede aggregate terms;
             # rearrange terms and then fixup with an Apply operator
-            newcols = []
+            group_cols = []
+            agg_cols = []
             mappings = [] # original column positions
             for i, col in enumerate(columnlist):
                 if not isinstance(col, raco.expression.AggregateExpression):
                     mappings.append(i)
-                    newcols.append(col)
+                    group_cols.append(col)
             for i, col in enumerate(columnlist):
                 if isinstance(col, raco.expression.AggregateExpression):
                     mappings.append(i)
-                    newcols.append(col)
+                    agg_cols.append(col)
 
-            groupby = raco.algebra.GroupBy(newcols, plan)
+            groupby = raco.algebra.GroupBy(group_cols, agg_cols, plan)
             mappings = [(str(i), raco.expression.UnnamedAttributeRef(i))
                         for i in mappings]
             plan = raco.algebra.Apply(mappings, groupby)
