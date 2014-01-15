@@ -7,6 +7,7 @@ from raco import expression
 from raco.language import Language
 from raco.utility import emit
 from raco.relation_key import RelationKey
+from raco.expression.aggregate import SimpleDecomposableAggregate
 
 def scheme_to_schema(s):
     def convert_typestr(t):
@@ -533,23 +534,35 @@ class BroadcastBeforeCross(rules.Rule):
         return expr
 
 class DistributedGroupBy(rules.Rule):
-    def fire(self, expr):
-        # If not a GroupBy, who cares?
-        if not isinstance(expr, algebra.GroupBy):
-            return expr
+    @staticmethod
+    def do_transfer(op):
+        """Introduce a network transfer before a groupby operation."""
 
         # Get an array of position references to columns in the child scheme
-        child_scheme = expr.input.scheme()
+        child_scheme = op.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme).position \
-                        for ref in expr.groupinglist]
+                        for ref in op.groupinglist]
         if len(group_fields) == 0:
             # Need to Collect all tuples at once place
-            expr.input = algebra.Collect(expr.input)
+            op.input = algebra.Collect(op.input)
         else:
             # Need to Shuffle
-            expr.input = algebra.Shuffle(expr.input, group_fields)
+            op.input = algebra.Shuffle(op.input, group_fields)
 
-        return expr
+        return op
+
+    def fire(self, op):
+        # If not a GroupBy, who cares?
+        if not isinstance(op, algebra.GroupBy):
+            return op
+
+        simple_aggs = [agg for agg in op.aggregatelist if
+                       isinstance(agg, SimpleDecomposableAggregate)]
+        if len(simple_aggs) != len(op.aggregatelist):
+            return self.do_transfer(op)
+        else:
+            # TODO: optimize!
+            return self.do_transfer(op)
 
 class SplitSelects(rules.Rule):
     """Replace AND clauses with multiple consecutive selects."""
