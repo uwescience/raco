@@ -561,35 +561,35 @@ class DistributedGroupBy(rules.Rule):
                        isinstance(agg, DecomposableAggregate)]
         if len(simple_aggs) != len(op.aggregate_list):
             return self.do_transfer(op)
-        else:
-            # Each logical aggregate generates one or more local aggregates:
-            # e.g., average requires a SUM and a COUNT.  In turn, these local
-            # aggregates are consumed by merge aggregates.
 
-            local_aggs = [] # aggregates executed on each local machine
-            merge_aggs = [] # aggregates executed after local aggs
-            agg_offsets = [] # map from logical index to local/merge index.
+        # Each logical aggregate generates one or more local aggregates:
+        # e.g., average requires a SUM and a COUNT.  In turn, these local
+        # aggregates are consumed by merge aggregates.
 
-            for logical_agg in op.aggregate_list:
-                agg_offsets.append(len(local_aggs))
-                local_aggs.extend(logical_agg.get_local_aggregates())
-                merge_aggs.extend(logical_agg.get_merge_aggregates())
+        local_aggs = [] # aggregates executed on each local machine
+        merge_aggs = [] # aggregates executed after local aggs
+        agg_offsets = [] # map from logical index to local/merge index.
 
-            assert len(merge_aggs) == len(local_aggs)
+        for logical_agg in op.aggregate_list:
+            agg_offsets.append(len(local_aggs))
+            local_aggs.extend(logical_agg.get_local_aggregates())
+            merge_aggs.extend(logical_agg.get_merge_aggregates())
 
-            local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input)
+        assert len(merge_aggs) == len(local_aggs)
 
-            # Create a merge aggregate; grouping terms are passed through.
-            merge_groupings = [expression.UnnamedAttributeRef(i)
-                               for i in range(len(op.grouping_list))]
+        local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input)
 
-            # Connect the output of local aggregates to merge aggregates
-            for pos, agg in enumerate(merge_aggs, len(op.grouping_list)):
-                agg.input = expression.UnnamedAttributeRef(pos)
+        # Create a merge aggregate; grouping terms are passed through.
+        merge_groupings = [expression.UnnamedAttributeRef(i)
+                           for i in range(len(op.grouping_list))]
 
-            merge_gb = MyriaGroupBy(merge_groupings, merge_aggs, local_gb)
-            # TODO: introduce apply for aggregates with finalizers
-            return self.do_transfer(merge_gb)
+        # Connect the output of local aggregates to merge aggregates
+        for pos, agg in enumerate(merge_aggs, len(op.grouping_list)):
+            agg.input = expression.UnnamedAttributeRef(pos)
+
+        merge_gb = MyriaGroupBy(merge_groupings, merge_aggs, local_gb)
+        # TODO: introduce apply for aggregates with finalizers
+        return self.do_transfer(merge_gb)
 
 class SplitSelects(rules.Rule):
     """Replace AND clauses with multiple consecutive selects."""
