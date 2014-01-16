@@ -179,8 +179,7 @@ class ExpressionProcessor(object):
         op = self.evaluate(expr)
         grouping_list = []
         agg_list = [sexpr.COUNTALL()]
-        return raco.algebra.GroupBy(columnlist=grouping_list+agg_list,
-                                    input=op)
+        return raco.algebra.GroupBy(grouping_list, agg_list, op)
 
     def intersect(self, e1, e2):
         left = self.evaluate(e1)

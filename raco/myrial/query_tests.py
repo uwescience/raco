@@ -827,7 +827,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_compound_groupby(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT id+dept_id, COUNT(salary)];
+        out = [FROM SCAN(%s) AS X EMIT id+dept_id, AVG(salary), COUNT(salary)];
         DUMP(out);
         """ % self.emp_key
 
@@ -835,8 +835,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         for t in self.emp_table.elements():
             result_dict[t[0] + t[1]].append(t[3])
 
-        tuples = [(key, len(values)) for key, values in result_dict.iteritems()]
-        expected = collections.Counter(tuples)
+        tuples1 = [(key, sum(values), len(values)) for key, values
+                  in result_dict.iteritems()]
+        tuples2 = [(t[0], t[1] / t[2], t[2]) for t in tuples1]
+        expected = collections.Counter(tuples2)
 
         self.run_test(query, expected)
 

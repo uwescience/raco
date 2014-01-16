@@ -7,6 +7,7 @@ from raco import expression
 from raco.language import Language
 from raco.utility import emit
 from raco.relation_key import RelationKey
+from raco.expression.aggregate import DecomposableAggregate
 
 def scheme_to_schema(s):
     def convert_typestr(t):
@@ -296,11 +297,11 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
     def compileme(self, resultsym, inputsym):
         child_scheme = self.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme) \
-                        for ref in self.groupinglist]
+                        for ref in self.grouping_list]
         agg_fields = [expression.toUnnamed(expr.input, child_scheme) \
-                      for expr in self.aggregatelist]
+                      for expr in self.aggregate_list]
         agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)] \
-                     for agg_expr in self.aggregatelist]
+                     for agg_expr in self.aggregate_list]
         ret = {
             "op_name" : resultsym,
             "arg_child" : inputsym,
@@ -308,7 +309,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             "arg_agg_operators" : agg_types,
             }
 
-        num_fields = len(self.groupinglist)
+        num_fields = len(self.grouping_list)
         if num_fields == 0:
             ret["op_type"] = "Aggregate"
         elif num_fields == 1:
@@ -532,24 +533,93 @@ class BroadcastBeforeCross(rules.Rule):
 
         return expr
 
-class TransferBeforeGroupBy(rules.Rule):
-    def fire(self, expr):
-        # If not a GroupBy, who cares?
-        if not isinstance(expr, algebra.GroupBy):
-            return expr
+class DistributedGroupBy(rules.Rule):
+
+    @staticmethod
+    def do_transfer(op):
+        """Introduce a network transfer before a groupby operation."""
 
         # Get an array of position references to columns in the child scheme
-        child_scheme = expr.input.scheme()
+        child_scheme = op.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme).position \
-                        for ref in expr.groupinglist]
+                        for ref in op.grouping_list]
         if len(group_fields) == 0:
             # Need to Collect all tuples at once place
-            expr.input = algebra.Collect(expr.input)
+            op.input = algebra.Collect(op.input)
         else:
             # Need to Shuffle
-            expr.input = algebra.Shuffle(expr.input, group_fields)
+            op.input = algebra.Shuffle(op.input, group_fields)
 
-        return expr
+        return op
+
+    def fire(self, op):
+        # If not a GroupBy, who cares?
+        if op.__class__ != algebra.GroupBy:
+            return op
+
+        num_grouping_terms = len(op.grouping_list)
+        decomposable_aggs = [agg for agg in op.aggregate_list if
+                             isinstance(agg, DecomposableAggregate)]
+
+        # All built-in aggregates are now decomposable
+        assert len(decomposable_aggs) == len(op.aggregate_list)
+        #if len(decomposable_aggs) != len(op.aggregate_list):
+            #return self.do_transfer(op)
+
+        # Each logical aggregate generates one or more local aggregates:
+        # e.g., average requires a SUM and a COUNT.  In turn, these local
+        # aggregates are consumed by merge aggregates.
+
+        local_aggs = [] # aggregates executed on each local machine
+        merge_aggs = [] # aggregates executed after local aggs
+        agg_offsets = [] # map from logical index to local/merge index.
+
+        for logical_agg in op.aggregate_list:
+            agg_offsets.append(len(local_aggs))
+            local_aggs.extend(logical_agg.get_local_aggregates())
+            merge_aggs.extend(logical_agg.get_merge_aggregates())
+
+        assert len(merge_aggs) == len(local_aggs)
+
+        local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input)
+
+        # Create a merge aggregate; grouping terms are passed through.
+        merge_groupings = [expression.UnnamedAttributeRef(i)
+                           for i in range(num_grouping_terms)]
+
+        # Connect the output of local aggregates to merge aggregates
+        for pos, agg in enumerate(merge_aggs, num_grouping_terms):
+            agg.input = expression.UnnamedAttributeRef(pos)
+
+        merge_gb = MyriaGroupBy(merge_groupings, merge_aggs, local_gb)
+        op_out = self.do_transfer(merge_gb)
+
+        # Extract a single result per logical aggregate using the finalizer
+        # expressions (if any)
+        has_finalizer = any([agg.get_finalizer() for agg in op.aggregate_list])
+        if not has_finalizer:
+            return op_out
+
+        def resolve_finalizer_expr(logical_agg, pos):
+            assert isinstance(logical_agg, DecomposableAggregate)
+            fexpr = logical_agg.get_finalizer()
+
+            # Start of merge aggregates for this logical aggregate
+            offset = num_grouping_terms + agg_offsets[pos]
+
+            if fexpr is None:
+                return expression.UnnamedAttributeRef(offset)
+            else:
+                # Convert MergeAggregateOutput instances to absolute col refs
+                return expression.finalizer_expr_to_absolute(fexpr, offset)
+
+        # pass through grouping terms
+        gmappings = [(None, expression.UnnamedAttributeRef(i))
+                     for i in range(len(op.grouping_list))]
+        # extract a single result for aggregate terms
+        fmappings = [(None, resolve_finalizer_expr(agg, pos)) for pos, agg in
+                     enumerate(op.aggregate_list)]
+        return algebra.Apply(gmappings + fmappings, op_out)
 
 class SplitSelects(rules.Rule):
     """Replace AND clauses with multiple consecutive selects."""
@@ -618,8 +688,8 @@ class SimpleGroupBy(rules.Rule):
             return isinstance(grp, expression.AttributeRef)
 
         complex_grp_exprs = [(i, grp)
-                                 for (i, grp) in enumerate(expr.groupinglist) \
-                                 if not is_simple_grp_expr(grp)]
+                             for (i, grp) in enumerate(expr.grouping_list)
+                             if not is_simple_grp_expr(grp)]
 
         # A simple aggregate expression is an aggregate whose input is an AttributeRef
         def is_simple_agg_expr(agg):
@@ -628,10 +698,11 @@ class SimpleGroupBy(rules.Rule):
                  isinstance(agg, expression.AggregateExpression) and \
                  isinstance(agg.input, expression.AttributeRef))
 
-        complex_agg_exprs = [agg for agg in expr.aggregatelist \
+        complex_agg_exprs = [agg for agg in expr.aggregate_list
                                  if not is_simple_agg_expr(agg)]
 
-        # There are no complicated expressions, we're okay with the existing GroupBy.
+        # There are no complicated expressions, we're okay with the existing
+        # GroupBy.
         if not complex_grp_exprs and not complex_agg_exprs:
             return expr
 
@@ -641,11 +712,11 @@ class SimpleGroupBy(rules.Rule):
         mappings = [(None, expression.UnnamedAttributeRef(i))
                     for i in range(len(child_scheme))]
 
-        # Next: move the complex grouping expressions into the Apply, replace with
-        # simple refs
+        # Next: move the complex grouping expressions into the Apply, replace
+        # with simple refs
         for i, grp_expr in complex_grp_exprs:
             mappings.append((None, grp_expr))
-            expr.groupinglist[i] = expression.UnnamedAttributeRef(len(mappings)-1)
+            expr.grouping_list[i] = expression.UnnamedAttributeRef(len(mappings)-1)
 
         # Finally: move the complex aggregate expressions into the Apply, replace
         # with simple refs
@@ -657,7 +728,7 @@ class SimpleGroupBy(rules.Rule):
         new_apply = algebra.Apply(mappings, expr.input)
         expr.input = new_apply
 
-        # Don't overwrite expr.groupinglist or expr.aggregatelist, instead we are
+        # Don't overwrite expr.grouping_list or expr.aggregate_list, instead we are
         # mutating the objects it contains when we modify grp_expr or agg_expr in
         # the above for loops.
         return expr
@@ -781,7 +852,7 @@ class MyriaAlgebra(object):
         , rules.JoinToProjectingJoin()
         , ShuffleBeforeJoin()
         , BroadcastBeforeCross()
-        , TransferBeforeGroupBy()
+        , DistributedGroupBy()
         , ProjectToDistinctColumnSelect()
         , rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct)
         , rules.OneToOne(algebra.Store, MyriaStore)

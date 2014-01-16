@@ -54,30 +54,6 @@ class DatalogTest(unittest.TestCase):
     #  testresult = RATest(select)
     #  self.assertEqual(testresult, desiredresult)
 
-    def test_groupby_count(self):
-        query = """
-        InDegree(dst, count(src)) :- Edge(src,dst)
-        """
-        desiredresult = """[('InDegree', GroupBy($1; COUNT($0))[Scan(public:adhoc:Edge)])]"""
-        testresult = RATest(query)
-        self.assertEqual(testresult, desiredresult)
-
-    def test_groupby_sum(self):
-        query = """
-        TotalSalary(emp_id, sum(salary)) :- Employee(emp_id, dept_id,salary)
-        """
-        desiredresult = """[('TotalSalary', GroupBy($0; SUM($2))[Scan(public:adhoc:Employee)])]"""
-        testresult = RATest(query)
-        self.assertEqual(testresult, desiredresult)
-
-    def test_sum(self):
-        query = """
-        TotalSalary(sum(salary)) :- Employee(emp_id, dept_id,salary)
-        """
-        desiredresult = """[('TotalSalary', GroupBy(; SUM($2))[Scan(public:adhoc:Employee)])]"""
-        testresult = RATest(query)
-        self.assertEqual(testresult, desiredresult)
-
     def test_union(self):
         query = """
     A(x) :- B(x,y)
@@ -111,26 +87,6 @@ class DatalogTest(unittest.TestCase):
     filtered(src, dst, time) :- nccdc(src, dst, proto, time, a, b, c), time > 1366475761, time < 1366475821
     """
         desiredresult="[('filtered', Project($0,$1,$3)[Select((($3 > 1366475761) and ($3 < 1366475821)))[Scan(public:adhoc:nccdc)]])]"
-        testresult = RATest(query)
-        self.assertEquals(testresult, desiredresult)
-
-    def test_aggregate_no_groups(self):
-        query = "Total(count(y)) :- R(x,y)"
-        desiredresult="[('Total', GroupBy(; COUNT($1))[Scan(public:adhoc:R)])]"
-        testresult = RATest(query)
-        self.assertEquals(testresult, desiredresult)
-
-    def test_multigroupby_count(self):
-        query = "Total(y, z, count(x)) :- R(x,y,z)"
-        desiredresult="[('Total', GroupBy($1,$2; COUNT($0))[Scan(public:adhoc:R)])]"
-        testresult = RATest(query)
-        self.assertEquals(testresult, desiredresult)
-
-    def test_multigroupby_sum_reorder(self):
-        query = """Total(sum(x), z, y) :- R(x,y,z);
-    Output(s) :- Total(s,z,y)
-        """
-        desiredresult="[('Output', Project($0)[Apply(s=$0,z=$1,y=$2)[GroupBy($2,$1; SUM($0))[Scan(public:adhoc:R)]]])]"
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 

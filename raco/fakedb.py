@@ -132,7 +132,7 @@ class FakeDatabase(object):
 
         def process_grouping_columns(_tuple):
             ls = [sexpr.evaluate(_tuple, op.input.scheme()) for
-                  sexpr in op.groupinglist]
+                  sexpr in op.grouping_list]
             return tuple(ls)
 
         # Calculate groups of matching input tuples.
@@ -140,7 +140,7 @@ class FakeDatabase(object):
         # to a single bin.
         results = collections.defaultdict(list)
 
-        if len(op.groupinglist) == 0:
+        if len(op.grouping_list) == 0:
             results[()] = list(child_it)
         else:
             for input_tuple in child_it:
@@ -150,7 +150,7 @@ class FakeDatabase(object):
         # resolve aggregate functions
         for key, tuples in results.iteritems():
             agg_fields = [agg_expr.evaluate_aggregate(
-                tuples, op.input.scheme()) for agg_expr in op.aggregatelist]
+                tuples, op.input.scheme()) for agg_expr in op.aggregate_list]
             yield(key + tuple(agg_fields))
 
     def sequence(self, op):
