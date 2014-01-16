@@ -422,14 +422,14 @@ class Join(CompositeBinaryOperator):
         return self
 
 class Apply(UnaryOperator):
-    def __init__(self, mappings=None, input=None):
+    def __init__(self, emitters=None, input=None):
         """Create new attributes from expressions with optional rename.
 
-        :param mappings: list of tuples of the form:
+        :param emitters: list of tuples of the form:
             (column_name, raco.expression.Expression).
             column_name can be None, in which case the system will infer a
             name based on the expression
-        :type mappings: list of tuples
+        :type emitters: list of tuples
         """
 
         def resolve_name(name, sexpr):
@@ -440,41 +440,43 @@ class Apply(UnaryOperator):
             else:
                 return str(sexpr)
 
-        if mappings is not None:
-            self.mappings = [(resolve_name(name, sexpr), sexpr) for name, sexpr
-                             in mappings]
+        if emitters is not None:
+            self.emitters = [(resolve_name(name, sexpr), sexpr) for name, sexpr
+                             in emitters]
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
         return (UnaryOperator.__eq__(self, other) and
-                self.mappings == other.mappings)
+                self.emitters == other.emitters)
 
     def copy(self, other):
         """deep copy"""
-        self.mappings = other.mappings
+        self.emitters = other.emitters
         UnaryOperator.copy(self, other)
 
     def scheme(self):
         """scheme of the result."""
-        new_attrs = [(name, expr.typeof()) for (name, expr) in self.mappings]
+        new_attrs = [(name, expr.typeof()) for (name, expr) in self.emitters]
         return scheme.Scheme(new_attrs)
 
     def shortStr(self):
-        estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.mappings])
+        estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.emitters])
         return "%s(%s)" % (self.opname(), estrs)
 
 class StatefulApply(Apply):
     """Create new attributes from expressions with additional
     state passed from tuple to tuple.
 
-    :param inits: expressions used to initialize the state
-    :type inits: list
-    :param updaters: expressions used to update the state
-    :type updaters: list
+    :param state_modifiers: expressions used to initialize and update the state.
+        contains tuples of the form:
+            (state_name, raco.expression.Expression, raco.expression.Expression)
+            where the two expressions are the initializer expression
+            and the updater expression
+    :type state_modifiers: list of tuples
     """
-    def __init__(self, mappings=None, inits=None, updaters=None, input=None):
-        self.updaters = updaters
-        self.inits = inits
+    def __init__(self, mappings=None, state_modifiers=None, input=None):
+        self.inits = [(x[0], x[1]) for x in state_modifiers]
+        self.updaters = [(x[0], x[2]) for x in state_modifiers]
         super(StatefulApply, self).__init__(mappings, input)
 
     def __eq__(self, other):

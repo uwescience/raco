@@ -184,10 +184,6 @@ class StringLiteral(Literal):
 class NumericLiteral(Literal):
     pass
 
-class StateLiteral(ZeroaryOperator):
-    def evaluate(self, _tuple, scheme, state=None):
-        return state
-
 class AttributeRef(Expression):
     def evaluate(self, _tuple, scheme, state=None):
         return _tuple[self.get_position(scheme)]
@@ -224,6 +220,16 @@ class UnnamedAttributeRef(AttributeRef):
 
     def get_position(self, scheme):
         return self.position
+
+class UnnamedStateAttributeRef(UnnamedAttributeRef):
+    """Get the state"""
+    def evaluate(self, _tuple, scheme, state):
+        return state['values'][self.position]
+
+class NamedStateAttributeRef(NamedAttributeRef):
+    """Get the state"""
+    def evaluate(self, _tuple, scheme, state):
+        return state['values'][state['scheme'].getPosition(self.name)]
 
 class UDF(NaryOperator):
     pass

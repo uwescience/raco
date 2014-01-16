@@ -77,7 +77,7 @@ class ExpressionProcessor(object):
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
                       for (name, sexpr) in emit_args]
 
-        return raco.algebra.Apply(mappings=emit_args, input=op)
+        return raco.algebra.Apply(emitters=emit_args, input=op)
 
     @staticmethod
     def empty(_scheme):

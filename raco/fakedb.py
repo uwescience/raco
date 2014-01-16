@@ -3,6 +3,7 @@ import collections
 import itertools
 
 from raco import relation_key
+import raco.scheme
 
 debug = False
 
@@ -75,7 +76,7 @@ class FakeDatabase(object):
 
         def make_tuple(input_tuple):
             ls = [colexpr.evaluate(input_tuple, scheme)
-                  for (_, colexpr) in op.mappings]
+                  for (_, colexpr) in op.emitters]
             return tuple(ls)
         return (make_tuple(t) for t in child_it)
 
@@ -83,16 +84,22 @@ class FakeDatabase(object):
         child_it = self.evaluate(op.input)
         scheme = op.input.scheme()
 
-        states = [expr.evaluate(None, None, None) for expr in op.inits]
+        stateScheme = raco.scheme.Scheme()
+        for (name, expr) in op.inits:
+            stateScheme.addAttribute(name, type(expr))
+
+        states = {}
+        states['scheme'] = stateScheme
+        states['values'] = [expr.evaluate(None, scheme, None)
+                            for (_, expr) in op.inits]
 
         def make_tuple(input_tuple, states):
-            ls = [colexpr.evaluate(input_tuple, scheme, state)
-                  for ((_, colexpr), state) in zip(op.mappings, states)]
             for i, new_state in enumerate(
-                    [colexpr.evaluate(input_tuple, scheme, state)
-                     for (colexpr, state) in zip(op.updaters, states)]):
-                states[i] = new_state
-
+                    [colexpr.evaluate(input_tuple, scheme, states)
+                     for (_, colexpr) in op.updaters]):
+                states['values'][i] = new_state
+            ls = [colexpr.evaluate(input_tuple, scheme, states)
+                  for (_, colexpr) in op.emitters]
             return tuple(ls)
         return (make_tuple(t, states) for t in child_it)
 

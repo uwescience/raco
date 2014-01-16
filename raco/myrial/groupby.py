@@ -123,7 +123,7 @@ def groupby(op, emit_clause, extra_grouping_columns):
             num_group_terms += 1
 
     if num_group_terms == len(emit_clause):
-        return raco.algebra.Apply(mappings=emit_clause, input=op)
+        return raco.algebra.Apply(emitters=emit_clause, input=op)
 
     # Add extra grouping columns; we group by these terms, but the output
     # is not preserved in the final apply invocation.  These are columns
@@ -164,4 +164,4 @@ def groupby(op, emit_clause, extra_grouping_columns):
     #op = raco.algebra.GroupBy(group_terms, state.aggregates.keys(), op)
     columnlist = group_terms + agg_state.aggregates.keys()
     op1 = raco.algebra.GroupBy(columnlist, op)
-    return raco.algebra.Apply(mappings=output_mappings, input=op1)
+    return raco.algebra.Apply(emitters=output_mappings, input=op1)
