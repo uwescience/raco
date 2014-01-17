@@ -88,20 +88,19 @@ class FakeDatabase(object):
         for (name, expr) in op.inits:
             stateScheme.addAttribute(name, type(expr))
 
-        states = {}
-        states['scheme'] = stateScheme
-        states['values'] = [expr.evaluate(None, scheme, None)
-                            for (_, expr) in op.inits]
+        State = collections.namedtuple('State', ['scheme', 'values'])
+        state = State(stateScheme, [expr.evaluate(None, scheme, None)
+                      for (_, expr) in op.inits])
 
-        def make_tuple(input_tuple, states):
+        def make_tuple(input_tuple, state):
             for i, new_state in enumerate(
-                    [colexpr.evaluate(input_tuple, scheme, states)
+                    [colexpr.evaluate(input_tuple, scheme, state)
                      for (_, colexpr) in op.updaters]):
-                states['values'][i] = new_state
-            ls = [colexpr.evaluate(input_tuple, scheme, states)
+                state.values[i] = new_state
+            ls = [colexpr.evaluate(input_tuple, scheme, state)
                   for (_, colexpr) in op.emitters]
             return tuple(ls)
-        return (make_tuple(t, states) for t in child_it)
+        return (make_tuple(t, state) for t in child_it)
 
     def join(self, op):
         # Compute the cross product of the children and flatten

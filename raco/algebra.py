@@ -467,6 +467,8 @@ class StatefulApply(Apply):
     """Create new attributes from expressions with additional
     state passed from tuple to tuple.
 
+    emitters is passed to the constructor of Apply
+
     :param state_modifiers: expressions used to initialize and update the state.
         contains tuples of the form:
             (state_name, raco.expression.Expression, raco.expression.Expression)
@@ -474,10 +476,10 @@ class StatefulApply(Apply):
             and the updater expression
     :type state_modifiers: list of tuples
     """
-    def __init__(self, mappings=None, state_modifiers=None, input=None):
+    def __init__(self, emitters=None, state_modifiers=None, input=None):
         self.inits = [(x[0], x[1]) for x in state_modifiers]
         self.updaters = [(x[0], x[2]) for x in state_modifiers]
-        super(StatefulApply, self).__init__(mappings, input)
+        super(StatefulApply, self).__init__(emitters, input)
 
     def __eq__(self, other):
         return (super(StatefulApply, self).__eq__(self, other) and
