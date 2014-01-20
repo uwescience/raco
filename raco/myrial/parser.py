@@ -20,6 +20,9 @@ JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 SelectFromWhere = collections.namedtuple(
     'SelectFromWhere', ['distinct', 'select','from_', 'where', 'limit'])
 
+StateMod = collections.namedtuple('StateMod',
+                                  ['name', 'init_expr', 'update_expr'])
+
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': sexpr.PLUS,
@@ -176,8 +179,8 @@ class Parser(object):
     @staticmethod
     def p_expression_bagcomp(p):
         'expression : LBRACKET FROM from_arg_list opt_where_clause \
-        EMIT emit_arg_list RBRACKET'
-        p[0] = ('BAGCOMP', p[3], p[4], p[6])
+        EMIT emit_arg_list opt_using_clause RBRACKET'
+        p[0] = ('BAGCOMP', p[3], p[4], p[6], p[7])
 
     @staticmethod
     def p_from_arg_list(p):
@@ -247,6 +250,32 @@ class Parser(object):
     def p_emit_arg_full_wildcard(p):
         '''emit_arg : TIMES'''
         p[0] = emitarg.FullWildcardEmitArg()
+
+    @staticmethod
+    def p_opt_using_clause(p):
+        '''opt_using_clause : USING statemod_list
+                            | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = []
+
+    @staticmethod
+    def p_statemod_list(p):
+        '''statemod_list : statemod_list COMMA statemod
+                         | statemod'''
+        if len(p) == 4:
+            p[0] = p[1] + (p[3],)
+        else:
+            p[0] = (p[1],)
+
+    @staticmethod
+    def p_statemod(p):
+        'statemod : sexpr COLON sexpr AS ID'
+        name = p[5]
+        init_expr = p[1]
+        update_expr = p[3]
+        p[0] = StateMod(name, init_expr, update_expr)
 
     @staticmethod
     def p_expression_select_from_where(p):
