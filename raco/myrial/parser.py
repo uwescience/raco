@@ -200,6 +200,10 @@ class Parser(object):
             if isinstance(ea, emitarg.SingletonEmitArg):
                 ea.sexpr = sexpr.convert_statemods(ea.sexpr, statemod_names)
 
+        statemod_list = [(name, init_expr,
+                          sexpr.convert_statemods(update_expr, statemod_names))
+                          for name, init_expr, update_expr in statemod_list]
+
         p[0] = ('BAGCOMP', from_arg_list, where_clause, emit_arg_list,
                 statemod_list)
 
