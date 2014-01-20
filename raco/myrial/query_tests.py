@@ -1075,7 +1075,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_rowid(self):
         query = """
-        out = [FROM SCAN(%s) EMIT _rid {-1: _rid + 1 AS _rid} AS rid, *];
+        out = [FROM SCAN(%s) AS X EMIT rid, * USING -1: _rid + 1 AS _rid];
         DUMP(out);
         """ % self.emp_key
 
@@ -1085,8 +1085,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_running_mean(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT sum/count
-               {0: count + 1 AS count, 0: salary + sum AS sum} AS avg];
+        out = [FROM SCAN(%s) AS X EMIT _sum/_count USING
+               0: _count + 1 AS _count, 0: salary + _sum AS _sum];
         DUMP(out);
         """ % self.emp_key
 
