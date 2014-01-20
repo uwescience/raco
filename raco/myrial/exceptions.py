@@ -22,5 +22,12 @@ class MyrialScanException(MyrialCompileException):
         return 'Illegal token string %s on line %d' % (self.token.value,
                                                        self.token.lineno)
 
+class IllegalStateModRef(MyrialCompileException):
+    def __init__(self, lineno):
+        self.lineno = lineno
+
+    def __str__(self):
+        return 'Illegal reference to a state variable on line %d' % self.lineno
+
 class ColumnIndexOutOfBounds(Exception):
     pass

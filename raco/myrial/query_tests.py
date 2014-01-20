@@ -1073,6 +1073,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
             self.run_test(query, collections.Counter())
 
+    def test_invalid_statemod_ref(self):
+        """A statemod intializer cannot reference another statemod."""
+
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT _rid
+               USING _foo: _rid + 1 AS _rid, 7: _foo +1 AS _foo];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.IllegalStateModRef):
+            self.run_test(query, collections.Counter())
+
     def test_rowid(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT rid, * USING -1: _rid + 1 AS _rid];

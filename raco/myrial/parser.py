@@ -180,7 +180,23 @@ class Parser(object):
     def p_expression_bagcomp(p):
         'expression : LBRACKET FROM from_arg_list opt_where_clause \
         EMIT emit_arg_list opt_using_clause RBRACKET'
-        p[0] = ('BAGCOMP', p[3], p[4], p[6], p[7])
+        from_arg_list = p[3]
+        where_clause = p[4]
+        emit_arg_list = p[6]
+        statemod_list = p[7]
+
+        # validate that the where clause and statemod initializers do not
+        # refer to state modifiers
+        statemod_names = set([name for name, init, update in statemod_list])
+        if where_clause and \
+           sexpr.references_statemod(where_clause, statemod_names):
+            raise IllegalStateModRef(p.lineno)
+        if any([sexpr.references_statemod(init, statemod_names)
+                for n, init, u in statemod_list]):
+            raise IllegalStateModRef(p.lineno)
+
+        p[0] = ('BAGCOMP', from_arg_list, where_clause, emit_arg_list,
+                statemod_list)
 
     @staticmethod
     def p_from_arg_list(p):
