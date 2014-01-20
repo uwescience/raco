@@ -226,15 +226,17 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_singleton(p):
-        '''emit_arg : sexpr AS ID
-                    | sexpr'''
-        if len(p) == 4:
-            name = p[3]
-            sexpr = p[1]
+        '''emit_arg : sexpr optional_colname'''
+        p[0] = emitarg.SingletonEmitArg(p[2], p[1])
+
+    @staticmethod
+    def p_optional_colname(p):
+        '''optional_colname : AS ID
+                            | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
         else:
-            name = None
-            sexpr = p[1]
-        p[0] = emitarg.SingletonEmitArg(name, sexpr)
+            p[0] = None
 
     @staticmethod
     def p_emit_arg_table_wildcard(p):
