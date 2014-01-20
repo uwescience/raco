@@ -1071,6 +1071,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
             self.run_test(query, collections.Counter())
 
+    def test_rowid(self):
+        query = """
+        out = [FROM SCAN(%s) EMIT _rid {-1: _rid + 1 AS _rid} AS rid, *];
+        DUMP(out);
+        """ % self.emp_key
+
+        tps = [(i,) + e for i,e in enumerate(TestQueryFunctions.emp_table)]
+        expected = collections.Counter(tps)
+        self.run_test(query, expected)
+
     def test_running_mean(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT sum/count
