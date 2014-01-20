@@ -1087,7 +1087,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_rowid(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT rid, * USING -1: _rid + 1 AS _rid];
+        out = [FROM SCAN(%s) AS X EMIT _rid AS rid, *
+               USING -1: _rid + 1 AS _rid];
         DUMP(out);
         """ % self.emp_key
 
