@@ -44,7 +44,7 @@ class OneToOne(Rule):
         self.opto = opto
 
     def fire(self, expr):
-        if isinstance(expr, self.opfrom):
+        if expr.__class__ ==  self.opfrom:
             newop = self.opto()
             newop.copy(expr)
             return newop
