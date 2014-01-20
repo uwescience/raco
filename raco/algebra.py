@@ -11,7 +11,7 @@ def reset():
     var_id = 0
 
 def gensym():
-    global i
+    global var_id
     var_id += 1
     return "V%s" % var_id
 # END Code to generate variables names
