@@ -5,9 +5,11 @@
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme
+
 from raco import algebra
 from raco import relation_key
 from raco.viz import operator_to_dot
+from raco.myrial.exceptions import *
 
 import argparse
 import os
@@ -71,7 +73,11 @@ def main(args):
     processor = interpreter.StatementProcessor(catalog, True)
 
     with open(opt.file) as fh:
-        statement_list = _parser.parse(fh.read())
+        try:
+            statement_list = _parser.parse(fh.read())
+        except MyrialCompileException as ex:
+            print 'Myrial parse error: %s' % ex
+            return 1
 
         if opt.parse:
             print statement_list

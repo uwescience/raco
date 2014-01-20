@@ -361,11 +361,27 @@ class Rule(object):
 
         # If any of the expressions in the head are aggregate expression, construct a group by
         if any([raco.expression.isaggregate(v) for v in self.head.valuerefs]):
-            plan = raco.algebra.GroupBy(columnlist, plan)
+            # GroupBy expects grouping terms to precede aggregate terms;
+            # rearrange terms and then fixup with an Apply operator
+            groups = []
+            agg_cols = []
+            mappings = [] # original column positions
+
+            groups = [(orig_pos, col) for orig_pos, col in enumerate(columnlist)
+                      if not isinstance(col, raco.expression.AggregateExpression)]
+            aggs = [(orig_pos, col) for orig_pos, col in enumerate(columnlist)
+                    if isinstance(col, raco.expression.AggregateExpression)]
+
+            group_cols = [col for _, col in groups]
+            agg_cols = [col for _, col in aggs]
+            groupby = raco.algebra.GroupBy(group_cols, agg_cols, plan)
+
+            mappings = [(None, raco.expression.UnnamedAttributeRef(orig_pos))
+                        for orig_pos, col in groups + aggs]
+            plan = raco.algebra.Apply(mappings, groupby)
         else:
             # otherwise, just build a project
             plan = raco.algebra.Project(columnlist, plan)
-
 
         # If we found a cycle, the "root" of the plan is the fixpoint operator
         if self.fixpoint:

@@ -1,7 +1,8 @@
 from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra
 from raco.algebra import Select, Scan, Join, LogicalAlgebra
 from raco.compile import compile, optimize
-from raco.boolean import EQ, AND, OR, Attribute, StringLiteral, NumericLiteral
+from raco.expression.boolean import EQ, AND, OR
+from raco.expression import NamedAttributeRef, StringLiteral, NumericLiteral
 import raco.scheme
 import raco.catalog
 
@@ -10,18 +11,21 @@ sch = raco.scheme.Scheme([("subject", int), ("predicate", int), ("object", int)]
 
 # Create a relation object.  We can add formats here as needed.
 trialdat = raco.catalog.ASCIIFile("trial.dat", sch)
+print sch
 
 # Now write the RA expression
 
 # Scan just takes a pointer to a relation object
-R = Scan(trialdat)
+R = Scan(trialdat, sch)  #TODO: is this supposed to pass sch?
+print R.scheme()
+
 
 # Select
 # EQ(x,y) means x=y, GT(x,y) means x>y, etc.
-sR = Select(EQ(Attribute("predicate"), NumericLiteral(1133564893)), R)
-sS = Select(EQ(Attribute("predicate"), NumericLiteral(77645021)), R)
-#sT = Select(EQ(Attribute("predicate"), NumericLiteral(77645021)), R)
-sT = Select(EQ(Attribute("object"), NumericLiteral(1018848684)), R)
+sR = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(1133564893)), R)
+sS = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(77645021)), R)
+#sT = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(77645021)), R)
+sT = Select(EQ(NamedAttributeRef("object"), NumericLiteral(1018848684)), R)
 
 # Join([(w,x),(y,z)], R, S) means "JOIN R, S ON (R.w = S.x AND R.y = S.z)"
 sRsS = Join([("object","subject")], sR, sS)

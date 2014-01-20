@@ -24,12 +24,19 @@ typedef unsigned uint64;
 #else
 #include <sys/time.h>
 
-typedef long int int64;
-typedef long unsigned uint64;
+#include <cstdint>
+#include <iostream>
+typedef int64_t int64;
+typedef uint64_t uint64;
+ 
+ #include <unordered_map>
+#
 #endif
 
 #include "io_util.h"
 #include "counters_util.h"
+#include "hash.h"
+#include "utils.h"
 
 // ------------------------------------------------------------------
 
@@ -85,6 +92,7 @@ inline bool equals(struct relationInfo *left, uint64 leftrow, uint64 leftattribu
   return leftval == rightval;
 }
 
+  // SPLIT ME HERE
 
 void query(struct relationInfo *resultInfo)
 {

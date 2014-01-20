@@ -8,7 +8,7 @@ import raco.myrial.scanner as scanner
 import raco.scheme as scheme
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
-import raco.myrial.exceptions
+from .exceptions import *
 
 class JoinColumnCountMismatchException(Exception):
     pass
@@ -97,16 +97,6 @@ class Parser(object):
     def p_statement_dump(p):
         'statement : DUMP LPAREN ID RPAREN SEMI'
         p[0] = ('DUMP', p[3])
-
-    @staticmethod
-    def p_statement_describe(p):
-        'statement : DESCRIBE LPAREN ID RPAREN SEMI'
-        p[0] = ('DESCRIBE', p[3])
-
-    @staticmethod
-    def p_statement_explain(p):
-        'statement : EXPLAIN LPAREN ID RPAREN SEMI'
-        p[0] = ('EXPLAIN', p[3])
 
     @staticmethod
     def p_statement_dowhile(p):
@@ -501,9 +491,13 @@ class Parser(object):
         pass
 
     def parse(self, s):
+        scanner.lexer.lineno = 1
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         return parser.parse(s, lexer=scanner.lexer, tracking=True)
 
     @staticmethod
-    def p_error(p):
-        raise raco.myrial.exceptions.MyrialParseException(str(p))
+    def p_error(token):
+        if token:
+            raise MyrialParseException(token)
+        else:
+            raise MyrialUnexpectedEndOfFileException()

@@ -263,6 +263,9 @@ class TIMES(BinaryOperator):
         return (self.left.evaluate(_tuple, scheme, state) *
                 self.right.evaluate(_tuple, scheme, state))
 
+class FLOAT_CAST(UnaryOperator):
+    def evaluate(self, _tuple, scheme, state=None):
+        return float(self.input.evaluate(_tuple, scheme, state))
 
 class NEG(UnaryOperator):
     literals = ["-"]

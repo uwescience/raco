@@ -107,10 +107,10 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
     def test_sum_reorder(self):
         query = """
         SalaryByDept(sum(salary), dept_id) :- employee(id, dept_id, name, salary);"""
-        results = collections.defaultdict(int)
+        results = collections.Counter()
         for emp in self.emp_table.elements():
             results[emp[1]] += emp[3]
-        expected = collections.Counter(results.iteritems())
+        expected = collections.Counter([(y,x) for x,y in results.iteritems()])
         self.run_test(query, expected)
 
     def test_aggregate_no_groups(self):

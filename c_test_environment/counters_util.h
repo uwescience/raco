@@ -1,5 +1,4 @@
-#ifndef _COUNTERS_UTIL_H
-#define _COUNTERS_UTIL_H
+#pragma once
 
 // How to use the counters:
 // 1) malloc space for as many counters as you need
@@ -21,5 +20,3 @@ void getCounters(int *counters, int currCounter);
 void printDiffCounters(int *counters, int sz);
 void printCounters(int *counters, int sz); 
 
-
-#endif // COUNTERS_UTIL_H

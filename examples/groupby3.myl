@@ -1,0 +1,4 @@
+
+Emp = SCAN(public:adhoc:employees);
+Groups = [FROM Emp EMIT id, AVG(salary)];
+Dump(Groups);

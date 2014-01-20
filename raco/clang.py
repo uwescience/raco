@@ -1,10 +1,20 @@
+# TODO: To be refactored into shared memory lang,
+# where you plugin in the sequential shared memory language specific codegen
+
 from raco import algebra
 from raco import expression
 from raco import catalog
 from raco.language import Language
 from raco import rules
+from raco.utility import emitlist
+from raco.pipelines import Pipelined
+
+import logging
+from algebra import gensym
+LOG = logging.getLogger(__name__)
 
 import os.path
+
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c_templates")
 
@@ -14,10 +24,11 @@ def readtemplate(fname):
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c_templates")
 
 base_template = readtemplate("base_query.template")
-initialize, finalize = base_template.split("// SPLIT ME HERE")
+initialize, querydef_init, finalize = base_template.split("// SPLIT ME HERE")
 twopass_select_template = readtemplate("precount_select.template")
 hashjoin_template = readtemplate("hashjoin.template")
-filtering_nestedloop_join_chain_template = readtemplate("filtering_nestedloop_join_chain.template")
+filteringhashjoin_template = ""
+#filtering_nestedloop_join_chain_template = readtemplate("filtering_nestedloop_join_chain.template")
 ascii_scan_template = readtemplate("ascii_scan.template")
 binary_scan_template = readtemplate("binary_scan.template")
 
@@ -40,6 +51,12 @@ class CC(Language):
     @staticmethod
     def initialize(resultsym):
         return  initialize % locals()
+      
+    @staticmethod
+    def body(compileResult, resultsym):
+      code, decls = compileResult
+      querydef_init_filled = querydef_init % locals()
+      return emitlist(decls)+querydef_init_filled+code
 
     @staticmethod
     def finalize(resultsym):
@@ -47,7 +64,13 @@ class CC(Language):
 
     @staticmethod
     def log(txt):
-        return  """printf("%s\\n");\n""" % txt
+        return  """std::cout << "%s" << std::endl;
+        """ % txt
+      
+    @staticmethod
+    def log_unquoted(code):
+      return """std::cout << %s << std::endl;
+      """ % code
 
     @staticmethod
     def comment(txt):
@@ -66,6 +89,7 @@ class CC(Language):
     def boolean_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
         conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg in args])
+        LOG.debug("conjunc: %s", conjunc)
         return "( %s )" % conjunc
 
     @classmethod
@@ -73,18 +97,59 @@ class CC(Language):
         if isinstance(expr, expression.NamedAttributeRef):
             raise TypeError("Error compiling attribute reference %s. C compiler only support unnamed perspective.  Use helper function unnamed." % expr)
         if isinstance(expr, expression.UnnamedAttributeRef):
-            position = expr.leaf_position
-            relation = expr.relationsymbol
-            rowvariable = expr.rowvariable
-            return '%s->relation[%s*%s->fields + %s]' % (relation, rowvariable, relation, position)
+            symbol = expr.tupleref.name
+            position = expr.position # NOTE: this will only work in Selects right now
+            return '%s.get(%s)' % (symbol, position)
 
-class CCOperator (object):
+class CCOperator (Pipelined):
     language = CC
+    
+class MemoryScan(algebra.Scan, CCOperator):
+  def produce(self):
+    code = ""
+    #generate the materialization from file into memory
+    #TODO split the file scan apart from this in the physical plan
 
-class FileScan(algebra.Scan, CCOperator):
+    #TODO for now this will break whatever relies on self.bound like reusescans
+    #Scan is the only place where a relation is declared
+    resultsym = gensym()
+    
+    code += FileScan(self.relation_key, self._scheme).compileme(resultsym)
+
+    # now generate the scan from memory
+    inputsym = resultsym
+
+    #TODO: generate row variable to avoid naming conflict for nested scans
+    memory_scan_template = """for (uint64_t i : %(inputsym)s->range()) {
+          %(tuple_type)s %(tuple_name)s(%(inputsym)s, i);
+          
+          %(inner_plan_compiled)s
+       } // end scan over %(inputsym)s
+       """
+    
+    stagedTuple = StagedTupleRef(inputsym, self.scheme())
+
+    tuple_type_def = stagedTuple.generateDefition()
+    tuple_type = stagedTuple.getTupleTypename()
+    tuple_name = stagedTuple.name
+    
+    inner_plan_compiled, inner_decls = self.parent.consume(stagedTuple, self)
+
+    code += memory_scan_template % locals()
+    return code, [tuple_type_def]+inner_decls
+    
+  def consume(self, t, src):
+    assert False, "as a source, no need for consume"
+    
+    
+
+class FileScan(algebra.Scan):
 
     def compileme(self, resultsym):
-        name = self.relation_key
+        # TODO use the identifiers (don't split str and extract)
+        #name = self.relation_key
+        name = str(self.relation_key).split(':')[2]
+
         #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
         #self.trace("// Original query position of %s: term %s (%s)" % tup)
 
@@ -93,11 +158,32 @@ class FileScan(algebra.Scan, CCOperator):
         else:
             code = binary_scan_template % locals()
         return code
+      
+    def __str__(self):
+      return "%s(%s)" % (self.opname(), self.relation_key)
+
+
+def getTaggingFunc(t):
+  """ 
+  Return a visitor function that will tag 
+  UnnamedAttributes with the provided TupleRef
+  """
+
+  def tagAttributes(expr):
+    # TODO non mutable would be nice
+    if isinstance(expr, expression.UnnamedAttributeRef):
+      expr.tupleref = t
+
+    return None
+  
+  return tagAttributes
+
 
 class TwoPassSelect(algebra.Select, CCOperator):
     """
   Count matches, allocate memory, loop again to populate result
   """
+  
 
     @classmethod
     def tagcondition(cls, condition, inputsym):
@@ -121,9 +207,12 @@ class TwoPassSelect(algebra.Select, CCOperator):
 
 
     def compileme(self, resultsym, inputsym):
+        LOG.debug("compiling %s of scheme %s", self.opname(), self.scheme())
         pcondition = CC.unnamed(self.condition, self.scheme())
+        LOG.debug("CC.unnamed %s => %s", self.condition, pcondition)
         self.tagcondition(pcondition, inputsym)
         condition = CC.compile_boolean(pcondition)
+        LOG.debug("CC.compile_boolean %s => %s", pcondition, condition)
         # Preston's original
         #code = twopass_select_template % locals()
 
@@ -131,7 +220,87 @@ class TwoPassSelect(algebra.Select, CCOperator):
         code = twopass_select_template % locals()
 
         return code
+    
+    def __str__(self):
+        return "%s[%s]" % (self.opname(), self.condition)
 
+class HashJoin(algebra.Join, CCOperator):
+  _i = 0
+
+  @classmethod
+  def __genHashName__(cls):
+    name = "hash_%03d" % cls._i;
+    cls._i += 1
+    return name
+  
+  def produce(self):
+    if not isinstance(self.condition, expression.EQ):
+      msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
+      raise ValueError(msg)
+    
+    self._hashname = self.__genHashName__()
+    self.outTuple = StagedTupleRef(gensym(), self.scheme())
+    
+    self.right.childtag = "right"
+    code_right, decls_right = self.right.produce()
+    
+    self.left.childtag = "left"
+    code_left, decls_left = self.left.produce()
+
+    return code_right+code_left, decls_right+decls_left
+  
+  def consume(self, t, src):
+    if src.childtag == "right":
+      declr_template =  """std::unordered_map<int64_t, std::vector<%(in_tuple_type)s>* > %(hashname)s;
+      """
+      
+      right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
+      """   
+      
+      hashname = self._hashname
+      keyname = t.name
+      keypos = self.condition.right.position-len(self.left.scheme())
+      
+      out_tuple_type_def = self.outTuple.generateDefition()
+      self.rightTuple = t #TODO: this induces a right->left dependency
+      in_tuple_type = self.rightTuple.getTupleTypename()
+
+      # declaration of hash map
+      hashdeclr =  declr_template % locals()
+      
+      # materialization point
+      code = right_template % locals()
+      
+      return code, [out_tuple_type_def,hashdeclr]
+    
+    if src.childtag == "left":
+      left_template = """
+      for (auto %(right_tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
+        %(out_tuple_type)s %(out_tuple_name)s = combine<%(out_tuple_type)s, %(keytype)s, %(right_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
+     %(inner_plan_compiled)s 
+  }
+  """
+      hashname = self._hashname
+      keyname = t.name
+      keytype = t.getTupleTypename()
+      keypos = self.condition.left.position
+      
+      right_tuple_type = self.rightTuple.getTupleTypename()
+      right_tuple_name = self.rightTuple.name
+
+      # or could make up another name
+      #right_tuple_name = StagedTupleRef.genname() 
+
+      out_tuple_type = self.outTuple.getTupleTypename()
+      out_tuple_name =self.outTuple.name
+      
+      inner_plan_compiled, inner_plan_declrs = self.parent.consume(self.outTuple, self)
+      
+      code = left_template % locals()
+      return code, inner_plan_declrs
+
+    assert False, "src not equal to left or right"
+      
 
 class TwoPassHashJoin(algebra.Join, CCOperator):
     """
@@ -155,6 +324,14 @@ class TwoPassHashJoin(algebra.Join, CCOperator):
 
         code = hashjoin_template % locals()
         return code
+      
+    def __str__(self):
+        return "%s(%s,%s,%s)[%s, %s]" % (self.opname(),
+                                         self.condition,
+                                         self.leftcondition,
+                                         self.rightcondition,
+                                         self.left,
+                                         self.right)
 
 class FilteringJoin(algebra.Join, CCOperator):
     """Abstract class representing a join that applies selection
@@ -276,6 +453,8 @@ firstjointemplate = """
 } // End Filtering_NestedLoop_Join_Chain
 """
 
+
+
 class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
     """
   A linear chain of joins, with selection predicates applied"""
@@ -288,8 +467,9 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
         self.finalcondition = expression.TAUTOLOGY
         algebra.NaryOperator.__init__(self, inputs)
 
-    def leafreference(self, column, argsyms):
-        """return the relation symbol and local offset corresponding to column position "column."  For example, if we join R(x,y),S(y,z), leafof(2) returns (S,0) and leafof(1) returns (R,1) (assuming S and R are relation symbols generated by the compiler"""
+    def __colToRelationAndOffset(self, column, argsyms):
+        """from a global (among argsyms) column id, return the relation symbol and local column id.
+        For example, if we join R(x,y),S(y,z), __colToRelationAndOffsetence(2) returns (S,0) and __colToRelationAndOffseterence(1) returns (R,1) (assuming S and R are relation symbols generated by the compiler"""
         position = column
         for i, arg in enumerate(self.args):
             offset = position - len(arg.scheme())
@@ -304,6 +484,7 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
         return "%s_row" % relsym
 
     def tagcondition(self, joinlevel, condition, argsyms, conditiontype="join"):
+        LOG.debug("tag condition %s,%s,%s,%s", joinlevel, condition, argsyms, self)
         """Tag each position reference in the join condition with the relation symbol it should refer to in the compiled code. joinlevel is the index of the join in the chain."""
         # TODO: this function is impossible to understand.  Attribute references need an overhaul.
         # TODO: May want to include a pipeline object that abstracts chains of non-blocking operators
@@ -317,12 +498,13 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
 
                 def localize(posref):
                     assert(isinstance(posref, expression.UnnamedAttributeRef))
-                    relsym, foundlevel, localposition = self.leafreference(posref.position, argsyms)
+                    relsym, foundlevel, localposition = self.__colToRelationAndOffset(posref.position, argsyms)
                     rowvar = "%s_row" % relsym
                     return relsym, rowvar
 
                 if conditiontype=="final":
                     if isinstance(condition.left, expression.NamedAttributeRef):
+                        # FIXME: the assertion on localize() will always fail here
                         condition.left.relationsymbol, condition.left.rowvariable = localize(condition.left)
                     if isinstance(condition.right, expression.NamedAttributeRef):
                         condition.right.relationsymbol, condition.right.rowvariable = localize(condition.right)
@@ -351,6 +533,7 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
         helper(condition)
 
     def compileme(self, resultsym, argsyms):
+        LOG.debug("compiling %s: %s %s %s of scheme %s", self.__class__.__name__, resultsym, argsyms, self, self.scheme())
         def helper(level):
             depth = level
             if level < len(self.joinconditions):
@@ -363,11 +546,13 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
                 assert(isinstance(joincondition.right, expression.UnnamedAttributeRef))
 
                 # change the addressing scheme for the left-hand attribute reference
+                LOG.debug("before tag join %s %s %s", joincondition, joincondition.left, joincondition.right)
                 self.tagcondition(level, joincondition, argsyms, conditiontype="join")
+                LOG.debug("after tag join %s %s %s", joincondition, joincondition.left.relationsymbol, joincondition.right.relationsymbol)
                 leftsym = joincondition.left.relationsymbol
-                leftposition = joincondition.left.leaf_position
+                leftposition = joincondition.left.position
                 rightsym = joincondition.right.relationsymbol
-                rightposition = joincondition.right.leaf_position
+                rightposition = joincondition.right.position
 
                 left_condition = self.leftconditions[level]
                 self.tagcondition(level, left_condition, argsyms, conditiontype="left")
@@ -409,7 +594,7 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
         # get attribute position in left relation
         firstjoin = self.joinconditions[depth]
         assert(isinstance(firstjoin.left, expression.UnnamedAttributeRef))
-        leftposition = self.joinconditions[depth].left.leaf_position
+        leftposition = self.joinconditions[depth].left.position
         # get condition on left relation
         left_condition = self.leftconditions[depth]
         self.tagcondition(depth, left_condition, argsyms, conditiontype="left")
@@ -423,6 +608,119 @@ class FilteringNLJoinChain(algebra.NaryJoin, CCOperator):
         args = ",".join(["%s" % arg for arg in self.args])
         # TODO: clean up this final condition nonsense
         return "FilteringNLJoinChain(%s, %s, %s, %s)[%s]" % (self.joinconditions, self.leftconditions, self.rightconditions, self.finalcondition, args)
+      
+    def shortStr(self):
+      return "FilteringNLJoinChain[%s]" % self.args
+
+
+# iteration  over table + insertion into hash table with filter
+hash_build_template = """
+// build hash table for %(hashedsym)s, column %(position)s
+hash_table_t<uint64_t, uint64_t> %(hashedsym)s_hash_%(position)s;
+for (uint64_t  %(hashedsym)s_row = 0; %(hashedsym)s_row < %(hashedsym)s->tuples; %(hashedsym)s_row++) {
+  if (%(condition)s) {
+    insert(%(hashedsym)s_hash_%(position)s, %(hashedsym)s, %(hashedsym)s_row, %(position)s);
+  }
+}
+"""
+
+# iteration over table + lookup
+# name of tuple output is r{depth}
+# note the the rightcondition, is the condition in the build phase
+nested_hash_join_first_template = """
+for (uint64_t  %(leftsym)s_row = 0; %(leftsym)s_row < %(leftsym)s->tuples; %(leftsym)s_row++) {
+  if (%(leftcondition)s) {
+    for (Tuple<uint64_t> r%(depth)s : lookup(%(rightsym)s_hash_%(rightposition)s, %(leftsym)s, %(leftposition)s)) {
+      %(inner_plan_compiled)s
+    } // end join of %(leftsym)s[%(leftposition)s] and %(rightsym)s[%(rightposition)s]
+  } // end filter %(depth)s
+} // end scan over %(leftsym)s
+"""
+
+# lookup tuple
+nested_hash_join_rest_template = """
+if (%(leftcondition)s) {
+  for (Tuple<uint64_t> r%(depth)s : lookup(%(rightsym)s_hash_%(rightposition)s, r%(depthMinusOne)s, %(leftposition)s) {
+    %(inner_plan_compiled)s
+  }
+}
+"""
+class FilteringHashJoinChain(algebra.NaryJoin, CCOperator):
+    """
+  A linear chain of joins, with selection predicates applied"""
+    def __init__(self, inputs, leftconditions, rightconditions, joinconditions):
+        assert(len(rightconditions) == len(joinconditions))
+        assert(len(rightconditions) == len(leftconditions))
+        self.joinconditions = joinconditions
+        self.leftconditions = leftconditions
+        self.rightconditions = rightconditions
+        self.finalcondition = expression.TAUTOLOGY
+        algebra.NaryOperator.__init__(self, inputs)
+        
+    def shortStr(self):
+      return "%s(%s,%s,%s)[...]" % (self.opname(), 
+                                   self.joinconditions, 
+                                   self.leftconditions, 
+                                   self.rightconditions)
+
+    def __str__(self):
+      return "%s(%s,%s,%s)[%s]" % (self.opname(), 
+                                   self.joinconditions, 
+                                   self.leftconditions, 
+                                   self.rightconditions,
+                                   self.args)
+
+    def __colToRelationAndOffset(self, column, argsyms):
+        """from a global column id, return the relation symbol and local column id.
+        For example, if we join R(x,y),S(y,z), __colToRelationAndOffsetence(2) returns (S,0) and __colToRelationAndOffseterence(1) returns (R,1) (assuming S and R are relation symbols generated by the compiler"""
+        position = column
+        for i, arg in enumerate(self.args):
+            offset = position - len(arg.scheme())
+            if offset < 0:
+                return (argsyms[i], i, position)
+            position = offset
+
+        raise IndexError("Column %s out of range of scheme %s" % (column, self.scheme()))
+        
+    def compileme(self, resultsym, argsyms):
+      code = ""
+      
+      # find the right columns that need to be hashed
+      hash_columns = [c.right for c in self.joinconditions]
+      LOG.debug("hash columns %s", hash_columns)
+     
+      # generate hash builds 
+      for i, col in enumerate(hash_columns):
+        hashedsym, position, _ = self.__colToRelationAndOffset(col.position, argsyms)
+        condition = CC.compile_boolean(self.rightconditions[i])
+        LOG.debug(condition)
+        LOG.debug(hash_build_template)
+        LOG.debug(locals())
+        code += hash_build_template % locals()
+      
+      
+      def helper(depth):
+        if depth == len(self.joinconditions):
+          return indentby(self.language.comment("TODO: emit the result"), depth)
+
+        rightsym, rightposition, _ = self.__colToRelationAndOffset(self.joinconditions[depth].right.position, argsyms)
+        leftsym, leftposition, _ = self.__colToRelationAndOffset(self.joinconditions[depth].left.position, argsyms)
+        leftcondition = CC.compile_boolean(self.leftconditions[depth])
+
+        if depth == 0:
+          inner_plan_compiled = helper(depth+1)
+          newcode = nested_hash_join_first_template % locals()
+          return newcode
+        else:
+          inner_plan_compiled = helper(depth+1)
+          depthMinusOne = depth-1
+          newcode = nested_hash_join_rest_template % locals()
+          return indentby(newcode, depth)
+          
+      code += helper(0) 
+      return code
+    
+
 
 class FilteringHashJoin(FilteringJoin, CCOperator):
     """
@@ -454,6 +752,20 @@ class FilteringHashJoin(FilteringJoin, CCOperator):
 #class FreeMemory(CCOperator):
 #  def fire(self, expr):
 #    for ref in noReferences(expr)
+
+class FilteringHashJoinChainRule(rules.Rule):
+  def fire(self, expr):
+    if isinstance(expr, FilteringNLJoinChain):
+      assert False, "TODO: Need to check condition for UnnamedAttr==UnnamedAttr"
+      return FilteringHashJoinChain(expr.args,
+                                    expr.leftconditions,
+                                    expr.rightconditions, 
+                                    expr.joinconditions)
+    else:
+      return expr
+    
+  def __str__(self):
+    return "FilteringNLJoinChain => FilteringHashJoinChain"
 
 class FilteringNestedLoopJoinRule(rules.Rule):
     """A rewrite rule for combining Select and Join"""
@@ -495,6 +807,7 @@ class FilteringNestedLoopJoinRule(rules.Rule):
 
 class LeftDeepFilteringJoinChainRule(rules.Rule):
     """A rewrite rule for combining Select(Join(Select, Select)*) into one pipeline."""
+    """Turns separate FilteringNestedLoopJoins into a single FilteringNLJoinChain"""
     def fire(self, expr):
         topoperator = expr
         if isinstance(expr, algebra.Select):
@@ -505,7 +818,9 @@ class LeftDeepFilteringJoinChainRule(rules.Rule):
         def helper(expr, joinchain):
             """Follow a left deep chain of joins, gathering conditions"""
             if isinstance(expr, FilteringNestedLoopJoin):
+                # push args and conditions onto the front
                 joinchain.args[0:0] = [expr.right]
+                LOG.debug("joinchain.args = %s", joinchain.args)
                 joinchain.joinconditions[0:0] = [expr.condition]
                 joinchain.leftconditions[0:0] = [expr.leftcondition]
                 joinchain.rightconditions[0:0] = [expr.rightcondition]
@@ -518,9 +833,130 @@ class LeftDeepFilteringJoinChainRule(rules.Rule):
 
         if isinstance(topoperator, FilteringNestedLoopJoin):
             joinchain = FilteringNLJoinChain([], [], [], [])
-            return helper(topoperator, joinchain)
+            LOG.debug("before  select+join %s %s", topoperator, joinchain)
+            newexpr = helper(topoperator, joinchain)
+            LOG.debug("after selct+join %s", joinchain)
+            return newexpr
         else:
             return expr
+      
+# TODO:
+# The following is actually a staged materialized tuple ref.
+# we should also add a staged reference tuple ref that just has relationsymbol and row  
+class StagedTupleRef:
+  nextid = 0
+  
+  @classmethod
+  def genname(cls):
+    x = cls.nextid
+    cls.nextid+=1
+    return "t_%03d" % x
+  
+  def __init__(self, relsym, scheme):
+    self.name = self.genname()
+    self.relsym = relsym
+    self.scheme = scheme
+    self.__typename = None
+  
+  def getTupleTypename(self):
+    if self.__typename==None:
+      fields = ""
+      relsym = self.relsym
+      for i in range(0, len(self.scheme)):
+        fieldnum = i
+        fields += "_%(fieldnum)s" % locals()
+        
+      self.__typename = "MaterializedTupleRef_%(relsym)s%(fields)s" % locals()
+    
+    return self.__typename
+
+    
+  def generateDefition(self):
+    fielddeftemplate = """int64_t _fields[%(numfields)s];
+    """
+    copytemplate = """_fields[%(fieldnum)s] = rel->relation[row*rel->fields + %(fieldnum)s];
+    """
+    template = """
+          // can be just the necessary schema
+  class %(tupletypename)s {
+    private:
+    %(fielddefs)s
+    
+    public:
+    int64_t get(int field) const {
+      return _fields[field];
+    }
+    
+    void set(int field, int64_t val) {
+      _fields[field] = val;
+    }
+    
+    int numFields() const {
+      return %(numfields)s;
+    }
+    
+    %(tupletypename)s (relationInfo * rel, int row) {
+      %(copies)s
+    }
+    
+    %(tupletypename)s () {
+      // no-op
+    }
+    
+    std::ostream& dump(std::ostream& o) const {
+      o << "Materialized(";
+      for (int i=0; i<numFields(); i++) {
+        o << _fields[i] << ",";
+      }
+      o << ")";
+      return o;
+    }
+  };
+  std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
+    return t.dump(o);
+  }
+
+  """
+    getcases = ""
+    setcases = ""
+    copies = ""
+    numfields = len(self.scheme)
+    fielddefs = fielddeftemplate % locals()
+    # TODO: actually list the trimmed schema offsets
+    for i in range(0, numfields):
+      fieldnum = i
+      copies += copytemplate % locals()
+
+    tupletypename = self.getTupleTypename()
+    relsym = self.relsym
+      
+    code = template % locals()
+    return code
+  
+
+
+class BasicSelect(algebra.Select, CCOperator):
+  def produce(self):
+    return self.input.produce()
+    
+  def consume(self, t, src):
+    basic_select_template = """if (%(conditioncode)s) {
+      %(inner_code_compiled)s
+    }
+    """
+
+    # tag the attributes with references
+    # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
+    [_ for _ in self.condition.postorder(getTaggingFunc(t))]
+    
+    # compile the predicate into code
+    conditioncode = CC.compile_boolean(self.condition)
+    
+    inner_code_compiled, inner_decls = self.parent.consume(t, self)
+    
+    code = basic_select_template % locals()
+    return code, inner_decls
+    
 
 class CCAlgebra(object):
     language = CC
@@ -529,15 +965,20 @@ class CCAlgebra(object):
     #TwoPassHashJoin,
     FilteringNestedLoopJoin,
     TwoPassSelect,
-    FileScan
+    #FileScan,
+    MemoryScan,
+    BasicSelect,
   ]
     rules = [
      #rules.OneToOne(algebra.Join,TwoPassHashJoin),
     rules.removeProject(),
     rules.CrossProduct2Join(),
-    FilteringNestedLoopJoinRule(),
-    LeftDeepFilteringJoinChainRule(),
-    rules.OneToOne(algebra.Select,TwoPassSelect),
-    rules.OneToOne(algebra.Scan,FileScan),
+#    FilteringNestedLoopJoinRule(),
+#    FilteringHashJoinChainRule(),
+#    LeftDeepFilteringJoinChainRule(),
+    rules.OneToOne(algebra.Select,BasicSelect),
+ #   rules.OneToOne(algebra.Select,TwoPassSelect),
+    rules.OneToOne(algebra.Scan,MemoryScan),
+    rules.OneToOne(algebra.Join,HashJoin),
   #  rules.FreeMemory()
   ]

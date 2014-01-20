@@ -34,6 +34,7 @@ setup(name='raco',
       author_email='raco@cs.washington.edu',
       url='https://github.com/uwescience/datalogcompiler',
       packages=find_packages(exclude=['clang']),
+      package_data={'': ['c_templates/*.template','grappa_templates/*.template']},
       install_requires=['networkx','ply','pyparsing'],
       scripts=['scripts/myrial']
       )
