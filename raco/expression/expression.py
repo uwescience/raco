@@ -231,6 +231,9 @@ class NamedStateAttributeRef(NamedAttributeRef):
     def evaluate(self, _tuple, scheme, state):
         return state.values[state.scheme.getPosition(self.name)]
 
+    def __str__(self):
+        return "StateRef(%s)" % (self.name)
+
 class UDF(NaryOperator):
     pass
 
