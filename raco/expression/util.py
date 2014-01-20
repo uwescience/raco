@@ -48,6 +48,16 @@ def convert_statemods(sexpr, statemod_set):
         return n
     return convert(sexpr)
 
+def references_statemod(sexpr, statemod_set):
+    """Return True if the statement contains a statemod reference.
+
+    sexpr is an aribtrary expression
+    statemod_set is a set of strings that define statemod variables.
+    """
+    def contains_ref(n):
+        return isinstance(n, NamedAttributeRef) and n.name in statemod_set
+    return any(sexpr.postorder(contains_ref))
+
 def all_classes():
     """Return a list of all classes in the module"""
     import raco.expression as expr
