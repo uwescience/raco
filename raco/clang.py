@@ -146,7 +146,10 @@ class MemoryScan(algebra.Scan, CCOperator):
 class FileScan(algebra.Scan):
 
     def compileme(self, resultsym):
-        name = self.relation_key
+        # TODO use the identifiers (don't split str and extract)
+        #name = self.relation_key
+        name = str(self.relation_key).split(':')[2]
+
         #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
         #self.trace("// Original query position of %s: term %s (%s)" % tup)
 
