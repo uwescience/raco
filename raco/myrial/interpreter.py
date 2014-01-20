@@ -115,6 +115,9 @@ class ExpressionProcessor(object):
 
         emit_clause: A list of EmitArg instances, each defining one or more
         output columns.
+
+        statemods: A list of statemod tuples of the form
+        (name, init_expr, update_expr).
         """
 
         # Make sure no aliases were reused: [FROM X, X EMIT *] is illegal
