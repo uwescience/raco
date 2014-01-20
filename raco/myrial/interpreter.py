@@ -1,7 +1,7 @@
 import raco.myrial.groupby as groupby
 import raco.myrial.multiway as multiway
 import raco.algebra
-import raco.expression as sexpr
+import raco.expression
 import raco.catalog
 import raco.scheme
 from raco.language import MyriaAlgebra
@@ -158,8 +158,10 @@ class ExpressionProcessor(object):
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
                       for (name, sexpr) in emit_args]
 
-        # Apply any grouping operators
-        return groupby.groupby(op, emit_args, implicit_group_by_cols)
+        if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
+            return groupby.groupby(op, emit_args, implicit_group_by_cols)
+        else:
+            return raco.algebra.StatefulApply(emit_args, [], op)
 
     def distinct(self, expr):
         op = self.evaluate(expr)
@@ -173,7 +175,7 @@ class ExpressionProcessor(object):
     def countall(self, expr):
         op = self.evaluate(expr)
         grouping_list = []
-        agg_list = [sexpr.COUNTALL()]
+        agg_list = [raco.expression.COUNTALL()]
         return raco.algebra.GroupBy(grouping_list, agg_list, op)
 
     def intersect(self, e1, e2):
@@ -220,14 +222,14 @@ class ExpressionProcessor(object):
         right_refs = [get_attribute_ref(c, right_scheme, len(left_scheme))
                       for c in right_target.columns]
 
-        join_conditions = [sexpr.EQ(x, y) for x, y in
+        join_conditions = [raco.expression.EQ(x, y) for x, y in
                            zip(left_refs, right_refs)]
 
         # Merge the join conditions into a big AND expression
 
         def andify(x, y):
             """Merge two scalar expressions with an AND"""
-            return sexpr.AND(x, y)
+            return raco.expression.AND(x, y)
 
         condition = reduce(andify, join_conditions)
         return raco.algebra.Join(condition, left, right)
