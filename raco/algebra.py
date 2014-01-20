@@ -441,6 +441,9 @@ class Apply(UnaryOperator):
         if emitters is not None:
             self.emitters = [(resolve_name(name, sexpr), sexpr) for name, sexpr
                              in emitters]
+        else:
+            self.emitters = []
+
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
@@ -475,8 +478,13 @@ class StatefulApply(Apply):
     :type state_modifiers: list of tuples
     """
     def __init__(self, emitters=None, state_modifiers=None, input=None):
-        self.inits = [(x[0], x[1]) for x in state_modifiers]
-        self.updaters = [(x[0], x[2]) for x in state_modifiers]
+        if state_modifiers is not None:
+            self.inits = [(x[0], x[1]) for x in state_modifiers]
+            self.updaters = [(x[0], x[2]) for x in state_modifiers]
+        else:
+            self.inits = []
+            self.updaters = []
+
         super(StatefulApply, self).__init__(emitters, input)
 
     def __eq__(self, other):
@@ -498,7 +506,7 @@ class StatefulApply(Apply):
         """deep copy"""
         self.updaters = other.updaters
         self.inits = other.inits
-        super(StatefulApply, self).copy(self, other)
+        Apply.copy(self, other)
 
 
 #TODO: Non-scheme-mutating operators
