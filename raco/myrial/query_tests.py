@@ -1109,7 +1109,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         for x in TestQueryFunctions.emp_table:
             rsum += x[3]
             cnt += 1
-            running_mean.append(rsum/cnt)
+            running_mean.append((rsum/cnt,))
 
         expected = collections.Counter(running_mean)
         self.run_test(query, expected)
