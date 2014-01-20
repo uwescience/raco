@@ -35,6 +35,19 @@ def to_unnamed_recursive(sexpr, scheme):
         return n
     return convert(sexpr)
 
+def convert_statemods(sexpr, statemod_set):
+    """Convert named variable references to statemod references.
+
+    Given a set of statemods represented as string names, convert matching
+    instances of NamedAttributeRef to instances of NamedStateAttributeRef.
+    """
+    def convert(n):
+        if n.__class__ == NamedAttributeRef and n.name in statemod_set:
+            n = NamedStateAttributeRef(n.name)
+        n.apply(convert)
+        return n
+    return convert(sexpr)
+
 def all_classes():
     """Return a list of all classes in the module"""
     import raco.expression as expr
