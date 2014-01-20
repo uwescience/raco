@@ -31,14 +31,3 @@ std::vector<T>& lookup(std::unordered_map<int64_t, std::vector<T>* >& hash, int6
   }
 }
 
-template <typename D, typename S1, typename S2>
-D combine(S1 s1, S2 s2) {
-  D d;
-  for (int i=0; i<s1.numFields(); i++) {
-    d.set(i, s1.get(i));
-  }
-  for (int i=0; i<s2.numFields(); i++) {
-    d.set(s1.numFields()+i, s2.get(i));
-  }
-  return d;
-}
