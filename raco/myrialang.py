@@ -352,7 +352,7 @@ class MyriaApply(algebra.Apply, MyriaOperator):
             'emit_expressions' : emitters
         }
 
-class MyriaStatefulApply(algebra.Apply, MyriaOperator):
+class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
     """Represents a stateful apply operator"""
     def compileme(self, resultsym, inputsym):
         child_scheme = self.input.scheme()
