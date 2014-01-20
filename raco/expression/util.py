@@ -2,7 +2,7 @@
 Utility functions for use in Raco expressions
 """
 
-from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef
+from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef, NamedStateAttributeRef
 from .aggregate import AggregateExpression
 
 import inspect

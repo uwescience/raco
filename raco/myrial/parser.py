@@ -195,6 +195,11 @@ class Parser(object):
                 for n, init, u in statemod_list]):
             raise IllegalStateModRef(p.lineno)
 
+        # convert matching variable references to statemod references
+        for ea in emit_arg_list:
+            if isinstance(ea, emitarg.SingletonEmitArg):
+                ea.sexpr = sexpr.convert_statemods(ea.sexpr, statemod_names)
+
         p[0] = ('BAGCOMP', from_arg_list, where_clause, emit_arg_list,
                 statemod_list)
 
