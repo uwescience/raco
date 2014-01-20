@@ -484,6 +484,16 @@ class StatefulApply(Apply):
                 self.updaters == other.updaters and
                 self.inits == other.inits)
 
+    def shortStr(self):
+        emit_strs = ",".join(["%s=%s" % (name, str(ex))
+                              for name, ex in self.emitters])
+        sm_init_strs = ",".join(["%s=%s" % (name, str(i))
+                                 for name, i in self.inits])
+        sm_update_strs = ",".join(["%s=%s" % (name, str(u))
+                                   for name, u in self.updaters])
+        return "%s(%s ; %s ; %s)" % (self.opname(), emit_strs, sm_init_strs,
+                                     sm_update_strs)
+
     def copy(self, other):
         """deep copy"""
         self.updaters = other.updaters
