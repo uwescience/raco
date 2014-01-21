@@ -3,6 +3,7 @@ import collections
 import itertools
 
 from raco import relation_key
+import raco.scheme
 
 debug = False
 
@@ -75,9 +76,31 @@ class FakeDatabase(object):
 
         def make_tuple(input_tuple):
             ls = [colexpr.evaluate(input_tuple, scheme)
-                  for (_, colexpr) in op.mappings]
+                  for (_, colexpr) in op.emitters]
             return tuple(ls)
         return (make_tuple(t) for t in child_it)
+
+    def statefulapply(self, op):
+        child_it = self.evaluate(op.input)
+        scheme = op.input.scheme()
+
+        stateScheme = raco.scheme.Scheme()
+        for (name, expr) in op.inits:
+            stateScheme.addAttribute(name, type(expr))
+
+        State = collections.namedtuple('State', ['scheme', 'values'])
+        state = State(stateScheme, [expr.evaluate(None, scheme, None)
+                      for (_, expr) in op.inits])
+
+        def make_tuple(input_tuple, state):
+            for i, new_state in enumerate(
+                    [colexpr.evaluate(input_tuple, scheme, state)
+                     for (_, colexpr) in op.updaters]):
+                state.values[i] = new_state
+            ls = [colexpr.evaluate(input_tuple, scheme, state)
+                  for (_, colexpr) in op.emitters]
+            return tuple(ls)
+        return (make_tuple(t, state) for t in child_it)
 
     def join(self, op):
         # Compute the cross product of the children and flatten
@@ -228,6 +251,9 @@ class FakeDatabase(object):
 
     def myriaapply(self, op):
         return self.apply(op)
+
+    def myriastatefulapply(self, op):
+        return self.statefulapply(op)
 
     def myriadupelim(self, op):
         return self.distinct(op)

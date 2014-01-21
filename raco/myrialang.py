@@ -344,12 +344,28 @@ class MyriaApply(algebra.Apply, MyriaOperator):
     """Represents a simple apply operator"""
     def compileme(self, resultsym, inputsym):
         child_scheme = self.input.scheme()
-        exprs = [compile_mapping(x, child_scheme) for x in self.mappings]
+        emitters = [compile_mapping(x, child_scheme) for x in self.emitters]
         return {
             'op_name' : resultsym,
             'op_type' : 'Apply',
             'arg_child' : inputsym,
-            'generic_expressions' : exprs
+            'emit_expressions' : emitters
+        }
+
+class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
+    """Represents a stateful apply operator"""
+    def compileme(self, resultsym, inputsym):
+        child_scheme = self.input.scheme()
+        emitters = [compile_mapping(x, child_scheme) for x in self.emitters]
+        inits = [compile_mapping(x, child_scheme) for x in self.inits]
+        updaters = [compile_mapping(x, child_scheme) for x in self.updaters]
+        return {
+            'op_name' : resultsym,
+            'op_type' : 'Apply',
+            'arg_child' : inputsym,
+            'emit_expressions' : emitters,
+            'init_expressions' : inits,
+            'update_expressions' : updaters
         }
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
@@ -858,6 +874,7 @@ class MyriaAlgebra(object):
         , rules.OneToOne(algebra.Store, MyriaStore)
         , rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp)
         , rules.OneToOne(algebra.Apply, MyriaApply)
+        , rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply)
         , rules.OneToOne(algebra.Select, MyriaSelect)
         , rules.OneToOne(algebra.GroupBy, MyriaGroupBy)
         , rules.OneToOne(algebra.Distinct, MyriaDupElim)

@@ -20,6 +20,9 @@ JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 SelectFromWhere = collections.namedtuple(
     'SelectFromWhere', ['distinct', 'select','from_', 'where', 'limit'])
 
+StateMod = collections.namedtuple('StateMod',
+                                  ['name', 'init_expr', 'update_expr'])
+
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': sexpr.PLUS,
@@ -176,8 +179,33 @@ class Parser(object):
     @staticmethod
     def p_expression_bagcomp(p):
         'expression : LBRACKET FROM from_arg_list opt_where_clause \
-        EMIT emit_arg_list RBRACKET'
-        p[0] = ('BAGCOMP', p[3], p[4], p[6])
+        EMIT emit_arg_list opt_using_clause RBRACKET'
+        from_arg_list = p[3]
+        where_clause = p[4]
+        emit_arg_list = p[6]
+        statemod_list = p[7]
+
+        # validate that the where clause and statemod initializers do not
+        # refer to state modifiers
+        statemod_names = set([name for name, init, update in statemod_list])
+        if where_clause and \
+           sexpr.references_statemod(where_clause, statemod_names):
+            raise IllegalStateModRef(p.lineno)
+        if any([sexpr.references_statemod(init, statemod_names)
+                for n, init, u in statemod_list]):
+            raise IllegalStateModRef(p.lineno)
+
+        # convert matching variable references to statemod references
+        for ea in emit_arg_list:
+            if isinstance(ea, emitarg.SingletonEmitArg):
+                ea.sexpr = sexpr.convert_statemods(ea.sexpr, statemod_names)
+
+        statemod_list = [(name, init_expr,
+                          sexpr.convert_statemods(update_expr, statemod_names))
+                          for name, init_expr, update_expr in statemod_list]
+
+        p[0] = ('BAGCOMP', from_arg_list, where_clause, emit_arg_list,
+                statemod_list)
 
     @staticmethod
     def p_from_arg_list(p):
@@ -226,15 +254,17 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_singleton(p):
-        '''emit_arg : sexpr AS ID
-                    | sexpr'''
-        if len(p) == 4:
-            name = p[3]
-            sexpr = p[1]
+        '''emit_arg : sexpr optional_colname'''
+        p[0] = emitarg.SingletonEmitArg(p[2], p[1])
+
+    @staticmethod
+    def p_optional_colname(p):
+        '''optional_colname : AS ID
+                            | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
         else:
-            name = None
-            sexpr = p[1]
-        p[0] = emitarg.SingletonEmitArg(name, sexpr)
+            p[0] = None
 
     @staticmethod
     def p_emit_arg_table_wildcard(p):
@@ -245,6 +275,32 @@ class Parser(object):
     def p_emit_arg_full_wildcard(p):
         '''emit_arg : TIMES'''
         p[0] = emitarg.FullWildcardEmitArg()
+
+    @staticmethod
+    def p_opt_using_clause(p):
+        '''opt_using_clause : USING statemod_list
+                            | empty'''
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = []
+
+    @staticmethod
+    def p_statemod_list(p):
+        '''statemod_list : statemod_list COMMA statemod
+                         | statemod'''
+        if len(p) == 4:
+            p[0] = p[1] + (p[3],)
+        else:
+            p[0] = (p[1],)
+
+    @staticmethod
+    def p_statemod(p):
+        'statemod : sexpr COLON sexpr AS ID'
+        name = p[5]
+        init_expr = p[1]
+        update_expr = p[3]
+        p[0] = StateMod(name, init_expr, update_expr)
 
     @staticmethod
     def p_expression_select_from_where(p):

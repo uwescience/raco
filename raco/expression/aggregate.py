@@ -9,7 +9,7 @@ from abc import abstractmethod
 import math
 
 class AggregateExpression(Expression):
-    def evaluate(self, _tuple, scheme):
+    def evaluate(self, _tuple, scheme, state=None):
         """Stub evaluate function for aggregate expressions.
 
         Aggregate functions do not evaluate individual tuples; rather they

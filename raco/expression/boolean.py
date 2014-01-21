@@ -20,68 +20,68 @@ class BinaryComparisonOperator(BinaryBooleanOperator):
 class NOT(UnaryBooleanOperator):
     literals = ["not", "NOT", "-"]
 
-    def evaluate(self, _tuple, scheme):
-        return not self.input.evaluate(_tuple, scheme)
+    def evaluate(self, _tuple, scheme, state=None):
+        return not self.input.evaluate(_tuple, scheme, state)
 
 class AND(BinaryBooleanOperator):
     literals = ["and", "AND"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) and
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) and
+                self.right.evaluate(_tuple, scheme, state))
 
 class OR(BinaryBooleanOperator):
     literals = ["or", "OR"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) or
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) or
+                self.right.evaluate(_tuple, scheme, state))
 
 class EQ(BinaryComparisonOperator):
     literals = ["=", "=="]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) ==
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) ==
+                self.right.evaluate(_tuple, scheme, state))
 
 class LT(BinaryComparisonOperator):
     literals = ["<", "lt"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) <
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) <
+                self.right.evaluate(_tuple, scheme, state))
 
 
 class GT(BinaryComparisonOperator):
     literals = [">", "gt"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) >
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) >
+                self.right.evaluate(_tuple, scheme, state))
 
 
 class GTEQ(BinaryComparisonOperator):
     literals = [">=", "gteq", "gte"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) >=
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) >=
+                self.right.evaluate(_tuple, scheme, state))
 
 
 class LTEQ(BinaryComparisonOperator):
     literals = ["<=", "lteq", "lte"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) <=
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) <=
+                self.right.evaluate(_tuple, scheme, state))
 
 
 class NEQ(BinaryComparisonOperator):
     literals = ["!=", "neq", "ne"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) !=
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) !=
+                self.right.evaluate(_tuple, scheme, state))
 
 reverse = {
   NEQ:NEQ,

@@ -1072,3 +1072,44 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
             self.run_test(query, collections.Counter())
+
+    def test_invalid_statemod_ref(self):
+        """A statemod intializer cannot reference another statemod."""
+
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT _rid
+               USING _foo: _rid + 1 AS _rid, 7: _foo +1 AS _foo];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.IllegalStateModRef):
+            self.run_test(query, collections.Counter())
+
+    def test_rowid(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT _rid AS rid, *
+               USING -1: _rid + 1 AS _rid];
+        DUMP(out);
+        """ % self.emp_key
+
+        tps = [(i,) + e for i,e in enumerate(TestQueryFunctions.emp_table)]
+        expected = collections.Counter(tps)
+        self.run_test(query, expected)
+
+    def test_running_mean(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT _sum/_count USING
+               0: _count + 1 AS _count, 0: salary + _sum AS _sum];
+        DUMP(out);
+        """ % self.emp_key
+
+        rsum = 0
+        cnt = 0
+        running_mean = []
+        for x in TestQueryFunctions.emp_table:
+            rsum += x[3]
+            cnt += 1
+            running_mean.append((rsum/cnt,))
+
+        expected = collections.Counter(running_mean)
+        self.run_test(query, expected)

@@ -2,7 +2,7 @@
 Utility functions for use in Raco expressions
 """
 
-from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef
+from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef, NamedStateAttributeRef
 from .aggregate import AggregateExpression
 
 import inspect
@@ -34,6 +34,29 @@ def to_unnamed_recursive(sexpr, scheme):
         n.apply(convert)
         return n
     return convert(sexpr)
+
+def convert_statemods(sexpr, statemod_set):
+    """Convert named variable references to statemod references.
+
+    Given a set of statemods represented as string names, convert matching
+    instances of NamedAttributeRef to instances of NamedStateAttributeRef.
+    """
+    def convert(n):
+        if n.__class__ == NamedAttributeRef and n.name in statemod_set:
+            n = NamedStateAttributeRef(n.name)
+        n.apply(convert)
+        return n
+    return convert(sexpr)
+
+def references_statemod(sexpr, statemod_set):
+    """Return True if the statement contains a statemod reference.
+
+    sexpr is an aribtrary expression
+    statemod_set is a set of strings that define statemod variables.
+    """
+    def contains_ref(n):
+        return isinstance(n, NamedAttributeRef) and n.name in statemod_set
+    return any(sexpr.postorder(contains_ref))
 
 def all_classes():
     """Return a list of all classes in the module"""
