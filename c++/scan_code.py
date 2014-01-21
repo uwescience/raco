@@ -1,10 +1,9 @@
-from raco import RACompiler
 import raco.algebra as alg
 import raco.clang as clang
 import raco.boolean as rbool
-from collections import deque
 
-class cpp_code :
+
+class cpp_code:
 
     #constructor
     def __init__(self,physicalplan,queryname) :
