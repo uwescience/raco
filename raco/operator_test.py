@@ -73,3 +73,13 @@ class OperatorTest(unittest.TestCase):
 
         self.assertEqual(len(result), len(TestQueryFunctions.emp_table))
         self.assertEqual([x[0] for x in result][-1], 37857)
+
+    def test_cast_to_float(self):
+        scan = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
+        cast = FLOAT_CAST(NamedAttributeRef("salary"))
+        applyop = Apply([("salaryf", cast)], scan)
+        res = list(self.db.evaluate(applyop))
+        for x in res:
+            assert isinstance(x[0], float)
+        self.assertEqual([x[0] for x in res],
+                         [x[3] for x in TestQueryFunctions.emp_table])
