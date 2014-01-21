@@ -1070,21 +1070,3 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
             self.run_test(query, collections.Counter())
-
-    def test_running_mean(self):
-        query = """
-        out = [FROM SCAN(%s) AS X EMIT sum/count
-               {0: count + 1 AS count, 0: salary + sum AS sum} AS avg];
-        DUMP(out);
-        """ % self.emp_key
-
-        rsum = 0
-        cnt = 0
-        running_mean = []
-        for x in TestQueryFunctions.emp_table:
-            rsum += x[3]
-            cnt += 1
-            running_mean.append(rsum/cnt)
-
-        expected = collections.Counter(running_mean)
-        self.run_test(query, expected)
