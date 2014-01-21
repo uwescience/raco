@@ -55,9 +55,6 @@ class ExpressionProcessor(object):
 
         return raco.algebra.Scan(rel_key, scheme)
 
-    def load(self, path, schema):
-        raise NotImplementedError()
-
     def table(self, emit_clause):
         """Emit a single-row table literal."""
         emit_args = []
@@ -182,8 +179,7 @@ class ExpressionProcessor(object):
         op = self.evaluate(expr)
         grouping_list = []
         agg_list = [sexpr.COUNTALL()]
-        return raco.algebra.GroupBy(columnlist=grouping_list+agg_list,
-                                    input=op)
+        return raco.algebra.GroupBy(grouping_list, agg_list, op)
 
     def intersect(self, e1, e2):
         left = self.evaluate(e1)
@@ -316,12 +312,6 @@ class StatementProcessor(object):
         pps = optimize([('root', lp)], target=MyriaAlgebra,
                        source=LogicalAlgebra)
         return compile_to_json(lp, lp, pps)
-
-    def explain(self, _id):
-        raise NotImplementedError()
-
-    def describe(self, _id):
-        raise NotImplementedError()
 
     def dowhile(self, statement_list, termination_ex):
         body_ops = []

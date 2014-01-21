@@ -277,6 +277,9 @@ class TYPE(ZeroaryOperator):
     def evaluate(self, _tuple, scheme, state=None):
         raise Exception("Cannot evaluate this expression operator")
 
+class FLOAT_CAST(UnaryOperator):
+    def evaluate(self, _tuple, scheme):
+        return float(self.input.evaluate(_tuple, scheme))
 
 class NEG(UnaryOperator):
     literals = ["-"]

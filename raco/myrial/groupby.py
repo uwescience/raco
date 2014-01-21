@@ -159,9 +159,6 @@ def groupby(op, emit_clause, extra_grouping_columns):
     group_terms.extend([raco.expression.UnnamedAttributeRef(c)
                         for c in extra_grouping_columns])
 
-    # TODO: It's dumb to combine the grouping terms and the aggregate terms,
-    # since the GroupBy operator just rips them apart.
-    #op = raco.algebra.GroupBy(group_terms, state.aggregates.keys(), op)
-    columnlist = group_terms + agg_state.aggregates.keys()
-    op1 = raco.algebra.GroupBy(columnlist, op)
+    agg_terms = agg_state.aggregates.keys()
+    op1 = raco.algebra.GroupBy(group_terms, agg_terms, op)
     return raco.algebra.Apply(emitters=output_mappings, input=op1)

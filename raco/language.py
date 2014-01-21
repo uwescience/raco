@@ -2,6 +2,9 @@ from raco import expression
 
 from abc import ABCMeta, abstractmethod
 
+import logging
+LOG = logging.getLogger(__name__)
+
 class Language(object):
     __metaclass__ = ABCMeta
 
@@ -19,6 +22,10 @@ class Language(object):
     @staticmethod
     def initialize(resultsym):
         return  ""
+      
+    @staticmethod
+    def body(compileResult):
+      return compileResult
 
     @staticmethod
     def finalize(resultsym, body=""):
@@ -52,6 +59,7 @@ class Language(object):
 
     @classmethod
     def unnamed(cls, condition, sch):
+        LOG.debug("unnamed %s %s %s", cls, condition, sch)
         """
     Replace column names with positions
     """
@@ -79,11 +87,15 @@ class Language(object):
     def compile_boolean(cls, expr):
         """Compile a boolean condition into the target language"""
         if isinstance(expr, expression.UnaryBooleanOperator):
+            LOG.debug("UnaryBooleanOperator: %s", expr)
             input = cls.compile_boolean(expr.input)
             if isinstance(expr, expression.NOT):
                 return cls.negation(input)
         if isinstance(expr, expression.BinaryBooleanOperator):
             left, right = cls.compile_boolean(expr.left), cls.compile_boolean(expr.right)
+            LOG.debug( "BinaryBooleanOperator %s", expr)
+            LOG.debug( "left: %s, compiled: %s", expr.left, left)
+            LOG.debug( "right: %s, compiled: %s", expr.right, right)
             if isinstance(expr, expression.AND):
                 return cls.conjunction(left, right)
             if isinstance(expr, expression.OR):
@@ -111,11 +123,12 @@ class Language(object):
             return cls.compile_numericliteral(expr.value)
 
         elif isinstance(expr, expression.UnnamedAttributeRef):
+            LOG.debug("expr %s is UnnamedAttributeRef", expr)
             return cls.compile_attribute(expr)
 
         else:
             return expr
-            #raise ValueError("Unknown class in boolean expression: %s (value is %s)" % (expr.__class__,expr))
+            #raise ValueError("Unknown class in boolean expression: %s (value is %s)" % (expr.__class__, expr))
 
     @abstractmethod
     def boolean_combine(cls, args, operator="and"):
@@ -124,5 +137,6 @@ class Language(object):
 # import everything from each language
 from raco.pythonlang import PythonAlgebra
 from raco.pseudocodelang import PseudoCodeAlgebra
-#from raco.clang import CCAlgebra
+from raco.clang import CCAlgebra
 from raco.myrialang import MyriaAlgebra
+from raco.grappalang import GrappaAlgebra

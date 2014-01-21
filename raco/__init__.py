@@ -5,8 +5,12 @@ from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import compile, optimize, common_subexpression_elimination, showids
 from raco.utility import emit
+from raco.pipelines import Pipelined
 
 import raco.algebra
+
+import logging
+LOG = logging.getLogger(__name__)
 
 class RACompiler(object):
     """Thin wrapper interface for lower level functions parse, optimize, compile"""
@@ -39,8 +43,15 @@ class RACompiler(object):
         exprcode.append(lang.preamble(query=self.source, plan=self.logicalplan))
         for result, expr in exprs:
             init = lang.initialize(result)
-            body = expr.compile(result)
+            
+            # TODO cleanup this dispatch to be transparent
+            if isinstance(expr, Pipelined): 
+              body = lang.body(expr.compilePipeline(result), result)
+            else:
+              body = lang.body(expr.compile(result))
+
             final = lang.finalize(result)
             exprcode.append(emit(init, body, final))
         exprcode.append(lang.postamble(query=self.source, plan=self.logicalplan))
         return  emit(*exprcode)
+      
