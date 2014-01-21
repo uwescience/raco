@@ -267,9 +267,6 @@ class CAST(BinaryOperator):
     def typeof(self):
         return self.right.typeof()
 
-    def evaluate(self, _tuple, scheme, state):
-        return self.right.typeof()(self.left.evaluate(_tuple, scheme, state))
-
 class TYPE(ZeroaryOperator):
     def __init__(self, rtype):
         self.type = rtype
@@ -277,7 +274,7 @@ class TYPE(ZeroaryOperator):
     def typeof(self):
         return self.type
 
-    def evaluate(_tuple, scheme, state):
+    def evaluate(self, _tuple, scheme, state=None):
         raise Exception("Cannot evaluate this expression operator")
 
 
