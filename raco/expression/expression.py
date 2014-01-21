@@ -263,10 +263,6 @@ class TIMES(BinaryOperator):
         return (self.left.evaluate(_tuple, scheme, state) *
                 self.right.evaluate(_tuple, scheme, state))
 
-class CAST(BinaryOperator):
-    def typeof(self):
-        return self.right.typeof()
-
 class TYPE(ZeroaryOperator):
     def __init__(self, rtype):
         self.type = rtype
@@ -278,7 +274,7 @@ class TYPE(ZeroaryOperator):
         raise Exception("Cannot evaluate this expression operator")
 
 class FLOAT_CAST(UnaryOperator):
-    def evaluate(self, _tuple, scheme):
+    def evaluate(self, _tuple, scheme, state=None):
         return float(self.input.evaluate(_tuple, scheme))
 
 class NEG(UnaryOperator):
