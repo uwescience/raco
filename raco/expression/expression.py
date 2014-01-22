@@ -186,7 +186,8 @@ class NumericLiteral(Literal):
 
 class AttributeRef(Expression):
     def evaluate(self, _tuple, scheme, state=None):
-        return _tuple[self.get_position(scheme, state)]
+        return _tuple[self.get_position(
+            scheme, state.scheme if state else None)]
 
     @abstractmethod
     def get_position(self, scheme, state_scheme=None):
@@ -221,15 +222,42 @@ class UnnamedAttributeRef(AttributeRef):
     def get_position(self, scheme, state_scheme=None):
         return self.position
 
-class UnnamedStateAttributeRef(UnnamedAttributeRef):
-    """Get the state"""
+class StateRef(Expression):
+    def evaluate(self, _tuple, scheme, state=None):
+        return _tuple[self.get_position(scheme, state.scheme)]
+
+    @abstractmethod
+    def get_position(self, scheme, state_scheme):
+        """Return the position of the referenced attribute in the given scheme"""
+
+    def apply(self, f):
+        pass
+
+class UnnamedStateAttributeRef(StateRef):
+    def __init__(self, position):
+        self.position = position
+
+    def __repr__(self):
+        return "$%s" % (self.position)
+
+    def __str__(self):
+        return "$%s" % (self.position)
+
     def evaluate(self, _tuple, scheme, state):
         return state.values[self.position]
 
-class NamedStateAttributeRef(NamedAttributeRef):
-    """Get the state"""
+class NamedStateAttributeRef(StateRef):
+    def __init__(self, attributename):
+        self.name = attributename
+
+    def __repr__(self):
+        return "%s" % (self.name)
+
+    def __str__(self):
+        return "%s" % (self.name)
+
     def evaluate(self, _tuple, scheme, state):
-        return state.values[state.scheme.getPosition(self.name)]
+        return state.values[self.get_position(scheme, state.scheme)]
 
     def get_position(self, scheme, state_scheme):
         return state_scheme.getPosition(self.name)

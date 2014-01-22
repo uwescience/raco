@@ -59,6 +59,11 @@ def compile_expr(op, child_scheme, state_scheme):
             'value' : str(op.value),
             'value_type' : 'STRING_TYPE'
         }
+    elif isinstance(op, expression.StateRef):
+        return {
+            'type' : 'STATE',
+            'column_idx' : op.get_position(child_scheme, state_scheme)
+        }
     elif isinstance(op, expression.AttributeRef):
         return {
             'type' : 'VARIABLE',
@@ -362,11 +367,11 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
         updaters = [compile_mapping(x, child_scheme, state_scheme) for x in self.updaters]
         return {
             'op_name' : resultsym,
-            'op_type' : 'Apply',
+            'op_type' : 'StatefulApply',
             'arg_child' : inputsym,
             'emit_expressions' : emitters,
-            'init_expressions' : inits,
-            'update_expressions' : updaters
+            'initializer_expressions' : inits,
+            'updater_expressions' : updaters
         }
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
