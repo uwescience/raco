@@ -461,12 +461,21 @@ class Apply(UnaryOperator):
         estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.emitters])
         return "%s(%s)" % (self.opname(), estrs)
 
-class StatefulApply(Apply):
+
+class StatefulApply(UnaryOperator):
+    inits = None
+    updaters = None
+    state_scheme = None
+    emitters = None
+
     """Create new attributes from expressions with additional
     state passed from tuple to tuple.
 
-    emitters is passed to the constructor of Apply
-
+    :param emitters: list of tuples of the form:
+            (column_name, raco.expression.Expression).
+            column_name can be None, in which case the system will infer a
+            name based on the expression
+        :type emitters: list of tuples
     :param state_modifiers: expressions used to initialize and update the state.
         contains tuples of the form:
             (state_name, raco.expression.Expression, raco.expression.Expression)
@@ -475,20 +484,49 @@ class StatefulApply(Apply):
     :type state_modifiers: list of tuples
     """
     def __init__(self, emitters=None, state_modifiers=None, input=None):
-        self.inits = [(x[0], x[1]) for x in state_modifiers]
-        self.updaters = [(x[0], x[2]) for x in state_modifiers]
-        super(StatefulApply, self).__init__(emitters, input)
+        if state_modifiers is not None:
+            self.inits = [(x[0], x[1]) for x in state_modifiers]
+            self.updaters = [(x[0], x[2]) for x in state_modifiers]
+
+            self.state_scheme = scheme.Scheme()
+            for (name, expr) in self.inits:
+                self.state_scheme.addAttribute(name, type(expr))
+
+        def resolve_name(name, sexpr):
+            if name:
+                return name
+            elif isinstance(sexpr, expression.AttributeRef):
+                return input.resolveAttribute(sexpr)[0]
+            else:
+                return str(sexpr)
+
+        if emitters is not None:
+            self.emitters = [(resolve_name(name, sexpr), sexpr) for name, sexpr
+                             in emitters]
+        UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
         return (super(StatefulApply, self).__eq__(self, other) and
+                self.emitters == other.emitters and
                 self.updaters == other.updaters and
                 self.inits == other.inits)
 
     def copy(self, other):
         """deep copy"""
+        self.emitters = other.emitters
         self.updaters = other.updaters
         self.inits = other.inits
-        super(StatefulApply, self).copy(self, other)
+        self.state_scheme = other.state_scheme
+        UnaryOperator.copy(self, other)
+
+    def scheme(self):
+        """scheme of the result."""
+        new_attrs = [(name, expr.typeof()) for (name, expr) in self.emitters]
+        return scheme.Scheme(new_attrs)
+
+    def shortStr(self):
+        estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.emitters])
+        return "%s(%s)" % (self.opname(), estrs)
 
 
 #TODO: Non-scheme-mutating operators

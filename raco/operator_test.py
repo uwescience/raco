@@ -51,8 +51,7 @@ class OperatorTest(unittest.TestCase):
         self.assertEqual([x[0] for x in result], range(7))
 
     def test_running_mean_stateful_apply(self):
-        """Calculate the mean using two stateful applies.
-        One for the sum and another one for the count"""
+        """Calculate the mean using stateful apply"""
         scan = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
 
         initex0 = NumericLiteral(0)
@@ -73,6 +72,14 @@ class OperatorTest(unittest.TestCase):
 
         self.assertEqual(len(result), len(TestQueryFunctions.emp_table))
         self.assertEqual([x[0] for x in result][-1], 37857)
+
+        # test whether we can generate json without errors
+        from myrialang import compile_to_json, MyriaAlgebra
+        from compile import optimize
+        import json
+        json_string = json.dumps(compile_to_json(
+            "", None, optimize([(None, sapply)], MyriaAlgebra, MyriaAlgebra)))
+        assert json_string
 
     def test_cast_to_float(self):
         scan = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)

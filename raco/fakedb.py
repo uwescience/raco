@@ -84,12 +84,8 @@ class FakeDatabase(object):
         child_it = self.evaluate(op.input)
         scheme = op.input.scheme()
 
-        stateScheme = raco.scheme.Scheme()
-        for (name, expr) in op.inits:
-            stateScheme.addAttribute(name, type(expr))
-
         State = collections.namedtuple('State', ['scheme', 'values'])
-        state = State(stateScheme, [expr.evaluate(None, scheme, None)
+        state = State(op.state_scheme, [expr.evaluate(None, scheme, None)
                       for (_, expr) in op.inits])
 
         def make_tuple(input_tuple, state):

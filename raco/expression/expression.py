@@ -186,10 +186,10 @@ class NumericLiteral(Literal):
 
 class AttributeRef(Expression):
     def evaluate(self, _tuple, scheme, state=None):
-        return _tuple[self.get_position(scheme)]
+        return _tuple[self.get_position(scheme, state)]
 
     @abstractmethod
-    def get_position(self, scheme):
+    def get_position(self, scheme, state_scheme=None):
         """Return the position of the referenced attribute in the given scheme"""
 
     def apply(self, f):
@@ -205,7 +205,7 @@ class NamedAttributeRef(AttributeRef):
     def __str__(self):
         return "%s" % (self.name)
 
-    def get_position(self, scheme):
+    def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
 
 class UnnamedAttributeRef(AttributeRef):
@@ -218,7 +218,7 @@ class UnnamedAttributeRef(AttributeRef):
     def __str__(self):
         return "$%s" % (self.position)
 
-    def get_position(self, scheme):
+    def get_position(self, scheme, state_scheme=None):
         return self.position
 
 class UnnamedStateAttributeRef(UnnamedAttributeRef):
@@ -230,6 +230,9 @@ class NamedStateAttributeRef(NamedAttributeRef):
     """Get the state"""
     def evaluate(self, _tuple, scheme, state):
         return state.values[state.scheme.getPosition(self.name)]
+
+    def get_position(self, scheme, state_scheme):
+        return state_scheme.getPosition(self.name)
 
 class UDF(NaryOperator):
     pass
@@ -275,7 +278,7 @@ class TYPE(ZeroaryOperator):
 
 class FLOAT_CAST(UnaryOperator):
     def evaluate(self, _tuple, scheme, state=None):
-        return float(self.input.evaluate(_tuple, scheme))
+        return float(self.input.evaluate(_tuple, scheme, state))
 
 class NEG(UnaryOperator):
     literals = ["-"]

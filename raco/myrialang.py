@@ -33,7 +33,7 @@ def scheme_to_schema(s):
         types = []
     return {"column_types" : types, "column_names" : names}
 
-def compile_expr(op, child_scheme):
+def compile_expr(op, child_scheme, state_scheme):
     ####
     # Put special handling at the top!
     ####
@@ -62,7 +62,7 @@ def compile_expr(op, child_scheme):
     elif isinstance(op, expression.AttributeRef):
         return {
             'type' : 'VARIABLE',
-            'column_idx' : op.get_position(child_scheme)
+            'column_idx' : op.get_position(child_scheme, state_scheme)
         }
     ####
     # Everything below here is compiled automatically
@@ -70,21 +70,21 @@ def compile_expr(op, child_scheme):
     elif isinstance(op, expression.UnaryOperator):
         return {
             'type' : op.opname(),
-            'operand' : compile_expr(op.input, child_scheme)
+            'operand' : compile_expr(op.input, child_scheme, state_scheme)
         }
     elif isinstance(op, expression.BinaryOperator):
         return {
             'type' : op.opname(),
-            'left' : compile_expr(op.left, child_scheme),
-            'right' : compile_expr(op.right, child_scheme)
+            'left' : compile_expr(op.left, child_scheme, state_scheme),
+            'right' : compile_expr(op.right, child_scheme, state_scheme)
         }
     raise NotImplementedError("Compiling expr of class %s" % op.__class__)
 
-def compile_mapping(expr, child_scheme):
+def compile_mapping(expr, child_scheme, state_scheme):
     output_name, root_op = expr
     return {
         'output_name' : output_name,
-        'root_expression_operator' : compile_expr(root_op, child_scheme)
+        'root_expression_operator' : compile_expr(root_op, child_scheme, state_scheme)
     }
 
 class MyriaLanguage(Language):
@@ -344,7 +344,7 @@ class MyriaApply(algebra.Apply, MyriaOperator):
     """Represents a simple apply operator"""
     def compileme(self, resultsym, inputsym):
         child_scheme = self.input.scheme()
-        emitters = [compile_mapping(x, child_scheme) for x in self.emitters]
+        emitters = [compile_mapping(x, child_scheme, None) for x in self.emitters]
         return {
             'op_name' : resultsym,
             'op_type' : 'Apply',
@@ -352,13 +352,14 @@ class MyriaApply(algebra.Apply, MyriaOperator):
             'emit_expressions' : emitters
         }
 
-class MyriaStatefulApply(algebra.Apply, MyriaOperator):
+class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
     """Represents a stateful apply operator"""
     def compileme(self, resultsym, inputsym):
         child_scheme = self.input.scheme()
-        emitters = [compile_mapping(x, child_scheme) for x in self.emitters]
-        inits = [compile_mapping(x, child_scheme) for x in self.inits]
-        updaters = [compile_mapping(x, child_scheme) for x in self.updaters]
+        state_scheme = self.state_scheme
+        emitters = [compile_mapping(x, child_scheme, state_scheme) for x in self.emitters]
+        inits = [compile_mapping(x, child_scheme, state_scheme) for x in self.inits]
+        updaters = [compile_mapping(x, child_scheme, state_scheme) for x in self.updaters]
         return {
             'op_name' : resultsym,
             'op_type' : 'Apply',
@@ -873,8 +874,8 @@ class MyriaAlgebra(object):
         , rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct)
         , rules.OneToOne(algebra.Store, MyriaStore)
         , rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp)
-        , rules.OneToOne(algebra.Apply, MyriaApply)
         , rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply)
+        , rules.OneToOne(algebra.Apply, MyriaApply)
         , rules.OneToOne(algebra.Select, MyriaSelect)
         , rules.OneToOne(algebra.GroupBy, MyriaGroupBy)
         , rules.OneToOne(algebra.Distinct, MyriaDupElim)
