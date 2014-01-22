@@ -950,6 +950,10 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     """This function compiles a logical RA plan to the JSON suitable for
     submission to the Myria REST API server."""
 
+    # raw_query must be a string
+    if not isinstance(raw_query, basestring):
+        raise ValueError("raw query must be a string")
+
     # No catalog supplied; create the empty catalog
     if catalog is None:
         catalog = EmptyCatalog()
