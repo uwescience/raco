@@ -311,7 +311,9 @@ class StatementProcessor(object):
         lp = self.get_logical_plan()
         pps = optimize([('root', lp)], target=MyriaAlgebra,
                        source=LogicalAlgebra)
-        return compile_to_json(lp, lp, pps)
+        # TODO This is not correct. The first argument is the raw query string,
+        # not the string representation of the logical plan
+        return compile_to_json(str(lp), lp, pps)
 
     def dowhile(self, statement_list, termination_ex):
         body_ops = []
