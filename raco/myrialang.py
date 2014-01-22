@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from raco import algebra
 from raco import rules
-from raco import scheme
+from raco.scheme import Scheme
 from raco import expression
 from raco.language import Language
 from raco.utility import emit
@@ -926,7 +926,7 @@ def apply_schema_recursive(operator, catalog):
             # types with "unknown".
             old_sch = operator.scheme()
             new_sch = [(old_sch.getName(i), "unknown") for i in range(len(old_sch))]
-            operator._scheme = scheme.Scheme(new_sch)
+            operator._scheme = Scheme(new_sch)
 
     # Recurse through all children
     for child in operator.children():
@@ -944,13 +944,13 @@ class SymbolFactory(object):
     def __init__(self):
         self.count = 0
 
-    def __get(self):
+    def alloc(self):
         ret = "V{0}".format(self.count)
         self.count += 1
         return ret
 
     def getter(self):
-        return lambda : self.__get()
+        return lambda: self.alloc()
 
 def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     """This function compiles a logical RA plan to the JSON suitable for
@@ -974,7 +974,8 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     # A dictionary mapping each object to a unique, object-dependent symbol.
     # Since we want this to be truly unique for each object instance, even if two
     # objects are equal, we use id(obj) as the key.
-    syms = defaultdict(SymbolFactory().getter())
+    symbol_factory = SymbolFactory()
+    syms = defaultdict(symbol_factory.getter())
 
     def one_fragment(rootOp):
         """Given an operator that is the root of a query fragment/plan, extract
@@ -1046,20 +1047,27 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     # For each IDB, generate a plan that assembles all its fragments and stores
     # them back to a relation named (label).
     for (label, rootOp) in physical_plan:
+
+        # If the root operator is not a Store-type, we need to add one at the
+        # top. We actually do this later, but we want to allocate the new
+        # operator's label first
+        if not isinstance(rootOp, (algebra.Store, algebra.StoreTemp)):
+            store_label = symbol_factory.alloc()
+
         # Sometimes the root operator is not labeled, usually because we were
         # lazy when submitting a manual plan. In this case, generate a new label.
         if not label:
             label = syms[id(rootOp)]
 
-        if isinstance(rootOp, algebra.Store) or isinstance(rootOp, algebra.StoreTemp):
-            # If there is already a store (including MyriaStore) at the top, do
-            # nothing.
-            frag_root = rootOp
-        else:
-            # Otherwise, add an insert at the top to store this relation to a
-            # table named (label).
+        if not isinstance(rootOp, (algebra.Store, algebra.StoreTemp)):
+            # Here we actually create the Store that goes at the root
             frag_root = MyriaStore(plan=rootOp,
                                    relation_key=RelationKey.from_string(label))
+            label = store_label
+            del store_label                 # Aggressive bug detection
+        else:
+            frag_root = rootOp
+
         # Make sure the root is in the symbol dictionary, but rather than using a
         # generated symbol use the IDB label.
         syms[id(frag_root)] = label
