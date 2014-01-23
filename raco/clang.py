@@ -9,8 +9,10 @@ from raco import rules
 from raco.utility import emitlist
 from raco.pipelines import Pipelined
 
-import logging
 from algebra import gensym
+from expression.expression import UnnamedAttributeRef
+
+import logging
 LOG = logging.getLogger(__name__)
 
 import os.path
@@ -933,7 +935,64 @@ class StagedTupleRef:
     code = template % locals()
     return code
   
+class BagUnion(algebra.Union, CCOperator):
+  def produce(self):
+    code_right, decls_right = self.right.produce()
+    
+    code_left, decls_left = self.left.produce()
 
+    return code_left+code_right, decls_right+decls_left
+  
+  def consume(self, t, src):
+    #FIXME: expect a bug: because we have not forced
+    #CCOperators to be immutable (e.g. if self.parent is a HashJoin), then this is problematic
+    return self.parent.consume(t, self)
+  
+class CApply(algebra.Apply, CCOperator):
+  def produce(self):
+    return self.input.produce()
+  
+  def consume(self, t, src):
+    return self.parent.consume(t, self)
+  
+class CProject(algebra.Project, CCOperator):
+  def produce(self):
+    return self.input.produce()
+  
+  def consume(self, t, src):
+    code = ""
+    decls = []
+
+    # always does an assignment to new tuple
+    newtuple = StagedTupleRef(gensym(), self.scheme())
+    decls += [newtuple.generateDefition()]
+    
+    assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
+    """
+    
+    dst_name = newtuple.name
+    dst_type_name = newtuple.getTupleTypename()
+    src_name = t.name
+
+    # declaration of tuple instance
+    code += """%(dst_type_name)s %(dst_name)s;
+    """ % locals()
+    
+    for dst_fieldnum, src_expr in enumerate(self.columnlist):
+      if isinstance(src_expr, UnnamedAttributeRef):
+        src_fieldnum = src_expr.position
+      else:
+        assert False, "Unsupported Project expression"
+      code += assignment_template % locals()
+      
+    innercode, innerdecl = self.parent.consume(newtuple, self) 
+    code+=innercode
+      
+    return code, decls+innerdecl
+      
+
+    
+    
 
 class BasicSelect(algebra.Select, CCOperator):
   def produce(self):
@@ -968,10 +1027,13 @@ class CCAlgebra(object):
     #FileScan,
     MemoryScan,
     BasicSelect,
+    BagUnion,
+    CApply,
+    CProject
   ]
     rules = [
      #rules.OneToOne(algebra.Join,TwoPassHashJoin),
-    rules.removeProject(),
+    #rules.removeProject(),
     rules.CrossProduct2Join(),
 #    FilteringNestedLoopJoinRule(),
 #    FilteringHashJoinChainRule(),
@@ -979,6 +1041,9 @@ class CCAlgebra(object):
     rules.OneToOne(algebra.Select,BasicSelect),
  #   rules.OneToOne(algebra.Select,TwoPassSelect),
     rules.OneToOne(algebra.Scan,MemoryScan),
+    rules.OneToOne(algebra.Apply, CApply),
     rules.OneToOne(algebra.Join,HashJoin),
+    rules.OneToOne(algebra.Project, CProject),
+    rules.OneToOne(algebra.Union,BagUnion) #TODO: obviously breaks semantics
   #  rules.FreeMemory()
   ]
