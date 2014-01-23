@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from raco import algebra
 from raco import rules
-from raco import scheme
+from raco.scheme import Scheme
 from raco import expression
 from raco.language import Language
 from raco.utility import emit
@@ -33,7 +33,7 @@ def scheme_to_schema(s):
         types = []
     return {"column_types" : types, "column_names" : names}
 
-def compile_expr(op, child_scheme):
+def compile_expr(op, child_scheme, state_scheme):
     ####
     # Put special handling at the top!
     ####
@@ -59,10 +59,15 @@ def compile_expr(op, child_scheme):
             'value' : str(op.value),
             'value_type' : 'STRING_TYPE'
         }
+    elif isinstance(op, expression.StateRef):
+        return {
+            'type' : 'STATE',
+            'column_idx' : op.get_position(child_scheme, state_scheme)
+        }
     elif isinstance(op, expression.AttributeRef):
         return {
             'type' : 'VARIABLE',
-            'column_idx' : op.get_position(child_scheme)
+            'column_idx' : op.get_position(child_scheme, state_scheme)
         }
     ####
     # Everything below here is compiled automatically
@@ -70,21 +75,21 @@ def compile_expr(op, child_scheme):
     elif isinstance(op, expression.UnaryOperator):
         return {
             'type' : op.opname(),
-            'operand' : compile_expr(op.input, child_scheme)
+            'operand' : compile_expr(op.input, child_scheme, state_scheme)
         }
     elif isinstance(op, expression.BinaryOperator):
         return {
             'type' : op.opname(),
-            'left' : compile_expr(op.left, child_scheme),
-            'right' : compile_expr(op.right, child_scheme)
+            'left' : compile_expr(op.left, child_scheme, state_scheme),
+            'right' : compile_expr(op.right, child_scheme, state_scheme)
         }
     raise NotImplementedError("Compiling expr of class %s" % op.__class__)
 
-def compile_mapping(expr, child_scheme):
+def compile_mapping(expr, child_scheme, state_scheme):
     output_name, root_op = expr
     return {
         'output_name' : output_name,
-        'root_expression_operator' : compile_expr(root_op, child_scheme)
+        'root_expression_operator' : compile_expr(root_op, child_scheme, state_scheme)
     }
 
 class MyriaLanguage(Language):
@@ -344,12 +349,29 @@ class MyriaApply(algebra.Apply, MyriaOperator):
     """Represents a simple apply operator"""
     def compileme(self, resultsym, inputsym):
         child_scheme = self.input.scheme()
-        exprs = [compile_mapping(x, child_scheme) for x in self.mappings]
+        emitters = [compile_mapping(x, child_scheme, None) for x in self.emitters]
         return {
             'op_name' : resultsym,
             'op_type' : 'Apply',
             'arg_child' : inputsym,
-            'generic_expressions' : exprs
+            'emit_expressions' : emitters
+        }
+
+class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
+    """Represents a stateful apply operator"""
+    def compileme(self, resultsym, inputsym):
+        child_scheme = self.input.scheme()
+        state_scheme = self.state_scheme
+        emitters = [compile_mapping(x, child_scheme, state_scheme) for x in self.emitters]
+        inits = [compile_mapping(x, child_scheme, state_scheme) for x in self.inits]
+        updaters = [compile_mapping(x, child_scheme, state_scheme) for x in self.updaters]
+        return {
+            'op_name' : resultsym,
+            'op_type' : 'StatefulApply',
+            'arg_child' : inputsym,
+            'emit_expressions' : emitters,
+            'initializer_expressions' : inits,
+            'updater_expressions' : updaters
         }
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
@@ -857,6 +879,7 @@ class MyriaAlgebra(object):
         , rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct)
         , rules.OneToOne(algebra.Store, MyriaStore)
         , rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp)
+        , rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply)
         , rules.OneToOne(algebra.Apply, MyriaApply)
         , rules.OneToOne(algebra.Select, MyriaSelect)
         , rules.OneToOne(algebra.GroupBy, MyriaGroupBy)
@@ -903,7 +926,7 @@ def apply_schema_recursive(operator, catalog):
             # types with "unknown".
             old_sch = operator.scheme()
             new_sch = [(old_sch.getName(i), "unknown") for i in range(len(old_sch))]
-            operator._scheme = scheme.Scheme(new_sch)
+            operator._scheme = Scheme(new_sch)
 
     # Recurse through all children
     for child in operator.children():
@@ -921,17 +944,21 @@ class SymbolFactory(object):
     def __init__(self):
         self.count = 0
 
-    def __get(self):
+    def alloc(self):
         ret = "V{0}".format(self.count)
         self.count += 1
         return ret
 
     def getter(self):
-        return lambda : self.__get()
+        return lambda: self.alloc()
 
 def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     """This function compiles a logical RA plan to the JSON suitable for
     submission to the Myria REST API server."""
+
+    # raw_query must be a string
+    if not isinstance(raw_query, basestring):
+        raise ValueError("raw query must be a string")
 
     # No catalog supplied; create the empty catalog
     if catalog is None:
@@ -947,7 +974,8 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     # A dictionary mapping each object to a unique, object-dependent symbol.
     # Since we want this to be truly unique for each object instance, even if two
     # objects are equal, we use id(obj) as the key.
-    syms = defaultdict(SymbolFactory().getter())
+    symbol_factory = SymbolFactory()
+    syms = defaultdict(symbol_factory.getter())
 
     def one_fragment(rootOp):
         """Given an operator that is the root of a query fragment/plan, extract
@@ -1019,20 +1047,27 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     # For each IDB, generate a plan that assembles all its fragments and stores
     # them back to a relation named (label).
     for (label, rootOp) in physical_plan:
+
+        # If the root operator is not a Store-type, we need to add one at the
+        # top. We actually do this later, but we want to allocate the new
+        # operator's label first
+        if not isinstance(rootOp, (algebra.Store, algebra.StoreTemp)):
+            store_label = symbol_factory.alloc()
+
         # Sometimes the root operator is not labeled, usually because we were
         # lazy when submitting a manual plan. In this case, generate a new label.
         if not label:
             label = syms[id(rootOp)]
 
-        if isinstance(rootOp, algebra.Store) or isinstance(rootOp, algebra.StoreTemp):
-            # If there is already a store (including MyriaStore) at the top, do
-            # nothing.
-            frag_root = rootOp
-        else:
-            # Otherwise, add an insert at the top to store this relation to a
-            # table named (label).
+        if not isinstance(rootOp, (algebra.Store, algebra.StoreTemp)):
+            # Here we actually create the Store that goes at the root
             frag_root = MyriaStore(plan=rootOp,
                                    relation_key=RelationKey.from_string(label))
+            label = store_label
+            del store_label                 # Aggressive bug detection
+        else:
+            frag_root = rootOp
+
         # Make sure the root is in the symbol dictionary, but rather than using a
         # generated symbol use the IDB label.
         syms[id(frag_root)] = label

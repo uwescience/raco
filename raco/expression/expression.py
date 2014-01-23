@@ -25,7 +25,7 @@ class Expression(Printable):
         return cls.literals[0]
 
     @abstractmethod
-    def evaluate(self, _tuple, scheme):
+    def evaluate(self, _tuple, scheme, state=None):
         '''Evaluate an expression in the context of a given tuple and schema.
 
         This is used for unit tests written against the fake database.
@@ -172,7 +172,7 @@ class Literal(ZeroaryOperator):
         # TODO: DANGEROUS
         return type(self.value)
 
-    def evaluate(self, _tuple, scheme):
+    def evaluate(self, _tuple, scheme, state=None):
         return self.value
 
     def apply(self, f):
@@ -185,11 +185,12 @@ class NumericLiteral(Literal):
     pass
 
 class AttributeRef(Expression):
-    def evaluate(self, _tuple, scheme):
-        return _tuple[self.get_position(scheme)]
+    def evaluate(self, _tuple, scheme, state=None):
+        return _tuple[self.get_position(
+            scheme, state.scheme if state else None)]
 
     @abstractmethod
-    def get_position(self, scheme):
+    def get_position(self, scheme, state_scheme=None):
         """Return the position of the referenced attribute in the given scheme"""
 
     def apply(self, f):
@@ -205,7 +206,7 @@ class NamedAttributeRef(AttributeRef):
     def __str__(self):
         return "%s" % (self.name)
 
-    def get_position(self, scheme):
+    def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
 
 class UnnamedAttributeRef(AttributeRef):
@@ -218,8 +219,48 @@ class UnnamedAttributeRef(AttributeRef):
     def __str__(self):
         return "$%s" % (self.position)
 
-    def get_position(self, scheme):
+    def get_position(self, scheme, state_scheme=None):
         return self.position
+
+class StateRef(Expression):
+    def evaluate(self, _tuple, scheme, state=None):
+        return _tuple[self.get_position(scheme, state.scheme)]
+
+    @abstractmethod
+    def get_position(self, scheme, state_scheme):
+        """Return the position of the referenced attribute in the given scheme"""
+
+    def apply(self, f):
+        pass
+
+class UnnamedStateAttributeRef(StateRef):
+    def __init__(self, position):
+        self.position = position
+
+    def __repr__(self):
+        return "$%s" % (self.position)
+
+    def __str__(self):
+        return "$%s" % (self.position)
+
+    def evaluate(self, _tuple, scheme, state):
+        return state.values[self.position]
+
+class NamedStateAttributeRef(StateRef):
+    def __init__(self, attributename):
+        self.name = attributename
+
+    def __repr__(self):
+        return "%s" % (self.name)
+
+    def __str__(self):
+        return "%s" % (self.name)
+
+    def evaluate(self, _tuple, scheme, state):
+        return state.values[self.get_position(scheme, state.scheme)]
+
+    def get_position(self, scheme, state_scheme):
+        return state_scheme.getPosition(self.name)
 
 class UDF(NaryOperator):
     pass
@@ -227,41 +268,51 @@ class UDF(NaryOperator):
 class PLUS(BinaryOperator):
     literals = ["+"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) +
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) +
+                self.right.evaluate(_tuple, scheme, state))
 
 class MINUS(BinaryOperator):
     literals = ["-"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) -
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) -
+                self.right.evaluate(_tuple, scheme, state))
 
 class DIVIDE(BinaryOperator):
     literals = ["/"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) /
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) /
+                self.right.evaluate(_tuple, scheme, state))
 
 
 class TIMES(BinaryOperator):
     literals = ["*"]
 
-    def evaluate(self, _tuple, scheme):
-        return (self.left.evaluate(_tuple, scheme) *
-                self.right.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return (self.left.evaluate(_tuple, scheme, state) *
+                self.right.evaluate(_tuple, scheme, state))
+
+class TYPE(ZeroaryOperator):
+    def __init__(self, rtype):
+        self.type = rtype
+
+    def typeof(self):
+        return self.type
+
+    def evaluate(self, _tuple, scheme, state=None):
+        raise Exception("Cannot evaluate this expression operator")
 
 class FLOAT_CAST(UnaryOperator):
-    def evaluate(self, _tuple, scheme):
-        return float(self.input.evaluate(_tuple, scheme))
+    def evaluate(self, _tuple, scheme, state=None):
+        return float(self.input.evaluate(_tuple, scheme, state))
 
 class NEG(UnaryOperator):
     literals = ["-"]
 
-    def evaluate(self, _tuple, scheme):
-        return -1 * self.input.evaluate(_tuple, scheme)
+    def evaluate(self, _tuple, scheme, state=None):
+        return -1 * self.input.evaluate(_tuple, scheme, state)
 
 class Unbox(ZeroaryOperator):
     def __init__(self, relational_expression, field):
@@ -275,7 +326,7 @@ class Unbox(ZeroaryOperator):
         self.relational_expression = relational_expression
         self.field = field
 
-    def evaluate(self, _tuple, scheme):
+    def evaluate(self, _tuple, scheme, state=None):
         """Raise an error on attempted evaluation.
 
         Unbox expressions are not "evaluated" in the usual sense.  Rather, they
