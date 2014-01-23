@@ -18,6 +18,7 @@ Output languages include:
 * A pseudocode algebra
 * A Python algebra
 * A C algebra
+* A Grappa algebra
 
 Users can of course author programs by directly instantiating one of the intermediate or output algebras as well as one of the source languages.
 
