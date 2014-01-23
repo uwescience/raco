@@ -4,6 +4,9 @@ from raco.utility import emit, emitlist, Printable
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 
+import logging
+LOG = logging.getLogger(__name__)
+
 # BEGIN Code to generate variables names
 var_id = 0
 def reset():
@@ -316,6 +319,10 @@ class NaryJoin(NaryOperator):
 """Logical Relational Algebra"""
 
 class Union(BinaryOperator):
+    """Set union."""
+    def __init__(self, left=None, right=None):
+        BinaryOperator.__init__(self, left, right)
+
     def scheme(self):
         """Same semantics as SQL: Assume first schema "wins" and throw an  error if they don't match during evaluation"""
         return self.left.scheme()
