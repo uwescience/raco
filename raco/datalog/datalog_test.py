@@ -29,7 +29,7 @@ class DatalogTestCase(unittest.TestCase):
 
         # test whether we can generate json without errors
         json_string = json.dumps(compile_to_json(
-            "", dlog.logicalplan, dlog.physicalplan))
+            query, dlog.logicalplan, dlog.physicalplan))
         assert json_string
 
         op = dlog.physicalplan[0][1]
