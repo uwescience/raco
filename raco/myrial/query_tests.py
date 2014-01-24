@@ -1104,3 +1104,13 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         with self.assertRaises(raco.myrial.exceptions.InvalidArgumentList):
             self.run_test(query, collections.Counter())
+
+    def test_undefined_variable_udf(self):
+        query = """
+        DEF Foo(x, y): cos(x) * sin(z);
+        out = [FROM SCAN(%s) AS X EMIT Foo(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.UndefinedVariableException):
+            self.run_test(query, collections.Counter())
