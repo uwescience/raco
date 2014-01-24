@@ -39,6 +39,13 @@ class Expression(Printable):
         """
         yield f(self)
 
+    def walk(self):
+        """Visit the nodes in an expression tree.
+
+        The return value is an iterator over the tree nodes.  The order is unspecified.
+        """
+        yield self
+
     @abstractmethod
     def apply(self, f):
         """Replace children with the result of a function"""
@@ -72,6 +79,9 @@ class ZeroaryOperator(Expression):
     def apply(self, f):
         pass
 
+    def walk(self):
+        yield self
+
 class UnaryOperator(Expression):
     def __init__(self, input):
         self.input = input
@@ -96,6 +106,10 @@ class UnaryOperator(Expression):
     def apply(self, f):
         self.input = f(self.input)
 
+    def walk(self):
+        yield self
+        for ex in self.input.walk():
+            yield ex
 
 class BinaryOperator(Expression):
     def __init__(self, left, right):
@@ -144,6 +158,13 @@ class BinaryOperator(Expression):
             self.right.rightoffset(offset)
         else:
             self.right.add_offset(offset)
+
+    def walk(self):
+        yield self
+        for ex in self.left.walk():
+            yield ex
+        for ex in self.right.walk():
+            yield ex
 
 class NaryOperator(Expression):
     pass
@@ -195,6 +216,9 @@ class AttributeRef(Expression):
 
     def apply(self, f):
         pass
+
+    def walk(self):
+        yield self
 
 class NamedAttributeRef(AttributeRef):
     def __init__(self, attributename):
