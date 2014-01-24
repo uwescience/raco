@@ -103,12 +103,12 @@ class Parser(object):
     @staticmethod
     def p_function_with_args(p):
         '''function : DEF ID LPAREN function_arg_list RPAREN COLON sexpr SEMI'''
-        add_function(p[2], p[4], p[7])
+        Parser.add_function(p, p[2], p[4], p[7])
 
     @staticmethod
     def p_function_without_args(p):
         '''function : DEF ID LPAREN RPAREN COLON sexpr SEMI'''
-        add_function(p[2], [], p[6])
+        Parser.add_function(p, p[2], [], p[6])
 
     @staticmethod
     def p_function_arg_list(p):

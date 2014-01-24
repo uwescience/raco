@@ -1081,3 +1081,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         with self.assertRaises(raco.myrial.exceptions.NoSuchFunctionException):
             self.run_test(query, collections.Counter())
+
+    def test_duplicate_udf(self):
+        query = """
+        DEF foo(x, y): x + y;
+        DEF bar(): 7;
+        DEF foo(x): -1 * x;
+
+        out = [FROM SCAN(%s) AS X EMIT foo(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.DuplicateFunctionDefinitionException):
+            self.run_test(query, collections.Counter())
