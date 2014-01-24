@@ -52,14 +52,10 @@ class Expression(Printable):
 
     def add_offset(self, offset):
         """Add a constant offset to every positional reference in this tree"""
-        def doit(self):
-            if isinstance(self, UnnamedAttributeRef):
-                self.position += offset
-            return self
 
-        # We have to manually walk the postorder because otherwise nothing ever
-        # .. gets executed. Stupid generators.
-        list(self.postorder(doit))
+        for ex in self.walk():
+            if isinstance(ex, UnnamedAttributeRef):
+                ex.position += offset
 
 class ZeroaryOperator(Expression):
     def __init__(self):
