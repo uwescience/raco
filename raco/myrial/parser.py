@@ -20,6 +20,9 @@ JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 SelectFromWhere = collections.namedtuple(
     'SelectFromWhere', ['distinct', 'select','from_', 'where', 'limit'])
 
+# A user-defined function
+Function = collections.namedtuple('Function', ['args', 'sexpr'])
+
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': sexpr.PLUS,
@@ -71,6 +74,9 @@ class Parser(object):
             ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
         )
 
+        # mapping from function name to Function tuple
+        self.functions = {}
+
     # A myrial programs consists of 1 or more "translation units", each of which is a
     # function or a statement.
     @staticmethod
@@ -89,14 +95,20 @@ class Parser(object):
         p[0] = p[1]
 
     @staticmethod
+    def add_function(p, name, args, sexpr):
+        if name in p.functions:
+            raise DuplicateFunctionDefinitionException(name, p.lineno)
+        p.functions[name] = Function(args, sexpr)
+
+    @staticmethod
     def p_function_with_args(p):
         '''function : DEF ID LPAREN function_arg_list RPAREN COLON sexpr SEMI'''
-        p[0] = ('FUNCTION', p[2], p[4], p[7])
+        add_function(p[2], p[4], p[7])
 
     @staticmethod
     def p_function_without_args(p):
         '''function : DEF ID LPAREN RPAREN COLON sexpr SEMI'''
-        p[0] = ('FUNCTION', p[2], [], p[6])
+        add_function(p[2], [], p[6])
 
     @staticmethod
     def p_function_arg_list(p):

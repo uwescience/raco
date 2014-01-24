@@ -22,5 +22,14 @@ class MyrialScanException(MyrialCompileException):
         return 'Illegal token string %s on line %d' % (self.token.value,
                                                        self.token.lineno)
 
+class DuplicateFunctionDefinitionException(MyrialCompileException):
+    def __init__(self, funcname, lineno):
+        self.funcname = funcname
+        self.lineno = lineno
+
+    def __str__self(self):
+        return 'Duplicate function definition for %s on line %d' % (self.funcname,
+                                                                    self.lineno)
+
 class ColumnIndexOutOfBounds(Exception):
     pass
