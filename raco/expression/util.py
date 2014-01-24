@@ -59,3 +59,15 @@ def binary_ops():
 
 def isaggregate(expr):
     return any(expr.postorder(lambda x: isinstance(x, AggregateExpression)))
+
+def udf_undefined_vars(expr, vars):
+    """Return a list of undefined variables in a UDF.
+
+    :param expr: An expression corresponding to a UDF.  Variable references are identified
+    by instances of NamedAttributeRef.
+
+    :param vars: A list of variables in the argument list to the function.
+    :type vars: list of strings
+    """
+    return [ex.name for ex in expr.walk()
+            if isinstance(ex, NamedAttributeRef) and ex.name not in vars]

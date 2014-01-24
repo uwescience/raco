@@ -50,5 +50,15 @@ class InvalidArgumentList(MyrialCompileException):
         return "Incorrect number of arguments for %s(%s) on line %d" % (
             self.funcname, ','.join(expected_args), lineno)
 
+class UndefinedVariableException(MyrialCompileException):
+    def __init__(self, funcname, var, lineno):
+        self.funcname = funcname
+        self.var = var
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Undefined variable %s in function %s at line %d" % (
+            self.var, self.funcname, self.lineno)
+
 class ColumnIndexOutOfBounds(Exception):
     pass

@@ -95,9 +95,12 @@ class Parser(object):
         p[0] = p[1]
 
     @staticmethod
-    def add_function(p, name, args, sexpr):
+    def add_function(p, name, args, _sexpr):
         if name in Parser.functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno)
+        undefined = sexpr.udf_undefined_vars(_sexpr, args)
+        if undefined:
+            raise UndefinedVariableException(name, undefined[0], p.lineno)
         Parser.functions[name] = Function(args, sexpr)
 
     @staticmethod
@@ -108,7 +111,7 @@ class Parser(object):
     @staticmethod
     def p_function_without_args(p):
         '''function : DEF ID LPAREN RPAREN COLON sexpr SEMI'''
-        Parser.add_function(p, p[2], [], p[6])
+        Parser.add_function(p,p[2], [], p[6])
 
     @staticmethod
     def p_function_arg_list(p):
