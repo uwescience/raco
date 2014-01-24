@@ -1,9 +1,11 @@
-
 import unittest
+import json
 
 import raco.fakedb
 from raco import RACompiler
 from raco.language import MyriaAlgebra
+from myrialang import compile_to_json
+
 
 class DatalogTestCase(unittest.TestCase):
 
@@ -24,6 +26,11 @@ class DatalogTestCase(unittest.TestCase):
                       eliminate_common_subexpressions=False)
 
         #print dlog.physicalplan
+
+        # test whether we can generate json without errors
+        json_string = json.dumps(compile_to_json(
+            "", dlog.logicalplan, dlog.physicalplan))
+        assert json_string
 
         op = dlog.physicalplan[0][1]
         output_op = raco.algebra.StoreTemp('__OUTPUT__', op)
