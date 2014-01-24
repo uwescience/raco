@@ -34,7 +34,7 @@ class Pipelined(object):
       return
     
     @abc.abstractmethod
-    def consume(self):
+    def consume(self, inputTuple, fromOp):
       """Denotation for consuming a tuple"""
       return
 

@@ -8,9 +8,10 @@ from raco.language import Language
 from raco import rules
 from raco.utility import emitlist
 from raco.pipelines import Pipelined
+from raco.clangcommon import StagedTupleRef
+from raco import clangcommon
 
 from algebra import gensym
-from expression.expression import UnnamedAttributeRef
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ initialize, querydef_init, finalize = base_template.split("// SPLIT ME HERE")
 twopass_select_template = readtemplate("precount_select.template")
 hashjoin_template = readtemplate("hashjoin.template")
 filteringhashjoin_template = ""
-#filtering_nestedloop_join_chain_template = readtemplate("filtering_nestedloop_join_chain.template")
+filtering_nestedloop_join_chain_template = ""#readtemplate("filtering_nestedloop_join_chain.template")
 ascii_scan_template = readtemplate("ascii_scan.template")
 binary_scan_template = readtemplate("binary_scan.template")
 
@@ -165,20 +166,6 @@ class FileScan(algebra.Scan):
       return "%s(%s)" % (self.opname(), self.relation_key)
 
 
-def getTaggingFunc(t):
-  """ 
-  Return a visitor function that will tag 
-  UnnamedAttributes with the provided TupleRef
-  """
-
-  def tagAttributes(expr):
-    # TODO non mutable would be nice
-    if isinstance(expr, expression.UnnamedAttributeRef):
-      expr.tupleref = t
-
-    return None
-  
-  return tagAttributes
 
 
 class TwoPassSelect(algebra.Select, CCOperator):
@@ -842,179 +829,14 @@ class LeftDeepFilteringJoinChainRule(rules.Rule):
         else:
             return expr
       
-# TODO:
-# The following is actually a staged materialized tuple ref.
-# we should also add a staged reference tuple ref that just has relationsymbol and row  
-class StagedTupleRef:
-  nextid = 0
   
-  @classmethod
-  def genname(cls):
-    x = cls.nextid
-    cls.nextid+=1
-    return "t_%03d" % x
+class CUnionAll(clangcommon.CUnionAll, CCOperator): pass
+
+class CApply(clangcommon.CApply, CCOperator): pass
   
-  def __init__(self, relsym, scheme):
-    self.name = self.genname()
-    self.relsym = relsym
-    self.scheme = scheme
-    self.__typename = None
-  
-  def getTupleTypename(self):
-    if self.__typename==None:
-      fields = ""
-      relsym = self.relsym
-      for i in range(0, len(self.scheme)):
-        fieldnum = i
-        fields += "_%(fieldnum)s" % locals()
-        
-      self.__typename = "MaterializedTupleRef_%(relsym)s%(fields)s" % locals()
-    
-    return self.__typename
+class CProject(clangcommon.CProject, CCOperator): pass
 
-    
-  def generateDefition(self):
-    fielddeftemplate = """int64_t _fields[%(numfields)s];
-    """
-    copytemplate = """_fields[%(fieldnum)s] = rel->relation[row*rel->fields + %(fieldnum)s];
-    """
-    template = """
-          // can be just the necessary schema
-  class %(tupletypename)s {
-    private:
-    %(fielddefs)s
-    
-    public:
-    int64_t get(int field) const {
-      return _fields[field];
-    }
-    
-    void set(int field, int64_t val) {
-      _fields[field] = val;
-    }
-    
-    int numFields() const {
-      return %(numfields)s;
-    }
-    
-    %(tupletypename)s (relationInfo * rel, int row) {
-      %(copies)s
-    }
-    
-    %(tupletypename)s () {
-      // no-op
-    }
-    
-    std::ostream& dump(std::ostream& o) const {
-      o << "Materialized(";
-      for (int i=0; i<numFields(); i++) {
-        o << _fields[i] << ",";
-      }
-      o << ")";
-      return o;
-    }
-  };
-  std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
-    return t.dump(o);
-  }
-
-  """
-    getcases = ""
-    setcases = ""
-    copies = ""
-    numfields = len(self.scheme)
-    fielddefs = fielddeftemplate % locals()
-    # TODO: actually list the trimmed schema offsets
-    for i in range(0, numfields):
-      fieldnum = i
-      copies += copytemplate % locals()
-
-    tupletypename = self.getTupleTypename()
-    relsym = self.relsym
-      
-    code = template % locals()
-    return code
-  
-class BagUnion(algebra.Union, CCOperator):
-  def produce(self):
-    code_right, decls_right = self.right.produce()
-    
-    code_left, decls_left = self.left.produce()
-
-    return code_left+code_right, decls_right+decls_left
-  
-  def consume(self, t, src):
-    #FIXME: expect a bug: because we have not forced
-    #CCOperators to be immutable (e.g. if self.parent is a HashJoin), then this is problematic
-    return self.parent.consume(t, self)
-  
-class CApply(algebra.Apply, CCOperator):
-  def produce(self):
-    return self.input.produce()
-  
-  def consume(self, t, src):
-    return self.parent.consume(t, self)
-  
-class CProject(algebra.Project, CCOperator):
-  def produce(self):
-    return self.input.produce()
-  
-  def consume(self, t, src):
-    code = ""
-    decls = []
-
-    # always does an assignment to new tuple
-    newtuple = StagedTupleRef(gensym(), self.scheme())
-    decls += [newtuple.generateDefition()]
-    
-    assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
-    """
-    
-    dst_name = newtuple.name
-    dst_type_name = newtuple.getTupleTypename()
-    src_name = t.name
-
-    # declaration of tuple instance
-    code += """%(dst_type_name)s %(dst_name)s;
-    """ % locals()
-    
-    for dst_fieldnum, src_expr in enumerate(self.columnlist):
-      if isinstance(src_expr, UnnamedAttributeRef):
-        src_fieldnum = src_expr.position
-      else:
-        assert False, "Unsupported Project expression"
-      code += assignment_template % locals()
-      
-    innercode, innerdecl = self.parent.consume(newtuple, self) 
-    code+=innercode
-      
-    return code, decls+innerdecl
-      
-
-    
-    
-
-class BasicSelect(algebra.Select, CCOperator):
-  def produce(self):
-    return self.input.produce()
-    
-  def consume(self, t, src):
-    basic_select_template = """if (%(conditioncode)s) {
-      %(inner_code_compiled)s
-    }
-    """
-
-    # tag the attributes with references
-    # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
-    [_ for _ in self.condition.postorder(getTaggingFunc(t))]
-    
-    # compile the predicate into code
-    conditioncode = CC.compile_boolean(self.condition)
-    
-    inner_code_compiled, inner_decls = self.parent.consume(t, self)
-    
-    code = basic_select_template % locals()
-    return code, inner_decls
+class CSelect(clangcommon.CSelect, CCOperator): pass
     
 
 class CCAlgebra(object):
@@ -1022,14 +844,15 @@ class CCAlgebra(object):
 
     operators = [
     #TwoPassHashJoin,
-    FilteringNestedLoopJoin,
-    TwoPassSelect,
+    #FilteringNestedLoopJoin,
+    #TwoPassSelect,
     #FileScan,
     MemoryScan,
-    BasicSelect,
-    BagUnion,
+    CSelect,
+    CUnionAll,
     CApply,
-    CProject
+    CProject,
+    HashJoin
   ]
     rules = [
      #rules.OneToOne(algebra.Join,TwoPassHashJoin),
@@ -1038,12 +861,12 @@ class CCAlgebra(object):
 #    FilteringNestedLoopJoinRule(),
 #    FilteringHashJoinChainRule(),
 #    LeftDeepFilteringJoinChainRule(),
-    rules.OneToOne(algebra.Select,BasicSelect),
+    rules.OneToOne(algebra.Select,CSelect),
  #   rules.OneToOne(algebra.Select,TwoPassSelect),
     rules.OneToOne(algebra.Scan,MemoryScan),
     rules.OneToOne(algebra.Apply, CApply),
     rules.OneToOne(algebra.Join,HashJoin),
     rules.OneToOne(algebra.Project, CProject),
-    rules.OneToOne(algebra.Union,BagUnion) #TODO: obviously breaks semantics
+    rules.OneToOne(algebra.Union,CUnionAll) #TODO: obviously breaks semantics
   #  rules.FreeMemory()
   ]

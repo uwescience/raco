@@ -10,7 +10,7 @@ def comment(s):
   return "/*\n%s\n*/\n" % str(s)
 
 def testEmit(query, name):
-    LOG.info("compiling %s", query)
+    LOG.info("compiling %s: %s", name, query)
 
     # Create a compiler object
     dlog = RACompiler()
@@ -46,6 +46,25 @@ queries = [
 ("A(s1,s2,s3) :- T3(s1,s2,s3), R2(s3,s4), s1<s2, s4<100", "select_then_join"),
 ("Q3a(article) :- sp2bench_1m(article, 'rdf:type', 'bench:Article'), sp2bench_1m(article, 'swrc:pages', value)", "sp2_Q3a"),
 ("Q1(yr) :- sp2bench_1m(journal, 'rdf:type', 'bench:Journal'), sp2bench_1m(journal, 'dc:title', 'Journal 1 (1940)'), sp2bench_1m(journal, 'dcterms:issued', yr)", "sp2_Q1"),
+
+("""A(s1) :- T1(s1)
+    A(s1) :- R1(s1)""", "union"),
+
+("A(y,x) :- R2(x,y)", "swap"),
+
+("""A(x,y) :- T2(x,y)
+    B(a) :- A(z,a)""", "basic_apply"),
+
+("""A(x,z) :- T3(x,y,z), y < 4
+    B(x,t) :- A(x,z), A(z,t)""", "apply_and_self_join"),
+
+("""A(s1,s2) :- T2(s1,s2)
+    A(s1,s2) :- R2(s1,s3), T2(s3,s2)""", "union_of_join"),
+
+("""A(s1,s2) :- T1(s1,s2)
+    A(s1,s2) :- R1(s1,s2)
+    B(s1) :- A(s1,s2), S1(s1)""", "union_then_join"),
+
 #("""A(s1,s2) :- R2(s1,s2)
 #    A(s1,s2) :- R2(s1,s3),A(s3,s2)""", "reachable"),
 #("A(a,b,c) :- R(a,b), S(b,c), T(c,a), a<b, b<c", "increasing_triangles"),

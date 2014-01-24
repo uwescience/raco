@@ -8,9 +8,12 @@ from raco.language import Language
 from raco import rules
 from raco.utility import emitlist
 from raco.pipelines import Pipelined
+from raco.clangcommon import StagedTupleRef
+from raco import clangcommon
+
+from algebra import gensym
 
 import logging
-from algebra import gensym
 LOG = logging.getLogger(__name__)
 
 import os.path
@@ -23,6 +26,23 @@ def readtemplate(fname):
 
 base_template = readtemplate("base_query.template")
 initialize, querydef_init, finalize = base_template.split("// SPLIT ME HERE")
+
+class GrappaStagedTupleRef(StagedTupleRef):
+  def __additionalDefinitionCode__(self):
+    numfields = len(self.scheme)
+    
+    # hack to get tuples to divide evenly into grappas BLOCK_SIZE
+    grappa_block_size = 64 # sizeof(int64_t)*8
+    padding_map = { 1: 0, 2: 0, 3: 1, 4: 0, 5: 3, 6: 2, 7: 1, 8: 0}
+    assert numfields <= 8
+    padding_amt = padding_map[numfields]
+    if padding_amt > 0: padding = """// pad to grappa BLOCK_SIZE 
+    private:
+    char _padding[8*%s];"""%padding_map[numfields]
+    else: padding = ""
+    
+    return padding
+    
 
 class GrappaLanguage(Language):
     @classmethod
@@ -127,7 +147,7 @@ forall_localized( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tu
 
     rel_decl_template = """Relation<%(tuple_type)s> %(resultsym)s;"""
     
-    stagedTuple = StagedTupleRef(inputsym, self.scheme())
+    stagedTuple = GrappaStagedTupleRef(inputsym, self.scheme())
 
     tuple_type_def = stagedTuple.generateDefition()
     tuple_type = stagedTuple.getTupleTypename()
@@ -234,7 +254,7 @@ class HashJoin(algebra.Join, GrappaOperator):
       raise ValueError(msg)
     
     self._hashname = self.__genHashName__()
-    self.outTuple = StagedTupleRef(gensym(), self.scheme())
+    self.outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
     
     self.right.childtag = "right"
     code_right, decls_right = self.right.produce()
@@ -290,7 +310,7 @@ class HashJoin(algebra.Join, GrappaOperator):
       right_tuple_name = self.rightTuple.name
 
       # or could make up another name
-      #right_tuple_name = StagedTupleRef.genname() 
+      #right_tuple_name = GrappaStagedTupleRef.genname() 
 
       out_tuple_type = self.outTuple.getTupleTypename()
       out_tuple_name =self.outTuple.name
@@ -358,133 +378,19 @@ if (%(leftcondition)s) {
 #  def fire(self, expr):
 #    for ref in noReferences(expr)
 
-      
-# TODO:
-# The following is actually a staged materialized tuple ref.
-# we should also add a staged reference tuple ref that just has relationsymbol and row  
-class StagedTupleRef:
-  nextid = 0
-  
-  @classmethod
-  def genname(cls):
-    x = cls.nextid
-    cls.nextid+=1
-    return "t_%03d" % x
-  
-  def __init__(self, relsym, scheme):
-    self.name = self.genname()
-    self.relsym = relsym
-    self.scheme = scheme
-    self.__typename = None
-  
-  def getTupleTypename(self):
-    if self.__typename==None:
-      fields = ""
-      relsym = self.relsym
-      for i in range(0, len(self.scheme)):
-        fieldnum = i
-        fields += "_%(fieldnum)s" % locals()
-        
-      self.__typename = "MaterializedTupleRef_%(relsym)s%(fields)s" % locals()
-    
-    return self.__typename
 
-    
-  def generateDefition(self):
-    fielddeftemplate = """int64_t _fields[%(numfields)s];
-    """
-    copytemplate = """_fields[%(fieldnum)s] = rel->relation[row*rel->fields + %(fieldnum)s];
-    """
-    template = """
-          // can be just the necessary schema
-  class %(tupletypename)s {
-    private:
-    %(fielddefs)s
-    %(padding)s
-    
-    public:
-    int64_t get(int field) const {
-      return _fields[field];
-    }
-    
-    void set(int field, int64_t val) {
-      _fields[field] = val;
-    }
-    
-    int numFields() const {
-      return %(numfields)s;
-    }
-    
-    %(tupletypename)s (std::vector<int64_t> vals) {
-      for (int i=0; i<vals.size(); i++) _fields[i] = vals[i];
-    }
-    
-    %(tupletypename)s () {
-      // no-op
-    }
-    
-    std::ostream& dump(std::ostream& o) const {
-      o << "Materialized(";
-      for (int i=0; i<numFields(); i++) {
-        o << _fields[i] << ",";
-      }
-      o << ")";
-      return o;
-    }
-  };
-  std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
-    return t.dump(o);
-  }
+# Basic selection like serial C++      
+class GrappaSelect(clangcommon.CSelect, GrappaOperator): pass
 
-  """
-    getcases = ""
-    setcases = ""
-    copies = ""
-    numfields = len(self.scheme)
-    fielddefs = fielddeftemplate % locals()
-    
-    # hack to get tuples to divide evenly into grappas BLOCK_SIZE
-    grappa_block_size = 64 # sizeof(int64_t)*8
-    padding_map = { 1: 0, 2: 0, 3: 1, 4: 0, 5: 3, 6: 2, 7: 1, 8: 0}
-    assert numfields <= 8
-    padding_amt = padding_map[numfields]
-    if padding_amt > 0: padding = """// pad to grappa BLOCK_SIZE 
-    char _padding[8*%s];"""%padding_map[numfields]
-    else: padding = ""
-    
-    # TODO: actually list the trimmed schema offsets
-    for i in range(0, numfields):
-      fieldnum = i
-      copies += copytemplate % locals()
+# Basic apply like serial C++
+class GrappaApply(clangcommon.CApply, GrappaOperator): pass
 
-    tupletypename = self.getTupleTypename()
-    relsym = self.relsym
-      
-    code = template % locals()
-    return code
-  
+# Basic duplication based bag union like serial C++
+class GrappaUnionAll(clangcommon.CUnionAll, GrappaOperator): pass
 
+# Basic materialized copy based project like serial C++
+class GrappaProject(clangcommon.CProject, GrappaOperator): pass
 
-class BasicSelect(algebra.Select, GrappaOperator):
-  def produce(self):
-    return self.input.produce()
-    
-  def consume(self, t, src):
-    basic_select_template = """if (%(conditioncode)s) {
-%(inner_code_compiled)s
-}"""
-
-    # tag the attributes with references
-    # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
-    [_ for _ in self.condition.postorder(getTaggingFunc(t))]
-    
-    # compile the predicate into code
-    conditioncode = GrappaLanguage.compile_boolean(self.condition)
-    
-    inner_code_compiled, inner_decls = self.parent.consume(t, self)
-    
-    code = basic_select_template % locals()
-    return code, inner_decls
     
 class swapJoinSides(rules.Rule):
   # swaps the inputs to a join
@@ -500,20 +406,21 @@ class GrappaAlgebra(object):
     operators = [
     #FileScan,
     MemoryScan,
-    BasicSelect,
+    GrappaSelect,
+    GrappaApply,
+    GrappaProject,
+    GrappaUnionAll,
     HashJoin
   ]
     rules = [
-     #rules.OneToOne(algebra.Join,TwoPassHashJoin),
     rules.removeProject(),
     rules.CrossProduct2Join(),
     #swapJoinSides(),
-#    FilteringNestedLoopJoinRule(),
-#    FilteringHashJoinChainRule(),
-#    LeftDeepFilteringJoinChainRule(),
-    rules.OneToOne(algebra.Select,BasicSelect),
- #   rules.OneToOne(algebra.Select,TwoPassSelect),
+    rules.OneToOne(algebra.Select,GrappaSelect),
+    rules.OneToOne(algebra.Apply, GrappaApply),
     rules.OneToOne(algebra.Scan,MemoryScan),
     rules.OneToOne(algebra.Join,HashJoin),
+    rules.OneToOne(algebra.Project, GrappaProject),
+    rules.OneToOne(algebra.Union,GrappaUnionAll) #TODO: obviously breaks semantics
   #  rules.FreeMemory()
   ]
