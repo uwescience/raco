@@ -8,6 +8,7 @@ from raco.language import Language
 from raco import rules
 from raco.utility import emitlist
 from raco.pipelines import Pipelined
+from raco.clangutils import StagedTupleRef
 
 from algebra import gensym
 from expression.expression import UnnamedAttributeRef
@@ -30,7 +31,7 @@ initialize, querydef_init, finalize = base_template.split("// SPLIT ME HERE")
 twopass_select_template = readtemplate("precount_select.template")
 hashjoin_template = readtemplate("hashjoin.template")
 filteringhashjoin_template = ""
-#filtering_nestedloop_join_chain_template = readtemplate("filtering_nestedloop_join_chain.template")
+filtering_nestedloop_join_chain_template = ""#readtemplate("filtering_nestedloop_join_chain.template")
 ascii_scan_template = readtemplate("ascii_scan.template")
 binary_scan_template = readtemplate("binary_scan.template")
 
@@ -842,98 +843,6 @@ class LeftDeepFilteringJoinChainRule(rules.Rule):
         else:
             return expr
       
-# TODO:
-# The following is actually a staged materialized tuple ref.
-# we should also add a staged reference tuple ref that just has relationsymbol and row  
-class StagedTupleRef:
-  nextid = 0
-  
-  @classmethod
-  def genname(cls):
-    x = cls.nextid
-    cls.nextid+=1
-    return "t_%03d" % x
-  
-  def __init__(self, relsym, scheme):
-    self.name = self.genname()
-    self.relsym = relsym
-    self.scheme = scheme
-    self.__typename = None
-  
-  def getTupleTypename(self):
-    if self.__typename==None:
-      fields = ""
-      relsym = self.relsym
-      for i in range(0, len(self.scheme)):
-        fieldnum = i
-        fields += "_%(fieldnum)s" % locals()
-        
-      self.__typename = "MaterializedTupleRef_%(relsym)s%(fields)s" % locals()
-    
-    return self.__typename
-
-    
-  def generateDefition(self):
-    fielddeftemplate = """int64_t _fields[%(numfields)s];
-    """
-    copytemplate = """_fields[%(fieldnum)s] = rel->relation[row*rel->fields + %(fieldnum)s];
-    """
-    template = """
-          // can be just the necessary schema
-  class %(tupletypename)s {
-    private:
-    %(fielddefs)s
-    
-    public:
-    int64_t get(int field) const {
-      return _fields[field];
-    }
-    
-    void set(int field, int64_t val) {
-      _fields[field] = val;
-    }
-    
-    int numFields() const {
-      return %(numfields)s;
-    }
-    
-    %(tupletypename)s (relationInfo * rel, int row) {
-      %(copies)s
-    }
-    
-    %(tupletypename)s () {
-      // no-op
-    }
-    
-    std::ostream& dump(std::ostream& o) const {
-      o << "Materialized(";
-      for (int i=0; i<numFields(); i++) {
-        o << _fields[i] << ",";
-      }
-      o << ")";
-      return o;
-    }
-  };
-  std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
-    return t.dump(o);
-  }
-
-  """
-    getcases = ""
-    setcases = ""
-    copies = ""
-    numfields = len(self.scheme)
-    fielddefs = fielddeftemplate % locals()
-    # TODO: actually list the trimmed schema offsets
-    for i in range(0, numfields):
-      fieldnum = i
-      copies += copytemplate % locals()
-
-    tupletypename = self.getTupleTypename()
-    relsym = self.relsym
-      
-    code = template % locals()
-    return code
   
 class BagUnion(algebra.Union, CCOperator):
   def produce(self):
@@ -946,6 +855,7 @@ class BagUnion(algebra.Union, CCOperator):
   def consume(self, t, src):
     #FIXME: expect a bug: because we have not forced
     #CCOperators to be immutable (e.g. if self.parent is a HashJoin), then this is problematic
+    # For now HashJoin is just lucky
     return self.parent.consume(t, self)
   
 class CApply(algebra.Apply, CCOperator):
