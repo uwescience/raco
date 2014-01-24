@@ -55,6 +55,9 @@ unary_funcs = {
 }
 
 class Parser(object):
+    # mapping from function name to Function tuple
+    functions = {}
+
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
@@ -73,9 +76,6 @@ class Parser(object):
             ('left', 'TIMES', 'DIVIDE'),
             ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
         )
-
-        # mapping from function name to Function tuple
-        self.functions = {}
 
     # A myrial programs consists of 1 or more "translation units", each of which is a
     # function or a statement.
@@ -96,9 +96,9 @@ class Parser(object):
 
     @staticmethod
     def add_function(p, name, args, sexpr):
-        if name in p.functions:
+        if name in Parser.functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno)
-        p.functions[name] = Function(args, sexpr)
+        Parser.functions[name] = Function(args, sexpr)
 
     @staticmethod
     def p_function_with_args(p):
@@ -480,6 +480,33 @@ class Parser(object):
         p[0] = sexpr.NOT(p[2])
 
     @staticmethod
+    def resolve_udf(p, name, args):
+        if not name in Parser.functions:
+            raise NoSuchFunctionException(name, p.lineno)
+        func = Parser.functions[name]
+        if len(func.args) != len(args):
+            raise InvalidArgumentList(name, func.args, p.lineno)
+        return sexpr.resolve_udf(func.sexpr, func.args, args)
+
+    @staticmethod
+    def p_sexpr_udf_k_args(p):
+        'sexpr : ID LPAREN udf_arg_list RPAREN'
+        p[0] = Parser.resolve_udf(p, p[1], p[3])
+
+    @staticmethod
+    def p_sexpr_udf_zero_args(p):
+        'sexpr : ID LPAREN RPAREN'
+        p[0] = Parser.resolve_udf(p, p[1], [])
+
+    @staticmethod
+    def p_udf_arg_list(p):
+        '''udf_arg_list : udf_arg_list COMMA sexpr
+                        | sexpr'''
+        if len(p) == 4:
+            p[0] = p[1] + [p[3]]
+        else:
+            p[0] = [p[1]]
+    @staticmethod
     def p_sexpr_countall(p):
         'sexpr : COUNTALL LPAREN RPAREN'
         p[0] = sexpr.COUNTALL()
@@ -540,6 +567,7 @@ class Parser(object):
 
     def parse(self, s):
         scanner.lexer.lineno = 1
+        Parser.functions = {}
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         return parser.parse(s, lexer=scanner.lexer, tracking=True)
 
