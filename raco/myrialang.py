@@ -180,7 +180,7 @@ class MyriaEmptyRelation(algebra.EmptyRelation, MyriaOperator):
 
 class MyriaSelect(algebra.Select, MyriaOperator):
     def compileme(self, resultsym, inputsym):
-        pred = compile_expr(self.condition, self.scheme())
+        pred = compile_expr(self.condition, self.scheme(), None)
         return {
           "op_name" : resultsym,
           "op_type" : "Filter",
