@@ -1094,3 +1094,13 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         with self.assertRaises(raco.myrial.exceptions.DuplicateFunctionDefinitionException):
             self.run_test(query, collections.Counter())
+
+    def test_invalid_argument_udf(self):
+        query = """
+        DEF Foo(x, y): cos(x) * sin(y);
+        out = [FROM SCAN(%s) AS X EMIT Foo(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.InvalidArgumentList):
+            self.run_test(query, collections.Counter())
