@@ -40,7 +40,7 @@ binops = {
 }
 
 # Mapping from source symbols to raco.expression.UnaryOperator classes
-unops = {
+unary_funcs = {
     'ABS' : sexpr.ABS,
     'CEIL' : sexpr.CEIL,
     'COS' : sexpr.COS,
@@ -428,7 +428,7 @@ class Parser(object):
         p[0] = sexpr.TIMES(sexpr.NumericLiteral(-1), p[2])
 
     @staticmethod
-    def p_sexpr_unop(p):
+    def p_sexpr_unary_function(p):
         '''sexpr : ABS LPAREN sexpr RPAREN
                    | CEIL LPAREN sexpr RPAREN
                    | COS LPAREN sexpr RPAREN
@@ -437,7 +437,7 @@ class Parser(object):
                    | SIN LPAREN sexpr RPAREN
                    | SQRT LPAREN sexpr RPAREN
                    | TAN LPAREN sexpr RPAREN'''
-        p[0] = unops[p[1]](p[3])
+        p[0] = unary_funcs[p[1]](p[3])
 
     @staticmethod
     def p_sexpr_binop(p):
