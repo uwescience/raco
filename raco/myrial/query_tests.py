@@ -1057,18 +1057,27 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_scan_error(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT id, FROG(val)];
+        out = [FROM SCAN(%s) AS X EMIT id, !!!FROG(val)];
         DUMP(out);
-        """
+        """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
             self.run_test(query, collections.Counter())
 
     def test_parse_error(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT id, $(val)];
+        out = [FROM SCAN(%s) AS X EMIT $(val)];
         DUMP(out);
-        """
+        """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
+            self.run_test(query, collections.Counter())
+
+    def test_no_such_udf(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT FooFunction(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.NoSuchFunctionException):
             self.run_test(query, collections.Counter())
