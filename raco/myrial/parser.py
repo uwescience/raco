@@ -71,12 +71,39 @@ class Parser(object):
             ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
         )
 
+    # A myrial programs consists of 1 or more "translation units", each of which is a
+    # function or a statement.
     @staticmethod
-    def p_statement_list(p):
-        '''statement_list : statement_list statement
-                          | statement'''
+    def p_translation_unit_list(p):
+        '''translation_unit_list : translation_unit_list translation_unit
+                                 | translation_unit'''
         if len(p) == 3:
             p[0] = p[1] + [p[2]]
+        else:
+            p[0] = [p[1]]
+
+    @staticmethod
+    def p_translation_unit(p):
+        '''translation_unit : statement
+                            | function'''
+        p[0] = p[1]
+
+    @staticmethod
+    def p_function_with_args(p):
+        '''function : DEF ID LPAREN function_arg_list RPAREN COLON sexpr SEMI'''
+        p[0] = ('FUNCTION', p[2], p[4], p[7])
+
+    @staticmethod
+    def p_function_without_args(p):
+        '''function : DEF ID LPAREN RPAREN COLON sexpr SEMI'''
+        p[0] = ('FUNCTION', p[2], [], p[6])
+
+    @staticmethod
+    def p_function_arg_list(p):
+        '''function_arg_list : function_arg_list COMMA ID
+                             | ID'''
+        if len(p) == 4:
+            p[0] = p[1] + [p[3]]
         else:
             p[0] = [p[1]]
 
@@ -97,6 +124,15 @@ class Parser(object):
     def p_statement_dump(p):
         'statement : DUMP LPAREN ID RPAREN SEMI'
         p[0] = ('DUMP', p[3])
+
+    @staticmethod
+    def p_statement_list(p):
+        '''statement_list : statement_list statement
+                          | statement'''
+        if len(p) == 3:
+            p[0] = p[1] + [p[2]]
+        else:
+            p[0] = [p[1]]
 
     @staticmethod
     def p_statement_dowhile(p):
