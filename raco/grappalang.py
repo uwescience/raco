@@ -8,7 +8,8 @@ from raco.language import Language
 from raco import rules
 from raco.utility import emitlist
 from raco.pipelines import Pipelined
-from raco.clangutils import StagedTupleRef
+from raco.clangcommon import StagedTupleRef
+from raco import clangcommon
 
 from algebra import gensym
 
@@ -377,29 +378,19 @@ if (%(leftcondition)s) {
 #  def fire(self, expr):
 #    for ref in noReferences(expr)
 
-      
 
+# Basic selection like serial C++      
+class GrappaSelect(clangcommon.CSelect, GrappaOperator): pass
 
-class BasicSelect(algebra.Select, GrappaOperator):
-  def produce(self):
-    return self.input.produce()
-    
-  def consume(self, t, src):
-    basic_select_template = """if (%(conditioncode)s) {
-%(inner_code_compiled)s
-}"""
+# Basic apply like serial C++
+class GrappaApply(clangcommon.CApply, GrappaOperator): pass
 
-    # tag the attributes with references
-    # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
-    [_ for _ in self.condition.postorder(getTaggingFunc(t))]
-    
-    # compile the predicate into code
-    conditioncode = GrappaLanguage.compile_boolean(self.condition)
-    
-    inner_code_compiled, inner_decls = self.parent.consume(t, self)
-    
-    code = basic_select_template % locals()
-    return code, inner_decls
+# Basic duplication based bag union like serial C++
+class GrappaUnionAll(clangcommon.CUnionAll, GrappaOperator): pass
+
+# Basic materialized copy based project like serial C++
+class GrappaProject(clangcommon.CProject, GrappaOperator): pass
+
     
 class swapJoinSides(rules.Rule):
   # swaps the inputs to a join
@@ -415,20 +406,21 @@ class GrappaAlgebra(object):
     operators = [
     #FileScan,
     MemoryScan,
-    BasicSelect,
+    GrappaSelect,
+    GrappaApply,
+    GrappaProject,
+    GrappaUnionAll,
     HashJoin
   ]
     rules = [
-     #rules.OneToOne(algebra.Join,TwoPassHashJoin),
     rules.removeProject(),
     rules.CrossProduct2Join(),
     #swapJoinSides(),
-#    FilteringNestedLoopJoinRule(),
-#    FilteringHashJoinChainRule(),
-#    LeftDeepFilteringJoinChainRule(),
-    rules.OneToOne(algebra.Select,BasicSelect),
- #   rules.OneToOne(algebra.Select,TwoPassSelect),
+    rules.OneToOne(algebra.Select,GrappaSelect),
+    rules.OneToOne(algebra.Apply, GrappaApply),
     rules.OneToOne(algebra.Scan,MemoryScan),
     rules.OneToOne(algebra.Join,HashJoin),
+    rules.OneToOne(algebra.Project, GrappaProject),
+    rules.OneToOne(algebra.Union,GrappaUnionAll) #TODO: obviously breaks semantics
   #  rules.FreeMemory()
   ]

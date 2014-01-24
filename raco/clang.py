@@ -8,10 +8,10 @@ from raco.language import Language
 from raco import rules
 from raco.utility import emitlist
 from raco.pipelines import Pipelined
-from raco.clangutils import StagedTupleRef
+from raco.clangcommon import StagedTupleRef
+from raco import clangcommon
 
 from algebra import gensym
-from expression.expression import UnnamedAttributeRef
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -166,20 +166,6 @@ class FileScan(algebra.Scan):
       return "%s(%s)" % (self.opname(), self.relation_key)
 
 
-def getTaggingFunc(t):
-  """ 
-  Return a visitor function that will tag 
-  UnnamedAttributes with the provided TupleRef
-  """
-
-  def tagAttributes(expr):
-    # TODO non mutable would be nice
-    if isinstance(expr, expression.UnnamedAttributeRef):
-      expr.tupleref = t
-
-    return None
-  
-  return tagAttributes
 
 
 class TwoPassSelect(algebra.Select, CCOperator):
@@ -844,87 +830,13 @@ class LeftDeepFilteringJoinChainRule(rules.Rule):
             return expr
       
   
-class BagUnion(algebra.Union, CCOperator):
-  def produce(self):
-    code_right, decls_right = self.right.produce()
-    
-    code_left, decls_left = self.left.produce()
+class CUnionAll(clangcommon.CUnionAll, CCOperator): pass
 
-    return code_left+code_right, decls_right+decls_left
+class CApply(clangcommon.CApply, CCOperator): pass
   
-  def consume(self, t, src):
-    #FIXME: expect a bug: because we have not forced
-    #CCOperators to be immutable (e.g. if self.parent is a HashJoin), then this is problematic
-    # For now HashJoin is just lucky
-    return self.parent.consume(t, self)
-  
-class CApply(algebra.Apply, CCOperator):
-  def produce(self):
-    return self.input.produce()
-  
-  def consume(self, t, src):
-    return self.parent.consume(t, self)
-  
-class CProject(algebra.Project, CCOperator):
-  def produce(self):
-    return self.input.produce()
-  
-  def consume(self, t, src):
-    code = ""
-    decls = []
+class CProject(clangcommon.CProject, CCOperator): pass
 
-    # always does an assignment to new tuple
-    newtuple = StagedTupleRef(gensym(), self.scheme())
-    decls += [newtuple.generateDefition()]
-    
-    assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
-    """
-    
-    dst_name = newtuple.name
-    dst_type_name = newtuple.getTupleTypename()
-    src_name = t.name
-
-    # declaration of tuple instance
-    code += """%(dst_type_name)s %(dst_name)s;
-    """ % locals()
-    
-    for dst_fieldnum, src_expr in enumerate(self.columnlist):
-      if isinstance(src_expr, UnnamedAttributeRef):
-        src_fieldnum = src_expr.position
-      else:
-        assert False, "Unsupported Project expression"
-      code += assignment_template % locals()
-      
-    innercode, innerdecl = self.parent.consume(newtuple, self) 
-    code+=innercode
-      
-    return code, decls+innerdecl
-      
-
-    
-    
-
-class BasicSelect(algebra.Select, CCOperator):
-  def produce(self):
-    return self.input.produce()
-    
-  def consume(self, t, src):
-    basic_select_template = """if (%(conditioncode)s) {
-      %(inner_code_compiled)s
-    }
-    """
-
-    # tag the attributes with references
-    # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
-    [_ for _ in self.condition.postorder(getTaggingFunc(t))]
-    
-    # compile the predicate into code
-    conditioncode = CC.compile_boolean(self.condition)
-    
-    inner_code_compiled, inner_decls = self.parent.consume(t, self)
-    
-    code = basic_select_template % locals()
-    return code, inner_decls
+class CSelect(clangcommon.CSelect, CCOperator): pass
     
 
 class CCAlgebra(object):
@@ -932,14 +844,15 @@ class CCAlgebra(object):
 
     operators = [
     #TwoPassHashJoin,
-    FilteringNestedLoopJoin,
-    TwoPassSelect,
+    #FilteringNestedLoopJoin,
+    #TwoPassSelect,
     #FileScan,
     MemoryScan,
-    BasicSelect,
-    BagUnion,
+    CSelect,
+    CUnionAll,
     CApply,
-    CProject
+    CProject,
+    HashJoin
   ]
     rules = [
      #rules.OneToOne(algebra.Join,TwoPassHashJoin),
@@ -948,12 +861,12 @@ class CCAlgebra(object):
 #    FilteringNestedLoopJoinRule(),
 #    FilteringHashJoinChainRule(),
 #    LeftDeepFilteringJoinChainRule(),
-    rules.OneToOne(algebra.Select,BasicSelect),
+    rules.OneToOne(algebra.Select,CSelect),
  #   rules.OneToOne(algebra.Select,TwoPassSelect),
     rules.OneToOne(algebra.Scan,MemoryScan),
     rules.OneToOne(algebra.Apply, CApply),
     rules.OneToOne(algebra.Join,HashJoin),
     rules.OneToOne(algebra.Project, CProject),
-    rules.OneToOne(algebra.Union,BagUnion) #TODO: obviously breaks semantics
+    rules.OneToOne(algebra.Union,CUnionAll) #TODO: obviously breaks semantics
   #  rules.FreeMemory()
   ]
