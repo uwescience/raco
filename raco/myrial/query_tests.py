@@ -1136,3 +1136,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         expected = collections.Counter([(t[0], t[3] +19) for t in self.emp_table])
         self.run_test(query, expected)
+
+    def test_nested_udf(self):
+        query = """
+        DEF Add7(x): x + 7;
+        DEF Add10(x): Add7(x) + 3;
+        out = [FROM SCAN(%s) AS X EMIT id, Add10(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[3] + 10) for t in self.emp_table])
+        self.run_test(query, expected)
