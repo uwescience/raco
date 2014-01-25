@@ -107,11 +107,13 @@ class Parser(object):
     def p_function_with_args(p):
         '''function : DEF ID LPAREN function_arg_list RPAREN COLON sexpr SEMI'''
         Parser.add_function(p, p[2], p[4], p[7])
+        p[0] = None
 
     @staticmethod
     def p_function_without_args(p):
         '''function : DEF ID LPAREN RPAREN COLON sexpr SEMI'''
         Parser.add_function(p,p[2], [], p[6])
+        p[0] = None
 
     @staticmethod
     def p_function_arg_list(p):
@@ -572,7 +574,10 @@ class Parser(object):
         scanner.lexer.lineno = 1
         Parser.functions = {}
         parser = yacc.yacc(module=self, debug=False, optimize=False)
-        return parser.parse(s, lexer=scanner.lexer, tracking=True)
+        stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
+
+        # Strip out the remnants of parsed functions to leave only a list of statements
+        return [s for s in stmts if s is not None]
 
     @staticmethod
     def p_error(token):

@@ -1114,3 +1114,25 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         with self.assertRaises(raco.myrial.exceptions.UndefinedVariableException):
             self.run_test(query, collections.Counter())
+
+    def test_triangle_udf(self):
+        query = """
+        DEF Triangle(a,b): (a*b)/2;
+
+        out = [FROM SCAN(%s) AS X EMIT id, Triangle(X.salary, dept_id) AS t];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[1] * t[3] / 2) for t in self.emp_table])
+        self.run_test(query, expected)
+
+    def test_composition_udf(self):
+        query = """
+        DEF Add7(x): x + 7;
+        DEF Add6(x): x + 6;
+        out = [FROM SCAN(%s) AS X EMIT id, Add6(Add7(Add6(X.salary)))];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[3] +19) for t in self.emp_table])
+        self.run_test(query, expected)
