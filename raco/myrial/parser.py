@@ -101,7 +101,7 @@ class Parser(object):
         undefined = sexpr.udf_undefined_vars(_sexpr, args)
         if undefined:
             raise UndefinedVariableException(name, undefined[0], p.lineno)
-        Parser.functions[name] = Function(args, sexpr)
+        Parser.functions[name] = Function(args, _sexpr)
 
     @staticmethod
     def p_function_with_args(p):
@@ -489,7 +489,7 @@ class Parser(object):
         func = Parser.functions[name]
         if len(func.args) != len(args):
             raise InvalidArgumentList(name, func.args, p.lineno)
-        return sexpr.resolve_udf(func.sexpr, func.args, args)
+        return sexpr.resolve_udf(func.sexpr, dict(zip(func.args, args)))
 
     @staticmethod
     def p_sexpr_udf_k_args(p):

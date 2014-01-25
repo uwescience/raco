@@ -5,6 +5,7 @@ Utility functions for use in Raco expressions
 from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef
 from .aggregate import AggregateExpression
 
+import copy
 import inspect
 
 def toUnnamed(ref, scheme):
@@ -71,3 +72,21 @@ def udf_undefined_vars(expr, vars):
     """
     return [ex.name for ex in expr.walk()
             if isinstance(ex, NamedAttributeRef) and ex.name not in vars]
+
+def resolve_udf(udf_expr, arg_dict):
+    """Bind variables to arguments in a UDF expression.
+
+    :param udf_expr: An expression corresponding to UDF
+    :type upf_expr: Expresison
+    :param arg_dict: The arguments to the UDF
+    :type arg_dict: A dictionary mapping string to Expression
+    :returns: An expression with no variables
+    """
+
+    def convert(n):
+        if isinstance(n, NamedAttributeRef):
+            n = arg_dict[n.name]
+        n.apply(convert)
+        return n
+
+    return convert(copy.copy(udf_expr))
