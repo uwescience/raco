@@ -95,13 +95,23 @@ class Parser(object):
         p[0] = p[1]
 
     @staticmethod
-    def add_function(p, name, args, _sexpr):
+    def add_function(p, name, args, body_expr):
+        """Add a function to the global function table.
+
+        :param p: The parser context
+        :param name: The name of the function
+        :type name: string
+        :param args: A list of function arguments
+        :type args: list of strings
+        :param body_expr: A scalar expression containing the body of the function
+        :type body_expr: raco.expression.Expression
+        """
         if name in Parser.functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno)
-        undefined = sexpr.udf_undefined_vars(_sexpr, args)
+        undefined = sexpr.udf_undefined_vars(body_expr, args)
         if undefined:
             raise UndefinedVariableException(name, undefined[0], p.lineno)
-        Parser.functions[name] = Function(args, _sexpr)
+        Parser.functions[name] = Function(args, body_expr)
 
     @staticmethod
     def p_function_with_args(p):
