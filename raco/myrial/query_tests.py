@@ -1115,6 +1115,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(raco.myrial.exceptions.UndefinedVariableException):
             self.run_test(query, collections.Counter())
 
+    def test_duplicate_variable_udf(self):
+        query = """
+        DEF Foo(x, x): cos(x) * sin(x);
+        out = [FROM SCAN(%s) AS X EMIT Foo(X.salary, X.dept_id)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.DuplicateVariableException):
+            self.run_test(query, collections.Counter())
+
     def test_triangle_udf(self):
         query = """
         DEF Triangle(a,b): (a*b)/2;

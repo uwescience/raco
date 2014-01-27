@@ -60,5 +60,14 @@ class UndefinedVariableException(MyrialCompileException):
         return "Undefined variable %s in function %s at line %d" % (
             self.var, self.funcname, self.lineno)
 
+class DuplicateVariableException(MyrialCompileException):
+    def __init__(self, funcname, lineno):
+        self.funcname = funcname
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Duplicately defined in function %s at line %d" % (
+            self.funcname, self.lineno)
+
 class ColumnIndexOutOfBounds(Exception):
     pass

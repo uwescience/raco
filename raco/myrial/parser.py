@@ -108,9 +108,14 @@ class Parser(object):
         """
         if name in Parser.functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno)
+
+        if len(args) != len(set(args)):
+            raise DuplicateVariableException(name, p.lineno)
+
         undefined = sexpr.udf_undefined_vars(body_expr, args)
         if undefined:
             raise UndefinedVariableException(name, undefined[0], p.lineno)
+
         Parser.functions[name] = Function(args, body_expr)
 
     @staticmethod
