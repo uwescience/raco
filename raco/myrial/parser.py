@@ -496,6 +496,16 @@ class Parser(object):
 
     @staticmethod
     def resolve_udf(p, name, args):
+        """Resolve a UDF invocation into an Expression instance.
+
+        :param p: The parser context
+        :param name: The name of the function
+        :type name: string
+        :param args: A list of argument expressions
+        :type args: list of raco.expression.Expression instances
+        :return: An expression with no free variables.
+        """
+
         if not name in Parser.functions:
             raise NoSuchFunctionException(name, p.lineno)
         func = Parser.functions[name]
