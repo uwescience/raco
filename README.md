@@ -24,6 +24,7 @@ Users can of course author programs by directly instantiating one of the interme
 
 
 # Setup
+Requires Python 2.7 or higher 2.x
 
 For development use:
 
