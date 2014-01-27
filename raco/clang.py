@@ -227,8 +227,8 @@ class HashJoin(algebra.Join, CCOperator):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
     
-    self._hashname = self.__genHashName__()
-    self.outTuple = StagedTupleRef(gensym(), self.scheme())
+    #self._hashname = self.__genHashName__()
+    #self.outTuple = StagedTupleRef(gensym(), self.scheme())
     
     self.right.childtag = "right"
     code_right, decls_right = self.right.produce()
@@ -246,6 +246,12 @@ class HashJoin(algebra.Join, CCOperator):
       right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
       """   
       
+      # FIXME generating this here is an ugly hack to fix the mutable problem
+      self._hashname = self.__genHashName__()
+      LOG.debug("generate hashname %s for %s", self, self._hashname)
+      # FIXME generating this here is another ugly hack to fix the mutable problem
+      self.outTuple = StagedTupleRef(gensym(), self.scheme())
+
       hashname = self._hashname
       keyname = t.name
       keypos = self.condition.right.position-len(self.left.scheme())
