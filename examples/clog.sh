@@ -1,6 +1,5 @@
 query=$1
 name=$2
-PYTHONPATH=..
 
 cdir=`cd ..; pwd`
 cappsrcdir=$cdir/c_test_environment
@@ -16,7 +15,7 @@ popd
   
 
 echo "GENERATING QUERY CODE"
-python clog.py "$query" $name 2> log.rb
+PYTHONPATH=.. python clog.py "$query" $name 2> log.rb
 mv $name.cpp $cappsrcdir
 
 echo "COMPILING QUERY CODE"
