@@ -1136,6 +1136,20 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter([(t[0], t[1] * t[3] / 2) for t in self.emp_table])
         self.run_test(query, expected)
 
+    def test_noop_udf(self):
+        expr = "30 + 15 / 7 + -45"
+
+        query = """
+        DEF Noop(): %s;
+
+        out = [Noop() AS t];
+        DUMP(out);
+        """ % expr
+
+        val = eval(expr)
+        expected = collections.Counter([(val,)])
+        self.run_test(query, expected)
+
     def test_composition_udf(self):
         query = """
         DEF Add7(x): x + 7;

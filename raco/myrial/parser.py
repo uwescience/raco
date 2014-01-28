@@ -120,15 +120,15 @@ class Parser(object):
 
     @staticmethod
     def p_function_with_args(p):
-        '''function : DEF ID LPAREN function_arg_list RPAREN COLON sexpr SEMI'''
+        '''function : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''
         Parser.add_function(p, p[2], p[4], p[7])
         p[0] = None
 
     @staticmethod
-    def p_function_without_args(p):
-        '''function : DEF ID LPAREN RPAREN COLON sexpr SEMI'''
-        Parser.add_function(p,p[2], [], p[6])
-        p[0] = None
+    def p_optional_arg_list(p):
+        '''optional_arg_list : function_arg_list
+                             | empty'''
+        p[0] = p[1] or []
 
     @staticmethod
     def p_function_arg_list(p):
