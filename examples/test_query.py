@@ -1,5 +1,5 @@
 from raco import RACompiler
-from raco.language import CCAlgebra, MyriaAlgebra
+from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 from raco.algebra import LogicalAlgebra
 
 import logging
@@ -9,7 +9,7 @@ LOG = logging.getLogger(__name__)
 def comment(s):
   return "/*\n%s\n*/\n" % str(s)
 
-def testEmit(query, name):
+def testEmit(query, name, algebra):
     LOG.info("compiling %s: %s", name, query)
 
     # Create a compiler object
@@ -20,7 +20,7 @@ def testEmit(query, name):
     #print dlog.parsed
     LOG.info("logical: %s",dlog.logicalplan)
 
-    dlog.optimize(target=CCAlgebra, eliminate_common_subexpressions=False)
+    dlog.optimize(target=algebra, eliminate_common_subexpressions=False)
 
     LOG.info("physical: %s",dlog.physicalplan[0][1])
 
@@ -48,9 +48,8 @@ if __name__ == "__main__":
             ("A(a,c) :- R2(a,b), S2(b,c)", "two_hop"),
             ("A(a,b,c) :- R2(a,b), S2(b,c), T2(c,d)", "three_path"),
             ("A(a,b,c) :- R2(a,b), S2(b,c), T2(c,a)", "directed_triangles"),
+            ("A(a,b,c,d) :- R2(a,b), S2(b,c), T2(c,d), Z2(d,a)", "directed_squares"),
             ("A(s1,s2,s3) :- T3(s1,s2,s3), R2(s3,s4), s1<s2, s4<100", "select_then_join"),
-            ("Q3a(article) :- sp2bench_1m(article, 'rdf:type', 'bench:Article'), sp2bench_1m(article, 'swrc:pages', value)", "sp2_Q3a"),
-            ("Q1(yr) :- sp2bench_1m(journal, 'rdf:type', 'bench:Journal'), sp2bench_1m(journal, 'dc:title', 'Journal 1 (1940)'), sp2bench_1m(journal, 'dcterms:issued', yr)", "sp2_Q1"),
 
             ("""A(s1) :- T1(s1)
     A(s1) :- R1(s1)""", "union"),
@@ -69,6 +68,11 @@ if __name__ == "__main__":
             ("""A(s1,s2) :- T1(s1,s2)
     A(s1,s2) :- R1(s1,s2)
     B(s1) :- A(s1,s2), S1(s1)""", "union_then_join"),
+            
+            ("Q3a(article) :- sp2bench_1m(article, 'rdf:type', 'bench:Article'), sp2bench_1m(article, 'swrc:pages', value)", "sp2_Q3a"),
+            ("Q1(yr) :- sp2bench_1m(journal, 'rdf:type', 'bench:Journal'), sp2bench_1m(journal, 'dc:title', 'Journal 1 (1940)'), sp2bench_1m(journal, 'dcterms:issued', yr)", "sp2_Q1"),
+
+            #("A(a,b) :- R2(a,b), S2(a,b)", "two_match"),
 
             #("""A(s1,s2) :- R2(s1,s2)
             #    A(s1,s2) :- R2(s1,s3),A(s3,s2)""", "reachable"),
@@ -78,7 +82,14 @@ if __name__ == "__main__":
             #("A(a,b,c,d,e):-X(a,b),Y(a,c),Z(a,d,e),T(a,b),K(b,a)", "complex_joins"),
             ]
 
+    algebra = CCAlgebra
+    prefix = ""
+    import sys
+    if sys.argv[1] ==  "grappa":
+      algebra = GrappaAlgebra
+      prefix = "grappa_"
+
     for q in queries:
         query, name = q
-        testEmit(query, name)
+        testEmit(query, prefix+name, algebra)
 
