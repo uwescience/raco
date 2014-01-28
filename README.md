@@ -88,6 +88,13 @@ Sequence
 ### Visualize a Myria plan as a graph
 Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
+### Compile a datalog query into C++, then run it
+```cd examples```
+```./clog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"```
+```./clog.sh "A(a,b) :- R1(a),R2(a,b), a<3 A(a,b) :- S1(a), S2(a,b) B(x,y,z) :- A(x,y), A(y,z)" "complex-query"```
+
+Available test tables are `{R,S,T}{1,2,3}` with that number of columns.
+
 # Authors and contract information
 
 Raco's authors include Bill Howe, Andrew Whitaker, Daniel Halperin, and Brandon Myers at the University of Washington. Contact us at <raco@cs.washington.edu>.
