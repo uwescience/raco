@@ -160,6 +160,9 @@ class ExpressionProcessor(object):
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
                       for (name, sexpr) in emit_args]
 
+        statemods = [(name, init, multiway.rewrite_refs(update, from_args, info))
+                    for name, init, update in statemods]
+
         if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
             return groupby.groupby(op, emit_args, implicit_group_by_cols)
         else:
