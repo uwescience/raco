@@ -1192,3 +1192,24 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             tps.append((emp[0], _sum / _count))
 
         self.run_test(query, collections.Counter(tps))
+
+    def test_sapply_multi_invocation(self):
+        query = """
+        APPLY RunningSum(x) {
+            [0 AS _sum];
+            [_sum + x AS _sum];
+            _sum;
+        };
+        out = [FROM SCAN(%s) AS X EMIT id, RunningSum(X.salary), RunningSum(id)];
+        DUMP(out);
+        """ % self.emp_key
+
+        tps = []
+        _sum1= 0
+        _sum2 = 0
+        for emp in self.emp_table:
+            _sum1 += emp[3]
+            _sum2 += emp[0]
+            tps.append((emp[0], _sum1, _sum2))
+
+        self.run_test(query, collections.Counter(tps))
