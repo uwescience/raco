@@ -37,8 +37,6 @@ class StagedTupleRef:
   def generateDefition(self):
     fielddeftemplate = """int64_t _fields[%(numfields)s];
     """
-    copytemplate = """_fields[%(fieldnum)s] = rel->relation[row*rel->fields + %(fieldnum)s];
-    """
     template = """
           // can be just the necessary schema
   class %(tupletypename)s {
@@ -56,10 +54,6 @@ class StagedTupleRef:
     
     int numFields() const {
       return %(numfields)s;
-    }
-    
-    %(tupletypename)s (relationInfo * rel, int row) {
-      %(copies)s
     }
     
     %(tupletypename)s () {
@@ -95,10 +89,6 @@ class StagedTupleRef:
     
     additional_code = self.__additionalDefinitionCode__()
 
-    # TODO: actually list the trimmed schema offsets
-    for i in range(0, numfields):
-      fieldnum = i
-      copies += copytemplate % locals()
 
     tupletypename = self.getTupleTypename()
     relsym = self.relsym
