@@ -77,7 +77,7 @@ class Parser(object):
             ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
         )
 
-    # A myrial programs consists of 1 or more "translation units", each of which is a
+    # A myrial program consists of 1 or more "translation units", each of which is a
     # function or a statement.
     @staticmethod
     def p_translation_unit_list(p):
