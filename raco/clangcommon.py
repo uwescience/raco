@@ -3,6 +3,9 @@ from raco import expression
 from algebra import gensym
 from expression.expression import UnnamedAttributeRef
 
+import logging
+LOG = logging.getLogger(__name__)
+
 # TODO:
 # The following is actually a staged materialized tuple ref.
 # we should also add a staged reference tuple ref that just has relationsymbol and row  
@@ -11,8 +14,9 @@ class StagedTupleRef:
   
   @classmethod
   def genname(cls):
-    x = cls.nextid
-    cls.nextid+=1
+    # use StagedTupleRef so everyone shares one mutable copy of nextid
+    x = StagedTupleRef.nextid   
+    StagedTupleRef.nextid+=1
     return "t_%03d" % x
   
   def __init__(self, relsym, scheme):
