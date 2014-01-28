@@ -140,7 +140,7 @@ class MemoryScan(algebra.Scan, GrappaOperator):
 #       """
 
     memory_scan_template = """
-forall_localized( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s& %(tuple_name)s) {
+forall( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s& %(tuple_name)s) {
 %(inner_plan_compiled)s
 }); // end  scan over %(inputsym)s 
 """
