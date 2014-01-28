@@ -371,7 +371,8 @@ class Parser(object):
         else:
             name = None
             sexpr = p[1]
-        p[0] = emitarg.SingletonEmitArg(name, sexpr)
+        p[0] = emitarg.SingletonEmitArg(name, sexpr, Parser.statemods)
+        Parser.statemods = []
 
     @staticmethod
     def p_emit_arg_table_wildcard(p):
