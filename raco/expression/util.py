@@ -2,7 +2,7 @@
 Utility functions for use in Raco expressions
 """
 
-from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef
+from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef, NamedStateAttributeRef
 from .aggregate import AggregateExpression
 
 import copy
@@ -90,3 +90,21 @@ def resolve_udf(udf_expr, arg_dict):
         return n
 
     return convert(copy.copy(udf_expr))
+
+def resolve_state_vars(expr, state_vars):
+    """Convert references to state variables into NamedStateAttributeRef references.
+
+    :param expr: An expression instances
+    :type expr: Expression
+    :param state_vars: Variables that represent state variables
+    :type state_vars: List of strings
+    :return: An instance of Expression
+    """
+
+    def convert(n):
+        if isinstance(n, NamedAttributeRef) and n.name in state_vars:
+            n = NamedStateAttributeRef(n.name)
+        n.apply(convert)
+        return n
+
+    return convert(copy.copy(expr))

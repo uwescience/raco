@@ -61,6 +61,9 @@ class Parser(object):
     # mapping from function name to Function tuple
     functions = {}
 
+    # state modifier variables accessed by the current emit argument
+    statemods = []
+
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
@@ -582,7 +585,20 @@ class Parser(object):
         func = Parser.functions[name]
         if len(func.args) != len(args):
             raise InvalidArgumentList(name, func.args, p.lineno)
-        return sexpr.resolve_udf(func.sexpr, dict(zip(func.args, args)))
+
+        if isinstance(func, Function):
+            return sexpr.resolve_udf(func.sexpr, dict(zip(func.args, args)))
+        elif isinstance(func, Apply):
+            state_vars = func.statemods.keys()
+            for sm_name, (init_expr, update_expr) in func.statemods.iteritems():
+                # Convert state mod references into appropriate expressions
+                update_expr = sexpr.resolve_state_vars(update_expr, state_vars)
+                # Convert argument references into appropriate expressions
+                update_expr = sexpr.resolve_udf(update_expr, dict(zip(func.args, args)))
+                Parser.statemods.append((sm_name, init_expr, update_expr))
+            return sexpr.resolve_state_vars(func.sexpr, state_vars)
+        else:
+            assert False
 
     @staticmethod
     def p_sexpr_udf_k_args(p):
