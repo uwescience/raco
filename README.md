@@ -95,6 +95,16 @@ cd examples
 ./clog.sh "A(a,b) :- R1(a),R2(a,b), a<3 A(a,b) :- S1(a), S2(a,b) B(x,y,z) :- A(x,y), A(y,z)" "complex-query"
 ```
 
+### Compile a datalog query into Grappa, then run it
+1. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
+2. set GRAPPA_HOME to root of Grappa
+3. try queries:
+
+```
+cd examples
+./grappalog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
+```
+
 Available test tables are `{R,S,T}{1,2,3}` with that number of columns.
 
 # Authors and contract information
