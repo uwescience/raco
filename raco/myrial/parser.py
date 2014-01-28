@@ -78,7 +78,7 @@ class Parser(object):
         )
 
     # A myrial program consists of 1 or more "translation units", each of which is a
-    # function or a statement.
+    # function, apply definition, or statement.
     @staticmethod
     def p_translation_unit_list(p):
         '''translation_unit_list : translation_unit_list translation_unit
@@ -91,7 +91,8 @@ class Parser(object):
     @staticmethod
     def p_translation_unit(p):
         '''translation_unit : statement
-                            | function'''
+                            | function
+                            | apply'''
         p[0] = p[1]
 
     @staticmethod
@@ -119,6 +120,10 @@ class Parser(object):
         Parser.functions[name] = Function(args, body_expr)
 
     @staticmethod
+    def add_apply(p, name, args, inits, updates, finalizer):
+        pass
+
+    @staticmethod
     def p_function(p):
         '''function : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''
         Parser.add_function(p, p[2], p[4], p[7])
@@ -138,6 +143,18 @@ class Parser(object):
             p[0] = p[1] + [p[3]]
         else:
             p[0] = [p[1]]
+
+    @staticmethod
+    def p_apply(p):
+        'apply : APPLY ID LPAREN optional_arg_list RPAREN LBRACE \
+        table_literal SEMI table_literal SEMI sexpr SEMI RBRACE SEMI'
+        name = p[2]
+        args = p[4]
+        inits = p[7]
+        updates = p[9]
+        finalizer = p[11]
+        Parser.add_apply(p, name, args, inits, updates, finalizer)
+        p[0] = None
 
     @staticmethod
     def p_statement_assign(p):
@@ -183,8 +200,13 @@ class Parser(object):
 
     @staticmethod
     def p_expression_table_literal(p):
-        'expression : LBRACKET emit_arg_list RBRACKET'
-        p[0] = ('TABLE', p[2])
+        'expression : table_literal'
+        p[0] = ('TABLE', p[1])
+
+    @staticmethod
+    def p_table_literal(p):
+        'table_literal : LBRACKET emit_arg_list RBRACKET'
+        p[0] = p[2]
 
     @staticmethod
     def p_expression_empty(p):
