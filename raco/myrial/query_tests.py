@@ -1171,3 +1171,24 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         expected = collections.Counter([(t[0], t[3] + 10) for t in self.emp_table])
         self.run_test(query, expected)
+
+    def test_running_mean_sapply(self):
+        query = """
+        APPLY RunningMean(value) {
+            [0 AS count, 0 AS sum];
+            [count + 1 AS count, sum + value AS sum];
+            sum / count;
+        };
+        out = [FROM SCAN(%s) AS X EMIT id, RunningMean(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        tps = []
+        _sum = 0
+        _count = 0
+        for emp in self.emp_table:
+            _sum += emp[3]
+            _count += 1
+            tps.append((emp[0], _sum / _count))
+
+        self.run_test(query, collections.Counter(tps))
