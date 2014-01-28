@@ -16,6 +16,13 @@ class EmitArg(object):
         """
         raise NotImplementedError()
 
+    def get_statemods(self):
+        """Return a list of state variables associated with the emitarg.
+
+        :return: A list of tuples of the form (name, init_expr, update_expr)
+        """
+        return []
+
 class SingletonEmitArg(EmitArg):
     """An emit arg that defines a single column.
 

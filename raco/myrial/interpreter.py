@@ -130,8 +130,10 @@ class ExpressionProcessor(object):
         # Expand wildcards into a list of output columns
         assert emit_clause # There should always be something to emit
         emit_args = []
+        statemods = []
         for clause in emit_clause:
             emit_args.extend(clause.expand(from_args))
+            statemods.extend(clause.get_statemods())
 
         orig_op, _info = multiway.merge(from_args)
         orig_schema_length = len(orig_op.scheme())
@@ -161,7 +163,7 @@ class ExpressionProcessor(object):
         if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
             return groupby.groupby(op, emit_args, implicit_group_by_cols)
         else:
-            return raco.algebra.StatefulApply(emit_args, [], op)
+            return raco.algebra.StatefulApply(emit_args, statemods, op)
 
     def distinct(self, expr):
         op = self.evaluate(expr)
