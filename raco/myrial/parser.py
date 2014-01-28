@@ -23,6 +23,9 @@ SelectFromWhere = collections.namedtuple(
 # A user-defined function
 Function = collections.namedtuple('Function', ['args', 'sexpr'])
 
+# A user-defined stateful apply
+Apply = collections.namedtuple('Apply', ['args', 'statemods', "sexpr"])
+
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': sexpr.PLUS,
@@ -96,6 +99,12 @@ class Parser(object):
         p[0] = p[1]
 
     @staticmethod
+    def check_for_undefined(p, name, _sexpr, args):
+        undefined = sexpr.udf_undefined_vars(_sexpr, args)
+        if undefined:
+            raise UndefinedVariableException(name, undefined[0], p.lineno)
+
+    @staticmethod
     def add_function(p, name, args, body_expr):
         """Add a function to the global function table.
 
@@ -113,15 +122,50 @@ class Parser(object):
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno)
 
-        undefined = sexpr.udf_undefined_vars(body_expr, args)
-        if undefined:
-            raise UndefinedVariableException(name, undefined[0], p.lineno)
+        Parser.check_for_undefined(p, name, body_expr, args)
 
         Parser.functions[name] = Function(args, body_expr)
 
     @staticmethod
     def add_apply(p, name, args, inits, updates, finalizer):
-        pass
+        """Register a stateful apply function.
+
+        TODO: de-duplicate logic from add_function.
+        """
+        if name in Parser.functions:
+            raise DuplicateFunctionDefinitionException(name, p.lineno)
+        if len(args) != len(set(args)):
+            raise DuplicateVariableException(name, p.lineno)
+        if len(inits) != len(updates):
+            raise BadApplyDefinition(name, p.lineno)
+
+        # Unpack the update, init expressions into a statemod dictionary
+        statemods = {}
+        for init, update in zip(inits, updates):
+            if not isinstance(init, emitarg.SingletonEmitArg):
+                raise IllegalWildcardException(name, p.lineno)
+            if not isinstance(update, emitarg.SingletonEmitArg):
+                raise IllegalWildcardException(name, p.lineno)
+
+            # check for duplicate variable definitions
+            sm_name = init.column_name
+            if not sm_name:
+                raise UnnamedStateVariableException(name, p.lineno)
+            if sm_name in statemods or sm_name in args:
+                raise DuplicateVariableException(name, p.lineno)
+
+            statemods[sm_name] = (init.sexpr, update.sexpr)
+
+        # check for undefined variables.  init expressions cannot reference any variables.
+        # update expression can reference function arguments and state variables.
+        # The finalizer expression can reference state variables.
+        allvars = statemods.keys() + args
+        for init_expr, update_expr in statemods.itervalues():
+            Parser.check_for_undefined(p, name, init_expr, [])
+            Parser.check_for_undefined(p, name, update_expr, allvars)
+        Parser.check_for_undefined(p, name, finalizer, statemods.keys())
+
+        Parser.functions[name] = Apply(args, statemods, finalizer)
 
     @staticmethod
     def p_function(p):
