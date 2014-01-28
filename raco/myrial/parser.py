@@ -64,6 +64,9 @@ class Parser(object):
     # state modifier variables accessed by the current emit argument
     statemods = []
 
+    # A unique ID pool for the stateful apply state variables
+    mangle_id = 0
+
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
@@ -128,6 +131,11 @@ class Parser(object):
         Parser.check_for_undefined(p, name, body_expr, args)
 
         Parser.functions[name] = Function(args, body_expr)
+
+    @staticmethod
+    def mangle(name):
+        Parser.mangle_id += 1
+        return "%s##%d" % (name, Parser.mangle_id)
 
     @staticmethod
     def add_apply(p, name, args, inits, updates, finalizer):
@@ -591,13 +599,18 @@ class Parser(object):
             return sexpr.resolve_udf(func.sexpr, dict(zip(func.args, args)))
         elif isinstance(func, Apply):
             state_vars = func.statemods.keys()
+
+            # Mangle state variable names to allow multiple invocations to co-exist
+            state_vars_mangled = [Parser.mangle(sv) for sv in state_vars]
+            mangled = dict(zip(state_vars, state_vars_mangled))
+
             for sm_name, (init_expr, update_expr) in func.statemods.iteritems():
                 # Convert state mod references into appropriate expressions
-                update_expr = sexpr.resolve_state_vars(update_expr, state_vars)
+                update_expr = sexpr.resolve_state_vars(update_expr, state_vars, mangled)
                 # Convert argument references into appropriate expressions
                 update_expr = sexpr.resolve_udf(update_expr, dict(zip(func.args, args)))
-                Parser.statemods.append((sm_name, init_expr, update_expr))
-            return sexpr.resolve_state_vars(func.sexpr, state_vars)
+                Parser.statemods.append((mangled[sm_name], init_expr, update_expr))
+            return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
         else:
             assert False
 

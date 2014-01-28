@@ -91,19 +91,21 @@ def resolve_udf(udf_expr, arg_dict):
 
     return convert(copy.copy(udf_expr))
 
-def resolve_state_vars(expr, state_vars):
+def resolve_state_vars(expr, state_vars, mangled_names):
     """Convert references to state variables into NamedStateAttributeRef references.
 
     :param expr: An expression instances
     :type expr: Expression
     :param state_vars: Variables that represent state variables
     :type state_vars: List of strings
+    :param mangled_names: A mapping from name to its mangled version
+    :type mangled_names: Dictionary from string to string
     :return: An instance of Expression
     """
 
     def convert(n):
         if isinstance(n, NamedAttributeRef) and n.name in state_vars:
-            n = NamedStateAttributeRef(n.name)
+            n = NamedStateAttributeRef(mangled_names[n.name])
         n.apply(convert)
         return n
 
