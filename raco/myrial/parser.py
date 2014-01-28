@@ -119,7 +119,7 @@ class Parser(object):
         Parser.functions[name] = Function(args, body_expr)
 
     @staticmethod
-    def p_function_with_args(p):
+    def p_function(p):
         '''function : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''
         Parser.add_function(p, p[2], p[4], p[7])
         p[0] = None
