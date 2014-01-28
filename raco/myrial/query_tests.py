@@ -1175,9 +1175,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {
-            [0 AS count, 0 AS sum];
-            [count + 1 AS count, sum + value AS sum];
-            sum / count;
+            [0 AS _count, 0 AS _sum];
+            [_count + 1 AS _count, _sum + value AS _sum];
+            _sum / _count;
         };
         out = [FROM SCAN(%s) AS X EMIT id, RunningMean(X.salary)];
         DUMP(out);
