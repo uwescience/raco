@@ -62,6 +62,11 @@ if __name__ == "__main__":
             ("""A(x,z) :- T3(x,y,z), y < 4
     B(x,t) :- A(x,z), A(z,t)""", "apply_and_self_join"),
 
+            ("""A(x,y) :- T2(x,y), R1(x), y < 4
+            A(x,y) :- R2(x,y), T1(x)
+    B(x,z,t) :- A(x,z), A(z,t)""", "union_apply_and_self_join"),
+            
+
             ("""A(s1,s2) :- T2(s1,s2)
     A(s1,s2) :- R2(s1,s3), T2(s3,s2)""", "union_of_join"),
 

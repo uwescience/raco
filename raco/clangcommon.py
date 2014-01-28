@@ -3,6 +3,9 @@ from raco import expression
 from algebra import gensym
 from expression.expression import UnnamedAttributeRef
 
+import logging
+LOG = logging.getLogger(__name__)
+
 # TODO:
 # The following is actually a staged materialized tuple ref.
 # we should also add a staged reference tuple ref that just has relationsymbol and row  
@@ -11,8 +14,9 @@ class StagedTupleRef:
   
   @classmethod
   def genname(cls):
-    x = cls.nextid
-    cls.nextid+=1
+    # use StagedTupleRef so everyone shares one mutable copy of nextid
+    x = StagedTupleRef.nextid   
+    StagedTupleRef.nextid+=1
     return "t_%03d" % x
   
   def __init__(self, relsym, scheme):
@@ -37,8 +41,6 @@ class StagedTupleRef:
   def generateDefition(self):
     fielddeftemplate = """int64_t _fields[%(numfields)s];
     """
-    copytemplate = """_fields[%(fieldnum)s] = rel->relation[row*rel->fields + %(fieldnum)s];
-    """
     template = """
           // can be just the necessary schema
   class %(tupletypename)s {
@@ -56,10 +58,6 @@ class StagedTupleRef:
     
     int numFields() const {
       return %(numfields)s;
-    }
-    
-    %(tupletypename)s (relationInfo * rel, int row) {
-      %(copies)s
     }
     
     %(tupletypename)s () {
@@ -95,10 +93,6 @@ class StagedTupleRef:
     
     additional_code = self.__additionalDefinitionCode__()
 
-    # TODO: actually list the trimmed schema offsets
-    for i in range(0, numfields):
-      fieldnum = i
-      copies += copytemplate % locals()
 
     tupletypename = self.getTupleTypename()
     relsym = self.relsym
