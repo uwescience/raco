@@ -35,15 +35,13 @@ void query() {
 }
 
 
-}
-
 int main(int argc, char** argv) {
     init(&argc, &argv);
 
     run([] {
     	query();
-    	Statistics::merge_and_print();
-    }
+    	Metrics::merge_and_print();
+    });
 
     finalize();
     return 0;
