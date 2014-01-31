@@ -28,6 +28,7 @@ Requires Python 2.7 or higher 2.x
 
 For development use:
 
+    pip install -r requirements-dev.txt
     python setup.py develop
 
 For normal use:
