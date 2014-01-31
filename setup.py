@@ -35,6 +35,6 @@ setup(name='raco',
       url='https://github.com/uwescience/datalogcompiler',
       packages=find_packages(exclude=['clang']),
       package_data={'': ['c_templates/*.template','grappa_templates/*.template']},
-      install_requires=['networkx','ply','pyparsing'],
+      install_requires=['networkx', 'ply', 'pyparsing', 'nose'],
       scripts=['scripts/myrial']
       )
