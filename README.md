@@ -110,4 +110,4 @@ cd examples
 
 # Authors and contract information
 
-Raco's authors include Bill Howe, Andrew Whitaker, Daniel Halperin, and Brandon Myers at the University of Washington. Contact us at <raco@cs.washington.edu>.
+Raco's authors include Bill Howe, Andrew Whitaker, Daniel Halperin, Brandon Myers and Dominik Moritz at the University of Washington. Contact us at <raco@cs.washington.edu>.
