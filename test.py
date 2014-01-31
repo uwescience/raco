@@ -36,7 +36,7 @@ def pythonmain():
   osR = optimize(sRsSsT, target=PythonAlgebra, source=LogicalAlgebra)
   print compile(osR)
 
-def main():
+def ccmain():
  # c implementation doesn't support string literals
  R = Scan(btc_schema["trial"])
  sR = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(1133564893)), R)
@@ -82,4 +82,4 @@ def main():
 
 if __name__ == '__main__':
   #print testpython()
-  print main()
+  print ccmain()
