@@ -39,7 +39,7 @@ For normal use:
 
 # Run tests
 
-To execute the tests, run `nosetests` in the root directory of the repository. See `nosetests -h` for more options or consult the [nose documentationn](https://nose.readthedocs.org).
+To execute the tests, run `nosetests` in the root directory of the repository. See `nosetests -h` for more options or consult the [nose documentation](https://nose.readthedocs.org).
 
 
 # Example
