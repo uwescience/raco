@@ -20,6 +20,9 @@ JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 SelectFromWhere = collections.namedtuple(
     'SelectFromWhere', ['distinct', 'select','from_', 'where', 'limit'])
 
+# A user-defined function
+Function = collections.namedtuple('Function', ['args', 'sexpr'])
+
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': sexpr.PLUS,
@@ -40,7 +43,7 @@ binops = {
 }
 
 # Mapping from source symbols to raco.expression.UnaryOperator classes
-unops = {
+unary_funcs = {
     'ABS' : sexpr.ABS,
     'CEIL' : sexpr.CEIL,
     'COS' : sexpr.COS,
@@ -52,6 +55,9 @@ unops = {
 }
 
 class Parser(object):
+    # mapping from function name to Function tuple
+    functions = {}
+
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
@@ -71,12 +77,65 @@ class Parser(object):
             ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
         )
 
+    # A myrial program consists of 1 or more "translation units", each of which is a
+    # function or a statement.
     @staticmethod
-    def p_statement_list(p):
-        '''statement_list : statement_list statement
-                          | statement'''
+    def p_translation_unit_list(p):
+        '''translation_unit_list : translation_unit_list translation_unit
+                                 | translation_unit'''
         if len(p) == 3:
             p[0] = p[1] + [p[2]]
+        else:
+            p[0] = [p[1]]
+
+    @staticmethod
+    def p_translation_unit(p):
+        '''translation_unit : statement
+                            | function'''
+        p[0] = p[1]
+
+    @staticmethod
+    def add_function(p, name, args, body_expr):
+        """Add a function to the global function table.
+
+        :param p: The parser context
+        :param name: The name of the function
+        :type name: string
+        :param args: A list of function arguments
+        :type args: list of strings
+        :param body_expr: A scalar expression containing the body of the function
+        :type body_expr: raco.expression.Expression
+        """
+        if name in Parser.functions:
+            raise DuplicateFunctionDefinitionException(name, p.lineno)
+
+        if len(args) != len(set(args)):
+            raise DuplicateVariableException(name, p.lineno)
+
+        undefined = sexpr.udf_undefined_vars(body_expr, args)
+        if undefined:
+            raise UndefinedVariableException(name, undefined[0], p.lineno)
+
+        Parser.functions[name] = Function(args, body_expr)
+
+    @staticmethod
+    def p_function(p):
+        '''function : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''
+        Parser.add_function(p, p[2], p[4], p[7])
+        p[0] = None
+
+    @staticmethod
+    def p_optional_arg_list(p):
+        '''optional_arg_list : function_arg_list
+                             | empty'''
+        p[0] = p[1] or []
+
+    @staticmethod
+    def p_function_arg_list(p):
+        '''function_arg_list : function_arg_list COMMA ID
+                             | ID'''
+        if len(p) == 4:
+            p[0] = p[1] + [p[3]]
         else:
             p[0] = [p[1]]
 
@@ -97,6 +156,15 @@ class Parser(object):
     def p_statement_dump(p):
         'statement : DUMP LPAREN ID RPAREN SEMI'
         p[0] = ('DUMP', p[3])
+
+    @staticmethod
+    def p_statement_list(p):
+        '''statement_list : statement_list statement
+                          | statement'''
+        if len(p) == 3:
+            p[0] = p[1] + [p[2]]
+        else:
+            p[0] = [p[1]]
 
     @staticmethod
     def p_statement_dowhile(p):
@@ -392,7 +460,7 @@ class Parser(object):
         p[0] = sexpr.TIMES(sexpr.NumericLiteral(-1), p[2])
 
     @staticmethod
-    def p_sexpr_unop(p):
+    def p_sexpr_unary_function(p):
         '''sexpr : ABS LPAREN sexpr RPAREN
                    | CEIL LPAREN sexpr RPAREN
                    | COS LPAREN sexpr RPAREN
@@ -401,7 +469,7 @@ class Parser(object):
                    | SIN LPAREN sexpr RPAREN
                    | SQRT LPAREN sexpr RPAREN
                    | TAN LPAREN sexpr RPAREN'''
-        p[0] = unops[p[1]](p[3])
+        p[0] = unary_funcs[p[1]](p[3])
 
     @staticmethod
     def p_sexpr_binop(p):
@@ -431,6 +499,43 @@ class Parser(object):
         'sexpr : NOT sexpr'
         p[0] = sexpr.NOT(p[2])
 
+    @staticmethod
+    def resolve_udf(p, name, args):
+        """Resolve a UDF invocation into an Expression instance.
+
+        :param p: The parser context
+        :param name: The name of the function
+        :type name: string
+        :param args: A list of argument expressions
+        :type args: list of raco.expression.Expression instances
+        :return: An expression with no free variables.
+        """
+
+        if not name in Parser.functions:
+            raise NoSuchFunctionException(name, p.lineno)
+        func = Parser.functions[name]
+        if len(func.args) != len(args):
+            raise InvalidArgumentList(name, func.args, p.lineno)
+        return sexpr.resolve_udf(func.sexpr, dict(zip(func.args, args)))
+
+    @staticmethod
+    def p_sexpr_udf_k_args(p):
+        'sexpr : ID LPAREN udf_arg_list RPAREN'
+        p[0] = Parser.resolve_udf(p, p[1], p[3])
+
+    @staticmethod
+    def p_sexpr_udf_zero_args(p):
+        'sexpr : ID LPAREN RPAREN'
+        p[0] = Parser.resolve_udf(p, p[1], [])
+
+    @staticmethod
+    def p_udf_arg_list(p):
+        '''udf_arg_list : udf_arg_list COMMA sexpr
+                        | sexpr'''
+        if len(p) == 4:
+            p[0] = p[1] + [p[3]]
+        else:
+            p[0] = [p[1]]
     @staticmethod
     def p_sexpr_countall(p):
         'sexpr : COUNTALL LPAREN RPAREN'
@@ -492,8 +597,12 @@ class Parser(object):
 
     def parse(self, s):
         scanner.lexer.lineno = 1
+        Parser.functions = {}
         parser = yacc.yacc(module=self, debug=False, optimize=False)
-        return parser.parse(s, lexer=scanner.lexer, tracking=True)
+        stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
+
+        # Strip out the remnants of parsed functions to leave only a list of statements
+        return [s for s in stmts if s is not None]
 
     @staticmethod
     def p_error(token):

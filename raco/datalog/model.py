@@ -363,9 +363,6 @@ class Rule(object):
         if any([raco.expression.isaggregate(v) for v in self.head.valuerefs]):
             # GroupBy expects grouping terms to precede aggregate terms;
             # rearrange terms and then fixup with an Apply operator
-            groups = []
-            agg_cols = []
-            mappings = [] # original column positions
 
             groups = [(orig_pos, col) for orig_pos, col in enumerate(columnlist)
                       if not isinstance(col, raco.expression.AggregateExpression)]

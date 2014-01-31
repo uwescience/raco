@@ -1057,18 +1057,117 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_scan_error(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT id, FROG(val)];
+        out = [FROM SCAN(%s) AS X EMIT id, !!!FROG(val)];
         DUMP(out);
-        """
+        """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
             self.run_test(query, collections.Counter())
 
     def test_parse_error(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT id, $(val)];
+        out = [FROM SCAN(%s) AS X EMIT $(val)];
         DUMP(out);
-        """
+        """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
             self.run_test(query, collections.Counter())
+
+    def test_no_such_udf(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT FooFunction(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.NoSuchFunctionException):
+            self.run_test(query, collections.Counter())
+
+    def test_duplicate_udf(self):
+        query = """
+        DEF foo(x, y): x + y;
+        DEF bar(): 7;
+        DEF foo(x): -1 * x;
+
+        out = [FROM SCAN(%s) AS X EMIT foo(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.DuplicateFunctionDefinitionException):
+            self.run_test(query, collections.Counter())
+
+    def test_invalid_argument_udf(self):
+        query = """
+        DEF Foo(x, y): cos(x) * sin(y);
+        out = [FROM SCAN(%s) AS X EMIT Foo(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.InvalidArgumentList):
+            self.run_test(query, collections.Counter())
+
+    def test_undefined_variable_udf(self):
+        query = """
+        DEF Foo(x, y): cos(x) * sin(z);
+        out = [FROM SCAN(%s) AS X EMIT Foo(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.UndefinedVariableException):
+            self.run_test(query, collections.Counter())
+
+    def test_duplicate_variable_udf(self):
+        query = """
+        DEF Foo(x, x): cos(x) * sin(x);
+        out = [FROM SCAN(%s) AS X EMIT Foo(X.salary, X.dept_id)];
+        DUMP(out);
+        """ % self.emp_key
+
+        with self.assertRaises(raco.myrial.exceptions.DuplicateVariableException):
+            self.run_test(query, collections.Counter())
+
+    def test_triangle_udf(self):
+        query = """
+        DEF Triangle(a,b): (a*b)/2;
+
+        out = [FROM SCAN(%s) AS X EMIT id, Triangle(X.salary, dept_id) AS t];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[1] * t[3] / 2) for t in self.emp_table])
+        self.run_test(query, expected)
+
+    def test_noop_udf(self):
+        expr = "30 + 15 / 7 + -45"
+
+        query = """
+        DEF Noop(): %s;
+
+        out = [Noop() AS t];
+        DUMP(out);
+        """ % expr
+
+        val = eval(expr)
+        expected = collections.Counter([(val,)])
+        self.run_test(query, expected)
+
+    def test_composition_udf(self):
+        query = """
+        DEF Add7(x): x + 7;
+        DEF Add6(x): x + 6;
+        out = [FROM SCAN(%s) AS X EMIT id, Add6(Add7(Add6(X.salary)))];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[3] +19) for t in self.emp_table])
+        self.run_test(query, expected)
+
+    def test_nested_udf(self):
+        query = """
+        DEF Add7(x): x + 7;
+        DEF Add10(x): Add7(x) + 3;
+        out = [FROM SCAN(%s) AS X EMIT id, Add10(X.salary)];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[3] + 10) for t in self.emp_table])
+        self.run_test(query, expected)
