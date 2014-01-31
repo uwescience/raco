@@ -5,7 +5,7 @@ from raco.expression import EQ, AND, OR, NamedAttributeRef, StringLiteral, Numer
 
 from sampledb import btc_schema, Rr
 
-def testpython():
+def pythonmain():
   testexpr1 = Join([("object","subject")], Scan("R"), Scan("R"))
 
   R = Scan(Rr)
@@ -36,7 +36,7 @@ def testpython():
   osR = optimize(sRsSsT, target=PythonAlgebra, source=LogicalAlgebra)
   print compile(osR)
 
-def testcc():
+def main():
  # c implementation doesn't support string literals
  R = Scan(btc_schema["trial"])
  sR = Select(EQ(NamedAttributeRef("predicate"), NumericLiteral(1133564893)), R)
@@ -82,4 +82,4 @@ def testcc():
 
 if __name__ == '__main__':
   #print testpython()
-  print testcc()
+  print main()

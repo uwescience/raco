@@ -37,7 +37,7 @@ class DatalogTestCase(unittest.TestCase):
         self.db.evaluate(output_op)
         return self.db.get_temp_table('__OUTPUT__')
 
-    def run_test(self, query, expected):
+    def check_result(self, query, expected):
         '''Execute a test query with an expected output'''
         actual = self.execute_query(query)
         self.assertEquals(actual, expected)

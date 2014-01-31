@@ -50,7 +50,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         """ % (self.emp_key1, self.emp_key2)
 
         expected = self.emp_table1 + self.emp_table2
-        self.run_test(query, expected)
+        self.check_result(query, expected)
 
     def test_diff1(self):
         query = """
@@ -59,7 +59,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         """ % (self.emp_key1, self.emp_key2)
 
         expected = self.emp_table1 - self.emp_table2
-        self.run_test(query, expected)
+        self.check_result(query, expected)
 
     def test_diff2(self):
         query = """
@@ -68,7 +68,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         """ % (self.emp_key2, self.emp_key1)
 
         expected = self.emp_table2 - self.emp_table1
-        self.run_test(query, expected)
+        self.check_result(query, expected)
 
     def test_intersect1(self):
         query = """
@@ -77,7 +77,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         """ % (self.emp_key1, self.emp_key2)
 
         expected = self.emp_table1 & self.emp_table2
-        self.run_test(query, expected)
+        self.check_result(query, expected)
 
     def test_intersect2(self):
         query = """
@@ -86,4 +86,4 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         """ % (self.emp_key2, self.emp_key1)
 
         expected = self.emp_table2 & self.emp_table1
-        self.run_test(query, expected)
+        self.check_result(query, expected)
