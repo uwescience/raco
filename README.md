@@ -35,6 +35,10 @@ For normal use:
     python setup.py install
 
 
+# Run tests
+
+To execute the tests, run `nosetests` in the root directory of the repository. See `nosetests -h` for more options or consult the [nose documentationn](https://nose.readthedocs.org).
+
 
 # Example
 
