@@ -93,17 +93,12 @@ class ExpressionProcessor(object):
         return op
 
     def extract_unbox_args(self, from_args, sexpr):
-        def extract(sexpr):
-            if isinstance(sexpr, raco.expression.Unbox):
-                rex = sexpr.relational_expression
+        for sub_expr in sexpr.walk():
+            if isinstance(sub_expr, raco.expression.Unbox):
+                rex = sub_expr.relational_expression
                 if not rex in from_args:
                     unbox_op = self.evaluate(rex)
                     from_args[rex] = unbox_op
-            return 0 # whatever
-
-        # TODO: get rid of stupid list (required to force evaluation)
-        l = list(sexpr.postorder(extract))
-        return
 
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehsion.

@@ -1,4 +1,7 @@
 
+DEF EuclideanDistance(x0, y0, x1, y1):
+    sqrt(pow(x0 - x1, 2) + pow(y0 - y1, 2));
+
 -- Load some points; assume each point has a unique ID
 Point = SCAN(public:adhoc:points);
 
@@ -18,8 +21,7 @@ DO
   Distance = [FROM Point, Centroid
               EMIT Point.id AS id,
                    Centroid.cluster_id AS cluster_id,
-                   SQRT(POW(Point.x - Centroid.x, 2) +
-                   POW(Point.y - Centroid.y, 2)) AS distance];
+                   EuclideanDistance(Point.x, Centroid.x, Point.y, Centroid.y) AS distance];
                                            
   -- Choose closest cluster for each point
   Closest = [FROM Distance EMIT id, MIN(distance) AS distance];
