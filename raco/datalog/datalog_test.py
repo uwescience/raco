@@ -4,7 +4,7 @@ import json
 import raco.fakedb
 from raco import RACompiler
 from raco.language import MyriaAlgebra
-from myrialang import compile_to_json
+from raco.myrialang import compile_to_json
 
 
 class DatalogTestCase(unittest.TestCase):
