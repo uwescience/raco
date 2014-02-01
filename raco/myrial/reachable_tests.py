@@ -50,7 +50,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
             (13,),
             ])
 
-        self.run_test(query, expected)
+        self.check_result(query, expected)
 
     def test_multi_condition_join(self):
         query = """
@@ -64,7 +64,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
         expected = collections.Counter(
             [(a, b) for (a, b) in table for (c, d) in table if a==d and b==c \
              and a < b])
-        self.run_test(query, expected)
+        self.check_result(query, expected)
 
     def test_cross_plus_selection_becomes_join(self):
         """Test that the optimizer compiles away cross-products."""

@@ -25,7 +25,7 @@ class MyrialTestCase(unittest.TestCase):
 
         return self.db.get_temp_table('__OUTPUT0__')
 
-    def run_test(self, query, expected, test_logical=False):
+    def check_result(self, query, expected, test_logical=False):
         '''Execute a test query with an expected output'''
         actual = self.execute_query(query, test_logical)
         self.assertEquals(actual, expected)
