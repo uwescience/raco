@@ -2,6 +2,8 @@
 #include <Grappa.hpp>
 #include <Collective.hpp>
 
+using namespace Grappa;
+
 // stl
 #include <vector>
 #include <unordered_map>
@@ -32,19 +34,15 @@ void query() {
     // SPLIT ME HERE
 }
 
-void user_main( int * ignore ) {
-
-    query();
-
-    Grappa::Statistics::merge_and_print();
-}
 
 int main(int argc, char** argv) {
-    Grappa_init(&argc, &argv);
-    Grappa_activate();
+    init(&argc, &argv);
 
-    Grappa_run_user_main(&user_main, (int*)NULL);
+    run([] {
+    	query();
+    	Metrics::merge_and_print();
+    });
 
-    Grappa_finish(0);
+    finalize();
     return 0;
 }

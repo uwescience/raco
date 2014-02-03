@@ -35,6 +35,30 @@ filtering_nestedloop_join_chain_template = ""#readtemplate("filtering_nestedloop
 ascii_scan_template = readtemplate("ascii_scan.template")
 binary_scan_template = readtemplate("binary_scan.template")
 
+
+
+class CStagedTupleRef(StagedTupleRef):
+  def __additionalDefinitionCode__(self):
+    constructor_template = """
+    public:
+    %(tupletypename)s (relationInfo * rel, int row) {
+      %(copies)s
+    }
+    """
+
+    copytemplate = """_fields[%(fieldnum)s] = rel->relation[row*rel->fields + %(fieldnum)s];
+    """
+
+    copies = ""
+    # TODO: actually list the trimmed schema offsets
+    for i in range(0, len(self.scheme)):
+      fieldnum = i
+      copies += copytemplate % locals()
+      
+    tupletypename = self.getTupleTypename()
+    return constructor_template % locals()
+    
+
 class CC(Language):
     @classmethod
     def new_relation_assignment(cls, rvar, val):
@@ -130,7 +154,7 @@ class MemoryScan(algebra.Scan, CCOperator):
        } // end scan over %(inputsym)s
        """
     
-    stagedTuple = StagedTupleRef(inputsym, self.scheme())
+    stagedTuple = CStagedTupleRef(inputsym, self.scheme())
 
     tuple_type_def = stagedTuple.generateDefition()
     tuple_type = stagedTuple.getTupleTypename()
@@ -227,8 +251,8 @@ class HashJoin(algebra.Join, CCOperator):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
     
-    self._hashname = self.__genHashName__()
-    self.outTuple = StagedTupleRef(gensym(), self.scheme())
+    #self._hashname = self.__genHashName__()
+    #self.outTuple = CStagedTupleRef(gensym(), self.scheme())
     
     self.right.childtag = "right"
     code_right, decls_right = self.right.produce()
@@ -246,6 +270,12 @@ class HashJoin(algebra.Join, CCOperator):
       right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
       """   
       
+      # FIXME generating this here is an ugly hack to fix the mutable problem
+      self._hashname = self.__genHashName__()
+      LOG.debug("generate hashname %s for %s", self, self._hashname)
+      # FIXME generating this here is another ugly hack to fix the mutable problem
+      self.outTuple = CStagedTupleRef(gensym(), self.scheme())
+
       hashname = self._hashname
       keyname = t.name
       keypos = self.condition.right.position-len(self.left.scheme())
@@ -278,7 +308,7 @@ class HashJoin(algebra.Join, CCOperator):
       right_tuple_name = self.rightTuple.name
 
       # or could make up another name
-      #right_tuple_name = StagedTupleRef.genname() 
+      #right_tuple_name = CStagedTupleRef.genname() 
 
       out_tuple_type = self.outTuple.getTupleTypename()
       out_tuple_name =self.outTuple.name

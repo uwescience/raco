@@ -37,7 +37,8 @@ termtest = """
 AWord(G,A,B,"foo", 5, 3.2)
 """
 
-def test(query):
+
+def main(query):
     print "Input:"
     print query
     parsedprogram = dlog.program.parseString(query)[0]
@@ -49,4 +50,5 @@ def test(query):
         print "Rule:", rule
     print rule.toRA(parsedprogram)
 
-#test(debugquery)
+if __name__ == '__main__':
+    main(debugquery)

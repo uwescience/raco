@@ -3,7 +3,8 @@ Raco, the Relational Algebra COmpiler
 
 A pure Python compiler and optimization framework for relational algebra.
 
-Build status: ![build status from Travis CI](https://travis-ci.org/uwescience/datalogcompiler.png)
+[![Build Status](https://travis-ci.org/uwescience/datalogcompiler.png?branch=master)](https://travis-ci.org/uwescience/datalogcompiler)
+[![Coverage Status](https://coveralls.io/repos/uwescience/datalogcompiler/badge.png)](https://coveralls.io/r/uwescience/datalogcompiler)
 
 Source languages include:
 
@@ -28,12 +29,17 @@ Requires Python 2.7 or higher 2.x
 
 For development use:
 
+    pip install -r requirements-dev.txt
     python setup.py develop
 
 For normal use:
 
     python setup.py install
 
+
+# Run tests
+
+To execute the tests, run `nosetests` in the root directory of the repository. See `nosetests -h` for more options or consult the [nose documentation](https://nose.readthedocs.org).
 
 
 # Example
@@ -88,6 +94,26 @@ Sequence
 ### Visualize a Myria plan as a graph
 Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
+### Compile a datalog query into C++, then run it
+```
+cd examples
+./clog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
+./clog.sh "A(a,b) :- R1(a),R2(a,b), a<3 A(a,b) :- S1(a), S2(a,b) B(x,y,z) :- A(x,y), A(y,z)" "complex-query"
+```
+
+Available test tables are `{R,S,T}{1,2,3}` with that number of columns.
+
+
+### Compile a datalog query into Grappa, then run it
+1. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
+2. set GRAPPA_HOME to root of Grappa
+3. try queries:
+
+```
+cd examples
+./grappalog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
+```
+
 # Authors and contract information
 
-Raco's authors include Bill Howe, Andrew Whitaker, Daniel Halperin, and Brandon Myers at the University of Washington. Contact us at <raco@cs.washington.edu>.
+Raco's authors include Bill Howe, Andrew Whitaker, Daniel Halperin, Brandon Myers and Dominik Moritz at the University of Washington. Contact us at <raco@cs.washington.edu>.

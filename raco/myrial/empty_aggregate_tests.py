@@ -22,7 +22,7 @@ class EmptyAggregateTests(myrial_test.MyrialTestCase):
         DUMP(X);
         """
 
-        self.run_test(query, collections.Counter([(0,)]))
+        self.check_result(query, collections.Counter([(0,)]))
 
     def test_sum(self):
         query = """
@@ -31,4 +31,4 @@ class EmptyAggregateTests(myrial_test.MyrialTestCase):
         DUMP(X);
         """
 
-        self.run_test(query, collections.Counter([(0,)]))
+        self.check_result(query, collections.Counter([(0,)]))
