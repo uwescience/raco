@@ -1,0 +1,3 @@
+A(yr) :- %(tr)s(journal, 'rdf:type', 'bench:Journal'),
+                 %(tr)s(journal, 'dc:title', 'Journal 1 (1940)'),
+                 %(tr)s(journal, 'dcterms:issued', yr)
