@@ -39,8 +39,8 @@ def testEmit(query, name, algebra):
 
 if __name__ == "__main__":
     queries = [
-            ("A(s1) :- T1(s1)", "scan"),#, "select s1 from T1"), 
-            ("A(s1) :- T1(s1), s1>10", "select"),#, "select s1 from T1 where s1>10" ),
+            ("A(s1) :- T1(s1)", "scan"),  # , "select s1 from T1"),
+            ("A(s1) :- T1(s1), s1>10", "select"),  # , "select s1 from T1 where s1>10" ),
             ("A(s1) :- T1(s1), s1>0, s1<10", "select_conjunction"),
             ("A(s1,s2) :- T2(s1,s2), s>10, s2>10", "two_var_select"),
             ("A(s1,o2) :- T3(s1,p1,o1), R3(o2,p1,o2)", "join"),
@@ -90,9 +90,10 @@ if __name__ == "__main__":
     algebra = CCAlgebra
     prefix = ""
     import sys
-    if sys.argv[1] ==  "grappa":
-      algebra = GrappaAlgebra
-      prefix = "grappa_"
+    if len(sys.argv) > 1:
+        if sys.argv[1] ==  "grappa":
+            algebra = GrappaAlgebra
+            prefix = "grappa_"
 
     for q in queries:
         query, name = q
