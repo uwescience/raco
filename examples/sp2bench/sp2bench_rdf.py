@@ -107,17 +107,26 @@ queries['Q10'] = """A(subj, pred) :- %(tr)s(subj, pred, 'person:Paul_Erdoes')"""
 
 queries['Q11'] = """A(ee) :- %(tr)s(publication, 'rdfs:seeAlso', ee)"""
 #TODO order by, limit, offset
+    
+algebra = CCAlgebra
+prefix=""
+import sys
+if len(sys.argv) > 1:
+    if sys.argv[1] ==  "grappa" or sys.argv[1] == "g":
+        print "using grappa"
+        algebra = GrappaAlgebra
+        prefix="grappa_"
 
 for name in queries:
     querystr = queries[name] % locals()
-    test_query.testEmit(querystr, name, CCAlgebra)
+    test_query.testEmit(querystr, prefix+name, algebra)
 
 for name in queriesL:
     querystr = queriesL[name] % locals()
-    test_query.testEmit(querystr, name, CCAlgebra)
+    test_query.testEmit(querystr, prefix+name, algebra)
 
 for name in queriesI:
     querystr = queriesI[name] % locals()
-    test_query.testEmit(querystr, name, CCAlgebra)
+    test_query.testEmit(querystr, prefix+name, algebra)
 
 
