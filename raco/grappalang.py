@@ -403,7 +403,7 @@ class GrappaAlgebra(object):
     HashJoin
   ]
     rules = [
-    rules.removeProject(),
+  #  rules.removeProject(),
     rules.CrossProduct2Join(),
     #swapJoinSides(),
     rules.OneToOne(algebra.Select,GrappaSelect),
