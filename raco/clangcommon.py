@@ -78,7 +78,7 @@ class StagedTupleRef:
     }
     
     %(additional_code)s
-  };
+  } %(after_def_code)s;
   std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
     return t.dump(o);
   }
@@ -92,6 +92,7 @@ class StagedTupleRef:
 
     
     additional_code = self.__additionalDefinitionCode__()
+    after_def_code = self.__afterDefinitionCode__()
 
 
     tupletypename = self.getTupleTypename()
@@ -102,6 +103,9 @@ class StagedTupleRef:
   
   def __additionalDefinitionCode__(self):
     return ""
+
+  def __afterDefinitionCode__(self):
+      return ""
   
 
 def getTaggingFunc(t):

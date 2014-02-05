@@ -28,20 +28,10 @@ base_template = readtemplate("base_query.template")
 initialize, querydef_init, finalize = base_template.split("// SPLIT ME HERE")
 
 class GrappaStagedTupleRef(StagedTupleRef):
-  def __additionalDefinitionCode__(self):
-    numfields = len(self.scheme)
-    
-    # hack to get tuples to divide evenly into grappas BLOCK_SIZE
-    grappa_block_size = 64 # sizeof(int64_t)*8
-    padding_map = { 1: 0, 2: 0, 3: 1, 4: 0, 5: 3, 6: 2, 7: 1, 8: 0}
-    assert numfields <= 8
-    padding_amt = padding_map[numfields]
-    if padding_amt > 0: padding = """// pad to grappa BLOCK_SIZE 
-    private:
-    char _padding[8*%s];"""%padding_map[numfields]
-    else: padding = ""
-    
-    return padding
+  def __afterDefinitionCode__(self):
+     # Grappa requires structures to be block aligned if they will be
+     # iterated over with localizing forall
+     return "GRAPPA_BLOCK_ALIGNED"
     
 
 class GrappaLanguage(Language):
