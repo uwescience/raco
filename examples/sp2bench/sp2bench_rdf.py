@@ -4,10 +4,14 @@ from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 
 tr = "sp2bench_1m"
 queries = {}
+queriesL = {} # manually RDF prefix expanded
 
 queries['Q1'] = """A(yr) :- %(tr)s(journal, 'rdf:type', 'bench:Journal'),
                  %(tr)s(journal, 'dc:title', 'Journal 1 (1940)'),
                  %(tr)s(journal, 'dcterms:issued', yr)"""
+queriesL['Q1'] = """A(yr) :- %(tr)s(journal, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://localhost/vocabulary/bench/Journal'),
+                 %(tr)s(journal, 'http://purl.org/dc/elements/1.1/title', 'Journal 1 (1940)'),
+                 %(tr)s(journal, 'http://purl.org/dc/terms/issued', yr)"""
 
 #"""A(inproc, author, booktitle, title, proc, ee, page, url, yr, abstract) :- %(tr)s(inproc, 'rdf:type', 'bench:Inproceedings'),
 queries['Q2'] = """A(inproc, author, booktitle, title, proc, ee, page, url, yr) :- %(tr)s(inproc, 'rdf:type', 'bench:Inproceedings'),
@@ -102,5 +106,9 @@ queries['Q11'] = """A(ee) :- %(tr)s(publication, 'rdfs:seeAlso', ee)"""
 
 for name in queries:
     querystr = queries[name] % locals()
+    test_query.testEmit(querystr, name, CCAlgebra)
+
+for name in queriesL:
+    querystr = queriesL[name] % locals()
     test_query.testEmit(querystr, name, CCAlgebra)
 
