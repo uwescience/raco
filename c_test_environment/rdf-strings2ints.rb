@@ -22,27 +22,21 @@ def uriToPrefixedStr(uri)
    if not r then
       r = ""
       $prefixes.each do |pref|
-          print "matching #{uri} with #{pref}? "
           pref_pat = Regexp.new (pref.to_uri.to_s)   # or path only
           prefix_match = pref_pat.match(uri.to_s) 
           if prefix_match then
-              print "TRUE "
               r = "#{pref.__prefix__.to_s}:#{prefix_match.post_match}"
               $memoized[uri] = r
               break
-          else
-              print "FALSE "
           end
       end
    end
 
    # give up if no prefix match found
    if r.empty? then
-       print "#{uri.to_s}\n"
        return uri.to_s
    end
    
-   print "#{r}\n"
    return r 
 end
 
@@ -75,10 +69,10 @@ RDF::Reader.open("sp2b.100t",
     end
 end
 
-# encoding of map is is (string=>index) -> (<implicit line number>string) 
+# encoding of map is is (string=>index) -> (string linenumber) 
 open("sp2b.100t.index", 'w') do |writer|
     strings.each_pair do |k,v|
-        writer.write("#{k.to_s}\n")
+        writer.write("#{k.to_s} #{v}\n")
     end
 end  
 
@@ -86,7 +80,7 @@ end
 open("sp2b.100t.index_slim", 'w') do |writer|
     strings.each_pair do |k,v|
         pk = uriToPrefixedStr(k)
-        writer.write("#{pk.to_s}\n")
+        writer.write("#{pk.to_s} #{v}\n")
     end
 end
 
