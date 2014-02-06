@@ -72,7 +72,7 @@ _ = """A(person, name) :- %(tr)s(article, 'rdf:type', 'bench:Article'),
 # TODO: Q7 requires double negation
 
 
-#TODO: enable Q8, after dealing with HashJoin( $0 != $7 ) type of cases
+#TODO: enable Q8, after dealing with HashJoin( $0 != $7 ) type of cases (ie, antijoin)
 #queries['Q8'] = """Erdoes(erdoes) :- %(tr)s(erdoes, 'rdf:type', 'foaf:Person'), 
 _ = """Erdoes(erdoes) :- %(tr)s(erdoes, 'rdf:type', 'foaf:Person'), 
                           %(tr)s(erdoes, 'foaf:name', "Paul Erdoes") 
