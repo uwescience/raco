@@ -115,7 +115,7 @@ class CC(Language):
     @classmethod
     def boolean_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg in args])
+        conjunc = opstr.join(["(%s)" % arg for arg in args])
         LOG.debug("conjunc: %s", conjunc)
         return "( %s )" % conjunc
 
