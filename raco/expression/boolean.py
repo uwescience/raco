@@ -149,6 +149,10 @@ class BooleanExprVisitor(object):
         return
 
     @abc.abstractmethod
+    def visit_EQ(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
     def visit_NEQ(self, binaryExpr):
         return
 
