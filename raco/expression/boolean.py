@@ -192,4 +192,78 @@ class BooleanExprVisitor(object):
     def visit_NumericLiteral(self, numericLiteral):
         return
 
+import sympy
+class SympyBuildVisitor(BooleanExprVisitor):
+    def __init__(self):
+        self.stack = []
+        self.symbolmappings = {}
+        self.i = 0
+        self.valid = True
+
+    def __newsym__(self):
+        newsym = sympy.symbols("x%s" % (self.i))
+        self.i += 1
+        return newsym
+
+    def __visit_BinaryBooleanOperator__(self, binaryexpr):
+        right = self.stack.pop()
+        left = self.stack.pop()
+        return left, right
+
+    def visit_NOT(self, unaryExpr):
+        inputsym = self.stack.pop()
+        self.stack.append(~inputsym)
+
+    def visit_AND(self, binaryExpr):
+        leftsym, rightsym = self.__visit_BinaryBooleanOperator__(binaryExpr)
+        self.stack.append(leftsym & rightsym)
+
+    def visit_OR(self, binaryExpr):
+        leftsym, rightsym = self.__visit_BinaryBooleanOperator__(binaryExpr)
+        self.stack.append(leftsym | rightsym)
+
+    def visit_GT(self, binaryExpr):
+        leftsym, rightsym = self.__visit_BinaryBooleanOperator__(binaryExpr)
+        self.stack.append(sympy.Gt(leftsym, rightsym))
+
+    def visit_GTEQ(self, binaryExpr):
+        leftsym, rightsym = self.__visit_BinaryBooleanOperator__(binaryExpr)
+        self.stack.append(sympy.Ge(leftsym, rightsym))
+
+    def visit_LT(self, binaryExpr):
+        leftsym, rightsym = self.__visit_BinaryBooleanOperator__(binaryExpr)
+        self.stack.append(sympy.Lt(leftsym, rightsym))
+
+    def visit_LTEQ(self, binaryExpr):
+        leftsym, rightsym = self.__visit_BinaryBooleanOperator__(binaryExpr)
+        self.stack.append(sympy.Le(leftsym, rightsym))
+
+    def visit_NEQ(self, binaryExpr):
+        leftsym, rightsym = self.__visit_BinaryBooleanOperator__(binaryExpr)
+        self.stack.append(sympy.Ne(leftsym, rightsym))
+
+    def visit_EQ(self, binaryExpr):
+        leftsym, rightsym = self.__visit_BinaryBooleanOperator__(binaryExpr)
+        self.stack.append(sympy.Eq(leftsym, rightsym))
+
+    def visit_UnnamedAttributeRef(self, unnamed):
+        newsym = self.__newsym__()
+        self.symbolmappings[newsym] = unnamed
+        self.stack.append(newsym)
+
+    def visit_NamedAttributeRef(self, named):
+        newsym = self.__newsym__()
+        self.symbolmappings[newsym] = named
+        self.stack.append(newsym)
+
+    def visit_NumericLiteral(self, numericLiteral):
+        self.stack.append(sympy.Integer(numericLiteral.value))
+
+    def visit_StringLiteral(self, stringLiteral):
+        # no support for simplification containing strings
+        self.valid = False
+
+        # just append a dummy number so the visits can finish
+        self.stack.append(sympy.Integer(0))
+
 
