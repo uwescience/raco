@@ -84,55 +84,81 @@ class Language(object):
         return result
 
     @classmethod
-    def compile_boolean(cls, expr):
-        """Compile a boolean condition into the target language"""
-        if isinstance(expr, expression.UnaryBooleanOperator):
-            LOG.debug("UnaryBooleanOperator: %s", expr)
-            input = cls.compile_boolean(expr.input)
-            if isinstance(expr, expression.NOT):
-                return cls.negation(input)
-        if isinstance(expr, expression.BinaryBooleanOperator):
-            left, right = cls.compile_boolean(expr.left), cls.compile_boolean(expr.right)
-            LOG.debug( "BinaryBooleanOperator %s", expr)
-            LOG.debug( "left: %s, compiled: %s", expr.left, left)
-            LOG.debug( "right: %s, compiled: %s", expr.right, right)
-            if isinstance(expr, expression.AND):
-                return cls.conjunction(left, right)
-            if isinstance(expr, expression.OR):
-                return cls.disjunction(left, right)
-            if isinstance(expr, expression.EQ):
-                return cls.boolean_combine([left, right], operator="==")
-            if isinstance(expr, expression.NEQ):
-                return cls.boolean_combine([left, right], operator="!=")
-            if isinstance(expr, expression.GT):
-                return cls.boolean_combine([left, right], operator=">")
-            if isinstance(expr, expression.LT):
-                return cls.boolean_combine([left, right], operator="<")
-            if isinstance(expr, expression.GTEQ):
-                return cls.boolean_combine([left, right], operator=">=")
-            if isinstance(expr, expression.LTEQ):
-                return cls.boolean_combine([left, right], operator="<=")
+    def compile_boolean(cls, boolexpr):
+        compilevisitor = CompileBooleanVisitor(cls)
+        boolexpr.accept(compilevisitor)
+        return compilevisitor.getresult()
 
-        elif isinstance(expr, expression.NamedAttributeRef):
-            return cls.compile_attribute(expr)
-
-        elif isinstance(expr, expression.StringLiteral):
-            return cls.compile_stringliteral(expr.value)
-
-        elif isinstance(expr, expression.NumericLiteral):
-            return cls.compile_numericliteral(expr.value)
-
-        elif isinstance(expr, expression.UnnamedAttributeRef):
-            LOG.debug("expr %s is UnnamedAttributeRef", expr)
-            return cls.compile_attribute(expr)
-
-        else:
-            return expr
-            #raise ValueError("Unknown class in boolean expression: %s (value is %s)" % (expr.__class__, expr))
 
     @abstractmethod
     def boolean_combine(cls, args, operator="and"):
         """Combine the given arguments using the specified infix operator"""
+
+
+import expression.boolean as boolean
+class CompileBooleanVisitor(boolean.BooleanExprVisitor):
+    def __init__(self, language):
+        self.language = language
+        self.stack = []
+
+    def getresult(self):
+        assert len(self.stack) == 1
+        return self.stack.pop()
+
+    def __visit_BinaryBooleanOperator__(self, binaryexpr):
+        right = self.stack.pop()
+        left = self.stack.pop()
+        return left, right
+
+    def visit_NOT(self, unaryexpr):
+        inputexpr = self.stack.pop()
+        self.stack.append(self.language.negation(inputexpr))
+
+    def visit_AND(self, binaryexpr):
+        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        self.stack.append(self.language.conjunction(left, right))
+
+    def visit_OR(self, binaryexpr):
+        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        self.stack.append(self.language.disjunction(left, right))
+
+    def visit_EQ(self, binaryexpr):
+        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        self.stack.append(self.language.boolean_combine([left,right], operator="=="))
+
+    def visit_NEQ(self, binaryexpr):
+        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        self.stack.append(self.language.boolean_combine([left,right], operator="!="))
+
+    def visit_GT(self, binaryexpr):
+        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        self.stack.append(self.language.boolean_combine([left,right], operator=">"))
+
+    def visit_LT(self, binaryexpr):
+        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        self.stack.append(self.language.boolean_combine([left,right], operator="<"))
+
+    def visit_GTEQ(self, binaryexpr):
+        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        self.stack.append(self.language.boolean_combine([left,right], operator=">="))
+
+    def visit_LTEQ(self, binaryexpr):
+        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        self.stack.append(self.language.boolean_combine([left,right], operator="<="))
+
+    def visit_NamedAttributeRef(self, named):
+        self.stack.append(self.language.compile_attribute(named))
+
+    def visit_UnnamedAttributeRef(self, unnamed):
+        LOG.debug("expr %s is UnnamedAttributeRef", unnamed)
+        self.stack.append(self.language.compile_attribute(unnamed))
+
+    def visit_NumericLiteral(self, numericliteral):
+        self.stack.append(self.language.compile_numericliteral(numericliteral))
+
+    def visit_StringLiteral(self, stringliteral):
+        self.stack.append(self.language.compile_stringliteral(stringliteral))
+
 
 # import everything from each language
 from raco.pythonlang import PythonAlgebra
