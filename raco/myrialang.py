@@ -31,7 +31,7 @@ def scheme_to_schema(s):
     else:
         names = []
         types = []
-    return {"column_types" : types, "column_names" : names}
+    return {"columnTypes" : types, "columnNames" : names}
 
 def compile_expr(op, child_scheme, state_scheme):
     ####
@@ -51,23 +51,23 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type' : 'CONSTANT',
             'value' : str(op.value),
-            'value_type' : myria_type
+            'valueType' : myria_type
         }
     elif isinstance(op, expression.StringLiteral):
         return {
             'type' : 'CONSTANT',
             'value' : str(op.value),
-            'value_type' : 'STRING_TYPE'
+            'valueType' : 'STRING_TYPE'
         }
     elif isinstance(op, expression.StateRef):
         return {
             'type' : 'STATE',
-            'column_idx' : op.get_position(child_scheme, state_scheme)
+            'columnIdx' : op.get_position(child_scheme, state_scheme)
         }
     elif isinstance(op, expression.AttributeRef):
         return {
             'type' : 'VARIABLE',
-            'column_idx' : op.get_position(child_scheme, state_scheme)
+            'columnIdx' : op.get_position(child_scheme, state_scheme)
         }
     ####
     # Everything below here is compiled automatically
@@ -88,8 +88,8 @@ def compile_expr(op, child_scheme, state_scheme):
 def compile_mapping(expr, child_scheme, state_scheme):
     output_name, root_op = expr
     return {
-        'output_name' : output_name,
-        'root_expression_operator' : compile_expr(root_op, child_scheme, state_scheme)
+        'outputName' : output_name,
+        'rootExpressionOperator' : compile_expr(root_op, child_scheme, state_scheme)
     }
 
 class MyriaLanguage(Language):
@@ -134,47 +134,47 @@ class MyriaOperator(object):
 class MyriaScan(algebra.Scan, MyriaOperator):
     def compileme(self, resultsym):
         return {
-            "op_name" : resultsym,
-            "op_type" : "TableScan",
-            "relation_key" : {
-              "user_name" : self.relation_key.user,
-              "program_name" : self.relation_key.program,
-              "relation_name" : self.relation_key.relation
+            "opName" : resultsym,
+            "opType" : "TableScan",
+            "relationKey" : {
+              "userName" : self.relation_key.user,
+              "programName" : self.relation_key.program,
+              "relationName" : self.relation_key.relation
             }
           }
 
 class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
     def compileme(self, resultsym):
         return {
-            "op_name" : resultsym,
-            "op_type" : "TableScan",
-            "relation_key" : {
-              "user_name" : 'public',
-              "program_name" : '__TEMP__',
-              "relation_name" : self.name
+            "opName" : resultsym,
+            "opType" : "TableScan",
+            "relationKey" : {
+              "userName" : 'public',
+              "programName" : '__TEMP__',
+              "relationName" : self.name
             }
           }
 
 class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
     def compileme(self, resultsym, leftsym, rightsym):
         return {
-            "op_name" : resultsym,
-            "op_type" : "UnionAll",
-            "arg_children" : [leftsym, rightsym]
+            "opName" : resultsym,
+            "opType" : "UnionAll",
+            "argChildren" : [leftsym, rightsym]
           }
 
 class MyriaSingleton(algebra.SingletonRelation, MyriaOperator):
     def compileme(self, resultsym):
         return {
-            "op_name" : resultsym,
-            "op_type" : "Singleton",
+            "opName" : resultsym,
+            "opType" : "Singleton",
           }
 
 class MyriaEmptyRelation(algebra.EmptyRelation, MyriaOperator):
     def compileme(self, resultsym):
         return {
-            "op_name" : resultsym,
-            "op_type" : "Empty",
+            "opName" : resultsym,
+            "opType" : "Empty",
             'schema' : scheme_to_schema(self.scheme())
             }
 
@@ -182,11 +182,11 @@ class MyriaSelect(algebra.Select, MyriaOperator):
     def compileme(self, resultsym, inputsym):
         pred = compile_expr(self.condition, self.scheme(), None)
         return {
-          "op_name" : resultsym,
-          "op_type" : "Filter",
-          "arg_child" : inputsym,
-          "arg_predicate" : {
-            "root_expression_operator" : pred
+          "opName" : resultsym,
+          "opType" : "Filter",
+          "argChild" : inputsym,
+          "argPredicate" : {
+            "rootExpressionOperator" : pred
           }
         }
 
@@ -196,43 +196,43 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
         allleft = [i.position for i in self.left.scheme().ascolumnlist()]
         allright = [i.position for i in self.right.scheme().ascolumnlist()]
         return {
-            "op_name" : resultsym,
-            "op_type" : "SymmetricHashJoin",
-            "arg_column_names" : column_names,
-            "arg_child1" : leftsym,
-            "arg_child2" : rightsym,
-            "arg_columns1" : [],
-            "arg_columns2" : [],
-            "arg_select1" : allleft,
-            "arg_select2" : allright
+            "opName" : resultsym,
+            "opType" : "SymmetricHashJoin",
+            "argColumnNames" : column_names,
+            "argChild1" : leftsym,
+            "argChild2" : rightsym,
+            "argColumns1" : [],
+            "argColumns2" : [],
+            "argSelect1" : allleft,
+            "argSelect2" : allright
           }
 
 class MyriaStore(algebra.Store, MyriaOperator):
     def compileme(self, resultsym, inputsym):
         return {
-            "op_name" : resultsym,
-            "op_type" : "DbInsert",
-            "relation_key" : {
-              "user_name" : self.relation_key.user,
-              "program_name" : self.relation_key.program,
-              "relation_name" : self.relation_key.relation
+            "opName" : resultsym,
+            "opType" : "DbInsert",
+            "relationKey" : {
+              "userName" : self.relation_key.user,
+              "programName" : self.relation_key.program,
+              "relationName" : self.relation_key.relation
             },
-            "arg_overwrite_table" : True,
-            "arg_child" : inputsym,
+            "argOverwriteTable" : True,
+            "argChild" : inputsym,
           }
 
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
     def compileme(self, resultsym, inputsym):
         return {
-            "op_name" : resultsym,
-            "op_type" : "DbInsert",
-            "relation_key" : {
-              "user_name" : 'public',
-              "program_name" : '__TEMP__',
-              "relation_name" : self.name
+            "opName" : resultsym,
+            "opType" : "DbInsert",
+            "relationKey" : {
+              "userName" : 'public',
+              "programName" : '__TEMP__',
+              "relationName" : self.name
             },
-            "arg_overwrite_table" : True,
-            "arg_child" : inputsym,
+            "argOverwriteTable" : True,
+            "argChild" : inputsym,
           }
 
 
@@ -272,15 +272,15 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
         allright = [i - left_len for i in pos if i >= left_len]
 
         join = {
-            "op_name" : resultsym,
-            "op_type" : "SymmetricHashJoin",
-            "arg_column_names" : column_names,
-            "arg_child1" : "%s" % leftsym,
-            "arg_columns1" : leftcols,
-            "arg_child2": "%s" % rightsym,
-            "arg_columns2" : rightcols,
-            "arg_select1" : allleft,
-            "arg_select2" : allright
+            "opName" : resultsym,
+            "opType" : "SymmetricHashJoin",
+            "argColumnNames" : column_names,
+            "argChild1" : "%s" % leftsym,
+            "argColumns1" : leftcols,
+            "argChild2": "%s" % rightsym,
+            "argColumns2" : rightcols,
+            "argSelect1" : allleft,
+            "argSelect2" : allright
           }
 
         return join
@@ -308,20 +308,20 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)] \
                      for agg_expr in self.aggregate_list]
         ret = {
-            "op_name" : resultsym,
-            "arg_child" : inputsym,
-            "arg_agg_fields" : [agg_field.position for agg_field in agg_fields],
-            "arg_agg_operators" : agg_types,
+            "opName" : resultsym,
+            "argChild" : inputsym,
+            "argAggFields" : [agg_field.position for agg_field in agg_fields],
+            "argAggOperators" : agg_types,
             }
 
         num_fields = len(self.grouping_list)
         if num_fields == 0:
-            ret["op_type"] = "Aggregate"
+            ret["opType"] = "Aggregate"
         elif num_fields == 1:
-            ret["op_type"] = "SingleGroupByAggregate"
-            ret["arg_group_field"] = group_fields[0].position
+            ret["opType"] = "SingleGroupByAggregate"
+            ret["argGroupField"] = group_fields[0].position
         else:
-            ret["op_type"] = "MultiGroupByAggregate"
+            ret["opType"] = "MultiGroupByAggregate"
             ret["arg_group_fields"] = [field.position for field in group_fields]
         return ret
 
@@ -339,9 +339,9 @@ class MyriaDupElim(algebra.Distinct, MyriaOperator):
     """Represents duplicate elimination"""
     def compileme(self, resultsym, inputsym):
         return {
-            "op_name" : resultsym,
-            "op_type" : "DupElim",
-            "arg_child" : inputsym,
+            "opName" : resultsym,
+            "opType" : "DupElim",
+            "argChild" : inputsym,
         }
 
 
@@ -351,10 +351,10 @@ class MyriaApply(algebra.Apply, MyriaOperator):
         child_scheme = self.input.scheme()
         emitters = [compile_mapping(x, child_scheme, None) for x in self.emitters]
         return {
-            'op_name' : resultsym,
-            'op_type' : 'Apply',
-            'arg_child' : inputsym,
-            'emit_expressions' : emitters
+            'opName' : resultsym,
+            'opType' : 'Apply',
+            'argChild' : inputsym,
+            'emitExpressions' : emitters
         }
 
 class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
@@ -366,12 +366,12 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
         inits = [compile_mapping(x, child_scheme, state_scheme) for x in self.inits]
         updaters = [compile_mapping(x, child_scheme, state_scheme) for x in self.updaters]
         return {
-            'op_name' : resultsym,
-            'op_type' : 'StatefulApply',
-            'arg_child' : inputsym,
-            'emit_expressions' : emitters,
-            'initializer_expressions' : inits,
-            'updater_expressions' : updaters
+            'opName' : resultsym,
+            'opType' : 'StatefulApply',
+            'argChild' : inputsym,
+            'emitExpressions' : emitters,
+            'initializerExpressions' : inits,
+            'updaterExpressions' : updaters
         }
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
@@ -384,9 +384,9 @@ class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
 
     def compileme(self, resultsym, inputsym):
         return {
-            "op_name" : resultsym,
-            "op_type" : "BroadcastProducer",
-            "arg_child" : inputsym,
+            "opName" : resultsym,
+            "opType" : "BroadcastProducer",
+            "argChild" : inputsym,
           }
 
 class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
@@ -399,9 +399,9 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def compileme(self, resultsym, inputsym):
         return {
-            'op_name' : resultsym,
-            'op_type' : 'BroadcastConsumer',
-            'arg_operator_id' : inputsym
+            'opName' : resultsym,
+            'opType' : 'BroadcastConsumer',
+            'argOperatorId' : inputsym
           }
 
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
@@ -423,14 +423,14 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         else:
             pf = {
                 "type" : "MultiFieldHash",
-                "field_indexes" : self.hash_columns
+                "fieldIndexes" : self.hash_columns
               }
 
         return {
-            "op_name" : resultsym,
-            "op_type" : "ShuffleProducer",
-            "arg_child" : inputsym,
-            "arg_pf" : pf
+            "opName" : resultsym,
+            "opType" : "ShuffleProducer",
+            "argChild" : inputsym,
+            "argPf" : pf
           }
 
 class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
@@ -443,9 +443,9 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def compileme(self, resultsym, inputsym):
         return {
-            'op_name' : resultsym,
-            'op_type' : 'ShuffleConsumer',
-            'arg_operator_id' : inputsym
+            'opName' : resultsym,
+            'opType' : 'ShuffleConsumer',
+            'argOperatorId' : inputsym
           }
 
 class BreakShuffle(rules.Rule):
@@ -469,9 +469,9 @@ class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
 
     def compileme(self, resultsym, inputsym):
         return {
-            "op_name" : resultsym,
-            "op_type" : "CollectProducer",
-            "arg_child" : inputsym,
+            "opName" : resultsym,
+            "opType" : "CollectProducer",
+            "argChild" : inputsym,
           }
 
 class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
@@ -484,9 +484,9 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def compileme(self, resultsym, inputsym):
         return {
-            'op_name' : resultsym,
-            'op_type' : 'CollectConsumer',
-            'arg_operator_id' : inputsym
+            'opName' : resultsym,
+            'opType' : 'CollectConsumer',
+            'argOperatorId' : inputsym
           }
 
 class BreakCollect(rules.Rule):
@@ -1081,7 +1081,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     # Assemble all the fragments into a single JSON query plan
     query = {
             'fragments' : all_frags,
-            'raw_datalog' : raw_query,
-            'logical_ra' : str(logical_plan)
+            'rawDatalog' : raw_query,
+            'logicalRa' : str(logical_plan)
             }
     return query
