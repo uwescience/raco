@@ -12,6 +12,7 @@ using namespace Grappa;
 #include "relation_io.hpp"
 #include "MatchesDHT.hpp"
 #include "utils.h"
+#include "stats.h"
 
 // graph gen
 #include "generator/make_graph.h"
@@ -39,7 +40,10 @@ int main(int argc, char** argv) {
     init(&argc, &argv);
 
     run([] {
+      double start = Grappa::walltime();
     	query();
+      double end = Grappa::walltime();
+      query_runtime = end - start;
     	Metrics::merge_and_print();
     });
 
