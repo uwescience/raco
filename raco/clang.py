@@ -27,7 +27,6 @@ def readtemplate(fname):
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "c_templates")
 
 base_template = readtemplate("base_query.template")
-initialize, querydef_init, finalize = base_template.split("// SPLIT ME HERE")
 twopass_select_template = readtemplate("precount_select.template")
 hashjoin_template = readtemplate("hashjoin.template")
 filteringhashjoin_template = ""
@@ -77,17 +76,18 @@ class CC(Language):
 
     @staticmethod
     def initialize(resultsym):
-        return  initialize % locals()
+        return ""
       
     @staticmethod
     def body(compileResult, resultsym):
-      code, decls = compileResult
-      querydef_init_filled = querydef_init % locals()
-      return emitlist(decls)+querydef_init_filled+code
+      queryexec, decls, inits = compileResult
+      initialized = emitlist(inits)
+      declarations = emitlist(decls)
+      return base_template % locals()
 
     @staticmethod
     def finalize(resultsym):
-        return  finalize % locals()
+        return ""
 
     @staticmethod
     def log(txt):
@@ -103,21 +103,36 @@ class CC(Language):
     def comment(txt):
         return  "// %s\n" % txt
 
+    nextstrid = 0
+    @classmethod
+    def newstringident(cls):
+        r = """str_%s""" % (cls.nextstrid)
+        cls.nextstrid += 1
+        return r
+
+    @classmethod
+    def compile_numericliteral(cls, value):
+        return '%s'%(value), []
+
     @classmethod
     def compile_stringliteral(cls, s):
+        sid = cls.newstringident()
+        init = """auto %s = string_index.string_lookup("%s");""" % (sid, s)
+        return """(%s)""" % sid, [init]
         #raise ValueError("String Literals not supported in C language: %s" % s)
-        return """string_lookup("%s")""" % s
 
     @classmethod
     def negation(cls, input):
-        return "(!%s)" % (input,)
+        innerexpr, inits = input
+        return "(!%s)" % (innerexpr,), inits
 
     @classmethod
     def boolean_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg in args])
+        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg, _ in args])
+        inits = reduce(lambda sofar, x: sofar+x, [d for _, d in args])
         LOG.debug("conjunc: %s", conjunc)
-        return "( %s )" % conjunc
+        return "( %s )" % conjunc, inits
 
     @classmethod
     def compile_attribute(cls, expr):
@@ -126,7 +141,7 @@ class CC(Language):
         if isinstance(expr, expression.UnnamedAttributeRef):
             symbol = expr.tupleref.name
             position = expr.position # NOTE: this will only work in Selects right now
-            return '%s.get(%s)' % (symbol, position)
+            return '%s.get(%s)' % (symbol, position), []
 
 class CCOperator (Pipelined):
     language = CC
@@ -160,10 +175,10 @@ class MemoryScan(algebra.Scan, CCOperator):
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
     
-    inner_plan_compiled, inner_decls = self.parent.consume(stagedTuple, self)
+    inner_plan_compiled, inner_decls, inner_inits = self.parent.consume(stagedTuple, self)
 
     code += memory_scan_template % locals()
-    return code, [tuple_type_def]+inner_decls
+    return code, [tuple_type_def]+inner_decls, inner_inits
     
   def consume(self, t, src):
     assert False, "as a source, no need for consume"
@@ -255,12 +270,12 @@ class HashJoin(algebra.Join, CCOperator):
     #self.outTuple = CStagedTupleRef(gensym(), self.scheme())
     
     self.right.childtag = "right"
-    code_right, decls_right = self.right.produce()
+    code_right, decls_right, inits_right = self.right.produce()
     
     self.left.childtag = "left"
-    code_left, decls_left = self.left.produce()
+    code_left, decls_left, inits_left = self.left.produce()
 
-    return code_right+code_left, decls_right+decls_left
+    return code_right+code_left, decls_right+decls_left, inits_right+inits_left
   
   def consume(self, t, src):
     if src.childtag == "right":
@@ -290,7 +305,7 @@ class HashJoin(algebra.Join, CCOperator):
       # materialization point
       code = right_template % locals()
       
-      return code, [out_tuple_type_def,hashdeclr]
+      return code, [out_tuple_type_def,hashdeclr], []
     
     if src.childtag == "left":
       left_template = """
@@ -313,10 +328,10 @@ class HashJoin(algebra.Join, CCOperator):
       out_tuple_type = self.outTuple.getTupleTypename()
       out_tuple_name =self.outTuple.name
       
-      inner_plan_compiled, inner_plan_declrs = self.parent.consume(self.outTuple, self)
+      inner_plan_compiled, inner_plan_declrs, inner_inits = self.parent.consume(self.outTuple, self)
       
       code = left_template % locals()
-      return code, inner_plan_declrs
+      return code, inner_plan_declrs, inner_inits
 
     assert False, "src not equal to left or right"
       

@@ -6,7 +6,7 @@ class TestEmit:
   def __init__(self, lang):
     self.language = lang
   def consume(self,t,src):
-    return self.language.log_unquoted("%s" % t.name), []
+    return self.language.log_unquoted("%s" % t.name), [], []
   
   
 class Pipelined(object):
@@ -45,9 +45,9 @@ class Pipelined(object):
       # TODO should be using resultsym?? for what here?
 
       code = self.language.comment("Compiled subplan for %s" % self)
-      selfcode, selfdecls = self.produce()
+      selfcode, selfdecls, selfinits = self.produce()
 
       code += self.language.log("Evaluating subplan %s" % self)
       code += selfcode
       
-      return (code, selfdecls)
+      return (code, selfdecls, selfinits)

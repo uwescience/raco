@@ -36,6 +36,7 @@ typedef uint64_t uint64;
 #include "counters_util.h"
 #include "hash.h"
 #include "utils.h"
+#include "strings.h"
 
 // ------------------------------------------------------------------
 
@@ -79,10 +80,6 @@ void insert(uint64 **ht1, uint64 size1, uint64 offset)
 */
 
 
-inline uint64 string_lookup(const char *key) {
-  return 1; // dummy for now. 
-}
-
 inline bool equals(struct relationInfo *left, uint64 leftrow, uint64 leftattribute
                     , struct relationInfo *right, uint64 rightrow, uint64 rightattribute) {
   /* Convenience function for evaluating equi-join conditions */
@@ -91,7 +88,13 @@ inline bool equals(struct relationInfo *left, uint64 leftrow, uint64 leftattribu
   return leftval == rightval;
 }
 
-  // SPLIT ME HERE
+%(declarations)s
+
+StringIndex string_index;
+void init( ) {
+    string_index = build_string_index("sp2b.100t.index");
+}
+
 
 void query(struct relationInfo *resultInfo)
 {
@@ -114,8 +117,10 @@ void query(struct relationInfo *resultInfo)
   // -----------------------------------------------------------
   // Fill in query here
   // -----------------------------------------------------------
+  %(initialized)s
 
-  // SPLIT ME HERE
+  
+ %(queryexec)s
 
 
   // return final result
@@ -130,6 +135,8 @@ void query(struct relationInfo *resultInfo)
 int main(int argc, char **argv) {
 
   struct relationInfo resultInfo;
+
+  init();
 
   // Execute the query
   query(&resultInfo);
