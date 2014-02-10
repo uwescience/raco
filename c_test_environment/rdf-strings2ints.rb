@@ -69,8 +69,15 @@ RDF::Reader.open("sp2b.100t",
     end
 end
 
-# encoding of map is is (string=>index) -> (string linenumber) 
+# encoding of map is is (string=>index) -> (implicitly linenumber) 
 open("sp2b.100t.index", 'w') do |writer|
+    strings.each_pair do |k,v|
+        writer.write("#{k.to_s}\n")
+    end
+end  
+
+# encoding of map is is (string=>index) -> (string linenumber) 
+open("sp2b.100t.index_human", 'w') do |writer|
     strings.each_pair do |k,v|
         writer.write("#{k.to_s} #{v}\n")
     end
