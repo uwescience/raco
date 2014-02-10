@@ -28,11 +28,17 @@ struct Relation {
     size_t numtuples;
 };  
 
-// SPLIT ME HERE
+%(declarations)s
+
+StringIndex string_index;
+void init( ) {
+    string_index = build_string_index("sp2b.100t.index");
+}
 
 void query() {
+    %(initialized)s
 
-    // SPLIT ME HERE
+    %(queryexec)s
 }
 
 
@@ -40,7 +46,9 @@ int main(int argc, char** argv) {
     init(&argc, &argv);
 
     run([] {
-      double start = Grappa::walltime();
+
+    on_all_cores([]() { init(); });
+double start = Grappa::walltime();
     	query();
       double end = Grappa::walltime();
       query_runtime = end - start;
