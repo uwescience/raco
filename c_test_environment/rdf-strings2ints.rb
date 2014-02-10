@@ -3,6 +3,12 @@
 # rdf-raptor: https://github.com/ruby-rdf/rdf-raptor
 require 'rdf/raptor'
 
+$inputfile = ARGV[0]
+
+$extras = false
+if len(ARGV) > 1 and ARGV[1]=='extras' then
+  $extras = true
+end
 
 """
 Some junk trying to output prefix reduced versions of strings,
@@ -52,45 +58,50 @@ end
 
 strings = {}
 # including the prefixes is silly and unnecessary
-RDF::Reader.open("sp2b.100t",
-                ) do |reader|
+open("#{$inputfile}.i", 'w') do |writer|
+  RDF::Reader.open($inputfile) do |reader|
     reader.each_statement do |statement|
-        spo = []
-        statement.to_a.each do |atr|   # can also pull out attributes with subject/predicate/object
-            intid = strings[atr]    # just hash the RDF::URI object directly (or try to_s())
-            if not intid then
-                intid = newid()
-                strings[atr] = intid
-            end
-            spo+=[intid]
+      spo = []
+      statement.to_a.each do |atr|   # can also pull out attributes with subject/predicate/object
+        intid = strings[atr]    # just hash the RDF::URI object directly (or try to_s())
+        if not intid then
+          intid = newid()
+          strings[atr] = intid
         end
+        spo+=[intid]
+      end
 
-        print spo.join(" "), "\n"
+      writer.write("#{spo.join(" ")}\n")
     end
+  end
+
 end
 
 # encoding of map is is (string=>index) -> (implicitly linenumber) 
-open("sp2b.100t.index", 'w') do |writer|
+open("#{$inputfile}.index", 'w') do |writer|
     strings.each_pair do |k,v|
         writer.write("#{k.to_s}\n")
     end
 end  
 
-# encoding of map is is (string=>index) -> (string linenumber) 
-open("sp2b.100t.index_human", 'w') do |writer|
-    strings.each_pair do |k,v|
-        writer.write("#{k.to_s} #{v}\n")
-    end
-end  
+if $extras then
 
-# output a version of the mapping with prefix-shortened rdf strings
-open("sp2b.100t.index_slim", 'w') do |writer|
+  # encoding of map is is (string=>index) -> (string linenumber) 
+  open("#{$inputfile}.index_human", 'w') do |writer|
     strings.each_pair do |k,v|
-        pk = uriToPrefixedStr(k)
-        writer.write("#{pk.to_s} #{v}\n")
+      writer.write("#{k.to_s} #{v}\n")
     end
+  end  
+
+  # output a version of the mapping with prefix-shortened rdf strings
+  open("#{$inputfile}.index_slim", 'w') do |writer|
+    strings.each_pair do |k,v|
+      pk = uriToPrefixedStr(k)
+      writer.write("#{pk.to_s} #{v}\n")
+    end
+  end
+
 end
-
 
 
 
