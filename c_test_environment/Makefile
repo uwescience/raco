@@ -16,7 +16,7 @@ TRILIBDEFS = -DTRILIBRARY
 
 #all: 
 
-%.exe: %.o io_util.o counters_util.o
+%.exe: %.o io_util.o counters_util.o strings.o
 	$(LINK) 
 
 clean:
@@ -28,6 +28,9 @@ io_util.o : io_util.cc io_util.h
 counters_util.o : counters_util.cc counters_util.h
 	$(COMP) 
 
-%.o : %.cpp io_util.cc io_util.h counters_util.cc counters_util.h
+strings.o : strings.cc strings.h
+	$(COMP) 
+
+%.o : %.cpp 
 	$(COMP) 
 
