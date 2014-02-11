@@ -23,6 +23,9 @@ SelectFromWhere = collections.namedtuple(
 # A user-defined function
 Function = collections.namedtuple('Function', ['args', 'sexpr'])
 
+# A user-defined stateful apply
+Apply = collections.namedtuple('Apply', ['args', 'statemods', "sexpr"])
+
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': sexpr.PLUS,
@@ -58,6 +61,12 @@ class Parser(object):
     # mapping from function name to Function tuple
     functions = {}
 
+    # state modifier variables accessed by the current emit argument
+    statemods = []
+
+    # A unique ID pool for the stateful apply state variables
+    mangle_id = 0
+
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
@@ -78,7 +87,7 @@ class Parser(object):
         )
 
     # A myrial program consists of 1 or more "translation units", each of which is a
-    # function or a statement.
+    # function, apply definition, or statement.
     @staticmethod
     def p_translation_unit_list(p):
         '''translation_unit_list : translation_unit_list translation_unit
@@ -91,8 +100,15 @@ class Parser(object):
     @staticmethod
     def p_translation_unit(p):
         '''translation_unit : statement
-                            | function'''
+                            | function
+                            | apply'''
         p[0] = p[1]
+
+    @staticmethod
+    def check_for_undefined(p, name, _sexpr, args):
+        undefined = sexpr.udf_undefined_vars(_sexpr, args)
+        if undefined:
+            raise UndefinedVariableException(name, undefined[0], p.lineno)
 
     @staticmethod
     def add_function(p, name, args, body_expr):
@@ -112,11 +128,55 @@ class Parser(object):
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno)
 
-        undefined = sexpr.udf_undefined_vars(body_expr, args)
-        if undefined:
-            raise UndefinedVariableException(name, undefined[0], p.lineno)
+        Parser.check_for_undefined(p, name, body_expr, args)
 
         Parser.functions[name] = Function(args, body_expr)
+
+    @staticmethod
+    def mangle(name):
+        Parser.mangle_id += 1
+        return "%s##%d" % (name, Parser.mangle_id)
+
+    @staticmethod
+    def add_apply(p, name, args, inits, updates, finalizer):
+        """Register a stateful apply function.
+
+        TODO: de-duplicate logic from add_function.
+        """
+        if name in Parser.functions:
+            raise DuplicateFunctionDefinitionException(name, p.lineno)
+        if len(args) != len(set(args)):
+            raise DuplicateVariableException(name, p.lineno)
+        if len(inits) != len(updates):
+            raise BadApplyDefinition(name, p.lineno)
+
+        # Unpack the update, init expressions into a statemod dictionary
+        statemods = {}
+        for init, update in zip(inits, updates):
+            if not isinstance(init, emitarg.SingletonEmitArg):
+                raise IllegalWildcardException(name, p.lineno)
+            if not isinstance(update, emitarg.SingletonEmitArg):
+                raise IllegalWildcardException(name, p.lineno)
+
+            # check for duplicate variable definitions
+            sm_name = init.column_name
+            if not sm_name:
+                raise UnnamedStateVariableException(name, p.lineno)
+            if sm_name in statemods or sm_name in args:
+                raise DuplicateVariableException(name, p.lineno)
+
+            statemods[sm_name] = (init.sexpr, update.sexpr)
+
+        # check for undefined variables.  init expressions cannot reference any variables.
+        # update expression can reference function arguments and state variables.
+        # The finalizer expression can reference state variables.
+        allvars = statemods.keys() + args
+        for init_expr, update_expr in statemods.itervalues():
+            Parser.check_for_undefined(p, name, init_expr, [])
+            Parser.check_for_undefined(p, name, update_expr, allvars)
+        Parser.check_for_undefined(p, name, finalizer, statemods.keys())
+
+        Parser.functions[name] = Apply(args, statemods, finalizer)
 
     @staticmethod
     def p_function(p):
@@ -138,6 +198,18 @@ class Parser(object):
             p[0] = p[1] + [p[3]]
         else:
             p[0] = [p[1]]
+
+    @staticmethod
+    def p_apply(p):
+        'apply : APPLY ID LPAREN optional_arg_list RPAREN LBRACE \
+        table_literal SEMI table_literal SEMI sexpr SEMI RBRACE SEMI'
+        name = p[2]
+        args = p[4]
+        inits = p[7]
+        updates = p[9]
+        finalizer = p[11]
+        Parser.add_apply(p, name, args, inits, updates, finalizer)
+        p[0] = None
 
     @staticmethod
     def p_statement_assign(p):
@@ -183,8 +255,13 @@ class Parser(object):
 
     @staticmethod
     def p_expression_table_literal(p):
-        'expression : LBRACKET emit_arg_list RBRACKET'
-        p[0] = ('TABLE', p[2])
+        'expression : table_literal'
+        p[0] = ('TABLE', p[1])
+
+    @staticmethod
+    def p_table_literal(p):
+        'table_literal : LBRACKET emit_arg_list RBRACKET'
+        p[0] = p[2]
 
     @staticmethod
     def p_expression_empty(p):
@@ -302,7 +379,8 @@ class Parser(object):
         else:
             name = None
             sexpr = p[1]
-        p[0] = emitarg.SingletonEmitArg(name, sexpr)
+        p[0] = emitarg.SingletonEmitArg(name, sexpr, Parser.statemods)
+        Parser.statemods = []
 
     @staticmethod
     def p_emit_arg_table_wildcard(p):
@@ -516,7 +594,25 @@ class Parser(object):
         func = Parser.functions[name]
         if len(func.args) != len(args):
             raise InvalidArgumentList(name, func.args, p.lineno)
-        return sexpr.resolve_udf(func.sexpr, dict(zip(func.args, args)))
+
+        if isinstance(func, Function):
+            return sexpr.resolve_udf(func.sexpr, dict(zip(func.args, args)))
+        elif isinstance(func, Apply):
+            state_vars = func.statemods.keys()
+
+            # Mangle state variable names to allow multiple invocations to co-exist
+            state_vars_mangled = [Parser.mangle(sv) for sv in state_vars]
+            mangled = dict(zip(state_vars, state_vars_mangled))
+
+            for sm_name, (init_expr, update_expr) in func.statemods.iteritems():
+                # Convert state mod references into appropriate expressions
+                update_expr = sexpr.resolve_state_vars(update_expr, state_vars, mangled)
+                # Convert argument references into appropriate expressions
+                update_expr = sexpr.resolve_udf(update_expr, dict(zip(func.args, args)))
+                Parser.statemods.append((mangled[sm_name], init_expr, update_expr))
+            return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
+        else:
+            assert False
 
     @staticmethod
     def p_sexpr_udf_k_args(p):

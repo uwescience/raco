@@ -1,6 +1,7 @@
 import unittest
 from raco import RACompiler
 import raco.expression as e
+import raco.expression.boolean
 
 def RATest(query):
     dlog = RACompiler()
@@ -90,6 +91,37 @@ class DatalogTest(unittest.TestCase):
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
+    # thanks to #104
+    def test_condition_flip(self):
+        # this example is from sp2bench; a simpler one would be better
+        query =  """A(name1, name2) :- R(article1, 'rdf:type', 'bench:Article'),
+                                        R(article2, 'rdf:type', 'bench:Article'),
+                                        R(article1, 'dc:creator', author1),
+                                        R(author1, 'foaf:name', name1),
+                                        R(article2, 'dc:creator', author2),
+                                        R(author2, 'foaf:name', name2),
+                                        R(article1, 'swrc:journal', journal),
+                                        R(article2, 'swrc:journal', journal),
+                                        name1 < name2"""
+        testresult = RATest(query)
+        # no equality check, just don't have an error
+
+    # test that attributes are correct amid multiple conditions
+    def test_attributes_forward(self):
+        query = "A(a) :- R(a,b), T(x,y,a,c), b=c"
+        desiredresult = """[('A', Project($0)[Join((($0 = $4) and ($1 = $5)))[Scan(public:adhoc:R), Scan(public:adhoc:T)]])]"""
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
+    # test that attributes are correct amid multiple conditions
+    # and when the order of variables in the terms is opposite of the explicit condition
+    def test_attributes_reverse(self):
+        query = "A(a) :- R(a,b), T(x,y,a,c), c=b"
+        desiredresult = """[('A', Project($0)[Join((($0 = $4) and ($5 = $1)))[Scan(public:adhoc:R), Scan(public:adhoc:T)]])]"""
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
+
 class ExpressionTest(unittest.TestCase):
     def test_postorder(self):
         expr1 = e.MINUS(e.MAX(e.NamedAttributeRef("salary")), e.MIN(e.NamedAttributeRef("salary")))
@@ -113,6 +145,64 @@ class ExpressionTest(unittest.TestCase):
         self.assertEqual(str(e2cls), """['NamedAttributeRef', 'LOG', 'NamedAttributeRef', 'ABS', 'PLUS']""")
         self.assertEqual(e1any, True)
         self.assertEqual(e2any, False)
+
+    def test_visitor(self):
+        class EvalVisitor(raco.expression.boolean.BooleanExprVisitor):
+           def __init__(self):
+               self.stack = []
+
+           def visit_NumericLiteral(self, numericLiteral):
+               self.stack.append(numericLiteral.value)
+
+           def visit_NEQ(self, binaryExpr):
+               right = self.stack.pop()
+               left = self.stack.pop()
+               self.stack.append(left != right)
+
+           def visit_AND(self, binaryExpr):
+               right = self.stack.pop()
+               left = self.stack.pop()
+               self.stack.append(left and right)
+
+           def visit_OR(self, binaryExpr):
+               right = self.stack.pop()
+               left = self.stack.pop()
+               self.stack.append(left or right)
+
+           def visit_NOT(self, unaryExpr):
+               input = self.stack.pop()
+               self.stack.append(not input)
+
+           def visit_GTEQ(self, binaryExpr): pass
+           def visit_UnnamedAttributeRef(self, unnamed): pass
+           def visit_StringLiteral(self, stringLiteral): pass
+           def visit_EQ(self, binaryExpr): pass
+           def visit_GT(self, binaryExpr): pass
+           def visit_LT(self, binaryExpr): pass
+           def visit_LTEQ(self, binaryExpr): pass
+           def visit_NamedAttributeRef(self, named): pass
+
+        v = EvalVisitor()
+        ex = e.AND(e.NEQ(e.NumericLiteral(1),e.NumericLiteral(2)), e.NEQ(e.NumericLiteral(4),e.NumericLiteral(5)))
+        ex.accept(v)
+        self.assertEqual(v.stack.pop(), True)
+
+        v = EvalVisitor()
+        ex = e.AND(e.NEQ(e.NumericLiteral(1),e.NumericLiteral(2)), e.NEQ(e.NumericLiteral(4),e.NumericLiteral(4)))
+        ex.accept(v)
+        self.assertEqual(v.stack.pop(), False)
+
+        v = EvalVisitor()
+        ex = e.AND(e.NEQ(e.NumericLiteral(1),e.NumericLiteral(2)), e.NOT(e.NEQ(e.NumericLiteral(4),e.NumericLiteral(4))))
+        ex.accept(v)
+        self.assertEqual(v.stack.pop(), True)
+
+        v = EvalVisitor()
+        ex = e.NumericLiteral(0xC0FFEE)
+        ex.accept(v)
+        self.assertEqual(v.stack.pop(), 0xC0FFEE)
+
+
 
 if __name__ == '__main__':
     unittest.main()

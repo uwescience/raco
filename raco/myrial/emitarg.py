@@ -16,18 +16,29 @@ class EmitArg(object):
         """
         raise NotImplementedError()
 
+    def get_statemods(self):
+        """Return a list of state variables associated with the emitarg.
+
+        :return: A list of tuples of the form (name, init_expr, update_expr)
+        """
+        return []
+
 class SingletonEmitArg(EmitArg):
     """An emit arg that defines a single column.
 
     e.g.: [FROM Emp EMIT double_salary = salary * 2"""
 
-    def __init__(self, column_name, sexpr):
+    def __init__(self, column_name, sexpr, statemods):
         self.column_name = column_name
         self.sexpr = sexpr
+        self.statemods = statemods
 
     def expand(self, symbols):
         # TODO: choose a default column_name if not supplied.
         return [(self.column_name, self.sexpr)]
+
+    def get_statemods(self):
+        return self.statemods
 
 def expand_relation(relation_name, symbols):
     """Expand a given relation into a list of column mappings."""
