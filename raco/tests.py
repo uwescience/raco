@@ -91,6 +91,37 @@ class DatalogTest(unittest.TestCase):
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
+    # thanks to #104
+    def test_condition_flip(self):
+        # this example is from sp2bench; a simpler one would be better
+        query =  """A(name1, name2) :- R(article1, 'rdf:type', 'bench:Article'),
+                                        R(article2, 'rdf:type', 'bench:Article'),
+                                        R(article1, 'dc:creator', author1),
+                                        R(author1, 'foaf:name', name1),
+                                        R(article2, 'dc:creator', author2),
+                                        R(author2, 'foaf:name', name2),
+                                        R(article1, 'swrc:journal', journal),
+                                        R(article2, 'swrc:journal', journal),
+                                        name1 < name2"""
+        testresult = RATest(query)
+        # no equality check, just don't have an error
+
+    # test that attributes are correct amid multiple conditions
+    def test_attributes_forward(self):
+        query = "A(a) :- R(a,b), T(x,y,a,c), b=c"
+        desiredresult = """[('A', Project($0)[Join((($0 = $4) and ($1 = $5)))[Scan(public:adhoc:R), Scan(public:adhoc:T)]])]"""
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
+    # test that attributes are correct amid multiple conditions
+    # and when the order of variables in the terms is opposite of the explicit condition
+    def test_attributes_reverse(self):
+        query = "A(a) :- R(a,b), T(x,y,a,c), c=b"
+        desiredresult = """[('A', Project($0)[Join((($0 = $4) and ($5 = $1)))[Scan(public:adhoc:R), Scan(public:adhoc:T)]])]"""
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
+
 class ExpressionTest(unittest.TestCase):
     def test_postorder(self):
         expr1 = e.MINUS(e.MAX(e.NamedAttributeRef("salary")), e.MIN(e.NamedAttributeRef("salary")))

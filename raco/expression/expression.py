@@ -8,6 +8,9 @@ from raco.utility import Printable
 
 from abc import ABCMeta, abstractmethod
 
+import logging
+LOG = logging.getLogger(__name__)
+
 class Expression(Printable):
     __metaclass__ = ABCMeta
     literals = None
@@ -57,6 +60,19 @@ class Expression(Printable):
             if isinstance(ex, UnnamedAttributeRef):
                 ex.position += offset
 
+    def add_offset_by_terms(self, termsToOffset):
+        """Add a constant offset to every positional reference in this tree
+        using the map of terms to offset.
+
+        This function assumes that every AttributeRef has been labeled with the
+        term that it refers to"""
+
+        for ex in self.walk():
+            if isinstance(ex, UnnamedAttributeRef):
+                offset = termsToOffset[ex.myTerm]
+                LOG.debug("adding offset %s to %s", offset, ex)
+                ex.position += offset
+
     def accept(self, visitor):
         """
         Default visitor accept method. Probably does
@@ -64,6 +80,7 @@ class Expression(Printable):
         by inner tree nodes.
         """
         visitor.visit(self)
+
 
 class ZeroaryOperator(Expression):
     def __init__(self):
