@@ -73,6 +73,14 @@ class Expression(Printable):
                 LOG.debug("adding offset %s to %s", offset, ex)
                 ex.position += offset
 
+    def accept(self, visitor):
+        """
+        Default visitor accept method. Probably does
+        not need to be overridden by leaves, but certainly
+        by inner tree nodes.
+        """
+        visitor.visit(self)
+
 
 class ZeroaryOperator(Expression):
     def __init__(self):
@@ -123,6 +131,11 @@ class UnaryOperator(Expression):
         yield self
         for ex in self.input.walk():
             yield ex
+
+    def accept(self, visitor):
+        """For post order stateful visitors"""
+        self.input.accept(visitor)
+        visitor.visit(self)
 
 class BinaryOperator(Expression):
     def __init__(self, left, right):
@@ -178,6 +191,14 @@ class BinaryOperator(Expression):
             yield ex
         for ex in self.right.walk():
             yield ex
+
+    def accept(self, visitor):
+        """
+        For post-order stateful visitors
+        """
+        self.left.accept(visitor)
+        self.right.accept(visitor)
+        visitor.visit(self)
 
 class NaryOperator(Expression):
     pass

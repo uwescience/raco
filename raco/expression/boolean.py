@@ -5,6 +5,8 @@ Boolean operators for use in Raco expression trees
 from .expression import Expression, UnaryOperator, BinaryOperator, \
         AttributeRef, NumericLiteral
 
+import abc
+
 class BooleanExpression(Expression):
     pass
 
@@ -23,12 +25,14 @@ class NOT(UnaryBooleanOperator):
     def evaluate(self, _tuple, scheme, state=None):
         return not self.input.evaluate(_tuple, scheme, state)
 
+
 class AND(BinaryBooleanOperator):
     literals = ["and", "AND"]
 
     def evaluate(self, _tuple, scheme, state=None):
         return (self.left.evaluate(_tuple, scheme, state) and
                 self.right.evaluate(_tuple, scheme, state))
+
 
 class OR(BinaryBooleanOperator):
     literals = ["or", "OR"]
@@ -120,3 +124,72 @@ def extract_conjuncs(sexpr):
         return [sexpr]
 
 from .util import toUnnamed
+
+
+
+class BooleanExprVisitor(object):
+    __metaclass__ = abc.ABCMeta
+
+    def visit(self, expr):
+        # use expr to dispatch to appropriate visit_* method
+        typename = type(expr).__name__
+        dispatchTo = getattr(self, "visit_%s"%(typename))
+        return dispatchTo(expr)
+
+    @abc.abstractmethod
+    def visit_NOT(self, unaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_AND(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_OR(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_EQ(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_NEQ(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_NEQ(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_GT(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_LT(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_GTEQ(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_LTEQ(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_NamedAttributeRef(self, named):
+        return
+
+    @abc.abstractmethod
+    def visit_UnnamedAttributeRef(self, unnamed):
+        return
+
+    @abc.abstractmethod
+    def visit_StringLiteral(self, stringLiteral):
+        return
+
+    @abc.abstractmethod
+    def visit_NumericLiteral(self, numericLiteral):
+        return
+
+
