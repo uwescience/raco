@@ -1,6 +1,7 @@
 import unittest
 from raco import RACompiler
 import raco.expression as e
+import raco.expression.boolean
 
 def RATest(query):
     dlog = RACompiler()
@@ -113,6 +114,64 @@ class ExpressionTest(unittest.TestCase):
         self.assertEqual(str(e2cls), """['NamedAttributeRef', 'LOG', 'NamedAttributeRef', 'ABS', 'PLUS']""")
         self.assertEqual(e1any, True)
         self.assertEqual(e2any, False)
+
+    def test_visitor(self):
+        class EvalVisitor(raco.expression.boolean.BooleanExprVisitor):
+           def __init__(self):
+               self.stack = []
+
+           def visit_NumericLiteral(self, numericLiteral):
+               self.stack.append(numericLiteral.value)
+
+           def visit_NEQ(self, binaryExpr):
+               right = self.stack.pop()
+               left = self.stack.pop()
+               self.stack.append(left != right)
+
+           def visit_AND(self, binaryExpr):
+               right = self.stack.pop()
+               left = self.stack.pop()
+               self.stack.append(left and right)
+
+           def visit_OR(self, binaryExpr):
+               right = self.stack.pop()
+               left = self.stack.pop()
+               self.stack.append(left or right)
+
+           def visit_NOT(self, unaryExpr):
+               input = self.stack.pop()
+               self.stack.append(not input)
+
+           def visit_GTEQ(self, binaryExpr): pass
+           def visit_UnnamedAttributeRef(self, unnamed): pass
+           def visit_StringLiteral(self, stringLiteral): pass
+           def visit_EQ(self, binaryExpr): pass
+           def visit_GT(self, binaryExpr): pass
+           def visit_LT(self, binaryExpr): pass
+           def visit_LTEQ(self, binaryExpr): pass
+           def visit_NamedAttributeRef(self, named): pass
+
+        v = EvalVisitor()
+        ex = e.AND(e.NEQ(e.NumericLiteral(1),e.NumericLiteral(2)), e.NEQ(e.NumericLiteral(4),e.NumericLiteral(5)))
+        ex.accept(v)
+        self.assertEqual(v.stack.pop(), True)
+
+        v = EvalVisitor()
+        ex = e.AND(e.NEQ(e.NumericLiteral(1),e.NumericLiteral(2)), e.NEQ(e.NumericLiteral(4),e.NumericLiteral(4)))
+        ex.accept(v)
+        self.assertEqual(v.stack.pop(), False)
+
+        v = EvalVisitor()
+        ex = e.AND(e.NEQ(e.NumericLiteral(1),e.NumericLiteral(2)), e.NOT(e.NEQ(e.NumericLiteral(4),e.NumericLiteral(4))))
+        ex.accept(v)
+        self.assertEqual(v.stack.pop(), True)
+
+        v = EvalVisitor()
+        ex = e.NumericLiteral(0xC0FFEE)
+        ex.accept(v)
+        self.assertEqual(v.stack.pop(), 0xC0FFEE)
+
+
 
 if __name__ == '__main__':
     unittest.main()
