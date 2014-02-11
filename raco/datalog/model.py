@@ -10,6 +10,10 @@ import raco.scheme
 import raco.catalog
 from raco import relation_key
 
+
+import logging
+LOG = logging.getLogger(__name__)
+
 class Program(object):
     def __init__(self, rules):
         self.rules = rules
@@ -484,15 +488,18 @@ class Term(object):
 
     def position(self, valueref):
         """ Returns the position of the variable in the term.  Throws an error if it does not appear."""
-        return [v for v in self.vars()].index(valueref.var)
+        LOG.debug("position: vars(%s), valueref.var(%s)", [v for v in self.valuerefs], valueref.var)
+        return dict([(var,pos) for pos,var in self.varpos()])[valueref.var]
 
     def convertvalref(self, valueref):
         """Convert a Datalog value reference (a literal or a variable) to RA.  Literals are passed through unchanged.  Variables are converted"""
         if self.match(valueref):
             pos = self.position(valueref)
+            LOG.debug("convertvalref(match) self(%s), valueref(%s), pos(%s)", self, valueref, pos)
             return raco.expression.UnnamedAttributeRef(pos)
         else:
             # must be a join condition, and the other variable matches
+            LOG.debug("convertvalref(not) self(%s), valueref(%s)", self, valueref)
             return valueref
 
     def explicitconditions(self, conditions):
