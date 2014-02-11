@@ -90,7 +90,7 @@ class DatalogTest(unittest.TestCase):
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
-    @unittest.skip("see issue #104")
+    # thanks to #104
     def test_condition_flip(self):
         # this example is from sp2bench; a simpler one would be better
         query =  """A(name1, name2) :- R(article1, 'rdf:type', 'bench:Article'),
