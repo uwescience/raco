@@ -145,10 +145,12 @@ class MemoryScan(algebra.Scan, GrappaOperator):
 #       }); // end scan over %(inputsym)s (forall_localized)
 #       """
 
-    memory_scan_template = """
+    memory_scan_template = """start = walltime();
 forall( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s& %(tuple_name)s) {
 %(inner_plan_compiled)s
-}); // end  scan over %(inputsym)s 
+}); // end  scan over %(inputsym)s
+end = walltime();
+in_memory_runtime += (end-start);
 """
 
     rel_decl_template = """Relation<%(tuple_type)s> %(resultsym)s;"""
@@ -207,6 +209,7 @@ class FileScan(algebra.Scan):
         """
         
         ascii_scan_template = """
+        start = walltime();
         {
         auto t = readTuples<%(tuple_typename)s>( "%(name)s", 30);
         Relation<%(tuple_typename)s> l_%(resultsym)s;
@@ -214,6 +217,8 @@ class FileScan(algebra.Scan):
         l_%(resultsym)s.numtuples = 30;
         on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
         }
+        end = walltime();
+        scan_runtime += (end-start);
         """
 
         if isinstance(self.relation_key, catalog.ASCIIFile):
