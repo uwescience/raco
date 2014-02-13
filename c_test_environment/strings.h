@@ -4,7 +4,6 @@
 #include <map>
 #include <vector>
 
-
 class StringIndex {
   private:
     std::vector<std::string> strings;
@@ -20,28 +19,18 @@ class StringIndex {
 
 StringIndex build_string_index(std::string indexfn);
 
+namespace QueryUtils {
 
+  template <typename Iter, typename T>
+    Iter binary_search(Iter begin, Iter end, const T& key) {
+      Iter i = std::lower_bound(begin, end, key);
 
-static const int64_t BIN_SEARCH_NOT_FOUND  = -1;
-
-template <typename StringArray>
-int64_t binary_search(StringArray arr, std::string key, int64_t imin, int64_t imax) {
-  while (imax >= imin) {
-    int64_t imid = (imin + imax) / 2;
-
-    int64_t cmp = key.compare(arr[imid]);
-
-    if(cmp == 0) {
-      // key found
-      return imid; 
-    } else if (cmp > 0) {
-      // key larger, so search upper partition
-      imin = imid + 1;
-    } else {       
-      // key smaller so search lower partition
-      imax = imid - 1;
-    }
+      
+      if (i != end && (key == *i)) {
+        return i; 
+      } else {
+        return end; 
+      }
   }
-  // key not found
-  return BIN_SEARCH_NOT_FOUND;
 }
+
