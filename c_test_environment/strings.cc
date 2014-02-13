@@ -9,7 +9,7 @@ size_t StringIndex::size() const {
   return strings.size();
 }
 
-StringIndex::StringIndex(std::map<std::string, int64_t> mapping) : strings(), indices() {
+StringIndex::StringIndex(const std::map<std::string, int64_t>& mapping) : strings(), indices() {
   // mapping stores the strings in sorted order
   // so this forms sorted vectors
   for (auto p : mapping) {
@@ -20,7 +20,7 @@ StringIndex::StringIndex(std::map<std::string, int64_t> mapping) : strings(), in
 
 // This integer represents strings not in the database
 const int64_t DB_NON_EXISTANT_STRING = -1;
-int64_t StringIndex::string_lookup(std::string s) {
+int64_t StringIndex::string_lookup(const std::string& s) const {
   // TODO: use trie structure instead of binary search
   
   auto ifound = QueryUtils::binary_search( this->strings.begin(), this->strings.end(), s);
@@ -34,7 +34,7 @@ int64_t StringIndex::string_lookup(std::string s) {
 
 StringIndex::StringIndex() : strings(), indices() {}
 
-StringIndex build_string_index(std::string indexfn) {
+StringIndex build_string_index(const std::string& indexfn) {
   std::map<std::string, int64_t> str2int;
   std::ifstream file( indexfn );
   std::string line;
