@@ -122,8 +122,9 @@ def groupby(op, emit_clause, extra_grouping_columns):
                 group_mappings[sexpr.get_position(scheme)] = num_group_terms
             num_group_terms += 1
 
-    if num_group_terms == len(emit_clause):
-        return raco.algebra.Apply(emitters=emit_clause, input=op)
+    # The user must have specified an aggregate expression to trigger
+    # a groupby invocation.
+    assert num_group_terms != len(emit_clause)
 
     # Add extra grouping columns; we group by these terms, but the output
     # is not preserved in the final apply invocation.  These are columns

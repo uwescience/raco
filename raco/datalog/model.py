@@ -10,6 +10,10 @@ import raco.scheme
 import raco.catalog
 from raco import relation_key
 
+
+import logging
+LOG = logging.getLogger(__name__)
+
 class Program(object):
     def __init__(self, rules):
         self.rules = rules
@@ -113,9 +117,11 @@ class JoinSequence(object):
             self.terms.append(left)
             self.num_atoms += len(left)
 
-        leftoffset = self.offset(left)
-        condition.leftoffset(leftoffset)
-        condition.rightoffset(self.num_atoms)
+        termsToOffset = {left: self.offset(left), right: self.num_atoms}
+        LOG.debug("addjoin: before add offset %s", condition)
+        condition.add_offset_by_terms(termsToOffset)
+        LOG.debug("addjoin: after add offset %s", condition)
+
         self.terms.append(right)
         self.num_atoms += len(right)
         self.conditions.append(condition)
@@ -142,11 +148,9 @@ class Planner(object):
         leftterm, rightterm = joinedge
         data = self.joingraph.get_edge_data(*joinedge)
         condition = data["condition"]
-        left, _ = data["order"]
-        # We may have traversed the graph in the opposite direction
-        # if so, flip the condition
-        if leftterm != left:
-            condition = condition.flip()
+
+        LOG.debug("joininfo: condition(%s), data(%s), leftterm(%s), rightterm(%s)", condition, data, leftterm, rightterm)
+
         return leftterm, rightterm, condition
 
     def toJoinSequence(self, edgesequence, joinsequence=None):
@@ -160,11 +164,16 @@ class Planner(object):
         if not edgesequence:
             return joinsequence
 
-        left, right, condition = self.joininfo(edgesequence[0])
+        edge, rem = edgesequence[0], edgesequence[1:]
 
+        left, right, condition = self.joininfo(edge)
+        # FIXME: Sometimes condition gets switched here!!
+
+        LOG.debug("toJoinSequence: left(%s), right(%s), conditions(%s) => (calculating)", left, right, condition)
         joinsequence.addjoin(left, right, condition)
+        LOG.debug("toJoinSequence: left(%s), right(%s), conditions(%s) => joinsequence(%s)", left, right, condition, joinsequence)
 
-        js = self.toJoinSequence(edgesequence[1:], joinsequence)
+        js = self.toJoinSequence(rem, joinsequence)
         return js
 
 def normalize(x, y):
@@ -185,6 +194,8 @@ class BFSLeftDeepPlanner(Planner):
         # get a BFS ordering of the edges.  Ignores costs.
         edgesequence = [x for x in nx.bfs_edges(self.joingraph, firstnode)]
 
+        LOG.debug("BFS: edgesequence: %s", edgesequence)
+
         # Make it deterministic but still in BFS order
         deterministic_edge_sequence = []
         while len(edgesequence) > 0:
@@ -196,8 +207,11 @@ class BFSLeftDeepPlanner(Planner):
             # Remove all those edges from edgesequence
             edgesequence = [(x, y) for (x, y) in edgesequence if x != firstx]
 
+        LOG.debug("BFS: deterministic edge seq: %s", deterministic_edge_sequence)
+
          # Generate a concrete sequence of terms with conditions properly adjusted
         joinsequence = self.toJoinSequence(deterministic_edge_sequence)
+        LOG.debug("BFS: joinsequence: %s", joinsequence)
         return joinsequence
 
 class Rule(object):
@@ -247,6 +261,11 @@ class Rule(object):
 
         # get the conditions, like Z=3
         conditions = [c for c in self.body if isinstance(c, expression.BinaryBooleanOperator)]
+        if len(conditions) > 0:
+            LOG.debug("found conditions: %s (type=%s) for program %s", conditions, type(conditions[0]), program)
+        else:
+            LOG.debug("found conditions: %s (type=%s) for program %s", conditions, None,  program)
+
 
         # construct the join graph
         joingraph = nx.Graph()
@@ -255,13 +274,17 @@ class Rule(object):
             # store the order for explaining queries later -- not strictly necessary
             term1.originalorder = i
 
+            # for each term, add it as a vertex,
+            # and for each term it joins to, add an edge
             joingraph.add_node(term1, term=term1)
             for j in range(i+1, N):
                 term2 = terms[j]
+                LOG.debug("joinsto? %s %s", term1, term2)
                 joins = term1.joinsto(term2, conditions)
                 if joins:
                     conjunction = reduce(expression.AND, joins)
-                    joingraph.add_edge(term1, term2, condition=conjunction, order=(term1, term2))
+                    LOG.debug("add edge: %s --[%s]--> %s", term1, conjunction, term2)
+                    joingraph.add_edge(term1, term2, condition=conjunction, terms=(term1, term2))
 
         # find connected components (some non-determinism in the order here)
         comps = nx.connected_component_subgraphs(joingraph)
@@ -274,11 +297,16 @@ class Rule(object):
             # check for cycles
             cycles = nx.cycle_basis(component)
             while cycles:
+                LOG.debug("found cycles: %s", cycles)
+
                 # choose an edge to break the cycle
                 # that edge will be a selection condition after the final join
                 #oneedge = cycles[0][-2:]
+                # try to make the chosen edge from cycle deterministic
                 oneedge = sorted(cycles[0], key=lambda v: v.originalorder)[-2:]
+
                 data = component.get_edge_data(*oneedge)
+                LOG.debug("picked edge: %s, data: %s", oneedge, data)
                 cycleconditions.append(data)
                 component.remove_edge(*oneedge)
                 cycles = nx.cycle_basis(component)
@@ -288,25 +316,31 @@ class Rule(object):
                 onlyterm = component.nodes()[0]
                 plan = onlyterm.makeLeaf(conditions, program)
             else:
+                LOG.debug("component: %s", component)
                 # TODO: clean this up. joingraph -> joinsequence -> relational plan
-                planner = BFSLeftDeepPlanner(component)
+                planner = BFSLeftDeepPlanner(component)       # JOIN sequence finding
 
                 joinsequence = planner.chooseplan()
+                LOG.debug("join sequence: %s", joinsequence)
 
                 # create a relational plan, finally
                 # pass in the conditions to make the leaves of the plan
                 plan = joinsequence.makePlan(conditions, program)
 
 
+            LOG.debug("cycleconditions: %s", cycleconditions)
             for condition_info in cycleconditions:
                 predicate = condition_info["condition"]
-                order = condition_info["order"]
+                terms = condition_info["terms"]
 
-                leftoffset = joinsequence.offset(order[0])
-                rightoffset = joinsequence.offset(order[1])
+                # change all UnnamedAttributes based on the
+                # offset of its Term
+                termsToOffset = dict((t, joinsequence.offset(t)) for t in terms)
 
-                predicate.leftoffset(leftoffset)
-                predicate.rightoffset(rightoffset)
+                LOG.debug("before add offset %s", predicate)
+                predicate.add_offset_by_terms(termsToOffset)
+                LOG.debug("after add offset %s", predicate)
+
                 # create selections after each cycle
                 plan = raco.algebra.Select(predicate, plan)
 
@@ -443,17 +477,28 @@ class Term(object):
         """Return a list of (position, variable name) tuples for variables used in this term."""
         return [(pos, vr.var) for (pos, vr) in enumerate(self.valuerefs) if isinstance(vr, Var)]
 
+    def labelAttr(self, attr):
+        LOG.debug("label %s with term %s", attr, self)
+        # store a reference to the term this AttributeRef comes from
+        attr.myTerm = self
+
     def joinsto(self, other, conditions):
-        """Return the join conditions between this term and the argument term.  The second argument is a list of explicit conditions, like X=3 or Y=Z"""
+        """Return the join conditions between this term and the argument term.
+           The second argument is a list of explicit conditions, like X=3 or Y=Z
+
+           The attributes for the variables in the conditions will be labeled
+           with the term they are from."""
+
         # get the implicit join conditions
         yourvars = other.varpos()
         myvars = self.varpos()
-        joins = []
+        varjoins = []
         Pos = raco.expression.UnnamedAttributeRef
         for i, var in myvars:
             match = [j for (j, var2) in yourvars if var2 == var]
             if match:
                 myposition = Pos(i)
+                self.labelAttr(myposition)
                 # TODO this code only picks the first matching variable. Consider:
                 #    A(x) :- R(x), S(x,x). We will end up with
                 #
@@ -463,20 +508,37 @@ class Term(object):
                 # select? In addition to the select?? Might it be better to Join on
                 # the second attribute instead? TODO
                 yourposition = Pos(match[0])
-                joins.append(expression.EQ(myposition, yourposition))
+                other.labelAttr(yourposition)
+                varjoins.append(expression.EQ(myposition, yourposition))
+
+        LOG.debug("variable joins: %s", varjoins)
+
+        condjoins = []
 
         # get the explicit join conditions
+        # TODO: this only works for BinaryOperators of depth 1  (binop left right). It can be generalized
         for c in conditions:
             if isinstance(c.left, Var) and isinstance(c.right, Var):
                 # then we have a potential join condition
                 if self.match(c.left) and other.match(c.right):
-                    joins.append(c.__class__(self.convertvalref(c.left), other.convertvalref(c.right)))
+                    LOG.debug("match condition %s: self(%s) matches %s; other(%s) matches %s", c, self, c.left, other, c.right)
+                    leftAttr, rightAttr = self.convertvalref(c.left), other.convertvalref(c.right)
+                    self.labelAttr(leftAttr)
+                    other.labelAttr(rightAttr)
+                    condjoins.append(c.__class__(leftAttr, rightAttr))
                 elif other.match(c.left) and self.match(c.right):
-                    joins.append(c.__class__(other.convertvalref(c.left), self.convertvalref(c.right)))
+                    LOG.debug("match condition %s: self(%s) matches %s; other(%s) matches %s", c, self, c.right, other, c.left)
+                    leftAttr, rightAttr = other.convertvalref(c.left), self.convertvalref(c.right)
+                    self.labelAttr(rightAttr)
+                    other.labelAttr(leftAttr)
+                    condjoins.append(c.__class__(leftAttr, rightAttr))
                 else:
                     # must be a condition on some other pair of relations
                     pass
-        return joins
+
+        LOG.debug("cond joins: %s", condjoins)
+
+        return varjoins+condjoins
 
     def match(self, valref):
         """Return true if valref is a variable and is used in the list"""
@@ -484,15 +546,19 @@ class Term(object):
 
     def position(self, valueref):
         """ Returns the position of the variable in the term.  Throws an error if it does not appear."""
-        return [v for v in self.vars()].index(valueref.var)
+        LOG.debug("position: vars(%s), valueref.var(%s)", [v for v in self.valuerefs], valueref.var)
+        return dict([(var,pos) for pos,var in self.varpos()])[valueref.var]
 
     def convertvalref(self, valueref):
         """Convert a Datalog value reference (a literal or a variable) to RA.  Literals are passed through unchanged.  Variables are converted"""
         if self.match(valueref):
             pos = self.position(valueref)
+            LOG.debug("convertvalref(match) self(%s), valueref(%s), pos(%s)", self, valueref, pos)
+
             return raco.expression.UnnamedAttributeRef(pos)
         else:
             # must be a join condition, and the other variable matches
+            LOG.debug("convertvalref(not) self(%s), valueref(%s)", self, valueref)
             return valueref
 
     def explicitconditions(self, conditions):

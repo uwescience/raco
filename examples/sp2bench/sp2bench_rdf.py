@@ -38,7 +38,7 @@ queries['Q3c'] = """A(article) :- %(tr)s(article, 'rdf:type', 'bench:Article'),
 
 #queries['Q4'] = """A(name1, name2) :- %(tr)s(article1, 'rdf:type', 'bench:Article'),
 #TODO: include q4 after issue #104 is addressed
-_ = """A(name1, name2) :- %(tr)s(article1, 'rdf:type', 'bench:Article'),
+queries['Q4'] = """A(name1, name2) :- %(tr)s(article1, 'rdf:type', 'bench:Article'),
                            %(tr)s(article2, 'rdf:type', 'bench:Article'),
                            %(tr)s(article1, 'dc:creator', author1),
                            %(tr)s(author1, 'foaf:name', name1),
@@ -53,7 +53,7 @@ _ = """A(name1, name2) :- %(tr)s(article1, 'rdf:type', 'bench:Article'),
 # syntactically join with equality; 
 #TODO: include q5a after issue #104 is addressed
 #queries['Q5a'] = """A(person, name) :- %(tr)s(article, 'rdf:type', 'bench:Article'),
-_ = """A(person, name) :- %(tr)s(article, 'rdf:type', 'bench:Article'),
+queries['Q5a'] = """A(person, name) :- %(tr)s(article, 'rdf:type', 'bench:Article'),
                             %(tr)s(article, 'dc:creator', person),
                             %(tr)s(inproc, 'rdf:type', 'bench:Inproceedings'),
                             %(tr)s(inproc, 'dc:creator', person2),
@@ -63,7 +63,7 @@ _ = """A(person, name) :- %(tr)s(article, 'rdf:type', 'bench:Article'),
 # syntactically join with naming
 #TODO: include q5b after issue #104 is addressed
 #queries['Q5b'] = """A(person, name) :- %(tr)s(article, 'rdf:type', 'bench:Article'),
-_ = """A(person, name) :- %(tr)s(article, 'rdf:type', 'bench:Article'),
+queries['Q5b'] = """A(person, name) :- %(tr)s(article, 'rdf:type', 'bench:Article'),
                             %(tr)s(article, 'dc:creator', person),
                             %(tr)s(inproc, 'rdf:type', 'bench:Inproceedings'),
                             %(tr)s(inproc, 'dc:creator', person),

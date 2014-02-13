@@ -8,6 +8,9 @@ from raco.utility import Printable
 
 from abc import ABCMeta, abstractmethod
 
+import logging
+LOG = logging.getLogger(__name__)
+
 class Expression(Printable):
     __metaclass__ = ABCMeta
     literals = None
@@ -56,6 +59,28 @@ class Expression(Printable):
         for ex in self.walk():
             if isinstance(ex, UnnamedAttributeRef):
                 ex.position += offset
+
+    def add_offset_by_terms(self, termsToOffset):
+        """Add a constant offset to every positional reference in this tree
+        using the map of terms to offset.
+
+        This function assumes that every AttributeRef has been labeled with the
+        term that it refers to"""
+
+        for ex in self.walk():
+            if isinstance(ex, UnnamedAttributeRef):
+                offset = termsToOffset[ex.myTerm]
+                LOG.debug("adding offset %s to %s", offset, ex)
+                ex.position += offset
+
+    def accept(self, visitor):
+        """
+        Default visitor accept method. Probably does
+        not need to be overridden by leaves, but certainly
+        by inner tree nodes.
+        """
+        visitor.visit(self)
+
 
 class ZeroaryOperator(Expression):
     def __init__(self):
@@ -106,6 +131,11 @@ class UnaryOperator(Expression):
         yield self
         for ex in self.input.walk():
             yield ex
+
+    def accept(self, visitor):
+        """For post order stateful visitors"""
+        self.input.accept(visitor)
+        visitor.visit(self)
 
 class BinaryOperator(Expression):
     def __init__(self, left, right):
@@ -161,6 +191,14 @@ class BinaryOperator(Expression):
             yield ex
         for ex in self.right.walk():
             yield ex
+
+    def accept(self, visitor):
+        """
+        For post-order stateful visitors
+        """
+        self.left.accept(visitor)
+        self.right.accept(visitor)
+        visitor.visit(self)
 
 class NaryOperator(Expression):
     pass

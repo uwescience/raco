@@ -39,6 +39,7 @@ void init( ) {
 }
 
 void query() {
+    double start, end;
     %(initialized)s
 
     %(queryexec)s

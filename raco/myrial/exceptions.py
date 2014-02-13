@@ -69,5 +69,32 @@ class DuplicateVariableException(MyrialCompileException):
         return "Duplicately defined in function %s at line %d" % (
             self.funcname, self.lineno)
 
+class BadApplyDefinitionException(MyrialCompileException):
+    def __init__(self, funcname, lineno):
+        self.funcname = funcname
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Bad apply definition for in function %s at line %d" % (
+            self.funcname, self.lineno)
+
+class UnnamedStateVariableException(MyrialCompileException):
+    def __init__(self, funcname, lineno):
+        self.funcname = funcname
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Unnamed state variable in function %s at line %d" % (
+            self.funcname, self.lineno)
+
+class IllegalWildcardException(MyrialCompileException):
+    def __init__(self, funcname, lineno):
+        self.funcname = funcname
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Illegal use of wildcard in function %s at line %d" % (
+            self.funcname, self.lineno)
+
 class ColumnIndexOutOfBounds(Exception):
     pass

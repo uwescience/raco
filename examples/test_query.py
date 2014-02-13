@@ -74,8 +74,15 @@ if __name__ == "__main__":
     A(s1,s2) :- R1(s1,s2)
     B(s1) :- A(s1,s2), S1(s1)""", "union_then_join"),
             
-            ("Q3a(article) :- sp2bench_1m(article, 'rdf:type', 'bench:Article'), sp2bench_1m(article, 'swrc:pages', value)", "sp2_Q3a"),
-            ("Q1(yr) :- sp2bench_1m(journal, 'rdf:type', 'bench:Journal'), sp2bench_1m(journal, 'dc:title', 'Journal 1 (1940)'), sp2bench_1m(journal, 'dcterms:issued', yr)", "sp2_Q1"),
+            ("""A(author) :- R(erdoes, 'rdf:type', 'foaf:Person'),
+                            R(doc, 10, erdoes),
+                            R(doc, 20, author),
+                            erdoes!=author""", "nejoin_forward"),
+            ("""A(author) :- R(erdoes, 'rdf:type', 'foaf:Person'),
+                            R(doc, 10, erdoes),
+                            R(doc, 20, author),
+                            author!=erdoes""", "nejoin_rev"),
+            
 
             #("A(a,b) :- R2(a,b), S2(a,b)", "two_match"),
 
