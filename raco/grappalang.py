@@ -103,7 +103,7 @@ class GrappaLanguage(Language):
     @classmethod
     def boolean_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg, _ in args])
+        conjunc = opstr.join(["(%s)" % arg for arg, _ in args])
         inits = reduce(lambda sofar, x: sofar+x, [d for _, d in args])
         LOG.debug("conjunc: %s", conjunc)
         return "( %s )" % conjunc, inits
