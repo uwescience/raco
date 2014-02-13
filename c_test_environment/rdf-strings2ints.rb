@@ -6,7 +6,7 @@ require 'rdf/raptor'
 $inputfile = ARGV[0]
 
 $extras = false
-if len(ARGV) > 1 and ARGV[1]=='extras' then
+if ARGV.length > 1 and ARGV[1]=='extras' then
   $extras = true
 end
 
