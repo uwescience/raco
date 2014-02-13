@@ -208,10 +208,10 @@ class FileScan(algebra.Scan):
         
         ascii_scan_template = """
         {
-        auto t = readTuples<%(tuple_typename)s>( "%(name)s", 30);
+        auto t = readTuples<%(tuple_typename)s>( "%(name)s", FLAGS_nt);
         Relation<%(tuple_typename)s> l_%(resultsym)s;
         l_%(resultsym)s.data = t;
-        l_%(resultsym)s.numtuples = 30;
+        l_%(resultsym)s.numtuples = FLAGS_nt;
         on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
         }
         """
