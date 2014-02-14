@@ -13,6 +13,7 @@ from raco import relation_key
 import collections
 import types
 import copy
+import networkx as nx
 
 class DuplicateAliasException(Exception):
     """Bag comprehension arguments must have different alias names."""
@@ -255,6 +256,12 @@ class StatementProcessor(object):
         # Unique identifiers for temporary tables created by DUMP operations
         self.dump_output_id = 0
 
+        # Control flow graph: nodes are operations, edges are control flow
+        self.cfg = nx.Graph()
+
+        # Unique identifiers for operation IDs
+        self.next_op_id = 0
+
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
         for statement in statements:
@@ -262,23 +269,35 @@ class StatementProcessor(object):
             method = getattr(self, statement[0].lower())
             method(*statement[1:])
 
-    def __materialize_result(self, _id, expr, op_list):
-        '''Materialize an expression as a temporary table.'''
+    def __do_assignment(self, _id, expr, op_list):
+        """Process an assignment statement.
+
+        :param _id: The target variable name.
+        :type _id: string
+        :param expr: The relational expression to evaluate
+        :type expr: A Myrial expression AST node tuple
+        :param op_list: A list of output operations to capture the Store operation
+        """
+
+        # Assign a unique ID to thie assignment operation; add a node to the
+        # control flow graph.
+        op_id = self.next_op_id
+        self.cfg.add_node(op_id, defs=set(_id))
+        if op_id > 0:
+            self.cfg.add_edge(op_id - 1, op_id)
+        self.next_op_id += 1
+
         child_op = self.ep.evaluate(expr)
         store_op = raco.algebra.StoreTemp(_id, child_op)
         op_list.append(store_op)
 
         # Point future references of this symbol to a scan of the
-        # materialized table.
+        # materialized table. Note that this assumes there is no scoping in Myrial.
         self.symbols[_id] = raco.algebra.ScanTemp(_id, child_op.scheme())
 
     def assign(self, _id, expr):
         '''Map a variable to the value of an expression.'''
-
-        # TODO: Apply chaining when it is safe to do so
-        # TODO: implement a leaf optimization to avoid duplicate
-        # scan/insertions
-        self.__materialize_result(_id, expr, self.output_ops)
+        self.__do_assignment(_id, expr, self.output_ops)
 
     def store(self, _id, rel_key):
         assert isinstance(rel_key, relation_key.RelationKey)
@@ -324,7 +343,7 @@ class StatementProcessor(object):
                 # TODO: Better error message
                 raise InvalidStatementException('%s not allowed in do/while' %
                                                 _type.lower())
-            self.__materialize_result(_id, expr, body_ops)
+            self.__do_assignment(_id, expr, body_ops)
 
         term_op = self.ep.evaluate(termination_ex)
         op = raco.algebra.DoWhile(raco.algebra.Sequence(body_ops), term_op)
