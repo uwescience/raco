@@ -35,11 +35,22 @@ class ExpressionProcessor(object):
         self.catalog = catalog
         self.use_dummy_schema = use_dummy_schema
 
+        # Variables accesed by the current operation
+        self.uses_set = set()
+
+    def get_and_clear_uses_set(self):
+        """Retrieve the uses set and then clear its value."""
+        try:
+            return self.uses_set
+        finally:
+            self.uses_set = set()
+
     def evaluate(self, expr):
         method = getattr(self, expr[0].lower())
         return method(*expr[1:])
 
     def alias(self, _id):
+        self.uses_set.add(_id)
         return lookup_symbol(self.symbols, _id)
 
     def scan(self, rel_key):
@@ -282,12 +293,16 @@ class StatementProcessor(object):
         # Assign a unique ID to thie assignment operation; add a node to the
         # control flow graph.
         op_id = self.next_op_id
-        self.cfg.add_node(op_id, defs=set(_id))
-        if op_id > 0:
-            self.cfg.add_edge(op_id - 1, op_id)
         self.next_op_id += 1
 
         child_op = self.ep.evaluate(expr)
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_node(op_id, defs=set(_id), uses=uses_set)
+        if op_id > 0:
+            self.cfg.add_edge(op_id - 1, op_id)
+
+        # Wrap the output of the operation in a store to a temporary variable so
+        # we can later retrieve its value
         store_op = raco.algebra.StoreTemp(_id, child_op)
         op_list.append(store_op)
 
