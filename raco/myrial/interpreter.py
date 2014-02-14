@@ -280,6 +280,22 @@ class StatementProcessor(object):
             method = getattr(self, statement[0].lower())
             method(*statement[1:])
 
+    def __evaluate_expr(self, expr, def_set):
+        """Evaluate an expression; add a node to the control flow graph."""
+
+        op_id = self.next_op_id
+        self.next_op_id += 1
+
+        op_out = self.ep.evaluate(expr)
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_node(op_id, defs=def_set, uses=uses_set)
+
+        # Add a control flow edge from the prevoius statement; this assumes we
+        # don't do jumps or any other non-linear control flow.
+        if op_id > 0:
+            self.cfg.add_edge(op_id - 1, op_id)
+        return op_out
+
     def __do_assignment(self, _id, expr, op_list):
         """Process an assignment statement.
 
@@ -290,17 +306,7 @@ class StatementProcessor(object):
         :param op_list: A list of output operations to capture the Store operation
         """
 
-        # Assign a unique ID to thie assignment operation; add a node to the
-        # control flow graph.
-        op_id = self.next_op_id
-        self.next_op_id += 1
-
-        child_op = self.ep.evaluate(expr)
-        uses_set = self.ep.get_and_clear_uses_set()
-        self.cfg.add_node(op_id, defs=set(_id), uses=uses_set)
-        if op_id > 0:
-            self.cfg.add_edge(op_id - 1, op_id)
-
+        child_op = self.__evaluate_expr(expr, set(_id))
         # Wrap the output of the operation in a store to a temporary variable so
         # we can later retrieve its value
         store_op = raco.algebra.StoreTemp(_id, child_op)
