@@ -306,7 +306,7 @@ class StatementProcessor(object):
         :param op_list: A list of output operations to capture the Store operation
         """
 
-        child_op = self.__evaluate_expr(expr, set(_id))
+        child_op = self.__evaluate_expr(expr, {_id})
 
         # Wrap the output of the operation in a store to a temporary variable so
         # we can later retrieve its value
