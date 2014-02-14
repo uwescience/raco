@@ -307,6 +307,7 @@ class StatementProcessor(object):
         """
 
         child_op = self.__evaluate_expr(expr, set(_id))
+
         # Wrap the output of the operation in a store to a temporary variable so
         # we can later retrieve its value
         store_op = raco.algebra.StoreTemp(_id, child_op)
@@ -359,6 +360,8 @@ class StatementProcessor(object):
 
     def dowhile(self, statement_list, termination_ex):
         body_ops = []
+        first_op_id = self.next_op_id # op ID of the top of the loop
+
         for _type, _id, expr in statement_list:
             if _type != 'ASSIGN':
                 # TODO: Better error message
@@ -366,6 +369,11 @@ class StatementProcessor(object):
                                                 _type.lower())
             self.__do_assignment(_id, expr, body_ops)
 
-        term_op = self.ep.evaluate(termination_ex)
+        last_op_id = self.next_op_id
+
+        term_op = self.__evaluate_expr(termination_ex, set())
         op = raco.algebra.DoWhile(raco.algebra.Sequence(body_ops), term_op)
         self.output_ops.append(op)
+
+        # Add a control flow edge from the loop condition to the top of the loop
+        self.cfg.add_edge(last_op_id, first_op_id)
