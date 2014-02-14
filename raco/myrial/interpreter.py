@@ -268,7 +268,7 @@ class StatementProcessor(object):
         self.dump_output_id = 0
 
         # Control flow graph: nodes are operations, edges are control flow
-        self.cfg = nx.Graph()
+        self.cfg = nx.DiGraph()
 
         # Unique identifiers for operation IDs
         self.next_op_id = 0
