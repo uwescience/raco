@@ -25,9 +25,6 @@ class InvalidStatementException(Exception):
 class NoSuchRelationException(Exception):
     pass
 
-def lookup_symbol(symbols, _id):
-    return copy.copy(symbols[_id])
-
 class ExpressionProcessor(object):
     """Convert syntactic expressions into relational algebra operations."""
     def __init__(self, symbols, catalog, use_dummy_schema=False):
@@ -49,9 +46,12 @@ class ExpressionProcessor(object):
         method = getattr(self, expr[0].lower())
         return method(*expr[1:])
 
-    def alias(self, _id):
+    def __lookup_symbol(self, _id):
         self.uses_set.add(_id)
-        return lookup_symbol(self.symbols, _id)
+        return copy.copy(self.symbols[_id])
+
+    def alias(self, _id):
+        return self.__lookup_symbol(_id)
 
     def scan(self, rel_key):
         """Scan a database table."""
@@ -137,7 +137,7 @@ class ExpressionProcessor(object):
             if expr:
                 from_args[_id] =  self.evaluate(expr)
             else:
-                from_args[_id] = lookup_symbol(self.symbols, _id)
+                from_args[_id] = self.__lookup_symbol(_id)
 
         # Expand wildcards into a list of output columns
         assert emit_clause # There should always be something to emit
