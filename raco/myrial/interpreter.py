@@ -323,13 +323,14 @@ class StatementProcessor(object):
 
     def store(self, _id, rel_key):
         assert isinstance(rel_key, relation_key.RelationKey)
-
-        child_op = lookup_symbol(self.symbols, _id)
+        alias_expr = ("ALIAS", _id)
+        child_op = self.__evaluate_expr(alias_expr, set())
         op = raco.algebra.Store(rel_key, child_op)
         self.output_ops.append(op)
 
     def dump(self, _id):
-        child_op = lookup_symbol(self.symbols, _id)
+        alias_expr = ("ALIAS", _id)
+        child_op = self.__evaluate_expr(alias_expr, set())
         op = raco.algebra.StoreTemp("__OUTPUT%d__" % self.dump_output_id,
                                     child_op)
         self.dump_output_id += 1
