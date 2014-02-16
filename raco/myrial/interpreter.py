@@ -356,6 +356,39 @@ class StatementProcessor(object):
         # Add a control flow edge from the loop condition to the top of the loop
         self.cfg.add_edge(last_op_id, first_op_id)
 
+    def compute_liveness(self):
+        """Run liveness analysis over the control flow graph.
+
+        http://www.cs.colostate.edu/~mstrout/CS553/slides/lecture03.pdf
+        """
+
+        num_nodes = len(self.cfg)
+        live_in = collections.defaultdict(set)
+        live_out = collections.defaultdict(set)
+
+        while True:
+            live_in_prev = copy.copy(line_in)
+            live_out_prev = copy.copy(line_out)
+
+            for i in range(num_nodes):
+                # accessed variables are live-in
+                line_in[i].update(self.cfg[i]['uses'])
+
+                # live out variables that are not defined are live-in
+                live_in[i].update(live_out_prev[i] - self.cfg[i]['defs'])
+
+                # variables that are live-in at a successor are live-out
+                for successor in nx.Digraph.successors(i):
+                    live_out[i].update(live_in_prev[successor])
+
+            if live_in == live_in_prev and live_out == live_out_prev:
+                break
+
+        for k,v in live_in.iteritems():
+            self.cfg[k]['live_in'] = v
+        for k,v in live_out.iteritems():
+            self.cfg[k]['live_out'] = v
+
     def get_logical_plan(self):
         """Return an operator representing the logical query plan."""
         return raco.algebra.Sequence(self.output_ops)
