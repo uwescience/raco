@@ -336,6 +336,26 @@ class StatementProcessor(object):
         self.dump_output_id += 1
         self.output_ops.append(op)
 
+    def dowhile(self, statement_list, termination_ex):
+        body_ops = []
+        first_op_id = self.next_op_id # op ID of the top of the loop
+
+        for _type, _id, expr in statement_list:
+            if _type != 'ASSIGN':
+                # TODO: Better error message
+                raise InvalidStatementException('%s not allowed in do/while' %
+                                                _type.lower())
+            self.__do_assignment(_id, expr, body_ops)
+
+        last_op_id = self.next_op_id
+
+        term_op = self.__evaluate_expr(termination_ex, set())
+        op = raco.algebra.DoWhile(raco.algebra.Sequence(body_ops), term_op)
+        self.output_ops.append(op)
+
+        # Add a control flow edge from the loop condition to the top of the loop
+        self.cfg.add_edge(last_op_id, first_op_id)
+
     def get_logical_plan(self):
         """Return an operator representing the logical query plan."""
         return raco.algebra.Sequence(self.output_ops)
@@ -358,23 +378,3 @@ class StatementProcessor(object):
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
         return compile_to_json(str(lp), lp, pps)
-
-    def dowhile(self, statement_list, termination_ex):
-        body_ops = []
-        first_op_id = self.next_op_id # op ID of the top of the loop
-
-        for _type, _id, expr in statement_list:
-            if _type != 'ASSIGN':
-                # TODO: Better error message
-                raise InvalidStatementException('%s not allowed in do/while' %
-                                                _type.lower())
-            self.__do_assignment(_id, expr, body_ops)
-
-        last_op_id = self.next_op_id
-
-        term_op = self.__evaluate_expr(termination_ex, set())
-        op = raco.algebra.DoWhile(raco.algebra.Sequence(body_ops), term_op)
-        self.output_ops.append(op)
-
-        # Add a control flow edge from the loop condition to the top of the loop
-        self.cfg.add_edge(last_op_id, first_op_id)
