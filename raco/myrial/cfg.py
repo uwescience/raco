@@ -12,7 +12,7 @@ class ControlFlowGraph(object):
         self.graph = nx.DiGraph()
         self.next_op_id = 0
 
-    def add_op(op, def_set, uses_set):
+    def add_op(self, op, def_set, uses_set):
         """Add an operation to the CFG.
 
         :param op: A relational algebra operation (plan)
