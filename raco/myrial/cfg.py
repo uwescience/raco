@@ -37,7 +37,7 @@ class ControlFlowGraph(object):
 
         self.graph.add_node(op_id, op=op, defs=def_set, uses=uses_set)
 
-        # Add a control flow edge from the prevoius statement; this assumes we
+        # Add a control flow edge from the previous statement; this assumes we
         # don't do jumps or any other non-linear control flow.
         if op_id > 0:
             self.graph.add_edge(op_id - 1, op_id)
@@ -75,19 +75,44 @@ class ControlFlowGraph(object):
                 return live_in, live_out
 
     def dead_code_elimination(self):
-        dead_set = set()
+        """Dead code elimination.
+
+        Specifically: delete CFG nodes that define a variable that is not in
+        the live_out set.  Recurse until convergence.
+        """
+
+        num_nodes = len(self.graph)
 
         while True:
+            dead_set = set()
             live_in, live_out = self.compute_liveness()
-            for var, out_set in live_out.iteritems():
-                defs = self.cfg[var]['defs']
-                if not defs.issubset(out_set):
+
+            for var in self.graph:
+                out_set = live_out[var]
+                defs = self.graph.node[var]['defs']
+
+                # Only delete nodes that 1) Define a variable (and therefore aren't
+                # STORE, DUMP, etc.); 2) Are not required downstream.
+                if defs and not defs.issubset(out_set):
                     dead_set.add(var)
-            self.cfg.remove_nodes_from(dead_set)
+
             if len(dead_set) == 0:
                 break
 
-    def get_logical_plan(self):
+            # Update the graph to skip over soon-to-be dead nodes
+            for node in dead_set:
+                # calculate a live successor for the dead node
+                successor = None
+                for i in range(node, num_nodes):
+                    if i in self.graph and i not in dead_set:
+                        successor = i
+                        break
+                if successor is not None:
+                    for ancestor in self.graph.predecessors(node):
+                        self.graph.add_edge(ancestor, successor)
+            self.graph.remove_nodes_from(dead_set)
+
+    def get_logical_plan(self, dead_code_elimination=True):
         """Extract a logical plan from the control flow graph.
 
         The logic here is simplistic:
@@ -98,11 +123,17 @@ class ControlFlowGraph(object):
         :returns: An instance of raco.algebra.Operator
         """
 
+        if dead_code_elimination:
+            self.dead_code_elimination()
+
         op_stack = [Sequence()]
         def current_block():
             return op_stack[-1]
 
         for i in range(self.next_op_id):
+            if not i in self.graph:
+                continue # Node was deleted by dead_code_elimination
+
             op = self.graph.node[i]['op']
             if self.graph.out_degree(i) == 2:
                 LOG.info("Terminating while loop (%d): %s" % (i, op))
