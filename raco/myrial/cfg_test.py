@@ -54,3 +54,13 @@ class CFGTest(myrial_test.MyrialTestCase):
           self.assertIn(n, actual)
           self.assertEquals(actual.node[n]['uses'], expected.node[n]['uses'])
           self.assertEquals(actual.node[n]['defs'], expected.node[n]['defs'])
+
+      live_in, live_out = self.processor.cfg.compute_liveness()
+
+      self.assertEquals(live_out,
+        {0: {'Point'}, 1: {'Point', 'Big'}, 2: {'Continue', 'Big', 'Point'},
+        3: {'Big', 'Point'}, 4: set()})
+
+      self.assertEquals(live_in,
+         {0: set(), 1: {'Point'}, 2: {'Big', 'Point'}, 3: {'Big', 'Point', 'Continue'},
+         4: {'Big'}})
