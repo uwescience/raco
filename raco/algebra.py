@@ -282,6 +282,10 @@ class NaryOperator(Operator):
         else:
             self.args = args
 
+    def add(self, op):
+        """Add a child operator to the end of the child argument list."""
+        self.args.append(op)
+
     def compile(self, resultsym):
         """Compile this plan.  Result sym is the variable name to use to hold the result of this operator."""
         #TODO: Why is language not an argument?

@@ -101,7 +101,7 @@ class ControlFlowGraph(object):
             if self.graph.out_degree(i) == 2:
                 # Terminate current do/while loop
                 assert isinstance(current_block(), DoWhile)
-                current_block().set_term_op(op)
+                current_block().add(op)
                 op_stack.pop()
                 continue
 
