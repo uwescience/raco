@@ -60,8 +60,8 @@ class ControlFlowGraph(object):
         live_out = dict([(i, set()) for i in self.graph])
 
         while True:
-            live_in_prev = copy.copy(live_in)
-            live_out_prev = copy.copy(live_out)
+            live_in_prev = copy.deepcopy(live_in)
+            live_out_prev = copy.deepcopy(live_out)
 
             for i in self.graph:
                 # live out variables that are not defined are live-in
