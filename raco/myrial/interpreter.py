@@ -285,6 +285,7 @@ class StatementProcessor(object):
         op = self.ep.evaluate(expr)
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, def_set, uses_set)
+        return op
 
     def __do_assignment(self, _id, expr):
         """Process an assignment statement.
@@ -332,7 +333,7 @@ class StatementProcessor(object):
 
         last_op_id = self.next_op_id
 
-        term_op = self.__evaluate_expr(termination_ex, set())
+        self.__evaluate_expr(termination_ex, set())
 
         # Add a control flow edge from the loop condition to the top of the loop
         self.cfg.add_edge(last_op_id, first_op_id)
