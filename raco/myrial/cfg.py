@@ -17,6 +17,12 @@ class ControlFlowGraph(object):
         self.graph = nx.DiGraph()
         self._next_op_id = 0
 
+    def __str__(self):
+        node_strs = ['%s: uses=%s defs=%s' % (str(n), repr(self.graph.node[n]['uses']),
+            repr(self.graph.node[n]['defs'])) for n in self.graph]
+        edge_strs = ['%s=>%s' % (str(s), str(d)) for s,d in self.graph.edges()]
+        return '; '.join(node_strs) + '\n' + '; '.join(edge_strs)
+
     @property
     def next_op_id(self):
         return self._next_op_id
@@ -56,7 +62,7 @@ class ControlFlowGraph(object):
         """
 
         # All variables that are accessed are live-in at a node
-        live_in = dict([(i, self.graph.node[i]['uses']) for i in self.graph])
+        live_in = dict([(i, copy.copy(self.graph.node[i]['uses'])) for i in self.graph])
         live_out = dict([(i, set()) for i in self.graph])
 
         while True:
@@ -96,6 +102,7 @@ class ControlFlowGraph(object):
                 if defs and not defs.issubset(out_set):
                     dead_set.add(var)
 
+
             if len(dead_set) == 0:
                 break
 
@@ -110,6 +117,7 @@ class ControlFlowGraph(object):
                 if successor is not None:
                     for ancestor in self.graph.predecessors(node):
                         self.graph.add_edge(ancestor, successor)
+
             self.graph.remove_nodes_from(dead_set)
 
     def get_logical_plan(self, dead_code_elimination=True):
