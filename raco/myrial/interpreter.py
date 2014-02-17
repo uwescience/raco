@@ -360,6 +360,9 @@ class StatementProcessor(object):
         """Run liveness analysis over the control flow graph.
 
         http://www.cs.colostate.edu/~mstrout/CS553/slides/lecture03.pdf
+
+        :returns: A tuple containing live_in, live_out dictionaries.  The keys
+        are variable names (strings) and the values are string sets.
         """
 
         num_nodes = len(self.cfg)
@@ -382,12 +385,20 @@ class StatementProcessor(object):
                     live_out[i].update(live_in_prev[successor])
 
             if live_in == live_in_prev and live_out == live_out_prev:
-                break
+                return live_in, live_out
 
-        for k,v in live_in.iteritems():
-            self.cfg[k]['live_in'] = v
-        for k,v in live_out.iteritems():
-            self.cfg[k]['live_out'] = v
+    def dead_code_elimination(self):
+        dead_set = set()
+
+        while True:
+            live_in, live_out = self.compute_liveness()
+            for var, out_set in live_out.iteritems():
+                defs = self.cfg[var]['defs']
+                if not defs.issubset(out_set):
+                    dead_set.add(var)
+            self.cfg.remove_nodes_from(dead_set)
+            if len(dead_set) == 0:
+                break
 
     def get_logical_plan(self):
         """Return an operator representing the logical query plan."""
