@@ -10,7 +10,11 @@ Nodes are operations, edges are control flow.
 class ControlFlowGraph(object):
     def __init__(self):
         self.graph = nx.DiGraph()
-        self.next_op_id = 0
+        self._next_op_id = 0
+
+    @property
+    def next_op_id(self):
+        return self._next_op_id
 
     def add_op(self, op, def_set, uses_set):
         """Add an operation to the CFG.
@@ -24,7 +28,7 @@ class ControlFlowGraph(object):
         """
 
         op_id = self.next_op_id
-        self.next_op_id += 1
+        self._next_op_id += 1
 
         self.graph.add_node(op_id, op=op, defs=def_set, uses=uses_set)
 

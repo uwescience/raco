@@ -322,7 +322,7 @@ class StatementProcessor(object):
         self.output_ops.append(op)
 
     def dowhile(self, statement_list, termination_ex):
-        first_op_id = self.next_op_id # op ID of the top of the loop
+        first_op_id = self.cfg.next_op_id # op ID of the top of the loop
 
         for _type, _id, expr in statement_list:
             if _type != 'ASSIGN':
@@ -331,7 +331,7 @@ class StatementProcessor(object):
                                                 _type.lower())
             self.__do_assignment(_id, expr)
 
-        last_op_id = self.next_op_id
+        last_op_id = self.cfg.next_op_id
 
         self.__evaluate_expr(termination_ex, set())
 
