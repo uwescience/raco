@@ -1,11 +1,14 @@
 from raco.algebra import *
 
+import logging
 import networkx as nx
 
 """Control flow graph implementation.
 
 Nodes are operations, edges are control flow.
 """
+
+LOG = logging.getLogger(__name__)
 
 class ControlFlowGraph(object):
     def __init__(self):
@@ -103,6 +106,7 @@ class ControlFlowGraph(object):
         for i in range(self.next_op_id):
             op = self.graph.node[i]['op']
             if self.graph.out_degree(i) == 2:
+                LOG.info("Terminating while loop (%d): %s" % (i, op))
                 # Terminate current do/while loop
                 assert isinstance(current_block(), DoWhile)
                 current_block().add(op)
@@ -110,9 +114,11 @@ class ControlFlowGraph(object):
                 continue
 
             if self.graph.in_degree(i) == 2:
+                LOG.info("Introducing while loop (%d)" % i)
                 # Introduce new do/while loop
                 op_stack.append(DoWhile())
 
+            LOG.info("Adding operation to sequence (%d) %s" % (i, op))
             current_block().add(op)
 
         assert len(op_stack) == 1
