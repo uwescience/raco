@@ -308,18 +308,23 @@ class StatementProcessor(object):
 
     def store(self, _id, rel_key):
         assert isinstance(rel_key, relation_key.RelationKey)
+
         alias_expr = ("ALIAS", _id)
-        child_op = self.__evaluate_expr(alias_expr, set())
+        child_op = self.ep.evaluate(alias_expr)
         op = raco.algebra.Store(rel_key, child_op)
-        self.output_ops.append(op)
+
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, set(), uses_set)
 
     def dump(self, _id):
         alias_expr = ("ALIAS", _id)
-        child_op = self.__evaluate_expr(alias_expr, set())
+        child_op = self.ep.evaluate(alias_expr)
         op = raco.algebra.StoreTemp("__OUTPUT%d__" % self.dump_output_id,
                                     child_op)
+
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, set(), uses_set)
         self.dump_output_id += 1
-        self.output_ops.append(op)
 
     def dowhile(self, statement_list, termination_ex):
         first_op_id = self.cfg.next_op_id # op ID of the top of the loop
