@@ -320,9 +320,9 @@ class StatementProcessor(object):
         self.cfg.add_op(op, set(), uses_set)
 
     def dump(self, _id):
-        alias_expr = ("ALIAS", _id)
         target = "__OUTPUT%d__" % self.dump_output_id
-        self.__do_assignment(target, alias_expr)
+        rk = relation_key.RelationKey.from_string(target)
+        self.store(_id, rk)
         self.dump_output_id += 1
 
     def dowhile(self, statement_list, termination_ex):

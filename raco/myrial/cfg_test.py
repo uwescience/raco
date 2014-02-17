@@ -39,7 +39,7 @@ class CFGTest(myrial_test.MyrialTestCase):
       expected.add_node(1, defs={"Big"}, uses={"Point"})
       expected.add_node(2, defs={"Continue"}, uses={"Big", "Point"})
       expected.add_node(3, defs=set(), uses={"Continue"})
-      expected.add_node(4, defs={'__OUTPUT0__'}, uses={"Big"})
+      expected.add_node(4, defs=set(), uses={"Big"})
 
       for i in range(4):
           expected.add_edge(i, i + 1)

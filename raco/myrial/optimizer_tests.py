@@ -170,7 +170,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.db.evaluate(pp)
 
-        result = self.db.get_temp_table('__OUTPUT0__')
+        result = self.db.get_table('__OUTPUT0__')
         self.assertEquals(result, self.expected2)
 
     def test_right_deep_join(self):
