@@ -180,13 +180,18 @@ class FakeDatabase(object):
     def dowhile(self, op):
         i = 0
 
+        children = op.children()
+        body_ops = children[:-1]
+        term_op = children[-1]
+
         if debug:
             print '---------- Values at top of do/while -----'
             self.dump_all()
 
         while True:
-            self.evaluate(op.left)
-            result_iterator = self.evaluate(op.right)
+            for op in body_ops:
+                self.evaluate(op)
+            result_iterator = self.evaluate(term_op)
 
             if debug:
                 i += 1
