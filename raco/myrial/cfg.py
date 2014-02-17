@@ -81,5 +81,35 @@ class ControlFlowGraph(object):
             if len(dead_set) == 0:
                 break
 
+    def get_logical_plan(self):
+        """Extract a logical plan from the control flow graph.
 
+        The logic here is simplistic:
+        * Any node with in-degree == 2 is the top of a new do/while loop
+        * Any node with out-degree == 2 is a while condition
+        * Any other node is an ordinary operation.
 
+        :returns: An instance of raco.algebra.Operator
+        """
+
+        op_stack = [Sequence()]
+        def current_block():
+            return op_stack[-1]
+
+        for i in range(self.next_op_id):
+            op = self.graph[i]['op']
+            if self.graph.out_degree(i) == 2:
+                # Terminate current do/while loop
+                assert isinstance(current_block(), DoWhile)
+                current_block().set_term_op(op)
+                op_stack.pop()
+                continue
+
+            if self.graph.in_degree(i) == 2:
+                # Introduce new do/while loop
+                op_stack.append(DoWhile())
+
+            current_block().add(op)
+
+        assert len(op_stack) == 1
+        return current_block()
