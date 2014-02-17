@@ -1,5 +1,7 @@
 from raco.algebra import *
 
+import collections
+import copy
 import logging
 import networkx as nx
 
@@ -53,23 +55,20 @@ class ControlFlowGraph(object):
         are variable names (strings) and the values are string sets.
         """
 
-        num_nodes = len(self.cfg)
-        live_in = collections.defaultdict(set)
-        live_out = collections.defaultdict(set)
+        # All variables that are accessed are live-in at a node
+        live_in = dict([(i, self.graph.node[i]['uses']) for i in self.graph])
+        live_out = dict([(i, set()) for i in self.graph])
 
         while True:
-            live_in_prev = copy.copy(line_in)
-            live_out_prev = copy.copy(line_out)
+            live_in_prev = copy.copy(live_in)
+            live_out_prev = copy.copy(live_out)
 
-            for i in range(num_nodes):
-                # accessed variables are live-in
-                line_in[i].update(self.cfg[i]['uses'])
-
+            for i in self.graph:
                 # live out variables that are not defined are live-in
-                live_in[i].update(live_out_prev[i] - self.cfg[i]['defs'])
+                live_in[i].update(live_out_prev[i] - self.graph.node[i]['defs'])
 
                 # variables that are live-in at a successor are live-out
-                for successor in nx.Digraph.successors(i):
+                for successor in self.graph.successors(i):
                     live_out[i].update(live_in_prev[successor])
 
             if live_in == live_in_prev and live_out == live_out_prev:
