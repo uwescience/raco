@@ -1,5 +1,6 @@
 import raco.myrial.groupby as groupby
 import raco.myrial.multiway as multiway
+from raco.myrial.cfg import ControlFlowGraph
 import raco.algebra
 import raco.expression
 import raco.catalog
@@ -13,7 +14,6 @@ from raco import relation_key
 import collections
 import types
 import copy
-import networkx as nx
 
 class DuplicateAliasException(Exception):
     """Bag comprehension arguments must have different alias names."""
@@ -258,20 +258,13 @@ class StatementProcessor(object):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
-        # A sequence of plans to be executed by the database
-        self.output_ops = []
-
         self.catalog = catalog
         self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
 
         # Unique identifiers for temporary tables created by DUMP operations
         self.dump_output_id = 0
 
-        # Control flow graph: nodes are operations, edges are control flow
-        self.cfg = nx.DiGraph()
-
-        # Unique identifiers for operation IDs
-        self.next_op_id = 0
+        self.cfg = ControlFlowGraph()
 
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
@@ -281,37 +274,28 @@ class StatementProcessor(object):
             method(*statement[1:])
 
     def __evaluate_expr(self, expr, def_set):
-        """Evaluate an expression; add a node to the control flow graph."""
+        """Evaluate an expression; add a node to the control flow graph.
 
-        op_id = self.next_op_id
-        self.next_op_id += 1
+        :param expr: An expression to evaluate
+        :type expr: Myrial AST tuple
+        :param def_set: Set of variables defined by this operation.
+        :type def_set: Set of strings
+        """
 
-        op_out = self.ep.evaluate(expr)
+        op = self.ep.evaluate(expr)
         uses_set = self.ep.get_and_clear_uses_set()
-        self.cfg.add_node(op_id, defs=def_set, uses=uses_set)
+        self.cfg.add_op(op, def_set, uses_set)
 
-        # Add a control flow edge from the prevoius statement; this assumes we
-        # don't do jumps or any other non-linear control flow.
-        if op_id > 0:
-            self.cfg.add_edge(op_id - 1, op_id)
-        return op_out
-
-    def __do_assignment(self, _id, expr, op_list):
+    def __do_assignment(self, _id, expr):
         """Process an assignment statement.
 
         :param _id: The target variable name.
         :type _id: string
         :param expr: The relational expression to evaluate
         :type expr: A Myrial expression AST node tuple
-        :param op_list: A list of output operations to capture the Store operation
         """
 
         child_op = self.__evaluate_expr(expr, {_id})
-
-        # Wrap the output of the operation in a store to a temporary variable so
-        # we can later retrieve its value
-        store_op = raco.algebra.StoreTemp(_id, child_op)
-        op_list.append(store_op)
 
         # Point future references of this symbol to a scan of the
         # materialized table. Note that this assumes there is no scoping in Myrial.
@@ -319,7 +303,7 @@ class StatementProcessor(object):
 
     def assign(self, _id, expr):
         '''Map a variable to the value of an expression.'''
-        self.__do_assignment(_id, expr, self.output_ops)
+        self.__do_assignment(_id, expr)
 
     def store(self, _id, rel_key):
         assert isinstance(rel_key, relation_key.RelationKey)
@@ -337,7 +321,6 @@ class StatementProcessor(object):
         self.output_ops.append(op)
 
     def dowhile(self, statement_list, termination_ex):
-        body_ops = []
         first_op_id = self.next_op_id # op ID of the top of the loop
 
         for _type, _id, expr in statement_list:
@@ -345,64 +328,18 @@ class StatementProcessor(object):
                 # TODO: Better error message
                 raise InvalidStatementException('%s not allowed in do/while' %
                                                 _type.lower())
-            self.__do_assignment(_id, expr, body_ops)
+            self.__do_assignment(_id, expr)
 
         last_op_id = self.next_op_id
 
         term_op = self.__evaluate_expr(termination_ex, set())
-        op = raco.algebra.DoWhile(raco.algebra.Sequence(body_ops), term_op)
-        self.output_ops.append(op)
 
         # Add a control flow edge from the loop condition to the top of the loop
         self.cfg.add_edge(last_op_id, first_op_id)
 
-    def compute_liveness(self):
-        """Run liveness analysis over the control flow graph.
-
-        http://www.cs.colostate.edu/~mstrout/CS553/slides/lecture03.pdf
-
-        :returns: A tuple containing live_in, live_out dictionaries.  The keys
-        are variable names (strings) and the values are string sets.
-        """
-
-        num_nodes = len(self.cfg)
-        live_in = collections.defaultdict(set)
-        live_out = collections.defaultdict(set)
-
-        while True:
-            live_in_prev = copy.copy(line_in)
-            live_out_prev = copy.copy(line_out)
-
-            for i in range(num_nodes):
-                # accessed variables are live-in
-                line_in[i].update(self.cfg[i]['uses'])
-
-                # live out variables that are not defined are live-in
-                live_in[i].update(live_out_prev[i] - self.cfg[i]['defs'])
-
-                # variables that are live-in at a successor are live-out
-                for successor in nx.Digraph.successors(i):
-                    live_out[i].update(live_in_prev[successor])
-
-            if live_in == live_in_prev and live_out == live_out_prev:
-                return live_in, live_out
-
-    def dead_code_elimination(self):
-        dead_set = set()
-
-        while True:
-            live_in, live_out = self.compute_liveness()
-            for var, out_set in live_out.iteritems():
-                defs = self.cfg[var]['defs']
-                if not defs.issubset(out_set):
-                    dead_set.add(var)
-            self.cfg.remove_nodes_from(dead_set)
-            if len(dead_set) == 0:
-                break
-
     def get_logical_plan(self):
         """Return an operator representing the logical query plan."""
-        return raco.algebra.Sequence(self.output_ops)
+        return self.cfg.get_logical_plan()
 
     def get_physical_plan(self):
         """Return an operator representing the physical query plan."""
