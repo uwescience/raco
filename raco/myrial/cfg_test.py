@@ -64,3 +64,14 @@ class CFGTest(myrial_test.MyrialTestCase):
       self.assertEquals(live_in,
          {0: set(), 1: {'Point'}, 2: {'Big', 'Point'}, 3: {'Big', 'Point', 'Continue'},
          4: {'Big'}})
+
+    def test_dead_code_elim(self):
+        with open ('examples/deadcode.myl') as fh:
+            query = fh.read()
+
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), set(range(9)))
+
+        self.processor.cfg.dead_code_elimination()
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), {2, 6, 7, 8})
