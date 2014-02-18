@@ -97,9 +97,10 @@ if __name__ == "__main__":
     algebra = CCAlgebra
     prefix = ""
     import sys
-    if len(sys.argv)>1 and sys.argv[1] ==  "grappa":
-      algebra = GrappaAlgebra
-      prefix = "grappa_"
+    if len(sys.argv) > 1:
+        if sys.argv[1] ==  "grappa":
+            algebra = GrappaAlgebra
+            prefix = "grappa_"
 
     for q in queries:
         query, name = q
