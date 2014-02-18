@@ -1,0 +1,40 @@
+
+-- PageRank augmented with dead code; for use as an optimization test
+
+alpha = [.85];
+epsilon = [.0001];
+
+D0 = [3.14159 AS pi, 2.71828 AS e]; -- dead code
+
+Edge = SCAN(public:adhoc:edges);
+Vertex = SCAN(public:adhoc:vertices);
+
+N = [FROM Vertex EMIT COUNT(id) AS val];
+min_rank = [(1 - *alpha) / *N];
+
+OutDegree = [FROM Edge EMIT Edge.src AS id, COUNT(Edge.dst) AS cnt];
+PageRank = [FROM Vertex EMIT Vertex.id AS id, 1.0 / *N AS rank];
+
+DO
+    D1 = [FROM Vertex EMIT COUNT(id) AS val]; -- dead code
+
+    -- Calculate each node's outbound page rank contribution
+    PrOut = [FROM PageRank, OutDegree WHERE PageRank.id == OutDegree.id
+             EMIT PageRank.id AS id, PageRank.rank / OutDegree.cnt AS out_rank];
+
+    -- Compute the inbound summands for each node
+    Summand = [FROM Vertex, Edge, PrOut
+                WHERE Edge.dst == Vertex.id AND Edge.src == PrOut.id
+                EMIT Vertex.id AS id, PrOut.out_rank AS summand];
+    
+    -- Sum up the summands; adjust by alpha
+    NewPageRank = [FROM Summand EMIT id AS id,
+                   *min_rank + *alpha * SUM(Summand.summand) AS rank];
+    Delta = [FROM NewPageRank, PageRank WHERE NewPageRank.id == PageRank.id
+             EMIT ABS(NewPageRank.rank - PageRank.rank) AS val];
+    Continue = [FROM Delta EMIT MAX(Delta.val) > *epsilon];
+    Continue = [FROM Delta EMIT MAX(Delta.val) > *epsilon]; -- duplicate line
+    PageRank = NewPageRank;
+WHILE Continue;
+
+DUMP(PageRank);
