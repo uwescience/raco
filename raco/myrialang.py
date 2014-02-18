@@ -322,7 +322,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             ret["argGroupField"] = group_fields[0].position
         else:
             ret["opType"] = "MultiGroupByAggregate"
-            ret["arg_group_fields"] = [field.position for field in group_fields]
+            ret["argGroupFields"] = [field.position for field in group_fields]
         return ret
 
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
@@ -423,7 +423,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         else:
             pf = {
                 "type" : "MultiFieldHash",
-                "fieldIndexes" : self.hash_columns
+                "indexes" : self.hash_columns
               }
 
         return {
