@@ -12,6 +12,8 @@ using namespace Grappa;
 #include "relation_io.hpp"
 #include "MatchesDHT.hpp"
 #include "utils.h"
+#include "stats.h"
+#include "strings.h"
 
 // graph gen
 #include "generator/make_graph.h"
@@ -27,11 +29,20 @@ struct Relation {
     size_t numtuples;
 };  
 
-// SPLIT ME HERE
+DEFINE_uint64( nt, 30, "hack: number of tuples"); 
+
+%(declarations)s
+
+StringIndex string_index;
+void init( ) {
+    string_index = build_string_index("sp2bench_1m.index");
+}
 
 void query() {
+    double start, end;
+    %(initialized)s
 
-    // SPLIT ME HERE
+    %(queryexec)s
 }
 
 
@@ -39,7 +50,12 @@ int main(int argc, char** argv) {
     init(&argc, &argv);
 
     run([] {
+
+    on_all_cores([]() { init(); });
+double start = Grappa::walltime();
     	query();
+      double end = Grappa::walltime();
+      query_runtime = end - start;
     	Metrics::merge_and_print();
     });
 

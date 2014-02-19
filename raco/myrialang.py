@@ -117,7 +117,7 @@ class MyriaLanguage(Language):
     @classmethod
     def boolean_combine(cls, args, operator="and"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["%s" % cls.compile_boolean(arg) for arg in args])
+        conjunc = opstr.join(["%s" % arg for arg in args])
         return "(%s)" % conjunc
 
     @staticmethod

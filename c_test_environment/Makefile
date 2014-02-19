@@ -1,3 +1,5 @@
+# WARNING: name environment source files .h or .cc, but not .cpp, which is reserved (.gitignore laziness)
+
 CPPC = g++
 
 CFLAGS = -ggdb -std=c++11 #-O3 #-m64 -Wno-deprecated -fPIC
@@ -14,11 +16,11 @@ TRILIBDEFS = -DTRILIBRARY
 
 #all: 
 
-%.exe: %.o io_util.o counters_util.o
+%.exe: %.o io_util.o counters_util.o strings.o
 	$(LINK) 
 
 clean:
-	rm *.O *.exe
+	rm *.o *.exe
 
 io_util.o : io_util.cc io_util.h
 	$(COMP) 
@@ -26,6 +28,9 @@ io_util.o : io_util.cc io_util.h
 counters_util.o : counters_util.cc counters_util.h
 	$(COMP) 
 
-%.o : %.cpp io_util.cc io_util.h counters_util.cc counters_util.h
+strings.o : strings.cc strings.h
+	$(COMP) 
+
+%.o : %.cpp 
 	$(COMP) 
 

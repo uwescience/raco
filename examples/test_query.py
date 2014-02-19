@@ -1,6 +1,7 @@
 from raco import RACompiler
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 from raco.algebra import LogicalAlgebra
+import generateDot
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -20,9 +21,13 @@ def testEmit(query, name, algebra):
     #print dlog.parsed
     LOG.info("logical: %s",dlog.logicalplan)
 
+    generateDot.generateDot(dlog.logicalplan, "%s.logical.dot"%(name))
+
     dlog.optimize(target=algebra, eliminate_common_subexpressions=False)
 
     LOG.info("physical: %s",dlog.physicalplan[0][1])
+    
+    generateDot.generateDot(dlog.physicalplan, "%s.physical.dot"%(name))
 
     # generate code in the target language
     code = ""
@@ -39,8 +44,8 @@ def testEmit(query, name, algebra):
 
 if __name__ == "__main__":
     queries = [
-            ("A(s1) :- T1(s1)", "scan"),#, "select s1 from T1"), 
-            ("A(s1) :- T1(s1), s1>10", "select"),#, "select s1 from T1 where s1>10" ),
+            ("A(s1) :- T1(s1)", "scan"),  # , "select s1 from T1"),
+            ("A(s1) :- T1(s1), s1>10", "select"),  # , "select s1 from T1 where s1>10" ),
             ("A(s1) :- T1(s1), s1>0, s1<10", "select_conjunction"),
             ("A(s1,s2) :- T2(s1,s2), s>10, s2>10", "two_var_select"),
             ("A(s1,o2) :- T3(s1,p1,o1), R3(o2,p1,o2)", "join"),
@@ -74,8 +79,15 @@ if __name__ == "__main__":
     A(s1,s2) :- R1(s1,s2)
     B(s1) :- A(s1,s2), S1(s1)""", "union_then_join"),
             
-            ("Q3a(article) :- sp2bench_1m(article, 'rdf:type', 'bench:Article'), sp2bench_1m(article, 'swrc:pages', value)", "sp2_Q3a"),
-            ("Q1(yr) :- sp2bench_1m(journal, 'rdf:type', 'bench:Journal'), sp2bench_1m(journal, 'dc:title', 'Journal 1 (1940)'), sp2bench_1m(journal, 'dcterms:issued', yr)", "sp2_Q1"),
+            ("""A(author) :- R(erdoes, 'rdf:type', 'foaf:Person'),
+                            R(doc, 10, erdoes),
+                            R(doc, 20, author),
+                            erdoes!=author""", "nejoin_forward"),
+            ("""A(author) :- R(erdoes, 'rdf:type', 'foaf:Person'),
+                            R(doc, 10, erdoes),
+                            R(doc, 20, author),
+                            author!=erdoes""", "nejoin_rev"),
+            
 
             #("A(a,b) :- R2(a,b), S2(a,b)", "two_match"),
 
@@ -90,9 +102,10 @@ if __name__ == "__main__":
     algebra = CCAlgebra
     prefix = ""
     import sys
-    if sys.argv[1] ==  "grappa":
-      algebra = GrappaAlgebra
-      prefix = "grappa_"
+    if len(sys.argv) > 1:
+        if sys.argv[1] ==  "grappa":
+            algebra = GrappaAlgebra
+            prefix = "grappa_"
 
     for q in queries:
         query, name = q
