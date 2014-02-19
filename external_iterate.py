@@ -36,9 +36,9 @@ def evaluate(plan, connection=None, validate=False):
             evaluate(plan.right, connection, validate)
             return
         user_name, program_name, relation_name = myrialang.resolve_relation_key(name)
-        relation_key = {'user_name' : user_name,
-                        'program_name' : program_name,
-                        'relation_name' : relation_name }
+        relation_key = {'userName' : user_name,
+                        'programName' : program_name,
+                        'relationName' : relation_name }
         d = connection.download_dataset(relation_key)
         if d[0].values()[0]:
             evaluate(plan, connection, validate)
@@ -59,7 +59,7 @@ def evaluate(plan, connection=None, validate=False):
                 query = connection.submit_query(phys)
                 while query['status'] in [ 'ACCEPTED', 'RUNNING' , 'PAUSED' ]:
                     time.sleep(0.0001)
-                    query = connection.get_query_status(query['query_id'])
+                    query = connection.get_query_status(query['queryId'])
                 if query['status'] != 'SUCCESS':
                     raise IOError('Query %s failed: %s' % (logical, json.dumps(query)))
                 else:
@@ -120,8 +120,8 @@ def main(args):
     # For sigma clipping, we need to ingest the points file
     try:
         myria_connection.upload_fp(
-                { 'user_name' : 'public', 'program_name' : 'adhoc', 'relation_name':'sc_points'},
-                { 'column_names' : ['v'], 'column_types' : ['DOUBLE_TYPE'] },
+                { 'userName' : 'public', 'programName' : 'adhoc', 'relationName':'sc_points'},
+                { 'columnNames' : ['v'], 'columnTypes' : ['DOUBLE_TYPE'] },
                 open('examples/sigma_clipping_points.txt', 'r'))
     except myria.MyriaError as e:
         if '409' in str(e):
