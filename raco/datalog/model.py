@@ -305,9 +305,6 @@ class Rule(object):
                 # heuristic: try to pick != as the selection condition
                 for cycle in cycles:
 
-                    # pick a cycle
-                    cycle = cycles[0]
-
                     oneedge = None
                     data = None
 
