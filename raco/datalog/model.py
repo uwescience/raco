@@ -296,17 +296,41 @@ class Rule(object):
             cycleconditions = []
             # check for cycles
             cycles = nx.cycle_basis(component)
+            LOG.debug("found %s cycles", len(cycles))
             while cycles:
-                LOG.debug("found cycles: %s", cycles)
+                LOG.debug("found %s cycles", len(cycles))
+                LOG.debug("from remaining edges %s", component.edges())
 
-                # choose an edge to break the cycle
-                # that edge will be a selection condition after the final join
-                #oneedge = cycles[0][-2:]
-                # try to make the chosen edge from cycle deterministic
-                oneedge = sorted(cycles[0], key=lambda v: v.originalorder)[-2:]
+                foundPreferredSel = False
+                # heuristic: try to pick != as the selection condition
+                for cycle in cycles:
 
-                data = component.get_edge_data(*oneedge)
-                LOG.debug("picked edge: %s, data: %s", oneedge, data)
+                    # pick a cycle
+                    cycle = cycles[0]
+
+                    oneedge = None
+                    data = None
+
+                    LOG.debug("list edges for %s", cycle)
+
+                    for i in range(-2,len(cycle)-2):
+                        LOG.debug("picking [%s,%s] from %s", i, i+1, cycle)
+                        oneedge = cycle[i], cycle[i+1]
+                        data = component.get_edge_data(*oneedge)
+                        condition = data['condition']
+                        if isinstance(condition, expression.NEQ):
+                            foundPreferredSel = True
+                            break
+
+                    if foundPreferredSel: break
+
+                # if no preferred selection edges just pick an arbitrary one: cycles[0][-2:]
+                if not foundPreferredSel:
+                    LOG.debug("not able to pick a preferred edge")
+                    oneedge = cycles[0][-2:]
+                    data = component.get_edge_data(*oneedge)
+
+                LOG.debug("picked edge: %s, data: %s, withNE: %s", oneedge, data, foundPreferredSel)
                 cycleconditions.append(data)
                 component.remove_edge(*oneedge)
                 cycles = nx.cycle_basis(component)
