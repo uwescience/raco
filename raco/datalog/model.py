@@ -316,6 +316,7 @@ class Rule(object):
                         data = component.get_edge_data(*oneedge)
                         condition = data['condition']
                         if isinstance(condition, expression.NEQ):
+                            #TODO: What I actually want is NEQ || conjunction of only NEQs
                             foundPreferredSel = True
                             break
 
