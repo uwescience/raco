@@ -7,7 +7,7 @@ install:
   - pip install coveralls --use-mirrors
 script:
   # PEP8 tests
-  - flake8 raco
+  - flake8 --ignore=F raco
   # Run unit tests with coverage
   - nosetests --with-coverage --cover-package=raco
 after_success:
