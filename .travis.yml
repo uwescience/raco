@@ -5,6 +5,10 @@ install:
   - pip install -r requirements-dev.txt --use-mirrors
   - python setup.py install
   - pip install coveralls --use-mirrors
-script: nosetests --with-coverage --cover-package=raco
+script:
+  # PEP8 tests
+  - flake8 raco
+  # Run unit tests with coverage
+  - nosetests --with-coverage --cover-package=raco
 after_success:
   - coveralls
