@@ -138,11 +138,9 @@ class ControlFlowGraph(object):
         def current_block():
             return op_stack[-1]
 
-        for i in range(self.next_op_id):
-            if not i in self.graph:
-                continue # Node was deleted by dead_code_elimination
-
+        for i in sorted(self.graph):
             op = self.graph.node[i]['op']
+
             if self.graph.out_degree(i) == 2:
                 LOG.info("Terminating while loop (%d): %s" % (i, op))
                 # Terminate current do/while loop
