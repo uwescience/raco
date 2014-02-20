@@ -1213,3 +1213,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             tps.append((emp[0], _sum1, _sum2))
 
         self.check_result(query, collections.Counter(tps))
+
+    def test_118_regression(self):
+        """Regression test for https://github.com/uwescience/datalogcompiler/issues/118"""
+        query = """
+        out = [FROM SCAN(%s) AS X WHERE dept_id = 2 AND salary = 5000 EMIT id];
+        DUMP(out);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[0],) for x in self.emp_table.elements() if x[1] == 2 and x[3] == 5000])
+        self.check_result(query, expected)
+
