@@ -1,5 +1,6 @@
 from raco.algebra import *
 
+import bisect
 import collections
 import copy
 import logging
@@ -12,9 +13,18 @@ Nodes are operations, edges are control flow.
 
 LOG = logging.getLogger(__name__)
 
+
+def find_gt(a, x):
+    '''Find leftmost value greater than x'''
+    i = bisect.bisect_right(a, x)
+    if i != len(a):
+        return a[i]
+    return None
+
 class ControlFlowGraph(object):
     def __init__(self):
         self.graph = nx.DiGraph()
+        self.sorted_vertices = []
         self._next_op_id = 0
 
     def __str__(self):
@@ -42,6 +52,7 @@ class ControlFlowGraph(object):
         self._next_op_id += 1
 
         self.graph.add_node(op_id, op=op, defs=def_set, uses=uses_set)
+        self.sorted_vertices.append(op_id)
 
         # Add a control flow edge from the previous statement; this assumes we
         # don't do jumps or any other non-linear control flow.
@@ -80,45 +91,48 @@ class ControlFlowGraph(object):
             if live_in == live_in_prev and live_out == live_out_prev:
                 return live_in, live_out
 
+    def __delete_node(self, node):
+        """Remove a node from the control flow graph.
+
+        Add an edge to the graph to "skip over" the target node.
+        """
+        assert node in self.graph
+
+        # find a successor of the given node
+        predecessors = self.graph.predecessors(node)
+        if predecessors:
+            successor = find_gt(self.sorted_vertices, node)
+            if successor is not None:
+                for p in predecessors:
+                    self.graph.add_edge(p, successor)
+
+        self.graph.remove_node(node)
+        self.sorted_vertices.remove(node)
+
+        assert node not in self.graph
+
     def dead_code_elimination(self):
         """Dead code elimination.
 
         Specifically: delete CFG nodes that define a variable that is not in
-        the live_out set.  Recurse until convergence.
+        the live_out set. Recurse until convergence.
         """
 
-        num_nodes = len(self.graph)
-
-        while True:
-            dead_set = set()
+        _continue = True
+        while _continue:
+            _continue = False
             live_in, live_out = self.compute_liveness()
 
-            for var in self.graph:
-                out_set = live_out[var]
-                defs = self.graph.node[var]['defs']
+            for node in self.graph:
+                out_set = live_out[node]
+                defs = self.graph.node[node]['defs']
 
                 # Only delete nodes that 1) Define a variable (and therefore aren't
                 # STORE, DUMP, etc.); 2) Are not required downstream.
                 if defs and not defs.issubset(out_set):
-                    dead_set.add(var)
-
-
-            if len(dead_set) == 0:
-                break
-
-            # Update the graph to skip over soon-to-be dead nodes
-            for node in dead_set:
-                # calculate a live successor for the dead node
-                successor = None
-                for i in range(node, num_nodes):
-                    if i in self.graph and i not in dead_set:
-                        successor = i
-                        break
-                if successor is not None:
-                    for ancestor in self.graph.predecessors(node):
-                        self.graph.add_edge(ancestor, successor)
-
-            self.graph.remove_nodes_from(dead_set)
+                    self.__delete_node(node)
+                    _continue = True
+                    break
 
     def get_logical_plan(self, dead_code_elimination=True):
         """Extract a logical plan from the control flow graph.
