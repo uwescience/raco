@@ -126,6 +126,72 @@ class ControlFlowGraph(object):
 
         assert node not in self.graph
 
+    def __inline_node(self, dest_node, target_node):
+        """Inline the target node into the destination node."""
+
+        assert target_node in self.graph
+        assert dest_node in self.graph
+
+        target_op = self.graph.node[target_node]['op']
+        assert isinstance(target_op, StoreTemp)
+        target_inner_op = target_op.input
+
+        dest_op = self.graph.node[dest_node]['op']
+
+        # Extract the defined variable from the def set
+        # XXX Set might be the wrong abstraction here...
+        for v in self.graph.node[target_node]['defs']:
+            var = v
+            break
+        inline_operator(dest_op, var, target_inner_op)
+
+        self.__delete_node(target_node)
+
+    def apply_chaining(self):
+        """Merge adjacent statements by chaining together plans.
+
+        It is often desirable to chain plans instead of materializing temporary tables.
+        Consider this simple example:
+
+        X = SCAN(foo); -- Materializing a temporary table for X would be dumb
+        Y = DISTINCT(X); -- Instead, we can inline the scan into this expression
+
+        The merge procedure operates on the control flow graph.  We inline node
+        A into node B whenever:
+
+        - A directly precedes B; we don't consider out-of-order executions
+        - A defines a variable (i.e., it is a statement, not a DUMP or SAVE)
+        - B references the variable defined by A -- def(A) in uses(B)
+        - The variable defined by A is not used again; def(A) not in live_out(B)
+        - A and B are in the same do/while loop.
+
+        The merge procedure is applied recursively on the CFG until convergence is
+        reached.
+        """
+
+        _continue = True
+        while _continue:
+            live_in, live_out = self.compute_liveness()
+            _continue = False
+
+            for nodeA, nodeB in sliding_window(self.sorted_vertices):
+                if self.graph.in_degree(nodeB) == 2:
+                    continue # start of do/while loop
+
+                defs = self.graph.node[nodeA]['defs']
+                if not defs:
+                    continue
+
+                uses = self.graph.node[nodeB]['uses']
+                if not defs.issubset(uses):
+                    continue
+                if defs.issubset(live_out[nodeB]):
+                    continue
+
+                self.__inline_node(nodeB, nodeA)
+                _continue = True
+                break
+
     def dead_code_elimination(self):
         """Dead code elimination.
 
@@ -149,7 +215,7 @@ class ControlFlowGraph(object):
                     _continue = True
                     break
 
-    def get_logical_plan(self, dead_code_elimination=True):
+    def get_logical_plan(self, dead_code_elimination=True, apply_chaining=True):
         """Extract a logical plan from the control flow graph.
 
         The logic here is simplistic:
@@ -162,6 +228,9 @@ class ControlFlowGraph(object):
 
         if dead_code_elimination:
             self.dead_code_elimination()
+
+        if apply_chaining:
+            self.apply_chaining()
 
         op_stack = [Sequence()]
         def current_block():

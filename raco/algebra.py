@@ -3,6 +3,7 @@ from raco import scheme
 from raco.utility import emit, emitlist, Printable
 
 from abc import ABCMeta, abstractmethod, abstractproperty
+import copy
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -947,6 +948,21 @@ class DoWhile(Sequence):
 
     def shortStr(self):
         return self.opname()
+
+def inline_operator(dest_op, var, target_op):
+    """Convert two operator trees into one by inlining.
+
+    :param dest_op: The Operator that is the inline destination
+    :param var: The variable name (String) to replace.
+    :param target_op: The operation to replace.
+    """
+    def rewrite_node(node):
+        if isinstance(node, ScanTemp) and node.name == var:
+            node_out = copy.copy(target_op)
+        else:
+            node_out = node
+        return node_out.apply(rewrite_node)
+    return rewrite_node(dest_op)
 
 def attribute_references(condition):
     """Generates a list of attributes referenced in the condition"""
