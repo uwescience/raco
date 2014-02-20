@@ -3,6 +3,7 @@ from raco.algebra import *
 import bisect
 import collections
 import copy
+import itertools
 import logging
 import networkx as nx
 
@@ -20,6 +21,20 @@ def find_gt(a, x):
     if i != len(a):
         return a[i]
     return None
+
+def sliding_window(seq, n=2):
+    """Returns a sliding window (of width n) over data from the iterable.
+
+    http://stackoverflow.com/questions/6822725/rolling-or-sliding-window-iterator-in-python
+    """
+
+    it = iter(seq)
+    result = tuple(itertools.islice(it, n))
+    if len(result) == n:
+        yield result
+    for elem in it:
+        result = result[1:] + (elem,)
+        yield result
 
 class ControlFlowGraph(object):
     def __init__(self):
