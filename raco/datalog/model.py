@@ -742,7 +742,7 @@ class Term(object):
 
         return plan
 
-    def makeLeaf(term, conditions, program):
+    def makeLeaf(self, conditions, program):
         """Return an RA plan that Scans the appropriate relation and applies
         all selection conditions. Two sources of conditions: the term itself,
         like A(X,"foo") -> Select(pos1="foo", Scan(A)) and separate condition
@@ -759,22 +759,22 @@ class Term(object):
             #return AttributeSpec(relation_alias, name, attrtype)
 
         # Chain rules together
-        if program.isIDB(term):
-            plan = program.compileIDB(term.name)
-            scan = term.renameIDB(plan)
+        if program.isIDB(self):
+            plan = program.compileIDB(self.name)
+            scan = self.renameIDB(plan)
         else:
             # TODO: A call to some catalog?
-            sch = scheme.Scheme([attr(i, r, term.name)
-                                 for i, r in enumerate(term.valuerefs)])
-            rel_key = relation_key.RelationKey.from_string(term.name)
+            sch = scheme.Scheme([attr(i, r, self.name)
+                                 for i, r in enumerate(self.valuerefs)])
+            rel_key = relation_key.RelationKey.from_string(self.name)
             scan = raco.algebra.Scan(rel_key, sch)
-            scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))  # noqa
+            scan.trace("originalterm", "%s (position %s)" % (self, self.originalorder))  # noqa
 
         # collect conditions within the term itself, like A(X,3) or A(Y,Y)
-        implconds = list(term.implicitconditions())
+        implconds = list(self.implicitconditions())
 
         # collect explicit conditions, like A(X,Y), Y=2
-        explconds = list(term.explicitconditions(conditions))
+        explconds = list(self.explicitconditions(conditions))
 
         allconditions = implconds + explconds
 
@@ -784,7 +784,7 @@ class Term(object):
         else:
             plan = scan
 
-        plan.set_alias(term)
+        plan.set_alias(self)
         return plan
 
 

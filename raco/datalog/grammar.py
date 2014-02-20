@@ -118,12 +118,6 @@ def mkagg(x):
 aggregate = (Word(alphas) + drop("(") + variable + drop(")"))
 aggregate.setParseAction(mkagg)
 
-
-def mkheadterm(x):
-    print "HEAD: ", x
-    print model.HeadTerm(x)
-    return model.HeadTerm(x)
-
 headvalueref = aggregate | variable | literal
 
 headterm = (predicate + Optional(server)
