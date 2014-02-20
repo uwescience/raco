@@ -11,21 +11,25 @@ from raco.compile import optimize
 from raco import relation_key
 
 import collections
-import types
 import copy
+
 
 class DuplicateAliasException(Exception):
     """Bag comprehension arguments must have different alias names."""
     pass
 
+
 class InvalidStatementException(Exception):
     pass
+
 
 class NoSuchRelationException(Exception):
     pass
 
+
 def lookup_symbol(symbols, _id):
     return copy.copy(symbols[_id])
+
 
 class ExpressionProcessor(object):
     """Convert syntactic expressions into relational algebra operations."""
@@ -72,7 +76,7 @@ class ExpressionProcessor(object):
 
         # rewrite clauses in terms of the new schema
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
-                      for (name, sexpr) in emit_args]
+                     for (name, sexpr) in emit_args]
 
         return raco.algebra.Apply(emitters=emit_args, input=op)
 
@@ -115,7 +119,7 @@ class ExpressionProcessor(object):
         # Make sure no aliases were reused: [FROM X, X EMIT *] is illegal
         from_aliases = set([x[0] for x in from_clause])
         if len(from_aliases) != len(from_clause):
-            raise DuplicateAliasException();
+            raise DuplicateAliasException()
 
         # For each FROM argument, create a mapping from ID to operator
         # (id, raco.algebra.Operator)
@@ -123,12 +127,12 @@ class ExpressionProcessor(object):
 
         for _id, expr in from_clause:
             if expr:
-                from_args[_id] =  self.evaluate(expr)
+                from_args[_id] = self.evaluate(expr)
             else:
                 from_args[_id] = lookup_symbol(self.symbols, _id)
 
         # Expand wildcards into a list of output columns
-        assert emit_clause # There should always be something to emit
+        assert emit_clause  # There should always be something to emit
         emit_args = []
         statemods = []
         for clause in emit_clause:
@@ -158,10 +162,10 @@ class ExpressionProcessor(object):
             op = raco.algebra.Select(condition=where_clause, input=op)
 
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
-                      for (name, sexpr) in emit_args]
+                     for (name, sexpr) in emit_args]
 
-        statemods = [(name, init, multiway.rewrite_refs(update, from_args, info))
-                    for name, init, update in statemods]
+        statemods = [(name, init, multiway.rewrite_refs(update, from_args, info))  # noqa
+                     for name, init, update in statemods]
 
         if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
             return groupby.groupby(op, emit_args, implicit_group_by_cols)
@@ -212,8 +216,8 @@ class ExpressionProcessor(object):
         assert len(left_target.columns) == len(right_target.columns)
 
         def get_attribute_ref(column_ref, scheme, offset):
-            """Convert a string or int into an attribute ref on the new table"""
-            if type(column_ref) == types.IntType:
+            """Convert a string or int into an attribute ref on the new table"""  # noqa
+            if isinstance(column_ref, int):
                 index = column_ref
             else:
                 index = scheme.getPosition(column_ref)
@@ -238,6 +242,7 @@ class ExpressionProcessor(object):
 
         condition = reduce(andify, join_conditions)
         return raco.algebra.Join(condition, left, right)
+
 
 class StatementProcessor(object):
     '''Evaluate a list of statements'''

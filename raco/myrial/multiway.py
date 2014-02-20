@@ -4,7 +4,6 @@ from raco import algebra
 from raco import expression
 from raco.myrial.exceptions import ColumnIndexOutOfBounds
 
-import types
 
 def rewrite_refs(sexpr, from_args, base_offsets):
     """Convert all Unbox expressions into raw indexes."""
@@ -18,7 +17,7 @@ def rewrite_refs(sexpr, from_args, base_offsets):
 
             if not sexpr.field:
                 offset = 0
-            elif type(sexpr.field) == types.IntType:
+            elif isinstance(sexpr.field, int):
                 if sexpr.field >= len(scheme):
                     raise ColumnIndexOutOfBounds(str(sexpr))
                 offset = sexpr.field
@@ -36,6 +35,7 @@ def rewrite_refs(sexpr, from_args, base_offsets):
 
     return recursive_eval(sexpr)
 
+
 def __calculate_offsets(from_args):
     """Calculate the first column of each relation in the rollup schema."""
     index = 0
@@ -45,6 +45,7 @@ def __calculate_offsets(from_args):
         index += len(from_args[_id].scheme())
 
     return offsets
+
 
 def merge(from_args):
     """Merge a sequence of operations into a cross-product tree.

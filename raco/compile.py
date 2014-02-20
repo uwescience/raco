@@ -11,6 +11,7 @@ only involve operators in the
 target algebra
 """
 
+
 def optimize_by_rules(expr, rules):
     for rule in rules:
         def recursiverule(expr):
@@ -21,9 +22,10 @@ def optimize_by_rules(expr, rules):
         expr = recursiverule(expr)
     return expr
 
+
 def optimize_by_rules_breadth_first(expr, rules):
     def optimizeto(expr):
-        return optimize_by_rules(expr, rules) #TODO: why isn't this BF too?
+        return optimize_by_rules(expr, rules)  # TODO: why isn't this BF too?
 
     for rule in rules:
         newexpr = rule(expr)
@@ -33,8 +35,8 @@ def optimize_by_rules_breadth_first(expr, rules):
 
 
 def optimize(exprs, target, source, eliminate_common_subexpressions=False):
-    """Fire the rule-based optimizer on a list of exprs.  Fire all rules in the source algebra
-  (logical) and the target algebra (physical)"""
+    """Fire the rule-based optimizer on a list of exprs.  Fire all rules in the
+    source algebra (logical) and the target algebra (physical)"""
     def opt(expr):
         so = optimize_by_rules(expr, source.rules)
         newexpr = optimize_by_rules(so, target.rules)
@@ -43,11 +45,11 @@ def optimize(exprs, target, source, eliminate_common_subexpressions=False):
         return newexpr
     return [(var, opt(exp)) for var, exp in exprs]
 
+
 # XXX: DEPRECATED?? It is essentially duplicated in raco.raco
 def compile(exprs):
     """Compile a list of RA expressions.  Each expression is a pair Var, Plan
-  Emit any initialization and call compile method on top-level operator
-  """
+    Emit any initialization and call compile method on top-level operator"""
     algebra.reset()
     exprcode = []
     LOG.debug(exprs)
@@ -56,14 +58,17 @@ def compile(exprs):
         body = expr.compile(resultsym)
         final = expr.language.finalize(resultsym)
         exprcode.append(emit(init, body, final))
-    return  emit(*exprcode)
+    return emit(*exprcode)
+
 
 def search(expr, tofind):
     """yield a sequence of subexpressions equal to tofind"""
     def match(node):
-        if node == tofind: yield node
+        if node == tofind:
+            yield node
     for x in expr.preorder(match):
         yield x
+
 
 def common_subexpression_elimination(expr):
     """remove redundant subexpressions"""
@@ -89,6 +94,7 @@ def common_subexpression_elimination(expr):
                 return witness
 
     return expr.apply(replace)
+
 
 def showids(expr):
     """Traverse the plan and show the operator ids"""

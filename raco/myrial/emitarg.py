@@ -1,6 +1,7 @@
 
 import raco.expression as sexpr
 
+
 class EmitArg(object):
     """Defines a single entry in an emit argument list"""
 
@@ -23,6 +24,7 @@ class EmitArg(object):
         """
         return []
 
+
 class SingletonEmitArg(EmitArg):
     """An emit arg that defines a single column.
 
@@ -40,6 +42,7 @@ class SingletonEmitArg(EmitArg):
     def get_statemods(self):
         return self.statemods
 
+
 def expand_relation(relation_name, symbols):
     """Expand a given relation into a list of column mappings."""
     assert relation_name in symbols
@@ -51,6 +54,7 @@ def expand_relation(relation_name, symbols):
     return [(colname, sexpr.Unbox(relation_name, colname))
             for colname in colnames]
 
+
 class TableWildcardEmitArg(EmitArg):
     """An emit arg that refers to all columns in a table.
 
@@ -61,6 +65,7 @@ class TableWildcardEmitArg(EmitArg):
 
     def expand(self, symbols):
         return expand_relation(self.relation_name, symbols)
+
 
 class FullWildcardEmitArg(EmitArg):
     """Emit all columns from the input.

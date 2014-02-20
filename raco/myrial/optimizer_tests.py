@@ -14,17 +14,18 @@ import raco.expression as expression
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 
+
 class OptimizerTest(myrial_test.MyrialTestCase):
 
-    x_scheme = scheme.Scheme([("a", "int"),("b", "int"), ("c", "int")])
-    y_scheme = scheme.Scheme([("d", "int"),("e", "int"), ("f", "int")])
+    x_scheme = scheme.Scheme([("a", "int"), ("b", "int"), ("c", "int")])
+    y_scheme = scheme.Scheme([("d", "int"), ("e", "int"), ("f", "int")])
     x_key = relation_key.RelationKey.from_string("public:adhoc:X")
     y_key = relation_key.RelationKey.from_string("public:adhoc:Y")
 
     def setUp(self):
         super(OptimizerTest, self).setUp()
 
-        random.seed(387) # make results deterministic
+        random.seed(387)  # make results deterministic
         rng = 20
         count = 30
         self.x_data = collections.Counter(
@@ -42,18 +43,18 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                        OptimizerTest.y_scheme)
 
         self.expected = collections.Counter(
-            [(a,b,c,d,e,f) for (a,b,c) in self.x_data
-             for (d,e,f) in self.y_data if a > b and e <= f and c==d])
+            [(a, b, c, d, e, f) for (a, b, c) in self.x_data
+             for (d, e, f) in self.y_data if a > b and e <= f and c == d])
 
         self.z_key = relation_key.RelationKey.from_string("public:adhoc:Z")
-        self.z_data = collections.Counter([(1, 2),(2, 3),(1, 2),(3, 4)])
-        self.z_scheme = scheme.Scheme([('src','int'),('dst','int')])
+        self.z_data = collections.Counter([(1, 2), (2, 3), (1, 2), (3, 4)])
+        self.z_scheme = scheme.Scheme([('src', 'int'), ('dst', 'int')])
         self.db.ingest('public:adhoc:Z', self.z_data, self.z_scheme)
 
         self.expected2 = collections.Counter(
             [(s1, d3) for (s1, d1) in self.z_data.elements()
              for (s2, d2) in self.z_data.elements()
-             for (s3, d3) in self.z_data.elements() if d1==s2 and d2==s3])
+             for (s3, d3) in self.z_data.elements() if d1 == s2 and d2 == s3])
 
     @staticmethod
     def logical_to_physical(lp):
@@ -86,10 +87,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
     def test_merge_selects(self):
         lp = StoreTemp('OUTPUT',
                Select(expression.LTEQ(AttRef("e"), AttRef("f")),
-                 Select(expression.EQ(AttRef("c"),AttRef("d")),
-                   Select(expression.GT(AttRef("a"),AttRef("b")),
+                 Select(expression.EQ(AttRef("c"), AttRef("d")),
+                   Select(expression.GT(AttRef("a"), AttRef("b")),
                       CrossProduct(Scan(self.x_key, self.x_scheme),
-                                   Scan(self.y_key, self.y_scheme))))))
+                                   Scan(self.y_key, self.y_scheme))))))  # noqa
 
         self.assertEquals(self.get_count(lp, Select), 3)
         self.assertEquals(self.get_count(lp, CrossProduct), 1)
@@ -102,13 +103,12 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected)
 
-
     def test_extract_join(self):
         """Extract a join condition from the middle of complex select."""
         s = expression.AND(expression.LTEQ(AttRef("e"), AttRef("f")),
                            expression.AND(
-                               expression.EQ(AttRef("c"),AttRef("d")),
-                               expression.GT(AttRef("a"),AttRef("b"))))
+                               expression.EQ(AttRef("c"), AttRef("d")),
+                               expression.GT(AttRef("a"), AttRef("b"))))
 
         lp = StoreTemp('OUTPUT', Select(s, CrossProduct(
             Scan(self.x_key, self.x_scheme),
@@ -142,8 +142,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, Select), 0)
 
         expected = collections.Counter(
-            [(a,b,c,d,e,f) for (a,b,c) in self.x_data
-             for (d,e,f) in self.y_data if a==f and c==d])
+            [(a, b, c, d, e, f) for (a, b, c) in self.x_data
+             for (d, e, f) in self.y_data if a == f and c == d])
 
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
@@ -181,7 +181,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         s = expression.AND(expression.EQ(AttIndex(1), AttIndex(2)),
                            expression.EQ(AttIndex(3), AttIndex(4)))
 
-        lp = Apply([('x', AttIndex(0)),('y', AttIndex(5))],
+        lp = Apply([('x', AttIndex(0)), ('y', AttIndex(5))],
                    Select(s,
                           CrossProduct(Scan(self.z_key, self.z_scheme),
                                        CrossProduct(

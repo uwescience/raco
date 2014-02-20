@@ -1,16 +1,18 @@
 '''
 A parser for Purple programs.
 
-The result is a parse object that can return a (recursive) relational algebra expression.
+The result is a parse object that can return a (recursive) relational algebra
+expression.
 '''
 
-from pyparsing import Literal, CaselessLiteral, Word, delimitedList, Optional, \
-    Combine, Group, alphas, nums, alphanums, oneOf, quotedString, \
+from pyparsing import Literal, CaselessLiteral, Word, delimitedList, \
+    Optional, Combine, Group, alphas, nums, alphanums, oneOf, quotedString, \
     ZeroOrMore, restOfLine
 
 import raco
 from raco import expression
 import raco.datalog.model as model
+
 
 def show(x):
     print x
@@ -35,8 +37,9 @@ opcodes = sum([oc.literals for oc in binopclasses], [])
 
 binopstr = " ".join(opcodes)
 
-# parse action for binary operators
+
 def parsebinop(opexpr):
+    "parse action for binary operators"
     left, opstr, right = opexpr
 
     for opclass in binopclasses:
@@ -46,13 +49,13 @@ def parsebinop(opexpr):
 binop = oneOf(binopstr)
 arithSign = Word("+-", exact=1)
 
-realNum = Combine( Optional(arithSign) + ( Word( nums ) + "." + Optional( Word(nums) )  |
-            ( "." + Word(nums) ) ) +
-            Optional( E + Optional(arithSign) + Word(nums) ) )
+realNum = Combine(Optional(arithSign) +
+                  (Word(nums) + "." + Optional(Word(nums)) | ("." + Word(nums)))  # noqa
+                  + Optional(E + Optional(arithSign) + Word(nums)))
 realNum.setParseAction(lambda x: expression.NumericLiteral(float(x[0])))
 
-intNum = Combine( Optional(arithSign) + Word( nums ) +
-            Optional( E + Optional("+") + Word(nums) ) )
+intNum = Combine(Optional(arithSign) + Word(nums) +
+                 Optional(E + Optional("+") + Word(nums)))
 intNum.setParseAction(lambda x: expression.NumericLiteral(int(x[0])))
 
 number = realNum | intNum
@@ -66,10 +69,15 @@ literal = quotedString | number
 
 valueref = variable | literal
 
+
 def mkterm(x):
     return model.Term(x)
 
-term = (predicate + drop("(") + Group(delimitedList(valueref, ",")) + drop(")")).setParseAction(mkterm)
+term = (predicate
+        + drop("(")
+        + Group(delimitedList(valueref, ","))
+        + drop(")")).setParseAction(mkterm)
+
 
 def checkval(xs):
     left, op, right = xs[0]
@@ -88,20 +96,28 @@ condition.setParseAction(parsebinop)
 body = delimitedList(term | groundcondition | condition, ",")
 #.setParseAction(show) #lambda xs: [Term(x) for x in xs])
 
-partitioner = (drop("h(") + delimitedList(variable, ",") + drop(")")).setParseAction(lambda x: model.PartitionBy(x))
+partitioner = drop("h(") + delimitedList(variable, ",") + drop(")")
+partitioner.setParseAction(lambda x: model.PartitionBy(x))
+
 allservers = Literal("*").setParseAction(lambda x: model.Broadcast())
 server = drop("@") + (partitioner | allservers)
-timeexpr = (variable + oneOf("+ -") + Word( nums )).setParseAction(lambda xs: "".join([str(x) for x in xs]))
-timestep = drop("#") + (intNum | timeexpr | variable).setParseAction(lambda x: model.Timestep(x[0]))
+timeexpr = variable + oneOf("+ -") + Word(nums)
+timeexpr.setParseAction(lambda xs: "".join([str(x) for x in xs]))
+
+timestep = drop("#") + (intNum | timeexpr | variable)
+timestep.setParseAction(lambda x: model.Timestep(x[0]))
+
 
 def mkagg(x):
     opstr, arg = x
     for aggclass in aggregate_functions:
         if opstr.lower() == aggclass.__name__.lower():
             return aggclass(arg)
-    raise "Aggregate Function %s not found among %s" % (opstr, aggregate_functions)
+    raise "Aggregate Function %s not found among %s" % (opstr, aggregate_functions)  # noqa
 
-aggregate = (Word(alphas) + drop("(") + variable + drop(")")).setParseAction(mkagg)
+aggregate = (Word(alphas) + drop("(") + variable + drop(")"))
+aggregate.setParseAction(mkagg)
+
 
 def mkheadterm(x):
     print "HEAD: ", x
@@ -110,9 +126,9 @@ def mkheadterm(x):
 
 headvalueref = aggregate | variable | literal
 
-headterm = (predicate + Optional(server) + drop("(") + Group(delimitedList(headvalueref, ",")) + drop(")"))
-#.setParseAction(mkheadterm)
-#headterm = (predicate + Optional(server) + drop("(") + Group(delimitedList(valueref, ",")) + drop(")"))
+headterm = (predicate + Optional(server)
+            + drop("(") + Group(delimitedList(headvalueref, ",")) + drop(")"))
+
 
 def mkIDB(x):
     if len(x) == 4:
@@ -129,19 +145,24 @@ def mkIDB(x):
 head = (headterm + Optional(timestep) + drop(":-")).setParseAction(mkIDB)
 #head.setParseAction(show)
 
+
 def mkrule(x):
-    """Workaround for AttributeError: Class Rule has no __call__ method when running through wsgi"""
+    """Workaround for AttributeError: Class Rule has no __call__ method when
+    running through wsgi"""
     return model.Rule(x)
 
 rule = (head + Group(body) + Optional(drop(";"))).setParseAction(mkrule)
 
+
 def mkprogram(x):
-    """Workaround for AttributeError: Class Rule has no __call__ method when running through wsgi"""
+    """Workaround for AttributeError: Class Rule has no __call__ method when
+    running through wsgi"""
     return model.Program(x)
 
 comment = (Literal("#") + restOfLine).suppress()
 
 program = ZeroOrMore(rule | comment).setParseAction(mkprogram)
+
 
 def parse(query):
     return program.parseString(query)[0]

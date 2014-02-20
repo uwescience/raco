@@ -10,6 +10,7 @@ import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
 from .exceptions import *
 
+
 class JoinColumnCountMismatchException(Exception):
     pass
 
@@ -18,7 +19,7 @@ class JoinColumnCountMismatchException(Exception):
 JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 
 SelectFromWhere = collections.namedtuple(
-    'SelectFromWhere', ['distinct', 'select','from_', 'where', 'limit'])
+    'SelectFromWhere', ['distinct', 'select', 'from_', 'where', 'limit'])
 
 # A user-defined function
 Function = collections.namedtuple('Function', ['args', 'sexpr'])
@@ -29,33 +30,34 @@ Apply = collections.namedtuple('Apply', ['args', 'statemods', "sexpr"])
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': sexpr.PLUS,
-    '-' : sexpr.MINUS,
-    '/' : sexpr.DIVIDE,
-    '*' : sexpr.TIMES,
-    '>' : sexpr.GT,
-    '<' : sexpr.LT,
-    '>=' : sexpr.GTEQ,
-    '<=' : sexpr.LTEQ,
-    '!=' : sexpr.NEQ,
-    '<>' : sexpr.NEQ,
-    '==' : sexpr.EQ,
-    '=' : sexpr.EQ,
-    'AND' : sexpr.AND,
-    'OR' : sexpr.OR,
-    'POW' : sexpr.POW,
+    '-': sexpr.MINUS,
+    '/': sexpr.DIVIDE,
+    '*': sexpr.TIMES,
+    '>': sexpr.GT,
+    '<': sexpr.LT,
+    '>=': sexpr.GTEQ,
+    '<=': sexpr.LTEQ,
+    '!=': sexpr.NEQ,
+    '<>': sexpr.NEQ,
+    '==': sexpr.EQ,
+    '=': sexpr.EQ,
+    'AND': sexpr.AND,
+    'OR': sexpr.OR,
+    'POW': sexpr.POW,
 }
 
 # Mapping from source symbols to raco.expression.UnaryOperator classes
 unary_funcs = {
-    'ABS' : sexpr.ABS,
-    'CEIL' : sexpr.CEIL,
-    'COS' : sexpr.COS,
-    'FLOOR' : sexpr.FLOOR,
-    'LOG' : sexpr.LOG,
-    'SIN' : sexpr.SIN,
-    'SQRT' : sexpr.SQRT,
-    'TAN' : sexpr.TAN,
+    'ABS': sexpr.ABS,
+    'CEIL': sexpr.CEIL,
+    'COS': sexpr.COS,
+    'FLOOR': sexpr.FLOOR,
+    'LOG': sexpr.LOG,
+    'SIN': sexpr.SIN,
+    'SQRT': sexpr.SQRT,
+    'TAN': sexpr.TAN,
 }
+
 
 class Parser(object):
     # mapping from function name to Function tuple
@@ -83,11 +85,11 @@ class Parser(object):
             ('left', 'EQ', 'EQUALS', 'NE', 'GT', 'LT', 'LE', 'GE'),
             ('left', 'PLUS', 'MINUS'),
             ('left', 'TIMES', 'DIVIDE'),
-            ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
+            ('right', 'UMINUS'),    # Unary minus
         )
 
-    # A myrial program consists of 1 or more "translation units", each of which is a
-    # function, apply definition, or statement.
+    # A myrial program consists of 1 or more "translation units", each of which
+    # is a function, apply definition, or statement.
     @staticmethod
     def p_translation_unit_list(p):
         '''translation_unit_list : translation_unit_list translation_unit
@@ -119,7 +121,7 @@ class Parser(object):
         :type name: string
         :param args: A list of function arguments
         :type args: list of strings
-        :param body_expr: A scalar expression containing the body of the function
+        :param body_expr: A scalar expression containing the function body
         :type body_expr: raco.expression.Expression
         """
         if name in Parser.functions:
@@ -167,9 +169,11 @@ class Parser(object):
 
             statemods[sm_name] = (init.sexpr, update.sexpr)
 
-        # check for undefined variables.  init expressions cannot reference any variables.
-        # update expression can reference function arguments and state variables.
-        # The finalizer expression can reference state variables.
+        # Check for undefined variables:
+        #  - Init expressions cannot reference any variables.
+        #  - Update expression can reference function arguments and state
+        #    variables.
+        #  - The finalizer expression can reference state variables.
         allvars = statemods.keys() + args
         for init_expr, update_expr in statemods.itervalues():
             Parser.check_for_undefined(p, name, init_expr, [])
@@ -180,7 +184,7 @@ class Parser(object):
 
     @staticmethod
     def p_function(p):
-        '''function : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''
+        '''function : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''  # noqa
         Parser.add_function(p, p[2], p[4], p[7])
         p[0] = None
 
@@ -217,7 +221,7 @@ class Parser(object):
         p[0] = ('ASSIGN', p[1], p[3])
 
     # expressions must be embeddable in other expressions; certain constructs
-    # are not embeddable, but are available as r-values in an assignment 
+    # are not embeddable, but are available as r-values in an assignment
     @staticmethod
     def p_rvalue(p):
         """rvalue : expression
@@ -399,7 +403,7 @@ class Parser(object):
 
     @staticmethod
     def p_select_from_where(p):
-        'select_from_where : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause opt_limit'
+        'select_from_where : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause opt_limit'  # noqa
         p[0] = ('SELECT', SelectFromWhere(distinct=p[2], select=p[3],
                                           from_=p[5], where=p[6], limit=p[7]))
 
@@ -600,16 +604,17 @@ class Parser(object):
         elif isinstance(func, Apply):
             state_vars = func.statemods.keys()
 
-            # Mangle state variable names to allow multiple invocations to co-exist
+            # Mangle state variable names to allow multiple invocations to
+            # co-exist
             state_vars_mangled = [Parser.mangle(sv) for sv in state_vars]
             mangled = dict(zip(state_vars, state_vars_mangled))
 
-            for sm_name, (init_expr, update_expr) in func.statemods.iteritems():
+            for sm_name, (init_expr, update_expr) in func.statemods.iteritems():  # noqa
                 # Convert state mod references into appropriate expressions
-                update_expr = sexpr.resolve_state_vars(update_expr, state_vars, mangled)
+                update_expr = sexpr.resolve_state_vars(update_expr, state_vars, mangled)  # noqa
                 # Convert argument references into appropriate expressions
-                update_expr = sexpr.resolve_udf(update_expr, dict(zip(func.args, args)))
-                Parser.statemods.append((mangled[sm_name], init_expr, update_expr))
+                update_expr = sexpr.resolve_udf(update_expr, dict(zip(func.args, args)))  # noqa
+                Parser.statemods.append((mangled[sm_name], init_expr, update_expr))  # noqa
             return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
         else:
             assert False
@@ -632,6 +637,7 @@ class Parser(object):
             p[0] = p[1] + [p[3]]
         else:
             p[0] = [p[1]]
+
     @staticmethod
     def p_sexpr_countall(p):
         'sexpr : COUNTALL LPAREN RPAREN'
@@ -664,11 +670,16 @@ class Parser(object):
                                 | AVG
                                 | STDEV'''
 
-        if p[1] == 'MAX': func = sexpr.MAX
-        if p[1] == 'MIN': func = sexpr.MIN
-        if p[1] == 'SUM': func = sexpr.SUM
-        if p[1] == 'AVG': func = sexpr.AVERAGE
-        if p[1] == 'STDEV': func = sexpr.STDEV
+        if p[1] == 'MAX':
+            func = sexpr.MAX
+        if p[1] == 'MIN':
+            func = sexpr.MIN
+        if p[1] == 'SUM':
+            func = sexpr.SUM
+        if p[1] == 'AVG':
+            func = sexpr.AVERAGE
+        if p[1] == 'STDEV':
+            func = sexpr.STDEV
 
         p[0] = func
 
@@ -697,8 +708,9 @@ class Parser(object):
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 
-        # Strip out the remnants of parsed functions to leave only a list of statements
-        return [s for s in stmts if s is not None]
+        # Strip out the remnants of parsed functions to leave only a list of
+        # statements
+        return [st for st in stmts if st is not None]
 
     @staticmethod
     def p_error(token):

@@ -3,21 +3,26 @@ Boolean operators for use in Raco expression trees
 """
 
 from .expression import Expression, UnaryOperator, BinaryOperator, \
-        AttributeRef, NumericLiteral
+    AttributeRef, NumericLiteral
 
 import abc
+
 
 class BooleanExpression(Expression):
     pass
 
+
 class UnaryBooleanOperator(UnaryOperator, BooleanExpression):
     pass
+
 
 class BinaryBooleanOperator(BinaryOperator, BooleanExpression):
     pass
 
+
 class BinaryComparisonOperator(BinaryBooleanOperator):
     pass
+
 
 class NOT(UnaryBooleanOperator):
     literals = ["not", "NOT", "-"]
@@ -41,12 +46,14 @@ class OR(BinaryBooleanOperator):
         return (self.left.evaluate(_tuple, scheme, state) or
                 self.right.evaluate(_tuple, scheme, state))
 
+
 class EQ(BinaryComparisonOperator):
     literals = ["=", "=="]
 
     def evaluate(self, _tuple, scheme, state=None):
         return (self.left.evaluate(_tuple, scheme, state) ==
                 self.right.evaluate(_tuple, scheme, state))
+
 
 class LT(BinaryComparisonOperator):
     literals = ["<", "lt"]
@@ -88,15 +95,16 @@ class NEQ(BinaryComparisonOperator):
                 self.right.evaluate(_tuple, scheme, state))
 
 reverse = {
-  NEQ:NEQ,
-  EQ:EQ,
-  GTEQ:LTEQ,
-  LTEQ:GTEQ,
-  GT:LT,
-  LT:GT
+    NEQ: NEQ,
+    EQ: EQ,
+    GTEQ: LTEQ,
+    LTEQ: GTEQ,
+    GT: LT,
+    LT: GT
 }
 
 TAUTOLOGY = EQ(NumericLiteral(1), NumericLiteral(1))
+
 
 def is_column_comparison(expr, scheme):
     """Return a truthy value if the expression is a comparison between columns.
@@ -126,14 +134,13 @@ def extract_conjuncs(sexpr):
 from .util import toUnnamed
 
 
-
 class BooleanExprVisitor(object):
     __metaclass__ = abc.ABCMeta
 
     def visit(self, expr):
         # use expr to dispatch to appropriate visit_* method
         typename = type(expr).__name__
-        dispatchTo = getattr(self, "visit_%s"%(typename))
+        dispatchTo = getattr(self, "visit_%s" % (typename,))
         return dispatchTo(expr)
 
     @abc.abstractmethod
@@ -150,10 +157,6 @@ class BooleanExprVisitor(object):
 
     @abc.abstractmethod
     def visit_EQ(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_NEQ(self, binaryExpr):
         return
 
     @abc.abstractmethod
@@ -191,5 +194,3 @@ class BooleanExprVisitor(object):
     @abc.abstractmethod
     def visit_NumericLiteral(self, numericLiteral):
         return
-
-

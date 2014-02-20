@@ -9,11 +9,11 @@ import collections
 
 import raco.myrial.myrial_test as myrial_test
 
+
 class EmptyAggregateTests(myrial_test.MyrialTestCase):
 
     def setUp(self):
         super(EmptyAggregateTests, self).setUp()
-
 
     def test_count(self):
         query = """

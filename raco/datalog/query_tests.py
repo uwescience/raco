@@ -3,16 +3,17 @@ import collections
 import raco.scheme as scheme
 import raco.datalog.datalog_test as datalog_test
 
+
 class TestQueryFunctions(datalog_test.DatalogTestCase):
     emp_table = collections.Counter([
         # id dept_id name salary
         (1, 2, "Bill Howe", 25000),
-        (2,1,"Dan Halperin",90000),
-        (3,1,"Andrew Whitaker",5000),
-        (4,2,"Shumo Chu",5000),
-        (5,1,"Victor Almeida",25000),
-        (6,3,"Dan Suciu",90000),
-        (7,1,"Magdalena Balazinska",25000)])
+        (2, 1, "Dan Halperin", 90000),
+        (3, 1, "Andrew Whitaker", 5000),
+        (4, 2, "Shumo Chu", 5000),
+        (5, 1, "Victor Almeida", 25000),
+        (6, 3, "Dan Suciu", 90000),
+        (7, 1, "Magdalena Balazinska", 25000)])
 
     emp_schema = scheme.Scheme([("id", "int"),
                                 ("dept_id", "int"),
@@ -22,10 +23,10 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
     emp_key = "employee"
 
     dept_table = collections.Counter([
-        (1,"accounting",5),
-        (2,"human resources",2),
-        (3,"engineering",2),
-        (4,"sales",7)])
+        (1, "accounting", 5),
+        (2, "human resources", 2),
+        (3, "engineering", 2),
+        (4, "sales", 7)])
 
     dept_schema = scheme.Scheme([("id", "int"),
                                  ("name", "string"),
@@ -71,7 +72,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
 
     def test_simple_join(self):
         expected = collections.Counter(
-            [ (e[2], d[1]) for e in self.emp_table.elements()
+            [(e[2], d[1]) for e in self.emp_table.elements()
              for d in self.dept_table.elements() if e[1] == d[0]])
 
         query = """
@@ -106,11 +107,11 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
 
     def test_sum_reorder(self):
         query = """
-        SalaryByDept(sum(salary), dept_id) :- employee(id, dept_id, name, salary);"""
+        SalaryByDept(sum(salary), dept_id) :- employee(id, dept_id, name, salary);"""  # noqa
         results = collections.Counter()
         for emp in self.emp_table.elements():
             results[emp[1]] += emp[3]
-        expected = collections.Counter([(y,x) for x,y in results.iteritems()])
+        expected = collections.Counter([(y, x) for x, y in results.iteritems()])  # noqa
         self.check_result(query, expected)
 
     def test_aggregate_no_groups(self):
@@ -128,7 +129,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         ThreeHop(x) :- TwoHop(y), Edge(y, x)
         """
 
-        expected = collections.Counter([(4,),(5,)])
+        expected = collections.Counter([(4,), (5,)])
         self.check_result(query, expected)
 
     def test_triangles(self):
@@ -147,5 +148,5 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         query = """
         ThreeHop(z) :- Edge(1, x), Edge(x,y), Edge(y, z);
         """
-        expected = collections.Counter([(4,),(5,)])
+        expected = collections.Counter([(4,), (5,)])
         self.check_result(query, expected)

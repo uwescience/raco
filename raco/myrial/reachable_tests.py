@@ -5,6 +5,7 @@ import raco.algebra
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 
+
 class ReachableTest(myrial_test.MyrialTestCase):
 
     edge_table = collections.Counter([
@@ -35,9 +36,8 @@ class ReachableTest(myrial_test.MyrialTestCase):
                        ReachableTest.edge_table,
                        ReachableTest.edge_schema)
 
-
     def test_reachable(self):
-        with open ('examples/reachable.myl') as fh:
+        with open('examples/reachable.myl') as fh:
             query = fh.read()
 
         expected = collections.Counter([
@@ -56,19 +56,21 @@ class ReachableTest(myrial_test.MyrialTestCase):
         query = """
         Edge = SCAN(public:adhoc:edges);
         Symmetric = [FROM Edge AS E1, Edge AS E2
-                     WHERE E1.src==E2.dst AND E2.src==E1.dst AND E1.src < E1.dst
+                     WHERE E1.src==E2.dst
+                       AND E2.src==E1.dst
+                       AND E1.src < E1.dst
                      EMIT E1.src AS src, E1.dst AS dst];
         Dump(Symmetric);
         """
         table = ReachableTest.edge_table
         expected = collections.Counter(
-            [(a, b) for (a, b) in table for (c, d) in table if a==d and b==c \
-             and a < b])
+            [(a, b) for (a, b) in table for (c, d) in table
+             if a == d and b == c and a < b])
         self.check_result(query, expected)
 
     def test_cross_plus_selection_becomes_join(self):
         """Test that the optimizer compiles away cross-products."""
-        with open ('examples/reachable.myl') as fh:
+        with open('examples/reachable.myl') as fh:
             query = fh.read()
 
         def plan_contains_cross(plan):

@@ -2,6 +2,7 @@
 
 Myria relations are identified by a tuple of user, program, relation_name."""
 
+
 class RelationKey(object):
     def __init__(self, *args):
         if len(args) == 1:
@@ -17,6 +18,7 @@ class RelationKey(object):
     def __repr__(self):
         return 'RelationKey(%s,%s,%s)' % (self.user, self.program,
                                           self.relation)
+
     def __str__(self):
         return '%s:%s:%s' % (self.user, self.program, self.relation)
 

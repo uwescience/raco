@@ -9,6 +9,7 @@ import collections
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 
+
 class PageRankTest(myrial_test.MyrialTestCase):
 
     edge_table = collections.Counter([
@@ -48,7 +49,7 @@ class PageRankTest(myrial_test.MyrialTestCase):
                        PageRankTest.vertex_schema)
 
     def test_pagerank(self):
-        with open ('examples/pagerank.myl') as fh:
+        with open('examples/pagerank.myl') as fh:
             query = fh.read()
 
         result = self.execute_query(query)

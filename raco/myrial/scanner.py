@@ -7,16 +7,16 @@ import raco.myrial.exceptions
 # identifiers with special meaning; case-insensitive
 reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
             'INTERSECT', 'DUMP', 'WHILE', 'INT', 'STRING', 'FLOAT', 'DO',
-            'DISTINCT', 'SCAN', 'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR', 'NOT',
-            'MAX', 'MIN', 'SUM', 'COUNT', 'ABS', 'CEIL', 'COS', 'FLOOR', 'LOG',
-            'SIN', 'SQRT', 'TAN', 'AVG', 'STDEV', 'POW', 'EMPTY', 'SELECT',
-            'AS', 'DEF', 'APPLY']
+            'DISTINCT', 'SCAN', 'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR',
+            'NOT', 'MAX', 'MIN', 'SUM', 'COUNT', 'ABS', 'CEIL', 'COS', 'FLOOR',
+            'LOG', 'SIN', 'SQRT', 'TAN', 'AVG', 'STDEV', 'POW', 'EMPTY',
+            'SELECT', 'AS', 'DEF', 'APPLY']
 
 # Token types; required by ply to have this variable name
 
 tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
-          'TIMES', 'DIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ', 'NE', 'NE2', 'COMMA',
-          'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID', 'STRING_LITERAL',
+          'TIMES', 'DIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ', 'NE', 'NE2',
+          'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID', 'STRING_LITERAL',
           'INTEGER_LITERAL', 'FLOAT_LITERAL', 'LBRACE', 'RBRACE'] + reserved
 
 # Regular expression rules for simple tokens
@@ -27,9 +27,9 @@ t_RBRACKET = r'\]'
 t_LBRACE = r'\{'
 t_RBRACE = r'\}'
 
-t_PLUS  = r'\+'
-t_MINUS  = r'-'
-t_TIMES  = r'\*'
+t_PLUS = r'\+'
+t_MINUS = r'-'
+t_TIMES = r'\*'
 t_DIVIDE = r'/'
 
 t_LT = r'<'
@@ -49,6 +49,7 @@ t_DOLLAR = r'\$'
 
 # Regular expressions for non-trivial tokens
 
+
 def t_ID(t):
     r'[a-zA-Z_][a-zA-Z_0-9]*'
     global reserved
@@ -62,39 +63,48 @@ def t_ID(t):
         t.type = 'ID'
         return t
 
+
 def t_FLOAT_LITERAL(t):
     r"""\d*\.\d+"""
     t.value = float(t.value)
     return t
+
 
 def t_INTEGER_LITERAL(t):
     r'\d+'
     t.value = int(t.value)
     return t
 
+
 def t_STRING_LITERAL(t):
     r'"([^\\\n"]|\\.)*"'
-    t.value=t.value[1:-1].decode("string_escape")
+    t.value = t.value[1:-1].decode("string_escape")
     return t
+
 
 def t_newline(t):
     r'\n+'
     t.lexer.lineno += len(t.value)
+
 
 # C-style comments
 def t_c_comment(t):
     r'/\*(.|\n)*?\*/'
     t.lexer.lineno += t.value.count('\n')
 
+
 # database-style comments
 def t_db_comment(t):
     r'--.*'
 
+
 # Always ignore whitespace (spaces and tabs)
-t_ignore  = ' \t\v'
+t_ignore = ' \t\v'
+
 
 # Error handling rule
 def t_error(t):
     raise raco.myrial.exceptions.MyrialScanException(t)
+
 
 lexer = lex.lex()
