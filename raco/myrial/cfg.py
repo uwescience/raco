@@ -148,8 +148,9 @@ class ControlFlowGraph(object):
         self.graph.node[dest_node]['op'] = new_op
 
         # The merged node uses the union of the previous nodes input variables
-        self.graph.node[dest_node]['uses'].update(
-            self.graph.node[target_node]['uses'])
+        uses_set = self.graph.node[dest_node]['uses']
+        uses_set.remove(var)
+        uses_set.update(self.graph.node[target_node]['uses'])
 
         self.__delete_node(target_node)
 
