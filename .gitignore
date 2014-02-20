@@ -8,3 +8,4 @@ parsetab.py
 build
 raco.egg-info
 .coverage
+.noseids
