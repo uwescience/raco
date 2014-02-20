@@ -95,6 +95,23 @@ class CFGTest(myrial_test.MyrialTestCase):
       self.processor.cfg.apply_chaining()
       self.assertEquals(len(self.processor.cfg.graph), 1)
 
+    def test_chaining_variable_reuse(self):
+        """Test of chaining with re-used variable names."""
+        query = """
+        X = SCAN(public:adhoc:points);
+        Y = SCAN(public:adhoc:points);
+        X = [FROM X, Y WHERE X.x == Y.y EMIT Y.*];
+        X = DISTINCT(X);
+        DUMP(X);
+        """
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        self.assertEquals(len(self.processor.cfg.graph), 5)
+
+        self.processor.cfg.apply_chaining()
+        self.assertEquals(self.processor.cfg.graph.nodes(), [4])
+        self.assertEquals(len(self.processor.cfg.graph.node[4]['uses']), 0)
+
     def test_chaining_dead_code_elim(self):
       query = """
       Q = DISTINCT(SCAN(public:adhoc:points));
