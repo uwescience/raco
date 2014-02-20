@@ -273,18 +273,18 @@ class StatementProcessor(object):
             method = getattr(self, statement[0].lower())
             method(*statement[1:])
 
-    def __evaluate_expr(self, expr, def_set):
+    def __evaluate_expr(self, expr, _def):
         """Evaluate an expression; add a node to the control flow graph.
 
         :param expr: An expression to evaluate
         :type expr: Myrial AST tuple
-        :param def_set: Set of variables defined by this operation.
-        :type def_set: Set of strings
+        :param _def: The variable defined by the expression, or None for non-statements
+        :type _def: string
         """
 
         op = self.ep.evaluate(expr)
         uses_set = self.ep.get_and_clear_uses_set()
-        self.cfg.add_op(op, def_set, uses_set)
+        self.cfg.add_op(op, _def, uses_set)
         return op
 
     def __do_assignment(self, _id, expr):
@@ -299,7 +299,7 @@ class StatementProcessor(object):
         child_op = self.ep.evaluate(expr)
         op = raco.algebra.StoreTemp(_id, child_op)
         uses_set = self.ep.get_and_clear_uses_set()
-        self.cfg.add_op(op, {_id}, uses_set)
+        self.cfg.add_op(op, _id, uses_set)
 
         # Point future references of this symbol to a scan of the
         # materialized table. Note that this assumes there is no scoping in Myrial.
@@ -317,7 +317,7 @@ class StatementProcessor(object):
         op = raco.algebra.Store(rel_key, child_op)
 
         uses_set = self.ep.get_and_clear_uses_set()
-        self.cfg.add_op(op, set(), uses_set)
+        self.cfg.add_op(op, None, uses_set)
 
     def dump(self, _id):
         target = "__OUTPUT%d__" % self.dump_output_id
@@ -337,7 +337,7 @@ class StatementProcessor(object):
 
         last_op_id = self.cfg.next_op_id
 
-        self.__evaluate_expr(termination_ex, set())
+        self.__evaluate_expr(termination_ex, None)
 
         # Add a control flow edge from the loop condition to the top of the loop
         self.cfg.add_edge(last_op_id, first_op_id)

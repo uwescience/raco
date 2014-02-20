@@ -35,11 +35,11 @@ class CFGTest(myrial_test.MyrialTestCase):
       self.processor.evaluate(statements)
 
       expected = nx.DiGraph()
-      expected.add_node(0, defs={"Point"}, uses=set())
-      expected.add_node(1, defs={"Big"}, uses={"Point"})
-      expected.add_node(2, defs={"Continue"}, uses={"Big", "Point"})
-      expected.add_node(3, defs=set(), uses={"Continue"})
-      expected.add_node(4, defs=set(), uses={"Big"})
+      expected.add_node(0, def_var="Point", uses=set())
+      expected.add_node(1, def_var="Big", uses={"Point"})
+      expected.add_node(2, def_var="Continue", uses={"Big", "Point"})
+      expected.add_node(3, def_var=None, uses={"Continue"})
+      expected.add_node(4, def_var=None, uses={"Big"})
 
       for i in range(4):
           expected.add_edge(i, i + 1)
@@ -53,7 +53,7 @@ class CFGTest(myrial_test.MyrialTestCase):
       for n in expected:
           self.assertIn(n, actual)
           self.assertEquals(actual.node[n]['uses'], expected.node[n]['uses'])
-          self.assertEquals(actual.node[n]['defs'], expected.node[n]['defs'])
+          self.assertEquals(actual.node[n]['def_var'], expected.node[n]['def_var'])
 
       live_in, live_out = self.processor.cfg.compute_liveness()
 

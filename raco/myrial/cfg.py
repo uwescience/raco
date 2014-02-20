@@ -43,8 +43,8 @@ class ControlFlowGraph(object):
         self._next_op_id = 0
 
     def __str__(self):
-        node_strs = ['%s: uses=%s defs=%s' % (str(n), repr(self.graph.node[n]['uses']),
-            repr(self.graph.node[n]['defs'])) for n in self.graph]
+        node_strs = ['%s: uses=%s def=%s' % (str(n), repr(self.graph.node[n]['uses']),
+            repr(self.graph.node[n]['def_var'])) for n in self.graph]
         edge_strs = ['%s=>%s' % (str(s), str(d)) for s,d in self.graph.edges()]
         return '; '.join(node_strs) + '\n' + '; '.join(edge_strs)
 
@@ -52,13 +52,13 @@ class ControlFlowGraph(object):
     def next_op_id(self):
         return self._next_op_id
 
-    def add_op(self, op, def_set, uses_set):
+    def add_op(self, op, _def, uses_set):
         """Add an operation to the CFG.
 
         :param op: A relational algebra operation (plan)
         :type op: raco.algebra.Operator
-        :param def_set: Set of variables defined by the operation
-        :type def_set: Set of strings
+        :param _def: The variable defined by the operation or None
+        :type _def: string
         :param uses_set: Set of variables read by the operation
         :type uses_set: Set of strings
         """
@@ -66,7 +66,7 @@ class ControlFlowGraph(object):
         op_id = self.next_op_id
         self._next_op_id += 1
 
-        self.graph.add_node(op_id, op=op, defs=def_set, uses=uses_set)
+        self.graph.add_node(op_id, op=op, def_var=_def, uses=uses_set)
         self.sorted_vertices.append(op_id)
 
         # Add a control flow edge from the previous statement; this assumes we
@@ -97,7 +97,11 @@ class ControlFlowGraph(object):
 
             for i in self.graph:
                 # live out variables that are not defined are live-in
-                live_in[i].update(live_out_prev[i] - self.graph.node[i]['defs'])
+                def_var = self.graph.node[i]['def_var']
+                def_set = set()
+                if def_var is not None:
+                    def_set.add(def_var)
+                live_in[i].update(live_out_prev[i] - def_set)
 
                 # variables that are live-in at a successor are live-out
                 for successor in self.graph.successors(i):
@@ -138,11 +142,8 @@ class ControlFlowGraph(object):
 
         dest_op = self.graph.node[dest_node]['op']
 
-        # Extract the defined variable from the def set
-        # XXX Set might be the wrong abstraction here...
-        for v in self.graph.node[target_node]['defs']:
-            var = v
-            break
+        var = self.graph.node[target_node]['def_var']
+        assert var is not None
 
         new_op = inline_operator(dest_op, var, target_inner_op)
         self.graph.node[dest_node]['op'] = new_op
@@ -186,15 +187,15 @@ class ControlFlowGraph(object):
                 if self.graph.in_degree(nodeB) == 2:
                     continue # start of do/while loop
 
-                defs = self.graph.node[nodeA]['defs']
-                if not defs:
+                def_var = self.graph.node[nodeA]['def_var']
+                if not def_var:
                     continue
 
                 uses = self.graph.node[nodeB]['uses']
-                if not defs.issubset(uses):
+                if def_var not in uses:
                     continue
 
-                if defs.issubset(live_out[nodeB]):
+                if def_var in live_out[nodeB]:
                     continue
 
                 self.__inline_node(nodeB, nodeA)
@@ -215,11 +216,11 @@ class ControlFlowGraph(object):
 
             for node in self.graph:
                 out_set = live_out[node]
-                defs = self.graph.node[node]['defs']
+                def_var = self.graph.node[node]['def_var']
 
                 # Only delete nodes that 1) Define a variable (and therefore aren't
                 # STORE, DUMP, etc.); 2) Are not required downstream.
-                if defs and not defs.issubset(out_set):
+                if def_var and def_var not in out_set:
                     self.__delete_node(node)
                     _continue = True
                     break
