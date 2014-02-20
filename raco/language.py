@@ -91,6 +91,7 @@ class Language(object):
         return compilevisitor.getresult()
 
     @abstractmethod
+    @classmethod
     def boolean_combine(cls, args, operator="and"):
         """Combine the given arguments using the specified infix operator"""
 
