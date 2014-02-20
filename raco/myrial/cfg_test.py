@@ -75,3 +75,22 @@ class CFGTest(myrial_test.MyrialTestCase):
 
         self.processor.cfg.dead_code_elimination()
         self.assertEquals(set(self.processor.cfg.graph.nodes()), {2, 6, 7, 8})
+
+    def test_chaining(self):
+      query = """
+      A = SCAN(public:adhoc:points);
+      B = SCAN(public:adhoc:points);
+      C = UNIONALL(A, B);
+      D = DISTINCT(C);
+      E = SCAN(public:adhoc:points);
+      F = DIFF(E, D);
+      G = DISTINCT(F);
+      DUMP(G);
+      """
+
+      statements = self.parser.parse(query)
+      self.processor.evaluate(statements)
+      self.assertEquals(len(self.processor.cfg.graph), 8)
+
+      self.processor.cfg.apply_chaining()
+      self.assertEquals(len(self.processor.cfg.graph), 1)
