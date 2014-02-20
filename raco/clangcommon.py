@@ -78,7 +78,7 @@ class StagedTupleRef:
     }
     
     %(additional_code)s
-  };
+  } %(after_def_code)s;
   std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
     return t.dump(o);
   }
@@ -92,6 +92,7 @@ class StagedTupleRef:
 
     
     additional_code = self.__additionalDefinitionCode__()
+    after_def_code = self.__afterDefinitionCode__()
 
 
     tupletypename = self.getTupleTypename()
@@ -102,6 +103,9 @@ class StagedTupleRef:
   
   def __additionalDefinitionCode__(self):
     return ""
+
+  def __afterDefinitionCode__(self):
+      return ""
   
 
 def getTaggingFunc(t):
@@ -135,21 +139,21 @@ class CSelect(algebra.Select):
     [_ for _ in self.condition.postorder(getTaggingFunc(t))]
     
     # compile the predicate into code
-    conditioncode = self.language.compile_boolean(self.condition)
+    conditioncode, cond_inits = self.language.compile_boolean(self.condition)
     
-    inner_code_compiled, inner_decls = self.parent.consume(t, self)
+    inner_code_compiled, inner_decls, inner_inits = self.parent.consume(t, self)
     
     code = basic_select_template % locals()
-    return code, inner_decls
+    return code, inner_decls, cond_inits
   
   
 class CUnionAll(algebra.Union):
   def produce(self):
-    code_right, decls_right = self.right.produce()
+    code_right, decls_right, inits_right = self.right.produce()
     
-    code_left, decls_left = self.left.produce()
+    code_left, decls_left, inits_left = self.left.produce()
 
-    return code_left+code_right, decls_right+decls_left
+    return code_left+code_right, decls_right+decls_left, inits_right+inits_left
 
   def consume(self, t, src):
     #FIXME: expect a bug: because we have not forced
@@ -196,7 +200,7 @@ class CProject(algebra.Project):
         assert False, "Unsupported Project expression"
       code += assignment_template % locals()
       
-    innercode, innerdecl = self.parent.consume(newtuple, self) 
+    innercode, innerdecl, innerinit = self.parent.consume(newtuple, self)
     code+=innercode
       
-    return code, decls+innerdecl
+    return code, decls+innerdecl, innerinit

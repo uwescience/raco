@@ -1,6 +1,7 @@
 from raco import RACompiler
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 from raco.algebra import LogicalAlgebra
+import generateDot
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -20,9 +21,13 @@ def testEmit(query, name, algebra):
     #print dlog.parsed
     LOG.info("logical: %s",dlog.logicalplan)
 
+    generateDot.generateDot(dlog.logicalplan, "%s.logical.dot"%(name))
+
     dlog.optimize(target=algebra, eliminate_common_subexpressions=False)
 
     LOG.info("physical: %s",dlog.physicalplan[0][1])
+    
+    generateDot.generateDot(dlog.physicalplan, "%s.physical.dot"%(name))
 
     # generate code in the target language
     code = ""
@@ -97,9 +102,10 @@ if __name__ == "__main__":
     algebra = CCAlgebra
     prefix = ""
     import sys
-    if len(sys.argv)>1 and sys.argv[1] ==  "grappa":
-      algebra = GrappaAlgebra
-      prefix = "grappa_"
+    if len(sys.argv) > 1:
+        if sys.argv[1] ==  "grappa":
+            algebra = GrappaAlgebra
+            prefix = "grappa_"
 
     for q in queries:
         query, name = q

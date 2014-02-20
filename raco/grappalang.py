@@ -25,23 +25,12 @@ def readtemplate(fname):
 
 
 base_template = readtemplate("base_query.template")
-initialize, querydef_init, finalize = base_template.split("// SPLIT ME HERE")
 
 class GrappaStagedTupleRef(StagedTupleRef):
-  def __additionalDefinitionCode__(self):
-    numfields = len(self.scheme)
-    
-    # hack to get tuples to divide evenly into grappas BLOCK_SIZE
-    grappa_block_size = 64 # sizeof(int64_t)*8
-    padding_map = { 1: 0, 2: 0, 3: 1, 4: 0, 5: 3, 6: 2, 7: 1, 8: 0}
-    assert numfields <= 8
-    padding_amt = padding_map[numfields]
-    if padding_amt > 0: padding = """// pad to grappa BLOCK_SIZE 
-    private:
-    char _padding[8*%s];"""%padding_map[numfields]
-    else: padding = ""
-    
-    return padding
+  def __afterDefinitionCode__(self):
+     # Grappa requires structures to be block aligned if they will be
+     # iterated over with localizing forall
+     return "GRAPPA_BLOCK_ALIGNED"
     
 
 class GrappaLanguage(Language):
@@ -62,17 +51,19 @@ class GrappaLanguage(Language):
 
     @staticmethod
     def initialize(resultsym):
-        return  initialize % locals()
-      
+        return ""
+
+
     @staticmethod
     def body(compileResult, resultsym):
-      code, decls = compileResult
-      querydef_init_filled = querydef_init % locals()
-      return emitlist(decls)+querydef_init_filled+code
+      queryexec, decls, inits = compileResult
+      initialized = emitlist(inits)
+      declarations = emitlist(decls)
+      return base_template % locals()
 
     @staticmethod
     def finalize(resultsym):
-        return  finalize % locals()
+        return ""
 
     @staticmethod
     def log(txt):
@@ -86,21 +77,36 @@ class GrappaLanguage(Language):
     def comment(txt):
         return  "// %s\n" % txt
 
+    nextstrid = 0
+    @classmethod
+    def newstringident(cls):
+        r = """str_%s""" % (cls.nextstrid)
+        cls.nextstrid += 1
+        return r
+
+    @classmethod
+    def compile_numericliteral(cls, value):
+        return '%s'%(value), []
+
     @classmethod
     def compile_stringliteral(cls, s):
+        sid = cls.newstringident()
+        init = """auto %s = string_index.string_lookup("%s");""" % (sid, s)
+        return """(%s)""" % sid, [init]
         #raise ValueError("String Literals not supported in C language: %s" % s)
-        return """string_lookup("%s")""" % s
 
     @classmethod
     def negation(cls, input):
-        return "(!%s)" % (input,)
+        innerexpr, inits = input
+        return "(!%s)" % (innerexpr,), inits
 
     @classmethod
     def boolean_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg in args])
+        conjunc = opstr.join(["(%s)" % arg for arg, _ in args])
+        inits = reduce(lambda sofar, x: sofar+x, [d for _, d in args])
         LOG.debug("conjunc: %s", conjunc)
-        return "( %s )" % conjunc
+        return "( %s )" % conjunc, inits
 
     @classmethod
     def compile_attribute(cls, expr):
@@ -109,7 +115,7 @@ class GrappaLanguage(Language):
         if isinstance(expr, expression.UnnamedAttributeRef):
             symbol = expr.tupleref.name
             position = expr.position # NOTE: this will only work in Selects right now
-            return '%s.get(%s)' % (symbol, position)
+            return '%s.get(%s)' % (symbol, position), []
 
 class GrappaOperator (Pipelined):
     language = GrappaLanguage
@@ -139,10 +145,12 @@ class MemoryScan(algebra.Scan, GrappaOperator):
 #       }); // end scan over %(inputsym)s (forall_localized)
 #       """
 
-    memory_scan_template = """
+    memory_scan_template = """start = walltime();
 forall( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s& %(tuple_name)s) {
 %(inner_plan_compiled)s
-}); // end  scan over %(inputsym)s 
+}); // end  scan over %(inputsym)s
+end = walltime();
+in_memory_runtime += (end-start);
 """
 
     rel_decl_template = """Relation<%(tuple_type)s> %(resultsym)s;"""
@@ -159,10 +167,10 @@ forall( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s
     # generate declaration of the in-memory relation
     rel_decl = rel_decl_template % locals()
 
-    inner_plan_compiled, inner_decls = self.parent.consume(stagedTuple, self)
+    inner_plan_compiled, inner_decls, inner_inits = self.parent.consume(stagedTuple, self)
 
     code += memory_scan_template % locals()
-    return code, [tuple_type_def,rel_decl]+inner_decls
+    return code, [tuple_type_def,rel_decl]+inner_decls, inner_inits
     
   def consume(self, t, src):
     assert False, "as a source, no need for consume"
@@ -201,13 +209,16 @@ class FileScan(algebra.Scan):
         """
         
         ascii_scan_template = """
+        start = walltime();
         {
-        auto t = readTuples<%(tuple_typename)s>( "%(name)s", 30);
+        auto t = readTuples<%(tuple_typename)s>( "%(name)s", FLAGS_nt);
         Relation<%(tuple_typename)s> l_%(resultsym)s;
         l_%(resultsym)s.data = t;
-        l_%(resultsym)s.numtuples = 30;
+        l_%(resultsym)s.numtuples = FLAGS_nt;
         on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
         }
+        end = walltime();
+        scan_runtime += (end-start);
         """
 
         if isinstance(self.relation_key, catalog.ASCIIFile):
@@ -257,16 +268,16 @@ class HashJoin(algebra.Join, GrappaOperator):
     self.outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
     
     self.right.childtag = "right"
-    code_right, decls_right = self.right.produce()
+    code_right, decls_right, inits_right = self.right.produce()
     init_template = """%(hashname)s.init_global_DHT( &%(hashname)s, 64 );""" 
     setro_template = """%(hashname)s.set_RO_global( &%(hashname)s );"""
     hashname = self._hashname
     code_right = (init_template%locals()) + code_right + setro_template%locals()
     
     self.left.childtag = "left"
-    code_left, decls_left = self.left.produce()
+    code_left, decls_left, inits_left = self.left.produce()
 
-    return code_right+code_left, decls_right+decls_left
+    return code_right+code_left, decls_right+decls_left, inits_right+inits_left
   
   def consume(self, t, src):
     if src.childtag == "right":
@@ -291,7 +302,7 @@ class HashJoin(algebra.Join, GrappaOperator):
       # materialization point
       code = right_template % locals()
       
-      return code, [out_tuple_type_def,hashdeclr]
+      return code, [out_tuple_type_def,hashdeclr], []
     
     if src.childtag == "left":
       left_template = """
@@ -315,10 +326,10 @@ class HashJoin(algebra.Join, GrappaOperator):
       out_tuple_type = self.outTuple.getTupleTypename()
       out_tuple_name =self.outTuple.name
       
-      inner_plan_compiled, inner_plan_declrs = self.parent.consume(self.outTuple, self)
+      inner_plan_compiled, inner_plan_declrs, inner_inits = self.parent.consume(self.outTuple, self)
       
       code = left_template % locals()
-      return code, inner_plan_declrs
+      return code, inner_plan_declrs, inner_inits
 
     assert False, "src not equal to left or right"
       
@@ -413,7 +424,7 @@ class GrappaAlgebra(object):
     HashJoin
   ]
     rules = [
-    rules.removeProject(),
+  #  rules.removeProject(),
     rules.CrossProduct2Join(),
     #swapJoinSides(),
     rules.OneToOne(algebra.Select,GrappaSelect),
