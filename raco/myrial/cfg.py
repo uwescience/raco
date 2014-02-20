@@ -143,7 +143,13 @@ class ControlFlowGraph(object):
         for v in self.graph.node[target_node]['defs']:
             var = v
             break
-        inline_operator(dest_op, var, target_inner_op)
+
+        new_op = inline_operator(dest_op, var, target_inner_op)
+        self.graph.node[dest_node]['op'] = new_op
+
+        # The merged node uses the union of the previous nodes input variables
+        self.graph.node[dest_node]['uses'].update(
+            self.graph.node[target_node]['uses'])
 
         self.__delete_node(target_node)
 
@@ -174,6 +180,7 @@ class ControlFlowGraph(object):
             live_in, live_out = self.compute_liveness()
             _continue = False
 
+            # XXX O(N^2) algorithm
             for nodeA, nodeB in sliding_window(self.sorted_vertices):
                 if self.graph.in_degree(nodeB) == 2:
                     continue # start of do/while loop
@@ -185,6 +192,7 @@ class ControlFlowGraph(object):
                 uses = self.graph.node[nodeB]['uses']
                 if not defs.issubset(uses):
                     continue
+
                 if defs.issubset(live_out[nodeB]):
                     continue
 

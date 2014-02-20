@@ -958,10 +958,10 @@ def inline_operator(dest_op, var, target_op):
     """
     def rewrite_node(node):
         if isinstance(node, ScanTemp) and node.name == var:
-            node_out = copy.copy(target_op)
+            return copy.copy(target_op)
         else:
-            node_out = node
-        return node_out.apply(rewrite_node)
+            return node.apply(rewrite_node)
+
     return rewrite_node(dest_op)
 
 def attribute_references(condition):
