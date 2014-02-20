@@ -48,7 +48,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
             (5,),
             (9,),
             (13,),
-            ])
+        ])
 
         self.check_result(query, expected)
 

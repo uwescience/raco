@@ -296,7 +296,7 @@ class Rule(object):
         if len(conditions) > 0:
             LOG.debug("found conditions: %s (type=%s) for program %s", conditions, type(conditions[0]), program)  # noqa
         else:
-            LOG.debug("found conditions: %s (type=%s) for program %s", conditions, None,  program)  # noqa
+            LOG.debug("found conditions: %s (type=%s) for program %s", conditions, None, program)  # noqa
 
         # construct the join graph
         joingraph = nx.Graph()
@@ -309,7 +309,7 @@ class Rule(object):
             # for each term, add it as a vertex,
             # and for each term it joins to, add an edge
             joingraph.add_node(term1, term=term1)
-            for j in range(i+1, N):
+            for j in range(i + 1, N):
                 term2 = terms[j]
                 LOG.debug("joinsto? %s %s", term1, term2)
                 joins = term1.joinsto(term2, conditions)
@@ -588,7 +588,7 @@ class Term(object):
 
         LOG.debug("cond joins: %s", condjoins)
 
-        return varjoins+condjoins
+        return varjoins + condjoins
 
     def match(self, valref):
         """Return true if valref is a variable and is used in the list"""

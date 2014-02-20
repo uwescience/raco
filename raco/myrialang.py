@@ -41,7 +41,7 @@ def compile_expr(op, child_scheme, state_scheme):
     ####
     if isinstance(op, expression.NumericLiteral):
         if type(op.value) == int:
-            if op.value <= 2**31-1 and op.value >= -2**31:
+            if op.value <= (2 ** 31) - 1 and op.value >= -2 ** 31:
                 myria_type = 'INT_TYPE'
             else:
                 myria_type = 'LONG_TYPE'
@@ -789,14 +789,14 @@ class SimpleGroupBy(rules.Rule):
         for i, grp_expr in complex_grp_exprs:
             mappings.append((None, grp_expr))
             expr.grouping_list[i] = \
-                expression.UnnamedAttributeRef(len(mappings)-1)
+                expression.UnnamedAttributeRef(len(mappings) - 1)
 
         # Finally: move the complex aggregate expressions into the Apply,
         # replace with simple refs
         for agg_expr in complex_agg_exprs:
             mappings.append((None, agg_expr.input))
             agg_expr.input = \
-                expression.UnnamedAttributeRef(len(mappings)-1)
+                expression.UnnamedAttributeRef(len(mappings) - 1)
 
         # Construct and prepend the new Apply
         new_apply = algebra.Apply(mappings, expr.input)
@@ -1099,7 +1099,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
             return op.compileme(opsym, childsyms[0], childsyms[1])
         if isinstance(op, algebra.NaryOperator):
             return op.compileme(opsym, childsyms)
-        raise NotImplementedError("unable to handle operator of type "+type(op))  # noqa
+        raise NotImplementedError("unable to handle operator of type " + type(op))  # noqa
 
     # The actual code. all_frags collects up the fragments.
     all_frags = []

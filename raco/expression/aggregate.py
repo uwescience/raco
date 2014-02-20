@@ -174,7 +174,7 @@ class STDEV(UnaryFunction, DecomposableAggregate):
 
         std = 0.0
         for a in filtered:
-            std = std + (a - mean)**2
+            std = std + (a - mean) ** 2
         std = math.sqrt(std / n)
         return std
 
