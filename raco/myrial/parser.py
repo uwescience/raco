@@ -150,7 +150,7 @@ class Parser(object):
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno)
         if len(inits) != len(updates):
-            raise BadApplyDefinition(name, p.lineno)
+            raise BadApplyDefinitionException(name, p.lineno)
 
         # Unpack the update, init expressions into a statemod dictionary
         statemods = {}
