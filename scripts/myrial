@@ -52,7 +52,7 @@ class FakeCatalog(object):
 
     def get_scheme(self, rel_key):
         string_key = str(rel_key)
-        return raco.Scheme(self.catalog[string_key])
+        return raco.scheme.Scheme(self.catalog[string_key])
 
     @classmethod
     def load_from_file(cls, path):
