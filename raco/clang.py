@@ -261,11 +261,12 @@ class HashJoin(algebra.Join, CCOperator):
     if not isinstance(self.condition, expression.EQ):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
-    
-    #self._hashname = self.__genHashName__()
-    #self.outTuple = CStagedTupleRef(gensym(), self.scheme())
-    
+
+    self._hashname = self.__genHashName__()
+    LOG.debug("generate hashname %s for %s", self._hashname, self)
+
     self.right.childtag = "right"
+
     self.right.produce(state)
     
     self.left.childtag = "left"
@@ -280,23 +281,17 @@ class HashJoin(algebra.Join, CCOperator):
       right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
       """   
       
-      # FIXME generating this here is an ugly hack to fix the mutable problem
-      self._hashname = self.__genHashName__()
-      LOG.debug("generate hashname %s for %s", self, self._hashname)
-      # FIXME generating this here is another ugly hack to fix the mutable problem
-      self.outTuple = CStagedTupleRef(gensym(), self.scheme())
 
       hashname = self._hashname
       keyname = t.name
       keypos = self.condition.right.position-len(self.left.scheme())
       
-      out_tuple_type_def = self.outTuple.generateDefition()
       self.rightTuple = t #TODO: this induces a right->left dependency
       in_tuple_type = self.rightTuple.getTupleTypename()
 
       # declaration of hash map
       hashdeclr =  declr_template % locals()
-      state.addDeclarations([out_tuple_type_def,hashdeclr])
+      state.addDeclarations([hashdeclr])
       
       # materialization point
       code = right_template % locals()
@@ -316,15 +311,19 @@ class HashJoin(algebra.Join, CCOperator):
       keypos = self.condition.left.position
       
       right_tuple_type = self.rightTuple.getTupleTypename()
-      right_tuple_name = self.rightTuple.name
+      right_tuple_name = self.rightTuple.name   #TODO reusing this name here is confusing; we probably want to split type and instance
 
       # or could make up another name
       #right_tuple_name = CStagedTupleRef.genname() 
 
-      out_tuple_type = self.outTuple.getTupleTypename()
-      out_tuple_name =self.outTuple.name
-      
-      inner_plan_compiled = self.parent.consume(self.outTuple, self, state)
+      outTuple = CStagedTupleRef(gensym(), self.scheme())
+      out_tuple_type_def = outTuple.generateDefition()
+      out_tuple_type = outTuple.getTupleTypename()
+      out_tuple_name = outTuple.name
+
+      state.addDeclarations([out_tuple_type_def])
+
+      inner_plan_compiled = self.parent.consume(outTuple, self, state)
       
       code = left_template % locals()
       return code
