@@ -151,11 +151,24 @@ class MemoryScan(algebra.Scan, CCOperator):
     #generate the materialization from file into memory
     #TODO split the file scan apart from this in the physical plan
 
-    #TODO for now this will break whatever relies on self.bound like reusescans
-    #Scan is the only place where a relation is declared
-    resultsym = gensym()
-    
-    code += FileScan(self.relation_key, self._scheme).compileme(resultsym)
+    # Don't care what the scheme is here.
+    # For common-subexpression-elim, the type of equality
+    # I want is FileScan relation_key are the same, which is
+    # different from FileScan.__eq__
+    fs = FileScan(self.relation_key)
+
+    # Common subexpression elimination
+    # don't scan the same file twice
+    resultsym = state.lookupExpr(fs)
+    LOG.debug("lookup %s(h=%s) => %s", fs, fs.__hash__(), resultsym)
+    if not resultsym:
+        #TODO for now this will break whatever relies on self.bound like reusescans
+        #Scan is the only place where a relation is declared
+        resultsym = gensym()
+
+        code += fs.compileme(resultsym)
+        state.saveExpr(resultsym, fs)
+
 
     # now generate the scan from memory
     inputsym = resultsym
@@ -167,11 +180,17 @@ class MemoryScan(algebra.Scan, CCOperator):
           %(inner_plan_compiled)s
        } // end scan over %(inputsym)s
        """
-    
-    stagedTuple = CStagedTupleRef(inputsym, self.scheme())
 
-    tuple_type_def = stagedTuple.generateDefition()
-    state.addDeclarations([tuple_type_def])
+    stagedTuple = state.lookupTupleDef(inputsym)
+    if not stagedTuple:
+        # if the tuple type definition does not yet exist, then
+        # create it and add its definition
+        stagedTuple = CStagedTupleRef(inputsym, self.scheme())
+        state.saveTupleDef(inputsym, stagedTuple)
+
+        tuple_type_def = stagedTuple.generateDefition()
+        state.addDeclarations([tuple_type_def])
+
 
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name

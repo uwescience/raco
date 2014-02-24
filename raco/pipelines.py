@@ -1,6 +1,9 @@
 import abc
 from raco.utility import emitlist
 
+import logging
+LOG = logging.getLogger(__name__)
+
 # for testing output of queries
 class TestEmit:
   def __init__(self, lang):
@@ -14,6 +17,12 @@ class CompileState:
         self.declarations = []
         self.pipelines = []
         self.initializers = []
+
+        # { expression => symbol for materialized result }
+        self.materialized = {}
+
+        # { symbol => tuple type definition }
+        self.tupledefs = {}
 
     def addDeclarations(self, d):
         self.declarations += d
@@ -35,6 +44,18 @@ class CompileState:
 
     def getExecutionCode(self):
         return emitlist(self.pipelines)
+
+    def lookupExpr(self, expr):
+       return self.materialized.get(expr)
+
+    def saveExpr(self, sym, expr):
+        self.materialized[expr] = sym
+
+    def lookupTupleDef(self, sym):
+        return self.tupledefs.get(sym)
+
+    def saveTupleDef(self, sym, tupledef):
+        self.tupledefs[sym] = tupledef
 
   
 class Pipelined(object):
