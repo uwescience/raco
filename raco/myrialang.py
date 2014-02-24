@@ -911,7 +911,7 @@ def apply_schema_recursive(operator, catalog):
             rel_scheme = catalog.get_scheme(rel_key)
         elif isinstance(operator, MyriaScanTemp):
             # Temp Scan. Is this handled correctly? No clue.
-            rel_key = rel_key = RelationKey.from_string(operator.name)
+            rel_key = RelationKey.from_string(operator.name)
             rel_scheme = catalog.get_scheme(rel_key)
 
         if rel_scheme:
