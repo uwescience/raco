@@ -275,7 +275,7 @@ class BinaryOperator(Operator):
 
 class NaryOperator(Operator):
     """Operator with N arguments.  e.g., multi-way joins in one step."""
-    def __init__(self, args):
+    def __init__(self, args=None):
         Operator.__init__(self)
 
         if args is None:
