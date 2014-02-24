@@ -23,7 +23,7 @@ class MyrialTestCase(unittest.TestCase):
             plan = self.processor.get_physical_plan()
         self.db.evaluate(plan)
 
-        return self.db.get_table('__OUTPUT0__')
+        return self.db.get_table('OUTPUT')
 
     def check_result(self, query, expected, test_logical=False):
         '''Execute a test query with an expected output'''

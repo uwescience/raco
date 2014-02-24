@@ -28,7 +28,7 @@ class CFGTest(myrial_test.MyrialTestCase):
         Continue = [FROM Big, Point EMIT COUNT(*) > 0 AS cnt];
       WHILE Continue;
 
-      DUMP(Big);
+      STORE(Big, OUTPUT);
       """
 
       statements = self.parser.parse(query)
@@ -85,7 +85,7 @@ class CFGTest(myrial_test.MyrialTestCase):
       E = SCAN(public:adhoc:points);
       F = DIFF(E, D);
       G = DISTINCT(F);
-      DUMP(G);
+      STORE(G, OUTPUT);
       """
 
       statements = self.parser.parse(query)
@@ -102,7 +102,7 @@ class CFGTest(myrial_test.MyrialTestCase):
         Y = SCAN(public:adhoc:points);
         X = [FROM X, Y WHERE X.x == Y.y EMIT Y.*];
         X = DISTINCT(X);
-        DUMP(X);
+        STORE(X, OUTPUT);
         """
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
@@ -122,7 +122,7 @@ class CFGTest(myrial_test.MyrialTestCase):
           C = DIFF(A, B);
           Continue = COUNTALL(C);
       WHILE Continue;
-      DUMP(C);
+      STORE(C, OUTPUT);
       X = SCAN(public:adhoc:points);
       """
 

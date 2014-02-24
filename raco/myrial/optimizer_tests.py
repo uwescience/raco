@@ -156,7 +156,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         U = [FROM T AS T1, T AS T2, T AS T3
              WHERE T1.dst==T2.src AND T2.dst==T3.src
              EMIT T1.src AS x, T3.dst AS y];
-        DUMP(U);
+        STORE(U, OUTPUT);
         """
 
         statements = self.parser.parse(query)
