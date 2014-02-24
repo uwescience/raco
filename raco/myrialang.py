@@ -906,11 +906,9 @@ def apply_schema_recursive(operator, catalog):
     if isinstance(operator, MyriaScan) or isinstance(operator, MyriaScanTemp):
 
         if isinstance(operator, MyriaScan):
-            # Normal Scan
             rel_key = operator.relation_key
             rel_scheme = catalog.get_scheme(rel_key)
         elif isinstance(operator, MyriaScanTemp):
-            # Temp Scan. Is this handled correctly? No clue.
             rel_key = RelationKey.from_string(operator.name)
             rel_scheme = catalog.get_scheme(rel_key)
 
