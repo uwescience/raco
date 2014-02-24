@@ -125,10 +125,10 @@ def getTaggingFunc(t):
 
  
 class CSelect(algebra.Select):
-  def produce(self):
-    return self.input.produce()
+  def produce(self, state):
+    self.input.produce(state)
     
-  def consume(self, t, src):
+  def consume(self, t, src, state):
     basic_select_template = """if (%(conditioncode)s) {
       %(inner_code_compiled)s
     }
@@ -140,47 +140,44 @@ class CSelect(algebra.Select):
     
     # compile the predicate into code
     conditioncode, cond_inits = self.language.compile_boolean(self.condition)
+    state.addInitializers(cond_inits)
     
-    inner_code_compiled, inner_decls, inner_inits = self.parent.consume(t, self)
+    inner_code_compiled = self.parent.consume(t, self, state)
     
     code = basic_select_template % locals()
-    return code, inner_decls, cond_inits
+    return code
   
   
 class CUnionAll(algebra.Union):
-  def produce(self):
-    code_right, decls_right, inits_right = self.right.produce()
-    
-    code_left, decls_left, inits_left = self.left.produce()
+  def produce(self, state):
+    self.right.produce(state)
+    self.left.produce(state)
 
-    return code_left+code_right, decls_right+decls_left, inits_right+inits_left
-
-  def consume(self, t, src):
+  def consume(self, t, src, state):
     #FIXME: expect a bug: because we have not forced
     #CCOperators to be immutable (e.g. if self.parent is a HashJoin), then this is problematic
     # For now HashJoin is just lucky
-    return self.parent.consume(t, self)
+    return self.parent.consume(t, self, state)
 
 
 class CApply(algebra.Apply):
-  def produce(self):
-    return self.input.produce()
+  def produce(self, state):
+    self.input.produce(state)
   
-  def consume(self, t, src):
-    return self.parent.consume(t, self)
+  def consume(self, t, src, state):
+    return self.parent.consume(t, self, state)
 
 
 class CProject(algebra.Project):
-  def produce(self):
-    return self.input.produce()
+  def produce(self, state):
+    self.input.produce(state)
   
-  def consume(self, t, src):
+  def consume(self, t, src, state):
     code = ""
-    decls = []
 
     # always does an assignment to new tuple
     newtuple = StagedTupleRef(gensym(), self.scheme())
-    decls += [newtuple.generateDefition()]
+    state.addDeclarations( [newtuple.generateDefition()] )
     
     assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
     """
@@ -200,7 +197,7 @@ class CProject(algebra.Project):
         assert False, "Unsupported Project expression"
       code += assignment_template % locals()
       
-    innercode, innerdecl, innerinit = self.parent.consume(newtuple, self)
+    innercode = self.parent.consume(newtuple, self, state)
     code+=innercode
       
-    return code, decls+innerdecl, innerinit
+    return code

@@ -6,7 +6,6 @@ from raco import expression
 from raco import catalog
 from raco.language import Language
 from raco import rules
-from raco.utility import emitlist
 from raco.pipelines import Pipelined
 from raco.clangcommon import StagedTupleRef
 from raco import clangcommon
@@ -80,9 +79,9 @@ class CC(Language):
       
     @staticmethod
     def body(compileResult, resultsym):
-      queryexec, decls, inits = compileResult
-      initialized = emitlist(inits)
-      declarations = emitlist(decls)
+      queryexec = compileResult.getExecutionCode()
+      initialized = compileResult.getInitCode()
+      declarations = compileResult.getDeclCode()
       return base_template % locals()
 
     @staticmethod
@@ -147,7 +146,7 @@ class CCOperator (Pipelined):
     language = CC
     
 class MemoryScan(algebra.Scan, CCOperator):
-  def produce(self):
+  def produce(self, state):
     code = ""
     #generate the materialization from file into memory
     #TODO split the file scan apart from this in the physical plan
@@ -172,15 +171,18 @@ class MemoryScan(algebra.Scan, CCOperator):
     stagedTuple = CStagedTupleRef(inputsym, self.scheme())
 
     tuple_type_def = stagedTuple.generateDefition()
+    state.addDeclarations([tuple_type_def])
+
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
     
-    inner_plan_compiled, inner_decls, inner_inits = self.parent.consume(stagedTuple, self)
+    inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
 
     code += memory_scan_template % locals()
-    return code, [tuple_type_def]+inner_decls, inner_inits
-    
-  def consume(self, t, src):
+    state.addPipeline(code)
+
+
+  def consume(self, t, src, state):
     assert False, "as a source, no need for consume"
     
     
@@ -214,7 +216,7 @@ class HashJoin(algebra.Join, CCOperator):
     cls._i += 1
     return name
   
-  def produce(self):
+  def produce(self, state):
     if not isinstance(self.condition, expression.EQ):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
@@ -223,14 +225,13 @@ class HashJoin(algebra.Join, CCOperator):
     #self.outTuple = CStagedTupleRef(gensym(), self.scheme())
     
     self.right.childtag = "right"
-    code_right, decls_right, inits_right = self.right.produce()
+    self.right.produce(state)
     
     self.left.childtag = "left"
-    code_left, decls_left, inits_left = self.left.produce()
+    self.left.produce(state)
 
-    return code_right+code_left, decls_right+decls_left, inits_right+inits_left
   
-  def consume(self, t, src):
+  def consume(self, t, src, state):
     if src.childtag == "right":
       declr_template =  """std::unordered_map<int64_t, std::vector<%(in_tuple_type)s>* > %(hashname)s;
       """
@@ -254,11 +255,12 @@ class HashJoin(algebra.Join, CCOperator):
 
       # declaration of hash map
       hashdeclr =  declr_template % locals()
+      state.addDeclarations([out_tuple_type_def,hashdeclr])
       
       # materialization point
       code = right_template % locals()
       
-      return code, [out_tuple_type_def,hashdeclr], []
+      return code
     
     if src.childtag == "left":
       left_template = """
@@ -281,10 +283,10 @@ class HashJoin(algebra.Join, CCOperator):
       out_tuple_type = self.outTuple.getTupleTypename()
       out_tuple_name =self.outTuple.name
       
-      inner_plan_compiled, inner_plan_declrs, inner_inits = self.parent.consume(self.outTuple, self)
+      inner_plan_compiled = self.parent.consume(self.outTuple, self, state)
       
       code = left_template % locals()
-      return code, inner_plan_declrs, inner_inits
+      return code
 
     assert False, "src not equal to left or right"
       
