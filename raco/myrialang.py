@@ -898,20 +898,18 @@ class MyriaAlgebra(object):
     ]
 
 def apply_schema_recursive(operator, catalog):
-    """Given a catalog, which has a function get_scheme(string) to map a relation
-    name to its scheme, update the schema for all scan operations that scan
-    relations in the map."""
+    """Given a catalog, which has a function get_scheme(relation_key) to map
+    a relation name to its scheme, update the schema for all scan operations
+    that scan relations in the map."""
 
     # We found a scan, let's fill in its scheme
     if isinstance(operator, MyriaScan) or isinstance(operator, MyriaScanTemp):
 
         if isinstance(operator, MyriaScan):
-            # Normal Scan
             rel_key = operator.relation_key
             rel_scheme = catalog.get_scheme(rel_key)
         elif isinstance(operator, MyriaScanTemp):
-            # Temp Scan. Is this handled correctly? No clue.
-            rel_key = operator.name
+            rel_key = RelationKey.from_string(operator.name)
             rel_scheme = catalog.get_scheme(rel_key)
 
         if rel_scheme:
