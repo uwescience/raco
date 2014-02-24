@@ -151,11 +151,7 @@ class MemoryScan(algebra.Scan, CCOperator):
     #generate the materialization from file into memory
     #TODO split the file scan apart from this in the physical plan
 
-    # Don't care what the scheme is here.
-    # For common-subexpression-elim, the type of equality
-    # I want is FileScan relation_key are the same, which is
-    # different from FileScan.__eq__
-    fs = FileScan(self.relation_key)
+    fs = FileScan(self.relation_key, self._scheme)
 
     # Common subexpression elimination
     # don't scan the same file twice
@@ -203,9 +199,23 @@ class MemoryScan(algebra.Scan, CCOperator):
 
   def consume(self, t, src, state):
     assert False, "as a source, no need for consume"
-    
-    
 
+
+  def __eq__(self, other):
+    """
+    For what we are using MemoryScan for, the only use
+    of __eq__ is in hashtable lookups for CSE optimization.
+    We omit self.schema because the relation_key determines
+    the level of equality needed.
+
+    @see FileScan.__eq__
+    """
+    return ZeroaryOperator.__eq__(self, other) and \
+           self.relation_key == other.relation_key
+
+
+
+from algebra import ZeroaryOperator
 class FileScan(algebra.Scan):
 
     def compileme(self, resultsym):
@@ -224,6 +234,18 @@ class FileScan(algebra.Scan):
       
     def __str__(self):
       return "%s(%s)" % (self.opname(), self.relation_key)
+
+    def __eq__(self, other):
+        """
+        For what we are using FileScan for, the only use
+        of __eq__ is in hashtable lookups for CSE optimization.
+        We omit self.schema because the relation_key determines
+        the level of equality needed.
+
+        @see MemoryScan.__eq__
+        """
+        return ZeroaryOperator.__eq__(self, other) and \
+               self.relation_key == other.relation_key
 
 
 class HashJoin(algebra.Join, CCOperator):
