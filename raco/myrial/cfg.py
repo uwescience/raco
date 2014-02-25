@@ -171,10 +171,10 @@ class ControlFlowGraph(object):
                          -- expression
 
         The merge procedure operates on the control flow graph.  We inline node
-        A into node B whenever:
+        A into node B whenever the following conditions are all true:
 
         - A directly precedes B; we don't consider out-of-order executions
-        - A defines a variable (i.e., it is a statement, not a STORE statement)
+        - A defines a variable (i.e., it assigns a temporary; not a STORE)
         - B references the variable defined by A -- def(A) in uses(B)
         - The variable defined by A is not used again
               -- def(A) not in live_out(B)
