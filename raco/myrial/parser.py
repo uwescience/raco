@@ -225,11 +225,6 @@ class Parser(object):
         p[0] = p[1]
 
     @staticmethod
-    def p_statement_dump(p):
-        'statement : DUMP LPAREN ID RPAREN SEMI'
-        p[0] = ('DUMP', p[3])
-
-    @staticmethod
     def p_statement_list(p):
         '''statement_list : statement_list statement
                           | statement'''

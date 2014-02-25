@@ -261,9 +261,6 @@ class StatementProcessor(object):
         self.catalog = catalog
         self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
 
-        # Unique identifiers for temporary tables created by DUMP operations
-        self.dump_output_id = 0
-
         self.cfg = ControlFlowGraph()
 
     def evaluate(self, statements):
@@ -318,12 +315,6 @@ class StatementProcessor(object):
 
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, None, uses_set)
-
-    def dump(self, _id):
-        target = "__OUTPUT%d__" % self.dump_output_id
-        rk = relation_key.RelationKey.from_string(target)
-        self.store(_id, rk)
-        self.dump_output_id += 1
 
     def dowhile(self, statement_list, termination_ex):
         first_op_id = self.cfg.next_op_id # op ID of the top of the loop
