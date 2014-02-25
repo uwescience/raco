@@ -3,7 +3,6 @@
 
 from raco import algebra
 from raco import expression
-from raco import catalog
 from raco.language import Language
 from raco import rules
 from raco.pipelines import Pipelined
@@ -144,14 +143,15 @@ class CC(Language):
 
 class CCOperator (Pipelined):
     language = CC
-    
+
+from algebra import ZeroaryOperator
 class MemoryScan(algebra.Scan, CCOperator):
   def produce(self, state):
     code = ""
     #generate the materialization from file into memory
     #TODO split the file scan apart from this in the physical plan
 
-    fs = FileScan(self.relation_key, self._scheme)
+    fs = CFileScan(self.relation_key, self._scheme)
 
     # Common subexpression elimination
     # don't scan the same file twice
@@ -212,40 +212,6 @@ class MemoryScan(algebra.Scan, CCOperator):
     """
     return ZeroaryOperator.__eq__(self, other) and \
            self.relation_key == other.relation_key
-
-
-
-from algebra import ZeroaryOperator
-class FileScan(algebra.Scan):
-
-    def compileme(self, resultsym):
-        # TODO use the identifiers (don't split str and extract)
-        #name = self.relation_key
-        name = str(self.relation_key).split(':')[2]
-
-        #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
-        #self.trace("// Original query position of %s: term %s (%s)" % tup)
-
-        if isinstance(self.relation_key, catalog.ASCIIFile):
-            code = ascii_scan_template % locals()
-        else:
-            code = binary_scan_template % locals()
-        return code
-      
-    def __str__(self):
-      return "%s(%s)" % (self.opname(), self.relation_key)
-
-    def __eq__(self, other):
-        """
-        For what we are using FileScan for, the only use
-        of __eq__ is in hashtable lookups for CSE optimization.
-        We omit self.schema because the relation_key determines
-        the level of equality needed.
-
-        @see MemoryScan.__eq__
-        """
-        return ZeroaryOperator.__eq__(self, other) and \
-               self.relation_key == other.relation_key
 
 
 class HashJoin(algebra.Join, CCOperator):
@@ -355,6 +321,11 @@ class CApply(clangcommon.CApply, CCOperator): pass
 class CProject(clangcommon.CProject, CCOperator): pass
 
 class CSelect(clangcommon.CSelect, CCOperator): pass
+
+class CFileScan(clangcommon.CFileScan):
+    def __get_ascii_scan_template__(self): return ascii_scan_template
+
+    def __get_binary_scan_template__(self): return binary_scan_template
     
 
 class CCAlgebra(object):

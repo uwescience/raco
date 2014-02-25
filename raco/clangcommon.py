@@ -1,5 +1,7 @@
+import abc
 from raco import algebra
 from raco import expression
+from raco import catalog
 from algebra import gensym
 from expression.expression import UnnamedAttributeRef
 
@@ -186,7 +188,7 @@ class CProject(algebra.Project):
     # always does an assignment to new tuple
     newtuple = StagedTupleRef(gensym(), self.scheme())
     state.addDeclarations( [newtuple.generateDefinition()] )
-    
+
     assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
     """
     
@@ -209,3 +211,45 @@ class CProject(algebra.Project):
     code+=innercode
       
     return code
+
+
+from algebra import ZeroaryOperator
+class CFileScan(algebra.Scan):
+
+    @abc.abstractmethod
+    def __get_ascii_scan_template__(self):
+       return
+
+    @abc.abstractmethod
+    def __get_binary_scan_template__(self):
+        return
+
+    def compileme(self, resultsym):
+        # TODO use the identifiers (don't split str and extract)
+        #name = self.relation_key
+        LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
+        name = str(self.relation_key).split(':')[2]
+
+        #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
+        #self.trace("// Original query position of %s: term %s (%s)" % tup)
+
+        if isinstance(self.relation_key, catalog.ASCIIFile):
+            code = self.__get_ascii_scan_template__() % locals()
+        else:
+            code = self.__get_binary_scan_template__() % locals()
+        return code
+
+    def __str__(self):
+        return "%s(%s)" % (self.opname(), self.relation_key)
+
+    def __eq__(self, other):
+        """
+        For what we are using FileScan for, the only use
+        of __eq__ is in hashtable lookups for CSE optimization.
+        We omit self.schema because the relation_key determines
+        the level of equality needed.
+
+        @see MemoryScan.__eq__
+        """
+        return ZeroaryOperator.__eq__(self, other) and \
+               self.relation_key == other.relation_key

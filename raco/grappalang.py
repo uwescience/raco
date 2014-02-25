@@ -127,7 +127,7 @@ class MemoryScan(algebra.Scan, GrappaOperator):
     #TODO split the file scan apart from this in the physical plan
 
     # generate code for actual IO and materialization in memory
-    fs = FileScan(self.relation_key, self._scheme)
+    fs = GrappaFileScan(self.relation_key, self._scheme)
 
     # Common subexpression elimination
     # don't scan the same file twice
@@ -192,74 +192,6 @@ in_memory_runtime += (end-start);
     assert False, "as a source, no need for consume"
     
     
-from algebra import ZeroaryOperator
-class FileScan(algebra.Scan):
-
-    def compileme(self, resultsym):
-        # TODO use the identifiers (don't split str and extract)
-        LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
-        name = str(self.relation_key).split(':')[2]
-
-
-        #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
-        #self.trace("// Original query position of %s: term %s (%s)" % tup)
-        
-        #TODO: manage the concurrent synchronization objects
-        
-        # graph-specific file scan
-        ascii_scan_template_GRAPH = """
-          {
-            tuple_graph tg;
-            tg = readTuples( "%(name)s" );
-            
-            FullEmpty<GlobalAddress<Graph<Vertex>>> f1;
-            privateTask( [&f1,tg] {
-              f1.writeXF( Graph<Vertex>::create(tg, /*directed=*/true) );
-            });
-            auto l_%(resultsym)s_index = f1.readFE();
-            
-            on_all_cores([=] {
-              %(resultsym)s_index = l_%(resultsym)s_index;
-            });
-        }
-        """
-        
-        ascii_scan_template = """
-        start = walltime();
-        {
-        %(resultsym)s.data = readTuples( "%(name)s", FLAGS_nt);
-        %(resultsym)s.numtuples = FLAGS_nt;
-        auto l_%(resultsym)s = %(resultsym)s;
-        on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
-        }
-        end = walltime();
-        scan_runtime += (end-start);
-        """
-
-        if isinstance(self.relation_key, catalog.ASCIIFile):
-            code = ascii_scan_template % locals()
-        else:
-            LOG.info("binary not currently supported for GrappaLanguage, emitting ascii")
-            code = ascii_scan_template % locals()
-
-        return code
-      
-    def __str__(self):
-      return "%s(%s)" % (self.opname(), self.relation_key)
-
-
-    def __eq__(self, other):
-        """
-        For what we are using MemoryScan for, the only use
-        of __eq__ is in hashtable lookups for CSE optimization.
-        We omit self.schema because the relation_key determines
-        the level of equality needed.
-
-        @see FileScan.__eq__
-        """
-        return ZeroaryOperator.__eq__(self, other) and \
-               self.relation_key == other.relation_key
-
 
 def getTaggingFunc(t):
   """ 
@@ -432,6 +364,43 @@ class GrappaUnionAll(clangcommon.CUnionAll, GrappaOperator): pass
 
 # Basic materialized copy based project like serial C++
 class GrappaProject(clangcommon.CProject, GrappaOperator): pass
+
+class GrappaFileScan(clangcommon.CFileScan):
+    ascii_scan_template_GRAPH = """
+          {
+            tuple_graph tg;
+            tg = readTuples( "%(name)s" );
+
+            FullEmpty<GlobalAddress<Graph<Vertex>>> f1;
+            privateTask( [&f1,tg] {
+              f1.writeXF( Graph<Vertex>::create(tg, /*directed=*/true) );
+            });
+            auto l_%(resultsym)s_index = f1.readFE();
+
+            on_all_cores([=] {
+              %(resultsym)s_index = l_%(resultsym)s_index;
+            });
+        }
+        """
+    ascii_scan_template = """
+        start = walltime();
+        {
+        %(resultsym)s.data = readTuples( "%(name)s", FLAGS_nt);
+        %(resultsym)s.numtuples = FLAGS_nt;
+        auto l_%(resultsym)s = %(resultsym)s;
+        on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
+        }
+        end = walltime();
+        scan_runtime += (end-start);
+        """
+    def __get_ascii_scan_template__(self):
+        return self.ascii_scan_template
+
+    def __get_binary_scan_template__(self):
+        LOG.warn("binary not currently supported for GrappaLanguage, emitting ascii")
+        return self.ascii_scan_template
+
+
 
     
 class swapJoinSides(rules.Rule):
