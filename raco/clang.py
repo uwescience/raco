@@ -178,7 +178,7 @@ class MemoryScan(algebra.Scan, CCOperator):
        """
 
     stagedTuple = state.lookupTupleDef(inputsym)
-    if not stagedTuple:
+    if not stagedTuple: # not subsumed by addDeclarations set, because StagedTupleRef.__init__ generates a new name
         # if the tuple type definition does not yet exist, then
         # create it and add its definition
         stagedTuple = CStagedTupleRef(inputsym, self.scheme())

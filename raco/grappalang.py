@@ -126,12 +126,24 @@ class MemoryScan(algebra.Scan, GrappaOperator):
     #generate the materialization from file into memory
     #TODO split the file scan apart from this in the physical plan
 
-    #TODO for now this will break whatever relies on self.bound like reusescans
-    #Scan is the only place where a relation is declared
-    resultsym = gensym()
-    
+    # generate code for actual IO and materialization in memory
+    fs = FileScan(self.relation_key, self._scheme)
+
+    # Common subexpression elimination
+    # don't scan the same file twice
+    resultsym = state.lookupExpr(fs)
+    LOG.debug("lookup %s(h=%s) => %s", fs, fs.__hash__(), resultsym)
+    if not resultsym:
+        #TODO for now this will break whatever relies on self.bound like reusescans
+        #Scan is the only place where a relation is declared
+        resultsym = gensym()
+
+        code += fs.compileme(resultsym)
+        state.saveExpr(resultsym, fs)
+
     # now generate the scan from memory
     inputsym = resultsym
+
 
 # scan from index
 #    memory_scan_template = """forall_localized( %(inputsym)s_index->vs, %(inputsym)s_index->nv, [](int64_t ai, Vertex& a) {
@@ -154,21 +166,24 @@ in_memory_runtime += (end-start);
 """
 
     rel_decl_template = """Relation<%(tuple_type)s> %(resultsym)s;"""
-    
-    stagedTuple = GrappaStagedTupleRef(inputsym, self.scheme())
 
-    tuple_type_def = stagedTuple.generateDefinition()
+    stagedTuple = state.lookupTupleDef(inputsym)
+    if not stagedTuple: # not subsumed by addDeclarations set, because StagedTupleRef.__init__ generates a new name
+        stagedTuple = GrappaStagedTupleRef(inputsym, self.scheme())
+        state.saveTupleDef(inputsym, stagedTuple)
+
+        tuple_type_def = stagedTuple.generateDefinition()
+        tuple_type = stagedTuple.getTupleTypename()
+
+        # generate declaration of the in-memory relation
+        rel_decl = rel_decl_template % locals()
+        state.addDeclarations([tuple_type_def, rel_decl])
+
+
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
 
-    # generate code for actual IO and materialization in memory
-    code += FileScan(self.relation_key, self._scheme).compileme(resultsym, tuple_type)
-    
-    # generate declaration of the in-memory relation
-    rel_decl = rel_decl_template % locals()
-    state.addDeclarations([tuple_type_def, rel_decl])
-
-    inner_plan_compiled = self.parent.consume(stagedTuple, self)
+    inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
 
     code += memory_scan_template % locals()
     state.addPipeline(code)
@@ -177,10 +192,10 @@ in_memory_runtime += (end-start);
     assert False, "as a source, no need for consume"
     
     
-
+from algebra import ZeroaryOperator
 class FileScan(algebra.Scan):
 
-    def compileme(self, resultsym, tuple_typename):
+    def compileme(self, resultsym):
         # TODO use the identifiers (don't split str and extract)
         LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
         name = str(self.relation_key).split(':')[2]
@@ -212,10 +227,9 @@ class FileScan(algebra.Scan):
         ascii_scan_template = """
         start = walltime();
         {
-        auto t = readTuples<%(tuple_typename)s>( "%(name)s", FLAGS_nt);
-        Relation<%(tuple_typename)s> l_%(resultsym)s;
-        l_%(resultsym)s.data = t;
-        l_%(resultsym)s.numtuples = FLAGS_nt;
+        %(resultsym)s.data = readTuples( "%(name)s", FLAGS_nt);
+        %(resultsym)s.numtuples = FLAGS_nt;
+        auto l_%(resultsym)s = %(resultsym)s;
         on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
         }
         end = walltime();
@@ -232,6 +246,19 @@ class FileScan(algebra.Scan):
       
     def __str__(self):
       return "%s(%s)" % (self.opname(), self.relation_key)
+
+
+    def __eq__(self, other):
+        """
+        For what we are using MemoryScan for, the only use
+        of __eq__ is in hashtable lookups for CSE optimization.
+        We omit self.schema because the relation_key determines
+        the level of equality needed.
+
+        @see FileScan.__eq__
+        """
+        return ZeroaryOperator.__eq__(self, other) and \
+               self.relation_key == other.relation_key
 
 
 def getTaggingFunc(t):
