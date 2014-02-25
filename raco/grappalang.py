@@ -56,9 +56,9 @@ class GrappaLanguage(Language):
 
     @staticmethod
     def body(compileResult, resultsym):
-      queryexec, decls, inits = compileResult
-      initialized = emitlist(inits)
-      declarations = emitlist(decls)
+      queryexec = compileResult.getExecutionCode()
+      initialized = compileResult.getInitCode()
+      declarations = compileResult.getDeclCode()
       return base_template % locals()
 
     @staticmethod
@@ -121,7 +121,7 @@ class GrappaOperator (Pipelined):
     language = GrappaLanguage
     
 class MemoryScan(algebra.Scan, GrappaOperator):
-  def produce(self):
+  def produce(self, state):
     code = ""
     #generate the materialization from file into memory
     #TODO split the file scan apart from this in the physical plan
@@ -166,13 +166,14 @@ in_memory_runtime += (end-start);
     
     # generate declaration of the in-memory relation
     rel_decl = rel_decl_template % locals()
+    state.addDeclarations([tuple_type_def, rel_decl])
 
-    inner_plan_compiled, inner_decls, inner_inits = self.parent.consume(stagedTuple, self)
+    inner_plan_compiled = self.parent.consume(stagedTuple, self)
 
     code += memory_scan_template % locals()
-    return code, [tuple_type_def,rel_decl]+inner_decls, inner_inits
+    state.addPipeline(code)
     
-  def consume(self, t, src):
+  def consume(self, t, src, state):
     assert False, "as a source, no need for consume"
     
     
@@ -259,7 +260,7 @@ class HashJoin(algebra.Join, GrappaOperator):
     cls._i += 1
     return name
   
-  def produce(self):
+  def produce(self, state):
     if not isinstance(self.condition, expression.EQ):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
@@ -268,18 +269,20 @@ class HashJoin(algebra.Join, GrappaOperator):
     self.outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
     
     self.right.childtag = "right"
-    code_right, decls_right, inits_right = self.right.produce()
     init_template = """%(hashname)s.init_global_DHT( &%(hashname)s, 64 );""" 
     setro_template = """%(hashname)s.set_RO_global( &%(hashname)s );"""
     hashname = self._hashname
-    code_right = (init_template%locals()) + code_right + setro_template%locals()
-    
-    self.left.childtag = "left"
-    code_left, decls_left, inits_left = self.left.produce()
 
-    return code_right+code_left, decls_right+decls_left, inits_right+inits_left
-  
-  def consume(self, t, src):
+    # surround the code for the pipeline with hash initialization and setRO
+    state.addCode(init_template%locals())
+    self.right.produce(state)
+    state.addCode(setro_template%locals())
+
+    self.left.childtag = "left"
+    self.left.produce(state)
+
+
+  def consume(self, t, src, state):
     if src.childtag == "right":
       declr_template =  """typedef MatchesDHT<int64_t, %(in_tuple_type)s, identity_hash> DHT_%(in_tuple_type)s;
       DHT_%(in_tuple_type)s %(hashname)s;
@@ -298,11 +301,12 @@ class HashJoin(algebra.Join, GrappaOperator):
 
       # declaration of hash map
       hashdeclr =  declr_template % locals()
+      state.addDeclarations([out_tuple_type_def, hashdeclr])
       
       # materialization point
       code = right_template % locals()
       
-      return code, [out_tuple_type_def,hashdeclr], []
+      return code
     
     if src.childtag == "left":
       left_template = """
@@ -326,10 +330,10 @@ class HashJoin(algebra.Join, GrappaOperator):
       out_tuple_type = self.outTuple.getTupleTypename()
       out_tuple_name =self.outTuple.name
       
-      inner_plan_compiled, inner_plan_declrs, inner_inits = self.parent.consume(self.outTuple, self)
+      inner_plan_compiled = self.parent.consume(self.outTuple, self, state)
       
       code = left_template % locals()
-      return code, inner_plan_declrs, inner_inits
+      return code
 
     assert False, "src not equal to left or right"
       
