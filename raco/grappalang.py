@@ -157,7 +157,7 @@ in_memory_runtime += (end-start);
     
     stagedTuple = GrappaStagedTupleRef(inputsym, self.scheme())
 
-    tuple_type_def = stagedTuple.generateDefition()
+    tuple_type_def = stagedTuple.generateDefinition()
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
 
@@ -295,7 +295,7 @@ class HashJoin(algebra.Join, GrappaOperator):
       keyname = t.name
       keypos = self.condition.right.position-len(self.left.scheme())
       
-      out_tuple_type_def = self.outTuple.generateDefition()
+      out_tuple_type_def = self.outTuple.generateDefinition()
       self.rightTuple = t #TODO: this induces a right->left dependency
       in_tuple_type = self.rightTuple.getTupleTypename()
 

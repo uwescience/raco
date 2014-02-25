@@ -184,7 +184,7 @@ class MemoryScan(algebra.Scan, CCOperator):
         stagedTuple = CStagedTupleRef(inputsym, self.scheme())
         state.saveTupleDef(inputsym, stagedTuple)
 
-        tuple_type_def = stagedTuple.generateDefition()
+        tuple_type_def = stagedTuple.generateDefinition()
         state.addDeclarations([tuple_type_def])
 
 
@@ -317,7 +317,7 @@ class HashJoin(algebra.Join, CCOperator):
       #right_tuple_name = CStagedTupleRef.genname() 
 
       outTuple = CStagedTupleRef(gensym(), self.scheme())
-      out_tuple_type_def = outTuple.generateDefition()
+      out_tuple_type_def = outTuple.generateDefinition()
       out_tuple_type = outTuple.getTupleTypename()
       out_tuple_name = outTuple.name
 

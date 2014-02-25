@@ -38,7 +38,7 @@ class StagedTupleRef:
     return self.__typename
 
     
-  def generateDefition(self):
+  def generateDefinition(self):
     fielddeftemplate = """int64_t _fields[%(numfields)s];
     """
     template = """
@@ -177,7 +177,7 @@ class CProject(algebra.Project):
 
     # always does an assignment to new tuple
     newtuple = StagedTupleRef(gensym(), self.scheme())
-    state.addDeclarations( [newtuple.generateDefition()] )
+    state.addDeclarations( [newtuple.generateDefinition()] )
     
     assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
     """
