@@ -168,7 +168,7 @@ class ControlFlowGraph(object):
         A into node B whenever:
 
         - A directly precedes B; we don't consider out-of-order executions
-        - A defines a variable (i.e., it is a statement, not a DUMP or STORE)
+        - A defines a variable (i.e., it is a statement, not a STORE statement)
         - B references the variable defined by A -- def(A) in uses(B)
         - The variable defined by A is not used again; def(A) not in live_out(B)
         - A and B are in the same do/while loop.
