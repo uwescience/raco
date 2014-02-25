@@ -290,14 +290,12 @@ class HashJoin(algebra.Join, CCOperator):
       
       right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
       """   
-      
 
       hashname = self._hashname
       keyname = t.name
       keypos = self.condition.right.position-len(self.left.scheme())
       
-      self.rightTuple = t #TODO: this induces a right->left dependency
-      in_tuple_type = self.rightTuple.getTupleTypename()
+      in_tuple_type = t.getTupleTypename()
 
       # declaration of hash map
       hashdeclr =  declr_template % locals()
@@ -320,8 +318,7 @@ class HashJoin(algebra.Join, CCOperator):
       keytype = t.getTupleTypename()
       keypos = self.condition.left.position
       
-      right_tuple_type = self.rightTuple.getTupleTypename()
-      right_tuple_name = self.rightTuple.name   #TODO reusing this name here is confusing; we probably want to split type and instance
+      right_tuple_name = gensym()
 
       # or could make up another name
       #right_tuple_name = CStagedTupleRef.genname() 
