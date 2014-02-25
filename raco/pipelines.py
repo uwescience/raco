@@ -13,7 +13,7 @@ class TestEmit:
 
 class CompileState:
 
-    def __init__(self):
+    def __init__(self, cse=True):
         self.declarations = []
         self.pipelines = []
         self.initializers = []
@@ -23,6 +23,8 @@ class CompileState:
 
         # { symbol => tuple type definition }
         self.tupledefs = {}
+
+        self.common_subexpression_elim = cse
 
     def addDeclarations(self, d):
         self.declarations += d
@@ -57,7 +59,11 @@ class CompileState:
         return emitlist(self.pipelines)
 
     def lookupExpr(self, expr):
-       return self.materialized.get(expr)
+        if self.common_subexpression_elim:
+            return self.materialized.get(expr)
+        else:
+            # if CSE is turned off then always return None for expression matches
+            return None
 
     def saveExpr(self, sym, expr):
         self.materialized[expr] = sym
