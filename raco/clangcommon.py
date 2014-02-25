@@ -150,14 +150,22 @@ class CSelect(algebra.Select):
   
 class CUnionAll(algebra.Union):
   def produce(self, state):
+    self.unifiedTupleType = StagedTupleRef(gensym(), self.scheme())
+    state.addDeclarations([self.unifiedTupleType.generateDefinition()])
+
     self.right.produce(state)
     self.left.produce(state)
 
   def consume(self, t, src, state):
-    #FIXME: expect a bug: because we have not forced
-    #CCOperators to be immutable (e.g. if self.parent is a HashJoin), then this is problematic
-    # For now HashJoin is just lucky
-    return self.parent.consume(t, self, state)
+    union_template = """auto %(unified_tuple_name)s = transpose<%(unified_tuple_typename)s>(%(src_tuple_name)s);
+                        %(inner_plan_compiled)s"""
+
+    unified_tuple_typename = self.unifiedTupleType.getTupleTypename()
+    unified_tuple_name = self.unifiedTupleType.name
+    src_tuple_name = t.name
+
+    inner_plan_compiled = self.parent.consume(self.unifiedTupleType, self, state)
+    return union_template % locals()
 
 
 class CApply(algebra.Apply):

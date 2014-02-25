@@ -268,7 +268,7 @@ class HashJoin(algebra.Join, CCOperator):
     self.right.childtag = "right"
 
     self.right.produce(state)
-    
+
     self.left.childtag = "left"
     self.left.produce(state)
 
@@ -301,7 +301,7 @@ class HashJoin(algebra.Join, CCOperator):
     if src.childtag == "left":
       left_template = """
       for (auto %(right_tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
-        %(out_tuple_type)s %(out_tuple_name)s = combine<%(out_tuple_type)s, %(keytype)s, %(right_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
+        auto %(out_tuple_name)s = combine<%(out_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
      %(inner_plan_compiled)s 
   }
   """

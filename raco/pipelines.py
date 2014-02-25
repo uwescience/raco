@@ -40,7 +40,18 @@ class CompileState:
         return emitlist(self.initializers)
 
     def getDeclCode(self):
-        return emitlist(self.declarations)
+        # declarations is a set
+        # If this ever becomes a bottleneck when declarations are strings,
+        # as in clang, then resort to at least symbol name deduping.
+        s = set()
+        def f(x):
+            if x in s: return False
+            else:
+                s.add(x)
+                return True
+
+        # keep in original order
+        return emitlist(filter(f, self.declarations))
 
     def getExecutionCode(self):
         return emitlist(self.pipelines)
