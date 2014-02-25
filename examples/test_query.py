@@ -48,6 +48,7 @@ if __name__ == "__main__":
             ("A(a,b,c) :- R2(a,b), S2(b,c)", "two_path"),
             ("A(a,c) :- R2(a,b), S2(b,c)", "two_hop"),
             ("A(a,b,c) :- R2(a,b), S2(b,c), T2(c,d)", "three_path"),
+            ("A(a,b,c) :- R2(a,b), R2(b,c), R2(c,d)", "self_three_path"),
             ("A(a,b,c) :- R2(a,b), S2(b,c), T2(c,a)", "directed_triangles"),
             ("A(a,b,c,d) :- R2(a,b), S2(b,c), T2(c,d), Z2(d,a)", "directed_squares"),
             ("A(s1,s2,s3) :- T3(s1,s2,s3), R2(s3,s4), s1<s2, s4<100", "select_then_join"),
