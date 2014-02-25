@@ -1,8 +1,10 @@
 
--- Simplified PageRank; assumes that all nodes have out degree > 0
+-- PageRank augmented with dead code; for use as an optimization test
 
 alpha = [.85];
 epsilon = [.0001];
+
+D0 = [3.14159 AS pi, 2.71828 AS e]; -- dead code
 
 Edge = SCAN(public:adhoc:edges);
 Vertex = SCAN(public:adhoc:vertices);
@@ -14,6 +16,8 @@ OutDegree = [FROM Edge EMIT Edge.src AS id, COUNT(Edge.dst) AS cnt];
 PageRank = [FROM Vertex EMIT Vertex.id AS id, 1.0 / *N AS rank];
 
 DO
+    D1 = [FROM Vertex EMIT COUNT(id) AS val]; -- dead code
+
     -- Calculate each node's outbound page rank contribution
     PrOut = [FROM PageRank, OutDegree WHERE PageRank.id == OutDegree.id
              EMIT PageRank.id AS id, PageRank.rank / OutDegree.cnt AS out_rank];
@@ -29,6 +33,7 @@ DO
     Delta = [FROM NewPageRank, PageRank WHERE NewPageRank.id == PageRank.id
              EMIT ABS(NewPageRank.rank - PageRank.rank) AS val];
     Continue = [FROM Delta EMIT MAX(Delta.val) > *epsilon];
+    Continue = [FROM Delta EMIT MAX(Delta.val) > *epsilon]; -- duplicate line
     PageRank = NewPageRank;
 WHILE Continue;
 

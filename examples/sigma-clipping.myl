@@ -40,4 +40,4 @@ output = [FROM Points, bounds
           WHERE Points.v > bounds.lower
                 AND Points.v < bounds.upper
           EMIT Points.v AS v];
-DUMP(output);
+STORE(output, OUTPUT);
