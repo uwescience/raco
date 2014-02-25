@@ -32,4 +32,4 @@ DO
     PageRank = NewPageRank;
 WHILE Continue;
 
-DUMP(PageRank);
+STORE(PageRank, OUTPUT);

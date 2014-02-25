@@ -10,4 +10,4 @@ X = UNIONALL(X, Y);
 
 X = SCAN(public:adhoc:points);
 Q = UNIONALL(X, Z);
-DUMP(Q);
+STORE(Q, OUTPUT);
