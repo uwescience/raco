@@ -44,6 +44,7 @@ if __name__ == "__main__":
             ("A(s1) :- T1(s1), s1>0, s1<10", "select_conjunction"),
             ("A(s1,s2) :- T2(s1,s2), s>10, s2>10", "two_var_select"),
             ("A(s1,o2) :- T3(s1,p1,o1), R3(o2,p1,o2)", "join"),
+            ("A(a,b) :- R2(a,b), R2(a,c)", "self_join"),
             ("A(a,b,c) :- R2(a,b), S2(b,c)", "two_path"),
             ("A(a,c) :- R2(a,b), S2(b,c)", "two_hop"),
             ("A(a,b,c) :- R2(a,b), S2(b,c), T2(c,d)", "three_path"),
@@ -73,6 +74,10 @@ if __name__ == "__main__":
             ("""A(s1,s2) :- T1(s1,s2)
     A(s1,s2) :- R1(s1,s2)
     B(s1) :- A(s1,s2), S1(s1)""", "union_then_join"),
+
+            ("""A(s1,s2) :- T1(s1,s2)
+    A(s1,s2) :- R1(s1,s2)
+    B(s1) :- A(s1,s2), A(s1,s3)""", "join_of_two_unions"),
             
             ("""A(author) :- R(erdoes, 'rdf:type', 'foaf:Person'),
                             R(doc, 10, erdoes),
