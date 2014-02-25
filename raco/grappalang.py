@@ -352,43 +352,6 @@ def indentby(code, level):
 
 
 
-# iteration  over table + insertion into hash table with filter
-hash_build_template = """
-// build hash table for %(hashedsym)s, column %(position)s
-hash_table_t<uint64_t, uint64_t> %(hashedsym)s_hash_%(position)s;
-for (uint64_t  %(hashedsym)s_row = 0; %(hashedsym)s_row < %(hashedsym)s->tuples; %(hashedsym)s_row++) {
-  if (%(condition)s) {
-    insert(%(hashedsym)s_hash_%(position)s, %(hashedsym)s, %(hashedsym)s_row, %(position)s);
-  }
-}
-"""
-
-# iteration over table + lookup
-# name of tuple output is r{depth}
-# note the the rightcondition, is the condition in the build phase
-nested_hash_join_first_template = """
-for (uint64_t  %(leftsym)s_row = 0; %(leftsym)s_row < %(leftsym)s->tuples; %(leftsym)s_row++) {
-  if (%(leftcondition)s) {
-    for (Tuple<uint64_t> r%(depth)s : lookup(%(rightsym)s_hash_%(rightposition)s, %(leftsym)s, %(leftposition)s)) {
-      %(inner_plan_compiled)s
-    } // end join of %(leftsym)s[%(leftposition)s] and %(rightsym)s[%(rightposition)s]
-  } // end filter %(depth)s
-} // end scan over %(leftsym)s
-"""
-
-# lookup tuple
-nested_hash_join_rest_template = """
-if (%(leftcondition)s) {
-  for (Tuple<uint64_t> r%(depth)s : lookup(%(rightsym)s_hash_%(rightposition)s, r%(depthMinusOne)s, %(leftposition)s) {
-    %(inner_plan_compiled)s
-  }
-}
-"""
-    
-
-
-#def neededDownstream(ops, expr):
-#  if expr in ops:
 #
 #
 #
