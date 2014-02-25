@@ -11,4 +11,4 @@ DO
     Reachable = UNIONALL(Delta, Reachable);
 WHILE [*COUNTALL(Delta) > 0];
 
-DUMP (Reachable);
+STORE(Reachable, OUTPUT);
