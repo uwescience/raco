@@ -262,12 +262,22 @@ class HashJoin(algebra.Join, CCOperator):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
 
-    self._hashname = self.__genHashName__()
-    LOG.debug("generate hashname %s for %s", self._hashname, self)
 
     self.right.childtag = "right"
 
-    self.right.produce(state)
+    hashsym = state.lookupExpr(self.right)
+    if not hashsym:
+        # if right child never bound then store hashtable symbol and
+        # call right child produce
+        self._hashname = self.__genHashName__()
+        LOG.debug("generate hashname %s for %s", self._hashname, self)
+        state.saveExpr(self._hashname, self.right)
+        self.right.produce(state)
+    else:
+        # if found a common subexpression on right child then
+        # use the same hashtable
+        self._hashname = hashsym
+        LOG.debug("reuse hash %s for %s", self._hashname, self)
 
     self.left.childtag = "left"
     self.left.produce(state)
