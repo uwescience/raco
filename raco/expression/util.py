@@ -2,11 +2,12 @@
 Utility functions for use in Raco expressions
 """
 
-from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef, NamedStateAttributeRef
+from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef, NamedStateAttributeRef  # noqa
 from .aggregate import AggregateExpression
 
 import copy
 import inspect
+
 
 def toUnnamed(ref, scheme):
     """Convert a reference to the unnamed perspective"""
@@ -15,7 +16,8 @@ def toUnnamed(ref, scheme):
     elif issubclass(ref.__class__, NamedAttributeRef):
         return UnnamedAttributeRef(scheme.getPosition(ref.name))
     else:
-        raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference." % ref)
+        raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference." % ref)  # noqa
+
 
 def toNamed(ref, scheme):
     """Convert a reference to the named perspective"""
@@ -25,7 +27,8 @@ def toNamed(ref, scheme):
     elif issubclass(ref.__class__, NamedAttributeRef):
         return ref
     else:
-        raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference.")
+        raise TypeError("Unknown value reference %s.  Expected a position reference or an attribute reference.")  # noqa
+
 
 def to_unnamed_recursive(sexpr, scheme):
     """Convert all named column references to unnamed column references."""
@@ -36,42 +39,48 @@ def to_unnamed_recursive(sexpr, scheme):
         return n
     return convert(sexpr)
 
+
 def all_classes():
     """Return a list of all classes in the module"""
     import raco.expression as expr
     return [obj for _, obj in inspect.getmembers(expr, inspect.isclass)]
 
+
 def aggregate_functions():
-    """Return all the classes that can be used to construct an aggregate expression"""
+    """Return all the classes that can be used to construct an aggregate expression"""  # noqa
     allclasses = all_classes()
     opclasses = [opclass for opclass in allclasses
-                     if issubclass(opclass, AggregateExpression)
-                     and not inspect.isabstract(opclass)]
+                 if issubclass(opclass, AggregateExpression)
+                 and not inspect.isabstract(opclass)]
 
     return opclasses
+
 
 def binary_ops():
-    """Return a list of all classes used to construct arithmetic, like PLUS, DIVIDE, etc."""
+    """Return a list of all classes used to construct arithmetic, like PLUS, DIVIDE, etc."""  # noqa
     allclasses = all_classes()
     opclasses = [opclass for opclass in allclasses
-                     if issubclass(opclass, BinaryOperator)
-                     and not inspect.isabstract(opclass)]
+                 if issubclass(opclass, BinaryOperator)
+                 and not inspect.isabstract(opclass)]
     return opclasses
+
 
 def isaggregate(expr):
     return any(expr.postorder(lambda x: isinstance(x, AggregateExpression)))
 
+
 def udf_undefined_vars(expr, vars):
     """Return a list of undefined variables in a UDF.
 
-    :param expr: An expression corresponding to a UDF.  Variable references are identified
-    by instances of NamedAttributeRef.
+    :param expr: An expression corresponding to a UDF.  Variable references are
+    identified by instances of NamedAttributeRef.
 
     :param vars: A list of variables in the argument list to the function.
     :type vars: list of strings
     """
     return [ex.name for ex in expr.walk()
             if isinstance(ex, NamedAttributeRef) and ex.name not in vars]
+
 
 def resolve_udf(udf_expr, arg_dict):
     """Bind variables to arguments in a UDF expression.
@@ -91,8 +100,10 @@ def resolve_udf(udf_expr, arg_dict):
 
     return convert(copy.copy(udf_expr))
 
+
 def resolve_state_vars(expr, state_vars, mangled_names):
-    """Convert references to state variables into NamedStateAttributeRef references.
+    """Convert references to state variables into NamedStateAttributeRef
+    references.
 
     :param expr: An expression instances
     :type expr: Expression

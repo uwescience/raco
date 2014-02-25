@@ -8,6 +8,7 @@ from .function import UnaryFunction, SQRT, POW
 from abc import abstractmethod
 import math
 
+
 class AggregateExpression(Expression):
     def evaluate(self, _tuple, scheme, state=None):
         """Stub evaluate function for aggregate expressions.
@@ -23,8 +24,10 @@ class AggregateExpression(Expression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         """Evaluate an aggregate over a bag of tuples"""
 
+
 class LocalAggregateOutput(object):
     """Dummy placeholder to refer to the output of a local aggregate."""
+
 
 class MergeAggregateOutput(object):
     """Dummy placeholder to refer to the output of a merge aggregate."""
@@ -38,16 +41,19 @@ class MergeAggregateOutput(object):
     def to_absolute(self, offset):
         return UnnamedAttributeRef(offset + self.pos)
 
+
 def finalizer_expr_to_absolute(expr, offset):
     """Convert a finalizer expression to absolute column positions."""
 
     assert isinstance(expr, Expression)
+
     def convert(n):
         if isinstance(n, MergeAggregateOutput):
             n = n.to_absolute(offset)
         n.apply(convert)
         return n
     return convert(expr)
+
 
 class DecomposableAggregate(AggregateExpression):
     """An aggregate expression that yields a distributed execution plan.
@@ -84,17 +90,20 @@ class DecomposableAggregate(AggregateExpression):
 
     def get_finalizer(self):
         """Return a rule for extracting the result from the merge aggregats."""
-        return None # use the result from merge aggregate 0
+        return None  # use the result from merge aggregate 0
+
 
 class MAX(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return max(inputs)
 
+
 class MIN(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return min(inputs)
+
 
 class COUNTALL(ZeroaryOperator, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
@@ -102,6 +111,7 @@ class COUNTALL(ZeroaryOperator, DecomposableAggregate):
 
     def get_merge_aggregates(self):
         return [SUM(LocalAggregateOutput())]
+
 
 class COUNT(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
@@ -115,6 +125,7 @@ class COUNT(UnaryFunction, DecomposableAggregate):
     def get_merge_aggregates(self):
         return [SUM(LocalAggregateOutput())]
 
+
 class SUM(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
@@ -124,6 +135,7 @@ class SUM(UnaryFunction, DecomposableAggregate):
             if t is not None:
                 sum += t
         return sum
+
 
 class AVERAGE(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
@@ -148,6 +160,7 @@ class AVERAGE(UnaryFunction, DecomposableAggregate):
         # at least one member.
         return DIVIDE(MergeAggregateOutput(0), MergeAggregateOutput(1))
 
+
 class STDEV(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
@@ -161,7 +174,7 @@ class STDEV(UnaryFunction, DecomposableAggregate):
 
         std = 0.0
         for a in filtered:
-            std = std + (a - mean)**2
+            std = std + (a - mean) ** 2
         std = math.sqrt(std / n)
         return std
 

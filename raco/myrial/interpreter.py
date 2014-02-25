@@ -12,18 +12,21 @@ from raco.compile import optimize
 from raco import relation_key
 
 import collections
-import types
 import copy
+
 
 class DuplicateAliasException(Exception):
     """Bag comprehension arguments must have different alias names."""
     pass
 
+
 class InvalidStatementException(Exception):
     pass
 
+
 class NoSuchRelationException(Exception):
     pass
+
 
 class ExpressionProcessor(object):
     """Convert syntactic expressions into relational algebra operations."""
@@ -84,7 +87,7 @@ class ExpressionProcessor(object):
 
         # rewrite clauses in terms of the new schema
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
-                      for (name, sexpr) in emit_args]
+                     for (name, sexpr) in emit_args]
 
         return raco.algebra.Apply(emitters=emit_args, input=op)
 
@@ -127,7 +130,7 @@ class ExpressionProcessor(object):
         # Make sure no aliases were reused: [FROM X, X EMIT *] is illegal
         from_aliases = set([x[0] for x in from_clause])
         if len(from_aliases) != len(from_clause):
-            raise DuplicateAliasException();
+            raise DuplicateAliasException()
 
         # For each FROM argument, create a mapping from ID to operator
         # (id, raco.algebra.Operator)
@@ -135,12 +138,12 @@ class ExpressionProcessor(object):
 
         for _id, expr in from_clause:
             if expr:
-                from_args[_id] =  self.evaluate(expr)
+                from_args[_id] = self.evaluate(expr)
             else:
                 from_args[_id] = self.__lookup_symbol(_id)
 
         # Expand wildcards into a list of output columns
-        assert emit_clause # There should always be something to emit
+        assert emit_clause  # There should always be something to emit
         emit_args = []
         statemods = []
         for clause in emit_clause:
@@ -170,10 +173,10 @@ class ExpressionProcessor(object):
             op = raco.algebra.Select(condition=where_clause, input=op)
 
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
-                      for (name, sexpr) in emit_args]
+                     for (name, sexpr) in emit_args]
 
-        statemods = [(name, init, multiway.rewrite_refs(update, from_args, info))
-                    for name, init, update in statemods]
+        statemods = [(name, init, multiway.rewrite_refs(update, from_args, info))  # noqa
+                     for name, init, update in statemods]
 
         if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
             return groupby.groupby(op, emit_args, implicit_group_by_cols)
@@ -224,8 +227,8 @@ class ExpressionProcessor(object):
         assert len(left_target.columns) == len(right_target.columns)
 
         def get_attribute_ref(column_ref, scheme, offset):
-            """Convert a string or int into an attribute ref on the new table"""
-            if type(column_ref) == types.IntType:
+            """Convert a string or int into an attribute ref on the new table"""  # noqa
+            if isinstance(column_ref, int):
                 index = column_ref
             else:
                 index = scheme.getPosition(column_ref)
@@ -251,6 +254,7 @@ class ExpressionProcessor(object):
         condition = reduce(andify, join_conditions)
         return raco.algebra.Join(condition, left, right)
 
+
 class StatementProcessor(object):
     '''Evaluate a list of statements'''
 
@@ -275,7 +279,8 @@ class StatementProcessor(object):
 
         :param expr: An expression to evaluate
         :type expr: Myrial AST tuple
-        :param _def: The variable defined by the expression, or None for non-statements
+        :param _def: The variable defined by the expression, or None for
+                     non-statements
         :type _def: string
         """
 
@@ -285,7 +290,8 @@ class StatementProcessor(object):
         return op
 
     def __do_assignment(self, _id, expr):
-        """Process an assignment statement; add a node to the control flow graph.
+        """Process an assignment statement; add a node to the control flow
+        graph.
 
         :param _id: The target variable name.
         :type _id: string
@@ -298,8 +304,8 @@ class StatementProcessor(object):
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, _id, uses_set)
 
-        # Point future references of this symbol to a scan of the
-        # materialized table. Note that this assumes there is no scoping in Myrial.
+        # Point future references of this symbol to a scan of the materialized
+        # table. Note that this assumes there is no scoping in Myrial.
         self.symbols[_id] = raco.algebra.ScanTemp(_id, child_op.scheme())
 
     def assign(self, _id, expr):
@@ -317,7 +323,7 @@ class StatementProcessor(object):
         self.cfg.add_op(op, None, uses_set)
 
     def dowhile(self, statement_list, termination_ex):
-        first_op_id = self.cfg.next_op_id # op ID of the top of the loop
+        first_op_id = self.cfg.next_op_id  # op ID of the top of the loop
 
         for _type, _id, expr in statement_list:
             if _type != 'ASSIGN':
@@ -330,7 +336,8 @@ class StatementProcessor(object):
 
         self.__evaluate_expr(termination_ex, None)
 
-        # Add a control flow edge from the loop condition to the top of the loop
+        # Add a control flow edge from the loop condition to the top of the
+        # loop
         self.cfg.add_edge(last_op_id, first_op_id)
 
     def get_logical_plan(self):

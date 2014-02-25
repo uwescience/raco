@@ -7,6 +7,7 @@ from raco.language import MyriaAlgebra
 from raco.myrialang import compile_to_json
 from raco.relation_key import RelationKey
 
+
 class DatalogTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -33,7 +34,8 @@ class DatalogTestCase(unittest.TestCase):
         assert json_string
 
         op = dlog.physicalplan[0][1]
-        output_op = raco.algebra.Store(RelationKey.from_string('__OUTPUT__'), op)
+        output_op = raco.algebra.Store(RelationKey.from_string('__OUTPUT__'),
+                                       op)
         self.db.evaluate(output_op)
         return self.db.get_table('__OUTPUT__')
 

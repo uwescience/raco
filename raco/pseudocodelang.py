@@ -21,11 +21,11 @@ class PseudoCode(Language):
 
     @staticmethod
     def comment(txt):
-        return  "// %s" % txt
+        return "// %s" % txt
 
     @staticmethod
     def initialize(resultsym):
-        return  """
+        return """
     #include <relation.h>
 
     int tuplesize = 4*64;
@@ -33,14 +33,15 @@ class PseudoCode(Language):
 
     @staticmethod
     def finalize(resultsym):
-        return  """
+        return """
     // write result somewhere?
     """
 
     @classmethod
     def boolean_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg in args])
+        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg)
+                              for arg in args])
         return "( %s )" % conjunc
 
     @staticmethod
@@ -50,6 +51,7 @@ class PseudoCode(Language):
 
 class PseudoCodeOperator(object):
     language = PseudoCode
+
 
 class FileScan(algebra.Scan, PseudoCodeOperator):
     def compileme(self, resultsym):
@@ -63,6 +65,7 @@ class FileScan(algebra.Scan, PseudoCodeOperator):
       {resultsym}->insert(t);
     """.format(resultsym=resultsym, name=self.relation_key)
         return code
+
 
 class TwoPassSelect(algebra.Select, PseudoCodeOperator):
     def compileme(self, resultsym, inputsym):
@@ -88,6 +91,7 @@ class TwoPassSelect(algebra.Select, PseudoCodeOperator):
 
     """.format(resultsym=resultsym, condition=condition)
         return code
+
 
 class TwoPassHashJoin(algebra.Join, PseudoCodeOperator):
     def compileme(self, resultsym, leftsym, rightsym):
@@ -126,13 +130,13 @@ class PseudoCodeAlgebra(object):
     language = PseudoCode
 
     operators = [
-    TwoPassHashJoin,
-    TwoPassSelect,
-    FileScan
-  ]
+        TwoPassHashJoin,
+        TwoPassSelect,
+        FileScan
+    ]
     rules = [
-    raco.rules.removeProject(),
-    raco.rules.OneToOne(algebra.Join, TwoPassHashJoin),
-    raco.rules.OneToOne(algebra.Select, TwoPassSelect),
-    raco.rules.OneToOne(algebra.Scan, FileScan)
-  ]
+        raco.rules.removeProject(),
+        raco.rules.OneToOne(algebra.Join, TwoPassHashJoin),
+        raco.rules.OneToOne(algebra.Select, TwoPassSelect),
+        raco.rules.OneToOne(algebra.Scan, FileScan)
+    ]

@@ -11,6 +11,7 @@ from abc import ABCMeta, abstractmethod
 import logging
 LOG = logging.getLogger(__name__)
 
+
 class Expression(Printable):
     __metaclass__ = ABCMeta
     literals = None
@@ -45,7 +46,8 @@ class Expression(Printable):
     def walk(self):
         """Visit the nodes in an expression tree.
 
-        The return value is an iterator over the tree nodes.  The order is unspecified.
+        The return value is an iterator over the tree nodes.  The order is
+        unspecified.
         """
         yield self
 
@@ -85,6 +87,7 @@ class Expression(Printable):
 class ZeroaryOperator(Expression):
     def __init__(self):
         pass
+
     def __eq__(self, other):
         return self.__class__ == other.__class__
 
@@ -102,6 +105,7 @@ class ZeroaryOperator(Expression):
 
     def walk(self):
         yield self
+
 
 class UnaryOperator(Expression):
     def __init__(self, input):
@@ -137,13 +141,15 @@ class UnaryOperator(Expression):
         self.input.accept(visitor)
         visitor.visit(self)
 
+
 class BinaryOperator(Expression):
     def __init__(self, left, right):
         self.left = left
         self.right = right
 
     def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.left == other.left and self.right == other.right
+        return self.__class__ == other.__class__ and \
+            self.left == other.left and self.right == other.right
 
     def __hash__(self):
         return hash(self.__class__) + hash(self.left) + hash(self.right)
@@ -166,10 +172,11 @@ class BinaryOperator(Expression):
         self.right = f(self.right)
 
     def leftoffset(self, offset):
-        """Add a constant offset to all positional references in the left subtree"""
+        """Add a constant offset to all positional references in the left
+        subtree"""
         # TODO this is a very weird mechanism. It's really: take all terms that
-        # reference the left child and add the offset to them. The implementation
-        # is awkward and, is it correct? Elephant x Rhino!
+        # reference the left child and add the offset to them. The
+        # implementation is awkward and, is it correct? Elephant x Rhino!
         if isinstance(self.left, BinaryOperator):
             self.left.leftoffset(offset)
             self.right.leftoffset(offset)
@@ -177,7 +184,8 @@ class BinaryOperator(Expression):
             self.left.add_offset(offset)
 
     def rightoffset(self, offset):
-        """Add a constant offset to all positional references in the right subtree"""
+        """Add a constant offset to all positional references in the right
+        subtree"""
         # TODO see leftoffset
         if isinstance(self.right, BinaryOperator):
             self.left.rightoffset(offset)
@@ -200,8 +208,10 @@ class BinaryOperator(Expression):
         self.right.accept(visitor)
         visitor.visit(self)
 
+
 class NaryOperator(Expression):
     pass
+
 
 class Literal(ZeroaryOperator):
     def __init__(self, value):
@@ -233,11 +243,14 @@ class Literal(ZeroaryOperator):
     def apply(self, f):
         pass
 
+
 class StringLiteral(Literal):
     pass
 
+
 class NumericLiteral(Literal):
     pass
+
 
 class AttributeRef(Expression):
     def evaluate(self, _tuple, scheme, state=None):
@@ -246,13 +259,15 @@ class AttributeRef(Expression):
 
     @abstractmethod
     def get_position(self, scheme, state_scheme=None):
-        """Return the position of the referenced attribute in the given scheme"""
+        """Return the position of the referenced attribute in the given
+        scheme"""
 
     def apply(self, f):
         pass
 
     def walk(self):
         yield self
+
 
 class NamedAttributeRef(AttributeRef):
     def __init__(self, attributename):
@@ -267,6 +282,7 @@ class NamedAttributeRef(AttributeRef):
     def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
 
+
 class UnnamedAttributeRef(AttributeRef):
     def __init__(self, position):
         self.position = position
@@ -280,16 +296,19 @@ class UnnamedAttributeRef(AttributeRef):
     def get_position(self, scheme, state_scheme=None):
         return self.position
 
+
 class StateRef(Expression):
     def evaluate(self, _tuple, scheme, state=None):
         return _tuple[self.get_position(scheme, state.scheme)]
 
     @abstractmethod
     def get_position(self, scheme, state_scheme):
-        """Return the position of the referenced attribute in the given scheme"""
+        """Return the position of the referenced attribute in the given
+        scheme"""
 
     def apply(self, f):
         pass
+
 
 class UnnamedStateAttributeRef(StateRef):
     def __init__(self, position):
@@ -303,6 +322,7 @@ class UnnamedStateAttributeRef(StateRef):
 
     def evaluate(self, _tuple, scheme, state):
         return state.values[self.position]
+
 
 class NamedStateAttributeRef(StateRef):
     def __init__(self, attributename):
@@ -320,8 +340,10 @@ class NamedStateAttributeRef(StateRef):
     def get_position(self, scheme, state_scheme):
         return state_scheme.getPosition(self.name)
 
+
 class UDF(NaryOperator):
     pass
+
 
 class PLUS(BinaryOperator):
     literals = ["+"]
@@ -330,12 +352,14 @@ class PLUS(BinaryOperator):
         return (self.left.evaluate(_tuple, scheme, state) +
                 self.right.evaluate(_tuple, scheme, state))
 
+
 class MINUS(BinaryOperator):
     literals = ["-"]
 
     def evaluate(self, _tuple, scheme, state=None):
         return (self.left.evaluate(_tuple, scheme, state) -
                 self.right.evaluate(_tuple, scheme, state))
+
 
 class DIVIDE(BinaryOperator):
     literals = ["/"]
@@ -352,6 +376,7 @@ class TIMES(BinaryOperator):
         return (self.left.evaluate(_tuple, scheme, state) *
                 self.right.evaluate(_tuple, scheme, state))
 
+
 class TYPE(ZeroaryOperator):
     def __init__(self, rtype):
         self.type = rtype
@@ -362,15 +387,18 @@ class TYPE(ZeroaryOperator):
     def evaluate(self, _tuple, scheme, state=None):
         raise Exception("Cannot evaluate this expression operator")
 
+
 class FLOAT_CAST(UnaryOperator):
     def evaluate(self, _tuple, scheme, state=None):
         return float(self.input.evaluate(_tuple, scheme, state))
+
 
 class NEG(UnaryOperator):
     literals = ["-"]
 
     def evaluate(self, _tuple, scheme, state=None):
         return -1 * self.input.evaluate(_tuple, scheme, state)
+
 
 class Unbox(ZeroaryOperator):
     def __init__(self, relational_expression, field):

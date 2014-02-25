@@ -3,6 +3,7 @@
 import subprocess
 import unittest
 
+
 class CliTest(unittest.TestCase):
 
     def test_cli(self):

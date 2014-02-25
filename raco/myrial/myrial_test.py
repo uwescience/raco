@@ -5,6 +5,7 @@ import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 
+
 class MyrialTestCase(unittest.TestCase):
 
     def setUp(self):
