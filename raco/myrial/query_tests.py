@@ -1233,3 +1233,13 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [(x[0],) for x in self.emp_table.elements()
              if x[1] == 2 and x[3] == 5000])
         self.check_result(query, expected)
+
+    def test_scan_emp_empty_expression(self):
+        """Test with an empty expression."""        
+        query = """
+        ;;;
+        emp = SCAN(%s);
+        STORE(emp, OUTPUT);;;
+        """ % self.emp_key
+
+        self.check_result(query, self.emp_table)
