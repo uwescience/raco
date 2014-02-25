@@ -220,6 +220,11 @@ class Parser(object):
         'statement : ID EQUALS rvalue SEMI'
         p[0] = ('ASSIGN', p[1], p[3])
 
+    @staticmethod
+    def p_statement_empty(p):
+        'statement : SEMI'
+        p[0] = None # stripped out by parse
+
     # expressions must be embeddable in other expressions; certain constructs
     # are not embeddable, but are available as r-values in an assignment
     @staticmethod
