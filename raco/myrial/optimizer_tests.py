@@ -156,7 +156,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         U = [FROM T AS T1, T AS T2, T AS T3
              WHERE T1.dst==T2.src AND T2.dst==T3.src
              EMIT T1.src AS x, T3.dst AS y];
-        DUMP(U);
+        STORE(U, OUTPUT);
         """
 
         statements = self.parser.parse(query)
@@ -170,7 +170,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.db.evaluate(pp)
 
-        result = self.db.get_temp_table('__OUTPUT0__')
+        result = self.db.get_table('OUTPUT')
         self.assertEquals(result, self.expected2)
 
     def test_right_deep_join(self):

@@ -47,7 +47,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
     def test_unionall(self):
         query = """
         out = UNIONALL(SCAN(%s), SCAN(%s));
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key1, self.emp_key2)
 
         expected = self.emp_table1 + self.emp_table2
@@ -56,7 +56,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
     def test_diff1(self):
         query = """
         out = DIFF(SCAN(%s), SCAN(%s));
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key1, self.emp_key2)
 
         expected = self.emp_table1 - self.emp_table2
@@ -65,7 +65,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
     def test_diff2(self):
         query = """
         out = DIFF(SCAN(%s), SCAN(%s));
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key2, self.emp_key1)
 
         expected = self.emp_table2 - self.emp_table1
@@ -74,7 +74,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
     def test_intersect1(self):
         query = """
         out = INTERSECT(SCAN(%s), SCAN(%s));
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key1, self.emp_key2)
 
         expected = self.emp_table1 & self.emp_table2
@@ -83,7 +83,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
     def test_intersect2(self):
         query = """
         out = INTERSECT(SCAN(%s), SCAN(%s));
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key2, self.emp_key1)
 
         expected = self.emp_table2 & self.emp_table1

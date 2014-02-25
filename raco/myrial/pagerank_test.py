@@ -48,8 +48,8 @@ class PageRankTest(myrial_test.MyrialTestCase):
                        PageRankTest.vertex_table,
                        PageRankTest.vertex_schema)
 
-    def test_pagerank(self):
-        with open('examples/pagerank.myl') as fh:
+    def __do_test(self, phile):
+        with open(phile) as fh:
             query = fh.read()
 
         result = self.execute_query(query)
@@ -60,3 +60,18 @@ class PageRankTest(myrial_test.MyrialTestCase):
         self.assertAlmostEqual(d[2], 0.18370688939571236)
         self.assertAlmostEqual(d[3], 0.3016893082129546)
         self.assertAlmostEqual(d[4], 0.11339423756941983)
+
+    def test_pagerank(self):
+        self.__do_test('examples/pagerank.myl')
+
+    def verify_undefined(self, var):
+        with self.assertRaises(KeyError):
+            self.db.get_temp_table(var)
+
+    def test_pagerank_deadcode(self):
+        """Test of page rank with numerous dead code statements."""
+        self.__do_test('examples/pagerank_dead.myl')
+
+        # Verify that D0, D1 tables are compiled out
+        self.verify_undefined("D0")
+        self.verify_undefined("D1")

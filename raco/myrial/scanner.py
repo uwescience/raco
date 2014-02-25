@@ -6,11 +6,11 @@ import raco.myrial.exceptions
 
 # identifiers with special meaning; case-insensitive
 reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
-            'INTERSECT', 'DUMP', 'WHILE', 'INT', 'STRING', 'FLOAT', 'DO',
-            'DISTINCT', 'SCAN', 'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR',
-            'NOT', 'MAX', 'MIN', 'SUM', 'COUNT', 'ABS', 'CEIL', 'COS', 'FLOOR',
-            'LOG', 'SIN', 'SQRT', 'TAN', 'AVG', 'STDEV', 'POW', 'EMPTY',
-            'SELECT', 'AS', 'DEF', 'APPLY']
+            'INTERSECT', 'WHILE', 'INT', 'STRING', 'FLOAT', 'DO', 'DISTINCT',
+            'SCAN', 'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'MAX',
+            'MIN', 'SUM', 'COUNT', 'ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN',
+            'SQRT', 'TAN', 'AVG', 'STDEV', 'POW', 'EMPTY', 'SELECT', 'AS',
+            'DEF', 'APPLY']
 
 # Token types; required by ply to have this variable name
 

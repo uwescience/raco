@@ -60,7 +60,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
                        AND E2.src==E1.dst
                        AND E1.src < E1.dst
                      EMIT E1.src AS src, E1.dst AS dst];
-        Dump(Symmetric);
+        STORE(Symmetric, OUTPUT);
         """
         table = ReachableTest.edge_table
         expected = collections.Counter(

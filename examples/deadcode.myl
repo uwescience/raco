@@ -1,0 +1,13 @@
+-- Begin dead code block
+X = [3.14159 AS y, 3 AS id, 4 AS x];
+Y = SCAN(public:adhoc:points);
+Z = SCAN(public:adhoc:points);
+
+X = [FROM X,Y WHERE X.y == Y.y EMIT X.id, Y.x, X.y];
+X = DISTINCT(X);
+X = UNIONALL(X, Y);
+-- End dead code block
+
+X = SCAN(public:adhoc:points);
+Q = UNIONALL(X, Z);
+STORE(Q, OUTPUT);

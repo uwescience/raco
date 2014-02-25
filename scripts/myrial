@@ -18,9 +18,16 @@ import sys
 
 def print_pretty_plan(plan, indent=0):
     if isinstance(plan, algebra.DoWhile):
-        print '%s%s' % (' ' * indent, plan.shortStr())
-        print_pretty_plan(plan.left, indent + 4)
-        print_pretty_plan(plan.right, indent + 4)
+        children = plan.children()
+        body = children[:-1]
+        term = children[-1]
+
+        spc = ' ' * indent
+        print '%sDO' % spc
+        for op in body:
+            print_pretty_plan(op, indent + 4)
+        print '%sWHILE' % spc
+        print_pretty_plan(term, indent + 4)
     elif isinstance(plan, algebra.Sequence):
         print '%s%s' % (' ' * indent, plan.shortStr())
         for child in plan.children():

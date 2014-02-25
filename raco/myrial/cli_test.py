@@ -9,4 +9,5 @@ class CliTest(unittest.TestCase):
     def test_cli(self):
         out = subprocess.check_output(['python', 'scripts/myrial',
                                        'examples/reachable.myl'])
-        self.assertIn('DoWhile', out)
+        self.assertIn('DO', out)
+        self.assertIn('WHILE', out)

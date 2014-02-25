@@ -14,4 +14,4 @@ DO
     continue = [FROM NewBad EMIT COUNT(NewBad.v) > 0];
 WHILE continue;
 
-DUMP(Good);
+STORE(Good, OUTPUT);

@@ -19,7 +19,7 @@ class EmptyAggregateTests(myrial_test.MyrialTestCase):
         query = """
         W = EMPTY(v:int);
         X = [FROM W EMIT COUNT(v)];
-        DUMP(X);
+        STORE(X, OUTPUT);
         """
 
         self.check_result(query, collections.Counter([(0,)]))
@@ -28,7 +28,7 @@ class EmptyAggregateTests(myrial_test.MyrialTestCase):
         query = """
         W = EMPTY(v:int);
         X = [FROM W EMIT SUM(v)];
-        DUMP(X);
+        STORE(X, OUTPUT);
         """
 
         self.check_result(query, collections.Counter([(0,)]))
