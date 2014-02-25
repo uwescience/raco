@@ -11,7 +11,7 @@ class FakeDatabase(object):
     """An in-memory implementation of relational algebra operators"""
 
     def __init__(self):
-        # Map from relation names (strings) to tuples of (Bag, scheme.Scheme)
+        # Map from relation keys to tuples of (Bag, scheme.Scheme)
         self.tables = {}
 
         # Map from relation names to bags; schema is tracked by the runtime.
@@ -42,6 +42,19 @@ class FakeDatabase(object):
 
         (_, scheme) = self.tables[rel_key]
         return scheme
+
+    def get_table(self, rel_key):
+        """Retrieve the contents of table.
+
+        :param rel_key: The key of the relation
+        :type rel_key: relation_key.RelationKey
+        :returns: A collections.Counter instance containing tuples.
+        """
+        if isinstance(rel_key, str):
+            rel_key = relation_key.RelationKey.from_string(rel_key)
+        assert isinstance(rel_key, relation_key.RelationKey)
+        (contents, scheme) = self.tables[rel_key]
+        return contents
 
     def get_temp_table(self, key):
         return self.temp_tables[key]
@@ -180,13 +193,18 @@ class FakeDatabase(object):
     def dowhile(self, op):
         i = 0
 
+        children = op.children()
+        body_ops = children[:-1]
+        term_op = children[-1]
+
         if debug:
             print '---------- Values at top of do/while -----'
             self.dump_all()
 
         while True:
-            self.evaluate(op.left)
-            result_iterator = self.evaluate(op.right)
+            for op in body_ops:
+                self.evaluate(op)
+            result_iterator = self.evaluate(term_op)
 
             if debug:
                 i += 1

@@ -3,6 +3,7 @@ from raco import scheme
 from raco.utility import emit, emitlist, Printable
 
 from abc import ABCMeta, abstractmethod, abstractproperty
+import copy
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -282,9 +283,17 @@ class BinaryOperator(Operator):
 
 class NaryOperator(Operator):
     """Operator with N arguments.  e.g., multi-way joins in one step."""
-    def __init__(self, args):
-        self.args = args
+    def __init__(self, args=None):
         Operator.__init__(self)
+
+        if args is None:
+            self.args = []
+        else:
+            self.args = args
+
+    def add(self, op):
+        """Add a child operator to the end of the child argument list."""
+        self.args.append(op)
 
     def compile(self, resultsym):
         """Compile this plan.  Result sym is the variable name to use to hold the result of this operator."""
@@ -931,7 +940,7 @@ class ScanTemp(ZeroaryOperator):
 
 class Sequence(NaryOperator):
     """Execute a sequence of plans in serial order."""
-    def __init__(self, ops):
+    def __init__(self, ops=None):
         NaryOperator.__init__(self, ops)
 
     def shortStr(self):
@@ -941,24 +950,34 @@ class Sequence(NaryOperator):
         """Sequence does not return any tuples."""
         return None
 
-
-class DoWhile(BinaryOperator):
-    def __init__(self, body_op, term_op):
+class DoWhile(Sequence):
+    def __init__(self, ops=None):
         """Repeatedly execute a sequence of plans until a termination condtion.
 
-        body_op is an operation with no output.
-
-        term_op is an operation that should map to a single row, single column
-        relation.  The loop continues if its value is True.
+        :params ops: A list of operations to execute in serial.  By convention,
+        the last operation is the termination condition.  The termination condition
+        should map to a single row, single column relation.  The loop continues if
+        its value is True.
         """
-        BinaryOperator.__init__(self, body_op, term_op)
+        Sequence.__init__(self, ops)
 
     def shortStr(self):
         return self.opname()
 
-    def scheme(self):
-        """Do/While does not return any tuples."""
-        return None
+def inline_operator(dest_op, var, target_op):
+    """Convert two operator trees into one by inlining.
+
+    :param dest_op: The Operator that is the inline destination
+    :param var: The variable name (String) to replace.
+    :param target_op: The operation to replace.
+    """
+    def rewrite_node(node):
+        if isinstance(node, ScanTemp) and node.name == var:
+            return copy.copy(target_op)
+        else:
+            return node.apply(rewrite_node)
+
+    return rewrite_node(dest_op)
 
 def attribute_references(condition):
     """Generates a list of attributes referenced in the condition"""

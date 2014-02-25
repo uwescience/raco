@@ -70,7 +70,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_scan_emp(self):
         query = """
         emp = SCAN(%s);
-        DUMP(emp);
+        STORE(emp, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.emp_table)
@@ -78,7 +78,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_scan_dept(self):
         query = """
         dept = SCAN(%s);
-        DUMP(dept);
+        STORE(dept, OUTPUT);
         """ % self.dept_key
 
         self.check_result(query, self.dept_table)
@@ -87,7 +87,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         bc = [FROM emp EMIT *];
-        DUMP(bc);
+        STORE(bc, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.emp_table)
@@ -96,7 +96,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         bc = [FROM emp EMIT emp.*];
-        DUMP(bc);
+        STORE(bc, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.emp_table)
@@ -106,7 +106,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         dept = SCAN(%s);
         x = [FROM dept, emp as X EMIT 5, X.salary * 2 AS k, X.*, *];
-        DUMP(x);
+        STORE(x, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         expected = [(5, e[3] * 2) + e + d + e for e in self.emp_table
@@ -116,7 +116,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     salary_filter_query = """
     emp = SCAN(%s);
     rich = [FROM emp WHERE %s > 25 * 10 * 10 * (5 + 5) EMIT *];
-    DUMP(rich);
+    STORE(rich, OUTPUT);
     """
 
     salary_expected_result = collections.Counter(
@@ -135,7 +135,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         poor = [FROM emp WHERE $3 < (5 * 2) EMIT *];
-        DUMP( poor);
+        STORE(poor, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter()
@@ -145,7 +145,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE 2 * $1 >= $0 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -156,7 +156,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $1 <= 2 * $0 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -167,7 +167,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE 2 * $1 > $0 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -178,7 +178,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $1 < 2 * $0 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -189,7 +189,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $0 * 2 == $1 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -200,7 +200,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $0 / $1 != $1 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -211,7 +211,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $0 / $1 <> $1 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -222,7 +222,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $0 + -$1 == $1 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -233,7 +233,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == 25000 AND id > dept_id EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -245,7 +245,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $3 > 25 * 1000 OR id > dept_id EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -257,7 +257,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE not salary > 25000 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -269,7 +269,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == 25000 OR salary == 5000 AND
         dept_id == 1 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -282,7 +282,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == 25000 OR NOT salary == 5000 AND
         dept_id == 1 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -294,7 +294,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE dept_id == 1 EMIT $2, salary AS salary];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -305,7 +305,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp EMIT salary, "bugga bugga"];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -318,7 +318,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         out = [FROM emp EMIT salary + 5000, salary - 5000, salary / 5000,
         salary * 5000];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -331,7 +331,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         out = [FROM emp EMIT name, salary * 2 AS double_salary];
         out = [FROM out WHERE double_salary > 10000 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -355,7 +355,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         dept = SCAN(%s);
         out = JOIN(emp, dept_id, dept, id);
         out = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
@@ -364,7 +364,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         out = [FROM SCAN(%s) E, SCAN(%s) AS D WHERE E.dept_id == D.id
               EMIT E.name AS emp_name, D.name AS dept_name];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
@@ -375,7 +375,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         D = SCAN(%s);
         out = [FROM E, D WHERE E.$1 == D.$0
               EMIT E.name AS emp_name, D.$1 AS dept_name];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
@@ -387,7 +387,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         E = SCAN(%s);
         D = SCAN(%s);
         out = SELECT E.name, D.name FROM E, D WHERE E.dept_id = D.id;
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
@@ -398,7 +398,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         out = [FROM (SELECT name, salary FROM SCAN(%s) AS X WHERE salary > 5000)
                AS Y WHERE salary < 80000 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key,)
 
         tuples = [(e[2], e[3]) for e in self.emp_table.elements()
@@ -414,7 +414,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         out = SELECT Y.name, Y.salary FROM
                (SELECT name, salary FROM SCAN(%s) AS X WHERE salary > 5000)
                AS Y WHERE Y.salary < 80000;
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key,)
 
         tuples = [(e[2], e[3]) for e in self.emp_table.elements()
@@ -430,7 +430,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         out = SELECT Y.name, Y.salary FROM
                 [FROM SCAN(%s) AS X WHERE salary > 5000 EMIT X.*] AS Y
                 WHERE Y.salary < 80000;
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key,)
 
         tuples = [(e[2], e[3]) for e in self.emp_table.elements()
@@ -445,7 +445,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         E = SCAN(%s);
         F = [FROM E EMIT $2];
         out = [FROM F EMIT name];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key,)
 
         tpls = [tuple([x[2]]) for x in self.emp_table]
@@ -458,7 +458,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         E = SCAN(%s);
         F = [FROM E EMIT salary*E.salary];
         out = [FROM F EMIT $0];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key,)
 
         tpls = [tuple([x[3]* x[3]]) for x in self.emp_table]
@@ -468,7 +468,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_explicit_cross(self):
         query = """
         out = CROSS(SCAN(%s), SCAN(%s));
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         tuples = [e + d for e in self.emp_table.elements() for
@@ -480,7 +480,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_bagcomp_cross(self):
         query = """
         out = [FROM SCAN(%s) E, SCAN(%s) AS D EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """  % (self.emp_key, self.dept_key)
 
         tuples = [e + d for e in self.emp_table.elements() for
@@ -492,7 +492,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_distinct(self):
         query = """
         out = DISTINCT([FROM SCAN(%s) AS X EMIT salary]);
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter([(25000,),(5000,),(90000,)])
@@ -501,7 +501,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_sql_distinct(self):
         query = """
         out = SELECT DISTINCT salary AS salary FROM SCAN(%s) AS X;
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(set([(x[3],) for x in self.emp_table]))
@@ -510,7 +510,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_sql_repeated(self):
         query = """
         out = SELECT salary AS salary FROM SCAN(%s) AS X;
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter([(x[3],) for x in self.emp_table])
@@ -519,7 +519,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_limit(self):
         query = """
         out = LIMIT(SCAN(%s), 3);
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         result = self.execute_query(query)
@@ -529,7 +529,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_sql_limit(self):
         query = """
         out = SELECT * FROM SCAN(%s) as X LIMIT 3;
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         result = self.execute_query(query)
@@ -538,7 +538,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_table_literal_scalar_expression(self):
         query = """
         X = [FROM ["Andrew", (50 * (500 + 500)) AS salary] Z EMIT salary];
-        DUMP(X);
+        STORE(X, OUTPUT);
         """
         expected = collections.Counter([(50000,)])
         self.check_result(query, expected)
@@ -548,7 +548,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         A = [1 AS one, 2 AS two, 3 AS three];
         B = [1 AS one, 2 AS two, 3 AS three];
         C = [*A.two * *B.three];
-        DUMP(C);
+        STORE(C, OUTPUT);
         """
         expected = collections.Counter([(6,)])
         self.check_result(query, expected)
@@ -558,7 +558,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         TH = [25 * 1000];
         emp = SCAN(%s);
         out = [FROM emp WHERE $3 > *TH EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -573,7 +573,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         emp = SCAN(%s);
         out = [FROM emp WHERE *EIGHT == *TWO**FOUR EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.emp_table)
@@ -585,7 +585,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == *CONST.twenty_five *
         *CONST.thousand EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -600,7 +600,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         out = [FROM emp WHERE salary == *CONST.$0 *
         *CONST.$1 EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -613,7 +613,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         THOUSAND = [1000];
         emp = SCAN(%s);
         out = [FROM emp EMIT salary * *THOUSAND AS salary];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -628,7 +628,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         out = [FROM emp WHERE salary==*C1.a * *C2.b OR $3==*C1.b * *C2
                EMIT dept_id * *C1.b / *C2.a];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
@@ -641,7 +641,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         dept = SCAN(%s);
         out = [FROM emp WHERE id > *COUNTALL(dept) EMIT emp.id];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         expected = collections.Counter(
@@ -654,7 +654,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         dept = SCAN(%s);
         out = [FROM emp WHERE id > *[1,2,3].$2 EMIT emp.id];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         expected = collections.Counter(
@@ -674,7 +674,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_max(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT dept_id, MAX(salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(max))
@@ -682,7 +682,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_min(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT dept_id, MIN(salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(min))
@@ -690,7 +690,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_sum(self):
         query = """
         out = [FROM SCAN(%s) as X EMIT dept_id, SUM(salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(sum))
@@ -698,7 +698,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_avg(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT dept_id, AVG(salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         def avg(it):
@@ -714,7 +714,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_stdev(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT STDEV(salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         res = self.execute_query(query)
@@ -724,7 +724,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_count(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT dept_id, COUNT(salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
@@ -732,7 +732,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_countall(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT dept_id, COUNTALL()];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
@@ -740,7 +740,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_count_star(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT dept_id, COUNT(*)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
@@ -748,7 +748,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_count_star_sql(self):
         query = """
         out = SELECT dept_id, COUNT(*) FROM SCAN(%s) AS X;
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
@@ -756,7 +756,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_max_reversed(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT MAX(salary) AS max_salary, dept_id];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         ex = self.__aggregate_expected_result(max)
@@ -768,7 +768,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         out = [FROM SCAN(%s) AS X EMIT ( 2 * (MAX(salary) - MIN(salary))) AS range,
         dept_id AS did];
         out = [FROM out EMIT did AS dept_id, range AS rng];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         result_dict = collections.defaultdict(list)
@@ -788,7 +788,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
               EMIT MAX(*C.two * salary) - MIN( *C.$1 * salary) AS range,
                    dept_id AS did];
         out = [FROM out EMIT did AS dept_id, range AS rng];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         result_dict = collections.defaultdict(list)
@@ -804,7 +804,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_nary_groupby(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT dept_id, salary, COUNT(name)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         result_dict = collections.defaultdict(list)
@@ -819,7 +819,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_empty_groupby(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT MAX(salary), COUNT($0), MIN(dept_id*4)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter([(90000, len(self.emp_table), 4)])
@@ -828,7 +828,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_compound_groupby(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id+dept_id, AVG(salary), COUNT(salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         result_dict = collections.defaultdict(list)
@@ -850,7 +850,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                X.dept_id AS did];
 
         out = [FROM out EMIT did AS dept_id, val AS rng];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         result_dict = collections.defaultdict(list)
@@ -870,7 +870,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         out = [FROM SCAN(%s) AS X EMIT ( *TWO * (MAX(salary) - MIN(salary))) AS range,
         dept_id AS did];
         out = [FROM out EMIT did AS dept_id, range AS rng];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         result_dict = collections.defaultdict(list)
@@ -888,7 +888,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         out = [FROM SCAN(%s) AS X EMIT
                X.dept_id + COUNT(X.salary) AS val];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         with self.assertRaises(
@@ -898,7 +898,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_nested_aggregates_are_illegal(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id+dept_id, MIN(53 + MAX(salary)) AS foo];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
@@ -907,7 +907,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_standalone_countall(self):
         query = """
         out = COUNTALL(SCAN(%s));
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter([(len(self.emp_table),)])
@@ -922,7 +922,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         out = [FROM SCAN(%s) AS E, SCAN(%s) AS D
                WHERE E.dept_id == D.id AND D.name == *Dept
                AND E.salary < *Salary EMIT E.$2 AS name];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         expected = collections.Counter([
@@ -935,7 +935,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         X = SCAN(%s);
         out = [FROM X, X EMIT *];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key,)
 
         with self.assertRaises(interpreter.DuplicateAliasException):
@@ -947,7 +947,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         D = SCAN(%s);
         out = [FROM E, D WHERE E.$1 == D.$77
               EMIT E.name AS emp_name, D.$1 AS dept_name];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         with self.assertRaises(raco.myrial.exceptions.ColumnIndexOutOfBounds):
@@ -956,7 +956,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_abs(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id, ABS(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.numbers_key
 
         expected = collections.Counter(
@@ -966,7 +966,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_ceil(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id, CEIL(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.numbers_key
 
         expected = collections.Counter(
@@ -976,7 +976,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_cos(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id, COS(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.numbers_key
 
         expected = collections.Counter(
@@ -986,7 +986,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_floor(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id, FLOOR(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.numbers_key
 
         expected = collections.Counter(
@@ -996,7 +996,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_log(self):
         query = """
         out = [FROM SCAN(%s) AS X WHERE val > 0 EMIT id, LOG(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.numbers_key
 
         expected = collections.Counter(
@@ -1007,7 +1007,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_sin(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id, SIN(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.numbers_key
 
         expected = collections.Counter(
@@ -1017,7 +1017,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_sqrt(self):
         query = """
         out = [FROM SCAN(%s) X WHERE val >= 0 EMIT id, SQRT(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.numbers_key
 
         expected = collections.Counter(
@@ -1028,7 +1028,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_tan(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id, TAN(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.numbers_key
 
         expected = collections.Counter(
@@ -1039,7 +1039,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         THREE = [3];
         out = [FROM SCAN(%s) X EMIT id, POW(X.val, *THREE)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.numbers_key
 
         expected = collections.Counter(
@@ -1049,7 +1049,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_no_such_relation(self):
         query = """
         out = [FROM SCAN(foo:bar:baz) x EMIT id, TAN(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """
 
         with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):
@@ -1058,7 +1058,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_scan_error(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id, !!!FROG(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
@@ -1067,7 +1067,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_parse_error(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT $(val)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
@@ -1076,7 +1076,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_no_such_udf(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT FooFunction(X.salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.NoSuchFunctionException):
@@ -1089,7 +1089,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DEF foo(x): -1 * x;
 
         out = [FROM SCAN(%s) AS X EMIT foo(X.salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.DuplicateFunctionDefinitionException):
@@ -1099,7 +1099,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         DEF Foo(x, y): cos(x) * sin(y);
         out = [FROM SCAN(%s) AS X EMIT Foo(X.salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.InvalidArgumentList):
@@ -1109,7 +1109,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         DEF Foo(x, y): cos(x) * sin(z);
         out = [FROM SCAN(%s) AS X EMIT Foo(X.salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.UndefinedVariableException):
@@ -1119,7 +1119,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         DEF Foo(x, x): cos(x) * sin(x);
         out = [FROM SCAN(%s) AS X EMIT Foo(X.salary, X.dept_id)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         with self.assertRaises(raco.myrial.exceptions.DuplicateVariableException):
@@ -1130,7 +1130,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DEF Triangle(a,b): (a*b)/2;
 
         out = [FROM SCAN(%s) AS X EMIT id, Triangle(X.salary, dept_id) AS t];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter([(t[0], t[1] * t[3] / 2) for t in self.emp_table])
@@ -1143,7 +1143,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DEF Noop(): %s;
 
         out = [Noop() AS t];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % expr
 
         val = eval(expr)
@@ -1155,7 +1155,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DEF Add7(x): x + 7;
         DEF Add6(x): x + 6;
         out = [FROM SCAN(%s) AS X EMIT id, Add6(Add7(Add6(X.salary)))];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter([(t[0], t[3] +19) for t in self.emp_table])
@@ -1166,7 +1166,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DEF Add7(x): x + 7;
         DEF Add10(x): Add7(x) + 3;
         out = [FROM SCAN(%s) AS X EMIT id, Add10(X.salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter([(t[0], t[3] + 10) for t in self.emp_table])
@@ -1180,7 +1180,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             _sum / _count;
         };
         out = [FROM SCAN(%s) AS X EMIT id, RunningMean(X.salary)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         tps = []
@@ -1201,7 +1201,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             _sum;
         };
         out = [FROM SCAN(%s) AS X EMIT id, RunningSum(X.salary), RunningSum(id)];
-        DUMP(out);
+        STORE(out, OUTPUT);
         """ % self.emp_key
 
         tps = []
@@ -1213,3 +1213,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             tps.append((emp[0], _sum1, _sum2))
 
         self.check_result(query, collections.Counter(tps))
+
+    def test_118_regression(self):
+        """Regression test for https://github.com/uwescience/datalogcompiler/issues/118"""
+        query = """
+        out = [FROM SCAN(%s) AS X WHERE dept_id = 2 AND salary = 5000 EMIT id];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[0],) for x in self.emp_table.elements() if x[1] == 2 and x[3] == 5000])
+        self.check_result(query, expected)
+

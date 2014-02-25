@@ -80,7 +80,7 @@ class Parser(object):
             ('left', 'OR'),
             ('left', 'AND'),
             ('right', 'NOT'),
-            ('left', 'EQ', 'NE', 'GT', 'LT', 'LE', 'GE'),
+            ('left', 'EQ', 'EQUALS', 'NE', 'GT', 'LT', 'LE', 'GE'),
             ('left', 'PLUS', 'MINUS'),
             ('left', 'TIMES', 'DIVIDE'),
             ('right', 'UMINUS'), # Unary minus operator (for negative numbers)
@@ -223,11 +223,6 @@ class Parser(object):
         """rvalue : expression
                   | select_from_where"""
         p[0] = p[1]
-
-    @staticmethod
-    def p_statement_dump(p):
-        'statement : DUMP LPAREN ID RPAREN SEMI'
-        p[0] = ('DUMP', p[3])
 
     @staticmethod
     def p_statement_list(p):

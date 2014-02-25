@@ -5,7 +5,7 @@ import raco.fakedb
 from raco import RACompiler
 from raco.language import MyriaAlgebra
 from raco.myrialang import compile_to_json
-
+from raco.relation_key import RelationKey
 
 class DatalogTestCase(unittest.TestCase):
 
@@ -33,9 +33,9 @@ class DatalogTestCase(unittest.TestCase):
         assert json_string
 
         op = dlog.physicalplan[0][1]
-        output_op = raco.algebra.StoreTemp('__OUTPUT__', op)
+        output_op = raco.algebra.Store(RelationKey.from_string('__OUTPUT__'), op)
         self.db.evaluate(output_op)
-        return self.db.get_temp_table('__OUTPUT__')
+        return self.db.get_table('__OUTPUT__')
 
     def check_result(self, query, expected):
         '''Execute a test query with an expected output'''

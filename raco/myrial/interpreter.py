@@ -1,5 +1,6 @@
 import raco.myrial.groupby as groupby
 import raco.myrial.multiway as multiway
+from raco.myrial.cfg import ControlFlowGraph
 import raco.algebra
 import raco.expression
 import raco.catalog
@@ -24,9 +25,6 @@ class InvalidStatementException(Exception):
 class NoSuchRelationException(Exception):
     pass
 
-def lookup_symbol(symbols, _id):
-    return copy.copy(symbols[_id])
-
 class ExpressionProcessor(object):
     """Convert syntactic expressions into relational algebra operations."""
     def __init__(self, symbols, catalog, use_dummy_schema=False):
@@ -34,12 +32,26 @@ class ExpressionProcessor(object):
         self.catalog = catalog
         self.use_dummy_schema = use_dummy_schema
 
+        # Variables accesed by the current operation
+        self.uses_set = set()
+
+    def get_and_clear_uses_set(self):
+        """Retrieve the uses set and then clear its value."""
+        try:
+            return self.uses_set
+        finally:
+            self.uses_set = set()
+
     def evaluate(self, expr):
         method = getattr(self, expr[0].lower())
         return method(*expr[1:])
 
+    def __lookup_symbol(self, _id):
+        self.uses_set.add(_id)
+        return copy.copy(self.symbols[_id])
+
     def alias(self, _id):
-        return lookup_symbol(self.symbols, _id)
+        return self.__lookup_symbol(_id)
 
     def scan(self, rel_key):
         """Scan a database table."""
@@ -125,7 +137,7 @@ class ExpressionProcessor(object):
             if expr:
                 from_args[_id] =  self.evaluate(expr)
             else:
-                from_args[_id] = lookup_symbol(self.symbols, _id)
+                from_args[_id] = self.__lookup_symbol(_id)
 
         # Expand wildcards into a list of output columns
         assert emit_clause # There should always be something to emit
@@ -246,14 +258,10 @@ class StatementProcessor(object):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
-        # A sequence of plans to be executed by the database
-        self.output_ops = []
-
         self.catalog = catalog
         self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
 
-        # Unique identifiers for temporary tables created by DUMP operations
-        self.dump_output_id = 0
+        self.cfg = ControlFlowGraph()
 
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
@@ -262,41 +270,72 @@ class StatementProcessor(object):
             method = getattr(self, statement[0].lower())
             method(*statement[1:])
 
-    def __materialize_result(self, _id, expr, op_list):
-        '''Materialize an expression as a temporary table.'''
+    def __evaluate_expr(self, expr, _def):
+        """Evaluate an expression; add a node to the control flow graph.
+
+        :param expr: An expression to evaluate
+        :type expr: Myrial AST tuple
+        :param _def: The variable defined by the expression, or None for non-statements
+        :type _def: string
+        """
+
+        op = self.ep.evaluate(expr)
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, _def, uses_set)
+        return op
+
+    def __do_assignment(self, _id, expr):
+        """Process an assignment statement; add a node to the control flow graph.
+
+        :param _id: The target variable name.
+        :type _id: string
+        :param expr: The relational expression to evaluate
+        :type expr: A Myrial expression AST node tuple
+        """
+
         child_op = self.ep.evaluate(expr)
-        store_op = raco.algebra.StoreTemp(_id, child_op)
-        op_list.append(store_op)
+        op = raco.algebra.StoreTemp(_id, child_op)
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, _id, uses_set)
 
         # Point future references of this symbol to a scan of the
-        # materialized table.
+        # materialized table. Note that this assumes there is no scoping in Myrial.
         self.symbols[_id] = raco.algebra.ScanTemp(_id, child_op.scheme())
 
     def assign(self, _id, expr):
         '''Map a variable to the value of an expression.'''
-
-        # TODO: Apply chaining when it is safe to do so
-        # TODO: implement a leaf optimization to avoid duplicate
-        # scan/insertions
-        self.__materialize_result(_id, expr, self.output_ops)
+        self.__do_assignment(_id, expr)
 
     def store(self, _id, rel_key):
         assert isinstance(rel_key, relation_key.RelationKey)
 
-        child_op = lookup_symbol(self.symbols, _id)
+        alias_expr = ("ALIAS", _id)
+        child_op = self.ep.evaluate(alias_expr)
         op = raco.algebra.Store(rel_key, child_op)
-        self.output_ops.append(op)
 
-    def dump(self, _id):
-        child_op = lookup_symbol(self.symbols, _id)
-        op = raco.algebra.StoreTemp("__OUTPUT%d__" % self.dump_output_id,
-                                    child_op)
-        self.dump_output_id += 1
-        self.output_ops.append(op)
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, None, uses_set)
+
+    def dowhile(self, statement_list, termination_ex):
+        first_op_id = self.cfg.next_op_id # op ID of the top of the loop
+
+        for _type, _id, expr in statement_list:
+            if _type != 'ASSIGN':
+                # TODO: Better error message
+                raise InvalidStatementException('%s not allowed in do/while' %
+                                                _type.lower())
+            self.__do_assignment(_id, expr)
+
+        last_op_id = self.cfg.next_op_id
+
+        self.__evaluate_expr(termination_ex, None)
+
+        # Add a control flow edge from the loop condition to the top of the loop
+        self.cfg.add_edge(last_op_id, first_op_id)
 
     def get_logical_plan(self):
         """Return an operator representing the logical query plan."""
-        return raco.algebra.Sequence(self.output_ops)
+        return self.cfg.get_logical_plan()
 
     def get_physical_plan(self):
         """Return an operator representing the physical query plan."""
@@ -316,16 +355,3 @@ class StatementProcessor(object):
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
         return compile_to_json(str(lp), lp, pps)
-
-    def dowhile(self, statement_list, termination_ex):
-        body_ops = []
-        for _type, _id, expr in statement_list:
-            if _type != 'ASSIGN':
-                # TODO: Better error message
-                raise InvalidStatementException('%s not allowed in do/while' %
-                                                _type.lower())
-            self.__materialize_result(_id, expr, body_ops)
-
-        term_op = self.ep.evaluate(termination_ex)
-        op = raco.algebra.DoWhile(raco.algebra.Sequence(body_ops), term_op)
-        self.output_ops.append(op)
