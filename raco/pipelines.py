@@ -65,7 +65,7 @@ class CompileState:
             # if CSE is turned off then always return None for expression matches
             return None
 
-    def saveExpr(self, sym, expr):
+    def saveExpr(self, expr, sym):
         self.materialized[expr] = sym
 
     def lookupTupleDef(self, sym):

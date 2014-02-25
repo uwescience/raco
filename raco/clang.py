@@ -163,7 +163,7 @@ class MemoryScan(algebra.Scan, CCOperator):
         resultsym = gensym()
 
         code += fs.compileme(resultsym)
-        state.saveExpr(resultsym, fs)
+        state.saveExpr(fs, resultsym)
 
 
     # now generate the scan from memory
@@ -237,7 +237,7 @@ class HashJoin(algebra.Join, CCOperator):
         # call right child produce
         self._hashname = self.__genHashName__()
         LOG.debug("generate hashname %s for %s", self._hashname, self)
-        state.saveExpr(self._hashname, self.right)
+        state.saveExpr(self.right, self._hashname)
         self.right.produce(state)
     else:
         # if found a common subexpression on right child then
@@ -285,9 +285,6 @@ class HashJoin(algebra.Join, CCOperator):
       keypos = self.condition.left.position
       
       right_tuple_name = gensym()
-
-      # or could make up another name
-      #right_tuple_name = CStagedTupleRef.genname() 
 
       outTuple = CStagedTupleRef(gensym(), self.scheme())
       out_tuple_type_def = outTuple.generateDefinition()

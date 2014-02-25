@@ -249,6 +249,11 @@ class CFileScan(algebra.Scan):
         We omit self.schema because the relation_key determines
         the level of equality needed.
 
+        This could break other things, so better may be to
+        make a normalized copy of an expression. This could
+        include simplification but in the case of Scans make
+        the scheme more generic.
+
         @see MemoryScan.__eq__
         """
         return ZeroaryOperator.__eq__(self, other) and \
