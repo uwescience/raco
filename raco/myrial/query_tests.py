@@ -135,7 +135,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         poor = [FROM emp WHERE $3 < (5 * 2) EMIT *];
-        DUMP( poor);
+        STORE(poor, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter()
