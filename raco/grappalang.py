@@ -182,6 +182,9 @@ in_memory_runtime += (end-start);
         rel_decl = rel_decl_template % locals()
         state.addDeclarations([tuple_type_def, rel_decl])
 
+        # now that we have the type, format this in;
+        code = code % {"result_type": tuple_type}
+
 
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
@@ -378,10 +381,13 @@ class GrappaFileScan(clangcommon.CFileScan):
             });
         }
         """
+
+    # C++ type inference cannot infer T in readTuples<T>;
+    # we resolve it later, so use %%
     ascii_scan_template = """
         start = walltime();
         {
-        %(resultsym)s.data = readTuples( "%(name)s", FLAGS_nt);
+        %(resultsym)s.data = readTuples<%%(result_type)s>( "%(name)s", FLAGS_nt);
         %(resultsym)s.numtuples = FLAGS_nt;
         auto l_%(resultsym)s = %(resultsym)s;
         on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
@@ -389,6 +395,7 @@ class GrappaFileScan(clangcommon.CFileScan):
         end = walltime();
         scan_runtime += (end-start);
         """
+
     def __get_ascii_scan_template__(self):
         return self.ascii_scan_template
 
