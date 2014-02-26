@@ -2,6 +2,7 @@
 import collections
 import math
 
+import raco.algebra
 import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.scheme as scheme
@@ -1234,8 +1235,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              if x[1] == 2 and x[3] == 5000])
         self.check_result(query, expected)
 
-    def test_scan_emp_empty_expression(self):
-        """Test with an empty expression."""
+    def test_scan_emp_empty_statement(self):
+        """Test with an empty statement."""
         query = """
         ;;;
         emp = SCAN(%s);
@@ -1243,3 +1244,12 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.check_result(query, self.emp_table)
+
+    def test_empty_statement_parse(self):
+        """Program that contains nothing but empty statements."""
+        query = ";"
+
+        statements = self.parser.parse(";")
+        self.processor.evaluate(statements)
+        plan = self.processor.get_logical_plan()
+        self.assertEquals(plan, raco.algebra.Sequence())
