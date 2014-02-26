@@ -1235,7 +1235,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.check_result(query, expected)
 
     def test_scan_emp_empty_expression(self):
-        """Test with an empty expression."""        
+        """Test with an empty expression."""
         query = """
         ;;;
         emp = SCAN(%s);

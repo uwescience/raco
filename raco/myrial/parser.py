@@ -223,7 +223,7 @@ class Parser(object):
     @staticmethod
     def p_statement_empty(p):
         'statement : SEMI'
-        p[0] = None # stripped out by parse
+        p[0] = None  # stripped out by parse
 
     # expressions must be embeddable in other expressions; certain constructs
     # are not embeddable, but are available as r-values in an assignment
