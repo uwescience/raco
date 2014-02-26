@@ -141,8 +141,9 @@ class CSelect(algebra.Select):
     [_ for _ in self.condition.postorder(getTaggingFunc(t))]
     
     # compile the predicate into code
-    conditioncode, cond_inits = self.language.compile_boolean(self.condition)
+    conditioncode, cond_decls, cond_inits = self.language.compile_boolean(self.condition)
     state.addInitializers(cond_inits)
+    state.addDeclarations(cond_decls)
     
     inner_code_compiled = self.parent.consume(t, self, state)
     

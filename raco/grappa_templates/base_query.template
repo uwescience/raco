@@ -40,7 +40,12 @@ void init( ) {
 
 void query() {
     double start, end;
-    %(initialized)s
+    start = walltime();
+    on_all_cores([=] {
+            %(initialized)s
+            });
+    end = walltime();
+    init_runtime += (end-start);
 
     %(queryexec)s
 }

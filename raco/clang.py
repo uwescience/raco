@@ -110,27 +110,28 @@ class CC(Language):
 
     @classmethod
     def compile_numericliteral(cls, value):
-        return '%s'%(value), []
+        return '%s'%(value), [], []
 
     @classmethod
     def compile_stringliteral(cls, s):
         sid = cls.newstringident()
         init = """auto %s = string_index.string_lookup("%s");""" % (sid, s)
-        return """(%s)""" % sid, [init]
+        return """(%s)""" % sid, [], [init]
         #raise ValueError("String Literals not supported in C language: %s" % s)
 
     @classmethod
     def negation(cls, input):
         innerexpr, inits = input
-        return "(!%s)" % (innerexpr,), inits
+        return "(!%s)" % (innerexpr,), [], inits
 
     @classmethod
     def boolean_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % arg for arg, _ in args])
-        inits = reduce(lambda sofar, x: sofar+x, [d for _, d in args])
+        conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
+        decls = reduce(lambda sofar, x: sofar+x, [d for _, d, _ in args])
+        inits = reduce(lambda sofar, x: sofar+x, [d for _, _, d in args])
         LOG.debug("conjunc: %s", conjunc)
-        return "( %s )" % conjunc, inits
+        return "( %s )" % conjunc, decls, inits
 
     @classmethod
     def compile_attribute(cls, expr):
@@ -139,7 +140,7 @@ class CC(Language):
         if isinstance(expr, expression.UnnamedAttributeRef):
             symbol = expr.tupleref.name
             position = expr.position # NOTE: this will only work in Selects right now
-            return '%s.get(%s)' % (symbol, position), []
+            return '%s.get(%s)' % (symbol, position), [], []
 
 class CCOperator (Pipelined):
     language = CC
