@@ -2,7 +2,7 @@ from raco import expression
 from raco import scheme
 from raco.utility import emit, emitlist, Printable
 
-from abc import ABCMeta, abstractmethod, abstractproperty
+from abc import ABCMeta, abstractmethod
 import copy
 
 import logging
@@ -10,9 +10,12 @@ LOG = logging.getLogger(__name__)
 
 # BEGIN Code to generate variables names
 var_id = 0
+
+
 def reset():
     global var_id
     var_id = 0
+
 
 def gensym():
     global var_id
@@ -20,11 +23,14 @@ def gensym():
     return "V%s" % var_id
 # END Code to generate variables names
 
+
 class RecursionError(ValueError):
     pass
 
+
 class SchemaError(Exception):
     pass
+
 
 class Operator(Printable):
     """Operator base classs"""
@@ -46,8 +52,8 @@ class Operator(Printable):
         """Return the scheme of the tuples output by this operator."""
 
     def postorder(self, f):
-        """Postorder traversal, applying a function to each operator.  The function
-        returns an iterator"""
+        """Postorder traversal, applying a function to each operator.  The
+        function returns an iterator"""
         for c in self.children():
             for x in c.postorder(f):
                 yield x
@@ -55,8 +61,8 @@ class Operator(Printable):
             yield x
 
     def preorder(self, f):
-        """Preorder traversal, applying a function to each operator.  The function
-        returns an iterator"""
+        """Preorder traversal, applying a function to each operator.  The
+        function returns an iterator"""
         for x in f(self):
             yield x
         for c in self.children():
@@ -64,7 +70,8 @@ class Operator(Printable):
                 yield x
 
     def collectParents(self, parent_map=None):
-        """Construct a dict mapping children to parents. Used in optimization"""
+        """Construct a dict mapping children to parents. Used in
+        optimization"""
         if parent_map is None:
             parent_map = {}
         for c in self.children():
@@ -87,7 +94,6 @@ class Operator(Printable):
 
         return h
 
-
     def copy(self, other):
         self._trace = [pair for pair in other.gettrace()]
         self.bound = None
@@ -101,10 +107,12 @@ class Operator(Printable):
 
     def compiletrace(self):
         """Return the trace as a list of strings"""
-        return "".join([self.language.comment("%s=%s" % (k, v)) for k, v in self.gettrace()])
+        return "".join([self.language.comment("%s=%s" % (k, v))
+                        for k, v in self.gettrace()])
 
     def set_alias(self, alias):
-        """Set a user-defined identififer for this operator.  Used in optimization and transformation of plans"""
+        """Set a user-defined identififer for this operator.  Used in
+        optimization and transformation of plans"""
         self.alias = alias
 
     @abstractmethod
@@ -122,12 +130,12 @@ class Operator(Printable):
 
     def collectGraph(self, graph=None):
         """Collects the operator graph for a given query. Input parameter graph
-        has the format { 'nodes' : list(), 'edges' : list() }, initialized to empty
+        has the format {'nodes': list(), 'edges': list()}, initialized to empty
         lists by default. An input graph will be mutated."""
 
         # Initialize graph if necessary
         if graph is None:
-            graph = { 'nodes' : list(), 'edges' : list() }
+            graph = {'nodes': list(), 'edges': list()}
 
         # Cycle detection - continue, but don't re-add this node to the graph
         if id(self) in [id(n) for n in graph['nodes']]:
@@ -138,7 +146,8 @@ class Operator(Printable):
         # Add all edges
         graph['edges'].extend([(x, self) for x in self.children()])
         for x in self.children():
-            # Recursively add children and edges to the graph. This mutates graph
+            # Recursively add children and edges to the graph. This mutates
+            # graph
             x.collectGraph(graph)
 
         # Return the graph
@@ -148,6 +157,7 @@ class Operator(Printable):
         """Return a tuple of (column_name, type) for a given AttributeRef."""
         assert isinstance(ref, expression.AttributeRef)
         return self.scheme().resolve(ref)
+
 
 class ZeroaryOperator(Operator):
     """Operator with no arguments"""
@@ -164,7 +174,8 @@ class ZeroaryOperator(Operator):
         code = self.language.comment("Compiled subplan for %s" % self)
         self.trace("symbol", resultsym)
         if self.bound and self.language.reusescans:
-            code += self.language.new_relation_assignment(resultsym, self.bound)
+            code += self.language.new_relation_assignment(resultsym,
+                                                          self.bound)
         else:
             code += "%s" % (self.compileme(resultsym),)
             #code += self.language.comment("Binding: %s" % resultsym)
@@ -184,6 +195,7 @@ class ZeroaryOperator(Operator):
     def compileme(self, resultsym):
         """Compile this operator, storing its result in resultsym"""
         raise NotImplementedError()
+
 
 class UnaryOperator(Operator):
     """Operator with one argument"""
@@ -231,8 +243,10 @@ class UnaryOperator(Operator):
         Operator.copy(self, other)
 
     def compileme(self, resultsym, inputsym):
-        """Compile this operator with specified input and output symbol names"""
+        """Compile this operator with specified input and output symbol
+        names"""
         raise NotImplementedError()
+
 
 class BinaryOperator(Operator):
     """Operator with two arguments"""
@@ -242,13 +256,16 @@ class BinaryOperator(Operator):
         Operator.__init__(self)
 
     def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.left == other.left and self.right == other.right
+        return (self.__class__ == other.__class__
+                and self.left == other.left
+                and self.right == other.right)
 
     def children(self):
         return [self.left, self.right]
 
     def compile(self, resultsym):
-        """Compile this plan.  Result sym is the variable name to use to hold the result of this operator."""
+        """Compile this plan.  Result sym is the variable name to use to hold
+        the result of this operator."""
         code = self.language.comment("Compiled subplan for %s" % self)
         code += self.language.log("Evaluating subplan %s" % self)
         #TODO: Why is language not an argument?
@@ -257,9 +274,9 @@ class BinaryOperator(Operator):
         else:
             leftsym = gensym()
             rightsym = gensym()
-            code += emit(self.left.compile(leftsym)
-                         , self.right.compile(rightsym)
-                         , self.compileme(resultsym, leftsym, rightsym))
+            code += emit(self.left.compile(leftsym),
+                         self.right.compile(rightsym),
+                         self.compileme(resultsym, leftsym, rightsym))
         return code
 
     def apply(self, f):
@@ -278,8 +295,10 @@ class BinaryOperator(Operator):
         Operator.copy(self, other)
 
     def compileme(self, resultsym, leftsym, rightsym):
-        """Compile this operator with specified left, right, and output symbol names"""
+        """Compile this operator with specified left, right, and output symbol
+        names"""
         raise NotImplementedError()
+
 
 class NaryOperator(Operator):
     """Operator with N arguments.  e.g., multi-way joins in one step."""
@@ -296,7 +315,8 @@ class NaryOperator(Operator):
         self.args.append(op)
 
     def compile(self, resultsym):
-        """Compile this plan.  Result sym is the variable name to use to hold the result of this operator."""
+        """Compile this plan.  Result sym is the variable name to use to hold
+        the result of this operator."""
         #TODO: Why is language not an argument?
         code = self.language.comment("Compiled subplan for %s" % self)
         code += self.language.log("Evaluating subplan %s" % self)
@@ -304,7 +324,9 @@ class NaryOperator(Operator):
             code += self.language.assignment(resultsym, self.bound)
         else:
             argsyms = [gensym() for arg in self.args]
-            code += emitlist([arg.compile(sym) for arg, sym in zip(self.args, argsyms)] + [self.compileme(resultsym, argsyms)])
+            code += emitlist([arg.compile(sym)
+                              for arg, sym in zip(self.args, argsyms)]
+                             + [self.compileme(resultsym, argsyms)])
         return code
 
     def children(self):
@@ -321,7 +343,8 @@ class NaryOperator(Operator):
         return self
 
     def compileme(self, resultsym, argsyms):
-        """Compile this operator with specified children and output symbol names"""
+        """Compile this operator with specified children and output symbol
+        names"""
         raise NotImplementedError()
 
 
@@ -335,17 +358,20 @@ class NaryJoin(NaryOperator):
 
 """Logical Relational Algebra"""
 
+
 class Union(BinaryOperator):
     """Set union."""
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
 
     def scheme(self):
-        """Same semantics as SQL: Assume first schema "wins" and throw an  error if they don't match during evaluation"""
+        """Same semantics as SQL: Assume first schema "wins" and throw an
+        error if they don't match during evaluation"""
         return self.left.scheme()
 
     def shortStr(self):
         return self.opname()
+
 
 class UnionAll(BinaryOperator):
     """Bag union."""
@@ -362,6 +388,7 @@ class UnionAll(BinaryOperator):
     def shortStr(self):
         return self.opname()
 
+
 class Intersection(BinaryOperator):
     """Bag intersection."""
     def scheme(self):
@@ -370,6 +397,7 @@ class Intersection(BinaryOperator):
     def shortStr(self):
         return self.opname()
 
+
 class Difference(BinaryOperator):
     """Bag difference"""
     def scheme(self):
@@ -377,6 +405,7 @@ class Difference(BinaryOperator):
 
     def shortStr(self):
         return self.opname()
+
 
 class CompositeBinaryOperator(BinaryOperator):
     """Join-like operations whose output schema combines its input schemas."""
@@ -395,6 +424,7 @@ class CompositeBinaryOperator(BinaryOperator):
 
         return expression.EQ(expression.UnnamedAttributeRef(col0),
                              expression.UnnamedAttributeRef(col1))
+
 
 class CrossProduct(CompositeBinaryOperator):
     """Logical Cross Product operator"""
@@ -417,6 +447,7 @@ class CrossProduct(CompositeBinaryOperator):
         condition = self.get_equijoin_condition(col0, col1)
         return Join(condition, self.left, self.right)
 
+
 class Join(CompositeBinaryOperator):
     """Logical Join operator"""
     def __init__(self, condition=None, left=None, right=None):
@@ -424,7 +455,8 @@ class Join(CompositeBinaryOperator):
         BinaryOperator.__init__(self, left, right)
 
     def __eq__(self, other):
-        return BinaryOperator.__eq__(self, other) and self.condition == other.condition
+        return (BinaryOperator.__eq__(self, other)
+                and self.condition == other.condition)
 
     def copy(self, other):
         """deep copy"""
@@ -442,6 +474,7 @@ class Join(CompositeBinaryOperator):
         condition = self.get_equijoin_condition(col0, col1)
         self.condition = expression.AND(self.condition, condition)
         return self
+
 
 class Apply(UnaryOperator):
     def __init__(self, emitters=None, input=None):
@@ -463,8 +496,8 @@ class Apply(UnaryOperator):
                 return str(sexpr)
 
         if emitters is not None:
-            self.emitters = [(resolve_name(name, sexpr), sexpr) for name, sexpr
-                             in emitters]
+            self.emitters = [(resolve_name(name, sexpr), sexpr)
+                             for name, sexpr in emitters]
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
@@ -482,7 +515,8 @@ class Apply(UnaryOperator):
         return scheme.Scheme(new_attrs)
 
     def shortStr(self):
-        estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.emitters])
+        estrs = ",".join(["%s=%s" % (name, str(ex))
+                          for name, ex in self.emitters])
         return "%s(%s)" % (self.opname(), estrs)
 
 
@@ -492,22 +526,22 @@ class StatefulApply(UnaryOperator):
     state_scheme = None
     emitters = None
 
-    """Create new attributes from expressions with additional
-    state passed from tuple to tuple.
-
-    :param emitters: list of tuples of the form:
-            (column_name, raco.expression.Expression).
-            column_name can be None, in which case the system will infer a
-            name based on the expression
-        :type emitters: list of tuples
-    :param state_modifiers: expressions used to initialize and update the state.
-        contains tuples of the form:
-            (state_name, raco.expression.Expression, raco.expression.Expression)
-            where the two expressions are the initializer expression
-            and the updater expression
-    :type state_modifiers: list of tuples
-    """
     def __init__(self, emitters=None, state_modifiers=None, input=None):
+        """Create new attributes from expressions with additional state passed
+        from tuple to tuple.
+
+        :param emitters: list of tuples of the form:
+                (column_name, raco.expression.Expression).
+                column_name can be None, in which case the system will infer a
+                name based on the expression
+            :type emitters: list of tuples
+        :param state_modifiers: expressions used to initialize and update the
+        state. Contains tuples of the form:
+                (state_name, raco.expression.Expression, Expression)
+                where the two expressions are the initializer expression
+                and the updater expression
+        :type state_modifiers: list of tuples
+        """
         if state_modifiers is not None:
             self.inits = [(x[0], x[1]) for x in state_modifiers]
             self.updaters = [(x[0], x[2]) for x in state_modifiers]
@@ -549,7 +583,8 @@ class StatefulApply(UnaryOperator):
         return scheme.Scheme(new_attrs)
 
     def shortStr(self):
-        estrs = ",".join(["%s=%s" % (name, str(ex)) for name, ex in self.emitters])
+        estrs = ",".join(["%s=%s" % (name, str(ex))
+                          for name, ex in self.emitters])
         return "%s(%s)" % (self.opname(), estrs)
 
 
@@ -565,6 +600,7 @@ class Distinct(UnaryOperator):
 
     def shortStr(self):
         return self.opname()
+
 
 class Limit(UnaryOperator):
     def __init__(self, count=None, input=None):
@@ -584,6 +620,7 @@ class Limit(UnaryOperator):
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.count)
 
+
 class Select(UnaryOperator):
     """Logical selection operator"""
     def __init__(self, condition=None, input=None):
@@ -591,7 +628,8 @@ class Select(UnaryOperator):
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
-        return UnaryOperator.__eq__(self, other) and self.condition == other.condition
+        return (UnaryOperator.__eq__(self, other)
+                and self.condition == other.condition)
 
     def shortStr(self):
         if isinstance(self.condition, dict):
@@ -609,6 +647,7 @@ class Select(UnaryOperator):
         """scheme of the result."""
         return self.input.scheme()
 
+
 class Project(UnaryOperator):
     """Logical projection operator"""
     def __init__(self, columnlist=None, input=None):
@@ -616,7 +655,8 @@ class Project(UnaryOperator):
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
-        return UnaryOperator.__eq__(self, other) and self.columnlist == other.columnlist
+        return (UnaryOperator.__eq__(self, other)
+                and self.columnlist == other.columnlist)
 
     def shortStr(self):
         colstring = ",".join([str(x) for x in self.columnlist])
@@ -631,10 +671,13 @@ class Project(UnaryOperator):
         UnaryOperator.copy(self, other)
 
     def scheme(self):
-        """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
+        """scheme of the result. Raises a TypeError if a name in the project
+        list is not in the source schema"""
         # TODO: columnlist should perhaps be a list of column expressions, TBD
-        attrs = [self.input.resolveAttribute(attref) for attref in self.columnlist]
+        attrs = [self.input.resolveAttribute(attref)
+                 for attref in self.columnlist]
         return scheme.Scheme(attrs)
+
 
 class GroupBy(UnaryOperator):
     """Logical GroupBy operator"""
@@ -668,6 +711,7 @@ class GroupBy(UnaryOperator):
         attrs = [resolve(i, e) for i, e in enumerate(self.column_list)]
         return scheme.Scheme(attrs)
 
+
 class ProjectingJoin(Join):
     """Logical Projecting Join operator"""
     def __init__(self, condition=None, left=None, right=None, columnlist=None):
@@ -692,12 +736,15 @@ class ProjectingJoin(Join):
         if self.columnlist is None:
             return Join.scheme(self)
         combined = self.left.scheme() + self.right.scheme()
-        # TODO: columnlist should perhaps be a list of arbitrary column expressions, TBD
-        return scheme.Scheme([combined[p.get_position(combined)] for p in self.columnlist])
+        # TODO: columnlist should perhaps be a list of arbitrary column
+        # expressions, TBD
+        return scheme.Scheme([combined[p.get_position(combined)]
+                             for p in self.columnlist])
 
     def add_equijoin_condition(self, col0, col1):
         # projects are pushed after selections
         raise NotImplementedError()
+
 
 class Shuffle(UnaryOperator):
     """Send the input to the specified servers"""
@@ -712,6 +759,7 @@ class Shuffle(UnaryOperator):
         self.columnlist = other.columnlist
         UnaryOperator.copy(self, other)
 
+
 class Collect(UnaryOperator):
     """Send input to one server"""
     def __init__(self, child=None, server=None):
@@ -725,10 +773,12 @@ class Collect(UnaryOperator):
         self.server = other.server
         UnaryOperator.copy(self, other)
 
+
 class Broadcast(UnaryOperator):
     """Send input to all servers"""
     def shortStr(self):
         return self.opname()
+
 
 class PartitionBy(UnaryOperator):
     """Send input to a server indicated by a hash of specified columns."""
@@ -737,7 +787,8 @@ class PartitionBy(UnaryOperator):
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
-        return UnaryOperator.__eq__(self, other) and self.columnlist == other.columnlist
+        return (UnaryOperator.__eq__(self, other)
+                and self.columnlist == other.columnlist)
 
     def shortStr(self):
         colstring = ",".join([str(x) for x in self.columnlist])
@@ -752,8 +803,10 @@ class PartitionBy(UnaryOperator):
         UnaryOperator.copy(self, other)
 
     def scheme(self):
-        """scheme of the result. Raises a TypeError if a name in the project list is not in the source schema"""
+        """scheme of the result. Raises a TypeError if a name in the project
+        list is not in the source schema"""
         return self.input.scheme()
+
 
 class Fixpoint(Operator):
     def __init__(self, body=None):
@@ -785,6 +838,7 @@ class Fixpoint(Operator):
     def loopBody(self, plan):
         self.body = plan
 
+
 class State(ZeroaryOperator):
     """A placeholder operator for a recursive plan"""
 
@@ -798,6 +852,7 @@ class State(ZeroaryOperator):
 
     def scheme(self):
         return self.fixpoint.scheme()
+
 
 class Store(UnaryOperator):
     """Store output to a relational table.
@@ -816,6 +871,7 @@ class Store(UnaryOperator):
         self.relation_key = other.relation_key
         UnaryOperator.copy(self, other)
 
+
 class EmptyRelation(ZeroaryOperator):
     """Relation with no tuples."""
 
@@ -832,6 +888,7 @@ class EmptyRelation(ZeroaryOperator):
     def scheme(self):
         """scheme of the result."""
         return self._scheme
+
 
 class SingletonRelation(ZeroaryOperator):
     """Relation with a single empty tuple.
@@ -850,6 +907,7 @@ class SingletonRelation(ZeroaryOperator):
         """scheme of the result."""
         return scheme.Scheme()
 
+
 class Scan(ZeroaryOperator):
     """Logical Scan operator."""
 
@@ -864,9 +922,9 @@ class Scan(ZeroaryOperator):
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
-        return ZeroaryOperator.__eq__(self, other) and \
-          self.relation_key == other.relation_key and \
-          self.scheme() == other.scheme()
+        return (ZeroaryOperator.__eq__(self, other)
+                and self.relation_key == other.relation_key
+                and self.scheme() == other.scheme())
 
     def __hash__(self):
         """
@@ -886,8 +944,8 @@ class Scan(ZeroaryOperator):
         self.relation_key = other.relation_key
         self._scheme = other._scheme
 
-        # TODO: need a cleaner and more general way of tracing information through
-        # the compilation process for debugging purposes
+        # TODO: need a cleaner and more general way of tracing information
+        # through the compilation process for debugging purposes
         if hasattr(other, "originalterm"):
             self.originalterm = other.originalterm
         ZeroaryOperator.copy(self, other)
@@ -895,6 +953,7 @@ class Scan(ZeroaryOperator):
     def scheme(self):
         """Scheme of the result, which is just the scheme of the relation."""
         return self._scheme
+
 
 class StoreTemp(UnaryOperator):
     """Store an input relation to a "temporary" relation.
@@ -915,6 +974,7 @@ class StoreTemp(UnaryOperator):
     def __eq__(self, other):
         return UnaryOperator.__eq__(self, other) and self.name == other.name
 
+
 class ScanTemp(ZeroaryOperator):
     """Read the contents of a temporary relation."""
 
@@ -924,8 +984,8 @@ class ScanTemp(ZeroaryOperator):
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
-        return ZeroaryOperator.__eq__(self, other) and self.name == other.name \
-          and self._scheme == other._scheme
+        return (ZeroaryOperator.__eq__(self, other) and self.name == other.name
+                and self._scheme == other._scheme)
 
     def shortStr(self):
         return "%s(%s,%s)" % (self.opname(), self.name, str(self._scheme))
@@ -937,6 +997,7 @@ class ScanTemp(ZeroaryOperator):
 
     def scheme(self):
         return self._scheme
+
 
 class Sequence(NaryOperator):
     """Execute a sequence of plans in serial order."""
@@ -950,19 +1011,21 @@ class Sequence(NaryOperator):
         """Sequence does not return any tuples."""
         return None
 
+
 class DoWhile(Sequence):
     def __init__(self, ops=None):
         """Repeatedly execute a sequence of plans until a termination condtion.
 
         :params ops: A list of operations to execute in serial.  By convention,
-        the last operation is the termination condition.  The termination condition
-        should map to a single row, single column relation.  The loop continues if
-        its value is True.
+        the last operation is the termination condition.  The termination
+        condition should map to a single row, single column relation.  The loop
+        continues if its value is True.
         """
         Sequence.__init__(self, ops)
 
     def shortStr(self):
         return self.opname()
+
 
 def inline_operator(dest_op, var, target_op):
     """Convert two operator trees into one by inlining.
@@ -979,32 +1042,11 @@ def inline_operator(dest_op, var, target_op):
 
     return rewrite_node(dest_op)
 
-def attribute_references(condition):
-    """Generates a list of attributes referenced in the condition"""
-    if isinstance(condition, BinaryBooleanOperator):
-        for a in attribute_references(condition.left): yield a
-        for a in attribute_references(condition.right): yield a
-    elif isinstance(condition, Attribute):
-        yield condition.name
-"""
-#def coveredby(
-
-class PushSelect(Rule):
-  def fire(self, expr):
-    if isinstance(expr, Select):
-      if isinstance(expr.input, Join):
-        join = expr.input
-        select = expr
-        if join.left.scheme().contains(attributes):
-          # push left
-        if join.right.scheme().contains(attributes):
-          # push right
-"""
 
 class LogicalAlgebra(object):
     operators = [
-    Join,
-    Select,
-    Scan
-  ]
+        Join,
+        Select,
+        Scan
+    ]
     rules = []

@@ -9,6 +9,7 @@ import collections
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 
+
 class PageRankTest(myrial_test.MyrialTestCase):
 
     edge_table = collections.Counter([

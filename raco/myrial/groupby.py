@@ -37,13 +37,16 @@ names and values as expected by the caller.
 import collections
 import raco.expression
 
+
 class NestedAggregateException(Exception):
     '''Nested aggregate functions are not allowed'''
     pass
 
+
 class InvalidAttributeRefException(Exception):
     '''Attempting to access a non-grouping term in an aggregate expression'''
     pass
+
 
 def __aggregate_count(sexpr):
     def count(sexpr):
@@ -51,6 +54,7 @@ def __aggregate_count(sexpr):
             return 1
         return 0
     return sum(sexpr.postorder(count))
+
 
 class AggregateState(object):
     def __init__(self, initial_aggregate_pos):
@@ -60,6 +64,7 @@ class AggregateState(object):
 
         # Next index to be assigned for aggregate expressions
         self.aggregate_pos = initial_aggregate_pos
+
 
 def __hoist_aggregates(sexpr, agg_state, group_mappings, input_scheme):
     def hoist_node(sexpr):
@@ -76,7 +81,7 @@ def __hoist_aggregates(sexpr, agg_state, group_mappings, input_scheme):
             return sexpr
 
         if sexpr in agg_state.aggregates:
-            return agg_state.aggregates[sexpr];
+            return agg_state.aggregates[sexpr]
         else:
             # A new aggregate expression: Add it to our map, first checking for
             # illegal nested aggregates.
@@ -96,12 +101,14 @@ def __hoist_aggregates(sexpr, agg_state, group_mappings, input_scheme):
 
     return recursive_eval(sexpr)
 
+
 def sexpr_contains_aggregate(sexpr):
     """Return True if a scalar expression contains 1 or more aggregates"""
     def is_aggregate(sexpr):
         return isinstance(sexpr, raco.expression.AggregateExpression)
 
     return any(sexpr.postorder(is_aggregate))
+
 
 def groupby(op, emit_clause, extra_grouping_columns):
     """Process groupby/aggregation expressions."""

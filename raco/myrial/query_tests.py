@@ -2,6 +2,7 @@
 import collections
 import math
 
+import raco.algebra
 import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.scheme as scheme
@@ -9,17 +10,18 @@ import raco.myrial.groupby
 import raco.myrial.myrial_test as myrial_test
 import raco.myrial.exceptions
 
+
 class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     emp_table = collections.Counter([
         # id dept_id name salary
         (1, 2, "Bill Howe", 25000),
-        (2,1,"Dan Halperin",90000),
-        (3,1,"Andrew Whitaker",5000),
-        (4,2,"Shumo Chu",5000),
-        (5,1,"Victor Almeida",25000),
-        (6,3,"Dan Suciu",90000),
-        (7,1,"Magdalena Balazinska",25000)])
+        (2, 1, "Dan Halperin", 90000),
+        (3, 1, "Andrew Whitaker", 5000),
+        (4, 2, "Shumo Chu", 5000),
+        (5, 1, "Victor Almeida", 25000),
+        (6, 3, "Dan Suciu", 90000),
+        (7, 1, "Magdalena Balazinska", 25000)])
 
     emp_schema = scheme.Scheme([("id", "int"),
                                 ("dept_id", "int"),
@@ -29,10 +31,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     emp_key = "andrew:adhoc:employee"
 
     dept_table = collections.Counter([
-        (1,"accounting",5),
-        (2,"human resources",2),
-        (3,"engineering",2),
-        (4,"sales",7)])
+        (1, "accounting", 5),
+        (2, "human resources", 2),
+        (3, "engineering", 2),
+        (4, "sales", 7)])
 
     dept_schema = scheme.Scheme([("id", "int"),
                                  ("name", "string"),
@@ -65,7 +67,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.db.ingest(TestQueryFunctions.numbers_key,
                        TestQueryFunctions.numbers_table,
                        TestQueryFunctions.numbers_schema)
-
 
     def test_scan_emp(self):
         query = """
@@ -120,15 +121,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     """
 
     salary_expected_result = collections.Counter(
-            [x for x in emp_table.elements() if x[3] > 25000])
+        [x for x in emp_table.elements() if x[3] > 25000])
 
     def test_bag_comp_filter_large_salary_by_name(self):
-        query =  TestQueryFunctions.salary_filter_query % (self.emp_key,
-                                                           'salary')
+        query = TestQueryFunctions.salary_filter_query % (self.emp_key,
+                                                          'salary')
         self.check_result(query, TestQueryFunctions.salary_expected_result)
 
     def test_bag_comp_filter_large_salary_by_position(self):
-        query =  TestQueryFunctions.salary_filter_query % (self.emp_key, '$3')
+        query = TestQueryFunctions.salary_filter_query % (self.emp_key, '$3')
         self.check_result(query, TestQueryFunctions.salary_expected_result)
 
     def test_bag_comp_filter_empty_result(self):
@@ -226,7 +227,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         expected = collections.Counter(
-            [x for x in self.emp_table.elements() if x[0] - x[1] ==  x[1]])
+            [x for x in self.emp_table.elements() if x[0] - x[1] == x[1]])
         self.check_result(query, expected)
 
     def test_bag_comp_filter_and(self):
@@ -309,7 +310,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         expected = collections.Counter(
-            [(x[3], "bugga bugga")  for x in self.emp_table.elements()])
+            [(x[3], "bugga bugga") for x in self.emp_table.elements()])
 
         self.check_result(query, expected)
 
@@ -322,7 +323,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         expected = collections.Counter(
-            [(x[3] + 5000, x[3] - 5000, x[3] / 5000, x[3] * 5000) \
+            [(x[3] + 5000, x[3] - 5000, x[3] / 5000, x[3] * 5000)
              for x in self.emp_table.elements()])
         self.check_result(query, expected)
 
@@ -343,7 +344,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     join_expected = collections.Counter(
         [('Bill Howe', 'human resources'),
          ('Dan Halperin', 'accounting'),
-         ('Andrew Whitaker','accounting'),
+         ('Andrew Whitaker', 'accounting'),
          ('Shumo Chu', 'human resources'),
          ('Victor Almeida', 'accounting'),
          ('Dan Suciu', 'engineering'),
@@ -396,8 +397,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """Test nesting SQL inside a bag comprehension"""
 
         query = """
-        out = [FROM (SELECT name, salary FROM SCAN(%s) AS X WHERE salary > 5000)
-               AS Y WHERE salary < 80000 EMIT *];
+        out = [FROM (SELECT name, salary
+                     FROM SCAN(%s) AS X
+                     WHERE salary > 5000) AS Y
+               WHERE salary < 80000
+               EMIT *];
         STORE(out, OUTPUT);
         """ % (self.emp_key,)
 
@@ -411,9 +415,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """Test nesting SQL inside SQL"""
 
         query = """
-        out = SELECT Y.name, Y.salary FROM
-               (SELECT name, salary FROM SCAN(%s) AS X WHERE salary > 5000)
-               AS Y WHERE Y.salary < 80000;
+        out = SELECT Y.name, Y.salary
+              FROM (SELECT name, salary
+                    FROM SCAN(%s) AS X
+                    WHERE salary > 5000) AS Y
+              WHERE Y.salary < 80000;
         STORE(out, OUTPUT);
         """ % (self.emp_key,)
 
@@ -461,7 +467,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % (self.emp_key,)
 
-        tpls = [tuple([x[3]* x[3]]) for x in self.emp_table]
+        tpls = [tuple([x[3] * x[3]]) for x in self.emp_table]
         expected = collections.Counter(tpls)
         self.check_result(query, expected)
 
@@ -481,7 +487,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         out = [FROM SCAN(%s) E, SCAN(%s) AS D EMIT *];
         STORE(out, OUTPUT);
-        """  % (self.emp_key, self.dept_key)
+        """ % (self.emp_key, self.dept_key)
 
         tuples = [e + d for e in self.emp_table.elements() for
                   d in self.dept_table.elements()]
@@ -495,7 +501,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        expected = collections.Counter([(25000,),(5000,),(90000,)])
+        expected = collections.Counter([(25000,), (5000,), (90000,)])
         self.check_result(query, expected)
 
     def test_sql_distinct(self):
@@ -524,7 +530,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         result = self.execute_query(query)
         self.assertEquals(len(result), 3)
-
 
     def test_sql_limit(self):
         query = """
@@ -765,8 +770,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_compound_aggregate(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT ( 2 * (MAX(salary) - MIN(salary))) AS range,
-        dept_id AS did];
+        out = [FROM SCAN(%s) AS X
+               EMIT (2 * (MAX(salary) - MIN(salary))) AS range,
+                    dept_id AS did];
         out = [FROM out EMIT did AS dept_id, range AS rng];
         STORE(out, OUTPUT);
         """ % self.emp_key
@@ -836,7 +842,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             result_dict[t[0] + t[1]].append(t[3])
 
         tuples1 = [(key, sum(values), len(values)) for key, values
-                  in result_dict.iteritems()]
+                   in result_dict.iteritems()]
         tuples2 = [(t[0], t[1] / t[2], t[2]) for t in tuples1]
         expected = collections.Counter(tuples2)
 
@@ -867,8 +873,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """Test of an aggregate column that contains an unbox."""
         query = """
         TWO = [2];
-        out = [FROM SCAN(%s) AS X EMIT ( *TWO * (MAX(salary) - MIN(salary))) AS range,
-        dept_id AS did];
+        out = [FROM SCAN(%s) AS X
+               EMIT (*TWO * (MAX(salary) - MIN(salary))) AS range,
+                     dept_id AS did];
         out = [FROM out EMIT did AS dept_id, range AS rng];
         STORE(out, OUTPUT);
         """ % self.emp_key
@@ -883,7 +890,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(tuples)
         self.check_result(query, expected)
 
-
     def test_aggregate_illegal_colref(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT
@@ -891,13 +897,13 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(
-                raco.myrial.groupby.InvalidAttributeRefException):
+        with self.assertRaises(raco.myrial.groupby.InvalidAttributeRefException):  # noqa
             self.check_result(query, None)
 
     def test_nested_aggregates_are_illegal(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT id+dept_id, MIN(53 + MAX(salary)) AS foo];
+        out = [FROM SCAN(%s) AS X
+               EMIT id+dept_id, MIN(53 + MAX(salary)) AS foo];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -960,7 +966,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.numbers_key
 
         expected = collections.Counter(
-            [(a,abs(b)) for a,b in self.numbers_table.elements()])
+            [(a, abs(b)) for a, b in self.numbers_table.elements()])
         self.check_result(query, expected)
 
     def test_ceil(self):
@@ -970,7 +976,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.numbers_key
 
         expected = collections.Counter(
-            [(a,math.ceil(b)) for a,b in self.numbers_table.elements()])
+            [(a, math.ceil(b)) for a, b in self.numbers_table.elements()])
         self.check_result(query, expected)
 
     def test_cos(self):
@@ -980,7 +986,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.numbers_key
 
         expected = collections.Counter(
-            [(a,math.cos(b)) for a,b in self.numbers_table.elements()])
+            [(a, math.cos(b)) for a, b in self.numbers_table.elements()])
         self.check_result(query, expected)
 
     def test_floor(self):
@@ -990,7 +996,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.numbers_key
 
         expected = collections.Counter(
-            [(a,math.floor(b)) for a,b in self.numbers_table.elements()])
+            [(a, math.floor(b)) for a, b in self.numbers_table.elements()])
         self.check_result(query, expected)
 
     def test_log(self):
@@ -1000,7 +1006,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.numbers_key
 
         expected = collections.Counter(
-            [(a,math.log(b)) for a,b in self.numbers_table.elements()
+            [(a, math.log(b)) for a, b in self.numbers_table.elements()
              if b > 0])
         self.check_result(query, expected)
 
@@ -1011,7 +1017,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.numbers_key
 
         expected = collections.Counter(
-            [(a,math.sin(b)) for a,b in self.numbers_table.elements()])
+            [(a, math.sin(b)) for a, b in self.numbers_table.elements()])
         self.check_result(query, expected)
 
     def test_sqrt(self):
@@ -1021,7 +1027,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.numbers_key
 
         expected = collections.Counter(
-            [(a,math.sqrt(b)) for a,b in self.numbers_table.elements()
+            [(a, math.sqrt(b)) for a, b in self.numbers_table.elements()
              if b >= 0])
         self.check_result(query, expected)
 
@@ -1032,7 +1038,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.numbers_key
 
         expected = collections.Counter(
-            [(a,math.tan(b)) for a,b in self.numbers_table.elements()])
+            [(a, math.tan(b)) for a, b in self.numbers_table.elements()])
         self.check_result(query, expected)
 
     def test_pow(self):
@@ -1043,7 +1049,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.numbers_key
 
         expected = collections.Counter(
-            [(a,pow(b, 3)) for a, b in self.numbers_table.elements()])
+            [(a, pow(b, 3)) for a, b in self.numbers_table.elements()])
         self.check_result(query, expected)
 
     def test_no_such_relation(self):
@@ -1052,7 +1058,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):
+        with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):  # noqa
             self.check_result(query, collections.Counter())
 
     def test_scan_error(self):
@@ -1092,7 +1098,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.DuplicateFunctionDefinitionException):
+        with self.assertRaises(raco.myrial.exceptions.DuplicateFunctionDefinitionException):  # noqa
             self.check_result(query, collections.Counter())
 
     def test_invalid_argument_udf(self):
@@ -1112,7 +1118,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.UndefinedVariableException):
+        with self.assertRaises(raco.myrial.exceptions.UndefinedVariableException):  # noqa
             self.check_result(query, collections.Counter())
 
     def test_duplicate_variable_udf(self):
@@ -1122,7 +1128,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.DuplicateVariableException):
+        with self.assertRaises(raco.myrial.exceptions.DuplicateVariableException):  # noqa
             self.check_result(query, collections.Counter())
 
     def test_triangle_udf(self):
@@ -1133,7 +1139,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        expected = collections.Counter([(t[0], t[1] * t[3] / 2) for t in self.emp_table])
+        expected = collections.Counter([(t[0], t[1] * t[3] / 2) for t in self.emp_table])  # noqa
         self.check_result(query, expected)
 
     def test_noop_udf(self):
@@ -1158,7 +1164,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        expected = collections.Counter([(t[0], t[3] +19) for t in self.emp_table])
+        expected = collections.Counter([(t[0], t[3] + 19)
+                                        for t in self.emp_table])
         self.check_result(query, expected)
 
     def test_nested_udf(self):
@@ -1169,7 +1176,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        expected = collections.Counter([(t[0], t[3] + 10) for t in self.emp_table])
+        expected = collections.Counter([(t[0], t[3] + 10)
+                                        for t in self.emp_table])
         self.check_result(query, expected)
 
     def test_running_mean_sapply(self):
@@ -1200,12 +1208,13 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [_sum + x AS _sum];
             _sum;
         };
-        out = [FROM SCAN(%s) AS X EMIT id, RunningSum(X.salary), RunningSum(id)];
+        out = [FROM SCAN(%s) AS X
+               EMIT id, RunningSum(X.salary), RunningSum(id)];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
         tps = []
-        _sum1= 0
+        _sum1 = 0
         _sum2 = 0
         for emp in self.emp_table:
             _sum1 += emp[3]
@@ -1215,13 +1224,32 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.check_result(query, collections.Counter(tps))
 
     def test_118_regression(self):
-        """Regression test for https://github.com/uwescience/datalogcompiler/issues/118"""
+        """Regression test for https://github.com/uwescience/datalogcompiler/issues/118"""  # noqa
         query = """
         out = [FROM SCAN(%s) AS X WHERE dept_id = 2 AND salary = 5000 EMIT id];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
-            [(x[0],) for x in self.emp_table.elements() if x[1] == 2 and x[3] == 5000])
+            [(x[0],) for x in self.emp_table.elements()
+             if x[1] == 2 and x[3] == 5000])
         self.check_result(query, expected)
 
+    def test_scan_emp_empty_statement(self):
+        """Test with an empty statement."""
+        query = """
+        ;;;
+        emp = SCAN(%s);
+        STORE(emp, OUTPUT);;;
+        """ % self.emp_key
+
+        self.check_result(query, self.emp_table)
+
+    def test_empty_statement_parse(self):
+        """Program that contains nothing but empty statements."""
+        query = ";"
+
+        statements = self.parser.parse(";")
+        self.processor.evaluate(statements)
+        plan = self.processor.get_logical_plan()
+        self.assertEquals(plan, raco.algebra.Sequence())

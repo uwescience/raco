@@ -1,3 +1,6 @@
+# TODO: make it pass with flake8 test
+# flake8: noqa
+
 # TODO: To be refactored into shared memory lang,
 # where you plugin in the sequential shared memory language specific codegen
 
