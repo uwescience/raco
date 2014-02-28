@@ -2,6 +2,7 @@ from raco import expression
 
 from collections import OrderedDict
 
+
 class DummyScheme(object):
     """Dummy scheme used to generate plans in the absence of catalog info."""
     def __len__(self):
@@ -10,12 +11,12 @@ class DummyScheme(object):
     def __repr__(self):
         return "DummyScheme()"
 
+
 class Scheme(object):
-    '''
-  Add an attribute to the scheme
-  Type is a function that returns true for any value that is of the correct type
-    '''
+    '''Add an attribute to the scheme. Type is a function that returns true for
+    any value that is of the correct type'''
     salt = "1"
+
     def __init__(self, attributes=None):
         if attributes is None:
             attributes = []
@@ -25,8 +26,9 @@ class Scheme(object):
             self.addAttribute(n, t)
 
     def addAttribute(self, name, type):
-        if self.asdict.has_key(name):
-            # ugly.  I don't like throwing errors in this case, but it's worse not to
+        if name in self.asdict:
+            # ugly.  I don't like throwing errors in this case, but it's worse
+            # not to
             return self.addAttribute(name + self.salt, type)
         self.asdict[name] = (len(self.attributes), type)
         self.attributes.append((name, type))
@@ -67,14 +69,15 @@ class Scheme(object):
         return self.contains(names)
 
     def resolve(self, attrref):
-        """return the name and type of the attribute reference, resolved against this scheme"""
+        """return the name and type of the attribute reference, resolved
+        against this scheme"""
         unnamed = expression.toUnnamed(attrref, self)
         return self.getName(unnamed.position), self.getType(unnamed.position)
 
     def ascolumnlist(self):
-        """Return a columnlist structure suitable for use with Project and ProjectingJoin.
-        Currently a list of positional attribute references.  May eventually be a scheme itself.
-        """
+        """Return a columnlist structure suitable for use with Project and
+        ProjectingJoin. Currently a list of positional attribute references.
+        May eventually be a scheme itself."""
         return [expression.UnnamedAttributeRef(i) for i in xrange(len(self))]
 
     def __contains__(self, attr, typ=None):
@@ -84,7 +87,8 @@ class Scheme(object):
             return attr in self.asdict
 
     def project(self, tup, subscheme):
-        """Return a tuple corresponding to the subscheme corresponding to the values in tup"""
+        """Return a tuple corresponding to the subscheme corresponding to the
+        values in tup"""
         return (tup[self.getPosition(n)] for n, t in subscheme.attributes)
 
     def rename(self, name1, name2):
@@ -121,9 +125,6 @@ class Scheme(object):
             if not n in other:
                 newsch.addAttribute(n, t)
         return newsch
-
-    def __str__(self):
-        return str(self.attributes)
 
 
 class EmptyScheme(Scheme):

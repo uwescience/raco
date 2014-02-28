@@ -2,6 +2,7 @@ from raco import algebra
 import raco.rules
 from raco.language import Language
 
+
 class Python(Language):
     @classmethod
     def new_relation_assignment(cls, rvar, val):
@@ -21,18 +22,18 @@ class Python(Language):
 
     @staticmethod
     def comment(txt):
-        return  "# %s" % txt
+        return "# %s" % txt
 
     @staticmethod
     def initialize(resultsym):
-        return  """
+        return """
     import pyra
     import sampledb
     """
 
     @staticmethod
     def finalize(resultsym):
-        return  """
+        return """
     pyra.dump(%s)
     """ % resultsym
 
@@ -50,8 +51,10 @@ class Python(Language):
     def compile_attribute(name):
         return 't.%s' % name
 
+
 class PythonOperator(object):
     language = Python
+
 
 class pyScan(algebra.Scan, PythonOperator):
     def compileme(self, resultsym):
@@ -59,29 +62,34 @@ class pyScan(algebra.Scan, PythonOperator):
         code = self.language.new_relation_assignment(resultsym, opcode)
         return code
 
+
 class pySelect(algebra.Select, PythonOperator):
     def compileme(self, resultsym, inputsym):
-        opcode = """pyra.select(%s, %s)""" % (Python.mklambda(Python.compile_boolean(self.condition)), inputsym)
+        opcode = """pyra.select(%s, %s)""" % \
+            (Python.mklambda(Python.compile_boolean(self.condition)), inputsym)
         code = self.language.new_relation_assignment(resultsym, opcode)
         return code
 
+
 class pyHashJoin(algebra.Join, PythonOperator):
     def compileme(self, resultsym, leftsym, rightsym):
-        opcode = """pyra.hashjoin(%s, %s, %s)\n""" % (self.language.compile_boolean(self.condition), leftsym, rightsym)
+        opcode = """pyra.hashjoin(%s, %s, %s)\n""" % \
+            (self.language.compile_boolean(self.condition), leftsym, rightsym)
         code = self.language.new_relation_assignment(resultsym, opcode)
         return code
+
 
 class PythonAlgebra(object):
     language = Python
 
     operators = [
-    pyHashJoin,
-    pySelect,
-    pyScan
-  ]
+        pyHashJoin,
+        pySelect,
+        pyScan
+    ]
     rules = [
-    raco.rules.removeProject(),
-    raco.rules.OneToOne(algebra.Join, pyHashJoin),
-    raco.rules.OneToOne(algebra.Select, pySelect),
-    raco.rules.OneToOne(algebra.Scan, pyScan)
-  ]
+        raco.rules.removeProject(),
+        raco.rules.OneToOne(algebra.Join, pyHashJoin),
+        raco.rules.OneToOne(algebra.Select, pySelect),
+        raco.rules.OneToOne(algebra.Scan, pyScan)
+    ]

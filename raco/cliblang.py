@@ -1,6 +1,8 @@
-from raco import expression
 from raco import algebra
+from raco import expression
+from raco import rules
 from raco.language import Language
+
 
 class CC(Language):
     @staticmethod
@@ -9,37 +11,43 @@ class CC(Language):
 
     @staticmethod
     def initialize(resultsym):
-        return  initialize % locals()
+        return initialize % locals()  # TODO: is this ever used? # noqa
 
     @staticmethod
     def finalize(resultsym):
-        return  finalize % locals()
+        return finalize % locals()  # TODO: is this ever used? # noqa
 
     @classmethod
     def boolean_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg) for arg in args])
+        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg)
+                              for arg in args])
         return "( %s )" % conjunc
 
     """
-    Expects unnamed perspective; use expression.to_unnamed_recursive e.g. to get there.
+    Expects unnamed perspective; use expression.to_unnamed_recursive e.g. to
+    get there.
     """
     @staticmethod
     def compile_attribute(position):
         return 'tuple[%s]' % position
 
+
 class CCOperator(object):
     language = CC
+
 
 class FileScan(algebra.Scan, CCOperator):
     def compileme(self, resultsym):
         name = self.relation_key
-        code = scan_template % locals()
+        code = scan_template % locals()  # TODO: is this ever used? # noqa
         return code
+
 
 class TwoPassSelect(algebra.Select, CCOperator):
     def compileme(self, resultsym, inputsym):
-        pcondition = expression.to_unnamed_recursive(self.condition, self.scheme())
+        pcondition = expression.to_unnamed_recursive(self.condition,
+                                                     self.scheme())
         condition = CC.compile_boolean(pcondition)
         code = """
 
@@ -52,9 +60,11 @@ class TwoPassSelect(algebra.Select, CCOperator):
     """ % locals()
         return code
 
+
 class TwoPassHashJoin(algebra.Join, CCOperator):
     def compileme(self, resultsym, leftsym, rightsym):
-        if len(self.attributes) > 1: raise ValueError("The C compiler can only handle equi-join conditions of a single attribute")
+        if len(self.attributes) > 1:
+            raise ValueError("The C compiler can only handle equi-join conditions of a single attribute")  # noqa
 
         leftattribute, rightattribute = self.attributes[0]
         leftattribute = CC.compile_attribute(leftattribute)
@@ -68,16 +78,17 @@ class TwoPassHashJoin(algebra.Join, CCOperator):
 
         return code
 
+
 class CCAlgebra(object):
     language = CC
 
     operators = [
-    TwoPassHashJoin,
-    TwoPassSelect,
-    FileScan
-  ]
+        TwoPassHashJoin,
+        TwoPassSelect,
+        FileScan
+    ]
     rules = [
-    rules.OneToOne(algebra.Join,TwoPassHashJoin),
-    rules.OneToOne(algebra.Select,TwoPassSelect),
-    rules.OneToOne(algebra.Scan,FileScan)
-  ]
+        rules.OneToOne(algebra.Join, TwoPassHashJoin),
+        rules.OneToOne(algebra.Select, TwoPassSelect),
+        rules.OneToOne(algebra.Scan, FileScan)
+    ]

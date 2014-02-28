@@ -3,6 +3,7 @@ from raco import expression
 
 from abc import ABCMeta, abstractmethod
 
+
 class Rule(object):
     """Argument is an expression tree
 
@@ -17,11 +18,14 @@ class Rule(object):
     def fire(self, expr):
         """Apply this rule to the supplied expression tree"""
 
+
 class CrossProduct2Join(Rule):
     """A rewrite rule for removing Cross Product"""
     def fire(self, expr):
         if isinstance(expr, algebra.CrossProduct):
-            return algebra.Join(expression.EQ(expression.NumericLiteral(1), expression.NumericLiteral(1)), expr.left, expr.right)
+            return algebra.Join(expression.EQ(expression.NumericLiteral(1),
+                                expression.NumericLiteral(1)),
+                                expr.left, expr.right)
         return expr
 
     def __str__(self):
@@ -38,6 +42,7 @@ class removeProject(Rule):
     def __str__(self):
         return "Project => ()"
 
+
 class OneToOne(Rule):
     def __init__(self, opfrom, opto):
         self.opfrom = opfrom
@@ -53,25 +58,33 @@ class OneToOne(Rule):
     def __str__(self):
         return "%s => %s" % (self.opfrom.__name__, self.opto.__name__)
 
+
 class ProjectingJoin(Rule):
     """A rewrite rule for combining Project after Join into ProjectingJoin"""
     def fire(self, expr):
         if isinstance(expr, algebra.Project):
             if isinstance(expr.input, algebra.Join):
-                return algebra.ProjectingJoin(expr.input.condition, expr.input.left, expr.input.right, expr.columnlist)
+                return algebra.ProjectingJoin(expr.input.condition,
+                                              expr.input.left,
+                                              expr.input.right,
+                                              expr.columnlist)
         return expr
 
     def __str__(self):
         return "Project, Join => ProjectingJoin"
 
+
 class JoinToProjectingJoin(Rule):
     """A rewrite rule for turning every Join into a ProjectingJoin"""
+
     def fire(self, expr):
-        if not isinstance(expr, algebra.Join) or isinstance(expr,
-                algebra.ProjectingJoin):
+        if not isinstance(expr, algebra.Join) or \
+                isinstance(expr, algebra.ProjectingJoin):
             return expr
 
-        return algebra.ProjectingJoin(expr.condition, expr.left, expr.right, expr.scheme().ascolumnlist())
+        return algebra.ProjectingJoin(expr.condition,
+                                      expr.left, expr.right,
+                                      expr.scheme().ascolumnlist())
 
     def __str__(self):
         return "Join => ProjectingJoin"

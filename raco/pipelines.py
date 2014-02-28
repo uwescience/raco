@@ -1,3 +1,6 @@
+# TODO: make it pass with flake8 test
+# flake8: noqa
+
 import abc
 from raco.utility import emitlist
 

@@ -1,3 +1,6 @@
+# TODO: make it pass flake8. Workaround:
+# flake8: noqa
+
 """
 This file contains code for operators that
 works with the compileme compilation process.

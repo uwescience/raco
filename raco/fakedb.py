@@ -3,9 +3,9 @@ import collections
 import itertools
 
 from raco import relation_key
-import raco.scheme
 
 debug = False
+
 
 class FakeDatabase(object):
     """An in-memory implementation of relational algebra operators"""
