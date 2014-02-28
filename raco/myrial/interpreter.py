@@ -181,7 +181,10 @@ class ExpressionProcessor(object):
         if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
             return groupby.groupby(op, emit_args, implicit_group_by_cols)
         else:
-            return raco.algebra.StatefulApply(emit_args, statemods, op)
+            if statemods:
+                return raco.algebra.StatefulApply(emit_args, statemods, op)
+            else:
+                return raco.algebra.Apply(emit_args, op)
 
     def distinct(self, expr):
         op = self.evaluate(expr)
