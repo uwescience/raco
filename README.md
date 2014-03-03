@@ -114,6 +114,6 @@ cd examples
 ./grappalog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
 ```
 
-# Authors and contract information
+# Authors and contact information
 
 Raco's authors include Bill Howe, Andrew Whitaker, Daniel Halperin, Brandon Myers and Dominik Moritz at the University of Washington. Contact us at <raco@cs.washington.edu>.
