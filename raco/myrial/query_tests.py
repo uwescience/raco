@@ -1294,3 +1294,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(
             [(x[0], func(x[3])) for x in self.emp_table.elements()])
         self.check_result(query, expected)
+
+    def test_case_aggregate(self):
+        query = """
+        emp = SCAN(%s);
+        rich = [FROM emp EMIT SUM(3 * CASE WHEN salary > 15000
+                THEN 1 ELSE 0 END)];
+        STORE(rich, OUTPUT);
+        """ % self.emp_key
+
+        _sum = 3 * len([x for x in self.emp_table.elements()
+                        if x[3] > 15000])
+        self.check_result(query, collections.Counter([(_sum,)]))
