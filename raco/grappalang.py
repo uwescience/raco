@@ -95,7 +95,7 @@ class GrappaLanguage(Language):
     def compile_stringliteral(cls, s):
         sid = cls.newstringident()
         decl = """int64_t %s;""" % (sid)
-        init = """l_%(sid)s = string_index.string_lookup("%(s)s");
+        init = """auto l_%(sid)s = string_index.string_lookup("%(s)s");
                    on_all_cores([=] { %(sid)s = l_%(sid)s; });""" % locals()
         return """(%s)""" % sid, [decl], [init]
         #raise ValueError("String Literals not supported in C language: %s" % s)
