@@ -439,7 +439,7 @@ class Case(Expression):
         for test_expr, result_expr in self.when_tuples:
             if test_expr.evaluate(_tuple, scheme, state):
                 return result_expr.evaluate(_tuple, scheme, state)
-        return else_expr.evaluate(_tuple, scheme, state)
+        return self.else_expr.evaluate(_tuple, scheme, state)
 
     def postorder(self, f):
         for test_expr, result_expr in self.when_tuples:
