@@ -1306,3 +1306,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         _sum = 3 * len([x for x in self.emp_table.elements()
                         if x[3] > 15000])
         self.check_result(query, collections.Counter([(_sum,)]))
+
+    def test_case_unbox(self):
+        query = """
+        TH = [15000];
+        A = [1 AS one, 2 AS two, 3 AS three];
+        emp = SCAN(%s);
+        rich = [FROM emp EMIT SUM(*A.three * CASE WHEN salary > *TH
+                THEN 1 ELSE 0 END)];
+        STORE(rich, OUTPUT);
+        """ % self.emp_key
+
+        _sum = 3 * len([x for x in self.emp_table.elements()
+                        if x[3] > 15000])
+        self.check_result(query, collections.Counter([(_sum,)]))
