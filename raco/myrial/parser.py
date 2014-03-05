@@ -689,6 +689,26 @@ class Parser(object):
         p[0] = sexpr.Unbox(p[2], p[3])
 
     @staticmethod
+    def p_when_expr(p):
+        'when_expr : WHEN sexpr THEN sexpr'
+        p[0] = (p[2], p[4])
+
+    @staticmethod
+    def p_when_expr_list(p):
+        '''when_expr_list : when_expr_list when_expr
+                          | when_expr
+        '''
+        if len(p) == 3:
+            p[0] = p[1] + [p[2]]
+        else:
+            p[0] = [p[1]]
+
+    @staticmethod
+    def p_sexpr_case(p):
+        'sexpr : CASE when_expr_list ELSE sexpr END'
+        p[0] = sexpr.Case(p[2], p[4])
+
+    @staticmethod
     def p_optional_column_ref(p):
         '''optional_column_ref : DOT column_ref
                                | empty'''

@@ -1253,3 +1253,70 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.processor.evaluate(statements)
         plan = self.processor.get_logical_plan()
         self.assertEquals(plan, raco.algebra.Sequence())
+
+    def test_case_binary(self):
+        query = """
+        emp = SCAN(%s);
+        rich = [FROM emp EMIT id, CASE WHEN salary > 15000 THEN salary / salary
+                ELSE 0 / salary END];
+        STORE(rich, OUTPUT);
+        """ % self.emp_key
+
+        def func(y):
+            if y > 15000:
+                return 1
+            else:
+                return 0
+
+        expected = collections.Counter(
+            [(x[0], func(x[3])) for x in self.emp_table.elements()])
+        self.check_result(query, expected)
+
+    def test_case_ternary(self):
+        query = """
+        emp = SCAN(%s);
+        rich = [FROM emp EMIT id,
+                CASE WHEN salary <= 5000 THEN "poor"
+                     WHEN salary <= 25000 THEN "middle class"
+                     ELSE "rich"
+                END];
+        STORE(rich, OUTPUT);
+        """ % self.emp_key
+
+        def func(y):
+            if y <= 5000:
+                return 'poor'
+            elif y <= 25000:
+                return 'middle class'
+            else:
+                return 'rich'
+
+        expected = collections.Counter(
+            [(x[0], func(x[3])) for x in self.emp_table.elements()])
+        self.check_result(query, expected)
+
+    def test_case_aggregate(self):
+        query = """
+        emp = SCAN(%s);
+        rich = [FROM emp EMIT SUM(3 * CASE WHEN salary > 15000
+                THEN 1 ELSE 0 END)];
+        STORE(rich, OUTPUT);
+        """ % self.emp_key
+
+        _sum = 3 * len([x for x in self.emp_table.elements()
+                        if x[3] > 15000])
+        self.check_result(query, collections.Counter([(_sum,)]))
+
+    def test_case_unbox(self):
+        query = """
+        TH = [15000];
+        A = [1 AS one, 2 AS two, 3 AS three];
+        emp = SCAN(%s);
+        rich = [FROM emp EMIT SUM(*A.three * CASE WHEN salary > *TH
+                THEN 1 ELSE 0 END)];
+        STORE(rich, OUTPUT);
+        """ % self.emp_key
+
+        _sum = 3 * len([x for x in self.emp_table.elements()
+                        if x[3] > 15000])
+        self.check_result(query, collections.Counter([(_sum,)]))
