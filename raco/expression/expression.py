@@ -465,3 +465,11 @@ class Case(Expression):
                 yield x
         for x in self.else_expr.walk():
             yield x
+
+    def __str__(self):
+        when_strs = ['WHEN %s THEN %s' % (test, result)
+                     for test, result in self.when_tuples]
+        return "CASE(%s ELSE %s)" % (' '.join(when_strs), self.else_expr)
+
+    def __repr__(self):
+        return self.__str__()
