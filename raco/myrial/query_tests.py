@@ -1271,3 +1271,26 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(
             [(x[0], func(x[3])) for x in self.emp_table.elements()])
         self.check_result(query, expected)
+
+    def test_case_ternary(self):
+        query = """
+        emp = SCAN(%s);
+        rich = [FROM emp EMIT id,
+                CASE WHEN salary <= 5000 THEN "poor"
+                     WHEN salary <= 25000 THEN "middle class"
+                     ELSE "rich"
+                END];
+        STORE(rich, OUTPUT);
+        """ % self.emp_key
+
+        def func(y):
+            if y <= 5000:
+                return 'poor'
+            elif y <= 25000:
+                return 'middle class'
+            else:
+                return 'rich'
+
+        expected = collections.Counter(
+            [(x[0], func(x[3])) for x in self.emp_table.elements()])
+        self.check_result(query, expected)
