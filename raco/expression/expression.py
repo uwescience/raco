@@ -466,6 +466,16 @@ class Case(Expression):
         for x in self.else_expr.walk():
             yield x
 
+    def to_binary(self):
+        """Convert n-ary case statements to a binary case statement."""
+        assert len(self.when_tuples) > 0
+        if len(self.when_tuples) == 1:
+            return self
+        else:
+            new_when_tuples = [self.when_tuples[0]]
+            new_else = Case(self.when_tuples[1:], self.else_expr)
+            return Case(new_when_tuples, new_else)
+
     def __str__(self):
         when_strs = ['WHEN %s THEN %s' % (test, result)
                      for test, result in self.when_tuples]

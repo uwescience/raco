@@ -71,6 +71,22 @@ def compile_expr(op, child_scheme, state_scheme):
             'type': 'VARIABLE',
             'columnIdx': op.get_position(child_scheme, state_scheme)
         }
+    elif isinstance(op, expression.Case):
+        # Convert n-ary case statements to binary, as expected by Myria
+        op = op.to_binary()
+        assert len(op.when_tuples) == 1
+
+        if_expr = compile_expr(op.when_tuples[0][0], child_scheme,
+                               state_scheme)
+        then_expr = compile_expr(op.when_tuples[0][1], child_scheme,
+                                 state_scheme)
+        else_expr = compile_expr(op.else_expr, child_scheme, state_scheme)
+
+        return {
+            'type': 'CONDITION',
+            'children': [if_expr, then_expr, else_expr]
+        }
+
     ####
     # Everything below here is compiled automatically
     ####
@@ -85,6 +101,7 @@ def compile_expr(op, child_scheme, state_scheme):
             'left': compile_expr(op.left, child_scheme, state_scheme),
             'right': compile_expr(op.right, child_scheme, state_scheme)
         }
+
     raise NotImplementedError("Compiling expr of class %s" % op.__class__)
 
 
