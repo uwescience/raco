@@ -1253,3 +1253,21 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.processor.evaluate(statements)
         plan = self.processor.get_logical_plan()
         self.assertEquals(plan, raco.algebra.Sequence())
+
+    def test_case_binary(self):
+        query = """
+        emp = SCAN(%s);
+        rich = [FROM emp EMIT id, CASE WHEN salary > 15000 THEN salary / salary
+                ELSE 0 / salary END];
+        STORE(rich, OUTPUT);
+        """ % self.emp_key
+
+        def func(y):
+            if y > 15000:
+                return 1
+            else:
+                return 0
+
+        expected = collections.Counter(
+            [(x[0], func(x[3])) for x in self.emp_table.elements()])
+        self.check_result(query, expected)
