@@ -1,5 +1,3 @@
-
-
 class Relation(object):
     def __init__(self, name, sch):
         self.name = name
@@ -12,8 +10,10 @@ class Relation(object):
     def scheme(self):
         return self._scheme
 
+
 class FileRelation(Relation):
     pass
+
 
 class ASCIIFile(FileRelation):
     pass

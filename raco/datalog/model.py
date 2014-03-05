@@ -1,18 +1,21 @@
 '''
-Classes for representing and manipulating Datalog programs.
 
-In particular, they can be compiled to (iterative) relational algebra expressions.
+classes for representing and manipulating Datalog programs.
+
+In particular, they can be compiled to (iterative) relational algebra
+expressions.
 '''
 import networkx as nx
 from raco import expression
 import raco.algebra
-import raco.scheme
+from raco import scheme
 import raco.catalog
 from raco import relation_key
 
 
 import logging
 LOG = logging.getLogger(__name__)
+
 
 class Program(object):
     def __init__(self, rules):
@@ -24,7 +27,9 @@ class Program(object):
         return self.IDB(term) != []
 
     def IDB(self, term):
-        """Return a list of rules that define an IDB corresponding to the given term: relation names are the same, and the number of columns are the same."""
+        """Return a list of rules that define an IDB corresponding to the given
+        term: relation names are the same, and the number of columns are the
+        same."""
         matches = []
         for r in self.rules:
             if r.IDBof(term):
@@ -33,7 +38,8 @@ class Program(object):
         return matches
 
     def compiling(self, idbterm):
-        """Return true if any of the rules that define the given idb are being compiled"""
+        """Return true if any of the rules that define the given idb are being
+        compiled"""
         for r in self.rules:
             if r.head.samerelation(idbterm):
                 if r.compiling:
@@ -48,18 +54,22 @@ class Program(object):
         return False
 
     def toRA(self):
-        """Return a set of relational algebra expressions implementing this program."""
+        """Return a set of relational algebra expressions implementing this
+        program."""
         self.idbs = {}
         for rule in self.rules:
             block = self.idbs.setdefault(rule.head.name, [])
             block.append(rule)
 
-        newplans = [(idb, self.compileIDB(idb)) for (idb, rules) in self.idbs.items() if any([not self.intermediateRule(r) for r in rules])]
+        newplans = [(idb, self.compileIDB(idb))
+                    for (idb, rules) in self.idbs.items()
+                    if any([not self.intermediateRule(r) for r in rules])]
 
         return newplans
 
     def compileIDB(self, idb):
-        """Compile an idb by name.  Uses the self.idbs data structure created in self.toRA"""
+        """Compile an idb by name.  Uses the self.idbs data structure created
+        in self.toRA"""
 
         if idb in self.compiledidbs:
             return self.compiledidbs[idb]
@@ -72,6 +82,7 @@ class Program(object):
 
     def __repr__(self):
         return "\n".join([str(r) for r in self.rules])
+
 
 class JoinSequence(object):
     """Convenience class for operating on a sequence of joins.
@@ -97,11 +108,13 @@ class JoinSequence(object):
         raise KeyError("%s not found in join sequence %s" % (term, self.terms))
 
     def makePlan(self, selection_conditions, program):
-        """Make a relational plan. The selection_conditions are explicit conditions from the Datalog rule, like X=3"""
-        leaves = [t.makeLeaf(selection_conditions, program) for t in self.terms]
+        """Make a relational plan. The selection_conditions are explicit
+        conditions from the Datalog rule, like X=3"""
+        leaves = [t.makeLeaf(selection_conditions, program)
+                  for t in self.terms]
 
         if not leaves:
-            return raco.algebra.EmptyRelation(raco.scheme.Scheme())
+            return raco.algebra.EmptyRelation(scheme.Scheme())
 
         leftmost = leaves[0]
         pairs = zip(self.conditions, leaves[1:])
@@ -112,7 +125,8 @@ class JoinSequence(object):
         return reduce(makejoin, pairs, leftmost)
 
     def addjoin(self, left, right, condition):
-        """Append a join to the sequence.  The left term should already appear somewhere in the sequence."""
+        """Append a join to the sequence.  The left term should already appear
+        somewhere in the sequence."""
         if not self.terms:
             self.terms.append(left)
             self.num_atoms += len(left)
@@ -130,35 +144,42 @@ class JoinSequence(object):
         if not self.terms:
             return "EmptyJoinSequence"
         else:
-            return " ".join(["%s *%s " % (t, c) for t, c in zip(self.terms, self.conditions)]) + "%s" % self.terms[-1]
+            return " ".join(["%s *%s " % (t, c)
+                             for t, c in zip(self.terms, self.conditions)]) \
+                + "%s" % self.terms[-1]
 
     def __iter__(self):
         return self.terms.__iter__()
 
+
 class Planner(object):
-    """Given a join graph, produce a join sequence by choosing a join order with respect to
-  some cost function.  Subclasses can implement this however they want."""
+    """Given a join graph, produce a join sequence by choosing a join order
+    with respect to some cost function.  Subclasses can implement this however
+    they want."""
 
     def __init__(self, joingraph):
         self.joingraph = joingraph
 
     def joininfo(self, joinedge):
-        """Given a join edge, return a pair of terms and the metadata for the join"""
-        # TODO: Does this belong here, or in JoinSequence?  Especially the flip logic.
+        """Given a join edge, return a pair of terms and the metadata for the
+        join"""
+        # TODO: Does this belong here, or in JoinSequence?  Especially the flip
+        # logic.
         leftterm, rightterm = joinedge
         data = self.joingraph.get_edge_data(*joinedge)
         condition = data["condition"]
 
-        LOG.debug("joininfo: condition(%s), data(%s), leftterm(%s), rightterm(%s)", condition, data, leftterm, rightterm)
+        LOG.debug("joininfo: condition(%s), data(%s), leftterm(%s), rightterm(%s)", condition, data, leftterm, rightterm)  # noqa
 
         return leftterm, rightterm, condition
 
     def toJoinSequence(self, edgesequence, joinsequence=None):
-        """Convert a sequence of join edges to a JoinSequence object.
-    A joinsequence has the correct offsets and orientation for positional references.
-    An edgesequence does not."""
+        """Convert a sequence of join edges to a JoinSequence object.  A
+        joinsequence has the correct offsets and orientation for positional
+        references.  An edgesequence does not."""
 
-        if joinsequence is None: joinsequence = JoinSequence()
+        if joinsequence is None:
+            joinsequence = JoinSequence()
 
         # TODO: Move this to JoinSequence?
         if not edgesequence:
@@ -169,12 +190,13 @@ class Planner(object):
         left, right, condition = self.joininfo(edge)
         # FIXME: Sometimes condition gets switched here!!
 
-        LOG.debug("toJoinSequence: left(%s), right(%s), conditions(%s) => (calculating)", left, right, condition)
+        LOG.debug("toJoinSequence: left(%s), right(%s), conditions(%s) => (calculating)", left, right, condition)  # noqa
         joinsequence.addjoin(left, right, condition)
-        LOG.debug("toJoinSequence: left(%s), right(%s), conditions(%s) => joinsequence(%s)", left, right, condition, joinsequence)
+        LOG.debug("toJoinSequence: left(%s), right(%s), conditions(%s) => joinsequence(%s)", left, right, condition, joinsequence)  # noqa
 
         js = self.toJoinSequence(rem, joinsequence)
         return js
+
 
 def normalize(x, y):
     if y < x:
@@ -183,13 +205,16 @@ def normalize(x, y):
         edge = (x, y)
     return edge
 
+
 class BFSLeftDeepPlanner(Planner):
 
     def chooseplan(self, costfunc=None):
-        """Return a join sequence object based on the join graph.
-    This one is simple -- it just adds the joins according to a breadth first search"""
-        # choose first node in the original insertion order (networkx does not guarantee even a deterministic order)
-        firstnode = [n for n in self.joingraph.nodes() if n.originalorder == 0][0]
+        """Return a join sequence object based on the join graph.  This one is
+        simple -- it just adds the joins according to a breadth first search"""
+        # choose first node in the original insertion order (networkx does not
+        # guarantee even a deterministic order)
+        firstnode = [n for n in self.joingraph.nodes()
+                     if n.originalorder == 0][0]
 
         # get a BFS ordering of the edges.  Ignores costs.
         edgesequence = [x for x in nx.bfs_edges(self.joingraph, firstnode)]
@@ -199,20 +224,24 @@ class BFSLeftDeepPlanner(Planner):
         # Make it deterministic but still in BFS order
         deterministic_edge_sequence = []
         while len(edgesequence) > 0:
-                # Consider all edges that have the same first node -- these are all "ties" in BFS order.
+            # Consider all edges that have the same first node -- these are all
+            # "ties" in BFS order.
             firstx = edgesequence[0][0]
             new_edges = [(x, y) for (x, y) in edgesequence if x == firstx]
-            # Sort those edges on the originalorder tuple of the source and destination
-            deterministic_edge_sequence.extend(sorted(new_edges, key=lambda (x, y) : (x.originalorder, y.originalorder)))
+            # Sort edges on the originalorder of the source and destination
+            deterministic_edge_sequence.extend(sorted(new_edges, key=lambda (x, y): (x.originalorder, y.originalorder)))  # noqa
             # Remove all those edges from edgesequence
             edgesequence = [(x, y) for (x, y) in edgesequence if x != firstx]
 
-        LOG.debug("BFS: deterministic edge seq: %s", deterministic_edge_sequence)
+        LOG.debug("BFS: deterministic edge seq: %s",
+                  deterministic_edge_sequence)
 
-         # Generate a concrete sequence of terms with conditions properly adjusted
+        # Generate a concrete sequence of terms with conditions properly
+        # adjusted
         joinsequence = self.toJoinSequence(deterministic_edge_sequence)
         LOG.debug("BFS: joinsequence: %s", joinsequence)
         return joinsequence
+
 
 class Rule(object):
     def __init__(self, headbody):
@@ -223,7 +252,8 @@ class Rule(object):
         self.fixpoint = None
 
     def vars(self):
-        """Return a list of variables in their order of appearence in the rule.  No attempt to remove duplicates"""
+        """Return a list of variables in their order of appearence in the rule.
+        No attempt to remove duplicates"""
         for term in self.body:
             for v in term.vars():
                 yield v
@@ -231,19 +261,20 @@ class Rule(object):
     def refersTo(self, term):
         """Return true if this rule includeas a reference to the given term"""
         for bodyterm in self.body:
-            if isinstance(bodyterm, Term):
-                if bodyterm.samerelation(term):
-                    return True
+            if isinstance(bodyterm, Term) and bodyterm.samerelation(term):
+                return True
         return False
 
     def isParallel(self):
-        if self.head.serverspec: return True
-        else: return False
-
+        if self.head.serverspec:
+            return True
+        return False
 
     def IDBof(self, term):
-        """Return true if this rule defines an IDB corresponding to the given term"""
-        return term.name == self.head.name and len(term.valuerefs) == len(self.head.valuerefs)
+        """Return true if this rule defines an IDB corresponding to the given
+        term"""
+        return term.name == self.head.name and \
+            len(term.valuerefs) == len(self.head.valuerefs)
 
     def toRA(self, program):
         """Emit a relational plan for this rule"""
@@ -260,31 +291,34 @@ class Rule(object):
         terms = [c for c in self.body if isinstance(c, Term)]
 
         # get the conditions, like Z=3
-        conditions = [c for c in self.body if isinstance(c, expression.BinaryBooleanOperator)]
+        conditions = [c for c in self.body
+                      if isinstance(c, expression.BinaryBooleanOperator)]
         if len(conditions) > 0:
-            LOG.debug("found conditions: %s (type=%s) for program %s", conditions, type(conditions[0]), program)
+            LOG.debug("found conditions: %s (type=%s) for program %s", conditions, type(conditions[0]), program)  # noqa
         else:
-            LOG.debug("found conditions: %s (type=%s) for program %s", conditions, None,  program)
-
+            LOG.debug("found conditions: %s (type=%s) for program %s", conditions, None, program)  # noqa
 
         # construct the join graph
         joingraph = nx.Graph()
         N = len(terms)
         for i, term1 in enumerate(terms):
-            # store the order for explaining queries later -- not strictly necessary
+            # store the order for explaining queries later -- not strictly
+            # necessary
             term1.originalorder = i
 
             # for each term, add it as a vertex,
             # and for each term it joins to, add an edge
             joingraph.add_node(term1, term=term1)
-            for j in range(i+1, N):
+            for j in range(i + 1, N):
                 term2 = terms[j]
                 LOG.debug("joinsto? %s %s", term1, term2)
                 joins = term1.joinsto(term2, conditions)
                 if joins:
                     conjunction = reduce(expression.AND, joins)
-                    LOG.debug("add edge: %s --[%s]--> %s", term1, conjunction, term2)
-                    joingraph.add_edge(term1, term2, condition=conjunction, terms=(term1, term2))
+                    LOG.debug("add edge: %s --[%s]--> %s", term1, conjunction,
+                              term2)
+                    joingraph.add_edge(term1, term2, condition=conjunction,
+                                       terms=(term1, term2))
 
         # find connected components (some non-determinism in the order here)
         comps = nx.connected_component_subgraphs(joingraph)
@@ -317,8 +351,9 @@ class Rule(object):
                 plan = onlyterm.makeLeaf(conditions, program)
             else:
                 LOG.debug("component: %s", component)
-                # TODO: clean this up. joingraph -> joinsequence -> relational plan
-                planner = BFSLeftDeepPlanner(component)       # JOIN sequence finding
+                # TODO: clean this up.
+                # joingraph -> joinsequence -> relational plan
+                planner = BFSLeftDeepPlanner(component)
 
                 joinsequence = planner.chooseplan()
                 LOG.debug("join sequence: %s", joinsequence)
@@ -327,7 +362,6 @@ class Rule(object):
                 # pass in the conditions to make the leaves of the plan
                 plan = joinsequence.makePlan(conditions, program)
 
-
             LOG.debug("cycleconditions: %s", cycleconditions)
             for condition_info in cycleconditions:
                 predicate = condition_info["condition"]
@@ -335,7 +369,8 @@ class Rule(object):
 
                 # change all UnnamedAttributes based on the
                 # offset of its Term
-                termsToOffset = dict((t, joinsequence.offset(t)) for t in terms)
+                termsToOffset = dict((t, joinsequence.offset(t))
+                                     for t in terms)
 
                 LOG.debug("before add offset %s", predicate)
                 predicate.add_offset_by_terms(termsToOffset)
@@ -362,52 +397,55 @@ class Rule(object):
 
         try:
             scheme = plan.scheme()
-        except AttributeError:  #raco.algebra.RecursionError:
-            scheme = raco.scheme.Scheme([attr(i, r, self.head.name) for i, r in enumerate(self.head.valuerefs)])
+        except AttributeError:
+            scheme = scheme.Scheme([attr(i, r, self.head.name) for i, r in enumerate(self.head.valuerefs)])  # noqa
 
         # Helper function for the next two steps (TODO: move this to a method?)
         def findvar(variable):
             var = variable.var
             if var not in scheme:
-                msg = "Head variable %s does not appear in rule body: %s" % (var, self)
+                msg = "Head variable %s does not appear in rule body: %s" % (var, self)  # noqa
                 raise SyntaxError(msg)
-            return raco.expression.UnnamedAttributeRef(scheme.getPosition(var))
+            return expression.UnnamedAttributeRef(scheme.getPosition(var))
 
-        # if this Rule includes a server specification, add a partition operator
+        # if this Rule includes a server specification, add a partition
+        # operator
         if self.isParallel():
             if isinstance(self.head.serverspec, Broadcast):
                 plan = raco.algebra.Broadcast(plan)
             if isinstance(self.head.serverspec, PartitionBy):
-                positions = [findvar(v) for v in self.head.serverspec.variables]
+                positions = [findvar(v)
+                             for v in self.head.serverspec.variables]
                 plan = raco.algebra.PartitionBy(positions, plan)
 
-
-        # Put a project or a group by at the top of the plan
-
-        # Resolve variable references in the head; pass through aggregate expressions
+        # Resolve variable references in the head; pass through aggregate
+        # expressions
         def toAttrRef(e):
-            if raco.expression.isaggregate(e):
+            if expression.isaggregate(e):
                 # assuming that every aggregate has exactly one argument
                 return e.__class__(findvar(e.input))
             elif isinstance(e, Var):
                 return findvar(e)
         columnlist = [toAttrRef(v) for v in self.head.valuerefs]
 
-        # If any of the expressions in the head are aggregate expression, construct a group by
-        if any([raco.expression.isaggregate(v) for v in self.head.valuerefs]):
+        # If any of the expressions in the head are aggregate expression,
+        # construct a group by
+        if any([expression.isaggregate(v) for v in self.head.valuerefs]):
             # GroupBy expects grouping terms to precede aggregate terms;
             # rearrange terms and then fixup with an Apply operator
 
-            groups = [(orig_pos, col) for orig_pos, col in enumerate(columnlist)
-                      if not isinstance(col, raco.expression.AggregateExpression)]
-            aggs = [(orig_pos, col) for orig_pos, col in enumerate(columnlist)
-                    if isinstance(col, raco.expression.AggregateExpression)]
+            groups = [(orig_pos, col)
+                      for orig_pos, col in enumerate(columnlist)
+                      if not isinstance(col, expression.AggregateExpression)]
+            aggs = [(orig_pos, col)
+                    for orig_pos, col in enumerate(columnlist)
+                    if isinstance(col, expression.AggregateExpression)]
 
             group_cols = [col for _, col in groups]
             agg_cols = [col for _, col in aggs]
             groupby = raco.algebra.GroupBy(group_cols, agg_cols, plan)
 
-            mappings = [(None, raco.expression.UnnamedAttributeRef(orig_pos))
+            mappings = [(None, expression.UnnamedAttributeRef(orig_pos))
                         for orig_pos, col in groups + aggs]
             plan = raco.algebra.Apply(mappings, groupby)
         else:
@@ -427,12 +465,14 @@ class Rule(object):
     def __repr__(self):
         return "%s :- %s" % (self.head, ", ".join([str(t) for t in self.body]))
 
-class Var(raco.expression.Expression):
+
+class Var(expression.Expression):
     def __init__(self, var):
         self.var = var
 
     def vars(self):
-        """Works with BinaryBooleanOperator.vars to return a list of vars from any expression"""
+        """Works with BinaryBooleanOperator.vars to return a list of vars from
+        any expression"""
         return [self.var]
 
     def __str__(self):
@@ -447,6 +487,7 @@ class Var(raco.expression.Expression):
     def apply(self, f):
         raise NotImplementedError()
 
+
 class Term(object):
     def __init__(self, parsedterm):
         self.name = parsedterm[0]
@@ -459,7 +500,8 @@ class Term(object):
         return len(self.valuerefs)
 
     def setalias(self, alias):
-        """Assign an alias for this term. Used when the same relation appears twice in one rule."""
+        """Assign an alias for this term. Used when the same relation appears
+        twice in one rule."""
         self.alias = alias
 
     def samerelation(self, term):
@@ -467,15 +509,19 @@ class Term(object):
         return self.name == term.name
 
     def __repr__(self):
-        return "%s_%s(%s)" % (self.__class__.__name__, self.name, ",".join([str(e) for e in self.valuerefs]))
+        return "%s_%s(%s)" % (self.__class__.__name__, self.name,
+                              ",".join([str(e) for e in self.valuerefs]))
 
     def vars(self):
         """Return a list of variable names used in this term."""
         return [vr.var for vr in self.valuerefs if isinstance(vr, Var)]
 
     def varpos(self):
-        """Return a list of (position, variable name) tuples for variables used in this term."""
-        return [(pos, vr.var) for (pos, vr) in enumerate(self.valuerefs) if isinstance(vr, Var)]
+        """Return a list of (position, variable name) tuples for variables used
+        in this term."""
+        return [(pos, vr.var)
+                for (pos, vr) in enumerate(self.valuerefs)
+                if isinstance(vr, Var)]
 
     def labelAttr(self, attr):
         LOG.debug("label %s with term %s", attr, self)
@@ -484,29 +530,30 @@ class Term(object):
 
     def joinsto(self, other, conditions):
         """Return the join conditions between this term and the argument term.
-           The second argument is a list of explicit conditions, like X=3 or Y=Z
+        The second argument is a list of explicit conditions, like X=3 or Y=Z
 
-           The attributes for the variables in the conditions will be labeled
-           with the term they are from."""
+        The attributes for the variables in the conditions will be labeled with
+        the term they are from."""
 
         # get the implicit join conditions
         yourvars = other.varpos()
         myvars = self.varpos()
         varjoins = []
-        Pos = raco.expression.UnnamedAttributeRef
+        Pos = expression.UnnamedAttributeRef
         for i, var in myvars:
             match = [j for (j, var2) in yourvars if var2 == var]
             if match:
                 myposition = Pos(i)
                 self.labelAttr(myposition)
-                # TODO this code only picks the first matching variable. Consider:
+                # TODO this code only picks the first matching variable.
+                # Consider:
                 #    A(x) :- R(x), S(x,x). We will end up with
                 #
                 #    Project($0)[Join($0=$0)[Scan(R),Select($0=$1)]Scan(S)]
                 #
-                # Might it be better to emit both Join conditions instead of the
-                # select? In addition to the select?? Might it be better to Join on
-                # the second attribute instead? TODO
+                # Might it be better to emit both Join conditions instead of
+                # the select? In addition to the select?? Might it be better to
+                # Join on the second attribute instead? TODO
                 yourposition = Pos(match[0])
                 other.labelAttr(yourposition)
                 varjoins.append(expression.EQ(myposition, yourposition))
@@ -516,19 +563,22 @@ class Term(object):
         condjoins = []
 
         # get the explicit join conditions
-        # TODO: this only works for BinaryOperators of depth 1  (binop left right). It can be generalized
+        # TODO: this only works for BinaryOperators of depth 1 (binop left
+        # right). It can be generalized
         for c in conditions:
             if isinstance(c.left, Var) and isinstance(c.right, Var):
                 # then we have a potential join condition
                 if self.match(c.left) and other.match(c.right):
-                    LOG.debug("match condition %s: self(%s) matches %s; other(%s) matches %s", c, self, c.left, other, c.right)
-                    leftAttr, rightAttr = self.convertvalref(c.left), other.convertvalref(c.right)
+                    LOG.debug("match condition %s: self(%s) matches %s; other(%s) matches %s", c, self, c.left, other, c.right)  # noqa
+                    leftAttr = self.convertvalref(c.left)
+                    rightAttr = other.convertvalref(c.right)
                     self.labelAttr(leftAttr)
                     other.labelAttr(rightAttr)
                     condjoins.append(c.__class__(leftAttr, rightAttr))
                 elif other.match(c.left) and self.match(c.right):
-                    LOG.debug("match condition %s: self(%s) matches %s; other(%s) matches %s", c, self, c.right, other, c.left)
-                    leftAttr, rightAttr = other.convertvalref(c.left), self.convertvalref(c.right)
+                    LOG.debug("match condition %s: self(%s) matches %s; other(%s) matches %s", c, self, c.right, other, c.left)  # noqa
+                    leftAttr = other.convertvalref(c.left)
+                    rightAttr = self.convertvalref(c.right)
                     self.labelAttr(rightAttr)
                     other.labelAttr(leftAttr)
                     condjoins.append(c.__class__(leftAttr, rightAttr))
@@ -538,64 +588,76 @@ class Term(object):
 
         LOG.debug("cond joins: %s", condjoins)
 
-        return varjoins+condjoins
+        return varjoins + condjoins
 
     def match(self, valref):
         """Return true if valref is a variable and is used in the list"""
         return isinstance(valref, Var) and valref.var in self.vars()
 
     def position(self, valueref):
-        """ Returns the position of the variable in the term.  Throws an error if it does not appear."""
-        LOG.debug("position: vars(%s), valueref.var(%s)", [v for v in self.valuerefs], valueref.var)
-        return dict([(var,pos) for pos,var in self.varpos()])[valueref.var]
+        """ Returns the position of the variable in the term.  Throws an error
+        if it does not appear."""
+        LOG.debug("position: vars(%s), valueref.var(%s)", [v for v in self.valuerefs], valueref.var)  # noqa
+        return dict([(var, pos) for pos, var in self.varpos()])[valueref.var]
 
     def convertvalref(self, valueref):
-        """Convert a Datalog value reference (a literal or a variable) to RA.  Literals are passed through unchanged.  Variables are converted"""
+        """Convert a Datalog value reference (a literal or a variable) to RA.
+        Literals are passed through unchanged.  Variables are converted"""
         if self.match(valueref):
             pos = self.position(valueref)
-            LOG.debug("convertvalref(match) self(%s), valueref(%s), pos(%s)", self, valueref, pos)
+            LOG.debug("convertvalref(match) self(%s), valueref(%s), pos(%s)", self, valueref, pos)  # noqa
 
-            return raco.expression.UnnamedAttributeRef(pos)
+            return expression.UnnamedAttributeRef(pos)
         else:
             # must be a join condition, and the other variable matches
-            LOG.debug("convertvalref(not) self(%s), valueref(%s)", self, valueref)
+            LOG.debug("convertvalref(not) self(%s), valueref(%s)", self, valueref)  # noqa
             return valueref
 
     def explicitconditions(self, conditions):
-        """Given a list of parsed Datalog boolean conditions, return an iterator over RA selection conditions that apply to this term.  Ignore join conditions."""
+        """Given a list of parsed Datalog boolean conditions, return an
+        iterator over RA selection conditions that apply to this term.  Ignore
+        join conditions."""
         # This method is written rather verbosely for clarity
 
         Literal = expression.Literal
 
         for condition in conditions:
+            cons = condition.__class__
 
-            if isinstance(condition.left, Literal) and isinstance(condition.right, Literal):
+            if isinstance(condition.left, Literal) and \
+                    isinstance(condition.right, Literal):
                 # No variables
-                yield condition.__class__(condition.left, condition.right)
+                yield cons(condition.left, condition.right)
 
-            elif isinstance(condition.left, Literal) and isinstance(condition.right, Var):
+            elif isinstance(condition.left, Literal) and \
+                    isinstance(condition.right, Var):
                 # left literal, right variable, like 3 = X
                 if self.match(condition.right):
-                    yield condition.__class__(condition.left, self.convertvalref(condition.right))
+                    yield cons(condition.left,
+                               self.convertvalref(condition.right))
                 else:
                     # variable is not used in this term, so do nothing
                     pass
 
-            elif isinstance(condition.left, Var) and isinstance(condition.right, Literal):
+            elif isinstance(condition.left, Var) and \
+                    isinstance(condition.right, Literal):
                 # left variable, right literal, like X = 3
                 if self.match(condition.left):
-                    yield condition.__class__(self.convertvalref(condition.left), condition.right)
+                    yield cons(self.convertvalref(condition.left),
+                               condition.right)
                 else:
                     # variable is not used in this term, so do nothing
                     pass
 
-            elif isinstance(condition.left, Var) and isinstance(condition.right, Var):
+            elif isinstance(condition.left, Var) and \
+                    isinstance(condition.right, Var):
                 # two variables. Both match, neither match, or one matches.
                 leftmatch = self.match(condition.left)
                 rightmatch = self.match(condition.right)
                 if leftmatch and rightmatch:
                     # a selection condition like A(X,Y), X=Y
-                    yield condition.__class__(self.convertvalref(condition.left), self.convertvalref(condition.right))
+                    yield cons(self.convertvalref(condition.left),
+                               self.convertvalref(condition.right))
                 elif not leftmatch and not rightmatch:
                     # nothing to do with this term
                     pass
@@ -607,12 +669,13 @@ class Term(object):
                     pass
 
     def implicitconditions(self):
-        """An iterator over implicit selection conditions derived from the datalog syntax.
-    For example, A(X,X) implies position0 == position1, and A(X,4) implies position1 == 4"""
+        """An iterator over implicit selection conditions derived from the
+        datalog syntax. For example, A(X,X) implies position0 == position1,
+        and A(X,4) implies position1 == 4"""
         # Check for implicit literal equality conditions, like A(X,"foo")
         for i, b in enumerate(self.valuerefs):
             if isinstance(b, expression.Literal):
-                posref = raco.expression.UnnamedAttributeRef(i)
+                posref = expression.UnnamedAttributeRef(i)
                 yield expression.EQ(posref, b)
 
         # Check for repeated variable conditions, like A(X,X)
@@ -622,14 +685,16 @@ class Term(object):
                 for j in range(i + 1, N):
                     y = self.valuerefs[j]
                     if isinstance(y, Var):
-                        # TODO: probably want to implement __eq__, but it makes Var objects unhashable
+                        # TODO: probably want to implement __eq__, but it makes
+                        # Var objects unhashable
                         if x.var == y.var:
-                            leftpos = raco.expression.UnnamedAttributeRef(i)
-                            rightpos = raco.expression.UnnamedAttributeRef(j)
+                            leftpos = expression.UnnamedAttributeRef(i)
+                            rightpos = expression.UnnamedAttributeRef(j)
                             yield expression.EQ(leftpos, rightpos)
 
     def renameIDB(self, plan):
-        """Rename the attributes of the plan to match the current rule. Used when chaining multiple rules."""
+        """Rename the attributes of the plan to match the current rule. Used
+        when chaining multiple rules."""
         term = self
 
         # Do we know the actual scheme? If it's recursive, we don't
@@ -638,13 +703,22 @@ class Term(object):
         try:
             sch = plan.scheme()
         except raco.algebra.RecursionError:
-            sch = raco.scheme.Scheme([attr(i, r, term.name) for i, r in enumerate(term.valuerefs)])
+            def attr(i, r, relation_alias):
+                if isinstance(r, Var):
+                    name = r.var
+                    attrtype = None
+                elif isinstance(r, expression.Literal):
+                    name = "pos%s" % i
+                    attrtype = type(r.value)
+                return (name, attrtype)
+            sch = scheme.Scheme([attr(i, r, term.name)
+                                 for i, r in enumerate(term.valuerefs)])
 
         oldscheme = [name for (name, _) in sch]
         termscheme = [expr for expr in term.valuerefs]
 
         if len(oldscheme) != len(termscheme):
-            raise TypeError("Rule with head %s does not match Term %s" % (term.name, term))
+            raise TypeError("Rule with head %s does not match Term %s" % (term.name, term))  # noqa
 
         pairs = zip(termscheme, oldscheme)
 
@@ -654,24 +728,26 @@ class Term(object):
                 # Then use this new var as the column name
                 return new.var
             else:
-                # It's an implicit selection condition, like R(x,3). In R's schema,
-                # don't call the column name '3' (new), instead call it whatever the column
-                # name was in the prior rule where R is the head variable R (old).
+                # It's an implicit selection condition, like R(x,3). In R's
+                # schema, don't call the column name '3' (new), instead call it
+                # whatever the column name was in the prior rule where R is the
+                # head variable R (old).
                 return old
 
-        mappings = [(choosename(new, old), raco.expression.UnnamedAttributeRef(i)) for i, (new, old) in enumerate(pairs)]
+        mappings = [(choosename(new, old), expression.UnnamedAttributeRef(i))
+                    for i, (new, old) in enumerate(pairs)]
 
         # Use an apply operator to implement the renaming
         plan = raco.algebra.Apply(mappings, plan)
 
         return plan
 
-    def makeLeaf(term, conditions, program):
-        """Return an RA plan that Scans the appropriate relation and applies all selection conditions
-      Two sources of conditions: the term itself, like A(X,"foo") -> Select(pos1="foo", Scan(A))
-      and separate condition terms, like A(X,Y), X=3 -> Select(pos0=3, Scan(A))
-      separate condition terms are passed in as an argument.
-      """
+    def makeLeaf(self, conditions, program):
+        """Return an RA plan that Scans the appropriate relation and applies
+        all selection conditions. Two sources of conditions: the term itself,
+        like A(X,"foo") -> Select(pos1="foo", Scan(A)) and separate condition
+        terms, like A(X,Y), X=3 -> Select(pos0=3, Scan(A)) separate condition
+        terms are passed in as an argument."""
         def attr(i, r, relation_alias):
             if isinstance(r, Var):
                 name = r.var
@@ -683,21 +759,22 @@ class Term(object):
             #return AttributeSpec(relation_alias, name, attrtype)
 
         # Chain rules together
-        if program.isIDB(term):
-            plan = program.compileIDB(term.name)
-            scan = term.renameIDB(plan)
+        if program.isIDB(self):
+            plan = program.compileIDB(self.name)
+            scan = self.renameIDB(plan)
         else:
             # TODO: A call to some catalog?
-            sch = raco.scheme.Scheme([attr(i, r, term.name) for i, r in enumerate(term.valuerefs)])
-            rel_key = relation_key.RelationKey.from_string(term.name)
+            sch = scheme.Scheme([attr(i, r, self.name)
+                                 for i, r in enumerate(self.valuerefs)])
+            rel_key = relation_key.RelationKey.from_string(self.name)
             scan = raco.algebra.Scan(rel_key, sch)
-            scan.trace("originalterm", "%s (position %s)" % (term, term.originalorder))
+            scan.trace("originalterm", "%s (position %s)" % (self, self.originalorder))  # noqa
 
         # collect conditions within the term itself, like A(X,3) or A(Y,Y)
-        implconds = list(term.implicitconditions())
+        implconds = list(self.implicitconditions())
 
         # collect explicit conditions, like A(X,Y), Y=2
-        explconds = list(term.explicitconditions(conditions))
+        explconds = list(self.explicitconditions(conditions))
 
         allconditions = implconds + explconds
 
@@ -707,8 +784,9 @@ class Term(object):
         else:
             plan = scan
 
-        plan.set_alias(term)
+        plan.set_alias(self)
         return plan
+
 
 class IDB(Term):
     def __init__(self, termobj, serverspec=None, timestep=None):
@@ -720,18 +798,23 @@ class IDB(Term):
         self.serverspec = serverspec
         self.timestep = timestep
 
+
 class EDB(Term):
     pass
+
 
 class ServerSpecification(object):
     pass
 
+
 class Broadcast(ServerSpecification):
     pass
+
 
 class PartitionBy(ServerSpecification):
     def __init__(self, variables):
         self.variables = variables
+
 
 class Timestep(object):
     def __init__(self, spec):

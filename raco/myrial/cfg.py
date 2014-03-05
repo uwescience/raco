@@ -22,10 +22,11 @@ def find_gt(a, x):
         return a[i]
     return None
 
+
 def sliding_window(seq, n=2):
     """Returns a sliding window (of width n) over data from the iterable.
 
-    http://stackoverflow.com/questions/6822725/rolling-or-sliding-window-iterator-in-python
+    http://stackoverflow.com/questions/6822725/rolling-or-sliding-window-iterator-in-python  # noqa
     """
 
     it = iter(seq)
@@ -36,6 +37,7 @@ def sliding_window(seq, n=2):
         result = result[1:] + (elem,)
         yield result
 
+
 class ControlFlowGraph(object):
     def __init__(self):
         self.graph = nx.DiGraph()
@@ -43,9 +45,11 @@ class ControlFlowGraph(object):
         self._next_op_id = 0
 
     def __str__(self):
-        node_strs = ['%s: uses=%s def=%s' % (str(n), repr(self.graph.node[n]['uses']),
-            repr(self.graph.node[n]['def_var'])) for n in self.graph]
-        edge_strs = ['%s=>%s' % (str(s), str(d)) for s,d in self.graph.edges()]
+        g = self.graph
+        node_strs = ['%s: uses=%s def=%s' % (str(n), repr(g.node[n]['uses']),
+                                             repr(c.node[n]['def_var']))
+                     for n in g]
+        edge_strs = ['%s=>%s' % (str(s), str(d)) for s, d in g.edges()]
         return '; '.join(node_strs) + '\n' + '; '.join(edge_strs)
 
     @property
@@ -88,7 +92,8 @@ class ControlFlowGraph(object):
         """
 
         # All variables that are accessed are live-in at a node
-        live_in = dict([(i, copy.copy(self.graph.node[i]['uses'])) for i in self.graph])
+        live_in = dict([(i, copy.copy(self.graph.node[i]['uses']))
+                        for i in self.graph])
         live_out = dict([(i, set()) for i in self.graph])
 
         while True:
@@ -158,23 +163,25 @@ class ControlFlowGraph(object):
     def apply_chaining(self):
         """Merge adjacent statements by chaining together plans.
 
-        It is often desirable to chain plans instead of materializing temporary tables.
-        Consider this simple example:
+        It is often desirable to chain plans instead of materializing temporary
+        tables. Consider this simple example:
 
-        X = SCAN(foo); -- Materializing a temporary table for X would be dumb
-        Y = DISTINCT(X); -- Instead, we can inline the scan into this expression
+        X = SCAN(foo);   -- Materializing a temporary table for X would be dumb
+        Y = DISTINCT(X); -- Instead, we can inline the scan into this
+                         -- expression
 
         The merge procedure operates on the control flow graph.  We inline node
         A into node B whenever the following conditions are all true:
 
         - A directly precedes B; we don't consider out-of-order executions
-        - A defines a variable (i.e., it assigns a temporary; not a STORE statement)
+        - A defines a variable (i.e., it assigns a temporary; not a STORE)
         - B references the variable defined by A -- def(A) in uses(B)
-        - The variable defined by A is not used again; def(A) not in live_out(B)
+        - The variable defined by A is not used again
+              -- def(A) not in live_out(B)
         - A and B are in the same do/while loop.
 
-        The merge procedure is applied recursively on the CFG until convergence is
-        reached.
+        The merge procedure is applied recursively on the CFG until convergence
+        is reached.
         """
 
         _continue = True
@@ -185,7 +192,7 @@ class ControlFlowGraph(object):
             # XXX O(N^2) algorithm
             for nodeA, nodeB in sliding_window(self.sorted_vertices):
                 if self.graph.in_degree(nodeB) == 2:
-                    continue # start of do/while loop
+                    continue  # start of do/while loop
 
                 def_var = self.graph.node[nodeA]['def_var']
                 if not def_var:
@@ -218,14 +225,15 @@ class ControlFlowGraph(object):
                 out_set = live_out[node]
                 def_var = self.graph.node[node]['def_var']
 
-                # Only delete nodes that 1) Define a variable (and therefore aren't
-                # STORE, DUMP, etc.); 2) Are not required downstream.
+                # Only delete nodes that 1) Define a variable (and therefore
+                # aren't STORE, etc.); 2) Are not required downstream.
                 if def_var and def_var not in out_set:
                     self.__delete_node(node)
                     _continue = True
                     break
 
-    def get_logical_plan(self, dead_code_elimination=True, apply_chaining=True):
+    def get_logical_plan(self, dead_code_elimination=True,
+                         apply_chaining=True):
         """Extract a logical plan from the control flow graph.
 
         The logic here is simplistic:
@@ -243,6 +251,7 @@ class ControlFlowGraph(object):
             self.apply_chaining()
 
         op_stack = [Sequence()]
+
         def current_block():
             return op_stack[-1]
 

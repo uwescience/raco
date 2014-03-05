@@ -1,9 +1,11 @@
 from raco.scheme import Scheme
 
+
 class Tuple(object):
     def __init__(self, tup, sch):
         for (n, t), v in zip(sch, tup):
             self.__dict__[n] = t(v)
+
 
 class Relation(object):
     def __init__(self, scheme, tuples=None, name=None):
@@ -41,16 +43,19 @@ class Relation(object):
         return len(self.tuples)
 
     def __str__(self):
-        return "%s\n%s" % (self.scheme, "\n".join([str(t) for t in self.tuples]))
+        return "%s\n%s" % (self.scheme,
+                           "\n".join([str(t) for t in self.tuples]))
 
 
 def product(rs, ss):
     for r in rs:
-        for t in ts:
-            yield r + t
+        for s in ss:
+            yield r + s
+
 
 def scan(rname, db):
     return db[rname]
+
 
 def select(condition, R):
     sch = R.getScheme()
@@ -60,12 +65,14 @@ def select(condition, R):
             result.insert(t)
     return result
 
+
 def project(attributes, R):
     sch = R.getScheme()
     result = Relation(sch.subScheme(attributes))
     ext = sch.getExtractor(attributes)
     for t in R:
         result.insert(ext(t))
+
 
 def hash(attributes, R):
     sch = R.getScheme()
@@ -74,6 +81,7 @@ def hash(attributes, R):
     for t in R:
         d.setdefault(ext(t), []).append(t)
     return d
+
 
 def dump(R):
     print R
@@ -86,6 +94,7 @@ def dump(R):
 #    d[ext(st)] = rt
 #    result.insert(rt)
 
+
 def hashjoin(attributes, Left, Right):
     keys = zip(*attributes)
     ht = hash(keys[0], Left)
@@ -94,7 +103,7 @@ def hashjoin(attributes, Left, Right):
     ext = Right.getScheme().getExtractor(keys[1])
     for t in Right:
         k = ext(t)
-        if ht.has_key(k):
+        if k in ht:
             lefts = ht[k]
             for lt in lefts:
                 result.insert(lt + t)
@@ -102,7 +111,7 @@ def hashjoin(attributes, Left, Right):
 
 if __name__ == '__main__':
     sch = Scheme([("subject", int), ("predicate", int), ("object", int)])
-    rel = Relation(sch, [(1, 2, 2),(1, 3, 2),(2, 2, 1),(2, 3, 3)])
+    rel = Relation(sch, [(1, 2, 2), (1, 3, 2), (2, 2, 1), (2, 3, 3)])
     sub = sch.subScheme(["subject"])
     print rel
     print sub
