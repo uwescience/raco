@@ -309,6 +309,7 @@ class HashJoin(algebra.Join, GrappaOperator):
     if src.childtag == "left":
       left_template = """
       %(hashname)s.lookup_iter( %(keyname)s.get(%(keypos)s), [=](%(right_tuple_type)s& %(right_tuple_name)s) {
+        join_coarse_result_count++;
         %(out_tuple_type)s %(out_tuple_name)s = combine<%(out_tuple_type)s, %(keytype)s, %(right_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
         %(inner_plan_compiled)s
       });
