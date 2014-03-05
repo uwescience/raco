@@ -419,3 +419,49 @@ class Unbox(ZeroaryOperator):
         are replaced with raw attribute references at evaluation time.
         """
         raise NotImplementedError()
+
+
+class Case(Expression):
+    def __init__(self, when_tuples, else_expr):
+        """Initialize a Case expression.
+
+        :param when_tuples: A list of tuples of the form
+        (test_expr, result_expr)
+        :type when_tuples: List of tuples of (Expression, Expression)
+        :param else_expr: An expression to evaluate if no when clause is
+        satisfied.
+        :type else_expr: Expression
+        """
+        self.when_tuples = when_tuples
+        self.else_expr = else_expr
+
+    def evaluate(self, _tuple, scheme, state=None):
+        for test_expr, result_expr in self.when_tuples:
+            if test_expr.evaluate(_tuple, scheme, state):
+                return result_expr.evaluate(_tuple, scheme, state)
+        return else_expr.evaluate(_tuple, scheme, state)
+
+    def postorder(self, f):
+        for test_expr, result_expr in self.when_tuples:
+            for x in test_expr.postorder(f):
+                yield x
+            for x in result_expr.postorder(f):
+                yield x
+        for x in self.else_expr.postorder(f):
+            yield x
+        yield f(self)
+
+    def apply(self, f):
+        self.when_tuples = [(f(test), f(result)) for test, result
+                            in self.when_tuples]
+        self.else_expr = f(self.else_expr)
+
+    def walk(self):
+        yield self
+        for test_expr, result_expr in self.when_tuples:
+            for x in test_expr.walk():
+                yield x
+            for x in result_expr.walk():
+                yield x
+        for x in self.else_expr.walk():
+            yield x
