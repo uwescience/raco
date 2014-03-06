@@ -1,4 +1,4 @@
-out = [FROM SCAN(public:adhoc:employees) AS E, SCAN(public:adhoc:departments) AS D
+out = [FROM SCAN(public:adhoc:departments) AS D, SCAN(public:adhoc:employees) AS E
        WHERE E.dept_id == D.id AND E.salary > 5000
        EMIT E.name AS emp_name, D.name AS dept_name];
 STORE(out, OUTPUT);
