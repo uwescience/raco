@@ -831,19 +831,6 @@ class PushSelects(rules.Rule):
     """Push selections."""
 
     @staticmethod
-    def get_tree_for_column(op, c):
-        """Locate the input schema that contributes a given column index."""
-
-        left_max = len(op.left.scheme())
-        right_max = left_max + len(op.right.scheme())
-
-        if c < left_max:
-            return 0
-        else:
-            assert c < right_max
-            return 1
-
-    @staticmethod
     def descend_tree(op, cond):
         """Recursively push a selection condition down a tree of operators.
 
