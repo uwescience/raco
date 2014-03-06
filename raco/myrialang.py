@@ -699,8 +699,10 @@ class SplitSelects(rules.Rule):
         assert conjuncs  # Must be at least 1
 
         op.condition = conjuncs[0]
+        op.has_been_pushed = False
         for conjunc in conjuncs[1:]:
             op = algebra.Select(conjunc, op)
+            op.has_been_pushed = False
         return op
 
     def __str__(self):
