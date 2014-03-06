@@ -2,7 +2,7 @@
 import collections
 import random
 
-from raco.algebra import Apply, CrossProduct, Scan, Select, StoreTemp
+from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.language import MyriaAlgebra
@@ -84,7 +84,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                 yield 0
         return sum(op.postorder(count))
 
-    def test_merge_selects(self):
+    def test_push_selects(self):
+        """Test pushing selections into and across cross-products."""
         lp = StoreTemp('OUTPUT',
                Select(expression.LTEQ(AttRef("e"), AttRef("f")),
                  Select(expression.EQ(AttRef("c"), AttRef("d")),
@@ -96,7 +97,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, CrossProduct), 1)
 
         pp = self.logical_to_physical(lp)
-        self.assertEquals(self.get_count(pp, Select), 1)
+        self.assertTrue(isinstance(pp.input, Join))
+        self.assertEquals(self.get_count(pp, Select), 2)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
 
         self.db.evaluate(pp)
@@ -117,11 +119,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_num_select_conjuncs(lp), 3)
 
         pp = self.logical_to_physical(lp)
-        self.assertEquals(self.get_count(pp, Select), 1)
-        self.assertEquals(self.get_count(pp, CrossProduct), 0)
 
-        # One select condition should get folded into the join
-        self.assertEquals(self.get_num_select_conjuncs(lp), 2)
+        # non-equijoin conditions should get pushed separately below the join
+        self.assertTrue(isinstance(pp.input, Join))
+        self.assertEquals(self.get_count(pp, CrossProduct), 0)
+        self.assertEquals(self.get_count(pp, Select), 2)
 
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
