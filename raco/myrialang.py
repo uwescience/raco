@@ -827,7 +827,7 @@ def is_column_equality_comparison(cond):
         return None
 
 
-class SelectToEquijoin(rules.Rule):
+class PushSelects(rules.Rule):
     """Push selections into joins and cross-products whenever possible."""
 
     @staticmethod
@@ -857,7 +857,7 @@ class SelectToEquijoin(rules.Rule):
 
         if isinstance(op, algebra.Select):
             # Keep pushing; selects are commutative
-            op.input = SelectToEquijoin.descend_tree(op.input, cond)
+            op.input = PushSelects.descend_tree(op.input, cond)
             return op
         elif isinstance(op, algebra.CompositeBinaryOperator):
             # Joins and cross-products; consider conversion to an equijoin
@@ -866,12 +866,12 @@ class SelectToEquijoin(rules.Rule):
             in_left = [col < left_len for col in accessed]
             if all(in_left):
                 # Push the select into the left sub-tree.
-                op.left = SelectToEquijoin.descend_tree(op.left, cond)
+                op.left = PushSelects.descend_tree(op.left, cond)
                 return op
             elif not any(in_left):
                 # Push into right subtree; rebase column indexes
                 expression.rebase_expr(cond, left_len)
-                op.right = SelectToEquijoin.descend_tree(op.right, cond)
+                op.right = PushSelects.descend_tree(op.right, cond)
                 return op
             else:
                 # Selection includes both children; attempt to create an
@@ -891,7 +891,7 @@ class SelectToEquijoin(rules.Rule):
         if op.has_been_pushed:
             return op
 
-        new_op = SelectToEquijoin.descend_tree(op.input, op.condition)
+        new_op = PushSelects.descend_tree(op.input, op.condition)
 
         # The new root may also be a select, so fire the rule recursively
         return self.fire(new_op)
@@ -934,10 +934,10 @@ class MyriaAlgebra(object):
 
         SimpleGroupBy(),
 
-        # These rules form a logical group; SelectToEquijoin assumes that
+        # These rules form a logical group; PushSelects assumes that
         # AND clauses have been broken apart into multiple selections.
         SplitSelects(),
-        SelectToEquijoin(),
+        PushSelects(),
         MergeSelects(),
 
         rules.ProjectingJoin(),
