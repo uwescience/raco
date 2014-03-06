@@ -828,7 +828,7 @@ def is_column_equality_comparison(cond):
 
 
 class PushSelects(rules.Rule):
-    """Push selections into joins and cross-products whenever possible."""
+    """Push selections."""
 
     @staticmethod
     def get_tree_for_column(op, c):
