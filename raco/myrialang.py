@@ -810,10 +810,6 @@ class SimpleGroupBy(rules.Rule):
         return expr
 
 
-class SelectNotPushableException(Exception):
-    pass
-
-
 class SelectToEquijoin(rules.Rule):
     """Push selections into joins and cross-products whenever possible."""
 
@@ -862,13 +858,19 @@ class SelectToEquijoin(rules.Rule):
                                                          col1 - rebase)
                 return op
 
-        # This exception serves as an abort; this avoids an infinite loop
-        # where we try to push the selection yet again.
-        # TODO: Push selects across union, apply, etc.
-        raise SelectNotPushableException()
+        else:
+            # Can't push any more: instantiate the selection
+            new_op = \
+                algebra.Select(
+                    expression.EQ(expression.UnnamedAttributeRef(col0),
+                                  expression.UnnamedAttributeRef(col1)), op)
+            new_op.has_been_pushed = True
+            return new_op
 
     def fire(self, op):
         if not isinstance(op, algebra.Select):
+            return op
+        if op.has_been_pushed:
             return op
 
         scheme = op.scheme()
@@ -876,12 +878,10 @@ class SelectToEquijoin(rules.Rule):
         if not cols:
             return op
 
-        try:
-            new_op = SelectToEquijoin.descend_tree(op.input, *cols)
-            # The new root may also be a select, so fire the rule recursively
-            return self.fire(new_op)
-        except SelectNotPushableException:
-            return op
+        new_op = SelectToEquijoin.descend_tree(op.input, *cols)
+
+        # The new root may also be a select, so fire the rule recursively
+        return self.fire(new_op)
 
     def __str__(self):
         return "Select, Cross/Join => Join"
