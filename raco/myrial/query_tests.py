@@ -1214,6 +1214,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              for t in self.emp_table])
         self.check_result(query, expected)
 
+    def test_answer_to_everything_function(self):
+        query = """
+        out = [TheAnswerToLifeTheUniverseAndEverything()];
+        STORE(out, OUTPUT);
+        """
+
+        expected = collections.Counter([(42,)])
+        self.check_result(query, expected)
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {

@@ -25,5 +25,5 @@ EXPRESSIONS = {
               NamedAttributeRef('default'))],
             DIVIDE(NamedAttributeRef('n'), NamedAttributeRef('d'))))
     },
-    'TheAnswerToLifeUniverseAndEverything': Function([], NumericLiteral(42))
+    'TheAnswerToLifeTheUniverseAndEverything': Function([], NumericLiteral(42))
 }
