@@ -57,7 +57,7 @@ unary_funcs = {
 
 class Parser(object):
     # mapping from function name to Function tuple
-    functions = {}
+    udf_functions = {}
 
     # state modifier variables accessed by the current emit argument
     statemods = []
@@ -120,7 +120,7 @@ class Parser(object):
         :param body_expr: A scalar expression containing the function body
         :type body_expr: raco.expression.Expression
         """
-        if name in Parser.functions:
+        if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno)
 
         if len(args) != len(set(args)):
@@ -128,7 +128,7 @@ class Parser(object):
 
         Parser.check_for_undefined(p, name, body_expr, args)
 
-        Parser.functions[name] = Function(args, body_expr)
+        Parser.udf_functions[name] = Function(args, body_expr)
 
     @staticmethod
     def mangle(name):
@@ -141,7 +141,7 @@ class Parser(object):
 
         TODO: de-duplicate logic from add_function.
         """
-        if name in Parser.functions:
+        if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno)
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno)
@@ -176,7 +176,7 @@ class Parser(object):
             Parser.check_for_undefined(p, name, update_expr, allvars)
         Parser.check_for_undefined(p, name, finalizer, statemods.keys())
 
-        Parser.functions[name] = Apply(args, statemods, finalizer)
+        Parser.udf_functions[name] = Apply(args, statemods, finalizer)
 
     @staticmethod
     def p_function(p):
@@ -590,8 +590,8 @@ class Parser(object):
         """
 
         # try to get function from udf or system defined functions
-        if name in Parser.functions:
-            func = Parser.functions[name]
+        if name in Parser.udf_functions:
+            func = Parser.udf_functions[name]
         else:
             func = expr_lib.lookup(name, len(args))
 
@@ -725,7 +725,7 @@ class Parser(object):
 
     def parse(self, s):
         scanner.lexer.lineno = 1
-        Parser.functions = {}
+        Parser.udf_functions = {}
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 

@@ -9,11 +9,7 @@ from raco.expression import *
 def lookup(function_name, num_args):
     func = EXPRESSIONS.get(function_name)
     if isinstance(func, dict):
-        if num_args in func:
-            func = func[num_args]
-        else:
-            return None
-    print func
+        func = func.get(num_args)
     return func
 
 # mapping from name -> dict or Function
