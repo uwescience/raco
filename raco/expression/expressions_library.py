@@ -1,3 +1,7 @@
+'''
+A library of expressions that can be composed of existing expressions.
+'''
+
 from .udf import Function
 from raco.expression import *
 
@@ -12,6 +16,8 @@ def lookup(function_name, num_args):
     print func
     return func
 
+# mapping from name -> dict or Function
+# the dict is a mapping from arity -> Function
 EXPRESSIONS = {
     'SafeDiv': {
         2: Function(['n', 'd'], Case(

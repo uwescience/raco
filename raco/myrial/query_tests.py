@@ -1187,18 +1187,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         expected = collections.Counter(
-            [(t[3]/(t[1] - 1) if t[1] - 1 > 0 else 0, )
+            [(t[3] / (t[1] - 1) if t[1] - 1 > 0 else 0,)
              for t in self.emp_table])
         self.check_result(query, expected)
 
     def test_safediv_3_function(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT SafeDiv(X.salary,X.dept_id-1, 42)];
+        out = [FROM SCAN(%s) AS X EMIT SafeDiv(X.salary,X.dept_id-1,42)];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
-            [(t[3]/(t[1] - 1) if t[1] - 1 > 0 else 42, )
+            [(t[3] / (t[1] - 1) if t[1] - 1 > 0 else 42,)
              for t in self.emp_table])
         self.check_result(query, expected)
 
