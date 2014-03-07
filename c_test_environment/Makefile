@@ -34,3 +34,8 @@ strings.o : strings.cc strings.h
 %.o : %.cpp 
 	$(COMP) 
 
+grappa-install: strings.cc strings.h utils.h
+	ln -s `pwd`/strings.cc $(GRAPPA_HOME)/applications/join
+	ln -s `pwd`/strings.h $(GRAPPA_HOME)/applications/join
+	ln -s `pwd`/utils.h $(GRAPPA_HOME)/applications/join
+
