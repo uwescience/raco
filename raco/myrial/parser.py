@@ -8,6 +8,8 @@ import raco.myrial.scanner as scanner
 import raco.scheme as scheme
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
+from raco.expression.udf import Function, Apply
+import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 
 
@@ -20,12 +22,6 @@ JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 
 SelectFromWhere = collections.namedtuple(
     'SelectFromWhere', ['distinct', 'select', 'from_', 'where', 'limit'])
-
-# A user-defined function
-Function = collections.namedtuple('Function', ['args', 'sexpr'])
-
-# A user-defined stateful apply
-Apply = collections.namedtuple('Apply', ['args', 'statemods', "sexpr"])
 
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
@@ -593,9 +589,14 @@ class Parser(object):
         :return: An expression with no free variables.
         """
 
-        if not name in Parser.functions:
+        # try to get function from udf or system defined functions
+        if name in Parser.functions:
+            func = Parser.functions[name]
+        else:
+            func = expr_lib.lookup(name, len(args))
+
+        if func is None:
             raise NoSuchFunctionException(name, p.lineno)
-        func = Parser.functions[name]
         if len(func.args) != len(args):
             raise InvalidArgumentList(name, func.args, p.lineno)
 
