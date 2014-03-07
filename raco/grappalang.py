@@ -166,7 +166,6 @@ class MemoryScan(algebra.Scan, GrappaOperator):
         resultsym = gensym()
 
         fscode = fs.compileme(resultsym)
-        state.addPipeline(fscode, "scan")
         state.saveExpr(fs, resultsym)
 
     # now generate the scan from memory
@@ -206,7 +205,7 @@ forall( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s
         state.addDeclarations([tuple_type_def, rel_decl])
 
         # now that we have the type, format this in;
-        code = code % {"result_type": tuple_type}
+        state.addPipeline(fscode%{"result_type": tuple_type}, "scan")
 
 
     tuple_type = stagedTuple.getTupleTypename()
