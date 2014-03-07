@@ -931,7 +931,7 @@ class Scan(ZeroaryOperator):
         Override since Scan is Zeroary and needs other distinguishing aspects
         to avoid collisions
         """
-        return self.shortStr().__hash__()
+        return ("%s-%s" % (self.opname(), self.relation_key)).__hash__()
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.relation_key)
