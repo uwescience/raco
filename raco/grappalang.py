@@ -122,19 +122,32 @@ class GrappaLanguage(Language):
 
 class GrappaOperator (Pipelined):
     language = GrappaLanguage
-    
+
+from algebra import ZeroaryOperator
 class MemoryScan(algebra.Scan, GrappaOperator):
   def produce(self, state):
     code = ""
     #generate the materialization from file into memory
     #TODO split the file scan apart from this in the physical plan
 
-    #TODO for now this will break whatever relies on self.bound like reusescans
-    #Scan is the only place where a relation is declared
-    resultsym = gensym()
-    
+    # generate code for actual IO and materialization in memory
+    fs = GrappaFileScan(self.relation_key, self._scheme)
+
+    # Common subexpression elimination
+    # don't scan the same file twice
+    resultsym = state.lookupExpr(fs)
+    LOG.debug("lookup %s(h=%s) => %s", fs, fs.__hash__(), resultsym)
+    if not resultsym:
+        #TODO for now this will break whatever relies on self.bound like reusescans
+        #Scan is the only place where a relation is declared
+        resultsym = gensym()
+
+        code += fs.compileme(resultsym)
+        state.saveExpr(fs, resultsym)
+
     # now generate the scan from memory
     inputsym = resultsym
+
 
 # scan from index
 #    memory_scan_template = """forall_localized( %(inputsym)s_index->vs, %(inputsym)s_index->nv, [](int64_t ai, Vertex& a) {
@@ -157,85 +170,49 @@ in_memory_runtime += (end-start);
 """
 
     rel_decl_template = """Relation<%(tuple_type)s> %(resultsym)s;"""
-    
-    stagedTuple = GrappaStagedTupleRef(inputsym, self.scheme())
 
-    tuple_type_def = stagedTuple.generateDefition()
+    stagedTuple = state.lookupTupleDef(inputsym)
+    if not stagedTuple: # not subsumed by addDeclarations set, because StagedTupleRef.__init__ generates a new name
+        stagedTuple = GrappaStagedTupleRef(inputsym, self.scheme())
+        state.saveTupleDef(inputsym, stagedTuple)
+
+        tuple_type_def = stagedTuple.generateDefinition()
+        tuple_type = stagedTuple.getTupleTypename()
+
+        # generate declaration of the in-memory relation
+        rel_decl = rel_decl_template % locals()
+        state.addDeclarations([tuple_type_def, rel_decl])
+
+
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
 
-    # generate code for actual IO and materialization in memory
-    code += FileScan(self.relation_key, self._scheme).compileme(resultsym, tuple_type)
-    
-    # generate declaration of the in-memory relation
-    rel_decl = rel_decl_template % locals()
-    state.addDeclarations([tuple_type_def, rel_decl])
-
-    inner_plan_compiled = self.parent.consume(stagedTuple, self)
+    inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
 
     code += memory_scan_template % locals()
     state.addPipeline(code)
     
   def consume(self, t, src, state):
     assert False, "as a source, no need for consume"
+
+  def __eq__(self, other):
+      """
+      For what we are using MemoryScan for, the only use
+      of __eq__ is in hashtable lookups for CSE optimization.
+      We omit self.schema because the relation_key determines
+      the level of equality needed.
+
+      This could break other things, so better may be to
+      make a normalized copy of an expression. This could
+      include simplification but in the case of Scans make
+      the scheme more generic.
+
+      @see FileScan.__eq__
+      """
+      return ZeroaryOperator.__eq__(self, other) and \
+             self.relation_key == other.relation_key
+
     
-    
-
-class FileScan(algebra.Scan):
-
-    def compileme(self, resultsym, tuple_typename):
-        # TODO use the identifiers (don't split str and extract)
-        LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
-        name = str(self.relation_key).split(':')[2]
-
-
-        #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
-        #self.trace("// Original query position of %s: term %s (%s)" % tup)
-        
-        #TODO: manage the concurrent synchronization objects
-        
-        # graph-specific file scan
-        ascii_scan_template_GRAPH = """
-          {
-            tuple_graph tg;
-            tg = readTuples( "%(name)s" );
-            
-            FullEmpty<GlobalAddress<Graph<Vertex>>> f1;
-            privateTask( [&f1,tg] {
-              f1.writeXF( Graph<Vertex>::create(tg, /*directed=*/true) );
-            });
-            auto l_%(resultsym)s_index = f1.readFE();
-            
-            on_all_cores([=] {
-              %(resultsym)s_index = l_%(resultsym)s_index;
-            });
-        }
-        """
-        
-        ascii_scan_template = """
-        start = walltime();
-        {
-        auto t = readTuples<%(tuple_typename)s>( "%(name)s", FLAGS_nt);
-        Relation<%(tuple_typename)s> l_%(resultsym)s;
-        l_%(resultsym)s.data = t;
-        l_%(resultsym)s.numtuples = FLAGS_nt;
-        on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
-        }
-        end = walltime();
-        scan_runtime += (end-start);
-        """
-
-        if isinstance(self.relation_key, catalog.ASCIIFile):
-            code = ascii_scan_template % locals()
-        else:
-            LOG.info("binary not currently supported for GrappaLanguage, emitting ascii")
-            code = ascii_scan_template % locals()
-
-        return code
-      
-    def __str__(self):
-      return "%s(%s)" % (self.opname(), self.relation_key)
-
 
 def getTaggingFunc(t):
   """ 
@@ -268,18 +245,31 @@ class HashJoin(algebra.Join, GrappaOperator):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
     
-    self._hashname = self.__genHashName__()
-    self.outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
-    
     self.right.childtag = "right"
-    init_template = """%(hashname)s.init_global_DHT( &%(hashname)s, 64 );""" 
-    setro_template = """%(hashname)s.set_RO_global( &%(hashname)s );"""
-    hashname = self._hashname
 
-    # surround the code for the pipeline with hash initialization and setRO
-    state.addCode(init_template%locals())
-    self.right.produce(state)
-    state.addCode(setro_template%locals())
+    hashtableInfo = state.lookupExpr(self.right)
+    if not hashtableInfo:
+        # if right child never bound then store hashtable symbol and
+        # call right child produce
+        self._hashname = self.__genHashName__()
+        LOG.debug("generate hashname %s for %s", self._hashname, self)
+
+        init_template = """%(hashname)s.init_global_DHT( &%(hashname)s, 64 );"""
+        setro_template = """%(hashname)s.set_RO_global( &%(hashname)s );"""
+        hashname = self._hashname
+        # surround the code for the pipeline with hash initialization and setRO
+        state.addCode(init_template%locals())
+        self.right.produce(state)
+        state.addCode(setro_template%locals())
+        state.saveExpr(self.right, (self._hashname, self.rightTupleTypename))
+        #TODO always safe here? I really want to call saveExpr before self.right.produce(),
+        #TODO but I need to get the self.rightTupleTypename cleanly
+    else:
+        # if found a common subexpression on right child then
+        # use the same hashtable
+        self._hashname, self.rightTupleTypename = hashtableInfo
+        LOG.debug("reuse hash %s for %s", self._hashname, self)
+
 
     self.left.childtag = "left"
     self.left.produce(state)
@@ -298,13 +288,12 @@ class HashJoin(algebra.Join, GrappaOperator):
       keyname = t.name
       keypos = self.condition.right.position-len(self.left.scheme())
       
-      out_tuple_type_def = self.outTuple.generateDefition()
-      self.rightTuple = t #TODO: this induces a right->left dependency
-      in_tuple_type = self.rightTuple.getTupleTypename()
+      in_tuple_type = t.getTupleTypename()
+      self.rightTupleTypename = t.getTupleTypename()
 
       # declaration of hash map
       hashdeclr =  declr_template % locals()
-      state.addDeclarations([out_tuple_type_def, hashdeclr])
+      state.addDeclarations([hashdeclr])
       
       # materialization point
       code = right_template % locals()
@@ -324,16 +313,17 @@ class HashJoin(algebra.Join, GrappaOperator):
       keytype = t.getTupleTypename()
       keypos = self.condition.left.position
       
-      right_tuple_type = self.rightTuple.getTupleTypename()
-      right_tuple_name = self.rightTuple.name
+      right_tuple_name = gensym()
+      right_tuple_type = self.rightTupleTypename
 
-      # or could make up another name
-      #right_tuple_name = GrappaStagedTupleRef.genname() 
+      outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
+      out_tuple_type_def = outTuple.generateDefinition()
+      out_tuple_type = outTuple.getTupleTypename()
+      out_tuple_name = outTuple.name
 
-      out_tuple_type = self.outTuple.getTupleTypename()
-      out_tuple_name =self.outTuple.name
-      
-      inner_plan_compiled = self.parent.consume(self.outTuple, self, state)
+      state.addDeclarations([out_tuple_type_def])
+
+      inner_plan_compiled = self.parent.consume(outTuple, self, state)
       
       code = left_template % locals()
       return code
@@ -371,6 +361,43 @@ class GrappaUnionAll(clangcommon.CUnionAll, GrappaOperator): pass
 
 # Basic materialized copy based project like serial C++
 class GrappaProject(clangcommon.CProject, GrappaOperator): pass
+
+class GrappaFileScan(clangcommon.CFileScan):
+    ascii_scan_template_GRAPH = """
+          {
+            tuple_graph tg;
+            tg = readTuples( "%(name)s" );
+
+            FullEmpty<GlobalAddress<Graph<Vertex>>> f1;
+            privateTask( [&f1,tg] {
+              f1.writeXF( Graph<Vertex>::create(tg, /*directed=*/true) );
+            });
+            auto l_%(resultsym)s_index = f1.readFE();
+
+            on_all_cores([=] {
+              %(resultsym)s_index = l_%(resultsym)s_index;
+            });
+        }
+        """
+    ascii_scan_template = """
+        start = walltime();
+        {
+        %(resultsym)s.data = readTuples( "%(name)s", FLAGS_nt);
+        %(resultsym)s.numtuples = FLAGS_nt;
+        auto l_%(resultsym)s = %(resultsym)s;
+        on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
+        }
+        end = walltime();
+        scan_runtime += (end-start);
+        """
+    def __get_ascii_scan_template__(self):
+        return self.ascii_scan_template
+
+    def __get_binary_scan_template__(self):
+        LOG.warn("binary not currently supported for GrappaLanguage, emitting ascii")
+        return self.ascii_scan_template
+
+
 
     
 class swapJoinSides(rules.Rule):

@@ -4,6 +4,9 @@
 import abc
 from raco.utility import emitlist
 
+import logging
+LOG = logging.getLogger(__name__)
+
 # for testing output of queries
 class TestEmit:
   def __init__(self, lang):
@@ -13,10 +16,18 @@ class TestEmit:
 
 class CompileState:
 
-    def __init__(self):
+    def __init__(self, cse=True):
         self.declarations = []
         self.pipelines = []
         self.initializers = []
+
+        # { expression => symbol for materialized result }
+        self.materialized = {}
+
+        # { symbol => tuple type definition }
+        self.tupledefs = {}
+
+        self.common_subexpression_elim = cse
 
     def addDeclarations(self, d):
         self.declarations += d
@@ -34,10 +45,37 @@ class CompileState:
         return emitlist(self.initializers)
 
     def getDeclCode(self):
-        return emitlist(self.declarations)
+        # declarations is a set
+        # If this ever becomes a bottleneck when declarations are strings,
+        # as in clang, then resort to at least symbol name deduping.
+        s = set()
+        def f(x):
+            if x in s: return False
+            else:
+                s.add(x)
+                return True
+
+        # keep in original order
+        return emitlist(filter(f, self.declarations))
 
     def getExecutionCode(self):
         return emitlist(self.pipelines)
+
+    def lookupExpr(self, expr):
+        if self.common_subexpression_elim:
+            return self.materialized.get(expr)
+        else:
+            # if CSE is turned off then always return None for expression matches
+            return None
+
+    def saveExpr(self, expr, sym):
+        self.materialized[expr] = sym
+
+    def lookupTupleDef(self, sym):
+        return self.tupledefs.get(sym)
+
+    def saveTupleDef(self, sym, tupledef):
+        self.tupledefs[sym] = tupledef
 
   
 class Pipelined(object):

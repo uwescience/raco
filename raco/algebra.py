@@ -87,6 +87,13 @@ class Operator(Printable):
             return "%s[%s]" % (self.shortStr(), child_str)
         return self.shortStr()
 
+    def __hash__(self):
+        h = str(self.__class__).__hash__()
+        for i, c in enumerate(self.children()):
+            h ^= (c.__hash__() << i)
+
+        return h
+
     def copy(self, other):
         self._trace = [pair for pair in other.gettrace()]
         self.bound = None
@@ -918,6 +925,13 @@ class Scan(ZeroaryOperator):
         return (ZeroaryOperator.__eq__(self, other)
                 and self.relation_key == other.relation_key
                 and self.scheme() == other.scheme())
+
+    def __hash__(self):
+        """
+        Override since Scan is Zeroary and needs other distinguishing aspects
+        to avoid collisions
+        """
+        return ("%s-%s" % (self.opname(), self.relation_key)).__hash__()
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.relation_key)

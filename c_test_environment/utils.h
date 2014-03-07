@@ -11,3 +11,12 @@ D combine(S1 s1, S2 s2) {
   }
   return d;
 }
+
+template <typename D, typename S>
+D transpose(S s) {
+  D d;
+  for (int i=0; i<s.numFields(); i++) {
+    d.set(i, s.get(i));
+  }
+  return d;
+}

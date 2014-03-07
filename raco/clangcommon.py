@@ -1,8 +1,10 @@
 # TODO: make it pass with flake8 test
 # flake8: noqa
 
+import abc
 from raco import algebra
 from raco import expression
+from raco import catalog
 from algebra import gensym
 from expression.expression import UnnamedAttributeRef
 
@@ -41,7 +43,7 @@ class StagedTupleRef:
     return self.__typename
 
     
-  def generateDefition(self):
+  def generateDefinition(self):
     fielddeftemplate = """int64_t _fields[%(numfields)s];
     """
     template = """
@@ -153,14 +155,22 @@ class CSelect(algebra.Select):
   
 class CUnionAll(algebra.Union):
   def produce(self, state):
+    self.unifiedTupleType = StagedTupleRef(gensym(), self.scheme())
+    state.addDeclarations([self.unifiedTupleType.generateDefinition()])
+
     self.right.produce(state)
     self.left.produce(state)
 
   def consume(self, t, src, state):
-    #FIXME: expect a bug: because we have not forced
-    #CCOperators to be immutable (e.g. if self.parent is a HashJoin), then this is problematic
-    # For now HashJoin is just lucky
-    return self.parent.consume(t, self, state)
+    union_template = """auto %(unified_tuple_name)s = transpose<%(unified_tuple_typename)s>(%(src_tuple_name)s);
+                        %(inner_plan_compiled)s"""
+
+    unified_tuple_typename = self.unifiedTupleType.getTupleTypename()
+    unified_tuple_name = self.unifiedTupleType.name
+    src_tuple_name = t.name
+
+    inner_plan_compiled = self.parent.consume(self.unifiedTupleType, self, state)
+    return union_template % locals()
 
 
 class CApply(algebra.Apply):
@@ -180,8 +190,8 @@ class CProject(algebra.Project):
 
     # always does an assignment to new tuple
     newtuple = StagedTupleRef(gensym(), self.scheme())
-    state.addDeclarations( [newtuple.generateDefition()] )
-    
+    state.addDeclarations( [newtuple.generateDefinition()] )
+
     assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
     """
     
@@ -204,3 +214,50 @@ class CProject(algebra.Project):
     code+=innercode
       
     return code
+
+
+from algebra import ZeroaryOperator
+class CFileScan(algebra.Scan):
+
+    @abc.abstractmethod
+    def __get_ascii_scan_template__(self):
+       return
+
+    @abc.abstractmethod
+    def __get_binary_scan_template__(self):
+        return
+
+    def compileme(self, resultsym):
+        # TODO use the identifiers (don't split str and extract)
+        #name = self.relation_key
+        LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
+        name = str(self.relation_key).split(':')[2]
+
+        #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
+        #self.trace("// Original query position of %s: term %s (%s)" % tup)
+
+        if isinstance(self.relation_key, catalog.ASCIIFile):
+            code = self.__get_ascii_scan_template__() % locals()
+        else:
+            code = self.__get_binary_scan_template__() % locals()
+        return code
+
+    def __str__(self):
+        return "%s(%s)" % (self.opname(), self.relation_key)
+
+    def __eq__(self, other):
+        """
+        For what we are using FileScan for, the only use
+        of __eq__ is in hashtable lookups for CSE optimization.
+        We omit self.schema because the relation_key determines
+        the level of equality needed.
+
+        This could break other things, so better may be to
+        make a normalized copy of an expression. This could
+        include simplification but in the case of Scans make
+        the scheme more generic.
+
+        @see MemoryScan.__eq__
+        """
+        return ZeroaryOperator.__eq__(self, other) and \
+               self.relation_key == other.relation_key

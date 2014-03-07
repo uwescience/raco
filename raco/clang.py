@@ -6,7 +6,6 @@
 
 from raco import algebra
 from raco import expression
-from raco import catalog
 from raco.language import Language
 from raco import rules
 from raco.pipelines import Pipelined
@@ -147,18 +146,28 @@ class CC(Language):
 
 class CCOperator (Pipelined):
     language = CC
-    
+
+from algebra import ZeroaryOperator
 class MemoryScan(algebra.Scan, CCOperator):
   def produce(self, state):
     code = ""
     #generate the materialization from file into memory
     #TODO split the file scan apart from this in the physical plan
 
-    #TODO for now this will break whatever relies on self.bound like reusescans
-    #Scan is the only place where a relation is declared
-    resultsym = gensym()
-    
-    code += FileScan(self.relation_key, self._scheme).compileme(resultsym)
+    fs = CFileScan(self.relation_key, self._scheme)
+
+    # Common subexpression elimination
+    # don't scan the same file twice
+    resultsym = state.lookupExpr(fs)
+    LOG.debug("lookup %s(h=%s) => %s", fs, fs.__hash__(), resultsym)
+    if not resultsym:
+        #TODO for now this will break whatever relies on self.bound like reusescans
+        #Scan is the only place where a relation is declared
+        resultsym = gensym()
+
+        code += fs.compileme(resultsym)
+        state.saveExpr(fs, resultsym)
+
 
     # now generate the scan from memory
     inputsym = resultsym
@@ -170,11 +179,17 @@ class MemoryScan(algebra.Scan, CCOperator):
           %(inner_plan_compiled)s
        } // end scan over %(inputsym)s
        """
-    
-    stagedTuple = CStagedTupleRef(inputsym, self.scheme())
 
-    tuple_type_def = stagedTuple.generateDefition()
-    state.addDeclarations([tuple_type_def])
+    stagedTuple = state.lookupTupleDef(inputsym)
+    if not stagedTuple: # not subsumed by addDeclarations set, because StagedTupleRef.__init__ generates a new name
+        # if the tuple type definition does not yet exist, then
+        # create it and add its definition
+        stagedTuple = CStagedTupleRef(inputsym, self.scheme())
+        state.saveTupleDef(inputsym, stagedTuple)
+
+        tuple_type_def = stagedTuple.generateDefinition()
+        state.addDeclarations([tuple_type_def])
+
 
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
@@ -187,27 +202,19 @@ class MemoryScan(algebra.Scan, CCOperator):
 
   def consume(self, t, src, state):
     assert False, "as a source, no need for consume"
-    
-    
 
-class FileScan(algebra.Scan):
 
-    def compileme(self, resultsym):
-        # TODO use the identifiers (don't split str and extract)
-        #name = self.relation_key
-        name = str(self.relation_key).split(':')[2]
+  def __eq__(self, other):
+    """
+    For what we are using MemoryScan for, the only use
+    of __eq__ is in hashtable lookups for CSE optimization.
+    We omit self.schema because the relation_key determines
+    the level of equality needed.
 
-        #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
-        #self.trace("// Original query position of %s: term %s (%s)" % tup)
-
-        if isinstance(self.relation_key, catalog.ASCIIFile):
-            code = ascii_scan_template % locals()
-        else:
-            code = binary_scan_template % locals()
-        return code
-      
-    def __str__(self):
-      return "%s(%s)" % (self.opname(), self.relation_key)
+    @see FileScan.__eq__
+    """
+    return ZeroaryOperator.__eq__(self, other) and \
+           self.relation_key == other.relation_key
 
 
 class HashJoin(algebra.Join, CCOperator):
@@ -223,13 +230,24 @@ class HashJoin(algebra.Join, CCOperator):
     if not isinstance(self.condition, expression.EQ):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
-    
-    #self._hashname = self.__genHashName__()
-    #self.outTuple = CStagedTupleRef(gensym(), self.scheme())
-    
+
+
     self.right.childtag = "right"
-    self.right.produce(state)
-    
+
+    hashsym = state.lookupExpr(self.right)
+    if not hashsym:
+        # if right child never bound then store hashtable symbol and
+        # call right child produce
+        self._hashname = self.__genHashName__()
+        LOG.debug("generate hashname %s for %s", self._hashname, self)
+        state.saveExpr(self.right, self._hashname)
+        self.right.produce(state)
+    else:
+        # if found a common subexpression on right child then
+        # use the same hashtable
+        self._hashname = hashsym
+        LOG.debug("reuse hash %s for %s", self._hashname, self)
+
     self.left.childtag = "left"
     self.left.produce(state)
 
@@ -241,24 +259,16 @@ class HashJoin(algebra.Join, CCOperator):
       
       right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
       """   
-      
-      # FIXME generating this here is an ugly hack to fix the mutable problem
-      self._hashname = self.__genHashName__()
-      LOG.debug("generate hashname %s for %s", self, self._hashname)
-      # FIXME generating this here is another ugly hack to fix the mutable problem
-      self.outTuple = CStagedTupleRef(gensym(), self.scheme())
 
       hashname = self._hashname
       keyname = t.name
       keypos = self.condition.right.position-len(self.left.scheme())
       
-      out_tuple_type_def = self.outTuple.generateDefition()
-      self.rightTuple = t #TODO: this induces a right->left dependency
-      in_tuple_type = self.rightTuple.getTupleTypename()
+      in_tuple_type = t.getTupleTypename()
 
       # declaration of hash map
       hashdeclr =  declr_template % locals()
-      state.addDeclarations([out_tuple_type_def,hashdeclr])
+      state.addDeclarations([hashdeclr])
       
       # materialization point
       code = right_template % locals()
@@ -268,7 +278,7 @@ class HashJoin(algebra.Join, CCOperator):
     if src.childtag == "left":
       left_template = """
       for (auto %(right_tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
-        %(out_tuple_type)s %(out_tuple_name)s = combine<%(out_tuple_type)s, %(keytype)s, %(right_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
+        auto %(out_tuple_name)s = combine<%(out_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
      %(inner_plan_compiled)s 
   }
   """
@@ -277,16 +287,16 @@ class HashJoin(algebra.Join, CCOperator):
       keytype = t.getTupleTypename()
       keypos = self.condition.left.position
       
-      right_tuple_type = self.rightTuple.getTupleTypename()
-      right_tuple_name = self.rightTuple.name
+      right_tuple_name = gensym()
 
-      # or could make up another name
-      #right_tuple_name = CStagedTupleRef.genname() 
+      outTuple = CStagedTupleRef(gensym(), self.scheme())
+      out_tuple_type_def = outTuple.generateDefinition()
+      out_tuple_type = outTuple.getTupleTypename()
+      out_tuple_name = outTuple.name
 
-      out_tuple_type = self.outTuple.getTupleTypename()
-      out_tuple_name =self.outTuple.name
-      
-      inner_plan_compiled = self.parent.consume(self.outTuple, self, state)
+      state.addDeclarations([out_tuple_type_def])
+
+      inner_plan_compiled = self.parent.consume(outTuple, self, state)
       
       code = left_template % locals()
       return code
@@ -311,6 +321,11 @@ class CApply(clangcommon.CApply, CCOperator): pass
 class CProject(clangcommon.CProject, CCOperator): pass
 
 class CSelect(clangcommon.CSelect, CCOperator): pass
+
+class CFileScan(clangcommon.CFileScan):
+    def __get_ascii_scan_template__(self): return ascii_scan_template
+
+    def __get_binary_scan_template__(self): return binary_scan_template
     
 
 class CCAlgebra(object):
