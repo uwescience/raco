@@ -1,6 +1,7 @@
 from raco import RACompiler
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 from raco.algebra import LogicalAlgebra
+from raco.compile import compile
 import generateDot
 
 import logging
@@ -32,7 +33,7 @@ def testEmit(query, name, algebra):
     # generate code in the target language
     code = ""
     code += comment("Query " + query)
-    code += dlog.compile()
+    code += compile(dlog.physicalplan)
     
     fname = name+'.cpp'
     with open(fname, 'w') as f:
