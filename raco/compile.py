@@ -46,6 +46,7 @@ def optimize(exprs, target, source, eliminate_common_subexpressions=False):
         return newexpr
     return [(var, opt(exp)) for var, exp in exprs]
 
+
 def compile(exprs):
     """Compile physical plan to linearized form for execution"""
     #TODO: Fix this
@@ -57,13 +58,14 @@ def compile(exprs):
 
         # TODO cleanup this dispatch to be transparent
         if isinstance(expr, Pipelined):
-          body = lang.body(expr.compilePipeline(result), result)
+            body = lang.body(expr.compilePipeline(result), result)
         else:
-          body = lang.body(expr.compile(result))
+            body = lang.body(expr.compile(result))
 
         final = lang.finalize(result)
         exprcode.append(emit(init, body, final))
-    return  emit(*exprcode)
+    return emit(*exprcode)
+
 
 def search(expr, tofind):
     """yield a sequence of subexpressions equal to tofind"""
