@@ -715,9 +715,16 @@ class SplitSelects(rules.Rule):
         conjuncs = expression.extract_conjuncs(op.condition)
         assert conjuncs  # Must be at least 1
 
+        # Normalize named references to integer indexes
+        scheme = op.scheme()
+        conjuncs = [expression.to_unnamed_recursive(c, scheme)
+                    for c in conjuncs]
+
         op.condition = conjuncs[0]
+        op.has_been_pushed = False
         for conjunc in conjuncs[1:]:
             op = algebra.Select(conjunc, op)
+            op.has_been_pushed = False
         return op
 
     def __str__(self):
@@ -825,78 +832,73 @@ class SimpleGroupBy(rules.Rule):
         return expr
 
 
-class SelectNotPushableException(Exception):
-    pass
+def is_column_equality_comparison(cond):
+    """Return a tuple of column indexes if the condition is an equality test.
+    """
+
+    if isinstance(cond, expression.EQ) and \
+       isinstance(cond.left, expression.UnnamedAttributeRef) and \
+       isinstance(cond.right, expression.UnnamedAttributeRef):
+        return (cond.left.position, cond.right.position)
+    else:
+        return None
 
 
-class SelectToEquijoin(rules.Rule):
-    """Push selections into joins and cross-products whenever possible."""
-
-    @staticmethod
-    def get_tree_for_column(op, c):
-        """Locate the input schema that contributes a given column index."""
-
-        left_max = len(op.left.scheme())
-        right_max = left_max + len(op.right.scheme())
-
-        if c < left_max:
-            return 0
-        else:
-            assert c < right_max
-            return 1
+class PushSelects(rules.Rule):
+    """Push selections."""
 
     @staticmethod
-    def descend_tree(op, col0, col1):
-        """Recursively push an equality condition down a tree of operators.
+    def descend_tree(op, cond):
+        """Recursively push a selection condition down a tree of operators.
 
-        Returns a (possibly modified) operator.
+        :param op: The root of an operator tree
+        :type op: raco.algebra.Operator
+        :type cond: The selection condition
+        :type cond: raco.expression.expression
+
+        :return: A (possibly modified) operator.
         """
 
         if isinstance(op, algebra.Select):
             # Keep pushing; selects are commutative
-            op.input = SelectToEquijoin.descend_tree(op.input, col0, col1)
+            op.input = PushSelects.descend_tree(op.input, cond)
             return op
-
         elif isinstance(op, algebra.CompositeBinaryOperator):
-            # Joins and cross-products
-            c1 = SelectToEquijoin.get_tree_for_column(op, col0)
-            c2 = SelectToEquijoin.get_tree_for_column(op, col1)
-            _sum = c1 + c2
-
-            if _sum == 1:
-                return op.add_equijoin_condition(col0, col1)
-            elif _sum == 0:
+            # Joins and cross-products; consider conversion to an equijoin
+            left_len = len(op.left.scheme())
+            accessed = expression.accessed_columns(cond)
+            in_left = [col < left_len for col in accessed]
+            if all(in_left):
                 # Push the select into the left sub-tree.
-                op.left = SelectToEquijoin.descend_tree(op.left, col0, col1)
+                op.left = PushSelects.descend_tree(op.left, cond)
                 return op
-            elif _sum == 2:
-                # Rebase column indexes for the right subtree
-                rebase = len(op.left.scheme())
-                op.right = SelectToEquijoin.descend_tree(op.right,
-                                                         col0 - rebase,
-                                                         col1 - rebase)
+            elif not any(in_left):
+                # Push into right subtree; rebase column indexes
+                expression.rebase_expr(cond, left_len)
+                op.right = PushSelects.descend_tree(op.right, cond)
                 return op
+            else:
+                # Selection includes both children; attempt to create an
+                # equijoin condition
+                cols = is_column_equality_comparison(cond)
+                if cols:
+                    return op.add_equijoin_condition(cols[0], cols[1])
 
-        # This exception serves as an abort; this avoids an infinite loop
-        # where we try to push the selection yet again.
-        # TODO: Push selects across union, apply, etc.
-        raise SelectNotPushableException()
+        # Can't push any more: instantiate the selection
+        new_op = algebra.Select(cond, op)
+        new_op.has_been_pushed = True
+        return new_op
 
     def fire(self, op):
         if not isinstance(op, algebra.Select):
             return op
-
-        scheme = op.scheme()
-        cols = expression.is_column_comparison(op.condition, scheme)
-        if not cols:
+        if op.has_been_pushed:
             return op
 
-        try:
-            new_op = SelectToEquijoin.descend_tree(op.input, *cols)
-            # The new root may also be a select, so fire the rule recursively
-            return self.fire(new_op)
-        except SelectNotPushableException:
-            return op
+        new_op = PushSelects.descend_tree(op.input, op.condition)
+
+        # The new root may also be a select, so fire the rule recursively
+        return self.fire(new_op)
 
     def __str__(self):
         return "Select, Cross/Join => Join"
@@ -936,10 +938,10 @@ class MyriaAlgebra(object):
 
         SimpleGroupBy(),
 
-        # These rules form a logical group; SelectToEquijoin assumes that
+        # These rules form a logical group; PushSelects assumes that
         # AND clauses have been broken apart into multiple selections.
         SplitSelects(),
-        SelectToEquijoin(),
+        PushSelects(),
         MergeSelects(),
 
         rules.ProjectingJoin(),

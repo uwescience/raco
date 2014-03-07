@@ -381,6 +381,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, self.join_expected)
 
+    def test_join_with_select(self):
+        query = """
+        out = [FROM SCAN(%s) AS D, SCAN(%s) E
+               WHERE E.dept_id == D.id AND E.salary < 6000
+               EMIT E.name AS emp_name, D.name AS dept_name];
+        STORE(out, OUTPUT);
+        """ % (self.dept_key, self.emp_key)
+
+        expected = collections.Counter([('Andrew Whitaker', 'accounting'),
+                                        ('Shumo Chu', 'human resources')])
+        self.check_result(query, expected)
+
     def test_sql_join(self):
         """SQL-style select-from-where join"""
 
