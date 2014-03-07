@@ -16,7 +16,7 @@ class TestEmit:
     code = ""
     code += "emit_count++;\n"
     if self.emitprint:
-        code += self.language.log_unquoted("%s" % t.name)
+        code += self.language.log_unquoted("%s" % t.name, 1)
 
     return code
 

@@ -73,8 +73,13 @@ class GrappaLanguage(Language):
         return  """LOG(INFO) << "%s";\n""" % txt
     
     @staticmethod
-    def log_unquoted(code): 
-      return """LOG(INFO) << %s;\n""" % code
+    def log_unquoted(code, level=0):
+        if level == 0:
+            log_str = "LOG(INFO)"
+        else:
+            log_str = "VLOG(%s)" % (level)
+
+        return """%(log_str)s << %(code)s;\n""" % locals()
 
     @staticmethod
     def pipeline_wrap(ident, code, attrs):
