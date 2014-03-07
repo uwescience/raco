@@ -9,17 +9,26 @@ LOG = logging.getLogger(__name__)
 
 # for testing output of queries
 class TestEmit:
-  def __init__(self, lang):
+  def __init__(self, lang, emitprint):
     self.language = lang
+    self.emitprint = emitprint
   def consume(self,t,src,state):
-    return self.language.log_unquoted("%s" % t.name)
+    code = ""
+    code += "emit_count++;\n"
+    if self.emitprint:
+        code += self.language.log_unquoted("%s" % t.name, 1)
+
+    return code
 
 class CompileState:
 
-    def __init__(self, cse=True):
+    def __init__(self, lang, cse=True):
+        self.language = lang
+
         self.declarations = []
         self.pipelines = []
         self.initializers = []
+        self.pipeline_count = 0
 
         # { expression => symbol for materialized result }
         self.materialized = {}
@@ -35,8 +44,9 @@ class CompileState:
     def addInitializers(self, i):
         self.initializers += i
 
-    def addPipeline(self, p):
-        self.pipelines.append(p)
+    def addPipeline(self, p, type):
+        self.pipelines.append(self.language.pipeline_wrap(self.pipeline_count, p, {'type':type}))
+        self.pipeline_count += 1
 
     def addCode(self, c):
         self.pipelines.append(c)
@@ -95,8 +105,7 @@ class Pipelined(object):
         return []
           
       [_ for _ in root.postorder(markChildParent)]
-      root.parent = TestEmit(root.language)
-      
+
     @abc.abstractmethod
     def produce(self, state):
       """Denotation for producing a tuple"""
@@ -107,10 +116,11 @@ class Pipelined(object):
       """Denotation for consuming a tuple"""
       return
 
-    def compilePipeline(self, resultsym):
+    def compilePipeline(self, resultsym, emitprint=True):
       self.__markAllParents__()
+      self.parent = TestEmit(self.language, emitprint)
 
-      state = CompileState()
+      state = CompileState(self.language)
       
       # TODO bound
       # TODO should be using resultsym?? for what here?

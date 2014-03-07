@@ -41,9 +41,9 @@ void init( ) {
 void query() {
     double start, end;
     start = walltime();
-    on_all_cores([=] {
-            %(initialized)s
-            });
+
+     %(initialized)s
+
     end = walltime();
     init_runtime += (end-start);
 
@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
 
     run([] {
 
-    on_all_cores([]() { init(); });
+    init();
 double start = Grappa::walltime();
     	query();
       double end = Grappa::walltime();

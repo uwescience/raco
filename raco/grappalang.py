@@ -73,8 +73,33 @@ class GrappaLanguage(Language):
         return  """LOG(INFO) << "%s";\n""" % txt
     
     @staticmethod
-    def log_unquoted(code): 
-      return """LOG(INFO) << %s;\n""" % code
+    def log_unquoted(code, level=0):
+        if level == 0:
+            log_str = "LOG(INFO)"
+        else:
+            log_str = "VLOG(%s)" % (level)
+
+        return """%(log_str)s << %(code)s;\n""" % locals()
+
+    @staticmethod
+    def pipeline_wrap(ident, code, attrs):
+        timer_metric = None
+        if attrs['type'] == 'in_memory':
+            timer_metric = "in_memory_runtime"
+        elif attrs['type'] == 'scan':
+            timer_metric = "scan_runtime"
+
+        pipeline_template = """
+        auto start_%(ident)s = walltime();
+        %(code)s
+        auto end_%(ident)s = walltime();
+        auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
+        %(timer_metric)s += runtime_%(ident)s;
+        VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
+        """
+
+        return pipeline_template % locals()
+
 
     @staticmethod
     def comment(txt):
@@ -95,7 +120,8 @@ class GrappaLanguage(Language):
     def compile_stringliteral(cls, s):
         sid = cls.newstringident()
         decl = """int64_t %s;""" % (sid)
-        init = """%s = string_index.string_lookup("%s");""" % (sid, s)
+        init = """auto l_%(sid)s = string_index.string_lookup("%(s)s");
+                   on_all_cores([=] { %(sid)s = l_%(sid)s; });""" % locals()
         return """(%s)""" % sid, [decl], [init]
         #raise ValueError("String Literals not supported in C language: %s" % s)
 
@@ -144,7 +170,7 @@ class MemoryScan(algebra.Scan, GrappaOperator):
         #Scan is the only place where a relation is declared
         resultsym = gensym()
 
-        code += fs.compileme(resultsym)
+        fscode = fs.compileme(resultsym)
         state.saveExpr(fs, resultsym)
 
     # now generate the scan from memory
@@ -163,12 +189,10 @@ class MemoryScan(algebra.Scan, GrappaOperator):
 #       }); // end scan over %(inputsym)s (forall_localized)
 #       """
 
-    memory_scan_template = """start = walltime();
+    memory_scan_template = """
 forall( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s& %(tuple_name)s) {
 %(inner_plan_compiled)s
 }); // end  scan over %(inputsym)s
-end = walltime();
-in_memory_runtime += (end-start);
 """
 
     rel_decl_template = """Relation<%(tuple_type)s> %(resultsym)s;"""
@@ -186,7 +210,7 @@ in_memory_runtime += (end-start);
         state.addDeclarations([tuple_type_def, rel_decl])
 
         # now that we have the type, format this in;
-        code = code % {"result_type": tuple_type}
+        state.addPipeline(fscode%{"result_type": tuple_type}, "scan")
 
 
     tuple_type = stagedTuple.getTupleTypename()
@@ -195,7 +219,7 @@ in_memory_runtime += (end-start);
     inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
 
     code += memory_scan_template % locals()
-    state.addPipeline(code)
+    state.addPipeline(code, "in_memory")
     
   def consume(self, t, src, state):
     assert False, "as a source, no need for consume"
@@ -308,6 +332,7 @@ class HashJoin(algebra.Join, GrappaOperator):
     if src.childtag == "left":
       left_template = """
       %(hashname)s.lookup_iter( %(keyname)s.get(%(keypos)s), [=](%(right_tuple_type)s& %(right_tuple_name)s) {
+        join_coarse_result_count++;
         %(out_tuple_type)s %(out_tuple_name)s = combine<%(out_tuple_type)s, %(keytype)s, %(right_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
         %(inner_plan_compiled)s
       });
@@ -388,15 +413,12 @@ class GrappaFileScan(clangcommon.CFileScan):
     # C++ type inference cannot infer T in readTuples<T>;
     # we resolve it later, so use %%
     ascii_scan_template = """
-        start = walltime();
         {
         %(resultsym)s.data = readTuples<%%(result_type)s>( "%(name)s", FLAGS_nt);
         %(resultsym)s.numtuples = FLAGS_nt;
         auto l_%(resultsym)s = %(resultsym)s;
         on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
         }
-        end = walltime();
-        scan_runtime += (end-start);
         """
 
     def __get_ascii_scan_template__(self):

@@ -1,4 +1,5 @@
 from raco import algebra
+from pipelines import Pipelined
 from raco.utility import emit
 
 import logging
@@ -45,21 +46,24 @@ def optimize(exprs, target, source, eliminate_common_subexpressions=False):
         return newexpr
     return [(var, opt(exp)) for var, exp in exprs]
 
-
-# XXX: DEPRECATED?? It is essentially duplicated in raco.raco
 def compile(exprs):
-    """Compile a list of RA expressions.  Each expression is a pair Var, Plan
-    Emit any initialization and call compile method on top-level operator"""
+    """Compile physical plan to linearized form for execution"""
+    #TODO: Fix this
     algebra.reset()
     exprcode = []
-    LOG.debug(exprs)
-    for resultsym, expr in exprs:
-        init = expr.language.initialize(resultsym)
-        body = expr.compile(resultsym)
-        final = expr.language.finalize(resultsym)
-        exprcode.append(emit(init, body, final))
-    return emit(*exprcode)
+    for result, expr in exprs:
+        lang = expr.language
+        init = lang.initialize(result)
 
+        # TODO cleanup this dispatch to be transparent
+        if isinstance(expr, Pipelined):
+          body = lang.body(expr.compilePipeline(result), result)
+        else:
+          body = lang.body(expr.compile(result))
+
+        final = lang.finalize(result)
+        exprcode.append(emit(init, body, final))
+    return  emit(*exprcode)
 
 def search(expr, tofind):
     """yield a sequence of subexpressions equal to tofind"""
