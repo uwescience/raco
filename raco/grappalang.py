@@ -77,6 +77,26 @@ class GrappaLanguage(Language):
       return """LOG(INFO) << %s;\n""" % code
 
     @staticmethod
+    def pipeline_wrap(ident, code, attrs):
+        timer_metric = None
+        if attrs['type'] == 'in_memory':
+            timer_metric = "in_memory_runtime"
+        elif attrs['type'] == 'scan':
+            timer_metric = "scan_runtime"
+
+        pipeline_template = """
+        auto start_%(ident)s = walltime();
+        %(code)s
+        auto end_%(ident)s = walltime();
+        auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
+        %(timer_metric)s += runtime_%(ident)s;
+        VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
+        """
+
+        return pipeline_template % locals()
+
+
+    @staticmethod
     def comment(txt):
         return  "// %s\n" % txt
 
@@ -145,7 +165,8 @@ class MemoryScan(algebra.Scan, GrappaOperator):
         #Scan is the only place where a relation is declared
         resultsym = gensym()
 
-        code += fs.compileme(resultsym)
+        fscode = fs.compileme(resultsym)
+        state.addPipeline(fscode, "scan")
         state.saveExpr(fs, resultsym)
 
     # now generate the scan from memory
@@ -164,12 +185,10 @@ class MemoryScan(algebra.Scan, GrappaOperator):
 #       }); // end scan over %(inputsym)s (forall_localized)
 #       """
 
-    memory_scan_template = """start = walltime();
+    memory_scan_template = """
 forall( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s& %(tuple_name)s) {
 %(inner_plan_compiled)s
 }); // end  scan over %(inputsym)s
-end = walltime();
-in_memory_runtime += (end-start);
 """
 
     rel_decl_template = """Relation<%(tuple_type)s> %(resultsym)s;"""
@@ -196,7 +215,7 @@ in_memory_runtime += (end-start);
     inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
 
     code += memory_scan_template % locals()
-    state.addPipeline(code)
+    state.addPipeline(code, "in_memory")
     
   def consume(self, t, src, state):
     assert False, "as a source, no need for consume"
@@ -390,15 +409,12 @@ class GrappaFileScan(clangcommon.CFileScan):
     # C++ type inference cannot infer T in readTuples<T>;
     # we resolve it later, so use %%
     ascii_scan_template = """
-        start = walltime();
         {
         %(resultsym)s.data = readTuples<%%(result_type)s>( "%(name)s", FLAGS_nt);
         %(resultsym)s.numtuples = FLAGS_nt;
         auto l_%(resultsym)s = %(resultsym)s;
         on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
         }
-        end = walltime();
-        scan_runtime += (end-start);
         """
 
     def __get_ascii_scan_template__(self):
