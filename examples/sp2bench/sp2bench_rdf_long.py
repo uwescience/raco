@@ -100,7 +100,7 @@ queries['Q9'] = """A(predicate) :- %(tr)s(person, 'http://www.w3.org/1999/02/22-
 #TODO be sure DISTINT
 
 
-queries['Q10'] = """A(subj, pred) :- %(tr)s(subj, pred, 'person:Paul_Erdoes')"""
+queries['Q10'] = """A(subj, pred) :- %(tr)s(subj, pred, 'http://localhost/persons/Paul_Erdoes')"""
 # Is this right? is there such a string?
 
 queries['Q11'] = """A(ee) :- %(tr)s(publication, 'http://www.w3.org/2000/01/rdf-schema#seeAlso', ee)"""
