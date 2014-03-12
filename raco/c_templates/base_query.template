@@ -92,7 +92,7 @@ inline bool equals(struct relationInfo *left, uint64 leftrow, uint64 leftattribu
 
 StringIndex string_index;
 void init( ) {
-    string_index = build_string_index("sp2b.100t.index");
+    string_index = build_string_index("sp2bench_1m.index");
 }
 
 
