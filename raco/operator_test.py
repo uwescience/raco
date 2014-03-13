@@ -62,8 +62,8 @@ class OperatorTest(unittest.TestCase):
         updateex1 = PLUS(NamedStateAttributeRef("sum"),
                          NamedAttributeRef("salary"))
 
-        avgex = DIVIDE(NamedStateAttributeRef("sum"),
-                       NamedStateAttributeRef("count"))
+        avgex = IDIVIDE(NamedStateAttributeRef("sum"),
+                        NamedStateAttributeRef("count"))
 
         sapply = StatefulApply([("avg", avgex)],
                                [("count", initex0, updateex0),
