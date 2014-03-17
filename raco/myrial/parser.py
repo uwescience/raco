@@ -28,6 +28,7 @@ binops = {
     '+': sexpr.PLUS,
     '-': sexpr.MINUS,
     '/': sexpr.DIVIDE,
+    '//': sexpr.IDIVIDE,
     '*': sexpr.TIMES,
     '>': sexpr.GT,
     '<': sexpr.LT,
@@ -80,7 +81,7 @@ class Parser(object):
             ('right', 'NOT'),
             ('left', 'EQ', 'EQUALS', 'NE', 'GT', 'LT', 'LE', 'GE'),
             ('left', 'PLUS', 'MINUS'),
-            ('left', 'TIMES', 'DIVIDE'),
+            ('left', 'TIMES', 'DIVIDE', 'IDIVIDE'),
             ('right', 'UMINUS'),    # Unary minus
         )
 
@@ -555,6 +556,7 @@ class Parser(object):
                    | sexpr MINUS sexpr
                    | sexpr TIMES sexpr
                    | sexpr DIVIDE sexpr
+                   | sexpr IDIVIDE sexpr
                    | sexpr GT sexpr
                    | sexpr LT sexpr
                    | sexpr GE sexpr

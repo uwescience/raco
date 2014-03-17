@@ -200,7 +200,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_bag_comp_filter_column_compare_ne(self):
         query = """
         emp = SCAN(%s);
-        out = [FROM emp WHERE $0 / $1 != $1 EMIT *];
+        out = [FROM emp WHERE $0 // $1 != $1 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -211,7 +211,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_bag_comp_filter_column_compare_ne2(self):
         query = """
         emp = SCAN(%s);
-        out = [FROM emp WHERE $0 / $1 <> $1 EMIT *];
+        out = [FROM emp WHERE $0 // $1 <> $1 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -317,7 +317,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_bag_comp_emit_with_math(self):
         query = """
         emp = SCAN(%s);
-        out = [FROM emp EMIT salary + 5000, salary - 5000, salary / 5000,
+        out = [FROM emp EMIT salary + 5000, salary - 5000, salary // 5000,
         salary * 5000];
         STORE(out, OUTPUT);
         """ % self.emp_key
@@ -644,7 +644,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         emp = SCAN(%s);
         out = [FROM emp WHERE salary==*C1.a * *C2.b OR $3==*C1.b * *C2
-               EMIT dept_id * *C1.b / *C2.a];
+               EMIT dept_id * *C1.b // *C2.a];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -1145,7 +1145,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_triangle_udf(self):
         query = """
-        DEF Triangle(a,b): (a*b)/2;
+        DEF Triangle(a,b): (a*b)//2;
 
         out = [FROM SCAN(%s) AS X EMIT id, Triangle(X.salary, dept_id) AS t];
         STORE(out, OUTPUT);
@@ -1155,7 +1155,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.check_result(query, expected)
 
     def test_noop_udf(self):
-        expr = "30 + 15 / 7 + -45"
+        expr = "30 + 15 // 7 + -45"
 
         query = """
         DEF Noop(): %s;
@@ -1240,7 +1240,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         for emp in self.emp_table:
             _sum += emp[3]
             _count += 1
-            tps.append((emp[0], _sum / _count))
+            tps.append((emp[0], float(_sum) / _count))
 
         self.check_result(query, collections.Counter(tps))
 
@@ -1300,8 +1300,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_case_binary(self):
         query = """
         emp = SCAN(%s);
-        rich = [FROM emp EMIT id, CASE WHEN salary > 15000 THEN salary / salary
-                ELSE 0 / salary END];
+        rich = [FROM emp EMIT id, CASE WHEN salary > 15000
+                THEN salary // salary
+                ELSE 0 // salary END];
         STORE(rich, OUTPUT);
         """ % self.emp_key
 
