@@ -1,0 +1,8 @@
+
+-- Somewhat non-sensical query that combines joining and grouping on a single
+-- attribute; the optimizer should eliminate all but one shuffle here.
+
+Edge = SCAN(public:adhoc:edges);
+X = [FROM Edge As E1, Edge AS E2 WHERE E1.dst == E2.src EMIT E2.src, COUNT(E1.dst)];
+
+STORE(X, OUTPUT);
