@@ -19,6 +19,10 @@ class Rule(object):
         """Apply this rule to the supplied expression tree"""
 
 
+class NonRecursiveRule(Rule):
+    """Marker interface to indicate that a rule is non-recursive."""
+
+
 class CrossProduct2Join(Rule):
     """A rewrite rule for removing Cross Product"""
     def fire(self, expr):

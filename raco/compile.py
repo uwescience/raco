@@ -1,6 +1,7 @@
 from raco import algebra
 from pipelines import Pipelined
 from raco.utility import emit
+import raco.rules
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -18,7 +19,8 @@ def optimize_by_rules(expr, rules):
         def recursiverule(expr):
             newexpr = rule(expr)
             LOG.debug("apply rule %s\n--- %s => %s", rule, expr, newexpr)
-            newexpr.apply(recursiverule)
+            if not isinstance(rule, raco.rules.NonRecursiveRule):
+                newexpr.apply(recursiverule)
             return newexpr
         expr = recursiverule(expr)
     return expr
