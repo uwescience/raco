@@ -476,6 +476,15 @@ class Join(CompositeBinaryOperator):
         return self
 
 
+def resolve_attribute_name(user_name, scheme, sexpr, index):
+    if user_name:
+        return user_name
+    elif isinstance(sexpr, expression.AttributeRef):
+        return scheme.resolve(sexpr)[0]
+    else:
+        return '_FIELD%d_' % index
+
+
 class Apply(UnaryOperator):
     def __init__(self, emitters=None, input=None):
         """Create new attributes from expressions with optional rename.
@@ -487,17 +496,11 @@ class Apply(UnaryOperator):
         :type emitters: list of tuples
         """
 
-        def resolve_name(name, sexpr):
-            if name:
-                return name
-            elif isinstance(sexpr, expression.AttributeRef):
-                return input.resolveAttribute(sexpr)[0]
-            else:
-                return str(sexpr)
-
         if emitters is not None:
-            self.emitters = [(resolve_name(name, sexpr), sexpr)
-                             for name, sexpr in emitters]
+            scheme = input.scheme()
+            self.emitters = \
+                [(resolve_attribute_name(name, scheme, sexpr, index), sexpr)
+                 for index, (name, sexpr) in enumerate(emitters)]
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
