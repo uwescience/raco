@@ -518,9 +518,9 @@ class Apply(UnaryOperator):
         """
 
         if emitters is not None:
-            scheme = input.scheme()
+            in_scheme = input.scheme()
             self.emitters = \
-                [(resolve_attribute_name(name, scheme, sexpr, index), sexpr)
+                [(resolve_attribute_name(name, in_scheme, sexpr, index), sexpr)
                  for index, (name, sexpr) in enumerate(emitters)]
         UnaryOperator.__init__(self, input)
 
@@ -574,17 +574,12 @@ class StatefulApply(UnaryOperator):
             for (name, expr) in self.inits:
                 self.state_scheme.addAttribute(name, type(expr))
 
-        def resolve_name(name, sexpr):
-            if name:
-                return name
-            elif isinstance(sexpr, expression.AttributeRef):
-                return input.resolveAttribute(sexpr)[0]
-            else:
-                return str(sexpr)
-
         if emitters is not None:
-            self.emitters = [(resolve_name(name, sexpr), sexpr) for name, sexpr
-                             in emitters]
+            in_scheme = input.scheme()
+            self.emitters = \
+                [(resolve_attribute_name(name, in_scheme, sexpr, index), sexpr)
+                 for index, (name, sexpr) in enumerate(emitters)]
+
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
