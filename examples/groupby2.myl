@@ -1,4 +1,4 @@
 
 Emp = SCAN(public:adhoc:employees);
 Groups = [FROM Emp EMIT COUNT(*)];
-Dump(Groups);
+Store(Groups, OUTPUT);
