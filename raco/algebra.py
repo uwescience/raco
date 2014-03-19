@@ -480,9 +480,11 @@ def resolve_attribute_name(user_name, scheme, sexpr, index):
     if user_name:
         return user_name
     elif isinstance(sexpr, expression.AttributeRef):
-        return scheme.resolve(sexpr)[0]
-    else:
-        return '_FIELD%d_' % index
+        inferred_name = scheme.resolve(sexpr)[0]
+        if not inferred_name.startswith('_FIELD'):
+            return inferred_name
+
+    return '_FIELD%d_' % index
 
 
 class Apply(UnaryOperator):
