@@ -28,7 +28,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                                 ("name", "string"),
                                 ("salary", "int")])
 
-    emp_key = "andrew:adhoc:employee"
+    emp_key = "public:adhoc:employee"
 
     dept_table = collections.Counter([
         (1, "accounting", 5),
@@ -40,7 +40,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                                  ("name", "string"),
                                  ("manager", "int")])
 
-    dept_key = "andrew:adhoc:department"
+    dept_key = "public:adhoc:department"
 
     numbers_table = collections.Counter([
         (1, 3),
@@ -51,7 +51,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     numbers_schema = scheme.Scheme([("id", "int"),
                                     ("val", "float")])
 
-    numbers_key = "andrew:adhoc:numbers"
+    numbers_key = "public:adhoc:numbers"
 
     def setUp(self):
         super(TestQueryFunctions, self).setUp()
