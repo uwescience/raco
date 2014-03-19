@@ -1364,3 +1364,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         _sum = 3 * len([x for x in self.emp_table.elements()
                         if x[3] > 15000])
         self.check_result(query, collections.Counter([(_sum,)]))
+
+    def test_default_column_names(self):
+        with open('examples/groupby1.myl') as fh:
+            query = fh.read()
+        self.execute_query(query)
+        scheme = self.db.get_scheme('OUTPUT1')
+        self.assertEquals(scheme.getName(0), "_FIELD0_")
+        self.assertEquals(scheme.getName(1), "id")
