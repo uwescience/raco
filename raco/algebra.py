@@ -477,13 +477,32 @@ class Join(CompositeBinaryOperator):
 
 
 def resolve_attribute_name(user_name, scheme, sexpr, index):
+    """Resolve an attribute/column into a name.
+
+    :param user_name: A user-provided string name.  Can be None.
+    :type user_name: string
+    :param scheme: The schema of the operator's input.
+    :type scheme: raco.Scheme
+    :param sexpr: The scalar expression describing the column's contents.
+    :type sexpr: raco.expression.Expression
+    :param index: The numeric index of the column
+    :type index: int
+    :returns: A string representing the column name
+    """
+
+    # We always give preference to a user-provided name
     if user_name:
         return user_name
+
+    # If the column contains a simple attribute reference, infer the column
+    # name from the input schema.  However, do not pass along an auto-gen
+    # column name.
     elif isinstance(sexpr, expression.AttributeRef):
         inferred_name = scheme.resolve(sexpr)[0]
         if not inferred_name.startswith('_FIELD'):
             return inferred_name
 
+    # Otherwise, just concoct a column name based on the column index.
     return '_FIELD%d_' % index
 
 
