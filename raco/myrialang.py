@@ -915,6 +915,14 @@ class RemoveTrivialSequences(rules.Rule):
             return expr
 
 
+class OptimizeCommunication(rules.NonRecursiveRule):
+    def fire(self, op):
+        def rec_apply(node):
+            node.apply(rec_apply)
+            return node
+        return rec_apply(op)
+
+
 class MyriaAlgebra(object):
     language = MyriaLanguage
 
@@ -946,9 +954,13 @@ class MyriaAlgebra(object):
 
         rules.ProjectingJoin(),
         rules.JoinToProjectingJoin(),
+
+        OptimizeCommunication(),
+
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
         DistributedGroupBy(),
+
         ProjectToDistinctColumnSelect(),
         rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
         rules.OneToOne(algebra.Store, MyriaStore),
