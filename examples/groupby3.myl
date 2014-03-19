@@ -1,4 +1,4 @@
 
-Emp = SCAN(public:adhoc:employees);
+Emp = SCAN(public:adhoc:employee);
 Groups = [FROM Emp EMIT id, AVG(salary), id];
 Store(Groups, OUTPUT);
