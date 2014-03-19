@@ -705,13 +705,11 @@ class GroupBy(UnaryOperator):
 
     def scheme(self):
         """scheme of the result."""
-        def resolve(i, attr):
-            if isinstance(attr, expression.AttributeRef):
-                return self.input.resolveAttribute(attr)
-            else:
-                return ("%s%s" % (attr.__class__.__name__, i), attr.typeof())
-
-        attrs = [resolve(i, e) for i, e in enumerate(self.column_list)]
+        in_scheme = self.input.scheme()
+        # Note: user-provided column names are supplied by a subsequent Apply
+        # invocation; see raco/myrial/groupby.py
+        attrs = [(resolve_attribute_name(None, in_scheme, sexpr, index), sexpr)
+                 for index, sexpr in enumerate(self.column_list)]
         return scheme.Scheme(attrs)
 
 
