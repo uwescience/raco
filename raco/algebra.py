@@ -499,11 +499,11 @@ def resolve_attribute_name(user_name, scheme, sexpr, index):
     # column name.
     elif isinstance(sexpr, expression.AttributeRef):
         inferred_name = scheme.resolve(sexpr)[0]
-        if not inferred_name.startswith('_FIELD'):
+        if not inferred_name.startswith('_COLUMN'):
             return inferred_name
 
     # Otherwise, just concoct a column name based on the column index.
-    return '_FIELD%d_' % index
+    return '_COLUMN%d_' % index
 
 
 class Apply(UnaryOperator):

@@ -1370,5 +1370,5 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             query = fh.read()
         self.execute_query(query)
         scheme = self.db.get_scheme('OUTPUT')
-        self.assertEquals(scheme.getName(0), "_FIELD0_")
+        self.assertEquals(scheme.getName(0), "_COLUMN0_")
         self.assertEquals(scheme.getName(1), "id")
