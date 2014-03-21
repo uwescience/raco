@@ -35,3 +35,14 @@ class ColumnEquivalenceClassTest(unittest.TestCase):
 
         for i in range(5, 12):
             self.assertEquals(cev.get_equivalent_columns(i), {i})
+
+    def test_normalize(self):
+        cev = physprop.ColumnEquivalenceClassSet(8)
+
+        cev.merge(2, 1)
+        cev.merge(4, 3)
+        cev.merge(3, 2)
+        cev.merge(6, 7)
+        cev.merge(0, 7)
+
+        self.assertEquals(cev.normalize(range(8)), {0, 1, 5})

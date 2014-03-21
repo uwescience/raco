@@ -58,6 +58,6 @@ class ColumnEquivalenceClassSet(utility.CommonEqualityMixin):
         rep = self.member_dict[col]
         return self.rep_dict[rep]
 
-    def normalize(col_set):
+    def normalize(self, col_set):
         """Normalize a column set by replacing each member with an exemplar."""
         return set([self.member_dict[x] for x in col_set])
