@@ -39,6 +39,10 @@ class ColumnEquivalenceClassSet(utility.CommonEqualityMixin):
 
         min_rep = self.member_dict[_min]
         max_rep = self.member_dict[_max]
+
+        if min_rep == max_rep:
+            return
+
         min_members = self.rep_dict[min_rep]
         max_members = self.rep_dict[max_rep]
 
