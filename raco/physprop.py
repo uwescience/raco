@@ -42,9 +42,17 @@ class ColumnEquivalenceClassSet(utility.CommonEqualityMixin):
         min_members = self.rep_dict[min_rep]
         max_members = self.rep_dict[max_rep]
 
+        # Convert all member of the max's class to the new class
         min_members.update(max_members)
-        self.member_dict[_max] = min_rep
+
+        for old_member in max_members:
+            self.member_dict[old_member] = min_rep
+
         del self.rep_dict[max_rep]
+
+    def get_equivalent_columns(self, col):
+        rep = self.member_dict[col]
+        return self.rep_dict[rep]
 
     def normalize(col_set):
         """Normalize a column set by replacing each member with an exemplar."""
