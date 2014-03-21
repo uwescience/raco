@@ -8,6 +8,7 @@ from raco.language import Language
 from raco.utility import emit
 from raco.relation_key import RelationKey
 from raco.expression.aggregate import DecomposableAggregate
+from raco.physprop import *
 
 
 def scheme_to_schema(s):
@@ -916,11 +917,21 @@ class RemoveTrivialSequences(rules.Rule):
 
 
 class OptimizeCommunication(rules.NonRecursiveRule):
-    def fire(self, op):
-        def rec_apply(node):
-            node.apply(rec_apply)
-            return node
-        return rec_apply(op)
+    @staticmethod
+    def opt_comm(op):
+        scheme = op.scheme()
+        if scheme:
+            num_cols = len(scheme)
+
+        if isinstance(op, algebra.Scan):
+            # TODO: Get partition info from the catalog
+            op.how_partitioned = PhysicalProperties.from_column_count(
+                PARTITION_RANDOM, num_cols)
+
+    def fire(self, _op):
+        for op in _op.walk_post_order():
+            self.opt_comm(op)
+        return _op
 
 
 class MyriaAlgebra(object):

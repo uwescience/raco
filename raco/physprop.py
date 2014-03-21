@@ -103,3 +103,7 @@ class PhysicalProperties(utility.CommonEqualityMixin):
         if isinstance(sp, set) and isinstance(op, set):
             return op.issubset(sp)
         return False
+
+    @classmethod
+    def from_column_count(cls, part_info, num_cols):
+        cls(part_info, ColumnEquivalenceClassSet(num_cols))
