@@ -61,3 +61,45 @@ class ColumnEquivalenceClassSet(utility.CommonEqualityMixin):
     def normalize(self, col_set):
         """Normalize a column set by replacing each member with an exemplar."""
         return set([self.member_dict[x] for x in col_set])
+
+
+PARTITION_RANDOM = "RANDOM"
+PARTITION_BROADCAST = "BROADCAST"
+PARTITION_CENTRALIZED = "CENTRALIZED"
+
+
+class PhysicalProperties(utility.CommonEqualityMixin):
+    """Encodes various physical properties of data layout.
+
+    This is subset of the SCOPE properties.  See "Incorporating Partitioning
+    and Parallel Plans into the SCOPE Optimizer.
+    """
+
+    def __init__(self, part_info, cevs):
+        """Instantiate a PhysicalProperties object.
+
+        :param part_info: Partition information.  This is either a non-empty
+        set of columns, or one of the special PARTION_* constants.
+        :param cevs: An instance of ColumnEquivalenceClassSet
+        """
+
+        assert isinstance(cevs, ColumnEquivalenceClassSet)
+
+        if isinstance(part_info, set):
+            assert len(part_info) > 0
+            self.part_info = cevs.normalize(part_info)
+        else:
+            self.part_info = part_info
+
+        self.cevs = cevs
+
+    def is_compatible(self, other):
+        """Return True if other is compatible with self."""
+
+        sp = self.part_info
+        op = other.part_info
+        if sp == op:
+            return True
+        if isinstance(sp, set) and isinstance(op, set):
+            return op.issubset(sp)
+        return False
