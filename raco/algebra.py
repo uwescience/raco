@@ -476,6 +476,36 @@ class Join(CompositeBinaryOperator):
         return self
 
 
+def resolve_attribute_name(user_name, scheme, sexpr, index):
+    """Resolve an attribute/column into a name.
+
+    :param user_name: A user-provided string name.  Can be None.
+    :type user_name: string
+    :param scheme: The schema of the operator's input.
+    :type scheme: raco.Scheme
+    :param sexpr: The scalar expression describing the column's contents.
+    :type sexpr: raco.expression.Expression
+    :param index: The numeric index of the column
+    :type index: int
+    :returns: A string representing the column name
+    """
+
+    # We always give preference to a user-provided name
+    if user_name:
+        return user_name
+
+    # If the column contains a simple attribute reference, infer the column
+    # name from the input schema.  However, do not pass along an auto-gen
+    # column name.
+    elif isinstance(sexpr, expression.AttributeRef):
+        inferred_name = scheme.resolve(sexpr)[0]
+        if not inferred_name.startswith('_COLUMN'):
+            return inferred_name
+
+    # Otherwise, just concoct a column name based on the column index.
+    return '_COLUMN%d_' % index
+
+
 class Apply(UnaryOperator):
     def __init__(self, emitters=None, input=None):
         """Create new attributes from expressions with optional rename.
@@ -487,17 +517,11 @@ class Apply(UnaryOperator):
         :type emitters: list of tuples
         """
 
-        def resolve_name(name, sexpr):
-            if name:
-                return name
-            elif isinstance(sexpr, expression.AttributeRef):
-                return input.resolveAttribute(sexpr)[0]
-            else:
-                return str(sexpr)
-
         if emitters is not None:
-            self.emitters = [(resolve_name(name, sexpr), sexpr)
-                             for name, sexpr in emitters]
+            in_scheme = input.scheme()
+            self.emitters = \
+                [(resolve_attribute_name(name, in_scheme, sexpr, index), sexpr)
+                 for index, (name, sexpr) in enumerate(emitters)]
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
@@ -550,17 +574,12 @@ class StatefulApply(UnaryOperator):
             for (name, expr) in self.inits:
                 self.state_scheme.addAttribute(name, type(expr))
 
-        def resolve_name(name, sexpr):
-            if name:
-                return name
-            elif isinstance(sexpr, expression.AttributeRef):
-                return input.resolveAttribute(sexpr)[0]
-            else:
-                return str(sexpr)
-
         if emitters is not None:
-            self.emitters = [(resolve_name(name, sexpr), sexpr) for name, sexpr
-                             in emitters]
+            in_scheme = input.scheme()
+            self.emitters = \
+                [(resolve_attribute_name(name, in_scheme, sexpr, index), sexpr)
+                 for index, (name, sexpr) in enumerate(emitters)]
+
         UnaryOperator.__init__(self, input)
 
     def __eq__(self, other):
@@ -702,13 +721,11 @@ class GroupBy(UnaryOperator):
 
     def scheme(self):
         """scheme of the result."""
-        def resolve(i, attr):
-            if isinstance(attr, expression.AttributeRef):
-                return self.input.resolveAttribute(attr)
-            else:
-                return ("%s%s" % (attr.__class__.__name__, i), attr.typeof())
-
-        attrs = [resolve(i, e) for i, e in enumerate(self.column_list)]
+        in_scheme = self.input.scheme()
+        # Note: user-provided column names are supplied by a subsequent Apply
+        # invocation; see raco/myrial/groupby.py
+        attrs = [(resolve_attribute_name(None, in_scheme, sexpr, index), sexpr)
+                 for index, sexpr in enumerate(self.column_list)]
         return scheme.Scheme(attrs)
 
 
