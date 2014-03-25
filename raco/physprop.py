@@ -40,7 +40,7 @@ class ColumnEquivalenceClassSet(utility.CommonEqualityMixin):
         self.rep_dict = rep_dict
         self.member_dict = member_dict
 
-    def __str__(self):
+    def __repr__(self):
         mems = ['%s : %s' % (k, v) for k, v in self.rep_dict.iteritems()]
         return '; '.join(mems)
 

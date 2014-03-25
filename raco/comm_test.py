@@ -44,3 +44,14 @@ class CommunicationTests(unittest.TestCase):
         cevs = ColumnEquivalenceClassSet(4)
         cevs.merge(2, 3)
         self.validate(select, cevs, PARTITION_RANDOM)
+
+    def test_apply_duplicate_columns(self):
+        scan = Scan(self.rel_key, self.scheme)
+        emitters = [('a', UnnamedAttributeRef(3)),
+                    ('b', UnnamedAttributeRef(2)),
+                    ('c', UnnamedAttributeRef(2))]
+        _apply = Apply(emitters=emitters, input=scan)
+
+        cevs = ColumnEquivalenceClassSet(3)
+        cevs.merge(1, 2)
+        self.validate(_apply, cevs, PARTITION_RANDOM)
