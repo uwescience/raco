@@ -30,7 +30,7 @@ class CommunicationVisitor(object):
         return op
 
     def visit_apply(self, op):
-        new_pos = {}  # map from original column position to output position
+        new_pos = {}  # map from original column position to first output pos
         exprs = {}  # map from expression to output position set
 
         for i, emitter in enumerate(op.emitters):
@@ -38,7 +38,8 @@ class CommunicationVisitor(object):
             s.add(i)
 
             assert not isinstance(emitter, expression.NamedAttributeRef)
-            if isinstance(emitter, expression.UnnamedAttributeRef):
+            if (isinstance(emitter, expression.UnnamedAttributeRef) and
+                not emitter.position in new_pos):  # noqa
                 new_pos[emitter.position] = i
 
         cevs_in = op.input.column_equivalences
@@ -52,6 +53,8 @@ class CommunicationVisitor(object):
         # Merge any output columns that have a common expression
         for pos_set in exprs.itervalues():
             cevs_out.merge_set(pos_set)
+
+        op.column_equivalences = cevs_out
 
         # The output maintains the input partition if all columns are preserved
         # in the same order
