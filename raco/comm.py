@@ -4,7 +4,7 @@ from raco.physprop import *
 
 class CommunicationVisitor(object):
     def visit(self, op):
-        method = '__visit_' + getattr(self, op.opname().lower())
+        method = getattr(self, '__visit_' + op.opname().lower())
         method(op)
 
     def __visit_scan(self, op):
