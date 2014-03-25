@@ -1,5 +1,15 @@
-
+import itertools
 import utility
+
+
+def pairwise(iterable):
+    """Iterate through a list pairwise.
+
+    taken from: http://docs.python.org/2/library/itertools.html
+    """
+    a, b = itertools.tee(iterable)
+    next(b, None)
+    return itertools.izip(a, b)
 
 
 class ColumnEquivalenceClassSet(utility.CommonEqualityMixin):
@@ -57,6 +67,11 @@ class ColumnEquivalenceClassSet(utility.CommonEqualityMixin):
             self.member_dict[old_member] = min_rep
 
         del self.rep_dict[max_rep]
+
+    def merge_set(self, s):
+        """Merge a set of columns into one equivalence class."""
+        for i, j in pairwise(s):
+            self.merge(i, j)
 
     def get_equivalent_columns(self, col):
         rep = self.member_dict[col]
