@@ -31,7 +31,16 @@ class CommunicationTests(unittest.TestCase):
 
     def test_select(self):
         scan = Scan(self.rel_key, self.scheme)
-        cond = GT(NamedAttributeRef("y"), NumericLiteral(1))
+        cond = GT(UnnamedAttributeRef(1), NumericLiteral(1))
         select = Select(condition=cond, input=scan)
 
         self.validate(select, ColumnEquivalenceClassSet(4), PARTITION_RANDOM)
+
+    def test_select_equal_columns(self):
+        scan = Scan(self.rel_key, self.scheme)
+        cond = EQ(UnnamedAttributeRef(2), UnnamedAttributeRef(3))
+        select = Select(condition=cond, input=scan)
+
+        cevs = ColumnEquivalenceClassSet(4)
+        cevs.merge(2, 3)
+        self.validate(select, cevs, PARTITION_RANDOM)
