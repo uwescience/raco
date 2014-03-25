@@ -14,7 +14,7 @@ class ColumnEquivalenceClassSet(utility.CommonEqualityMixin):
     """
 
     def __init__(self, num_cols):
-        """Instantite a ColumnEquivalenceClassSet.
+        """Instantiate a ColumnEquivalenceClassSet.
 
         Each column is placed in its own equivalence class.
         """
