@@ -46,3 +46,15 @@ class ColumnEquivalenceClassTest(unittest.TestCase):
         cev.merge(0, 7)
 
         self.assertEquals(cev.normalize(range(8)), {0, 1, 5})
+
+    def test_merge_set(self):
+        cev = physprop.ColumnEquivalenceClassSet(8)
+
+        cev.merge(2, 1)
+        cev.merge_set([2, 4, 6])
+        cev.merge(6, 5)
+        cev.merge(3, 6)
+
+        for i in range(1, 7):
+            self.assertEquals(cev.get_equivalent_columns(i), set(range(1, 7)))
+        self.assertEquals(cev.get_equivalent_columns(7), {7})
