@@ -919,10 +919,12 @@ class RemoveTrivialSequences(rules.Rule):
 class OptimizeCommunication(rules.NonRecursiveRule):
     def fire(self, _op):
         cv = CommunicationVisitor()
+
         def rec(op):
             # apply visitor bottom-up
             op.apply(rec)
-            return cv.visit(op)
+            return op
+#            return cv.visit(op)
 
         return rec(_op)
 
