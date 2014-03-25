@@ -4,7 +4,7 @@ An expression language for Raco: functions, booleans, aggregates, etc.
 Most non-trivial operators and functions are in separate files in this package.
 """
 
-from raco.utility import Printable
+from raco.utility import Printable, CommonEqualityMixin
 
 from abc import ABCMeta, abstractmethod
 
@@ -12,7 +12,7 @@ import logging
 LOG = logging.getLogger(__name__)
 
 
-class Expression(Printable):
+class Expression(Printable, CommonEqualityMixin):
     __metaclass__ = ABCMeta
     literals = None
 
@@ -88,9 +88,6 @@ class ZeroaryOperator(Expression):
     def __init__(self):
         pass
 
-    def __eq__(self, other):
-        return self.__class__ == other.__class__
-
     def __hash__(self):
         return hash(self.__class__)
 
@@ -110,9 +107,6 @@ class ZeroaryOperator(Expression):
 class UnaryOperator(Expression):
     def __init__(self, input):
         self.input = input
-
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.input == other.input
 
     def __hash__(self):
         return hash(self.__class__) + hash(self.input)
@@ -146,10 +140,6 @@ class BinaryOperator(Expression):
     def __init__(self, left, right):
         self.left = left
         self.right = right
-
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and \
-            self.left == other.left and self.right == other.right
 
     def __hash__(self):
         return hash(self.__class__) + hash(self.left) + hash(self.right)
@@ -216,9 +206,6 @@ class NaryOperator(Expression):
 class Literal(ZeroaryOperator):
     def __init__(self, value):
         self.value = value
-
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.value == other.value
 
     def __hash__(self):
         return hash(self.__class__) + hash(self.value)
