@@ -28,3 +28,40 @@ class CommunicationVisitor(object):
             if et:
                 op.column_equivalences.merge(*et)
         return op
+
+    def visit_apply(self, op):
+        new_pos = {}  # map from original column position to output position
+        exprs = {}  # map from expression to output position set
+
+        for i, emitter in enumerate(op.emitters):
+            s = exprs.get(emitter, set())
+            s.add(i)
+
+            assert not isinstance(emitter, expression.NamedAttributeRef)
+            if isinstance(emitter, expression.UnnamedAttributeRef):
+                new_pos[emitter.position] = i
+
+        cevs_in = op.input.column_equivalences
+        cevs_out = ColumnEquivalenceClassSet(len(op.scheme()))
+
+        # Merge input column equivalences that are preserved
+        for pos_set in cevs_in:
+            retained = [new_pos[x] for x in pos_set if x in new_pos]
+            cevs_out.merge_set(retained)
+
+        # Merge any output columns that have a common expression
+        for pos_set in exprs.itervalues():
+            cevs_out.merge_set(pos_set)
+
+        # The output maintains the input partition if all columns are preserved
+        # in the same order
+        op.how_partitioned = PARTITION_RANDOM
+        hp_in = op.input.how_partitioned
+
+        if isinstance(hp_in, set):
+            hp_out = [new_pos[x] for x in hp_in if x in new_pos]
+            if len(hp_out) == len(hp_in) and is_sorted(hp_out):
+                op.how_partitioned = set(hp_out)
+                assert len(op.how_partitioned) == len(hp_in)
+
+        return op
