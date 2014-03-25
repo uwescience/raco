@@ -33,14 +33,17 @@ class CommunicationVisitor(object):
         new_pos = {}  # map from original column position to first output pos
         exprs = {}  # map from expression to output position set
 
-        for i, emitter in enumerate(op.emitters):
-            s = exprs.get(emitter, set())
+        for i, (name, expr) in enumerate(op.emitters):
+            s = exprs.get(expr, set())
             s.add(i)
+            exprs[expr] = s
 
-            assert not isinstance(emitter, expression.NamedAttributeRef)
-            if (isinstance(emitter, expression.UnnamedAttributeRef) and
-                not emitter.position in new_pos):  # noqa
-                new_pos[emitter.position] = i
+            assert not isinstance(expr, expression.NamedAttributeRef)
+            if (isinstance(expr, expression.UnnamedAttributeRef) and
+                not expr.position in new_pos):  # noqa
+                new_pos[expr.position] = i
+
+        print exprs
 
         cevs_in = op.input.column_equivalences
         cevs_out = ColumnEquivalenceClassSet(len(op.scheme()))
