@@ -83,6 +83,9 @@ class Expression(Printable, CommonEqualityMixin):
         """
         visitor.visit(self)
 
+    def __hash__(self):
+        return hash(repr(self))  # XXX lame hash function
+
 
 class ZeroaryOperator(Expression):
     def __init__(self):
