@@ -1,11 +1,21 @@
 import unittest
 
+from mock import patch
+
 import scheme
 import relation_key
 from algebra import *
 from expression import *
 from comm import *
 from physprop import *
+
+
+def mock_scan_gen(how_partitioned, cevs):
+    def mock_scan(self, op):
+        op.how_partitioned = how_partitioned
+        op.column_equivalences = cevs
+        return op
+    return mock_scan
 
 
 class CommunicationTests(unittest.TestCase):
@@ -45,13 +55,28 @@ class CommunicationTests(unittest.TestCase):
         cevs.merge(2, 3)
         self.validate(select, cevs, PARTITION_RANDOM)
 
-    def test_apply_duplicate_columns(self):
+    def apply_plan(self):
         scan = Scan(self.rel_key, self.scheme)
         emitters = [('a', UnnamedAttributeRef(3)),
                     ('b', UnnamedAttributeRef(2)),
                     ('c', UnnamedAttributeRef(2))]
-        _apply = Apply(emitters=emitters, input=scan)
+        return Apply(emitters=emitters, input=scan)
 
+    def test_apply_duplicate_columns(self):
+        """Test that we detect duplicate columns as equivalent."""
         cevs = ColumnEquivalenceClassSet(3)
         cevs.merge(1, 2)
-        self.validate(_apply, cevs, PARTITION_RANDOM)
+        self.validate(self.apply_plan(), cevs, PARTITION_RANDOM)
+
+    def test_apply_duplicate_columns_preserving(self):
+        """Test that column equivalences are preserved across apply."""
+        # Mock the scan operator to return partitioned data
+        cev_in = ColumnEquivalenceClassSet(4)
+        cev_in.merge(3, 2)
+
+        with patch.object(CommunicationVisitor, "visit_scan", mock_scan_gen(
+            PARTITION_RANDOM, cev_in)):  # noqa
+
+            cev_out = ColumnEquivalenceClassSet(3)
+            cev_out.merge_set([0, 1, 2])
+            self.validate(self.apply_plan(), cev_out, PARTITION_RANDOM)
