@@ -44,6 +44,10 @@ class ColumnEquivalenceClassSet(utility.CommonEqualityMixin):
         mems = ['%s : %s' % (k, v) for k, v in self.rep_dict.iteritems()]
         return '; '.join(mems)
 
+    def __iter__(self):
+        """Return an iterator over equivalent column sets."""
+        return self.rep_dict.itervalues()
+
     def merge(self, col1, col2):
         """Merge two equivalence classes."""
 
