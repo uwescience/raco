@@ -1,6 +1,7 @@
-
+import copy
 
 from raco.physprop import *
+import expression
 
 
 class CommunicationVisitor(object):
@@ -16,6 +17,14 @@ class CommunicationVisitor(object):
 
     def visit_select(self, op):
         op.how_partitioned = op.input.how_partitioned
-        op.column_equivalences = op.input.column_equivalences
+        op.column_equivalences = copy.copy(op.input.column_equivalences)
 
+        # Add additional equivalences inferred from select condition
+        conjuncs = expression.extract_conjuncs(op.condition)
+        assert conjuncs  # Must be at least 1
+
+        for conjunc in conjuncs:
+            et = expression.is_column_equality_comparison(conjunc)
+            if et:
+                op.column_equivalences.merge(*et)
         return op
