@@ -833,18 +833,6 @@ class SimpleGroupBy(rules.Rule):
         return expr
 
 
-def is_column_equality_comparison(cond):
-    """Return a tuple of column indexes if the condition is an equality test.
-    """
-
-    if isinstance(cond, expression.EQ) and \
-       isinstance(cond.left, expression.UnnamedAttributeRef) and \
-       isinstance(cond.right, expression.UnnamedAttributeRef):
-        return (cond.left.position, cond.right.position)
-    else:
-        return None
-
-
 class PushSelects(rules.Rule):
     """Push selections."""
 
@@ -881,7 +869,7 @@ class PushSelects(rules.Rule):
             else:
                 # Selection includes both children; attempt to create an
                 # equijoin condition
-                cols = is_column_equality_comparison(cond)
+                cols = expression.is_column_equality_comparison(cond)
                 if cols:
                     return op.add_equijoin_condition(cols[0], cols[1])
 

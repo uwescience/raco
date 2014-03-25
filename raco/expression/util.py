@@ -3,6 +3,7 @@ Utility functions for use in Raco expressions
 """
 
 from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef, NamedStateAttributeRef  # noqa
+from .boolean import EQ
 from .aggregate import AggregateExpression
 
 import copy
@@ -148,3 +149,15 @@ def rebase_expr(expr, offset):
         assert not isinstance(ex, NamedAttributeRef)
         if isinstance(ex, UnnamedAttributeRef):
             ex.position -= offset
+
+
+def is_column_equality_comparison(cond):
+    """Return a tuple of column indexes if the condition is an equality test.
+    """
+
+    if isinstance(cond, EQ) and \
+       isinstance(cond.left, UnnamedAttributeRef) and \
+       isinstance(cond.right, UnnamedAttributeRef):
+        return (cond.left.position, cond.right.position)
+    else:
+        return None
