@@ -178,7 +178,7 @@ class ZeroaryOperator(Operator):
                                                           self.bound)
         else:
             code += "%s" % (self.compileme(resultsym),)
-            #code += self.language.comment("Binding: %s" % resultsym)
+            # code += self.language.comment("Binding: %s" % resultsym)
             self.bound = resultsym
             code += self.compiletrace()
         code += self.language.log("Evaluating subplan %s" % self)
@@ -211,7 +211,7 @@ class UnaryOperator(Operator):
 
     def compile(self, resultsym):
         """Compile this operator to the language specified."""
-        #TODO: Why is the language not an argument?
+        # TODO: Why is the language not an argument?
         code = self.language.comment("Compiled subplan for %s" % self)
         if self.bound:
             code += self.language.assignment(resultsym, self.bound)
@@ -268,7 +268,7 @@ class BinaryOperator(Operator):
         the result of this operator."""
         code = self.language.comment("Compiled subplan for %s" % self)
         code += self.language.log("Evaluating subplan %s" % self)
-        #TODO: Why is language not an argument?
+        # TODO: Why is language not an argument?
         if self.bound:
             code += self.language.assignment(resultsym, self.bound)
         else:
@@ -317,7 +317,7 @@ class NaryOperator(Operator):
     def compile(self, resultsym):
         """Compile this plan.  Result sym is the variable name to use to hold
         the result of this operator."""
-        #TODO: Why is language not an argument?
+        # TODO: Why is language not an argument?
         code = self.language.comment("Compiled subplan for %s" % self)
         code += self.language.log("Evaluating subplan %s" % self)
         if self.bound:
@@ -607,7 +607,7 @@ class StatefulApply(UnaryOperator):
         return "%s(%s)" % (self.opname(), estrs)
 
 
-#TODO: Non-scheme-mutating operators
+# TODO: Non-scheme-mutating operators
 class Distinct(UnaryOperator):
     """Remove duplicates from the child operator"""
     def __init__(self, input=None):

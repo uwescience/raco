@@ -88,13 +88,13 @@ def checkval(xs):
     return result
 
 groundcondition = Group(literal + binop + literal)
-#groundcondition.setParseAction(checkval)
+# groundcondition.setParseAction(checkval)
 
 condition = (valueref + binop + valueref)
 condition.setParseAction(parsebinop)
 
 body = delimitedList(term | groundcondition | condition, ",")
-#.setParseAction(show) #lambda xs: [Term(x) for x in xs])
+# .setParseAction(show) # lambda xs: [Term(x) for x in xs])
 
 partitioner = drop("h(") + delimitedList(variable, ",") + drop(")")
 partitioner.setParseAction(lambda x: model.PartitionBy(x))
@@ -137,7 +137,7 @@ def mkIDB(x):
     return idb
 
 head = (headterm + Optional(timestep) + drop(":-")).setParseAction(mkIDB)
-#head.setParseAction(show)
+# head.setParseAction(show)
 
 
 def mkrule(x):
