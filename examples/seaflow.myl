@@ -1,0 +1,9 @@
+ DEF transform(x): pow(10, x/pow(2,16)*3.5);
+ AllData = SCAN(armbrustlab:seaflow:all_data);
+ AllDataLinear = SELECT Cruise, Day, File_Id
+                      , transform(fsc_small) as fsc_small
+                      -- fsc_perp is measured differently, defer for later
+                      , transform(chl_small) as chl_small
+                      , transform(pe) as pe
+                 FROM AllData;
+ STORE(AllDataLinear, armbrustlab:seaflow:all_data_linear);
