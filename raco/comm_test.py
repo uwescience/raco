@@ -10,7 +10,7 @@ from comm import *
 from physprop import *
 
 
-def mock_scan_gen(how_partitioned, cevs):
+def mock_scan_gen(cevs, how_partitioned):
     def mock_scan(self, op):
         op.how_partitioned = how_partitioned
         op.column_equivalences = cevs
@@ -46,6 +46,19 @@ class CommunicationTests(unittest.TestCase):
 
         self.validate(select, ColumnEquivalenceClassSet(4), PARTITION_RANDOM)
 
+    def test_select_partition(self):
+        """Test that select maintains column partitioning and equivalences."""
+
+        scan = Scan(self.rel_key, self.scheme)
+        cond = LT(UnnamedAttributeRef(1), NumericLiteral(1))
+        select = Select(condition=cond, input=scan)
+
+        cev_in = ColumnEquivalenceClassSet(4)
+        cev_in.merge(2, 3)
+        with (patch.object(CommunicationVisitor, "visit_scan", mock_scan_gen(
+              cev_in, {0, 1}))):
+            self.validate(select, cev_in, {0, 1})
+
     def test_select_equal_columns(self):
         scan = Scan(self.rel_key, self.scheme)
         cond = EQ(UnnamedAttributeRef(2), UnnamedAttributeRef(3))
@@ -75,7 +88,7 @@ class CommunicationTests(unittest.TestCase):
         cev_in.merge(3, 2)
 
         with patch.object(CommunicationVisitor, "visit_scan", mock_scan_gen(
-            PARTITION_RANDOM, cev_in)):  # noqa
+            cev_in, PARTITION_RANDOM)):  # noqa
 
             cev_out = ColumnEquivalenceClassSet(3)
             cev_out.merge_set([0, 1, 2])
