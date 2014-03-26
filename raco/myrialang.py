@@ -646,8 +646,6 @@ class DistributedGroupBy(rules.Rule):
 
         # All built-in aggregates are now decomposable
         assert len(decomposable_aggs) == len(op.aggregate_list)
-        #if len(decomposable_aggs) != len(op.aggregate_list):
-            #return self.do_transfer(op)
 
         # Each logical aggregate generates one or more local aggregates:
         # e.g., average requires a SUM and a COUNT.  In turn, these local
