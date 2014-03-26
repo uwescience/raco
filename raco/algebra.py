@@ -178,7 +178,7 @@ class ZeroaryOperator(Operator):
                                                           self.bound)
         else:
             code += "%s" % (self.compileme(resultsym),)
-            #code += self.language.comment("Binding: %s" % resultsym)
+            # code += self.language.comment("Binding: %s" % resultsym)
             self.bound = resultsym
             code += self.compiletrace()
         code += self.language.log("Evaluating subplan %s" % self)
