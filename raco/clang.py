@@ -91,12 +91,17 @@ class CC(Language):
         return ""
 
     @staticmethod
+    def pipeline_wrap(ident, code, attrs):
+        # TODO: timer, etc
+        return code
+
+    @staticmethod
     def log(txt):
         return  """std::cout << "%s" << std::endl;
         """ % txt
       
     @staticmethod
-    def log_unquoted(code):
+    def log_unquoted(code, level=0):
       return """std::cout << %s << std::endl;
       """ % code
 
@@ -166,7 +171,9 @@ class MemoryScan(algebra.Scan, CCOperator):
         #Scan is the only place where a relation is declared
         resultsym = gensym()
 
-        code += fs.compileme(resultsym)
+        fscode = fs.compileme(resultsym)
+        state.addPipeline(fscode, "scan")
+
         state.saveExpr(fs, resultsym)
 
 
@@ -198,7 +205,7 @@ class MemoryScan(algebra.Scan, CCOperator):
     inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
 
     code += memory_scan_template % locals()
-    state.addPipeline(code)
+    state.addPipeline(code, "in_memory")
 
 
   def consume(self, t, src, state):
