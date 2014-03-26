@@ -1192,6 +1192,23 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                                         for t in self.emp_table])
         self.check_result(query, expected)
 
+    def test_regression_150(self):
+        """Repeated invocation of a UDF."""
+
+        query = """
+        DEF transform(x): pow(10, x/pow(2,16)*3.5);
+        out = [FROM SCAN(%s) AS X EMIT id, transform(salary),
+               transform(dept_id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        def tx(x):
+            return pow(10, float(x) / pow(2, 16) * 3.5)
+
+        expected = collections.Counter([(t[0], tx(t[3]), tx(t[1]))
+                                        for t in self.emp_table])
+        self.check_result(query, expected)
+
     def test_safediv_2_function(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT SafeDiv(X.salary,X.dept_id-1)];
