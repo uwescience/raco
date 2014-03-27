@@ -148,6 +148,7 @@ class CC(Language):
         if isinstance(expr, expression.UnnamedAttributeRef):
             symbol = expr.tupleref.name
             position = expr.position # NOTE: this will only work in Selects right now
+            assert position >= 0
             return '%s.get(%s)' % (symbol, position), [], []
 
 class CCOperator (Pipelined):
@@ -270,8 +271,17 @@ class HashJoin(algebra.Join, CCOperator):
 
       hashname = self._hashname
       keyname = t.name
-      keypos = self.condition.right.position-len(self.left.scheme())
-      
+
+      # find the attribute that corresponds to the right child
+      rightCondIsRightAttr = self.condition.right.position >= len(self.left.scheme())
+      leftCondIsRightAttr = self.condition.left.position >= len(self.left.scheme())
+      assert rightCondIsRightAttr^leftCondIsRightAttr
+      if rightCondIsRightAttr:
+        keypos = self.condition.right.position-len(self.left.scheme())
+      else:
+        keypos = self.condition.left.position-len(self.left.scheme())
+
+
       in_tuple_type = t.getTupleTypename()
 
       # declaration of hash map

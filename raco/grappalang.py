@@ -315,8 +315,17 @@ class HashJoin(algebra.Join, GrappaOperator):
       
       hashname = self._hashname
       keyname = t.name
-      keypos = self.condition.right.position-len(self.left.scheme())
-      
+
+      # find the attribute that corresponds to the right child
+      rightCondIsRightAttr = self.condition.right.position >= len(self.left.scheme())
+      leftCondIsRightAttr = self.condition.left.position >= len(self.left.scheme())
+      assert rightCondIsRightAttr^leftCondIsRightAttr
+      if rightCondIsRightAttr:
+          keypos = self.condition.right.position-len(self.left.scheme())
+      else:
+          keypos = self.condition.left.position-len(self.left.scheme())
+
+
       in_tuple_type = t.getTupleTypename()
       self.rightTupleTypename = t.getTupleTypename()
 
