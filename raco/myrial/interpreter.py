@@ -111,7 +111,7 @@ class ExpressionProcessor(object):
         for sub_expr in sexpr.walk():
             if isinstance(sub_expr, raco.expression.Unbox):
                 rex = sub_expr.relational_expression
-                if not rex in from_args:
+                if rex not in from_args:
                     unbox_op = self.evaluate(rex)
                     from_args[rex] = unbox_op
 

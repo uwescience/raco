@@ -8,6 +8,8 @@ import raco.myrial.scanner as scanner
 import raco.scheme as scheme
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
+from raco.expression.udf import Function, Apply
+import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 
 
@@ -21,17 +23,12 @@ JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 SelectFromWhere = collections.namedtuple(
     'SelectFromWhere', ['distinct', 'select', 'from_', 'where', 'limit'])
 
-# A user-defined function
-Function = collections.namedtuple('Function', ['args', 'sexpr'])
-
-# A user-defined stateful apply
-Apply = collections.namedtuple('Apply', ['args', 'statemods', "sexpr"])
-
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': sexpr.PLUS,
     '-': sexpr.MINUS,
     '/': sexpr.DIVIDE,
+    '//': sexpr.IDIVIDE,
     '*': sexpr.TIMES,
     '>': sexpr.GT,
     '<': sexpr.LT,
@@ -61,7 +58,7 @@ unary_funcs = {
 
 class Parser(object):
     # mapping from function name to Function tuple
-    functions = {}
+    udf_functions = {}
 
     # state modifier variables accessed by the current emit argument
     statemods = []
@@ -84,7 +81,7 @@ class Parser(object):
             ('right', 'NOT'),
             ('left', 'EQ', 'EQUALS', 'NE', 'GT', 'LT', 'LE', 'GE'),
             ('left', 'PLUS', 'MINUS'),
-            ('left', 'TIMES', 'DIVIDE'),
+            ('left', 'TIMES', 'DIVIDE', 'IDIVIDE'),
             ('right', 'UMINUS'),    # Unary minus
         )
 
@@ -124,7 +121,7 @@ class Parser(object):
         :param body_expr: A scalar expression containing the function body
         :type body_expr: raco.expression.Expression
         """
-        if name in Parser.functions:
+        if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno)
 
         if len(args) != len(set(args)):
@@ -132,7 +129,7 @@ class Parser(object):
 
         Parser.check_for_undefined(p, name, body_expr, args)
 
-        Parser.functions[name] = Function(args, body_expr)
+        Parser.udf_functions[name] = Function(args, body_expr)
 
     @staticmethod
     def mangle(name):
@@ -145,7 +142,7 @@ class Parser(object):
 
         TODO: de-duplicate logic from add_function.
         """
-        if name in Parser.functions:
+        if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno)
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno)
@@ -180,7 +177,7 @@ class Parser(object):
             Parser.check_for_undefined(p, name, update_expr, allvars)
         Parser.check_for_undefined(p, name, finalizer, statemods.keys())
 
-        Parser.functions[name] = Apply(args, statemods, finalizer)
+        Parser.udf_functions[name] = Apply(args, statemods, finalizer)
 
     @staticmethod
     def p_function(p):
@@ -559,6 +556,7 @@ class Parser(object):
                    | sexpr MINUS sexpr
                    | sexpr TIMES sexpr
                    | sexpr DIVIDE sexpr
+                   | sexpr IDIVIDE sexpr
                    | sexpr GT sexpr
                    | sexpr LT sexpr
                    | sexpr GE sexpr
@@ -593,9 +591,14 @@ class Parser(object):
         :return: An expression with no free variables.
         """
 
-        if not name in Parser.functions:
+        # try to get function from udf or system defined functions
+        if name in Parser.udf_functions:
+            func = Parser.udf_functions[name]
+        else:
+            func = expr_lib.lookup(name, len(args))
+
+        if func is None:
             raise NoSuchFunctionException(name, p.lineno)
-        func = Parser.functions[name]
         if len(func.args) != len(args):
             raise InvalidArgumentList(name, func.args, p.lineno)
 
@@ -689,6 +692,26 @@ class Parser(object):
         p[0] = sexpr.Unbox(p[2], p[3])
 
     @staticmethod
+    def p_when_expr(p):
+        'when_expr : WHEN sexpr THEN sexpr'
+        p[0] = (p[2], p[4])
+
+    @staticmethod
+    def p_when_expr_list(p):
+        '''when_expr_list : when_expr_list when_expr
+                          | when_expr
+        '''
+        if len(p) == 3:
+            p[0] = p[1] + [p[2]]
+        else:
+            p[0] = [p[1]]
+
+    @staticmethod
+    def p_sexpr_case(p):
+        'sexpr : CASE when_expr_list ELSE sexpr END'
+        p[0] = sexpr.Case(p[2], p[4])
+
+    @staticmethod
     def p_optional_column_ref(p):
         '''optional_column_ref : DOT column_ref
                                | empty'''
@@ -704,7 +727,7 @@ class Parser(object):
 
     def parse(self, s):
         scanner.lexer.lineno = 1
-        Parser.functions = {}
+        Parser.udf_functions = {}
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 

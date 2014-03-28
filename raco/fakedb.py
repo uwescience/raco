@@ -38,6 +38,9 @@ class FakeDatabase(object):
         self.tables[rel_key] = (contents, scheme)
 
     def get_scheme(self, rel_key):
+        if isinstance(rel_key, str):
+            rel_key = relation_key.RelationKey.from_string(rel_key)
+
         assert isinstance(rel_key, relation_key.RelationKey)
 
         (_, scheme) = self.tables[rel_key]

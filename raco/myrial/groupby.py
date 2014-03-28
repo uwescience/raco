@@ -72,7 +72,7 @@ def __hoist_aggregates(sexpr, agg_state, group_mappings, input_scheme):
             # Translate the attribute ref to the schema that will exist
             # after the GroupBy
             input_pos = sexpr.get_position(input_scheme)
-            if not input_pos in group_mappings:
+            if input_pos not in group_mappings:
                 raise InvalidAttributeRefException(str(sexpr))
             output_pos = group_mappings[input_pos]
             return raco.expression.UnnamedAttributeRef(output_pos)
