@@ -48,6 +48,8 @@ void query() {
     init_runtime += (end-start);
 
     %(queryexec)s
+
+    emit_count = result.size();
 }
 
 
