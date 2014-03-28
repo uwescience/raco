@@ -2,8 +2,9 @@
 Functions (unary and binary) for use in Raco.
 """
 
-from .expression import UnaryOperator, BinaryOperator
 import math
+
+from .expression import UnaryOperator, BinaryOperator
 
 
 class UnaryFunction(UnaryOperator):

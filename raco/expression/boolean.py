@@ -106,21 +106,6 @@ reverse = {
 TAUTOLOGY = EQ(NumericLiteral(1), NumericLiteral(1))
 
 
-def is_column_comparison(expr, scheme):
-    """Return a truthy value if the expression is a comparison between columns.
-
-    The return value is a tuple containing the column indexes, or
-    None if the expression is not a simple column comparison.
-    """
-
-    if isinstance(expr, EQ) and isinstance(expr.left, AttributeRef) \
-       and isinstance(expr.right, AttributeRef):
-        return (toUnnamed(expr.left, scheme).position,
-                toUnnamed(expr.right, scheme).position)
-    else:
-        return None
-
-
 def extract_conjuncs(sexpr):
     """Return a list of conjunctions from a scalar expression."""
 

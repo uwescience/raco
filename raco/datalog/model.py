@@ -335,7 +335,7 @@ class Rule(object):
 
                 # choose an edge to break the cycle
                 # that edge will be a selection condition after the final join
-                #oneedge = cycles[0][-2:]
+                # oneedge = cycles[0][-2:]
                 # try to make the chosen edge from cycle deterministic
                 oneedge = sorted(cycles[0], key=lambda v: v.originalorder)[-2:]
 
@@ -756,7 +756,7 @@ class Term(object):
                 name = "pos%s" % i
                 attrtype = type(r.value)
             return (name, attrtype)
-            #return AttributeSpec(relation_alias, name, attrtype)
+            # return AttributeSpec(relation_alias, name, attrtype)
 
         # Chain rules together
         if program.isIDB(self):
