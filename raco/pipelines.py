@@ -14,7 +14,11 @@ class TestEmit:
     self.emitprint = emitprint
   def consume(self,t,src,state):
     code = ""
-    code += "emit_count++;\n"
+
+    resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
+    state.addDeclarations([resdecl])
+
+    code += "result.push_back(%s);\n" %(t.name)
     if self.emitprint:
         code += self.language.log_unquoted("%s" % t.name, 1)
 
