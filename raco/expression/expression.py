@@ -365,8 +365,16 @@ class DIVIDE(BinaryOperator):
     literals = ["/"]
 
     def evaluate(self, _tuple, scheme, state=None):
-        return (self.left.evaluate(_tuple, scheme, state) /
+        return (float(self.left.evaluate(_tuple, scheme, state)) /
                 self.right.evaluate(_tuple, scheme, state))
+
+
+class IDIVIDE(BinaryOperator):
+    literals = ["//"]
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return int(self.left.evaluate(_tuple, scheme, state) /
+                   self.right.evaluate(_tuple, scheme, state))
 
 
 class TIMES(BinaryOperator):
@@ -419,3 +427,67 @@ class Unbox(ZeroaryOperator):
         are replaced with raw attribute references at evaluation time.
         """
         raise NotImplementedError()
+
+
+class Case(Expression):
+    def __init__(self, when_tuples, else_expr):
+        """Initialize a Case expression.
+
+        :param when_tuples: A list of tuples of the form
+        (test_expr, result_expr)
+        :type when_tuples: List of tuples of (Expression, Expression)
+        :param else_expr: An expression to evaluate if no when clause is
+        satisfied.
+        :type else_expr: Expression
+        """
+        self.when_tuples = when_tuples
+        self.else_expr = else_expr
+
+    def evaluate(self, _tuple, scheme, state=None):
+        for test_expr, result_expr in self.when_tuples:
+            if test_expr.evaluate(_tuple, scheme, state):
+                return result_expr.evaluate(_tuple, scheme, state)
+        return self.else_expr.evaluate(_tuple, scheme, state)
+
+    def postorder(self, f):
+        for test_expr, result_expr in self.when_tuples:
+            for x in test_expr.postorder(f):
+                yield x
+            for x in result_expr.postorder(f):
+                yield x
+        for x in self.else_expr.postorder(f):
+            yield x
+        yield f(self)
+
+    def apply(self, f):
+        self.when_tuples = [(f(test), f(result)) for test, result
+                            in self.when_tuples]
+        self.else_expr = f(self.else_expr)
+
+    def walk(self):
+        yield self
+        for test_expr, result_expr in self.when_tuples:
+            for x in test_expr.walk():
+                yield x
+            for x in result_expr.walk():
+                yield x
+        for x in self.else_expr.walk():
+            yield x
+
+    def to_binary(self):
+        """Convert n-ary case statements to a binary case statement."""
+        assert len(self.when_tuples) > 0
+        if len(self.when_tuples) == 1:
+            return self
+        else:
+            new_when_tuples = [self.when_tuples[0]]
+            new_else = Case(self.when_tuples[1:], self.else_expr)
+            return Case(new_when_tuples, new_else)
+
+    def __str__(self):
+        when_strs = ['WHEN %s THEN %s' % (test, result)
+                     for test, result in self.when_tuples]
+        return "CASE(%s ELSE %s)" % (' '.join(when_strs), self.else_expr)
+
+    def __repr__(self):
+        return self.__str__()

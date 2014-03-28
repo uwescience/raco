@@ -98,7 +98,7 @@ def resolve_udf(udf_expr, arg_dict):
         n.apply(convert)
         return n
 
-    return convert(copy.copy(udf_expr))
+    return convert(copy.deepcopy(udf_expr))
 
 
 def resolve_state_vars(expr, state_vars, mangled_names):
@@ -121,3 +121,30 @@ def resolve_state_vars(expr, state_vars, mangled_names):
         return n
 
     return convert(copy.copy(expr))
+
+
+def accessed_columns(expr):
+    """Return a set of column indexes accesed by an expression.
+
+    Assumes that named attribute references have been converted to integer
+    positions.
+    """
+    for ex in expr.walk():
+        assert not isinstance(ex, NamedAttributeRef)
+
+    return set([ex.position for ex in expr.walk()
+                if isinstance(ex, UnnamedAttributeRef)])
+
+
+def rebase_expr(expr, offset):
+    """Subtract the given offset from each column access.
+
+    Assumes that named attribute references have been converted to integer
+    positions.
+    """
+    assert offset > 0
+
+    for ex in expr.walk():
+        assert not isinstance(ex, NamedAttributeRef)
+        if isinstance(ex, UnnamedAttributeRef):
+            ex.position -= offset
