@@ -49,7 +49,6 @@ void query() {
 
     %(queryexec)s
 
-    emit_count = result.size();
 }
 
 
@@ -63,7 +62,8 @@ double start = Grappa::walltime();
     	query();
       double end = Grappa::walltime();
       query_runtime = end - start;
-    	Metrics::merge_and_print();
+      on_all_cores([] { emit_count = result.size(); });
+      Metrics::merge_and_print();
     });
 
     finalize();
