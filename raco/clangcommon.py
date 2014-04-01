@@ -231,7 +231,45 @@ class CFileScan(algebra.Scan):
     def __get_binary_scan_template__(self):
         return
 
-    def compileme(self, resultsym):
+    @abc.abstractmethod
+    def __get_staged_tuple_ref__(self, sym):
+        return
+
+    def produce(self, state):
+
+        # Common subexpression elimination
+        # don't scan the same file twice
+        resultsym = state.lookupExpr(self)
+        LOG.debug("lookup %s(h=%s) => %s", self, self.__hash__(), resultsym)
+        if not resultsym:
+            #TODO for now this will break whatever relies on self.bound like reusescans
+            #Scan is the only place where a relation is declared
+            resultsym = gensym()
+
+            fscode = self.__compileme__(resultsym)
+            state.addPipeline(fscode, "scan")
+
+            state.saveExpr(self, resultsym)
+
+
+        stagedTuple = state.lookupTupleDef(resultsym)
+        if not stagedTuple: # not subsumed by addDeclarations set, because StagedTupleRef.__init__ generates a new name
+            # if the tuple type definition does not yet exist, then
+            # create it and add its definition
+            stagedTuple = self.__get_staged_tuple_ref__(resultsym)
+            state.saveTupleDef(resultsym, stagedTuple)
+
+            tuple_type_def = stagedTuple.generateDefinition()
+            state.addDeclarations([tuple_type_def])
+
+        # no return value used because parent is a new pipeline
+        self.parent.consume(resultsym, self, state)
+
+    def consume(self, t, src, state):
+        assert False, "as a source, no need for consume"
+
+
+    def __compileme__(self, resultsym):
         # TODO use the identifiers (don't split str and extract)
         #name = self.relation_key
         LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
