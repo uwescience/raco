@@ -1,5 +1,3 @@
-# TODO: make it pass with flake8 test
-# flake8: noqa
 
 # TODO: To be refactored into parallel shared memory lang,
 # where you plugin in the parallel shared memory language specific codegen
@@ -151,80 +149,54 @@ class GrappaLanguage(Language):
 class GrappaOperator (Pipelined):
     language = GrappaLanguage
 
-from algebra import ZeroaryOperator
-class MemoryScan(algebra.Scan, GrappaOperator):
-  def produce(self, state):
-    code = ""
-    #generate the materialization from file into memory
-    #TODO split the file scan apart from this in the physical plan
-
-    # generate code for actual IO and materialization in memory
-    fs = GrappaFileScan(self.relation_key, self._scheme)
-
-    # Common subexpression elimination
-    # don't scan the same file twice
-    resultsym = state.lookupExpr(fs)
-    LOG.debug("lookup %s(h=%s) => %s", fs, fs.__hash__(), resultsym)
-    if not resultsym:
-        #TODO for now this will break whatever relies on self.bound like reusescans
-        #Scan is the only place where a relation is declared
-        resultsym = gensym()
-
-        fscode = fs.compileme(resultsym)
-        state.saveExpr(fs, resultsym)
-
-    # now generate the scan from memory
-    inputsym = resultsym
+    def new_tuple_ref(self, sym, scheme):
+        return GrappaStagedTupleRef(sym, scheme)
 
 
-# scan from index
-#    memory_scan_template = """forall_localized( %(inputsym)s_index->vs, %(inputsym)s_index->nv, [](int64_t ai, Vertex& a) {
-#      forall_here_async<&impl::local_gce>( 0, a.nadj, [=](int64_t start, int64_t iters) {
-#      for (int64_t i=start; i<start+iters; i++) {
-#        auto %(tuple_name)s = a.local_adj[i];
-#          
-#          %(inner_plan_compiled)s
-#       } // end scan over %(inputsym)s (for)
-#       }); // end scan over %(inputsym)s (forall_here_async)
-#       }); // end scan over %(inputsym)s (forall_localized)
-#       """
+from algebra import UnaryOperator
+class MemoryScan(algebra.UnaryOperator, GrappaOperator):
+    def produce(self, state):
+      self.input.produce(state)
 
-    memory_scan_template = """
-forall( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s& %(tuple_name)s) {
-%(inner_plan_compiled)s
-}); // end  scan over %(inputsym)s
-"""
+    # TODO: when have pipeline tree representation, will have a consumeMaterialized() method instead;
+    # for now we reuse the tuple-based consume
+    def consume(self, inputsym, src, state):
+        #generate the materialization from file into memory
 
-    rel_decl_template = """Relation<%(tuple_type)s> %(resultsym)s;"""
 
-    stagedTuple = state.lookupTupleDef(inputsym)
-    if not stagedTuple: # not subsumed by addDeclarations set, because StagedTupleRef.__init__ generates a new name
-        stagedTuple = GrappaStagedTupleRef(inputsym, self.scheme())
-        state.saveTupleDef(inputsym, stagedTuple)
+        # scan from index
+        #    memory_scan_template = """forall_localized( %(inputsym)s_index->vs, %(inputsym)s_index->nv, [](int64_t ai, Vertex& a) {
+        #      forall_here_async<&impl::local_gce>( 0, a.nadj, [=](int64_t start, int64_t iters) {
+        #      for (int64_t i=start; i<start+iters; i++) {
+        #        auto %(tuple_name)s = a.local_adj[i];
+        #
+        #          %(inner_plan_compiled)s
+        #       } // end scan over %(inputsym)s (for)
+        #       }); // end scan over %(inputsym)s (forall_here_async)
+        #       }); // end scan over %(inputsym)s (forall_localized)
+        #       """
 
-        tuple_type_def = stagedTuple.generateDefinition()
+        memory_scan_template = """
+    forall( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s& %(tuple_name)s) {
+    %(inner_plan_compiled)s
+    }); // end  scan over %(inputsym)s
+    """
+
+        stagedTuple = state.lookupTupleDef(inputsym)
         tuple_type = stagedTuple.getTupleTypename()
+        tuple_name = stagedTuple.name
 
-        # generate declaration of the in-memory relation
-        rel_decl = rel_decl_template % locals()
-        state.addDeclarations([tuple_type_def, rel_decl])
+        inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
 
-        # now that we have the type, format this in;
-        state.addPipeline(fscode%{"result_type": tuple_type}, "scan")
+        code = memory_scan_template % locals()
+        state.addPipeline(code, "in_memory")
+        return None
 
 
-    tuple_type = stagedTuple.getTupleTypename()
-    tuple_name = stagedTuple.name
+    def shortStr(self):
+        return "%s" % (self.opname())
 
-    inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
-
-    code += memory_scan_template % locals()
-    state.addPipeline(code, "in_memory")
-    
-  def consume(self, t, src, state):
-    assert False, "as a source, no need for consume"
-
-  def __eq__(self, other):
+    def __eq__(self, other):
       """
       For what we are using MemoryScan for, the only use
       of __eq__ is in hashtable lookups for CSE optimization.
@@ -238,8 +210,7 @@ forall( %(inputsym)s.data, %(inputsym)s.numtuples, [=](int64_t i, %(tuple_type)s
 
       @see FileScan.__eq__
       """
-      return ZeroaryOperator.__eq__(self, other) and \
-             self.relation_key == other.relation_key
+      return UnaryOperator.__eq__(self, other)
 
     
 
@@ -533,7 +504,7 @@ class GrappaUnionAll(clangcommon.CUnionAll, GrappaOperator): pass
 # Basic materialized copy based project like serial C++
 class GrappaProject(clangcommon.CProject, GrappaOperator): pass
 
-class GrappaFileScan(clangcommon.CFileScan):
+class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
     ascii_scan_template_GRAPH = """
           {
             tuple_graph tg;
@@ -569,7 +540,19 @@ class GrappaFileScan(clangcommon.CFileScan):
         LOG.warn("binary not currently supported for GrappaLanguage, emitting ascii")
         return self.ascii_scan_template
 
+    def __get_rel_decl_template__(self):
+        return """Relation<%(tuple_type)s> %(resultsym)s;"""
 
+
+class MemoryScanOfFileScan(rules.Rule):
+    """A rewrite rule for making a scan into materialization in memory then memory scan"""
+    def fire(self, expr):
+        if isinstance(expr, algebra.Scan) and not isinstance(expr, GrappaFileScan):
+            return MemoryScan(GrappaFileScan(expr.relation_key, expr.scheme()))
+        return expr
+
+    def __str__(self):
+        return "Scan => MemoryScan(FileScan)"
 
     
 class swapJoinSides(rules.Rule):
@@ -599,8 +582,9 @@ class GrappaAlgebra(object):
     #swapJoinSides(),
     rules.OneToOne(algebra.Select,GrappaSelect),
     rules.OneToOne(algebra.Apply, GrappaApply),
-    rules.OneToOne(algebra.Scan,MemoryScan),
+   # rules.OneToOne(algebra.Scan,MemoryScan),
     #rules.OneToOne(algebra.Join,GrappaHashJoin),
+    MemoryScanOfFileScan(),
     rules.OneToOne(algebra.Join,GrappaSymmetricHashJoin),
     rules.OneToOne(algebra.Project, GrappaProject),
     rules.OneToOne(algebra.Union,GrappaUnionAll) #TODO: obviously breaks semantics

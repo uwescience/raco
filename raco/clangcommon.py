@@ -156,7 +156,7 @@ class CSelect(algebra.Select):
   
 class CUnionAll(algebra.Union):
   def produce(self, state):
-    self.unifiedTupleType = StagedTupleRef(gensym(), self.scheme())
+    self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
     state.addDeclarations([self.unifiedTupleType.generateDefinition()])
 
     self.right.produce(state)
@@ -188,7 +188,7 @@ class CProject(algebra.Project):
     #TODO: instead do mark used-columns?
 
     # always does an assignment to new tuple
-    self.newtuple = StagedTupleRef(gensym(), self.scheme())
+    self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
     state.addDeclarations( [self.newtuple.generateDefinition()] )
 
     self.input.produce(state)
@@ -231,7 +231,53 @@ class CFileScan(algebra.Scan):
     def __get_binary_scan_template__(self):
         return
 
-    def compileme(self, resultsym):
+    def __get_relation_decl_template__(self):
+        """
+        Implement if the CFileScan implementation requires
+        the relation instance to be a global declaration.
+        If not then just put the local declaration within
+        the *_scan_template.
+        """
+        return None
+
+    def produce(self, state):
+
+        # Common subexpression elimination
+        # don't scan the same file twice
+        resultsym = state.lookupExpr(self)
+        LOG.debug("lookup %s(h=%s) => %s", self, self.__hash__(), resultsym)
+        if not resultsym:
+            #TODO for now this will break whatever relies on self.bound like reusescans
+            #Scan is the only place where a relation is declared
+            resultsym = gensym()
+
+            fscode = self.__compileme__(resultsym)
+
+            state.saveExpr(self, resultsym)
+
+            stagedTuple = self.new_tuple_ref(resultsym, self.scheme())
+            state.saveTupleDef(resultsym, stagedTuple)
+
+            tuple_type_def = stagedTuple.generateDefinition()
+            tuple_type = stagedTuple.getTupleTypename()
+            state.addDeclarations([tuple_type_def])
+
+            rel_decl_template = self.__get_relation_decl_template__()
+            if rel_decl_template:
+                state.addDeclarations([rel_decl_template % locals()])
+
+            # now that we have the type, format this in;
+            state.addPipeline(fscode%{"result_type": tuple_type}, "scan")
+
+
+        # no return value used because parent is a new pipeline
+        self.parent.consume(resultsym, self, state)
+
+    def consume(self, t, src, state):
+        assert False, "as a source, no need for consume"
+
+
+    def __compileme__(self, resultsym):
         # TODO use the identifiers (don't split str and extract)
         #name = self.relation_key
         LOG.debug('compiling file scan for relation_key %s' % self.relation_key)

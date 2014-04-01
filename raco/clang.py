@@ -154,32 +154,20 @@ class CC(Language):
 class CCOperator (Pipelined):
     language = CC
 
-from algebra import ZeroaryOperator
-class MemoryScan(algebra.Scan, CCOperator):
+    def new_tuple_ref(self, sym, scheme):
+        return CStagedTupleRef(sym, scheme)
+
+from algebra import UnaryOperator
+class MemoryScan(algebra.UnaryOperator, CCOperator):
+
   def produce(self, state):
-    code = ""
-    #generate the materialization from file into memory
-    #TODO split the file scan apart from this in the physical plan
+      self.input.produce(state)
 
-    fs = CFileScan(self.relation_key, self._scheme)
-
-    # Common subexpression elimination
-    # don't scan the same file twice
-    resultsym = state.lookupExpr(fs)
-    LOG.debug("lookup %s(h=%s) => %s", fs, fs.__hash__(), resultsym)
-    if not resultsym:
-        #TODO for now this will break whatever relies on self.bound like reusescans
-        #Scan is the only place where a relation is declared
-        resultsym = gensym()
-
-        fscode = fs.compileme(resultsym)
-        state.addPipeline(fscode, "scan")
-
-        state.saveExpr(fs, resultsym)
-
+  # TODO: when have pipeline tree representation, will have a consumeMaterialized() method instead;
+  # for now we reuse the tuple-based consume
+  def consume(self, inputsym, src, state):
 
     # now generate the scan from memory
-    inputsym = resultsym
 
     #TODO: generate row variable to avoid naming conflict for nested scans
     memory_scan_template = """for (uint64_t i : %(inputsym)s->range()) {
@@ -190,27 +178,18 @@ class MemoryScan(algebra.Scan, CCOperator):
        """
 
     stagedTuple = state.lookupTupleDef(inputsym)
-    if not stagedTuple: # not subsumed by addDeclarations set, because StagedTupleRef.__init__ generates a new name
-        # if the tuple type definition does not yet exist, then
-        # create it and add its definition
-        stagedTuple = CStagedTupleRef(inputsym, self.scheme())
-        state.saveTupleDef(inputsym, stagedTuple)
-
-        tuple_type_def = stagedTuple.generateDefinition()
-        state.addDeclarations([tuple_type_def])
-
-
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
     
     inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
 
-    code += memory_scan_template % locals()
+    code = memory_scan_template % locals()
     state.addPipeline(code, "in_memory")
+    return None
 
 
-  def consume(self, t, src, state):
-    assert False, "as a source, no need for consume"
+  def shortStr(self):
+    return "%s" % (self.opname())
 
 
   def __eq__(self, other):
@@ -222,8 +201,7 @@ class MemoryScan(algebra.Scan, CCOperator):
 
     @see FileScan.__eq__
     """
-    return ZeroaryOperator.__eq__(self, other) and \
-           self.relation_key == other.relation_key
+    return UnaryOperator.__eq__(self, other)
 
 
 class HashJoin(algebra.Join, CCOperator):
@@ -340,11 +318,23 @@ class CProject(clangcommon.CProject, CCOperator): pass
 
 class CSelect(clangcommon.CSelect, CCOperator): pass
 
-class CFileScan(clangcommon.CFileScan):
+class CFileScan(clangcommon.CFileScan, CCOperator):
     def __get_ascii_scan_template__(self): return ascii_scan_template
 
     def __get_binary_scan_template__(self): return binary_scan_template
-    
+
+
+
+class MemoryScanOfFileScan(rules.Rule):
+    """A rewrite rule for making a scan into materialization in memory then memory scan"""
+    def fire(self, expr):
+        if isinstance(expr, algebra.Scan) and not isinstance(expr, CFileScan):
+            return MemoryScan(CFileScan(expr.relation_key, expr.scheme()))
+        return expr
+
+    def __str__(self):
+        return "Scan => MemoryScan(FileScan)"
+
 
 class CCAlgebra(object):
     language = CC
@@ -370,7 +360,8 @@ class CCAlgebra(object):
 #    LeftDeepFilteringJoinChainRule(),
     rules.OneToOne(algebra.Select,CSelect),
  #   rules.OneToOne(algebra.Select,TwoPassSelect),
-    rules.OneToOne(algebra.Scan,MemoryScan),
+  #  rules.OneToOne(algebra.Scan,MemoryScan),
+    MemoryScanOfFileScan(),
     rules.OneToOne(algebra.Apply, CApply),
     rules.OneToOne(algebra.Join,HashJoin),
     rules.OneToOne(algebra.Project, CProject),
