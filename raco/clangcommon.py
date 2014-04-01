@@ -147,7 +147,7 @@ class CSelect(algebra.Select):
     conditioncode, cond_decls, cond_inits = self.language.compile_boolean(self.condition)
     state.addInitializers(cond_inits)
     state.addDeclarations(cond_decls)
-    
+
     inner_code_compiled = self.parent.consume(t, self, state)
     
     code = basic_select_template % locals()
@@ -184,20 +184,23 @@ class CApply(algebra.Apply):
 
 class CProject(algebra.Project):
   def produce(self, state):
+    # declare a single new type for project
+    #TODO: instead do mark used-columns?
+
+    # always does an assignment to new tuple
+    self.newtuple = StagedTupleRef(gensym(), self.scheme())
+    state.addDeclarations( [self.newtuple.generateDefinition()] )
+
     self.input.produce(state)
   
   def consume(self, t, src, state):
     code = ""
 
-    # always does an assignment to new tuple
-    newtuple = StagedTupleRef(gensym(), self.scheme())
-    state.addDeclarations( [newtuple.generateDefinition()] )
-
     assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
     """
     
-    dst_name = newtuple.name
-    dst_type_name = newtuple.getTupleTypename()
+    dst_name = self.newtuple.name
+    dst_type_name = self.newtuple.getTupleTypename()
     src_name = t.name
 
     # declaration of tuple instance
@@ -211,7 +214,7 @@ class CProject(algebra.Project):
         assert False, "Unsupported Project expression"
       code += assignment_template % locals()
       
-    innercode = self.parent.consume(newtuple, self, state)
+    innercode = self.parent.consume(self.newtuple, self, state)
     code+=innercode
       
     return code
