@@ -3,6 +3,7 @@
 
 import abc
 from raco.utility import emitlist
+from algebra import gensym
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -24,6 +25,17 @@ class TestEmit:
 
     return code
 
+class ResolvingSymbol:
+    def __init__(self, name):
+        self._name = name
+        self._placeholder = "%%(%s)s" % name
+
+    def getPlaceholder(self):
+        return self._placeholder
+
+    def getName(self):
+        return self._name
+
 class CompileState:
 
     def __init__(self, lang, cse=True):
@@ -40,7 +52,19 @@ class CompileState:
         # { symbol => tuple type definition }
         self.tupledefs = {}
 
+        # symbol resolution
+        self.resolving_symbols = {}
+
         self.common_subexpression_elim = cse
+
+    def createUnresolvedSymbol(self):
+        name = gensym()
+        rs = ResolvingSymbol(name)
+        self.resolving_symbols[name] = None
+        return rs
+
+    def resolveSymbol(self, rs, value):
+        self.resolving_symbols[rs.getName()] = value
 
     def addDeclarations(self, d):
         self.declarations += d
@@ -73,7 +97,14 @@ class CompileState:
         return emitlist(filter(f, self.declarations))
 
     def getExecutionCode(self):
-        return emitlist(self.pipelines)
+        # list -> string
+        linearized = emitlist(self.pipelines)
+
+        # substitute all lazily resolved symbols
+        resolved = linearized % self.resolving_symbols
+
+        return resolved
+
 
     def lookupExpr(self, expr):
         if self.common_subexpression_elim:

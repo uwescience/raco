@@ -258,9 +258,141 @@ def getTaggingFunc(t):
   
   return tagAttributes
 
+class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
+    _i = 0
+
+    @classmethod
+    def __genHashName__(cls):
+        name = "dhash_%03d" % cls._i;
+        cls._i += 1
+        return name
+
+    def __genSyncName__(cls):
+        name = "dh_sync_%03d" % cls._i;
+        cls._i += 1
+        return name
+
+    def produce(self, state):
+        if not isinstance(self.condition, expression.EQ):
+            msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
+            raise ValueError(msg)
+
+        init_template = """%(hashname)s.init_global_DHT( &%(hashname)s, cores()*5000 );
+                        CompletionEvent %(syncname)s;
+                        """
+        spawn_start_template = """spawn(&%(syncname)s, [=] {
+                        """
+        finish_template = """});
+        """
+        wait_template = """%(syncname)s.wait();
+        """
+
+        self.outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
+        out_tuple_type_def = self.outTuple.generateDefinition()
+        state.addDeclarations([out_tuple_type_def])
+
+        # find the attribute that corresponds to the right child
+        self.rightCondIsRightAttr = self.condition.right.position >= len(self.left.scheme())
+        self.leftCondIsRightAttr = self.condition.left.position >= len(self.left.scheme())
+        assert self.rightCondIsRightAttr^self.leftCondIsRightAttr
+
+        self._hashname = self.__genHashName__()
+        syncname = self.__genSyncName__()
+        hashname = self._hashname
+
+        self.right.childtag = "right"
+        state.addCode(init_template%locals())
+        # TODO: addCode is a hack: extract the synchronization code into pipeline plugins (like timing)
+        state.addCode(spawn_start_template%locals())
+        self.right.produce(state)
+        state.addCode(finish_template)
 
 
-class HashJoin(algebra.Join, GrappaOperator):
+        self.left.childtag = "left"
+        state.addCode(spawn_start_template%locals())
+        self.left.produce(state)
+        state.addCode(finish_template)
+        state.addCode(wait_template%locals())
+
+    def consume(self, t, src, state):
+        access_template = """%(hashname)s.insert_lookup_iter_%(side)s<&%(global_syncname)s>(%(keyname)s.get(%(keypos)s, %(keyname)s, [=](%(other_tuple_type)s %(valname)s) {
+                                join_coarse_result_count++;
+                                %(out_tuple_type)s %(out_tuple_name)s = combine<%(out_tuple_type)s,
+                                                                                %(left_type)s,
+                                                                                %(right_type)s> (%(left_name)s, %(right_name)s);
+                                %(inner_plan_compiled)s
+                                });
+                                """
+        global_sync_decl_template = """GlobalCompletionEvent %(global_syncname)s;
+        """
+
+        hashname = self._hashname
+        keyname = t.name
+        side = src.childtag
+
+        outTuple = self.outTuple
+        out_tuple_type = self.outTuple.getTupleTypename()
+        out_tuple_name = self.outTuple.name
+
+        global_syncname = gensym()
+        state.addDeclarations([global_sync_decl_template%locals()])
+
+        if src.childtag == "right":
+            # save for later
+            self.right_in_tuple_type = t.getTupleTypename()
+
+            if self.rightCondIsRightAttr:
+                keypos = self.condition.right.position-len(self.left.scheme())
+            else:
+                keypos = self.condition.left.position-len(self.left.scheme())
+
+
+            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+
+            self.leftTypeRef = state.createUnresolvedSymbol()
+            other_tuple_type = self.leftTypeRef.getPlaceholder()
+            left_type = other_tuple_type
+            right_type = self.right_in_tuple_type
+            left_name = gensym()
+            right_name = keyname
+            self.right_name = right_name
+            valname = left_name
+
+            code = access_template % locals()
+            return code
+
+        if src.childtag == "left":
+            declr_template =  """typedef DoubleDHT<int64_t, %(left_in_tuple_type)s, %(right_in_tuple_type)s, std_hash> DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s;
+      DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s %(hashname)s;
+      """
+            right_in_tuple_type = self.right_in_tuple_type
+            left_in_tuple_type = t.getTupleTypename()
+            state.resolveSymbol(self.leftTypeRef, left_in_tuple_type)
+
+            # declaration of hash map
+            hashdeclr = declr_template % locals()
+            state.addDeclarations([hashdeclr])
+
+            if self.rightCondIsRightAttr:
+                keypos = self.condition.left.position
+            else:
+                keypos = self.condition.right.position
+
+            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+
+            left_type = left_in_tuple_type
+            right_type = self.right_in_tuple_type
+            other_tuple_type = self.right_in_tuple_type
+            left_name = keyname
+            right_name = gensym()
+            valname = right_name
+
+            code = access_template % locals()
+            return code
+
+        assert False, "src not equal to left or right"
+
+class GrappaHashJoin(algebra.Join, GrappaOperator):
   _i = 0
 
   @classmethod
@@ -458,7 +590,8 @@ class GrappaAlgebra(object):
     GrappaApply,
     GrappaProject,
     GrappaUnionAll,
-    HashJoin
+    GrappaSymmetricHashJoin,
+    GrappaHashJoin
   ]
     rules = [
   #  rules.removeProject(),
@@ -467,7 +600,8 @@ class GrappaAlgebra(object):
     rules.OneToOne(algebra.Select,GrappaSelect),
     rules.OneToOne(algebra.Apply, GrappaApply),
     rules.OneToOne(algebra.Scan,MemoryScan),
-    rules.OneToOne(algebra.Join,HashJoin),
+    #rules.OneToOne(algebra.Join,GrappaHashJoin),
+    rules.OneToOne(algebra.Join,GrappaSymmetricHashJoin),
     rules.OneToOne(algebra.Project, GrappaProject),
     rules.OneToOne(algebra.Union,GrappaUnionAll) #TODO: obviously breaks semantics
   #  rules.FreeMemory()
