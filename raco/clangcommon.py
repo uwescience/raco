@@ -231,6 +231,15 @@ class CFileScan(algebra.Scan):
     def __get_binary_scan_template__(self):
         return
 
+    def __get_relation_decl_template__(self):
+        """
+        Implement if the CFileScan implementation requires
+        the relation instance to be a global declaration.
+        If not then just put the local declaration within
+        the *_scan_template.
+        """
+        return None
+
     def produce(self, state):
 
         # Common subexpression elimination
@@ -243,20 +252,23 @@ class CFileScan(algebra.Scan):
             resultsym = gensym()
 
             fscode = self.__compileme__(resultsym)
-            state.addPipeline(fscode, "scan")
 
             state.saveExpr(self, resultsym)
 
-
-        stagedTuple = state.lookupTupleDef(resultsym)
-        if not stagedTuple: # not subsumed by addDeclarations set, because StagedTupleRef.__init__ generates a new name
-            # if the tuple type definition does not yet exist, then
-            # create it and add its definition
             stagedTuple = self.new_tuple_ref(resultsym, self.scheme())
             state.saveTupleDef(resultsym, stagedTuple)
 
             tuple_type_def = stagedTuple.generateDefinition()
+            tuple_type = stagedTuple.getTupleTypename()
             state.addDeclarations([tuple_type_def])
+
+            rel_decl_template = self.__get_relation_decl_template__()
+            if rel_decl_template:
+                state.addDeclarations([rel_decl_template % locals()])
+
+            # now that we have the type, format this in;
+            state.addPipeline(fscode%{"result_type": tuple_type}, "scan")
+
 
         # no return value used because parent is a new pipeline
         self.parent.consume(resultsym, self, state)

@@ -178,8 +178,6 @@ class MemoryScan(algebra.UnaryOperator, CCOperator):
        """
 
     stagedTuple = state.lookupTupleDef(inputsym)
-
-
     tuple_type = stagedTuple.getTupleTypename()
     tuple_name = stagedTuple.name
     
@@ -325,7 +323,6 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
 
     def __get_binary_scan_template__(self): return binary_scan_template
 
-    def __get_staged_tuple_ref__(self, sym): return CStagedTupleRef(sym, self.scheme())
 
 
 class MemoryScanOfFileScan(rules.Rule):
