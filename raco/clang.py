@@ -154,6 +154,9 @@ class CC(Language):
 class CCOperator (Pipelined):
     language = CC
 
+    def new_tuple_ref(self, sym, scheme):
+        return CStagedTupleRef(sym, scheme)
+
 from algebra import UnaryOperator
 class MemoryScan(algebra.UnaryOperator, CCOperator):
 
@@ -317,7 +320,7 @@ class CProject(clangcommon.CProject, CCOperator): pass
 
 class CSelect(clangcommon.CSelect, CCOperator): pass
 
-class CFileScan(clangcommon.CFileScan):
+class CFileScan(clangcommon.CFileScan, CCOperator):
     def __get_ascii_scan_template__(self): return ascii_scan_template
 
     def __get_binary_scan_template__(self): return binary_scan_template

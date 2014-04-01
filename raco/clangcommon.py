@@ -156,7 +156,7 @@ class CSelect(algebra.Select):
   
 class CUnionAll(algebra.Union):
   def produce(self, state):
-    self.unifiedTupleType = StagedTupleRef(gensym(), self.scheme())
+    self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
     state.addDeclarations([self.unifiedTupleType.generateDefinition()])
 
     self.right.produce(state)
@@ -188,7 +188,7 @@ class CProject(algebra.Project):
     #TODO: instead do mark used-columns?
 
     # always does an assignment to new tuple
-    self.newtuple = StagedTupleRef(gensym(), self.scheme())
+    self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
     state.addDeclarations( [self.newtuple.generateDefinition()] )
 
     self.input.produce(state)
@@ -231,10 +231,6 @@ class CFileScan(algebra.Scan):
     def __get_binary_scan_template__(self):
         return
 
-    @abc.abstractmethod
-    def __get_staged_tuple_ref__(self, sym):
-        return
-
     def produce(self, state):
 
         # Common subexpression elimination
@@ -256,7 +252,7 @@ class CFileScan(algebra.Scan):
         if not stagedTuple: # not subsumed by addDeclarations set, because StagedTupleRef.__init__ generates a new name
             # if the tuple type definition does not yet exist, then
             # create it and add its definition
-            stagedTuple = self.__get_staged_tuple_ref__(resultsym)
+            stagedTuple = self.new_tuple_ref(resultsym, self.scheme())
             state.saveTupleDef(resultsym, stagedTuple)
 
             tuple_type_def = stagedTuple.generateDefinition()

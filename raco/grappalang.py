@@ -149,6 +149,10 @@ class GrappaLanguage(Language):
 class GrappaOperator (Pipelined):
     language = GrappaLanguage
 
+    def new_tuple_ref(self, sym, scheme):
+        return GrappaStagedTupleRef(sym, scheme)
+
+
 from algebra import ZeroaryOperator
 class MemoryScan(algebra.Scan, GrappaOperator):
   def produce(self, state):
