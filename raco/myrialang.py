@@ -352,8 +352,8 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
                 # XXX Wrong in the presence of nulls
                 agg_fields.append(expression.UnnamedAttributeRef(0))
             else:
-                agg_fields.append(expression.toUnnamed(expr.input,
-                    child_scheme))
+                agg_fields.append(expression.toUnnamed(
+                    expr.input, child_scheme))
 
         agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)]
                      for agg_expr in self.aggregate_list]
