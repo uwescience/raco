@@ -310,3 +310,6 @@ class FakeDatabase(object):
 
     def myriaunionall(self, op):
         return self.unionall(op)
+
+    def myriadifference(self, op):
+        return self.difference(op)

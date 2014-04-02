@@ -190,6 +190,16 @@ class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
         }
 
 
+class MyriaDifference(algebra.Difference, MyriaOperator):
+    def compileme(self, resultsym, leftsym, rightsym):
+        return {
+            "opName": resultsym,
+            "opType": "Difference",
+            "argChild1": leftsym,
+            "argChild2": rightsym,
+        }
+
+
 class MyriaSingleton(algebra.SingletonRelation, MyriaOperator):
     def compileme(self, resultsym):
         return {
@@ -974,6 +984,7 @@ class MyriaAlgebra(object):
         rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
         rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
         rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
+        rules.OneToOne(algebra.Difference, MyriaDifference),
         BreakShuffle(),
         BreakCollect(),
         BreakBroadcast(),
