@@ -154,13 +154,13 @@ class FakeDatabase(object):
 
     def difference(self, op):
         its = [self.evaluate(op.left), self.evaluate(op.right)]
-        bags = [collections.Counter(it) for it in its]
-        return (bags[0] - bags[1]).elements()
+        sets = [set(it) for it in its]
+        return sets[0].difference(sets[1])
 
     def intersection(self, op):
         its = [self.evaluate(op.left), self.evaluate(op.right)]
-        bags = [collections.Counter(it) for it in its]
-        return (bags[0] & bags[1]).elements()
+        sets = [set(it) for it in its]
+        return sets[0].intersect(sets[1])
 
     def groupby(self, op):
         child_it = self.evaluate(op.input)
