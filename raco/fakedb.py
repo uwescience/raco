@@ -160,7 +160,7 @@ class FakeDatabase(object):
     def intersection(self, op):
         its = [self.evaluate(op.left), self.evaluate(op.right)]
         sets = [set(it) for it in its]
-        return sets[0].intersect(sets[1])
+        return sets[0].intersection(sets[1])
 
     def groupby(self, op):
         child_it = self.evaluate(op.input)
