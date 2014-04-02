@@ -336,6 +336,8 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             return "AGG_OP_MIN"
         elif isinstance(agg_expr, expression.COUNT):
             return "AGG_OP_COUNT"
+        elif isinstance(agg_expr, expression.COUNTALL):
+            return "AGG_OP_COUNT"  # XXX Wrong in the presence of nulls
         elif isinstance(agg_expr, expression.SUM):
             return "AGG_OP_SUM"
 
@@ -343,8 +345,16 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         child_scheme = self.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme)
                         for ref in self.grouping_list]
-        agg_fields = [expression.toUnnamed(expr.input, child_scheme)
-                      for expr in self.aggregate_list]
+
+        agg_fields = []
+        for expr in self.aggregate_list:
+            if isinstance(expr, expression.COUNTALL):
+                # XXX Wrong in the presence of nulls
+                agg_fields.append(expression.UnnamedAttributeRef(0))
+            else:
+                agg_fields.append(expression.toUnnamed(expr.input,
+                    child_scheme))
+
         agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)]
                      for agg_expr in self.aggregate_list]
         ret = {
