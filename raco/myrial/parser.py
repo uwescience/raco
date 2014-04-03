@@ -539,6 +539,11 @@ class Parser(object):
         p[0] = sexpr.TIMES(sexpr.NumericLiteral(-1), p[2])
 
     @staticmethod
+    def p_sexpr_worker_id(p):
+        '''sexpr : WORKER_ID LPAREN RPAREN'''
+        p[0] = sexpr.WorkerID()
+
+    @staticmethod
     def p_sexpr_unary_function(p):
         '''sexpr : ABS LPAREN sexpr RPAREN
                    | CEIL LPAREN sexpr RPAREN
