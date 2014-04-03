@@ -80,23 +80,45 @@ class GrappaLanguage(Language):
         return """%(log_str)s << %(code)s;\n""" % locals()
 
     @staticmethod
-    def pipeline_wrap(ident, code, attrs):
+    def pipeline_wrap(ident, plcode, attrs):
         timer_metric = None
         if attrs['type'] == 'in_memory':
             timer_metric = "in_memory_runtime"
         elif attrs['type'] == 'scan':
             timer_metric = "scan_runtime"
 
+#TODO: for timing, this won't work for inter-pipeline parallel.
+#TODO  we will need to put scan pipelines at the top
+#TODO  and time everything else as a whole
         pipeline_template = """
         auto start_%(ident)s = walltime();
-        %(code)s
+        %(plcode)s
         auto end_%(ident)s = walltime();
         auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
         %(timer_metric)s += runtime_%(ident)s;
         VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
         """
 
-        return pipeline_template % locals()
+        code = pipeline_template % locals()
+
+        syncname = attrs.get('sync')
+        if syncname:
+            inner_code = code
+            sync_template = """spawn<&%(syncname)s>([=] {
+                    %(inner_code)s
+                    });
+                    """
+            code = sync_template % locals()
+
+        syncname = attrs.get('syncdef')
+        if syncname:
+            inner_code = code
+            sync_def_template = """CompletionEvent %(syncname)s;
+            %(inner_code)s
+            """
+            code = sync_def_template % locals()
+
+        return code
 
     @staticmethod
     def comment(txt):
@@ -198,7 +220,8 @@ class MemoryScan(algebra.UnaryOperator, GrappaOperator):
         inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
 
         code = memory_scan_template % locals()
-        state.addPipeline(code, "in_memory")
+        state.setPipelineProperty('type', 'in_memory')
+        state.addPipeline(code)
         return None
 
     def shortStr(self):
@@ -259,12 +282,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
 
         init_template = """%(hashname)s.init_global_DHT( &%(hashname)s, \
         cores()*5000 );
-                        CompletionEvent %(syncname)s;
                         """
-        spawn_start_template = """spawn(&%(syncname)s, [=] {
-                        """
-        finish_template = """});
-        """
         wait_template = """%(syncname)s.wait();
         """
 
@@ -280,21 +298,17 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
         self._hashname = self.__genHashName__()
-        syncname = self.__genSyncName__()
+        self._local_syncname = self.__genSyncName__()
         hashname = self._hashname
 
         self.right.childtag = "right"
         state.addCode(init_template % locals())
-        # TODO: addCode is a hack: extract the synchronization
-        # code into pipeline plugins (like timing)
-        state.addCode(spawn_start_template % locals())
         self.right.produce(state)
-        state.addCode(finish_template)
 
         self.left.childtag = "left"
-        state.addCode(spawn_start_template % locals())
         self.left.produce(state)
-        state.addCode(finish_template)
+
+        syncname = self._local_syncname
         state.addCode(wait_template % locals())
 
     def consume(self, t, src, state):
@@ -327,7 +341,13 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         global_syncname = gensym()
         state.addDeclarations([global_sync_decl_template % locals()])
 
+        state.setPipelineProperty('sync', self._local_syncname)
+
         if src.childtag == "right":
+            # NOTE: this syncdef property will create extra definitions
+            # that are not actually used (e.g. sequence of symmetric joins)
+            state.setPipelineProperty('syncdef', self._local_syncname)
+
             # save for later
             self.right_in_tuple_type = t.getTupleTypename()
 

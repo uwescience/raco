@@ -57,6 +57,11 @@ class CompileState:
 
         self.common_subexpression_elim = cse
 
+        self.current_pipeline_properties = {}
+
+    def setPipelineProperty(self, key, value):
+        self.current_pipeline_properties[key] = value
+
     def createUnresolvedSymbol(self):
         name = gensym()
         rs = ResolvingSymbol(name)
@@ -72,9 +77,10 @@ class CompileState:
     def addInitializers(self, i):
         self.initializers += i
 
-    def addPipeline(self, p, type):
-        self.pipelines.append(self.language.pipeline_wrap(self.pipeline_count, p, {'type':type}))
+    def addPipeline(self, p):
+        self.pipelines.append(self.language.pipeline_wrap(self.pipeline_count, p, self.current_pipeline_properties))
         self.pipeline_count += 1
+        self.current_pipeline_properties = {}
 
     def addCode(self, c):
         self.pipelines.append(c)

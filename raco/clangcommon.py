@@ -267,7 +267,8 @@ class CFileScan(algebra.Scan):
                 state.addDeclarations([rel_decl_template % locals()])
 
             # now that we have the type, format this in;
-            state.addPipeline(fscode%{"result_type": tuple_type}, "scan")
+            state.setPipelineProperty('type', 'scan')
+            state.addPipeline(fscode%{"result_type": tuple_type})
 
 
         # no return value used because parent is a new pipeline
