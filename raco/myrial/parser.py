@@ -448,6 +448,11 @@ class Parser(object):
         p[0] = p[1]
 
     @staticmethod
+    def p_expression_unionall_inline(p):
+        '''expression : expression PLUS expression'''
+        p[0] = ('UNIONALL', p[1], p[3])
+
+    @staticmethod
     def p_expression_cross(p):
         'expression : CROSS LPAREN expression COMMA expression RPAREN'
         p[0] = ('CROSS', p[3], p[5])

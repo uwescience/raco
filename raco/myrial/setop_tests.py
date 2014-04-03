@@ -53,6 +53,24 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         expected = self.emp_table1 + self.emp_table2
         self.check_result(query, expected)
 
+    def test_unionall_inline(self):
+        query = """
+        out = SCAN(%s) + SCAN(%s);
+        STORE(out, OUTPUT);
+        """ % (self.emp_key1, self.emp_key2)
+
+        expected = self.emp_table1 + self.emp_table2
+        self.check_result(query, expected)
+
+    def test_unionall_inline_ternary(self):
+        query = """
+        out = SCAN(%s) + [FROM SCAN(%s) AS X EMIT *] + SCAN(%s);
+        STORE(out, OUTPUT);
+        """ % (self.emp_key1, self.emp_key1, self.emp_key1)
+
+        expected = self.emp_table1 + self.emp_table1 + self.emp_table1
+        self.check_result(query, expected)
+
     def test_diff1(self):
         query = """
         out = DIFF(SCAN(%s), SCAN(%s));
