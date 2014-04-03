@@ -50,7 +50,7 @@ class ReachableTest(myrial_test.MyrialTestCase):
             (13,),
         ])
 
-        self.check_result(query, expected)
+        self.check_result(query, expected, skip_json=True)
 
     def test_multi_condition_join(self):
         query = """
