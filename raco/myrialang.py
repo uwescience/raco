@@ -101,7 +101,10 @@ def compile_expr(op, child_scheme, state_scheme):
             'left': compile_expr(op.left, child_scheme, state_scheme),
             'right': compile_expr(op.right, child_scheme, state_scheme)
         }
-
+    elif isinstance(op, expression.ZeroaryOperator):
+        return {
+            'type': op.opname(),
+        }
     raise NotImplementedError("Compiling expr of class %s" % op.__class__)
 
 
