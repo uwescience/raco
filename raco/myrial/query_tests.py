@@ -1389,3 +1389,13 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         scheme = self.db.get_scheme('OUTPUT')
         self.assertEquals(scheme.getName(0), "_COLUMN0_")
         self.assertEquals(scheme.getName(1), "id")
+
+    def test_worker_id(self):
+        query = """
+        X = [FROM SCAN(%s) AS X EMIT X.id, WORKER_ID()];
+        STORE(X, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter([(x[0], 0) for x
+                                        in self.emp_table.elements()])
+        self.check_result(query, expected)
