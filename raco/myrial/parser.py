@@ -541,7 +541,7 @@ class Parser(object):
     @staticmethod
     def p_sexpr_worker_id(p):
         '''sexpr : WORKER_ID LPAREN RPAREN'''
-        p[0] = sexpr.WorkerID()
+        p[0] = sexpr.WORKERID()
 
     @staticmethod
     def p_sexpr_unary_function(p):
