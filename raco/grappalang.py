@@ -191,10 +191,10 @@ class MemoryScan(algebra.UnaryOperator, GrappaOperator):
     # will have a consumeMaterialized() method instead;
     # for now we reuse the tuple-based consume
     def consume(self, inputsym, src, state):
-        #generate the materialization from file into memory
+        # generate the materialization from file into memory
 
         # scan from index
-        #    memory_scan_template = """forall_localized( %(inputsym)s_index->vs, \
+        # memory_scan_template = """forall_localized( %(inputsym)s_index->vs, \
         # %(inputsym)s_index->nv, [](int64_t ai, Vertex& a) {
         #      forall_here_async<&impl::local_gce>( 0, a.nadj, \
         # [=](int64_t start, int64_t iters) {
@@ -551,7 +551,7 @@ def indentby(code, level):
 #
 #
 #
-#class FreeMemory(GrappaOperator):
+# class FreeMemory(GrappaOperator):
 #  def fire(self, expr):
 #    for ref in noReferences(expr)
 
