@@ -643,7 +643,7 @@ class GrappaAlgebra(object):
     language = GrappaLanguage
 
     operators = [
-        #FileScan,
+        # FileScan,
         MemoryScan,
         GrappaSelect,
         GrappaApply,
@@ -654,17 +654,17 @@ class GrappaAlgebra(object):
     ]
 
     rules = [
-        #  rules.removeProject(),
+        # rules.removeProject(),
         rules.CrossProduct2Join(),
-        #swapJoinSides(),
+        # swapJoinSides(),
         rules.OneToOne(algebra.Select, GrappaSelect),
         rules.OneToOne(algebra.Apply, GrappaApply),
         # rules.OneToOne(algebra.Scan,MemoryScan),
         MemoryScanOfFileScan(),
-        #rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
+        # rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
         rules.OneToOne(algebra.Join, GrappaHashJoin),
         rules.OneToOne(algebra.Project, GrappaProject),
-        #TODO: this Union obviously breaks semantics
+        # TODO: this Union obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll)
-        #  rules.FreeMemory()
+        # rules.FreeMemory()
     ]
