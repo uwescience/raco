@@ -144,7 +144,8 @@ class GrappaLanguage(Language):
         init = """auto l_%(sid)s = string_index.string_lookup("%(s)s");
                    on_all_cores([=] { %(sid)s = l_%(sid)s; });""" % locals()
         return """(%s)""" % sid, [decl], [init]
-        # raise ValueError("String Literals not supported in C language: %s" % s)
+        # raise ValueError("String Literals not supported in
+        # C language: %s" % s)
 
     @classmethod
     def negation(cls, input):
