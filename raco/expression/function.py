@@ -4,7 +4,7 @@ Functions (unary and binary) for use in Raco.
 
 import math
 
-from .expression import UnaryOperator, BinaryOperator
+from .expression import *
 
 
 class UnaryFunction(UnaryOperator):
@@ -15,6 +15,14 @@ class UnaryFunction(UnaryOperator):
 class BinaryFunction(BinaryOperator):
     def __str__(self):
         return "%s(%s, %s)" % (self.__class__.__name__, self.left, self.right)
+
+
+class WORKERID(ZeroaryOperator):
+    def __str__(self):
+        return "%s" % self.__class__.__name__
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return 0
 
 
 class ABS(UnaryFunction):
