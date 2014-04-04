@@ -484,7 +484,6 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
 
-
             # find the attribute that corresponds to the right child
             rightCondIsRightAttr = \
                 self.condition.right.position >= len(self.left.scheme())
@@ -500,7 +499,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
             self.rightTupleTypename = t.getTupleTypename()
             if self.rightTupleTypeRef is not None:
-                state.resolveSymbol(self.rightTupleTypeRef, self.rightTupleTypename)
+                state.resolveSymbol(self.rightTupleTypeRef,
+                                    self.rightTupleTypename)
 
             # materialization point
             code = right_template % locals()
@@ -662,7 +662,7 @@ class GrappaAlgebra(object):
         # rules.OneToOne(algebra.Scan,MemoryScan),
         MemoryScanOfFileScan(),
         #rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
-        rules.OneToOne(algebra.Join,GrappaHashJoin),
+        rules.OneToOne(algebra.Join, GrappaHashJoin),
         rules.OneToOne(algebra.Project, GrappaProject),
         #TODO: this Union obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll)
