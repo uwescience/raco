@@ -11,6 +11,28 @@ from expression.expression import UnnamedAttributeRef
 import logging
 LOG = logging.getLogger(__name__)
 
+import re
+
+
+class CodeTemplate:
+    def __init__(self, s):
+        self.string = s
+
+    @classmethod
+    def __format_template__(cls, s):
+        """
+        Format code template string
+        """
+        return re.sub(r'[^\S\r\n]+', ' ', s)
+
+    def __mod__(self, other):
+        return (self.__format_template__(self.string)) % other
+
+
+def ct(s):
+    return CodeTemplate(s)
+
+
 # TODO:
 # The following is actually a staged materialized tuple ref.
 # we should also add a staged reference tuple ref that just has relationsymbol and row  

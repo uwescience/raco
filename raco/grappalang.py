@@ -8,6 +8,7 @@ from raco.language import Language
 from raco import rules
 from raco.pipelines import Pipelined
 from raco.clangcommon import StagedTupleRef
+from raco.clangcommon import ct
 from raco import clangcommon
 
 from algebra import gensym
@@ -90,32 +91,32 @@ class GrappaLanguage(Language):
 #TODO: for timing, this won't work for inter-pipeline parallel.
 #TODO  we will need to put scan pipelines at the top
 #TODO  and time everything else as a whole
-        pipeline_template = """
+        pipeline_template = ct("""
         auto start_%(ident)s = walltime();
         %(plcode)s
         auto end_%(ident)s = walltime();
         auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
         %(timer_metric)s += runtime_%(ident)s;
         VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
-        """
+        """)
 
         code = pipeline_template % locals()
 
         syncname = attrs.get('sync')
         if syncname:
             inner_code = code
-            sync_template = """spawn<&%(syncname)s>([=] {
+            sync_template = ct("""spawn<&%(syncname)s>([=] {
                     %(inner_code)s
                     });
-                    """
+                    """)
             code = sync_template % locals()
 
         syncname = attrs.get('syncdef')
         if syncname:
             inner_code = code
-            sync_def_template = """CompletionEvent %(syncname)s;
+            sync_def_template = ct("""CompletionEvent %(syncname)s;
             %(inner_code)s
-            """
+            """)
             code = sync_def_template % locals()
 
         return code
@@ -206,12 +207,20 @@ class MemoryScan(algebra.UnaryOperator, GrappaOperator):
 #       }); // end scan over %(inputsym)s (forall_localized)
 #       """
 
-        memory_scan_template = """
-    forall( %(inputsym)s.data, %(inputsym)s.numtuples, \
+        global_sync_decl_template = ct("""
+        GlobalCompletionEvent %(global_syncname)s;
+        """)
+
+        global_syncname = gensym()
+        state.addDeclarations([global_sync_decl_template % locals()])
+        state.setPipelineProperty('global_syncname', global_syncname)
+
+        memory_scan_template = ct("""
+    forall<&%(global_syncname)s>( %(inputsym)s.data, %(inputsym)s.numtuples, \
     [=](int64_t i, %(tuple_type)s& %(tuple_name)s) {
     %(inner_plan_compiled)s
     }); // end  scan over %(inputsym)s
-    """
+    """)
 
         stagedTuple = state.lookupTupleDef(inputsym)
         tuple_type = stagedTuple.getTupleTypename()
@@ -262,6 +271,8 @@ def getTaggingFunc(t):
 
 class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
     _i = 0
+    wait_template = ct("""%(syncname)s.wait();
+        """)
 
     @classmethod
     def __genHashName__(cls):
@@ -275,16 +286,33 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         return name
 
     def produce(self, state):
+        self.syncnames = []
+
         if not isinstance(self.condition, expression.EQ):
             msg = "The C compiler can only handle equi-join conditions\
              of a single attribute: %s" % self.condition
             raise ValueError(msg)
 
-        init_template = """%(hashname)s.init_global_DHT( &%(hashname)s, \
+        init_template = ct("""%(hashname)s.init_global_DHT( &%(hashname)s, \
         cores()*5000 );
-                        """
-        wait_template = """%(syncname)s.wait();
-        """
+                        """)
+        declr_template = ct("""typedef DoubleDHT<int64_t, \
+                                                   %(left_in_tuple_type)s, \
+                                                   %(right_in_tuple_type)s,
+                                                std_hash> \
+                    DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s;
+      DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s %(hashname)s;
+      """)
+        # declaration of hash map
+        self._hashname = self.__genHashName__()
+        hashname = self._hashname
+        self.leftTypeRef = state.createUnresolvedSymbol()
+        left_in_tuple_type = self.leftTypeRef.getPlaceholder()
+        self.rightTypeRef = state.createUnresolvedSymbol()
+        right_in_tuple_type = self.rightTypeRef.getPlaceholder()
+        hashdeclr = declr_template % locals()
+
+        state.addDeclarations([hashdeclr])
 
         self.outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
         out_tuple_type_def = self.outTuple.generateDefinition()
@@ -297,10 +325,6 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
             self.condition.left.position >= len(self.left.scheme())
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
-        self._hashname = self.__genHashName__()
-        self._local_syncname = self.__genSyncName__()
-        hashname = self._hashname
-
         self.right.childtag = "right"
         state.addCode(init_template % locals())
         self.right.produce(state)
@@ -308,27 +332,24 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         self.left.childtag = "left"
         self.left.produce(state)
 
-        syncname = self._local_syncname
-        state.addCode(wait_template % locals())
+        for sn in self.syncnames:
+            syncname = sn
+            state.addCode(self.wait_template % locals())
 
     def consume(self, t, src, state):
-        access_template = """
+        access_template = ct("""
         %(hashname)s.insert_lookup_iter_%(side)s<&%(global_syncname)s>(\
-        %(keyname)s.get(%(keypos)s, %(keyname)s, \
+        %(keyname)s.get(%(keypos)s, %(keyname)s), \
         [=](%(other_tuple_type)s %(valname)s) {
             join_coarse_result_count++;
             %(out_tuple_type)s %(out_tuple_name)s = \
-                             combine<%(out_tuple_type)s,
-                                      %(left_type)s,
-                                      %(right_type)s> (%(left_name)s,
+                             combine<%(out_tuple_type)s, \
+                                      %(left_type)s, \
+                                      %(right_type)s> (%(left_name)s, \
                             %(right_name)s);
                                 %(inner_plan_compiled)s
                                 });
-                                """
-
-        global_sync_decl_template = """
-        GlobalCompletionEvent %(global_syncname)s;
-        """
+                                """)
 
         hashname = self._hashname
         keyname = t.name
@@ -338,18 +359,18 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         out_tuple_type = self.outTuple.getTupleTypename()
         out_tuple_name = self.outTuple.name
 
-        global_syncname = gensym()
-        state.addDeclarations([global_sync_decl_template % locals()])
+        syncname = self.__genSyncName__()
+        state.setPipelineProperty('sync', syncname)
+        state.setPipelineProperty('syncdef', syncname)
+        self.syncnames.append(syncname)
 
-        state.setPipelineProperty('sync', self._local_syncname)
+        global_syncname = state.getPipelineProperty('global_syncname')
 
         if src.childtag == "right":
-            # NOTE: this syncdef property will create extra definitions
-            # that are not actually used (e.g. sequence of symmetric joins)
-            state.setPipelineProperty('syncdef', self._local_syncname)
 
             # save for later
             self.right_in_tuple_type = t.getTupleTypename()
+            state.resolveSymbol(self.rightTypeRef, self.right_in_tuple_type)
 
             if self.rightCondIsRightAttr:
                 keypos = self.condition.right.position \
@@ -360,7 +381,6 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
 
             inner_plan_compiled = self.parent.consume(outTuple, self, state)
 
-            self.leftTypeRef = state.createUnresolvedSymbol()
             other_tuple_type = self.leftTypeRef.getPlaceholder()
             left_type = other_tuple_type
             right_type = self.right_in_tuple_type
@@ -373,20 +393,9 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
             return code
 
         if src.childtag == "left":
-            declr_template = """typedef DoubleDHT<int64_t, \
-                                                   %(left_in_tuple_type)s, \
-                                                   %(right_in_tuple_type)s,
-                                                std_hash> \
-                    DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s;
-      DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s %(hashname)s;
-      """
             right_in_tuple_type = self.right_in_tuple_type
             left_in_tuple_type = t.getTupleTypename()
             state.resolveSymbol(self.leftTypeRef, left_in_tuple_type)
-
-            # declaration of hash map
-            hashdeclr = declr_template % locals()
-            state.addDeclarations([hashdeclr])
 
             if self.rightCondIsRightAttr:
                 keypos = self.condition.left.position
@@ -423,7 +432,14 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
              a single attribute: %s" % self.condition
             raise ValueError(msg)
 
+        declr_template = ct("""typedef MatchesDHT<int64_t, \
+                          %(in_tuple_type)s, std_hash> \
+                           DHT_%(in_tuple_type)s;
+        DHT_%(in_tuple_type)s %(hashname)s;
+        """)
+
         self.right.childtag = "right"
+        self.rightTupleTypeRef = None  # may remain None if CSE succeeds
 
         hashtableInfo = state.lookupExpr(self.right)
         if not hashtableInfo:
@@ -432,15 +448,18 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             self._hashname = self.__genHashName__()
             LOG.debug("generate hashname %s for %s", self._hashname, self)
 
-            init_template = """%(hashname)s.init_global_DHT( &%(hashname)s,
-            cores()*5000 );"""
-            setro_template = """%(hashname)s.set_RO_global( &%(hashname)s );"""
             hashname = self._hashname
-            # surround the code for the pipeline with
-            # hash initialization and setRO
+
+            # declaration of hash map
+            self.rightTupleTypeRef = state.createUnresolvedSymbol()
+            in_tuple_type = self.rightTupleTypeRef.getPlaceholder()
+            hashdeclr = declr_template % locals()
+            state.addDeclarations([hashdeclr])
+
+            init_template = ct("""%(hashname)s.init_global_DHT( &%(hashname)s,
+            cores()*5000 );""")
             state.addCode(init_template % locals())
             self.right.produce(state)
-            state.addCode(setro_template % locals())
             state.saveExpr(self.right,
                            (self._hashname, self.rightTupleTypename))
             #TODO always safe here? I really want to call
@@ -457,18 +476,14 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
     def consume(self, t, src, state):
         if src.childtag == "right":
-            declr_template = """typedef MatchesDHT<int64_t, \
-                              %(in_tuple_type)s, std_hash> \
-                               DHT_%(in_tuple_type)s;
-            DHT_%(in_tuple_type)s %(hashname)s;
-            """
 
-            right_template = """
+            right_template = ct("""
             %(hashname)s.insert(%(keyname)s.get(%(keypos)s), %(keyname)s);
-            """
+            """)
 
             hashname = self._hashname
             keyname = t.name
+
 
             # find the attribute that corresponds to the right child
             rightCondIsRightAttr = \
@@ -483,12 +498,9 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
                 keypos = self.condition.left.position \
                     - len(self.left.scheme())
 
-            in_tuple_type = t.getTupleTypename()
             self.rightTupleTypename = t.getTupleTypename()
-
-            # declaration of hash map
-            hashdeclr = declr_template % locals()
-            state.addDeclarations([hashdeclr])
+            if self.rightTupleTypeRef is not None:
+                state.resolveSymbol(self.rightTupleTypeRef, self.rightTupleTypename)
 
             # materialization point
             code = right_template % locals()
@@ -496,7 +508,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             return code
 
         if src.childtag == "left":
-            left_template = """
+            left_template = ct("""
             %(hashname)s.lookup_iter( %(keyname)s.get(%(keypos)s), \
             [=](%(right_tuple_type)s& %(right_tuple_name)s) {
               join_coarse_result_count++;
@@ -507,7 +519,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
                            (%(keyname)s, %(right_tuple_name)s);
               %(inner_plan_compiled)s
             });
-     """
+     """)
 
             hashname = self._hashname
             keyname = t.name
@@ -648,9 +660,9 @@ class GrappaAlgebra(object):
         rules.OneToOne(algebra.Select, GrappaSelect),
         rules.OneToOne(algebra.Apply, GrappaApply),
         # rules.OneToOne(algebra.Scan,MemoryScan),
-        #rules.OneToOne(algebra.Join,GrappaHashJoin),
         MemoryScanOfFileScan(),
-        rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
+        #rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
+        rules.OneToOne(algebra.Join,GrappaHashJoin),
         rules.OneToOne(algebra.Project, GrappaProject),
         #TODO: this Union obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll)

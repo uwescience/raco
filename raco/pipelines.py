@@ -58,9 +58,14 @@ class CompileState:
         self.common_subexpression_elim = cse
 
         self.current_pipeline_properties = {}
+        self.current_pipeline_precode = []
+        self.current_pipeline_postcode = []
 
     def setPipelineProperty(self, key, value):
         self.current_pipeline_properties[key] = value
+
+    def getPipelineProperty(self, key):
+        return self.current_pipeline_properties[key]
 
     def createUnresolvedSymbol(self):
         name = gensym()
@@ -78,12 +83,32 @@ class CompileState:
         self.initializers += i
 
     def addPipeline(self, p):
-        self.pipelines.append(self.language.pipeline_wrap(self.pipeline_count, p, self.current_pipeline_properties))
+        pipeline_code = emitlist(self.current_pipeline_precode) +\
+                        self.language.pipeline_wrap(self.pipeline_count, p, self.current_pipeline_properties) +\
+                        emitlist(self.current_pipeline_postcode)
+
+        # force scan pipelines to go first
+        if self.current_pipeline_properties.get('type') == 'scan':
+            self.pipelines.insert(0, pipeline_code)
+        else:
+            self.pipelines.append(pipeline_code)
+
         self.pipeline_count += 1
         self.current_pipeline_properties = {}
+        self.current_pipeline_precode = []
+        self.current_pipeline_postcode = []
 
     def addCode(self, c):
+        """
+        Just add code here
+        """
         self.pipelines.append(c)
+
+    def addPreCode(self, c):
+        self.current_pipeline_precode.append(c)
+
+    def addPostCode(self, c):
+        self.current_pipeline_postcode.append(c)
 
     def getInitCode(self):
         return emitlist(self.initializers)
