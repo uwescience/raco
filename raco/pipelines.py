@@ -3,6 +3,7 @@
 
 import abc
 from raco.utility import emitlist
+from algebra import gensym
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -24,6 +25,17 @@ class TestEmit:
 
     return code
 
+class ResolvingSymbol:
+    def __init__(self, name):
+        self._name = name
+        self._placeholder = "%%(%s)s" % name
+
+    def getPlaceholder(self):
+        return self._placeholder
+
+    def getName(self):
+        return self._name
+
 class CompileState:
 
     def __init__(self, lang, cse=True):
@@ -40,7 +52,29 @@ class CompileState:
         # { symbol => tuple type definition }
         self.tupledefs = {}
 
+        # symbol resolution
+        self.resolving_symbols = {}
+
         self.common_subexpression_elim = cse
+
+        self.current_pipeline_properties = {}
+        self.current_pipeline_precode = []
+        self.current_pipeline_postcode = []
+
+    def setPipelineProperty(self, key, value):
+        self.current_pipeline_properties[key] = value
+
+    def getPipelineProperty(self, key):
+        return self.current_pipeline_properties[key]
+
+    def createUnresolvedSymbol(self):
+        name = gensym()
+        rs = ResolvingSymbol(name)
+        self.resolving_symbols[name] = None
+        return rs
+
+    def resolveSymbol(self, rs, value):
+        self.resolving_symbols[rs.getName()] = value
 
     def addDeclarations(self, d):
         self.declarations += d
@@ -48,12 +82,33 @@ class CompileState:
     def addInitializers(self, i):
         self.initializers += i
 
-    def addPipeline(self, p, type):
-        self.pipelines.append(self.language.pipeline_wrap(self.pipeline_count, p, {'type':type}))
+    def addPipeline(self, p):
+        pipeline_code = emitlist(self.current_pipeline_precode) +\
+                        self.language.pipeline_wrap(self.pipeline_count, p, self.current_pipeline_properties) +\
+                        emitlist(self.current_pipeline_postcode)
+
+        # force scan pipelines to go first
+        if self.current_pipeline_properties.get('type') == 'scan':
+            self.pipelines.insert(0, pipeline_code)
+        else:
+            self.pipelines.append(pipeline_code)
+
         self.pipeline_count += 1
+        self.current_pipeline_properties = {}
+        self.current_pipeline_precode = []
+        self.current_pipeline_postcode = []
 
     def addCode(self, c):
+        """
+        Just add code here
+        """
         self.pipelines.append(c)
+
+    def addPreCode(self, c):
+        self.current_pipeline_precode.append(c)
+
+    def addPostCode(self, c):
+        self.current_pipeline_postcode.append(c)
 
     def getInitCode(self):
         return emitlist(self.initializers)
@@ -73,7 +128,14 @@ class CompileState:
         return emitlist(filter(f, self.declarations))
 
     def getExecutionCode(self):
-        return emitlist(self.pipelines)
+        # list -> string
+        linearized = emitlist(self.pipelines)
+
+        # substitute all lazily resolved symbols
+        resolved = linearized % self.resolving_symbols
+
+        return resolved
+
 
     def lookupExpr(self, expr):
         if self.common_subexpression_elim:

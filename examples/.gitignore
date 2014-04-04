@@ -1,2 +1,5 @@
 *.cpp
+*.cpp.orig
 *.dot
+build/
+
