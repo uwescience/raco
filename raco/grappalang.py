@@ -88,9 +88,9 @@ class GrappaLanguage(Language):
         elif attrs['type'] == 'scan':
             timer_metric = "scan_runtime"
 
-#TODO: for timing, this won't work for inter-pipeline parallel.
-#TODO  we will need to put scan pipelines at the top
-#TODO  and time everything else as a whole
+# TODO: for timing, this won't work for inter-pipeline parallel.
+# TODO  we will need to put scan pipelines at the top
+# TODO  and time everything else as a whole
         pipeline_template = ct("""
         auto start_%(ident)s = walltime();
         %(plcode)s
@@ -144,7 +144,7 @@ class GrappaLanguage(Language):
         init = """auto l_%(sid)s = string_index.string_lookup("%(s)s");
                    on_all_cores([=] { %(sid)s = l_%(sid)s; });""" % locals()
         return """(%s)""" % sid, [decl], [init]
-     #raise ValueError("String Literals not supported in C language: %s" % s)
+        # raise ValueError("String Literals not supported in C language: %s" % s)
 
     @classmethod
     def negation(cls, input):
@@ -193,19 +193,19 @@ class MemoryScan(algebra.UnaryOperator, GrappaOperator):
     def consume(self, inputsym, src, state):
         #generate the materialization from file into memory
 
-# scan from index
-#    memory_scan_template = """forall_localized( %(inputsym)s_index->vs, \
-# %(inputsym)s_index->nv, [](int64_t ai, Vertex& a) {
-#      forall_here_async<&impl::local_gce>( 0, a.nadj, \
-# [=](int64_t start, int64_t iters) {
-#      for (int64_t i=start; i<start+iters; i++) {
-#        auto %(tuple_name)s = a.local_adj[i];
-#
-#          %(inner_plan_compiled)s
-#       } // end scan over %(inputsym)s (for)
-#       }); // end scan over %(inputsym)s (forall_here_async)
-#       }); // end scan over %(inputsym)s (forall_localized)
-#       """
+        # scan from index
+        #    memory_scan_template = """forall_localized( %(inputsym)s_index->vs, \
+        # %(inputsym)s_index->nv, [](int64_t ai, Vertex& a) {
+        #      forall_here_async<&impl::local_gce>( 0, a.nadj, \
+        # [=](int64_t start, int64_t iters) {
+        #      for (int64_t i=start; i<start+iters; i++) {
+        #        auto %(tuple_name)s = a.local_adj[i];
+        #
+        #          %(inner_plan_compiled)s
+        #       } // end scan over %(inputsym)s (for)
+        #       }); // end scan over %(inputsym)s (forall_here_async)
+        #       }); // end scan over %(inputsym)s (forall_localized)
+        #       """
 
         global_sync_decl_template = ct("""
         GlobalCompletionEvent %(global_syncname)s;
@@ -462,9 +462,9 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             self.right.produce(state)
             state.saveExpr(self.right,
                            (self._hashname, self.rightTupleTypename))
-            #TODO always safe here? I really want to call
-            #TODO saveExpr before self.right.produce(),
-            #TODO but I need to get the self.rightTupleTypename cleanly
+            # TODO always safe here? I really want to call
+            # TODO saveExpr before self.right.produce(),
+            # TODO but I need to get the self.rightTupleTypename cleanly
         else:
             # if found a common subexpression on right child then
             # use the same hashtable
