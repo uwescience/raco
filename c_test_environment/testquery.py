@@ -51,8 +51,7 @@ def checkquery(name, tmppath="tmp", querypath="testqueries"):
                 subprocess.check_output(['%s' % (exe_name)], stderr=subprocess.STDOUT, env=envir)
                 raise e1  # just in case this doesn't fail again
             except subprocess.CalledProcessError as e2:
-                print >> sys.stderr, e2.output
-                raise e2
+                raise Exception('(Process output below)\n'+e2.output)
 
     querycode  = readquery("%s/%s.sql" % (querypath,name))
     querystr = make_query(name, querycode)
