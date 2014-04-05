@@ -184,7 +184,8 @@ class MemoryScan(algebra.UnaryOperator, CCOperator):
     inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
 
     code = memory_scan_template % locals()
-    state.addPipeline(code, "in_memory")
+    state.setPipelineProperty("type", "in_memory")
+    state.addPipeline(code)
     return None
 
 
