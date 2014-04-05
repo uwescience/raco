@@ -4,15 +4,8 @@ import sys
 import sqlite3
 import csv
 from verifier import verify
-import errno
+import osutils
 
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc: 
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else: raise
 
 def readquery(fname):
     query_path = "./"
@@ -31,18 +24,18 @@ def make_query(name, query, delim=','):
     return query_modified
 
 
-def testquery(name, tmppath="tmp"):
-
+def checkquery(name, tmppath="tmp", querypath="testqueries"):
+    
     """
     @param name: name of query
     @param tmppath: existing directory for temporary files
     """
-    
-    mkdir_p(tmppath)
+ 
+    osutils.mkdir_p(tmppath)
     envir = os.environ.copy()
 
     # cpp -> exe
-    exe_name = '%s.exe' % (name)
+    exe_name = './%s.exe' % (name)
     check_call(['make', exe_name], env=envir)
     
     # run cpp
@@ -50,7 +43,7 @@ def testquery(name, tmppath="tmp"):
     with open(testoutfn, 'w') as outs:
         check_call(['./%s' % (exe_name)], stdout=outs, env=envir)
 
-    querycode  = readquery("%s.sql" % name)
+    querycode  = readquery("%s/%s.sql" % (querypath,name))
     querystr = make_query(name, querycode)
 
     # run sql
@@ -63,7 +56,7 @@ def testquery(name, tmppath="tmp"):
             wr.writerow(list(row))
     
     print "test: %s" % (name)
-    return verify(testoutfn, expectedfn, False)
+    verify(testoutfn, expectedfn, False)
 
 
 if __name__ == "__main__":
@@ -73,5 +66,5 @@ if __name__ == "__main__":
 
     name = sys.argv[1]
 
-    testquery(name)
+    checkquery(name)
 

@@ -37,12 +37,8 @@ def verify(testout, expected, ordered):
 
     print test
     print expect
-    if test == expect:
-        print "fail"
-        return False
-    else:
-        print "pass"
-        return True
+    assert test == expect, "\n test:  %s !=\n expect:%s" % (test, expect)
+    print "pass"
 
 
 if __name__ == '__main__':
@@ -54,5 +50,5 @@ if __name__ == '__main__':
         if sys.argv[3] == 'o':
             ordered = True 
 
-    assert verify(testout, expected, ordered)
+    verify(testout, expected, ordered)
  
