@@ -7,8 +7,9 @@ install:
   - pip install coveralls --use-mirrors
   - export DEBIAN_FRONTEND=noninteractive 
   - sudo apt-get -y update
-  - sudo apt-get -y install gcc-4.7 g++-4.7
+  - sudo apt-get -y install gcc-4.7 
   - g++ -v
+  - gcc -v
 script: nosetests --with-coverage --cover-package=raco
 after_success:
   - coveralls
