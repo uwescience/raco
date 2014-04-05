@@ -48,9 +48,11 @@ def checkquery(name, tmppath="tmp", querypath="testqueries"):
         except subprocess.CalledProcessError as e1:
             # try again, this time collecting all output to print it
             try:
-                subprocess.check_output(['%s' % (exe_name)], stderr=subprocess.STDOUT, env=envir)
+                subprocess.check_output([exe_name], stderr=subprocess.STDOUT, env=envir)
                 raise e1  # just in case this doesn't fail again
             except subprocess.CalledProcessError as e2:
+                print "see executable %s" % (exe_name)
+                subprocess.check_call(['ls', '-l', exe_name], env=envir)
                 raise Exception('(Process output below)\n'+e2.output+'\n(end process output)')
 
     querycode  = readquery("%s/%s.sql" % (querypath,name))
