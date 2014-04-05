@@ -1,8 +1,11 @@
 import unittest
 from testquery import checkquery
+from testquery import testdbname
+from generate_test_relations import generate_default
 from raco.language import CCAlgebra
 
 import sys
+import os
 sys.path.append('./examples')
 from emitcode import emitCode
 from osutils import Chdir
@@ -14,6 +17,12 @@ class ClangTest(unittest.TestCase):
         chdir = Chdir("c_test_environment")
         emitCode(query, name, CCAlgebra)
         checkquery(name)
+
+    def setUp(self):
+        chdir = Chdir("c_test_environment")
+        if os.path.isfile(testdbname()):
+            generate_default()  
+        
 
     def test_scan(self):
         self.check("A(s1) :- T1(s1)", "scan")

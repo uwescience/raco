@@ -6,6 +6,8 @@ import csv
 from verifier import verify
 import osutils
 
+def testdbname():
+    return 'test.db'
 
 def readquery(fname):
     query_path = "./"
@@ -47,7 +49,7 @@ def checkquery(name, tmppath="tmp", querypath="testqueries"):
     querystr = make_query(name, querycode)
 
     # run sql
-    conn = sqlite3.connect('test.db')
+    conn = sqlite3.connect(testdbname())
     c = conn.cursor()
     expectedfn = '%s/%s.sqlite.csv' % (tmppath, name)
     with open(expectedfn, 'w') as csvfile:
