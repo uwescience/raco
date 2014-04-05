@@ -1,5 +1,5 @@
 import os
-from subprocess import check_call
+import subprocess
 import sys
 import sqlite3
 import csv
@@ -38,12 +38,21 @@ def checkquery(name, tmppath="tmp", querypath="testqueries"):
 
     # cpp -> exe
     exe_name = './%s.exe' % (name)
-    check_call(['make', exe_name], env=envir)
+    subprocess.check_call(['make', exe_name], env=envir)
     
     # run cpp
     testoutfn = '%s/%s.out' % (tmppath, name)
     with open(testoutfn, 'w') as outs:
-        check_call(['%s' % (exe_name)], stdout=outs, env=envir)
+        try:
+            subprocess.check_call(['%s' % (exe_name)], stdout=outs, env=envir)
+        except subprocess.CalledProcessError as e1:
+            # try again, this time collecting all output to print it
+            try:
+                subprocess.check_output(['%s' % (exe_name)], stderr=subprocess.STDOUT, env=envir)
+                raise e1  # just in case this doesn't fail again
+            except subprocess.CalledProcessError as e2:
+                print e2.output
+                raise e2
 
     querycode  = readquery("%s/%s.sql" % (querypath,name))
     querystr = make_query(name, querycode)
