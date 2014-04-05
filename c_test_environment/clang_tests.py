@@ -20,7 +20,7 @@ class ClangTest(unittest.TestCase):
 
     def setUp(self):
         chdir = Chdir("c_test_environment")
-        if os.path.isfile(testdbname()):
+        if not os.path.isfile(testdbname()):
             generate_default()  
         
 
