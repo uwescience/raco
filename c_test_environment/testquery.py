@@ -43,7 +43,7 @@ def checkquery(name, tmppath="tmp", querypath="testqueries"):
     # run cpp
     testoutfn = '%s/%s.out' % (tmppath, name)
     with open(testoutfn, 'w') as outs:
-        check_call(['./%s' % (exe_name)], stdout=outs, env=envir)
+        check_call(['%s' % (exe_name)], stdout=outs, env=envir)
 
     querycode  = readquery("%s/%s.sql" % (querypath,name))
     querystr = make_query(name, querycode)
