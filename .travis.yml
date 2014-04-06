@@ -5,7 +5,6 @@ install:
   - pip install -r requirements-dev.txt --use-mirrors
   - python setup.py install
   - pip install coveralls --use-mirrors
-  - python c_test_environment/comptest.py
 script: nosetests --with-coverage --cover-package=raco
 after_success:
   - coveralls
