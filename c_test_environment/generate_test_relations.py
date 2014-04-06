@@ -3,6 +3,7 @@ from subprocess import check_call
 
 def generate(basename, fields, tuples, datarange):
     with open(basename+str(fields), 'w') as f:
+        print "generating %s" % (os.path.abspath(basename+str(fields)))
         for i in range(0,tuples):
             for j in range(0,fields):
                 dat = random.randint(0, datarange)

@@ -51,7 +51,7 @@ def checkquery(name, tmppath="tmp", querypath="testqueries"):
                 subprocess.check_output([exe_name], stderr=subprocess.STDOUT, env=envir)
                 raise e1  # just in case this doesn't fail again
             except subprocess.CalledProcessError as e2:
-                print "see executable %s" % (exe_name)
+                print "see executable %s" % (os.path.abspath(exe_name))
                 print subprocess.check_output(['ls', '-l', exe_name], env=envir)
                 print subprocess.check_output(['ls -l {R,S,T}{1,2,3}'], shell=True, env=envir)
                 print subprocess.check_output(['cat', exe_name], env=envir)
