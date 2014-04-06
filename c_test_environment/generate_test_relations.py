@@ -1,4 +1,5 @@
 import random
+import os
 from subprocess import check_call
 
 def generate(basename, fields, tuples, datarange):
