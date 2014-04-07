@@ -1,52 +1,14 @@
-from raco import RACompiler
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
-from raco.algebra import LogicalAlgebra
-from raco.compile import compile
-import generateDot
+from emitcode import emitCode
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
 
-def comment(s):
-  return "/*\n%s\n*/\n" % str(s)
-
-def testEmit(query, name, algebra):
-    LOG.info("compiling %s: %s", name, query)
-
-    # Create a compiler object
-    dlog = RACompiler()
-
-    # parse the query
-    dlog.fromDatalog(query)
-    #print dlog.parsed
-    LOG.info("logical: %s",dlog.logicalplan)
-
-    generateDot.generateDot(dlog.logicalplan, "%s.logical.dot"%(name))
-
-    dlog.optimize(target=algebra, eliminate_common_subexpressions=False)
-
-    LOG.info("physical: %s",dlog.physicalplan[0][1])
-    
-    generateDot.generateDot(dlog.physicalplan, "%s.physical.dot"%(name))
-
-    # generate code in the target language
-    code = ""
-    code += comment("Query " + query)
-    code += compile(dlog.physicalplan)
-    
-    fname = name+'.cpp'
-    with open(fname, 'w') as f:
-        f.write(code)
-
-    # returns name of code file
-    return fname
-
-
 if __name__ == "__main__":
     queries = [
             ("A(s1) :- T1(s1)", "scan"),  # , "select s1 from T1"),
-            ("A(s1) :- T1(s1), s1>10", "select"),  # , "select s1 from T1 where s1>10" ),
+            ("A(s1) :- T1(s1), s1<5", "select"),  # , "select s1 from T1 where s1>10" ),
             ("A(s1) :- T1(s1), s1>0, s1<10", "select_conjunction"),
             ("A(s1,s2) :- T2(s1,s2), s>10, s2>10", "two_var_select"),
             ("A(s1,o2) :- T3(s1,p1,o1), R3(o2,p1,o2)", "join"),
@@ -116,5 +78,5 @@ if __name__ == "__main__":
 
     for q in queries:
         query, name = q
-        testEmit(query, prefix+name, algebra)
+        emitCode(query, prefix+name, algebra)
 

@@ -1,13 +1,13 @@
 # WARNING: name environment source files .h or .cc, but not .cpp, which is reserved (.gitignore laziness)
 
-CPPC = g++
+CXX = clang++
 
 CFLAGS = -ggdb -std=c++11 #-O3 #-m64 -Wno-deprecated -fPIC
 LIBS = 
 INCL = 
-COMP = $(CPPC) $(CFLAGS) -c $< $(INCL) 
-LINK = $(CPPC) $(CFLAGS) -o $@ $^ $(LIBS)
-COMPLINK = $(CPPC) $(CFLAGS) -o $@ $^ $(LIBS) $@.cc
+COMP = $(CXX) $(CFLAGS) -c $< $(INCL) 
+LINK = $(CXX) $(CFLAGS) -o $@ $^ $(LIBS)
+COMPLINK = $(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $@.cc
 
 
 # for 'triangle'
