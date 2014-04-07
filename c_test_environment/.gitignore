@@ -10,3 +10,13 @@ T1
 T2
 T3
 *.dot
+*.cpp
+sp2b.100t*
+sp2bench_1m*
+tmp/
+*.out
+*.db
+Index
+Str
+*.ttl
+log.rb

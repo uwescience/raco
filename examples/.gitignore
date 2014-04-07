@@ -2,4 +2,4 @@
 *.cpp.orig
 *.dot
 build/
-
+log.rb*
