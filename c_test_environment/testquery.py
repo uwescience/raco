@@ -44,7 +44,7 @@ def checkquery(name, tmppath="tmp", querypath="testqueries"):
     testoutfn = '%s/%s.out' % (tmppath, name)
     with open(testoutfn, 'w') as outs:
         try:
-            subprocess.check_call(['%s' % (exe_name)], stdout=outs, env=envir)
+            subprocess.check_call([exe_name], stdout=outs, env=envir)
         except subprocess.CalledProcessError as e1:
             # try again, this time collecting all output to print it
             try:
