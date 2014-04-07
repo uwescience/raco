@@ -86,19 +86,19 @@ def hash(attributes, R):
 def dump(R):
     print R
 
-#def probe(attributes, hR, S, reduce=product):
-#  ext = S.getScheme().getExtractor(attributes)
-#  d = {}
-#  for st in S:
-#    rt = hR[ext(st)]
-#    d[ext(st)] = rt
-#    result.insert(rt)
+# def probe(attributes, hR, S, reduce=product):
+#   ext = S.getScheme().getExtractor(attributes)
+#   d = {}
+#   for st in S:
+#     rt = hR[ext(st)]
+#     d[ext(st)] = rt
+#     result.insert(rt)
 
 
 def hashjoin(attributes, Left, Right):
     keys = zip(*attributes)
     ht = hash(keys[0], Left)
-    #probe(attributes, ht, Right)
+    # probe(attributes, ht, Right)
     result = Relation(Left.getScheme() + Right.getScheme())
     ext = Right.getScheme().getExtractor(keys[1])
     for t in Right:

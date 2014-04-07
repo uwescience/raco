@@ -101,7 +101,10 @@ def compile_expr(op, child_scheme, state_scheme):
             'left': compile_expr(op.left, child_scheme, state_scheme),
             'right': compile_expr(op.right, child_scheme, state_scheme)
         }
-
+    elif isinstance(op, expression.ZeroaryOperator):
+        return {
+            'type': op.opname(),
+        }
     raise NotImplementedError("Compiling expr of class %s" % op.__class__)
 
 
@@ -187,6 +190,16 @@ class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
             "opName": resultsym,
             "opType": "UnionAll",
             "argChildren": [leftsym, rightsym]
+        }
+
+
+class MyriaDifference(algebra.Difference, MyriaOperator):
+    def compileme(self, resultsym, leftsym, rightsym):
+        return {
+            "opName": resultsym,
+            "opType": "Difference",
+            "argChild1": leftsym,
+            "argChild2": rightsym,
         }
 
 
@@ -336,6 +349,8 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             return "AGG_OP_MIN"
         elif isinstance(agg_expr, expression.COUNT):
             return "AGG_OP_COUNT"
+        elif isinstance(agg_expr, expression.COUNTALL):
+            return "AGG_OP_COUNT"  # XXX Wrong in the presence of nulls
         elif isinstance(agg_expr, expression.SUM):
             return "AGG_OP_SUM"
 
@@ -343,8 +358,16 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         child_scheme = self.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme)
                         for ref in self.grouping_list]
-        agg_fields = [expression.toUnnamed(expr.input, child_scheme)
-                      for expr in self.aggregate_list]
+
+        agg_fields = []
+        for expr in self.aggregate_list:
+            if isinstance(expr, expression.COUNTALL):
+                # XXX Wrong in the presence of nulls
+                agg_fields.append(expression.UnnamedAttributeRef(0))
+            else:
+                agg_fields.append(expression.toUnnamed(
+                    expr.input, child_scheme))
+
         agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)]
                      for agg_expr in self.aggregate_list]
         ret = {
@@ -646,8 +669,6 @@ class DistributedGroupBy(rules.Rule):
 
         # All built-in aggregates are now decomposable
         assert len(decomposable_aggs) == len(op.aggregate_list)
-        #if len(decomposable_aggs) != len(op.aggregate_list):
-            #return self.do_transfer(op)
 
         # Each logical aggregate generates one or more local aggregates:
         # e.g., average requires a SUM and a COUNT.  In turn, these local
@@ -966,6 +987,7 @@ class MyriaAlgebra(object):
         rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
         rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
         rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
+        rules.OneToOne(algebra.Difference, MyriaDifference),
         BreakShuffle(),
         BreakCollect(),
         BreakBroadcast(),

@@ -28,7 +28,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                                 ("name", "string"),
                                 ("salary", "int")])
 
-    emp_key = "andrew:adhoc:employee"
+    emp_key = "public:adhoc:employee"
 
     dept_table = collections.Counter([
         (1, "accounting", 5),
@@ -40,7 +40,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                                  ("name", "string"),
                                  ("manager", "int")])
 
-    dept_key = "andrew:adhoc:department"
+    dept_key = "public:adhoc:department"
 
     numbers_table = collections.Counter([
         (1, 3),
@@ -51,7 +51,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     numbers_schema = scheme.Scheme([("id", "int"),
                                     ("val", "float")])
 
-    numbers_key = "andrew:adhoc:numbers"
+    numbers_key = "public:adhoc:numbers"
 
     def setUp(self):
         super(TestQueryFunctions, self).setUp()
@@ -200,7 +200,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_bag_comp_filter_column_compare_ne(self):
         query = """
         emp = SCAN(%s);
-        out = [FROM emp WHERE $0 / $1 != $1 EMIT *];
+        out = [FROM emp WHERE $0 // $1 != $1 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -211,7 +211,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_bag_comp_filter_column_compare_ne2(self):
         query = """
         emp = SCAN(%s);
-        out = [FROM emp WHERE $0 / $1 <> $1 EMIT *];
+        out = [FROM emp WHERE $0 // $1 <> $1 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -317,7 +317,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_bag_comp_emit_with_math(self):
         query = """
         emp = SCAN(%s);
-        out = [FROM emp EMIT salary + 5000, salary - 5000, salary / 5000,
+        out = [FROM emp EMIT salary + 5000, salary - 5000, salary // 5000,
         salary * 5000];
         STORE(out, OUTPUT);
         """ % self.emp_key
@@ -540,7 +540,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        result = self.execute_query(query)
+        result = self.execute_query(query, skip_json=True)
         self.assertEquals(len(result), 3)
 
     def test_sql_limit(self):
@@ -549,7 +549,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        result = self.execute_query(query)
+        result = self.execute_query(query, skip_json=True)
         self.assertEquals(len(result), 3)
 
     def test_table_literal_scalar_expression(self):
@@ -644,7 +644,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         emp = SCAN(%s);
         out = [FROM emp WHERE salary==*C1.a * *C2.b OR $3==*C1.b * *C2
-               EMIT dept_id * *C1.b / *C2.a];
+               EMIT dept_id * *C1.b // *C2.a];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -734,7 +734,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        res = self.execute_query(query)
+        # TODO: Fix json compilation
+        res = self.execute_query(query, skip_json=True)
         tp = res.elements().next()
         self.assertAlmostEqual(tp[0], 34001.8006726)
 
@@ -1145,7 +1146,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_triangle_udf(self):
         query = """
-        DEF Triangle(a,b): (a*b)/2;
+        DEF Triangle(a,b): (a*b)//2;
 
         out = [FROM SCAN(%s) AS X EMIT id, Triangle(X.salary, dept_id) AS t];
         STORE(out, OUTPUT);
@@ -1155,7 +1156,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.check_result(query, expected)
 
     def test_noop_udf(self):
-        expr = "30 + 15 / 7 + -45"
+        expr = "30 + 15 // 7 + -45"
 
         query = """
         DEF Noop(): %s;
@@ -1189,6 +1190,23 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         expected = collections.Counter([(t[0], t[3] + 10)
+                                        for t in self.emp_table])
+        self.check_result(query, expected)
+
+    def test_regression_150(self):
+        """Repeated invocation of a UDF."""
+
+        query = """
+        DEF transform(x): pow(10, x/pow(2,16)*3.5);
+        out = [FROM SCAN(%s) AS X EMIT id, transform(salary),
+               transform(dept_id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        def tx(x):
+            return pow(10, float(x) / pow(2, 16) * 3.5)
+
+        expected = collections.Counter([(t[0], tx(t[3]), tx(t[1]))
                                         for t in self.emp_table])
         self.check_result(query, expected)
 
@@ -1240,7 +1258,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         for emp in self.emp_table:
             _sum += emp[3]
             _count += 1
-            tps.append((emp[0], _sum / _count))
+            tps.append((emp[0], float(_sum) / _count))
 
         self.check_result(query, collections.Counter(tps))
 
@@ -1300,8 +1318,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_case_binary(self):
         query = """
         emp = SCAN(%s);
-        rich = [FROM emp EMIT id, CASE WHEN salary > 15000 THEN salary / salary
-                ELSE 0 / salary END];
+        rich = [FROM emp EMIT id, CASE WHEN salary > 15000
+                THEN salary // salary
+                ELSE 0 // salary END];
         STORE(rich, OUTPUT);
         """ % self.emp_key
 
@@ -1363,3 +1382,21 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         _sum = 3 * len([x for x in self.emp_table.elements()
                         if x[3] > 15000])
         self.check_result(query, collections.Counter([(_sum,)]))
+
+    def test_default_column_names(self):
+        with open('examples/groupby1.myl') as fh:
+            query = fh.read()
+        self.execute_query(query)
+        scheme = self.db.get_scheme('OUTPUT')
+        self.assertEquals(scheme.getName(0), "_COLUMN0_")
+        self.assertEquals(scheme.getName(1), "id")
+
+    def test_worker_id(self):
+        query = """
+        X = [FROM SCAN(%s) AS X EMIT X.id, WORKER_ID()];
+        STORE(X, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter([(x[0], 0) for x
+                                        in self.emp_table.elements()])
+        self.check_result(query, expected)

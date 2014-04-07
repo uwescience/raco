@@ -10,14 +10,16 @@ reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
             'SCAN', 'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'MAX',
             'MIN', 'SUM', 'COUNT', 'ABS', 'CEIL', 'COS', 'FLOOR', 'LOG',
             'SIN', 'SQRT', 'TAN', 'AVG', 'STDEV', 'POW', 'EMPTY', 'SELECT',
-            'AS', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END']
+            'AS', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
+            'WORKER_ID']
 
 # Token types; required by ply to have this variable name
 
 tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
-          'TIMES', 'DIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ', 'NE', 'NE2',
-          'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID', 'STRING_LITERAL',
-          'INTEGER_LITERAL', 'FLOAT_LITERAL', 'LBRACE', 'RBRACE'] + reserved
+          'TIMES', 'DIVIDE', 'IDIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ', 'NE',
+          'NE2', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
+          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL', 'LBRACE',
+          'RBRACE'] + reserved
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('
@@ -31,6 +33,7 @@ t_PLUS = r'\+'
 t_MINUS = r'-'
 t_TIMES = r'\*'
 t_DIVIDE = r'/'
+t_IDIVIDE = r'//'
 
 t_LT = r'<'
 t_GT = r'>'

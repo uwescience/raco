@@ -16,17 +16,17 @@ class DatalogTestCase(unittest.TestCase):
     def execute_query(self, query):
         '''Run a test query against the fake database'''
 
-        #print query
+        # print query
 
         dlog = RACompiler()
         dlog.fromDatalog(query)
 
-        #print dlog.logicalplan
+        # print dlog.logicalplan
 
         dlog.optimize(target=MyriaAlgebra,
                       eliminate_common_subexpressions=False)
 
-        #print dlog.physicalplan
+        # print dlog.physicalplan
 
         # test whether we can generate json without errors
         json_string = json.dumps(compile_to_json(

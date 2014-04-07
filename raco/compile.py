@@ -49,7 +49,7 @@ def optimize(exprs, target, source, eliminate_common_subexpressions=False):
 
 def compile(exprs):
     """Compile physical plan to linearized form for execution"""
-    #TODO: Fix this
+    # TODO: Fix this
     algebra.reset()
     exprcode = []
     for result, expr in exprs:
@@ -83,7 +83,7 @@ def common_subexpression_elimination(expr):
     eqclasses = []
     allfound = []
     for x in expr.preorder(id):
-        if not x in allfound:
+        if x not in allfound:
             found = [x for x in search(expr, x)]
             eqclasses.append((x, found))
             allfound += found
@@ -94,7 +94,7 @@ def common_subexpression_elimination(expr):
                 expr.apply(replace)
                 # record the fact that we eliminated the redundant branches
                 if witness != expr:
-                    #witness.trace("replaces", expr)
+                    # witness.trace("replaces", expr)
                     for k, v in expr.gettrace():
                         witness.trace(k, v)
                 return witness

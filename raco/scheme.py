@@ -122,7 +122,7 @@ class Scheme(object):
     def __sub__(self, other):
         newsch = Scheme()
         for (n, t) in self:
-            if not n in other:
+            if n not in other:
                 newsch.addAttribute(n, t)
         return newsch
 

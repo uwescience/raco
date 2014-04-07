@@ -31,4 +31,4 @@ class KmeansTest(myrial_test.MyrialTestCase):
     def test_kmeans(self):
         with open('examples/kmeans.myl') as fh:
             query = fh.read()
-        self.execute_query(query)
+        self.execute_query(query, skip_json=True)

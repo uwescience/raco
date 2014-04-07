@@ -28,6 +28,7 @@ binops = {
     '+': sexpr.PLUS,
     '-': sexpr.MINUS,
     '/': sexpr.DIVIDE,
+    '//': sexpr.IDIVIDE,
     '*': sexpr.TIMES,
     '>': sexpr.GT,
     '<': sexpr.LT,
@@ -80,7 +81,7 @@ class Parser(object):
             ('right', 'NOT'),
             ('left', 'EQ', 'EQUALS', 'NE', 'GT', 'LT', 'LE', 'GE'),
             ('left', 'PLUS', 'MINUS'),
-            ('left', 'TIMES', 'DIVIDE'),
+            ('left', 'TIMES', 'DIVIDE', 'IDIVIDE'),
             ('right', 'UMINUS'),    # Unary minus
         )
 
@@ -447,6 +448,11 @@ class Parser(object):
         p[0] = p[1]
 
     @staticmethod
+    def p_expression_unionall_inline(p):
+        '''expression : expression PLUS expression'''
+        p[0] = ('UNIONALL', p[1], p[3])
+
+    @staticmethod
     def p_expression_cross(p):
         'expression : CROSS LPAREN expression COMMA expression RPAREN'
         p[0] = ('CROSS', p[3], p[5])
@@ -538,6 +544,11 @@ class Parser(object):
         p[0] = sexpr.TIMES(sexpr.NumericLiteral(-1), p[2])
 
     @staticmethod
+    def p_sexpr_worker_id(p):
+        '''sexpr : WORKER_ID LPAREN RPAREN'''
+        p[0] = sexpr.WORKERID()
+
+    @staticmethod
     def p_sexpr_unary_function(p):
         '''sexpr : ABS LPAREN sexpr RPAREN
                    | CEIL LPAREN sexpr RPAREN
@@ -555,6 +566,7 @@ class Parser(object):
                    | sexpr MINUS sexpr
                    | sexpr TIMES sexpr
                    | sexpr DIVIDE sexpr
+                   | sexpr IDIVIDE sexpr
                    | sexpr GT sexpr
                    | sexpr LT sexpr
                    | sexpr GE sexpr

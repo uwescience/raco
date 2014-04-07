@@ -98,7 +98,7 @@ def resolve_udf(udf_expr, arg_dict):
         n.apply(convert)
         return n
 
-    return convert(copy.copy(udf_expr))
+    return convert(copy.deepcopy(udf_expr))
 
 
 def resolve_state_vars(expr, state_vars, mangled_names):
