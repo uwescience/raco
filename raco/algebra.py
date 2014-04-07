@@ -391,7 +391,11 @@ class UnionAll(BinaryOperator):
 
 
 class Intersection(BinaryOperator):
-    """Bag intersection."""
+    """Set intersection."""
+
+    def __init__(self, left=None, right=None):
+        BinaryOperator.__init__(self, left, right)
+
     def scheme(self):
         return self.left.scheme()
 
@@ -400,7 +404,11 @@ class Intersection(BinaryOperator):
 
 
 class Difference(BinaryOperator):
-    """Bag difference"""
+    """Set difference"""
+
+    def __init__(self, left=None, right=None):
+        BinaryOperator.__init__(self, left, right)
+
     def scheme(self):
         return self.left.scheme()
 

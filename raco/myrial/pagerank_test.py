@@ -52,7 +52,7 @@ class PageRankTest(myrial_test.MyrialTestCase):
         with open(phile) as fh:
             query = fh.read()
 
-        result = self.execute_query(query)
+        result = self.execute_query(query, skip_json=True)
         d = dict(result.elements())
 
         self.assertAlmostEqual(d[0], 0.23576110832410296)

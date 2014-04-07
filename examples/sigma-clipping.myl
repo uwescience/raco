@@ -1,7 +1,7 @@
 Points = SCAN(public:adhoc:sc_points);
 
 aggs = [FROM Points EMIT SUM(v) AS _sum, SUM(v*v) AS sumsq, COUNT(v) AS cnt];
-newBad = EMPTY(v:float);
+newBad = EMPTY(id:int, v:float);
 
 bounds = [FROM Points EMIT MIN(v) AS lower, MAX(v) AS upper];
 
@@ -30,7 +30,7 @@ DO
                    AND v <= bounds.upper)
                OR (newBounds.lower > v
                    AND v >= bounds.lower)
-            EMIT Points.v AS v];
+            EMIT Points.*];
 
   bounds = newBounds;
   continue = [FROM newBad EMIT COUNT(v) > 0];
@@ -39,5 +39,5 @@ WHILE continue;
 output = [FROM Points, bounds
           WHERE Points.v > bounds.lower
                 AND Points.v < bounds.upper
-          EMIT Points.v AS v];
+          EMIT Points.*];
 STORE(output, OUTPUT);
