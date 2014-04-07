@@ -94,6 +94,11 @@ Sequence
 ### Visualize a Myria plan as a graph
 Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
+### Run the datalog->C++ tests
+```bash
+PYTHONPATH=examples python c_test_environment/clang_tests.py
+```
+
 ### Compile a datalog query into C++, then run it
 ```
 cd examples
