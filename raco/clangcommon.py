@@ -11,6 +11,28 @@ from expression.expression import UnnamedAttributeRef
 import logging
 LOG = logging.getLogger(__name__)
 
+import re
+
+
+class CodeTemplate:
+    def __init__(self, s):
+        self.string = s
+
+    @classmethod
+    def __format_template__(cls, s):
+        """
+        Format code template string
+        """
+        return re.sub(r'[^\S\r\n]+', ' ', s)
+
+    def __mod__(self, other):
+        return (self.__format_template__(self.string)) % other
+
+
+def ct(s):
+    return CodeTemplate(s)
+
+
 # TODO:
 # The following is actually a staged materialized tuple ref.
 # we should also add a staged reference tuple ref that just has relationsymbol and row  
@@ -147,7 +169,7 @@ class CSelect(algebra.Select):
     conditioncode, cond_decls, cond_inits = self.language.compile_boolean(self.condition)
     state.addInitializers(cond_inits)
     state.addDeclarations(cond_decls)
-    
+
     inner_code_compiled = self.parent.consume(t, self, state)
     
     code = basic_select_template % locals()
@@ -156,7 +178,7 @@ class CSelect(algebra.Select):
   
 class CUnionAll(algebra.Union):
   def produce(self, state):
-    self.unifiedTupleType = StagedTupleRef(gensym(), self.scheme())
+    self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
     state.addDeclarations([self.unifiedTupleType.generateDefinition()])
 
     self.right.produce(state)
@@ -184,20 +206,23 @@ class CApply(algebra.Apply):
 
 class CProject(algebra.Project):
   def produce(self, state):
+    # declare a single new type for project
+    #TODO: instead do mark used-columns?
+
+    # always does an assignment to new tuple
+    self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
+    state.addDeclarations( [self.newtuple.generateDefinition()] )
+
     self.input.produce(state)
   
   def consume(self, t, src, state):
     code = ""
 
-    # always does an assignment to new tuple
-    newtuple = StagedTupleRef(gensym(), self.scheme())
-    state.addDeclarations( [newtuple.generateDefinition()] )
-
     assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
     """
     
-    dst_name = newtuple.name
-    dst_type_name = newtuple.getTupleTypename()
+    dst_name = self.newtuple.name
+    dst_type_name = self.newtuple.getTupleTypename()
     src_name = t.name
 
     # declaration of tuple instance
@@ -211,7 +236,7 @@ class CProject(algebra.Project):
         assert False, "Unsupported Project expression"
       code += assignment_template % locals()
       
-    innercode = self.parent.consume(newtuple, self, state)
+    innercode = self.parent.consume(self.newtuple, self, state)
     code+=innercode
       
     return code
@@ -228,7 +253,54 @@ class CFileScan(algebra.Scan):
     def __get_binary_scan_template__(self):
         return
 
-    def compileme(self, resultsym):
+    def __get_relation_decl_template__(self):
+        """
+        Implement if the CFileScan implementation requires
+        the relation instance to be a global declaration.
+        If not then just put the local declaration within
+        the *_scan_template.
+        """
+        return None
+
+    def produce(self, state):
+
+        # Common subexpression elimination
+        # don't scan the same file twice
+        resultsym = state.lookupExpr(self)
+        LOG.debug("lookup %s(h=%s) => %s", self, self.__hash__(), resultsym)
+        if not resultsym:
+            #TODO for now this will break whatever relies on self.bound like reusescans
+            #Scan is the only place where a relation is declared
+            resultsym = gensym()
+
+            fscode = self.__compileme__(resultsym)
+
+            state.saveExpr(self, resultsym)
+
+            stagedTuple = self.new_tuple_ref(resultsym, self.scheme())
+            state.saveTupleDef(resultsym, stagedTuple)
+
+            tuple_type_def = stagedTuple.generateDefinition()
+            tuple_type = stagedTuple.getTupleTypename()
+            state.addDeclarations([tuple_type_def])
+
+            rel_decl_template = self.__get_relation_decl_template__()
+            if rel_decl_template:
+                state.addDeclarations([rel_decl_template % locals()])
+
+            # now that we have the type, format this in;
+            state.setPipelineProperty('type', 'scan')
+            state.addPipeline(fscode%{"result_type": tuple_type})
+
+
+        # no return value used because parent is a new pipeline
+        self.parent.consume(resultsym, self, state)
+
+    def consume(self, t, src, state):
+        assert False, "as a source, no need for consume"
+
+
+    def __compileme__(self, resultsym):
         # TODO use the identifiers (don't split str and extract)
         #name = self.relation_key
         LOG.debug('compiling file scan for relation_key %s' % self.relation_key)

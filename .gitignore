@@ -9,3 +9,4 @@ build
 raco.egg-info
 .coverage
 .noseids
+.idea/

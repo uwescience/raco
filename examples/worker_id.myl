@@ -1,0 +1,2 @@
+X = [FROM SCAN(public:adhoc:employee) AS X EMIT X.id, WORKER_ID()];
+STORE(X, OUTPUT);
