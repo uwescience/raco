@@ -1,4 +1,7 @@
 import emitcode
+import raco.algebra as algebra
+import raco.rules as rules
+from raco.grappalang import GrappaSymmetricHashJoin, GrappaHashJoin
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 
 
@@ -103,17 +106,25 @@ queries['Q10'] = """A(subj, pred) :- %(tr)s(subj, pred, 'http://localhost/person
 queries['Q11'] = """A(ee) :- %(tr)s(publication, 'http://www.w3.org/2000/01/rdf-schema#seeAlso', ee)"""
 #TODO order by, limit, offset
     
-algebra = CCAlgebra
+alg = CCAlgebra
 prefix=""
 import sys
 if len(sys.argv) > 1:
     if sys.argv[1] ==  "grappa" or sys.argv[1] == "g":
         print "using grappa"
-        algebra = GrappaAlgebra
+        alg = GrappaAlgebra
         prefix="grappa_"
+
+# plan hacking
+if len(sys.argv) > 2:
+    if sys.argv[2] == "sym":
+        for i in range(0, len(alg.rules)):
+            r = alg.rules[i]
+            if isinstance(r, rules.OneToOne) and r.opto == GrappaHashJoin:
+                alg.rules[i] = rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin)
 
 for name in queries:
     querystr = queries[name] % locals()
-    emitcode.emitCode(querystr, prefix+name, algebra)
+    emitcode.emitCode(querystr, prefix+name, alg)
 
 
