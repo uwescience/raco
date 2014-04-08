@@ -83,6 +83,7 @@ class GrappaLanguage(Language):
     @staticmethod
     def group_wrap(ident, grpcode, attrs):
         pipeline_template_base = ct("""
+        Grappa::Metrics::reset();
         auto start_%(ident)s = walltime();
         %(grpcode)s
         auto end_%(ident)s = walltime();
