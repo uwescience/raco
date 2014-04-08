@@ -1,4 +1,4 @@
-import test_query
+import emitcode
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 
 
@@ -114,6 +114,6 @@ if len(sys.argv) > 1:
 
 for name in queries:
     querystr = queries[name] % locals()
-    test_query.testEmit(querystr, prefix+name, algebra)
+    emitcode.emitCode(querystr, prefix+name, algebra)
 
 
