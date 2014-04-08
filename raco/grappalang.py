@@ -618,7 +618,7 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
          for GrappaLanguage, emitting ascii")
         return self.ascii_scan_template
 
-    def __get_rel_decl_template__(self):
+    def __get_relation_decl_template__(self):
         return """Relation<%(tuple_type)s> %(resultsym)s;"""
 
 
