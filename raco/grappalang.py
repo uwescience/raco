@@ -283,7 +283,7 @@ class HashJoin(algebra.Join, GrappaOperator):
         self._hashname = self.__genHashName__()
         LOG.debug("generate hashname %s for %s", self._hashname, self)
 
-        init_template = """%(hashname)s.init_global_DHT( &%(hashname)s, cores()*5000 );"""
+        init_template = """%(hashname)s.init_global_DHT( &%(hashname)s, cores()*16*1024 );"""
         setro_template = """%(hashname)s.set_RO_global( &%(hashname)s );"""
         hashname = self._hashname
         # surround the code for the pipeline with hash initialization and setRO
