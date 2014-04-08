@@ -43,6 +43,7 @@ class CompileState:
 
         self.declarations = []
         self.pipelines = []
+        self.scan_pipelines = []
         self.initializers = []
         self.pipeline_count = 0
 
@@ -89,7 +90,7 @@ class CompileState:
 
         # force scan pipelines to go first
         if self.current_pipeline_properties.get('type') == 'scan':
-            self.pipelines.insert(0, pipeline_code)
+            self.scan_pipelines.append(pipeline_code)
         else:
             self.pipelines.append(pipeline_code)
 
@@ -129,7 +130,13 @@ class CompileState:
 
     def getExecutionCode(self):
         # list -> string
-        linearized = emitlist(self.pipelines)
+        scan_linearized = emitlist(self.scan_pipelines)
+        mem_linearized = emitlist(self.pipelines)
+
+        scan_linearized_wrapped = self.language.group_wrap(gensym(), scan_linearized, {'type': 'scan'})
+        mem_linearized_wrapped = self.language.group_wrap(gensym(), mem_linearized, {'type': 'in_memory'})
+
+        linearized = scan_linearized_wrapped + mem_linearized_wrapped
 
         # substitute all lazily resolved symbols
         resolved = linearized % self.resolving_symbols

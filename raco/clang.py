@@ -96,6 +96,11 @@ class CC(Language):
         return code
 
     @staticmethod
+    def group_wrap(ident, code, attrs):
+        # TODO: timer, etc
+        return code
+
+    @staticmethod
     def log(txt):
         return  """std::cout << "%s" << std::endl;
         """ % txt

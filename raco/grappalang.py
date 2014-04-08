@@ -81,26 +81,30 @@ class GrappaLanguage(Language):
         return """%(log_str)s << %(code)s;\n""" % locals()
 
     @staticmethod
-    def pipeline_wrap(ident, plcode, attrs):
-        timer_metric = None
-        if attrs['type'] == 'in_memory':
-            timer_metric = "in_memory_runtime"
-        elif attrs['type'] == 'scan':
-            timer_metric = "scan_runtime"
-
-# TODO: for timing, this won't work for inter-pipeline parallel.
-# TODO  we will need to put scan pipelines at the top
-# TODO  and time everything else as a whole
-        pipeline_template = ct("""
+    def group_wrap(ident, grpcode, attrs):
+        pipeline_template_base = ct("""
         auto start_%(ident)s = walltime();
-        %(plcode)s
+        %(grpcode)s
         auto end_%(ident)s = walltime();
         auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
         %(timer_metric)s += runtime_%(ident)s;
         VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
         """)
 
+        timer_metric = None
+        if attrs['type'] == 'in_memory':
+            timer_metric = "in_memory_runtime"
+            pipeline_template = pipeline_template_base % locals()
+        elif attrs['type'] == 'scan':
+            timer_metric = "scan_runtime"
+            pipeline_template = pipeline_template_base % locals()
+
         code = pipeline_template % locals()
+        return code
+
+    @staticmethod
+    def pipeline_wrap(ident, plcode, attrs):
+        code = plcode
 
         syncname = attrs.get('sync')
         if syncname:
@@ -327,7 +331,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
         self.right.childtag = "right"
-        state.addCode(init_template % locals())
+        state.addInitializers([init_template % locals()])
         self.right.produce(state)
 
         self.left.childtag = "left"
@@ -459,7 +463,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
             init_template = ct("""%(hashname)s.init_global_DHT( &%(hashname)s,
             cores()*5000 );""")
-            state.addCode(init_template % locals())
+            state.addInitializers([init_template % locals()])
             self.right.produce(state)
             state.saveExpr(self.right,
                            (self._hashname, self.rightTupleTypename))
