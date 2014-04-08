@@ -33,7 +33,6 @@ queries['Q3c'] = """A(article) :- %(tr)s(article, 'http://www.w3.org/1999/02/22-
                        property = 'http://swrc.ontoware.org/ontology#isbn'"""
 
 #queries['Q4'] = """A(name1, name2) :- %(tr)s(article1, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://localhost/vocabulary/bench/Article'),
-#TODO: include q4 after issue #104 is addressed
 queries['Q4'] = """A(name1, name2) :- %(tr)s(article1, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://localhost/vocabulary/bench/Article'),
                            %(tr)s(article2, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://localhost/vocabulary/bench/Article'),
                            %(tr)s(article1, 'http://purl.org/dc/elements/1.1/creator', author1),
@@ -42,12 +41,11 @@ queries['Q4'] = """A(name1, name2) :- %(tr)s(article1, 'http://www.w3.org/1999/0
                            %(tr)s(author2, 'http://xmlns.com/foaf/0.1/name', name2),
                            %(tr)s(article1, 'http://swrc.ontoware.org/ontology#journal', journal),
                            %(tr)s(article2, 'http://swrc.ontoware.org/ontology#journal', journal)"""
-# TODO: name1<name2 condition (not supported by backends yet) 
+# TODO: name1<name2 condition (not supported
 # TODO be sure DISTINCT
 
 
 # syntactically join with equality; 
-#TODO: include q5a after issue #104 is addressed
 #queries['Q5a'] = """A(person, name) :- %(tr)s(article, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://localhost/vocabulary/bench/Article'),
 queries['Q5a'] = """A(person, name) :- %(tr)s(article, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://localhost/vocabulary/bench/Article'),
                             %(tr)s(article, 'http://purl.org/dc/elements/1.1/creator', person),
@@ -101,7 +99,6 @@ queries['Q9'] = """A(predicate) :- %(tr)s(person, 'http://www.w3.org/1999/02/22-
 
 
 queries['Q10'] = """A(subj, pred) :- %(tr)s(subj, pred, 'http://localhost/persons/Paul_Erdoes')"""
-# Is this right? is there such a string?
 
 queries['Q11'] = """A(ee) :- %(tr)s(publication, 'http://www.w3.org/2000/01/rdf-schema#seeAlso', ee)"""
 #TODO order by, limit, offset

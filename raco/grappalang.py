@@ -299,7 +299,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
             raise ValueError(msg)
 
         init_template = ct("""%(hashname)s.init_global_DHT( &%(hashname)s, \
-        cores()*5000 );
+        cores()*16*1024 );
                         """)
         declr_template = ct("""typedef DoubleDHT<int64_t, \
                                                    %(left_in_tuple_type)s, \
