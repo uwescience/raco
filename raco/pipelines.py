@@ -112,7 +112,8 @@ class CompileState:
         self.current_pipeline_postcode.append(c)
 
     def getInitCode(self):
-        return emitlist(self.initializers)
+        code = emitlist(self.initializers)
+        return code % self.resolving_symbols
 
     def getDeclCode(self):
         # declarations is a set
@@ -126,7 +127,8 @@ class CompileState:
                 return True
 
         # keep in original order
-        return emitlist(filter(f, self.declarations))
+        code = emitlist(filter(f, self.declarations))
+        return code % self.resolving_symbols
 
     def getExecutionCode(self):
         # list -> string
