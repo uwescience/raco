@@ -317,7 +317,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         right_in_tuple_type = self.rightTypeRef.getPlaceholder()
         hashdeclr = declr_template % locals()
 
-        state.addDeclarations([hashdeclr])
+        state.addDeclarationsUnresolved([hashdeclr])
 
         self.outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
         out_tuple_type_def = self.outTuple.generateDefinition()
@@ -459,7 +459,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             self.rightTupleTypeRef = state.createUnresolvedSymbol()
             in_tuple_type = self.rightTupleTypeRef.getPlaceholder()
             hashdeclr = declr_template % locals()
-            state.addDeclarations([hashdeclr])
+            state.addDeclarationsUnresolved([hashdeclr])
 
             init_template = ct("""%(hashname)s.init_global_DHT( &%(hashname)s,
             cores()*5000 );""")

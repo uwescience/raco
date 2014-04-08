@@ -42,6 +42,7 @@ class CompileState:
         self.language = lang
 
         self.declarations = []
+        self.declarations_later = []
         self.pipelines = []
         self.scan_pipelines = []
         self.initializers = []
@@ -79,6 +80,15 @@ class CompileState:
 
     def addDeclarations(self, d):
         self.declarations += d
+
+    def addDeclarationsUnresolved(self, d):
+        """
+        Ordered in the code after the regular declarations
+        just so that any name dependences already have been declared
+        ALTERNATIVE: split decls into forward decls and definitions
+        """
+        self.declarations_later += d
+
 
     def addInitializers(self, i):
         self.initializers += i
@@ -128,6 +138,7 @@ class CompileState:
 
         # keep in original order
         code = emitlist(filter(f, self.declarations))
+        code += emitlist(filter(f, self.declarations_later))
         return code % self.resolving_symbols
 
     def getExecutionCode(self):
