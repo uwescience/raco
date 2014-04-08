@@ -97,7 +97,7 @@ class GrappaLanguage(Language):
             timer_metric = "in_memory_runtime"
             pipeline_template = pipeline_template_base % locals()
         elif attrs['type'] == 'scan':
-            timer_metric = "scan_runtime"
+            timer_metric = "saved_scan_runtime"
             pipeline_template = pipeline_template_base % locals()
 
         code = pipeline_template % locals()

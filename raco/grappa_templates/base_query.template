@@ -40,15 +40,20 @@ void init( ) {
 
 void query() {
     double start, end;
+    double saved_scan_runtime = 0, saved_init_runtime = 0;
     start = walltime();
 
      %(initialized)s
 
     end = walltime();
     init_runtime += (end-start);
+    saved_init_runtime += (end-start);
 
     %(queryexec)s
 
+    // since reset the stats after scan, need to set these again
+    scan_runtime = saved_scan_runtime;
+    init_runtime = saved_init_runtime;
 }
 
 
