@@ -3,23 +3,50 @@
 
 import abc
 from raco.utility import emitlist
+from algebra import gensym
 
 import logging
 LOG = logging.getLogger(__name__)
 
 # for testing output of queries
 class TestEmit:
-  def __init__(self, lang):
+  def __init__(self, lang, emitprint):
     self.language = lang
+    self.emitprint = emitprint
   def consume(self,t,src,state):
-    return self.language.log_unquoted("%s" % t.name)
+    code = ""
+
+    resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
+    state.addDeclarations([resdecl])
+
+    code += "result.push_back(%s);\n" %(t.name)
+    if self.emitprint:
+        code += self.language.log_unquoted("%s" % t.name, 1)
+
+    return code
+
+class ResolvingSymbol:
+    def __init__(self, name):
+        self._name = name
+        self._placeholder = "%%(%s)s" % name
+
+    def getPlaceholder(self):
+        return self._placeholder
+
+    def getName(self):
+        return self._name
 
 class CompileState:
 
-    def __init__(self, cse=True):
+    def __init__(self, lang, cse=True):
+        self.language = lang
+
         self.declarations = []
+        self.declarations_later = []
         self.pipelines = []
+        self.scan_pipelines = []
         self.initializers = []
+        self.pipeline_count = 0
 
         # { expression => symbol for materialized result }
         self.materialized = {}
@@ -27,22 +54,76 @@ class CompileState:
         # { symbol => tuple type definition }
         self.tupledefs = {}
 
+        # symbol resolution
+        self.resolving_symbols = {}
+
         self.common_subexpression_elim = cse
+
+        self.current_pipeline_properties = {}
+        self.current_pipeline_precode = []
+        self.current_pipeline_postcode = []
+
+    def setPipelineProperty(self, key, value):
+        self.current_pipeline_properties[key] = value
+
+    def getPipelineProperty(self, key):
+        return self.current_pipeline_properties[key]
+
+    def createUnresolvedSymbol(self):
+        name = gensym()
+        rs = ResolvingSymbol(name)
+        self.resolving_symbols[name] = None
+        return rs
+
+    def resolveSymbol(self, rs, value):
+        self.resolving_symbols[rs.getName()] = value
 
     def addDeclarations(self, d):
         self.declarations += d
+
+    def addDeclarationsUnresolved(self, d):
+        """
+        Ordered in the code after the regular declarations
+        just so that any name dependences already have been declared
+        ALTERNATIVE: split decls into forward decls and definitions
+        """
+        self.declarations_later += d
+
 
     def addInitializers(self, i):
         self.initializers += i
 
     def addPipeline(self, p):
-        self.pipelines.append(p)
+        pipeline_code = emitlist(self.current_pipeline_precode) +\
+                        self.language.pipeline_wrap(self.pipeline_count, p, self.current_pipeline_properties) +\
+                        emitlist(self.current_pipeline_postcode)
+
+        # force scan pipelines to go first
+        if self.current_pipeline_properties.get('type') == 'scan':
+            self.scan_pipelines.append(pipeline_code)
+        else:
+            self.pipelines.append(pipeline_code)
+
+        self.pipeline_count += 1
+        self.current_pipeline_properties = {}
+        self.current_pipeline_precode = []
+        self.current_pipeline_postcode = []
 
     def addCode(self, c):
+        """
+        Just add code here
+        """
         self.pipelines.append(c)
 
+    def addPreCode(self, c):
+        self.current_pipeline_precode.append(c)
+
+    def addPostCode(self, c):
+        self.current_pipeline_postcode.append(c)
+
     def getInitCode(self):
-        return emitlist(self.initializers)
+        code = emitlist(self.initializers)
+        return code % self.resolving_symbols
 
     def getDeclCode(self):
         # declarations is a set
@@ -56,10 +137,25 @@ class CompileState:
                 return True
 
         # keep in original order
-        return emitlist(filter(f, self.declarations))
+        code = emitlist(filter(f, self.declarations))
+        code += emitlist(filter(f, self.declarations_later))
+        return code % self.resolving_symbols
 
     def getExecutionCode(self):
-        return emitlist(self.pipelines)
+        # list -> string
+        scan_linearized = emitlist(self.scan_pipelines)
+        mem_linearized = emitlist(self.pipelines)
+
+        scan_linearized_wrapped = self.language.group_wrap(gensym(), scan_linearized, {'type': 'scan'})
+        mem_linearized_wrapped = self.language.group_wrap(gensym(), mem_linearized, {'type': 'in_memory'})
+
+        linearized = scan_linearized_wrapped + mem_linearized_wrapped
+
+        # substitute all lazily resolved symbols
+        resolved = linearized % self.resolving_symbols
+
+        return resolved
+
 
     def lookupExpr(self, expr):
         if self.common_subexpression_elim:
@@ -95,8 +191,7 @@ class Pipelined(object):
         return []
           
       [_ for _ in root.postorder(markChildParent)]
-      root.parent = TestEmit(root.language)
-      
+
     @abc.abstractmethod
     def produce(self, state):
       """Denotation for producing a tuple"""
@@ -107,10 +202,11 @@ class Pipelined(object):
       """Denotation for consuming a tuple"""
       return
 
-    def compilePipeline(self, resultsym):
+    def compilePipeline(self, resultsym, emitprint=True):
       self.__markAllParents__()
+      self.parent = TestEmit(self.language, emitprint)
 
-      state = CompileState()
+      state = CompileState(self.language)
       
       # TODO bound
       # TODO should be using resultsym?? for what here?

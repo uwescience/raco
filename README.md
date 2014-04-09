@@ -94,6 +94,11 @@ Sequence
 ### Visualize a Myria plan as a graph
 Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
+### Run the datalog->C++ tests
+```bash
+PYTHONPATH=examples python c_test_environment/clang_tests.py
+```
+
 ### Compile a datalog query into C++, then run it
 ```
 cd examples
@@ -114,6 +119,6 @@ cd examples
 ./grappalog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
 ```
 
-# Authors and contract information
+# Authors and contact information
 
 Raco's authors include Bill Howe, Andrew Whitaker, Daniel Halperin, Brandon Myers and Dominik Moritz at the University of Washington. Contact us at <raco@cs.washington.edu>.

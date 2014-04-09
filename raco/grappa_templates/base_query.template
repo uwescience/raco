@@ -1,6 +1,7 @@
 // grappa
 #include <Grappa.hpp>
 #include <Collective.hpp>
+#include <GlobalCompletionEvent.hpp>
 
 using namespace Grappa;
 
@@ -11,6 +12,7 @@ using namespace Grappa;
 // query library
 #include "relation_io.hpp"
 #include "MatchesDHT.hpp"
+#include "DoubleDHT.hpp"
 #include "utils.h"
 #include "stats.h"
 #include "strings.h"
@@ -40,9 +42,20 @@ void init( ) {
 
 void query() {
     double start, end;
-    %(initialized)s
+    double saved_scan_runtime = 0, saved_init_runtime = 0;
+    start = walltime();
+
+     %(initialized)s
+
+    end = walltime();
+    init_runtime += (end-start);
+    saved_init_runtime += (end-start);
 
     %(queryexec)s
+
+    // since reset the stats after scan, need to set these again
+    scan_runtime = saved_scan_runtime;
+    init_runtime = saved_init_runtime;
 }
 
 
@@ -51,12 +64,13 @@ int main(int argc, char** argv) {
 
     run([] {
 
-    on_all_cores([]() { init(); });
+    init();
 double start = Grappa::walltime();
     	query();
       double end = Grappa::walltime();
       query_runtime = end - start;
-    	Metrics::merge_and_print();
+      on_all_cores([] { emit_count = result.size(); });
+      Metrics::merge_and_print();
     });
 
     finalize();

@@ -9,6 +9,10 @@ $extras = false
 if ARGV.length > 1 and ARGV[1]=='extras' then
   $extras = true
 end
+$int_index = true
+if ARGV.length > 1 and ARGV[1]=='str' then
+    $int_index = false
+end
 
 """
 Some junk trying to output prefix reduced versions of strings,
@@ -56,33 +60,50 @@ def newid()
     return r
 end
 
-strings = {}
-# including the prefixes is silly and unnecessary
-open("#{$inputfile}.i", 'w') do |writer|
-  RDF::Reader.open($inputfile) do |reader|
-    reader.each_statement do |statement|
-      spo = []
-      statement.to_a.each do |atr|   # can also pull out attributes with subject/predicate/object
-        intid = strings[atr]    # just hash the RDF::URI object directly (or try to_s())
-        if not intid then
-          intid = newid()
-          strings[atr] = intid
+if $int_index then
+    strings = {}
+    # including the prefixes is silly and unnecessary
+    open("#{$inputfile}.i", 'w') do |writer|
+        RDF::Reader.open($inputfile) do |reader|
+            reader.each_statement do |statement|
+                spo = []
+                statement.to_a.each do |atr|   # can also pull out attributes with subject/predicate/object
+                    intid = strings[atr]    # just hash the RDF::URI object directly (or try to_s())
+                    if not intid then
+                        intid = newid()
+                        strings[atr] = intid
+                    end
+                    spo+=[intid]
+                end
+
+                writer.write("#{spo.join(" ")}\n")
+            end
         end
-        spo+=[intid]
-      end
 
-      writer.write("#{spo.join(" ")}\n")
     end
-  end
 
+    # encoding of map is is (string=>index) -> (implicitly linenumber) 
+    open("#{$inputfile}.index", 'w') do |writer|
+        strings.each_pair do |k,v|
+            writer.write("#{k.to_s}\n")
+        end
+    end  
+else 
+    open("#{$inputfile}.str", 'w') do |writer|
+        RDF::Reader.open($inputfile) do |reader|
+            reader.each_statement do |statement|
+                spo = []
+                statement.to_a.each do |atr|   # can also pull out attributes with subject/predicate/object
+                    spo+=[atr.to_s]
+                end
+
+                writer.write("#{spo.join(1.chr)}\n")
+            end
+        end
+
+    end
 end
-
-# encoding of map is is (string=>index) -> (implicitly linenumber) 
-open("#{$inputfile}.index", 'w') do |writer|
-    strings.each_pair do |k,v|
-        writer.write("#{k.to_s}\n")
-    end
-end  
+    
 
 if $extras then
 

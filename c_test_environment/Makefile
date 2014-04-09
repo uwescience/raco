@@ -1,13 +1,13 @@
 # WARNING: name environment source files .h or .cc, but not .cpp, which is reserved (.gitignore laziness)
 
-CPPC = g++
+CXX = clang++
 
 CFLAGS = -ggdb -std=c++11 #-O3 #-m64 -Wno-deprecated -fPIC
 LIBS = 
 INCL = 
-COMP = $(CPPC) $(CFLAGS) -c $< $(INCL) 
-LINK = $(CPPC) $(CFLAGS) -o $@ $^ $(LIBS)
-COMPLINK = $(CPPC) $(CFLAGS) -o $@ $^ $(LIBS) $@.cc
+COMP = $(CXX) $(CFLAGS) -c $< $(INCL) 
+LINK = $(CXX) $(CFLAGS) -o $@ $^ $(LIBS)
+COMPLINK = $(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $@.cc
 
 
 # for 'triangle'
@@ -33,4 +33,9 @@ strings.o : strings.cc strings.h
 
 %.o : %.cpp 
 	$(COMP) 
+
+grappa-install: strings.cc strings.h utils.h
+	ln -sf `pwd`/strings.cc $(GRAPPA_HOME)/applications/join
+	ln -sf `pwd`/strings.h $(GRAPPA_HOME)/applications/join
+	ln -sf `pwd`/utils.h $(GRAPPA_HOME)/applications/join
 
