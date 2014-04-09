@@ -1,6 +1,7 @@
 // grappa
 #include <Grappa.hpp>
 #include <Collective.hpp>
+#include <GlobalCompletionEvent.hpp>
 
 using namespace Grappa;
 
@@ -11,6 +12,7 @@ using namespace Grappa;
 // query library
 #include "relation_io.hpp"
 #include "MatchesDHT.hpp"
+#include "DoubleDHT.hpp"
 #include "utils.h"
 #include "stats.h"
 #include "strings.h"

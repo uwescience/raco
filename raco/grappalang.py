@@ -108,7 +108,7 @@ class GrappaLanguage(Language):
         syncname = attrs.get('sync')
         if syncname:
             inner_code = code
-            sync_template = ct("""spawn<&%(syncname)s>([=] {
+            sync_template = ct("""spawn(&%(syncname)s, [=] {
                     %(inner_code)s
                     });
                     """)
@@ -343,7 +343,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
     def consume(self, t, src, state):
         access_template = ct("""
         %(hashname)s.insert_lookup_iter_%(side)s<&%(global_syncname)s>(\
-        %(keyname)s.get(%(keypos)s, %(keyname)s), \
+        %(keyname)s.get(%(keypos)s), %(keyname)s, \
         [=](%(other_tuple_type)s %(valname)s) {
             join_coarse_result_count++;
             %(out_tuple_type)s %(out_tuple_name)s = \
