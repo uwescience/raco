@@ -25,6 +25,10 @@ class ClangTest(unittest.TestCase):
         if not os.path.isfile(testdbname()):
             generate_default()  
         
+    # @nottest: excluding these tests from nosetests
+    # Currently running clang_tests in the hosted travis.ci environment fails
+    # to run the compiled C++ programs. Exit code -4 and no output on stderr/stdout.
+    # Run these tests separately with `python clang_tests.py` from the root of datalogcompiler/
     @nottest
     def test_scan(self):
         self.check("A(s1) :- T1(s1)", "scan")
