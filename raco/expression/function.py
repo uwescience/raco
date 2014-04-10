@@ -73,16 +73,16 @@ class POW(BinaryFunction):
                    self.right.evaluate(_tuple, scheme, state))
 
 
-class LEAST(BinaryFunction):
-    literals = ['LEAST']
+class LESSER(BinaryFunction):
+    literals = ['LESSER']
 
     def evaluate(self, _tuple, scheme, state=None):
         return min(self.left.evaluate(_tuple, scheme, state),
                    self.right.evaluate(_tuple, scheme, state))
 
 
-class GREATEST(BinaryFunction):
-    literals = ['GREATEST']
+class GREATER(BinaryFunction):
+    literals = ['GREATER']
 
     def evaluate(self, _tuple, scheme, state=None):
         return max(self.left.evaluate(_tuple, scheme, state),

@@ -1243,23 +1243,23 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_least_function(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT least(X.id,X.dept_id)];
+        out = [FROM SCAN(%s) AS X EMIT least(X.id,X.dept_id,1)];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
-            [(min(t[0], t[1]),)
+            [(min(t[0], t[1], 1),)
              for t in self.emp_table])
         self.check_result(query, expected)
 
     def test_greatest_function(self):
         query = """
-        out = [FROM SCAN(%s) AS X EMIT greatest(X.id,X.dept_id)];
+        out = [FROM SCAN(%s) AS X EMIT greatest(X.id,X.dept_id,3)];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter(
-            [(max(t[0], t[1]),)
+            [(max(t[0], t[1], 3),)
              for t in self.emp_table])
         self.check_result(query, expected)
 

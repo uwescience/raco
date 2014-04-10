@@ -8,9 +8,28 @@ from raco.expression import *
 
 def lookup(function_name, num_args):
     func = EXPRESSIONS.get(function_name)
+    if hasattr(func, '__call__'):
+        return func(num_args)
     if isinstance(func, dict):
-        func = func.get(num_args)
+        return func.get(num_args)
     return func
+
+
+def create_binary(num_args, func):
+    def make_binary(num_args):
+        if num_args < 2:
+            return None
+        if num_args == 2:
+            return func(
+                NamedAttributeRef('x%d' % num_args),
+                NamedAttributeRef('x%d' % (num_args - 1)))
+        return func(
+            NamedAttributeRef('x%d' % num_args),
+            make_binary(num_args - 1))
+    return Function(
+        ['x' + str(x + 1) for x in range(num_args)],
+        make_binary(num_args))
+
 
 # mapping from name -> dict or Function
 # the dict is a mapping from arity -> Function
@@ -25,5 +44,7 @@ EXPRESSIONS = {
               NamedAttributeRef('default'))],
             DIVIDE(NamedAttributeRef('n'), NamedAttributeRef('d'))))
     },
-    'TheAnswerToLifeTheUniverseAndEverything': Function([], NumericLiteral(42))
+    'TheAnswerToLifeTheUniverseAndEverything': Function([], NumericLiteral(42)),
+    'greatest': lambda num_args: create_binary(num_args, GREATER),
+    'least': lambda num_args: create_binary(num_args, LESSER),
 }
