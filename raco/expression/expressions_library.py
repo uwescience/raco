@@ -48,4 +48,6 @@ EXPRESSIONS = {
         [], NumericLiteral(42)),
     'greatest': lambda num_args: create_binary(num_args, GREATER),
     'least': lambda num_args: create_binary(num_args, LESSER),
+    'greater': create_binary(2, GREATER),
+    'lesser': create_binary(2, LESSER),
 }
