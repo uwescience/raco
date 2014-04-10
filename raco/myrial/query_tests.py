@@ -1241,6 +1241,28 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter([(42,)])
         self.check_result(query, expected)
 
+    def test_least_function(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT least(X.id,X.dept_id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(min(t[0], t[1]),)
+             for t in self.emp_table])
+        self.check_result(query, expected)
+
+    def test_greatest_function(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT greatest(X.id,X.dept_id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(max(t[0], t[1]),)
+             for t in self.emp_table])
+        self.check_result(query, expected)
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {

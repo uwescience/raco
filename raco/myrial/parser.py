@@ -585,6 +585,16 @@ class Parser(object):
         p[0] = sexpr.POW(p[3], p[5])
 
     @staticmethod
+    def p_sexpr_least(p):
+        'sexpr : LEAST LPAREN sexpr COMMA sexpr RPAREN'
+        p[0] = sexpr.LEAST(p[3], p[5])
+
+    @staticmethod
+    def p_sexpr_greatest(p):
+        'sexpr : GREATEST LPAREN sexpr COMMA sexpr RPAREN'
+        p[0] = sexpr.GREATEST(p[3], p[5])
+
+    @staticmethod
     def p_sexpr_not(p):
         'sexpr : NOT sexpr'
         p[0] = sexpr.NOT(p[2])
