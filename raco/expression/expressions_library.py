@@ -44,7 +44,8 @@ EXPRESSIONS = {
               NamedAttributeRef('default'))],
             DIVIDE(NamedAttributeRef('n'), NamedAttributeRef('d'))))
     },
-    'TheAnswerToLifeTheUniverseAndEverything': Function([], NumericLiteral(42)),
+    'TheAnswerToLifeTheUniverseAndEverything': Function(
+        [], NumericLiteral(42)),
     'greatest': lambda num_args: create_binary(num_args, GREATER),
     'least': lambda num_args: create_binary(num_args, LESSER),
 }
