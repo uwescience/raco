@@ -7,7 +7,7 @@ from raco.expression import *
 
 
 def lookup(function_name, num_args):
-    func = EXPRESSIONS.get(function_name)
+    func = EXPRESSIONS.get(function_name.lower())
     if hasattr(func, '__call__'):
         return func(num_args)
     if isinstance(func, dict):
@@ -34,7 +34,7 @@ def create_nested_binary(num_args, func):
 
 # mapping from name -> dict or Function
 # the dict is a mapping from arity -> Function
-EXPRESSIONS = {
+EXPRESSIONS_CASE = {
     'SafeDiv': {
         2: Function(['n', 'd'], Case(
             [(EQ(NamedAttributeRef('d'), NumericLiteral(0)),
@@ -49,6 +49,8 @@ EXPRESSIONS = {
         [], NumericLiteral(42)),
     'greatest': lambda num_args: create_nested_binary(num_args, GREATER),
     'least': lambda num_args: create_nested_binary(num_args, LESSER),
-    'greater': create_nested_binary(2, GREATER),
+    'grater': create_nested_binary(2, GREATER),
     'lesser': create_nested_binary(2, LESSER),
 }
+
+EXPRESSIONS = {k.lower(): v for k, v in EXPRESSIONS_CASE.items()}
