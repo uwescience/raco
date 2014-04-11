@@ -49,7 +49,7 @@ EXPRESSIONS_CASE = {
         [], NumericLiteral(42)),
     'greatest': lambda num_args: create_nested_binary(num_args, GREATER),
     'least': lambda num_args: create_nested_binary(num_args, LESSER),
-    'grater': create_nested_binary(2, GREATER),
+    'greater': create_nested_binary(2, GREATER),
     'lesser': create_nested_binary(2, LESSER),
 }
 
