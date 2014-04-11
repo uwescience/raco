@@ -15,10 +15,11 @@ def lookup(function_name, num_args):
     return func
 
 
-def create_binary(num_args, func):
+def create_nested_binary(num_args, func):
+    if num_args < 2:
+        return None
+
     def make_binary(num_args):
-        if num_args < 2:
-            return None
         if num_args == 2:
             return func(
                 NamedAttributeRef('x%d' % num_args),
@@ -46,8 +47,8 @@ EXPRESSIONS = {
     },
     'TheAnswerToLifeTheUniverseAndEverything': Function(
         [], NumericLiteral(42)),
-    'greatest': lambda num_args: create_binary(num_args, GREATER),
-    'least': lambda num_args: create_binary(num_args, LESSER),
-    'greater': create_binary(2, GREATER),
-    'lesser': create_binary(2, LESSER),
+    'greatest': lambda num_args: create_nested_binary(num_args, GREATER),
+    'least': lambda num_args: create_nested_binary(num_args, LESSER),
+    'greater': create_nested_binary(2, GREATER),
+    'lesser': create_nested_binary(2, LESSER),
 }
