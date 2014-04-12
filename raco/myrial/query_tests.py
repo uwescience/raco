@@ -1468,3 +1468,28 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(
             [(x[0], len(x[2])) for x in self.emp_table.elements()])
         self.check_result(query, expected)
+
+    def test_head(self):
+        query = """
+        ZERO = [0];
+        THREE = [3];
+        out = [FROM SCAN(%s) AS X EMIT X.id, head(X.name, 10)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[0], x[2][0:10]) for x in self.emp_table.elements()])
+        self.check_result(query, expected)
+
+    def test_tail(self):
+        query = """
+        ZERO = [0];
+        THREE = [3];
+        out = [FROM SCAN(%s) AS X EMIT X.id, tail(X.name, 10)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[0], (lambda i: i if len(i) <= 10 else i[len(i) - 10:])(x[2]))
+                for x in self.emp_table.elements()])
+        self.check_result(query, expected)

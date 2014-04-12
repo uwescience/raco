@@ -56,7 +56,23 @@ EXPRESSIONS_CASE = {
                                NamedAttributeRef('begin'),
                                NamedAttributeRef('end')
                                ])),
-    'len': Function(['str'], LEN(NamedAttributeRef('str')))
+    'len': Function(['str'], LEN(NamedAttributeRef('str'))),
+    'head': Function(['str', 'length'], Case(
+        [(GT(NamedAttributeRef('length'), LEN(NamedAttributeRef('str'))),
+         NamedAttributeRef('str'))],
+        SUBSTR([NamedAttributeRef('str'),
+                NumericLiteral(0),
+                NamedAttributeRef('length')
+                ]))),
+    'tail': Function(['str', 'length'], Case(
+        [(GT(NamedAttributeRef('length'), LEN(NamedAttributeRef('str'))),
+         NamedAttributeRef('str'))],
+        SUBSTR([NamedAttributeRef('str'),
+                MINUS(LEN(NamedAttributeRef('str')),
+                      NamedAttributeRef('length')
+                      ),
+                PLUS(LEN(NamedAttributeRef('str')), NumericLiteral(1))
+                ])))
 }
 
 EXPRESSIONS = {k.lower(): v for k, v in EXPRESSIONS_CASE.items()}
