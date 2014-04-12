@@ -17,6 +17,13 @@ class BinaryFunction(BinaryOperator):
         return "%s(%s, %s)" % (self.__class__.__name__, self.left, self.right)
 
 
+class NaryFunction(NaryOperator):
+    def __str__(self):
+        return "%s(%s)" % \
+            (self.__class__.__name__,
+             ",".join([str(op) for op in self.operands]))
+
+
 class WORKERID(ZeroaryOperator):
     def __str__(self):
         return "%s" % self.__class__.__name__
