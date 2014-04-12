@@ -94,3 +94,13 @@ class GREATER(BinaryFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return max(self.left.evaluate(_tuple, scheme, state),
                    self.right.evaluate(_tuple, scheme, state))
+
+
+class SUBSTR(NaryFunction):
+    literals = ["SUBSTR"]
+
+    def evaluate(self, _tuple, scheme, state=None):
+        inputStr = self.operands[0].evaluate(_tuple, scheme, state)
+        beginIdx = self.operands[1].evaluate(_tuple, scheme, state)
+        endIdx = self.operands[2].evaluate(_tuple, scheme, state)
+        return inputStr[beginIdx:endIdx]
