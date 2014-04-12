@@ -104,3 +104,10 @@ class SUBSTR(NaryFunction):
         beginIdx = self.operands[1].evaluate(_tuple, scheme, state)
         endIdx = self.operands[2].evaluate(_tuple, scheme, state)
         return inputStr[beginIdx:endIdx]
+
+
+class LEN(UnaryFunction):
+    literals = ["LEN"]
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return len(self.input.evaluate(_tuple, scheme, state))

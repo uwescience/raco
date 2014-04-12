@@ -55,7 +55,8 @@ EXPRESSIONS_CASE = {
                        SUBSTR([NamedAttributeRef('str'),
                                NamedAttributeRef('begin'),
                                NamedAttributeRef('end')
-                               ]))
+                               ])),
+    'len': Function(['str'], LEN(NamedAttributeRef('str')))
 }
 
 EXPRESSIONS = {k.lower(): v for k, v in EXPRESSIONS_CASE.items()}
