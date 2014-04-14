@@ -1,3 +1,9 @@
 nose
 coverage
-flake8 >= 2.0
+
+# Flake8: hardcode version plus dependency versions
+flake8 == 2.1.0
+pep8 == 1.5.4
+pyflakes == 0.8.1
+mccabe == 0.2.1
+# /Flake8
