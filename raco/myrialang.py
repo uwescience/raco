@@ -1120,7 +1120,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
         else:
             raise NotImplementedError("unable to handle operator of type " + type(op))  # noqa
         op_dict['opName'] = op.shortStr()
-        op_dict['opID'] = opsym
+        op_dict['opId'] = opsym
         return op_dict
 
     # The actual code. all_frags collects up the fragments.
