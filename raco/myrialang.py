@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from raco import algebra
 from raco import rules
+from raco import matviews
 from raco.scheme import Scheme
 from raco import expression
 from raco.language import Language
@@ -964,6 +965,7 @@ class MyriaAlgebra(object):
         SplitSelects(),
         PushSelects(),
         MergeSelects(),
+        matviews.ReplaceWithView(),
 
         rules.ProjectingJoin(),
         rules.JoinToProjectingJoin(),
