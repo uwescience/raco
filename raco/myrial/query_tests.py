@@ -1459,8 +1459,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_len(self):
         query = """
-        ZERO = [0];
-        THREE = [3];
         out = [FROM SCAN(%s) AS X EMIT X.id, len(X.name)];
         STORE(out, OUTPUT);
         """ % self.emp_key
@@ -1471,8 +1469,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_head(self):
         query = """
-        ZERO = [0];
-        THREE = [3];
         out = [FROM SCAN(%s) AS X EMIT X.id, head(X.name, 10)];
         STORE(out, OUTPUT);
         """ % self.emp_key
