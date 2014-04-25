@@ -71,3 +71,19 @@ class POW(BinaryFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return pow(self.left.evaluate(_tuple, scheme, state),
                    self.right.evaluate(_tuple, scheme, state))
+
+
+class LESSER(BinaryFunction):
+    literals = ['LESSER']
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return min(self.left.evaluate(_tuple, scheme, state),
+                   self.right.evaluate(_tuple, scheme, state))
+
+
+class GREATER(BinaryFunction):
+    literals = ['GREATER']
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return max(self.left.evaluate(_tuple, scheme, state),
+                   self.right.evaluate(_tuple, scheme, state))
