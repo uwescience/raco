@@ -124,6 +124,10 @@ class ClangTest(unittest.TestCase):
     A(s1,s2) :- R2(s1,s2)
     B(s1) :- A(s1,s2), A(s1,s3)""", "join_of_two_unions")
 
+    @nottest
+    def test_join_swap_indexing(self):
+        self.check("""A(a,h,y) :- T3(a,b,c), R3(x, y, z), S3(g,h,j), z=c, j=x""", "join_swap_indexing")
+
 
 if __name__ == '__main__':
     unittest.main()
