@@ -19,17 +19,9 @@ def create_nested_binary(num_args, func):
     if num_args < 2:
         return None
 
-    def make_binary(num_args):
-        if num_args == 2:
-            return func(
-                NamedAttributeRef('x%d' % num_args),
-                NamedAttributeRef('x%d' % (num_args - 1)))
-        return func(
-            NamedAttributeRef('x%d' % num_args),
-            make_binary(num_args - 1))
-    return Function(
-        ['x' + str(x + 1) for x in range(num_args)],
-        make_binary(num_args))
+    var = ["x{i}".format(i=i + 1) for i in xrange(num_args)]
+    var_refs = [NamedAttributeRef(vstr) for vstr in var]
+    return Function(var, reduce(func, var_refs))
 
 
 # mapping from name -> dict or Function
