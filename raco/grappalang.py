@@ -461,7 +461,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             state.addDeclarationsUnresolved([hashdeclr])
 
             init_template = ct("""%(hashname)s.init_global_DHT( &%(hashname)s,
-            cores()*5000 );""")
+            cores()*16*1024 );""")
             state.addInitializers([init_template % locals()])
             self.right.produce(state)
             state.saveExpr(self.right,
@@ -665,8 +665,8 @@ class GrappaAlgebra(object):
         rules.OneToOne(algebra.Apply, GrappaApply),
         # rules.OneToOne(algebra.Scan,MemoryScan),
         MemoryScanOfFileScan(),
-        # rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
-        rules.OneToOne(algebra.Join, GrappaHashJoin),
+       #  rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
+         rules.OneToOne(algebra.Join, GrappaHashJoin),
         rules.OneToOne(algebra.Project, GrappaProject),
         # TODO: this Union obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll)
