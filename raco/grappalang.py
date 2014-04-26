@@ -468,7 +468,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             state.addDeclarationsUnresolved([hashdeclr])
 
             init_template = ct("""%(hashname)s.init_global_DHT( &%(hashname)s,
-            cores()*5000 );""")
+            cores()*16*1024 );""")
             state.addInitializers([init_template % locals()])
             self.right.produce(state)
             state.saveExpr(self.right,
@@ -610,7 +610,7 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
     ascii_scan_template = """
     {
     if (FLAGS_bin) {
-    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( "%(name)s" );
+    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( "%(name)s.bin" );
     } else {
     %(resultsym)s.data = readTuples<%%(result_type)s>( "%(name)s", FLAGS_nt);
     %(resultsym)s.numtuples = FLAGS_nt;
