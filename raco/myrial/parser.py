@@ -99,7 +99,7 @@ class Parser(object):
     @staticmethod
     def p_translation_unit(p):
         '''translation_unit : statement
-                            | function
+                            | udf
                             | apply'''
         p[0] = p[1]
 
@@ -180,8 +180,8 @@ class Parser(object):
         Parser.udf_functions[name] = Apply(args, statemods, finalizer)
 
     @staticmethod
-    def p_function(p):
-        '''function : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''  # noqa
+    def p_udf(p):
+        '''udf : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''  # noqa
         Parser.add_udf(p, p[2], p[4], p[7])
         p[0] = None
 
