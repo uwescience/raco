@@ -63,7 +63,7 @@ EXPRESSIONS_CASE = {
                              ]))
 }
 
-# Mapping from source symbols to raco.expression.UnaryOperator classes
+# Simple unary functions that map to a single Myria expression
 UNARY_FUNCS = {
     'ABS': ABS,
     'CEIL': CEIL,
