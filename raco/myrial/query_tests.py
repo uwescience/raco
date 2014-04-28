@@ -1508,3 +1508,12 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """
         with self.assertRaises(ReservedTokenException):
             self.check_result(query, None)
+
+    def test_variable_name_reserved(self):
+        query = """
+        T = EMPTY(x:int);
+        avg = COUNTALL(T);
+        STORE (countall, BadProgram);
+        """
+        with self.assertRaises(ReservedTokenException):
+            self.check_result(query, None)
