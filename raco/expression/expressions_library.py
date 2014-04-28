@@ -83,7 +83,7 @@ def get_arity(func_class):
         assert False
 
 
-def one_to_function(func_name):
+def one_to_one_function(func_name):
     """Emit a Function object that wraps a Myria built-in expression."""
     func_class = getattr(raco.expression, func_name)
     arity = get_arity(func_class)
@@ -97,7 +97,7 @@ ONE_TO_ONE_FUNCS = ['ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT',
                     'TAN', 'LEN', 'POW', 'MAX', 'MIN', 'SUM', 'AVG', 'STDEV',
                     'COUNTALL']
 
-ONE_TO_ONE_EXPRS = {k.lower(): one_to_function(k) for k in ONE_TO_ONE_FUNCS}
+ONE_TO_ONE_EXPRS = {k.lower(): one_to_one_function(k) for k in ONE_TO_ONE_FUNCS}  # noqa
 
 EXPRESSIONS = {k.lower(): v for k, v in EXPRESSIONS_CASE.items()}
 EXPRESSIONS.update(ONE_TO_ONE_EXPRS)
