@@ -590,8 +590,8 @@ class Parser(object):
         p[0] = sexpr.NOT(p[2])
 
     @staticmethod
-    def resolve_udf(p, name, args):
-        """Resolve a UDF invocation into an Expression instance.
+    def resolve_function(p, name, args):
+        """Resolve a function invocation into an Expression instance.
 
         :param p: The parser context
         :param name: The name of the function
@@ -633,19 +633,19 @@ class Parser(object):
             assert False
 
     @staticmethod
-    def p_sexpr_udf_k_args(p):
-        'sexpr : ID LPAREN udf_arg_list RPAREN'
-        p[0] = Parser.resolve_udf(p, p[1], p[3])
+    def p_sexpr_function_k_args(p):
+        'sexpr : ID LPAREN function_param_list RPAREN'
+        p[0] = Parser.resolve_function(p, p[1], p[3])
 
     @staticmethod
-    def p_sexpr_udf_zero_args(p):
+    def p_sexpr_function_zero_args(p):
         'sexpr : ID LPAREN RPAREN'
-        p[0] = Parser.resolve_udf(p, p[1], [])
+        p[0] = Parser.resolve_function(p, p[1], [])
 
     @staticmethod
-    def p_udf_arg_list(p):
-        '''udf_arg_list : udf_arg_list COMMA sexpr
-                        | sexpr'''
+    def p_function_param_list(p):
+        '''function_param_list : function_param_list COMMA sexpr
+                               | sexpr'''
         if len(p) == 4:
             p[0] = p[1] + [p[3]]
         else:
