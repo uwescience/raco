@@ -1499,3 +1499,12 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """
         with self.assertRaises(ReservedTokenException):
             self.check_result(query, None)
+
+    def test_column_mixed_case_reserved(self):
+        query = """
+        T = EMPTY(x:int);
+        A = [FROM T EMIT MAX(x) AS maX];
+        STORE (A, BadProgram);
+        """
+        with self.assertRaises(ReservedTokenException):
+            self.check_result(query, None)
