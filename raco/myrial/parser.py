@@ -43,18 +43,6 @@ binops = {
     'POW': sexpr.POW,
 }
 
-# Mapping from source symbols to raco.expression.UnaryOperator classes
-unary_funcs = {
-    'ABS': sexpr.ABS,
-    'CEIL': sexpr.CEIL,
-    'COS': sexpr.COS,
-    'FLOOR': sexpr.FLOOR,
-    'LOG': sexpr.LOG,
-    'SIN': sexpr.SIN,
-    'SQRT': sexpr.SQRT,
-    'TAN': sexpr.TAN,
-}
-
 
 class Parser(object):
     # mapping from function name to Function tuple
@@ -547,18 +535,6 @@ class Parser(object):
     def p_sexpr_worker_id(p):
         '''sexpr : WORKER_ID LPAREN RPAREN'''
         p[0] = sexpr.WORKERID()
-
-    @staticmethod
-    def p_sexpr_unary_function(p):
-        '''sexpr : ABS LPAREN sexpr RPAREN
-                   | CEIL LPAREN sexpr RPAREN
-                   | COS LPAREN sexpr RPAREN
-                   | FLOOR LPAREN sexpr RPAREN
-                   | LOG LPAREN sexpr RPAREN
-                   | SIN LPAREN sexpr RPAREN
-                   | SQRT LPAREN sexpr RPAREN
-                   | TAN LPAREN sexpr RPAREN'''
-        p[0] = unary_funcs[p[1]](p[3])
 
     @staticmethod
     def p_sexpr_binop(p):
