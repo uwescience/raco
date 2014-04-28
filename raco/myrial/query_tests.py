@@ -1102,6 +1102,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(NoSuchFunctionException):
             self.check_result(query, collections.Counter())
 
+    def test_reserved_udf(self):
+        query = """
+        DEF avg(x, y): (x + y) / 2;
+        out = [FROM SCAN(%s) AS X EMIT avg(X.salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(ReservedTokenException):
+            self.check_result(query, collections.Counter())
+
     def test_duplicate_udf(self):
         query = """
         DEF foo(x, y): x + y;
