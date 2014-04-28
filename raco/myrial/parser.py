@@ -94,13 +94,13 @@ class Parser(object):
     def check_for_undefined(p, name, _sexpr, args):
         undefined = sexpr.udf_undefined_vars(_sexpr, args)
         if undefined:
-            raise UndefinedVariableException(name, undefined[0], p.lineno)
+            raise UndefinedVariableException(name, undefined[0], p.lineno(0))
 
     @staticmethod
     def check_for_reserved(p, name):
         """Check whether an identifier name is reserved."""
         if expr_lib.is_defined(name):
-            raise ReservedTokenException(name, p.lineno)
+            raise ReservedTokenException(name, p.lineno(0))
 
     @staticmethod
     def add_udf(p, name, args, body_expr):
@@ -115,10 +115,10 @@ class Parser(object):
         :type body_expr: raco.expression.Expression
         """
         if name in Parser.udf_functions:
-            raise DuplicateFunctionDefinitionException(name, p.lineno)
+            raise DuplicateFunctionDefinitionException(name, p.lineno(0))
 
         if len(args) != len(set(args)):
-            raise DuplicateVariableException(name, p.lineno)
+            raise DuplicateVariableException(name, p.lineno(0))
 
         Parser.check_for_reserved(p, name)
         Parser.check_for_undefined(p, name, body_expr, args)
@@ -137,27 +137,27 @@ class Parser(object):
         TODO: de-duplicate logic from add_udf.
         """
         if name in Parser.udf_functions:
-            raise DuplicateFunctionDefinitionException(name, p.lineno)
+            raise DuplicateFunctionDefinitionException(name, p.lineno(0))
         if len(args) != len(set(args)):
-            raise DuplicateVariableException(name, p.lineno)
+            raise DuplicateVariableException(name, p.lineno(0))
         Parser.check_for_reserved(p, name)
         if len(inits) != len(updates):
-            raise BadApplyDefinitionException(name, p.lineno)
+            raise BadApplyDefinitionException(name, p.lineno(0))
 
         # Unpack the update, init expressions into a statemod dictionary
         statemods = {}
         for init, update in zip(inits, updates):
             if not isinstance(init, emitarg.SingletonEmitArg):
-                raise IllegalWildcardException(name, p.lineno)
+                raise IllegalWildcardException(name, p.lineno(0))
             if not isinstance(update, emitarg.SingletonEmitArg):
-                raise IllegalWildcardException(name, p.lineno)
+                raise IllegalWildcardException(name, p.lineno(0))
 
             # check for duplicate variable definitions
             sm_name = init.column_name
             if not sm_name:
-                raise UnnamedStateVariableException(name, p.lineno)
+                raise UnnamedStateVariableException(name, p.lineno(0))
             if sm_name in statemods or sm_name in args:
-                raise DuplicateVariableException(name, p.lineno)
+                raise DuplicateVariableException(name, p.lineno(0))
 
             statemods[sm_name] = (init.sexpr, update.sexpr)
 
@@ -588,9 +588,9 @@ class Parser(object):
             func = expr_lib.lookup(name, len(args))
 
         if func is None:
-            raise NoSuchFunctionException(name, p.lineno)
+            raise NoSuchFunctionException(name, p.lineno(0))
         if len(func.args) != len(args):
-            raise InvalidArgumentList(name, func.args, p.lineno)
+            raise InvalidArgumentList(name, func.args, p.lineno(0))
 
         if isinstance(func, Function):
             return sexpr.resolve_function(func.sexpr, dict(zip(func.args, args)))  # noqa
