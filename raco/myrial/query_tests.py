@@ -8,7 +8,8 @@ import raco.myrial.interpreter as interpreter
 import raco.scheme as scheme
 import raco.myrial.groupby
 import raco.myrial.myrial_test as myrial_test
-import raco.myrial.exceptions
+
+from raco.myrial.exceptions import *
 
 
 class TestQueryFunctions(myrial_test.MyrialTestCase):
@@ -969,7 +970,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
-        with self.assertRaises(raco.myrial.exceptions.ColumnIndexOutOfBounds):
+        with self.assertRaises(ColumnIndexOutOfBounds):
             self.check_result(query, collections.Counter())
 
     def test_abs(self):
@@ -1080,7 +1081,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
+        with self.assertRaises(MyrialCompileException):
             self.check_result(query, collections.Counter())
 
     def test_parse_error(self):
@@ -1089,7 +1090,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
+        with self.assertRaises(MyrialCompileException):
             self.check_result(query, collections.Counter())
 
     def test_no_such_udf(self):
@@ -1098,7 +1099,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.NoSuchFunctionException):
+        with self.assertRaises(NoSuchFunctionException):
             self.check_result(query, collections.Counter())
 
     def test_duplicate_udf(self):
@@ -1111,7 +1112,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.DuplicateFunctionDefinitionException):  # noqa
+        with self.assertRaises(DuplicateFunctionDefinitionException):  # noqa
             self.check_result(query, collections.Counter())
 
     def test_invalid_argument_udf(self):
@@ -1121,7 +1122,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.InvalidArgumentList):
+        with self.assertRaises(InvalidArgumentList):
             self.check_result(query, collections.Counter())
 
     def test_undefined_variable_udf(self):
@@ -1131,7 +1132,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.UndefinedVariableException):  # noqa
+        with self.assertRaises(UndefinedVariableException):  # noqa
             self.check_result(query, collections.Counter())
 
     def test_duplicate_variable_udf(self):
@@ -1141,7 +1142,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.DuplicateVariableException):  # noqa
+        with self.assertRaises(DuplicateVariableException):  # noqa
             self.check_result(query, collections.Counter())
 
     def test_triangle_udf(self):
@@ -1489,3 +1490,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [(x[0], (lambda i: i if len(i) <= 10 else i[len(i) - 10:])(x[2]))
                 for x in self.emp_table.elements()])
         self.check_result(query, expected)
+
+    def test_column_name_reserved(self):
+        query = """
+        T = EMPTY(x:int);
+        A = [FROM T EMIT SafeDiv(x, 3) AS SafeDiv];
+        STORE (A, BadProgram);
+        """
