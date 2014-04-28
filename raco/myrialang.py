@@ -105,6 +105,14 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type': op.opname(),
         }
+    elif isinstance(op, expression.NaryOperator):
+        children = []
+        for operand in op.operands:
+            children.append(compile_expr(operand, child_scheme, state_scheme))
+        return {
+            'type': op.opname(),
+            'children': children
+        }
     raise NotImplementedError("Compiling expr of class %s" % op.__class__)
 
 
