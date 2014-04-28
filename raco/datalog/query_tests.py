@@ -92,6 +92,16 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
              if x[3] > 25000])
         self.check_result(query, expected)
 
+    def test_bug_177_filter_with_math(self):
+        query = """
+        RichGuys(name) :- employee(a, b, name, salary), salary>24999+1.
+        """
+
+        expected = collections.Counter(
+            [(x[2],) for x in TestQueryFunctions.emp_table.elements()
+             if x[3] > (24999 + 1)])
+        self.check_result(query, expected)
+
     def test_count(self):
         query = """
         OutDegree(src, count(dst)) :- Edge(src, dst)
