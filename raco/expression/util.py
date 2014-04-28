@@ -95,7 +95,8 @@ def resolve_function(udf_expr, arg_dict):
     def convert(n):
         if isinstance(n, NamedAttributeRef):
             n = arg_dict[n.name]
-        n.apply(convert)
+        else:
+            n.apply(convert)
         return n
 
     return convert(copy.deepcopy(udf_expr))
@@ -117,7 +118,8 @@ def resolve_state_vars(expr, state_vars, mangled_names):
     def convert(n):
         if isinstance(n, NamedAttributeRef) and n.name in state_vars:
             n = NamedStateAttributeRef(mangled_names[n.name])
-        n.apply(convert)
+        else:
+            n.apply(convert)
         return n
 
     return convert(copy.copy(expr))
