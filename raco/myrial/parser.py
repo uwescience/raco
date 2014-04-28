@@ -111,7 +111,7 @@ class Parser(object):
 
     @staticmethod
     def add_udf(p, name, args, body_expr):
-        """Register a user-defined to the global function table.
+        """Add a user-defined function to the global function table.
 
         :param p: The parser context
         :param name: The name of the function
