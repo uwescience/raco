@@ -48,7 +48,6 @@ EXPRESSIONS_CASE = {
                                NamedAttributeRef('begin'),
                                NamedAttributeRef('end')
                                ])),
-    'len': Function(['str'], LEN(NamedAttributeRef('str'))),
     'head': Function(['str', 'length'],
                      SUBSTR([NamedAttributeRef('str'),
                              NumericLiteral(0),
@@ -74,6 +73,7 @@ UNARY_FUNCS = {
     'SIN': SIN,
     'SQRT': SQRT,
     'TAN': TAN,
+    'LEN': LEN,
 }
 
 
