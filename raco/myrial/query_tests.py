@@ -1497,3 +1497,5 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         A = [FROM T EMIT SafeDiv(x, 3) AS SafeDiv];
         STORE (A, BadProgram);
         """
+        with self.assertRaises(ReservedTokenException):
+            self.check_result(query, None)
