@@ -64,4 +64,24 @@ EXPRESSIONS_CASE = {
                              ]))
 }
 
+# Mapping from source symbols to raco.expression.UnaryOperator classes
+UNARY_FUNCS = {
+    'ABS': ABS,
+    'CEIL': CEIL,
+    'COS': COS,
+    'FLOOR': FLOOR,
+    'LOG': LOG,
+    'SIN': SIN,
+    'SQRT': SQRT,
+    'TAN': TAN,
+}
+
+
+def create_unary_function(func_class):
+    return Function(['x'], func_class(NamedAttributeRef('x')))
+
+UNARY_EXPRESSIONS = {k.lower(): create_unary_function(v)
+                    for k, v in UNARY_FUNCS.iteritems()}  # noqa
+
 EXPRESSIONS = {k.lower(): v for k, v in EXPRESSIONS_CASE.items()}
+EXPRESSIONS.update(UNARY_EXPRESSIONS)
