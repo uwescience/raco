@@ -8,7 +8,7 @@ from raco.expression import *
 
 
 def is_defined(function_name):
-    return function_name in EXPRESSIONS
+    return function_name.lower() in EXPRESSIONS
 
 
 def lookup(function_name, num_args):
