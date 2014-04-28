@@ -82,12 +82,12 @@ def udf_undefined_vars(expr, vars):
             if isinstance(ex, NamedAttributeRef) and ex.name not in vars]
 
 
-def resolve_udf(udf_expr, arg_dict):
-    """Bind variables to arguments in a UDF expression.
+def resolve_function(udf_expr, arg_dict):
+    """Bind variables to arguments in a function invocation.
 
-    :param udf_expr: An expression corresponding to UDF
+    :param udf_expr: An expression corresponding to function.
     :type upf_expr: Expresison
-    :param arg_dict: The arguments to the UDF
+    :param arg_dict: The arguments to the function.
     :type arg_dict: A dictionary mapping string to Expression
     :returns: An expression with no variables
     """

@@ -613,7 +613,7 @@ class Parser(object):
             raise InvalidArgumentList(name, func.args, p.lineno)
 
         if isinstance(func, Function):
-            return sexpr.resolve_udf(func.sexpr, dict(zip(func.args, args)))
+            return sexpr.resolve_function(func.sexpr, dict(zip(func.args, args)))  # noqa
         elif isinstance(func, Apply):
             state_vars = func.statemods.keys()
 
@@ -624,10 +624,13 @@ class Parser(object):
 
             for sm_name, (init_expr, update_expr) in func.statemods.iteritems():  # noqa
                 # Convert state mod references into appropriate expressions
-                update_expr = sexpr.resolve_state_vars(update_expr, state_vars, mangled)  # noqa
+                update_expr = sexpr.resolve_state_vars(update_expr,
+                    state_vars, mangled)  # noqa
                 # Convert argument references into appropriate expressions
-                update_expr = sexpr.resolve_udf(update_expr, dict(zip(func.args, args)))  # noqa
-                Parser.statemods.append((mangled[sm_name], init_expr, update_expr))  # noqa
+                update_expr = sexpr.resolve_function(update_expr,
+                    dict(zip(func.args, args)))  # noqa
+                Parser.statemods.append((mangled[sm_name],
+                    init_expr, update_expr))  # noqa
             return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
         else:
             assert False
