@@ -85,6 +85,7 @@ class Expression(Printable):
 
 
 class ZeroaryOperator(Expression):
+
     def __init__(self):
         pass
 
@@ -108,6 +109,7 @@ class ZeroaryOperator(Expression):
 
 
 class UnaryOperator(Expression):
+
     def __init__(self, input):
         self.input = input
 
@@ -143,6 +145,7 @@ class UnaryOperator(Expression):
 
 
 class BinaryOperator(Expression):
+
     def __init__(self, left, right):
         self.left = left
         self.right = right
@@ -210,10 +213,51 @@ class BinaryOperator(Expression):
 
 
 class NaryOperator(Expression):
-    pass
+
+    def __init__(self, operands):
+        self.operands = operands
+
+    def __eq__(self, other):
+        if self.__class__ != other.__class__:
+            return False
+        return self.operands == other.operands
+
+    def __hash__(self):
+        return hash(self.__class__) + hash(self.operands)
+
+    def __str__(self):
+        return "(%s %s)" % \
+            (self.opstr(), " ".join([str(i) for i in self.operands]))
+
+    def __repr__(self):
+        return self.__str__()
+
+    def postorder(self, f):
+        for op in self.operands:
+            for x in op.postorder(f):
+                yield x
+        yield f(self)
+
+    def apply(self, f):
+        self.operands = [f(op) for op in self.operands]
+
+    def walk(self):
+        yield self
+        for op in self.operands:
+            for ex in op.walk():
+                yield ex
+
+    def accept(self, visitor):
+        """
+        For post-order stateful visitors
+        """
+        for op in self.operands:
+            op.accept(visitor)
+        visitor.visit(self)
 
 
 class Literal(ZeroaryOperator):
+
     def __init__(self, value):
         self.value = value
 
@@ -253,6 +297,7 @@ class NumericLiteral(Literal):
 
 
 class AttributeRef(Expression):
+
     def evaluate(self, _tuple, scheme, state=None):
         return _tuple[self.get_position(
             scheme, state.scheme if state else None)]
@@ -270,6 +315,7 @@ class AttributeRef(Expression):
 
 
 class NamedAttributeRef(AttributeRef):
+
     def __init__(self, attributename):
         self.name = attributename
 
@@ -284,6 +330,7 @@ class NamedAttributeRef(AttributeRef):
 
 
 class UnnamedAttributeRef(AttributeRef):
+
     def __init__(self, position):
         self.position = position
 
@@ -298,6 +345,7 @@ class UnnamedAttributeRef(AttributeRef):
 
 
 class StateRef(Expression):
+
     def evaluate(self, _tuple, scheme, state=None):
         return _tuple[self.get_position(scheme, state.scheme)]
 
@@ -311,6 +359,7 @@ class StateRef(Expression):
 
 
 class UnnamedStateAttributeRef(StateRef):
+
     def __init__(self, position):
         self.position = position
 
@@ -325,6 +374,7 @@ class UnnamedStateAttributeRef(StateRef):
 
 
 class NamedStateAttributeRef(StateRef):
+
     def __init__(self, attributename):
         self.name = attributename
 
@@ -386,6 +436,7 @@ class TIMES(BinaryOperator):
 
 
 class TYPE(ZeroaryOperator):
+
     def __init__(self, rtype):
         self.type = rtype
 
@@ -397,6 +448,7 @@ class TYPE(ZeroaryOperator):
 
 
 class FLOAT_CAST(UnaryOperator):
+
     def evaluate(self, _tuple, scheme, state=None):
         return float(self.input.evaluate(_tuple, scheme, state))
 
@@ -409,6 +461,7 @@ class NEG(UnaryOperator):
 
 
 class Unbox(ZeroaryOperator):
+
     def __init__(self, relational_expression, field):
         """Initialize an unbox expression.
 
@@ -430,6 +483,7 @@ class Unbox(ZeroaryOperator):
 
 
 class Case(Expression):
+
     def __init__(self, when_tuples, else_expr):
         """Initialize a Case expression.
 

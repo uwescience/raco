@@ -43,6 +43,25 @@ EXPRESSIONS_CASE = {
     'least': lambda num_args: create_nested_binary(num_args, LESSER),
     'greater': create_nested_binary(2, GREATER),
     'lesser': create_nested_binary(2, LESSER),
+    'substr': Function(['str', 'begin', 'end'],
+                       SUBSTR([NamedAttributeRef('str'),
+                               NamedAttributeRef('begin'),
+                               NamedAttributeRef('end')
+                               ])),
+    'len': Function(['str'], LEN(NamedAttributeRef('str'))),
+    'head': Function(['str', 'length'],
+                     SUBSTR([NamedAttributeRef('str'),
+                             NumericLiteral(0),
+                             LESSER(LEN(NamedAttributeRef('str')),
+                                    NamedAttributeRef('length'))
+                             ])),
+    'tail': Function(['str', 'length'],
+                     SUBSTR([NamedAttributeRef('str'),
+                             GREATER(MINUS(LEN(NamedAttributeRef('str')),
+                                           NamedAttributeRef('length')),
+                                     NumericLiteral(0)),
+                             LEN(NamedAttributeRef('str'))
+                             ]))
 }
 
 EXPRESSIONS = {k.lower(): v for k, v in EXPRESSIONS_CASE.items()}
