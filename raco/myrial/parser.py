@@ -40,7 +40,6 @@ binops = {
     '=': sexpr.EQ,
     'AND': sexpr.AND,
     'OR': sexpr.OR,
-    'POW': sexpr.POW,
 }
 
 
@@ -554,11 +553,6 @@ class Parser(object):
                    | sexpr AND sexpr
                    | sexpr OR sexpr'''
         p[0] = binops[p[2]](p[1], p[3])
-
-    @staticmethod
-    def p_sexpr_pow(p):
-        'sexpr : POW LPAREN sexpr COMMA sexpr RPAREN'
-        p[0] = sexpr.POW(p[3], p[5])
 
     @staticmethod
     def p_sexpr_not(p):

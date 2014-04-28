@@ -76,12 +76,23 @@ UNARY_FUNCS = {
     'LEN': LEN,
 }
 
+# Simple binary functions that map to a single Myria expresison
+BINARY_FUNCS = {
+    'POW': POW
+}
 
-def create_unary_function(func_class):
-    return Function(['x'], func_class(NamedAttributeRef('x')))
 
-UNARY_EXPRESSIONS = {k.lower(): create_unary_function(v)
+def one_to_function(func_class, arity):
+    function_args = ['arg%d' % i for i in range(arity)]
+    expression_args = [NamedAttributeRef(x) for x in function_args]
+    return Function(function_args, func_class(*expression_args))
+
+UNARY_EXPRESSIONS = {k.lower(): one_to_function(v, 1)
                     for k, v in UNARY_FUNCS.iteritems()}  # noqa
+
+BINARY_EXPRESSIONS = {k.lower(): one_to_function(v, 2)
+                     for k, v in BINARY_FUNCS.iteritems()}  # noqa
 
 EXPRESSIONS = {k.lower(): v for k, v in EXPRESSIONS_CASE.items()}
 EXPRESSIONS.update(UNARY_EXPRESSIONS)
+EXPRESSIONS.update(BINARY_EXPRESSIONS)

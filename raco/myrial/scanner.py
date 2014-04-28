@@ -8,7 +8,7 @@ import raco.myrial.exceptions
 reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
             'INTERSECT', 'WHILE', 'INT', 'STRING', 'FLOAT', 'DO', 'DISTINCT',
             'SCAN', 'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'MAX',
-            'MIN', 'SUM', 'COUNT', 'AVG', 'STDEV', 'POW', 'EMPTY', 'SELECT',
+            'MIN', 'SUM', 'COUNT', 'AVG', 'STDEV', 'EMPTY', 'SELECT',
             'AS', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
             'WORKER_ID']
 
