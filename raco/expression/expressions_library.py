@@ -3,6 +3,7 @@ A library of expressions that can be composed of existing expressions.
 '''
 
 from .udf import Function
+import raco.expression
 from raco.expression import *
 
 
@@ -63,36 +64,35 @@ EXPRESSIONS_CASE = {
                              ]))
 }
 
-# Simple unary functions that map to a single Myria expression
-UNARY_FUNCS = {
-    'ABS': ABS,
-    'CEIL': CEIL,
-    'COS': COS,
-    'FLOOR': FLOOR,
-    'LOG': LOG,
-    'SIN': SIN,
-    'SQRT': SQRT,
-    'TAN': TAN,
-    'LEN': LEN,
-}
 
-# Simple binary functions that map to a single Myria expresison
-BINARY_FUNCS = {
-    'POW': POW
-}
+def get_arity(func_class):
+    """Return the arity of built-in Myria expressions."""
+
+    if issubclass(func_class, ZeroaryOperator):
+        return 0
+    elif issubclass(func_class, UnaryOperator):
+        return 1
+    elif issubclass(func_class, BinaryOperator):
+        return 2
+    else:
+        # Don't handle n-ary functions automatically
+        assert False
 
 
-def one_to_function(func_class, arity):
+def one_to_function(func_name):
+    """Emit a Function object that wraps a Myria built-in expression."""
+    func_class = getattr(raco.expression, func_name)
+    arity = get_arity(func_class)
     function_args = ['arg%d' % i for i in range(arity)]
     expression_args = [NamedAttributeRef(x) for x in function_args]
     return Function(function_args, func_class(*expression_args))
 
-UNARY_EXPRESSIONS = {k.lower(): one_to_function(v, 1)
-                    for k, v in UNARY_FUNCS.iteritems()}  # noqa
+# Simple functions that map to a single Myria expression; the names here
+# must match the corresponding function class in raco.expression.function
+ONE_TO_ONE_FUNCS = ['ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT',
+                    'TAN', 'LEN', 'POW']
 
-BINARY_EXPRESSIONS = {k.lower(): one_to_function(v, 2)
-                     for k, v in BINARY_FUNCS.iteritems()}  # noqa
+ONE_TO_ONE_EXPRS = {k.lower(): one_to_function(k) for k in ONE_TO_ONE_FUNCS}
 
 EXPRESSIONS = {k.lower(): v for k, v in EXPRESSIONS_CASE.items()}
-EXPRESSIONS.update(UNARY_EXPRESSIONS)
-EXPRESSIONS.update(BINARY_EXPRESSIONS)
+EXPRESSIONS.update(ONE_TO_ONE_EXPRS)
