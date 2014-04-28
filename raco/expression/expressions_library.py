@@ -90,7 +90,7 @@ def one_to_function(func_name):
 # Simple functions that map to a single Myria expression; the names here
 # must match the corresponding function class in raco.expression.function
 ONE_TO_ONE_FUNCS = ['ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT',
-                    'TAN', 'LEN', 'POW']
+                    'TAN', 'LEN', 'POW', 'MAX', 'MIN', 'SUM', 'AVG', 'STDEV']
 
 ONE_TO_ONE_EXPRS = {k.lower(): one_to_function(k) for k in ONE_TO_ONE_FUNCS}
 
