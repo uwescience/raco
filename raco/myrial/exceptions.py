@@ -52,7 +52,7 @@ class ReservedTokenException(MyrialCompileException):
         self.lineno = lineno
 
     def __str__(self):
-        return 'The token %s on line %d is reserved.' % (self.token,
+        return 'The token "%s" on line %d is reserved.' % (self.token,
             self.lineno)  # noqa
 
 

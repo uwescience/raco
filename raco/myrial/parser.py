@@ -97,6 +97,12 @@ class Parser(object):
             raise UndefinedVariableException(name, undefined[0], p.lineno)
 
     @staticmethod
+    def check_for_reserved(p, name):
+        """Check whether an identifier name is reserved."""
+        if expr_lib.is_defined(name):
+            raise ReservedTokenException(name, p.lineno)
+
+    @staticmethod
     def add_udf(p, name, args, body_expr):
         """Add a user-defined function to the global function table.
 
@@ -114,6 +120,7 @@ class Parser(object):
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno)
 
+        Parser.check_for_reserved(p, name)
         Parser.check_for_undefined(p, name, body_expr, args)
 
         Parser.udf_functions[name] = Function(args, body_expr)
@@ -133,6 +140,7 @@ class Parser(object):
             raise DuplicateFunctionDefinitionException(name, p.lineno)
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno)
+        Parser.check_for_reserved(p, name)
         if len(inits) != len(updates):
             raise BadApplyDefinitionException(name, p.lineno)
 
@@ -202,6 +210,7 @@ class Parser(object):
     @staticmethod
     def p_statement_assign(p):
         'statement : ID EQUALS rvalue SEMI'
+        Parser.check_for_reserved(p, p[1])
         p[0] = ('ASSIGN', p[1], p[3])
 
     @staticmethod
@@ -362,6 +371,7 @@ class Parser(object):
         '''emit_arg : sexpr AS ID
                     | sexpr'''
         if len(p) == 4:
+            Parser.check_for_reserved(p, p[3])
             name = p[3]
             sexpr = p[1]
         else:

@@ -7,6 +7,10 @@ import raco.expression
 from raco.expression import *
 
 
+def is_defined(function_name):
+    return function_name in EXPRESSIONS
+
+
 def lookup(function_name, num_args):
     func = EXPRESSIONS.get(function_name.lower())
     if hasattr(func, '__call__'):
