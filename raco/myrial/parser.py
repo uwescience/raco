@@ -627,7 +627,7 @@ class Parser(object):
     @staticmethod
     def p_sexpr_countall(p):
         'sexpr : COUNTALL LPAREN RPAREN'
-        p[0] = sexpr.COUNTALL()
+        p[0] = Parser.resolve_function(p, 'COUNTALL', [])
 
     @staticmethod
     def p_sexpr_count(p):
