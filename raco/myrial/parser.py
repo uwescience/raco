@@ -110,8 +110,8 @@ class Parser(object):
             raise UndefinedVariableException(name, undefined[0], p.lineno)
 
     @staticmethod
-    def add_function(p, name, args, body_expr):
-        """Add a function to the global function table.
+    def add_udf(p, name, args, body_expr):
+        """Register a user-defined to the global function table.
 
         :param p: The parser context
         :param name: The name of the function
@@ -140,7 +140,7 @@ class Parser(object):
     def add_apply(p, name, args, inits, updates, finalizer):
         """Register a stateful apply function.
 
-        TODO: de-duplicate logic from add_function.
+        TODO: de-duplicate logic from add_udf.
         """
         if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno)
@@ -182,7 +182,7 @@ class Parser(object):
     @staticmethod
     def p_function(p):
         '''function : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''  # noqa
-        Parser.add_function(p, p[2], p[4], p[7])
+        Parser.add_udf(p, p[2], p[4], p[7])
         p[0] = None
 
     @staticmethod
