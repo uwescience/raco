@@ -1,5 +1,9 @@
 import collections
 
+from nose.tools import assert_raises
+
+import pyparsing
+
 import raco.scheme as scheme
 import raco.datalog.datalog_test as datalog_test
 
@@ -101,6 +105,14 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
             [(x[2],) for x in TestQueryFunctions.emp_table.elements()
              if x[3] > (24999 + 1)])
         self.check_result(query, expected)
+
+    def test_bug_107_bad_input(self):
+        query = """
+        A(x) :- R(x), x<3 or x>10
+        """
+
+        assert_raises(pyparsing.ParseBaseException,
+                      lambda: self.parse_query(query))
 
     def test_count(self):
         query = """

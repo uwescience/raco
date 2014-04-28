@@ -13,13 +13,19 @@ class DatalogTestCase(unittest.TestCase):
     def setUp(self):
         self.db = raco.fakedb.FakeDatabase()
 
+    def parse_query(self, query):
+        '''Parse a query and return the datalog object'''
+        dlog = RACompiler()
+        dlog.fromDatalog(query)
+
+        return dlog
+
     def execute_query(self, query):
         '''Run a test query against the fake database'''
 
         # print query
 
-        dlog = RACompiler()
-        dlog.fromDatalog(query)
+        dlog = self.parse_query(query)
 
         # print dlog.logicalplan
 
