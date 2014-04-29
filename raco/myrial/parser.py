@@ -120,7 +120,6 @@ class Parser(object):
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno(0))
 
-        Parser.check_for_reserved(p, name)
         Parser.check_for_undefined(p, name, body_expr, args)
 
         Parser.udf_functions[name] = Function(args, body_expr)
@@ -140,7 +139,6 @@ class Parser(object):
             raise DuplicateFunctionDefinitionException(name, p.lineno(0))
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno(0))
-        Parser.check_for_reserved(p, name)
         if len(inits) != len(updates):
             raise BadApplyDefinitionException(name, p.lineno(0))
 
@@ -175,8 +173,14 @@ class Parser(object):
         Parser.udf_functions[name] = Apply(args, statemods, finalizer)
 
     @staticmethod
+    def p_unreserved_id(p):
+        'unreserved_id : ID'
+        Parser.check_for_reserved(p, p[1])
+        p[0] = p[1]
+
+    @staticmethod
     def p_udf(p):
-        '''udf : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''  # noqa
+        '''udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''  # noqa
         Parser.add_udf(p, p[2], p[4], p[7])
         p[0] = None
 
@@ -188,8 +192,8 @@ class Parser(object):
 
     @staticmethod
     def p_function_arg_list(p):
-        '''function_arg_list : function_arg_list COMMA ID
-                             | ID'''
+        '''function_arg_list : function_arg_list COMMA unreserved_id
+                             | unreserved_id'''
         if len(p) == 4:
             p[0] = p[1] + [p[3]]
         else:
@@ -197,7 +201,7 @@ class Parser(object):
 
     @staticmethod
     def p_apply(p):
-        'apply : APPLY ID LPAREN optional_arg_list RPAREN LBRACE \
+        'apply : APPLY unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
         table_literal SEMI table_literal SEMI sexpr SEMI RBRACE SEMI'
         name = p[2]
         args = p[4]
@@ -209,8 +213,7 @@ class Parser(object):
 
     @staticmethod
     def p_statement_assign(p):
-        'statement : ID EQUALS rvalue SEMI'
-        Parser.check_for_reserved(p, p[1])
+        'statement : unreserved_id EQUALS rvalue SEMI'
         p[0] = ('ASSIGN', p[1], p[3])
 
     @staticmethod
@@ -242,12 +245,12 @@ class Parser(object):
 
     @staticmethod
     def p_statement_store(p):
-        'statement : STORE LPAREN ID COMMA relation_key RPAREN SEMI'
+        'statement : STORE LPAREN unreserved_id COMMA relation_key RPAREN SEMI'
         p[0] = ('STORE', p[3], p[5])
 
     @staticmethod
     def p_expression_id(p):
-        'expression : ID'
+        'expression : unreserved_id'
         p[0] = ('ALIAS', p[1])
 
     @staticmethod
@@ -299,7 +302,7 @@ class Parser(object):
 
     @staticmethod
     def p_column_def(p):
-        'column_def : ID COLON type_name'
+        'column_def : unreserved_id COLON type_name'
         p[0] = (p[1], p[3])
 
     @staticmethod
@@ -311,7 +314,7 @@ class Parser(object):
 
     @staticmethod
     def p_string_arg(p):
-        '''string_arg : ID
+        '''string_arg : unreserved_id
                       | STRING_LITERAL'''
         p[0] = p[1]
 
@@ -332,8 +335,8 @@ class Parser(object):
 
     @staticmethod
     def p_from_arg(p):
-        '''from_arg : expression optional_as ID
-                    | ID'''
+        '''from_arg : expression optional_as unreserved_id
+                    | unreserved_id'''
         expr = None
         if len(p) == 4:
             expr = p[1]
@@ -368,10 +371,9 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_singleton(p):
-        '''emit_arg : sexpr AS ID
+        '''emit_arg : sexpr AS unreserved_id
                     | sexpr'''
         if len(p) == 4:
-            Parser.check_for_reserved(p, p[3])
             name = p[3]
             sexpr = p[1]
         else:
@@ -382,7 +384,7 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_table_wildcard(p):
-        '''emit_arg : ID DOT TIMES'''
+        '''emit_arg : unreserved_id DOT TIMES'''
         p[0] = emitarg.TableWildcardEmitArg(p[1])
 
     @staticmethod
@@ -484,7 +486,7 @@ class Parser(object):
 
     @staticmethod
     def p_column_ref_string(p):
-        'column_ref : ID'
+        'column_ref : unreserved_id'
         p[0] = p[1]
 
     @staticmethod
@@ -512,7 +514,7 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_id(p):
-        'sexpr : ID'
+        'sexpr : unreserved_id'
         p[0] = sexpr.NamedAttributeRef(p[1])
 
     @staticmethod
@@ -522,12 +524,12 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_id_dot_id(p):
-        'sexpr : ID DOT ID'
+        'sexpr : unreserved_id DOT unreserved_id'
         p[0] = sexpr.Unbox(p[1], p[3])
 
     @staticmethod
     def p_sexpr_id_dot_pos(p):
-        'sexpr : ID DOT DOLLAR INTEGER_LITERAL'
+        'sexpr : unreserved_id DOT DOLLAR INTEGER_LITERAL'
         p[0] = sexpr.Unbox(p[1], p[4])
 
     @staticmethod
