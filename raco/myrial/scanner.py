@@ -4,12 +4,23 @@ import ply.lex as lex
 
 import raco.myrial.exceptions
 
+keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
+            'ELSE', 'END']
+
+types = ['INT', 'STRING', 'FLOAT']
+
+comprehension_keywords = ['SELECT', 'AS', 'EMIT', 'FROM', 'WHERE']
+
+word_operators = ['AND', 'OR', 'NOT']
+
+builtins = ['EMPTY', 'WORKER_ID', 'SCAN', 'COUNTALL', 'COUNT', 'STORE',
+            'DIFF', 'CROSS', 'JOIN', 'UNIONALL', 'INTERSECT', 'DISTINCT',
+            'LIMIT']
+
+
 # identifiers with special meaning; case-insensitive
-reserved = ['STORE', 'LIMIT', 'CROSS', 'JOIN', 'EMIT', 'DIFF', 'UNIONALL',
-            'INTERSECT', 'WHILE', 'INT', 'STRING', 'FLOAT', 'DO', 'DISTINCT',
-            'SCAN', 'COUNTALL', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'COUNT',
-            'EMPTY', 'SELECT', 'AS', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
-            'ELSE', 'END', 'WORKER_ID']
+reserved = (keywords + types + comprehension_keywords
+            + word_operators + builtins)
 
 # Token types; required by ply to have this variable name
 

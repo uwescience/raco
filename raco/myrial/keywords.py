@@ -1,6 +1,8 @@
 """Emit all Myrial/SQL keywords as lowercase strings."""
 
-from raco.myrial.scanner import reserved
+from raco.myrial.scanner import (builtins, keywords,
+                                 types, comprehension_keywords,
+                                 word_operators)
 from raco.expression.expressions_library import EXPRESSIONS
 
 
@@ -9,9 +11,15 @@ def get_keywords():
 
     This includes reserved lex tokens and system-defined functions.
     """
-    x = [res.lower() for res in reserved]
-    x += EXPRESSIONS.keys()
-    return sorted(x)
+    return {
+        'builtins': sorted(
+            EXPRESSIONS.keys() + [kw.lower() for kw in builtins]),
+        'keywords': sorted(kw.lower() for kw in keywords),
+        'types': sorted(kw.lower() for kw in types),
+        'comprehension_keywords': sorted(
+            kw.lower() for kw in comprehension_keywords),
+        'word_operators': sorted(kw.lower() for kw in word_operators),
+    }
 
 if __name__ == '__main__':
     print get_keywords()
