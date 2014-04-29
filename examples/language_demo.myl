@@ -1,0 +1,39 @@
+T1 = scan(TwitterK);
+T2 = [from T1 emit $0 == "foo bar" as x];
+
+-- wrong:
+T2 = [from T1 emit $0 == 'foo bar' as x];
+
+def triangleArea(a,b): (a*b)/2;
+R = [from Foo emit triangleArea(x,y) as area];
+
+apply RunningMean(value) {
+      [0 as c, 0 as s];
+      [c + 1 as c, s + value as s];
+      s / c;
+};
+
+-- number of allowed standard deviations
+N = [2];
+
+--this is a comment
+
+newBad = empty(id:int, v:float);
+
+bc = [from emp emit emp.*];
+
+out = [from emp where $0 * 2 == $1 emit *];
+out = [from emp where $0 // $1 <> $1 emit *];
+
+do
+    mean = [from Good emit avg(v) as val];
+    -- foo bar
+    NewBad = [from Good where abs(Good.v - *mean) > *N * *std emit *];
+    continue = diff(Good, NewBad);
+while continue;
+
+store(Good, OUTPUT);
+
+-- comment
+T3 = [from T1 emit sin(a)/4 + b as x];
+store(T2, JustX);
