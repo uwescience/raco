@@ -82,11 +82,11 @@ def udf_undefined_vars(expr, vars):
             if isinstance(ex, NamedAttributeRef) and ex.name not in vars]
 
 
-def resolve_function(udf_expr, arg_dict):
+def resolve_function(func_expr, arg_dict):
     """Bind variables to arguments in a function invocation.
 
-    :param udf_expr: An expression corresponding to function.
-    :type upf_expr: Expresison
+    :param func_expr: An expression corresponding to function.
+    :type func_expr: Expresison
     :param arg_dict: The arguments to the function.
     :type arg_dict: A dictionary mapping string to Expression
     :returns: An expression with no variables
@@ -99,7 +99,7 @@ def resolve_function(udf_expr, arg_dict):
             n.apply(convert)
         return n
 
-    return convert(copy.deepcopy(udf_expr))
+    return convert(copy.deepcopy(func_expr))
 
 
 def resolve_state_vars(expr, state_vars, mangled_names):
