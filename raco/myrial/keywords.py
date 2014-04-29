@@ -3,6 +3,7 @@
 from raco.myrial.scanner import reserved
 from raco.expression.expressions_library import EXPRESSIONS
 
+
 def get_keywords():
     """Return a list of Myrial/SQL keywords.
 
