@@ -85,9 +85,9 @@ def udf_undefined_vars(expr, vars):
 def resolve_function(func_expr, arg_dict):
     """Bind variables to arguments in a function invocation.
 
-    :param func_expr: An expression corresponding to function.
-    :type func_expr: Expresison
-    :param arg_dict: The arguments to the function.
+    :param func_expr: An expression corresponding to function
+    :type func_expr: Expression
+    :param arg_dict: The arguments to the function
     :type arg_dict: A dictionary mapping string to Expression
     :returns: An expression with no variables
     """
