@@ -8,7 +8,7 @@ N = [2];
 
 do
     mean = [from Good emit avg(v) AS val];
-    std = [from Good emit stddev(v) AS val];
+    std = [from Good emit stdev(v) AS val];
     NewBad = [from Good where abs(Good.v - *mean) > *N * *std emit *];
     Good = diff(Good, NewBad);
     continue = [from NewBad emit count(NewBad.v) > 0];

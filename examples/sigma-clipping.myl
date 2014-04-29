@@ -1,9 +1,9 @@
 Points = SCAN(public:adhoc:sc_points);
 
-aggs = [from Points emit sum(v) as _sum, sum(v*v) as sumsq, COUNT(v) as cnt];
+aggs = [from Points emit sum(v) as _sum, sum(v*v) as sumsq, count(v) as cnt];
 newBad = empty(id:int, v:float);
 
-bounds = [from Points emit MIN(v) as lower, MAX(v) as upper];
+bounds = [from Points emit min(v) as lower, max(v) as upper];
 
 -- number of allowed standard deviations
 N = [2];
@@ -11,7 +11,7 @@ N = [2];
 do
   -- Incrementally update aggs and stats
   new_aggs = [from newBad emit sum(v) as _sum, sum(v*v) as sumsq,
-                               COUNT(v) as cnt];
+                               count(v) as cnt];
   aggs = [from aggs, new_aggs
           emit aggs._sum - new_aggs._sum as _sum,
                aggs.sumsq - new_aggs.sumsq as sumsq,
@@ -33,7 +33,7 @@ do
             emit Points.*];
 
   bounds = newBounds;
-  continue = [from newBad emit COUNT(v) > 0];
+  continue = [from newBad emit count(v) > 0];
 while continue;
 
 output = [from Points, bounds
