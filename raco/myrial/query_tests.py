@@ -1122,7 +1122,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(DuplicateFunctionDefinitionException):  # noqa
+        with self.assertRaises(DuplicateFunctionDefinitionException):
             self.check_result(query, collections.Counter())
 
     def test_invalid_argument_udf(self):
@@ -1142,7 +1142,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(UndefinedVariableException):  # noqa
+        with self.assertRaises(UndefinedVariableException):
             self.check_result(query, collections.Counter())
 
     def test_duplicate_variable_udf(self):
@@ -1152,7 +1152,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(DuplicateVariableException):  # noqa
+        with self.assertRaises(DuplicateVariableException):
             self.check_result(query, collections.Counter())
 
     def test_triangle_udf(self):
