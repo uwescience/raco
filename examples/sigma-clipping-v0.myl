@@ -1,17 +1,17 @@
 -- Simple and slow implementation of sigma clipping; this query is not
 -- incremental, so it can re-scans points on every iteration.
 
-Good = SCAN(public:adhoc:sc_points);
+Good = scan(public:adhoc:sc_points);
 
 -- number of allowed standard deviations
 N = [2];
 
-DO
-    mean = [FROM Good EMIT AVG(v) AS val];
-    std = [FROM Good EMIT STDEV(v) AS val];
-    NewBad = [FROM Good WHERE ABS(Good.v - *mean) > *N * *std EMIT *];
-    Good = DIFF(Good, NewBad);
-    continue = [FROM NewBad EMIT COUNT(NewBad.v) > 0];
-WHILE continue;
+do
+    mean = [from Good emit avg(v) AS val];
+    std = [from Good emit stddev(v) AS val];
+    NewBad = [from Good where abs(Good.v - *mean) > *N * *std emit *];
+    Good = diff(Good, NewBad);
+    continue = [from NewBad emit count(NewBad.v) > 0];
+while continue;
 
-STORE(Good, OUTPUT);
+store(Good, OUTPUT);

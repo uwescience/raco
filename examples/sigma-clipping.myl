@@ -1,43 +1,43 @@
 Points = SCAN(public:adhoc:sc_points);
 
-aggs = [FROM Points EMIT SUM(v) AS _sum, SUM(v*v) AS sumsq, COUNT(v) AS cnt];
-newBad = EMPTY(id:int, v:float);
+aggs = [from Points emit sum(v) as _sum, sum(v*v) as sumsq, COUNT(v) as cnt];
+newBad = empty(id:int, v:float);
 
-bounds = [FROM Points EMIT MIN(v) AS lower, MAX(v) AS upper];
+bounds = [from Points emit MIN(v) as lower, MAX(v) as upper];
 
 -- number of allowed standard deviations
 N = [2];
 
-DO
+do
   -- Incrementally update aggs and stats
-  new_aggs = [FROM newBad EMIT SUM(v) AS _sum, SUM(v*v) AS sumsq,
-                               COUNT(v) AS cnt];
-  aggs = [FROM aggs, new_aggs
-          EMIT aggs._sum - new_aggs._sum AS _sum,
-               aggs.sumsq - new_aggs.sumsq AS sumsq,
-               aggs.cnt - new_aggs.cnt AS cnt];
+  new_aggs = [from newBad emit sum(v) as _sum, sum(v*v) as sumsq,
+                               COUNT(v) as cnt];
+  aggs = [from aggs, new_aggs
+          emit aggs._sum - new_aggs._sum as _sum,
+               aggs.sumsq - new_aggs.sumsq as sumsq,
+               aggs.cnt - new_aggs.cnt as cnt];
 
-  stats = [FROM aggs
-           EMIT _sum/cnt AS mean,
-                SQRT(1.0/(cnt*(cnt-1)) * (cnt * sumsq - _sum * _sum)) AS std];
+  stats = [from aggs
+           emit _sum/cnt as mean,
+                SQRT(1.0/(cnt*(cnt-1)) * (cnt * sumsq - _sum * _sum)) as std];
 
   -- Compute the new bounds
-  newBounds = [FROM stats EMIT mean - *N * std AS lower,
-                               mean + *N * std AS upper];
+  newBounds = [from stats emit mean - *N * std as lower,
+                               mean + *N * std as upper];
 
-  newBad = [FROM Points, bounds, newBounds
-            WHERE (newBounds.upper < v
-                   AND v <= bounds.upper)
-               OR (newBounds.lower > v
-                   AND v >= bounds.lower)
-            EMIT Points.*];
+  newBad = [from Points, bounds, newBounds
+            where (newBounds.upper < v
+                   and v <= bounds.upper)
+               or (newBounds.lower > v
+                   and v >= bounds.lower)
+            emit Points.*];
 
   bounds = newBounds;
-  continue = [FROM newBad EMIT COUNT(v) > 0];
-WHILE continue;
+  continue = [from newBad emit COUNT(v) > 0];
+while continue;
 
-output = [FROM Points, bounds
-          WHERE Points.v > bounds.lower
-                AND Points.v < bounds.upper
-          EMIT Points.*];
-STORE(output, OUTPUT);
+output = [from Points, bounds
+          where Points.v > bounds.lower
+                and Points.v < bounds.upper
+          emit Points.*];
+store(output, OUTPUT);
