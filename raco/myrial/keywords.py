@@ -11,7 +11,7 @@ def get_keywords():
     """
     x = [res.lower() for res in reserved]
     x += EXPRESSIONS.keys()
-    return x
+    return sorted(x)
 
 if __name__ == '__main__':
     print get_keywords()
