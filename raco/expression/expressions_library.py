@@ -3,7 +3,12 @@ A library of expressions that can be composed of existing expressions.
 '''
 
 from .udf import Function
+import raco.expression
 from raco.expression import *
+
+
+def is_defined(function_name):
+    return function_name.lower() in EXPRESSIONS
 
 
 def lookup(function_name, num_args):
@@ -48,7 +53,6 @@ EXPRESSIONS_CASE = {
                                NamedAttributeRef('begin'),
                                NamedAttributeRef('end')
                                ])),
-    'len': Function(['str'], LEN(NamedAttributeRef('str'))),
     'head': Function(['str', 'length'],
                      SUBSTR([NamedAttributeRef('str'),
                              NumericLiteral(0),
@@ -64,4 +68,36 @@ EXPRESSIONS_CASE = {
                              ]))
 }
 
+
+def get_arity(func_class):
+    """Return the arity of built-in Myria expressions."""
+
+    if issubclass(func_class, ZeroaryOperator):
+        return 0
+    elif issubclass(func_class, UnaryOperator):
+        return 1
+    elif issubclass(func_class, BinaryOperator):
+        return 2
+    else:
+        # Don't handle n-ary functions automatically
+        assert False
+
+
+def one_to_one_function(func_name):
+    """Emit a Function object that wraps a Myria built-in expression."""
+    func_class = getattr(raco.expression, func_name)
+    arity = get_arity(func_class)
+    function_args = ['arg%d' % i for i in range(arity)]
+    expression_args = [NamedAttributeRef(x) for x in function_args]
+    return Function(function_args, func_class(*expression_args))
+
+# Simple functions that map to a single Myria expression; the names here
+# must match the corresponding function class in raco.expression.function
+ONE_TO_ONE_FUNCS = ['ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT',
+                    'TAN', 'LEN', 'POW', 'MAX', 'MIN', 'SUM', 'AVG', 'STDEV',
+                    'COUNTALL']
+
+ONE_TO_ONE_EXPRS = {k.lower(): one_to_one_function(k) for k in ONE_TO_ONE_FUNCS}  # noqa
+
 EXPRESSIONS = {k.lower(): v for k, v in EXPRESSIONS_CASE.items()}
+EXPRESSIONS.update(ONE_TO_ONE_EXPRS)
