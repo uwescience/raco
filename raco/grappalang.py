@@ -445,6 +445,13 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         self.right.childtag = "right"
         self.rightTupleTypeRef = None  # may remain None if CSE succeeds
 
+        # find the attribute that corresponds to the right child
+        self.rightCondIsRightAttr = \
+            self.condition.right.position >= len(self.left.scheme())
+        self.leftCondIsRightAttr = \
+            self.condition.left.position >= len(self.left.scheme())
+        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
+
         hashtableInfo = state.lookupExpr(self.right)
         if not hashtableInfo:
             # if right child never bound then store hashtable symbol and
@@ -488,13 +495,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
 
-            # find the attribute that corresponds to the right child
-            rightCondIsRightAttr = \
-                self.condition.right.position >= len(self.left.scheme())
-            leftCondIsRightAttr = \
-                self.condition.left.position >= len(self.left.scheme())
-            assert rightCondIsRightAttr ^ leftCondIsRightAttr
-            if rightCondIsRightAttr:
+            if self.rightCondIsRightAttr:
                 keypos = self.condition.right.position \
                     - len(self.left.scheme())
             else:
@@ -528,7 +529,11 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
             keytype = t.getTupleTypename()
-            keypos = self.condition.left.position
+
+            if self.rightCondIsRightAttr:
+                keypos = self.condition.left.position
+            else:
+                keypos = self.condition.right.position
 
             right_tuple_name = gensym()
             right_tuple_type = self.rightTupleTypename
