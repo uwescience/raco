@@ -228,7 +228,6 @@ class UnaryOperator(Operator):
 
     def apply(self, f):
         """Apply a function to your children"""
-        print(self)
         self.input = f(self.input)
         return self
 
