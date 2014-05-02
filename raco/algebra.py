@@ -5,9 +5,6 @@ from raco.utility import emit, emitlist, Printable
 from abc import ABCMeta, abstractmethod
 import copy
 
-import logging
-LOG = logging.getLogger(__name__)
-
 # BEGIN Code to generate variables names
 var_id = 0
 
