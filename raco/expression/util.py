@@ -2,7 +2,8 @@
 Utility functions for use in Raco expressions
 """
 
-from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef, NamedStateAttributeRef  # noqa
+from .expression import (BinaryOperator, AttributeRef, NamedAttributeRef,
+                         UnnamedAttributeRef, NamedStateAttributeRef)
 from .aggregate import AggregateExpression
 
 import copy
@@ -150,3 +151,17 @@ def rebase_expr(expr, offset):
         assert not isinstance(ex, NamedAttributeRef)
         if isinstance(ex, UnnamedAttributeRef):
             ex.position -= offset
+
+
+def reindex_expr(expr, index_map):
+    """Changes references to key columns to references to value columns in
+    index_map.
+
+    Assumes that named attribute references have been converted to integer
+    positions.
+    """
+    for ex in expr.walk():
+        assert (not isinstance(ex, AttributeRef)
+                or isinstance(ex, UnnamedAttributeRef))
+        if isinstance(ex, UnnamedAttributeRef) and ex.position in index_map:
+            ex.position = index_map[ex.position]

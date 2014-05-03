@@ -891,6 +891,22 @@ class PushSelects(rules.Rule):
                 cols = is_column_equality_comparison(cond)
                 if cols:
                     return op.add_equijoin_condition(cols[0], cols[1])
+        elif isinstance(op, algebra.Apply):
+            # Convert accessed to a list from a set to ensure consistent order
+            accessed = list(expression.accessed_columns(cond))
+            accessed_emits = [op.emitters[i] for i in accessed]
+            if all(isinstance(e[1], expression.UnnamedAttributeRef)
+                   for e in accessed_emits):
+                # This condition only touches columns that are copied verbatim
+                # from the child, so we can push it.
+                #
+                # Build the mapping of post-Apply index (in cond now) to
+                # pre-Apply index (after pushing cond).
+                index_map = {a: e[1].position
+                             for (a, e) in zip(accessed, accessed_emits)}
+                expression.reindex_expr(cond, index_map)
+                op.input = PushSelects.descend_tree(op.input, cond)
+                return op
 
         # Can't push any more: instantiate the selection
         new_op = algebra.Select(cond, op)
