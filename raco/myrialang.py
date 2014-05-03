@@ -894,16 +894,31 @@ class PushSelects(rules.Rule):
         elif isinstance(op, algebra.Apply):
             # Convert accessed to a list from a set to ensure consistent order
             accessed = list(expression.accessed_columns(cond))
-            accessed_emits = [op.emitters[i] for i in accessed]
-            if all(isinstance(e[1], expression.UnnamedAttributeRef)
+            accessed_emits = [op.emitters[i][1] for i in accessed]
+            if all(isinstance(e, expression.AttributeRef)
                    for e in accessed_emits):
+                unnamed_emits = [expression.toUnnamed(e, op.input.scheme())
+                                 for e in accessed_emits]
                 # This condition only touches columns that are copied verbatim
                 # from the child, so we can push it.
-                #
-                # Build the mapping of post-Apply index (in cond now) to
-                # pre-Apply index (after pushing cond).
-                index_map = {a: e[1].position
-                             for (a, e) in zip(accessed, accessed_emits)}
+                index_map = {a: e.position
+                             for (a, e) in zip(accessed, unnamed_emits)}
+                expression.reindex_expr(cond, index_map)
+                op.input = PushSelects.descend_tree(op.input, cond)
+                return op
+        elif isinstance(op, algebra.GroupBy):
+            # Convert accessed to a list from a set to ensure consistent order
+            accessed = list(expression.accessed_columns(cond))
+            if all((a < len(op.grouping_list)) for a in accessed):
+                accessed_grps = [op.grouping_list[a] for a in accessed]
+                # This condition only touches columns that are copied verbatim
+                # from the child (grouping keys), so we can push it.
+                assert all(isinstance(e, expression.AttributeRef)
+                           for e in op.grouping_list)
+                unnamed_grps = [expression.toUnnamed(e, op.input.scheme())
+                                for e in accessed_grps]
+                index_map = {a: e.position
+                             for (a, e) in zip(accessed, unnamed_grps)}
                 expression.reindex_expr(cond, index_map)
                 op.input = PushSelects.descend_tree(op.input, cond)
                 return op
