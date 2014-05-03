@@ -105,6 +105,31 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected)
 
+    def test_push_selects_apply(self):
+        """Test pushing selections through apply."""
+        lp = StoreTemp('OUTPUT',
+               Select(expression.LTEQ(AttRef("c"), AttRef("a")),
+                 Select(expression.LTEQ(AttRef("b"), AttRef("c")),
+                   Apply([('b', AttIndex(1)),
+                          ('c', AttIndex(2)),
+                          ('a', AttIndex(0))],
+                         Scan(self.x_key, self.x_scheme)))))  # noqa
+
+        expected = collections.Counter(
+            [(b, c, a) for (a, b, c) in self.x_data if c <= a and b <= c])
+
+        self.assertEquals(self.get_count(lp, Select), 2)
+        self.assertEquals(self.get_count(lp, Scan), 1)
+        self.assertTrue(isinstance(lp.input, Select))
+
+        pp = self.logical_to_physical(lp)
+        self.assertTrue(isinstance(pp.input, Apply))
+        self.assertEquals(self.get_count(pp, Select), 1)
+
+        self.db.evaluate(pp)
+        result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, expected)
+
     def test_extract_join(self):
         """Extract a join condition from the middle of complex select."""
         s = expression.AND(expression.LTEQ(AttRef("e"), AttRef("f")),
