@@ -940,7 +940,9 @@ class PushSelects(rules.Rule):
         return self.fire(new_op)
 
     def __str__(self):
-        return "Select, Cross/Join => Join"
+        return ("Select, Cross/Join => Join;"
+                + " Select, Apply => Apply, Select;"
+                + " Select, GroupBy => GroupBy, Select")
 
 
 class RemoveTrivialSequences(rules.Rule):
