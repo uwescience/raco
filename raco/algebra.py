@@ -239,7 +239,7 @@ class UnaryOperator(Operator):
         self.input = other.input
         Operator.copy(self, other)
 
-    def compileme(self, resultsym, inputsym):
+    def compileme(self, inputsym):
         """Compile this operator with specified input and output symbol
         names"""
         raise NotImplementedError()
@@ -291,7 +291,7 @@ class BinaryOperator(Operator):
         self.right = other.right
         Operator.copy(self, other)
 
-    def compileme(self, resultsym, leftsym, rightsym):
+    def compileme(self, leftsym, rightsym):
         """Compile this operator with specified left, right, and output symbol
         names"""
         raise NotImplementedError()
@@ -339,7 +339,7 @@ class NaryOperator(Operator):
         self.args = [f(arg) for arg in self.args]
         return self
 
-    def compileme(self, resultsym, argsyms):
+    def compileme(self, *argsyms):
         """Compile this operator with specified children and output symbol
         names"""
         raise NotImplementedError()

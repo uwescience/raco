@@ -1117,16 +1117,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
         "A shortcut to call the operator's compile_me function."
         opsym = syms[id(op)]
         childsyms = [syms[id(child)] for child in op.children()]
-        if isinstance(op, algebra.ZeroaryOperator):
-            op_dict = op.compileme()
-        elif isinstance(op, algebra.UnaryOperator):
-            op_dict = op.compileme(childsyms[0])
-        elif isinstance(op, algebra.BinaryOperator):
-            op_dict = op.compileme(childsyms[0], childsyms[1])
-        elif isinstance(op, algebra.NaryOperator):
-            op_dict = op.compileme(childsyms)
-        else:
-            raise NotImplementedError("unable to handle operator of type " + type(op))  # noqa
+        op_dict = op.compileme(*childsyms)
         op_dict['opName'] = op.shortStr()
         op_dict['opId'] = opsym
         return op_dict

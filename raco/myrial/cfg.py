@@ -1,7 +1,7 @@
 from raco.algebra import *
+from raco.myrial.exceptions import MyrialCompileException
 
 import bisect
-import collections
 import copy
 import itertools
 import logging
@@ -249,6 +249,9 @@ class ControlFlowGraph(object):
 
         if apply_chaining:
             self.apply_chaining()
+
+        if not self.graph:
+            raise MyrialCompileException("Optimized program is empty")
 
         op_stack = [Sequence()]
 
