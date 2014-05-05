@@ -891,6 +891,37 @@ class PushSelects(rules.Rule):
                 cols = is_column_equality_comparison(cond)
                 if cols:
                     return op.add_equijoin_condition(cols[0], cols[1])
+        elif isinstance(op, algebra.Apply):
+            # Convert accessed to a list from a set to ensure consistent order
+            accessed = list(expression.accessed_columns(cond))
+            accessed_emits = [op.emitters[i][1] for i in accessed]
+            if all(isinstance(e, expression.AttributeRef)
+                   for e in accessed_emits):
+                unnamed_emits = [expression.toUnnamed(e, op.input.scheme())
+                                 for e in accessed_emits]
+                # This condition only touches columns that are copied verbatim
+                # from the child, so we can push it.
+                index_map = {a: e.position
+                             for (a, e) in zip(accessed, unnamed_emits)}
+                expression.reindex_expr(cond, index_map)
+                op.input = PushSelects.descend_tree(op.input, cond)
+                return op
+        elif isinstance(op, algebra.GroupBy):
+            # Convert accessed to a list from a set to ensure consistent order
+            accessed = list(expression.accessed_columns(cond))
+            if all((a < len(op.grouping_list)) for a in accessed):
+                accessed_grps = [op.grouping_list[a] for a in accessed]
+                # This condition only touches columns that are copied verbatim
+                # from the child (grouping keys), so we can push it.
+                assert all(isinstance(e, expression.AttributeRef)
+                           for e in op.grouping_list)
+                unnamed_grps = [expression.toUnnamed(e, op.input.scheme())
+                                for e in accessed_grps]
+                index_map = {a: e.position
+                             for (a, e) in zip(accessed, unnamed_grps)}
+                expression.reindex_expr(cond, index_map)
+                op.input = PushSelects.descend_tree(op.input, cond)
+                return op
 
         # Can't push any more: instantiate the selection
         new_op = algebra.Select(cond, op)
@@ -909,7 +940,9 @@ class PushSelects(rules.Rule):
         return self.fire(new_op)
 
     def __str__(self):
-        return "Select, Cross/Join => Join"
+        return ("Select, Cross/Join => Join;"
+                + " Select, Apply => Apply, Select;"
+                + " Select, GroupBy => GroupBy, Select")
 
 
 class RemoveTrivialSequences(rules.Rule):
