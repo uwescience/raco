@@ -16,6 +16,7 @@ using namespace Grappa;
 #include "utils.h"
 #include "stats.h"
 #include "strings.h"
+#include "relation.hpp"
 
 // graph gen
 #include "generator/make_graph.h"
@@ -25,11 +26,6 @@ using namespace Grappa;
 #include "grappa/graph.hpp"
 #include "prng.h"
 
-template < typename T >                                                                                                
-struct Relation {
-    GlobalAddress<T> data;
-    size_t numtuples;
-};  
 
 DEFINE_uint64( nt, 30, "hack: number of tuples"); 
 

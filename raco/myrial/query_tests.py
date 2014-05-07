@@ -1084,6 +1084,25 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, collections.Counter())
 
+    def test_relation_scope_error(self):
+        query = """
+        out = [FROM EMPTY(x:int) AS X EMIT z.*];
+        STORE(out, OUTPUT);
+        """
+
+        with self.assertRaises(AssertionError):
+            self.check_result(query, collections.Counter())
+
+    def test_relation_scope_error2(self):
+        query = """
+        z = EMPTY(z:int);
+        out = [FROM EMPTY(x:int) AS X EMIT z.*];
+        STORE(out, OUTPUT);
+        """
+
+        with self.assertRaises(AssertionError):
+            self.check_result(query, collections.Counter())
+
     def test_parse_error(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT $(val)];
