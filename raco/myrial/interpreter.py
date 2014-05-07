@@ -225,6 +225,15 @@ class ExpressionProcessor(object):
 
         return raco.algebra.CrossProduct(left, right)
 
+    @staticmethod
+    def get_attribute_ref(column_ref, scheme, offset=0):
+        """Convert a string or int into an attribute ref on the new table"""  # noqa
+        if isinstance(column_ref, int):
+            index = column_ref
+        else:
+            index = scheme.getPosition(column_ref)
+        return raco.expression.UnnamedAttributeRef(index + offset)
+
     def join(self, left_target, right_target):
         """Convert parser.JoinTarget arguments into a Join operation"""
 
@@ -233,20 +242,12 @@ class ExpressionProcessor(object):
 
         assert len(left_target.columns) == len(right_target.columns)
 
-        def get_attribute_ref(column_ref, scheme, offset):
-            """Convert a string or int into an attribute ref on the new table"""  # noqa
-            if isinstance(column_ref, int):
-                index = column_ref
-            else:
-                index = scheme.getPosition(column_ref)
-            return raco.expression.UnnamedAttributeRef(index + offset)
-
         left_scheme = left.scheme()
-        left_refs = [get_attribute_ref(c, left_scheme, 0)
+        left_refs = [self.get_attribute_ref(c, left_scheme, 0)
                      for c in left_target.columns]
 
         right_scheme = right.scheme()
-        right_refs = [get_attribute_ref(c, right_scheme, len(left_scheme))
+        right_refs = [self.get_attribute_ref(c, right_scheme, len(left_scheme))
                       for c in right_target.columns]
 
         join_conditions = [raco.expression.EQ(x, y) for x, y in
@@ -324,6 +325,9 @@ class StatementProcessor(object):
 
         alias_expr = ("ALIAS", _id)
         child_op = self.ep.evaluate(alias_expr)
+
+        if how_partitioned:
+            _
         op = raco.algebra.Store(rel_key, child_op)
 
         uses_set = self.ep.get_and_clear_uses_set()
