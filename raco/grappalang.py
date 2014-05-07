@@ -514,7 +514,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
         if src.childtag == "left":
             left_template = ct("""
-            %(hashname)s.lookup_iter<&%(pipeline_sync)s>( %(keyname)s.get(%(keypos)s), \
+            %(hashname)s.lookup_iter<&%(pipeline_sync)s>( \
+            %(keyname)s.get(%(keypos)s), \
             [=](%(right_tuple_type)s& %(right_tuple_name)s) {
               join_coarse_result_count++;
               %(out_tuple_type)s %(out_tuple_name)s = \
