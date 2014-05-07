@@ -1382,12 +1382,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_empty_statement_parse(self):
         """Program that contains nothing but empty statements."""
-        query = ";"
-
-        statements = self.parser.parse(";")
-        self.processor.evaluate(statements)
-        plan = self.processor.get_logical_plan()
-        self.assertEquals(plan, raco.algebra.Sequence())
+        with self.assertRaises(MyrialCompileException):
+            self.check_result(";", None)
 
     def test_case_binary(self):
         query = """
@@ -1545,4 +1541,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE (countall, BadProgram);
         """
         with self.assertRaises(ReservedTokenException):
+            self.check_result(query, None)
+
+    def test_empty_query(self):
+        query = """
+        T1 = empty(x:int);
+        """
+        with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
