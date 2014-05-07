@@ -48,6 +48,13 @@ class Operator(Printable):
     def scheme(self):
         """Return the scheme of the tuples output by this operator."""
 
+    def walk(self):
+        """Return an iterator over the tree of operators."""
+        yield self
+        for c in self.children():
+            for x in c.walk():
+                yield x
+
     def postorder(self, f):
         """Postorder traversal, applying a function to each operator.  The
         function returns an iterator"""
