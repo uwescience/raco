@@ -245,8 +245,17 @@ class Parser(object):
 
     @staticmethod
     def p_statement_store(p):
-        'statement : STORE LPAREN unreserved_id COMMA relation_key RPAREN SEMI'
-        p[0] = ('STORE', p[3], p[5])
+        'statement : STORE LPAREN unreserved_id COMMA relation_key optional_part_info RPAREN SEMI'  # noqa
+        p[0] = ('STORE', p[3], p[5], p[6])
+
+    @staticmethod
+    def p_optional_part_info(p):
+        '''optional_part_info : COMMA LBRACKET column_ref_list RBRACKET
+                              | empty'''
+        if len(p) > 2:
+            p[0] = p[3]
+        else:
+            p[0] = None
 
     @staticmethod
     def p_expression_id(p):

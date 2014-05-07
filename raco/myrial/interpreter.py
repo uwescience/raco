@@ -319,7 +319,7 @@ class StatementProcessor(object):
         '''Map a variable to the value of an expression.'''
         self.__do_assignment(_id, expr)
 
-    def store(self, _id, rel_key):
+    def store(self, _id, rel_key, how_partitioned):
         assert isinstance(rel_key, relation_key.RelationKey)
 
         alias_expr = ("ALIAS", _id)
