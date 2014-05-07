@@ -468,7 +468,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             state.addDeclarationsUnresolved([hashdeclr])
 
             init_template = ct("""%(hashname)s.init_global_DHT( &%(hashname)s,
-            cores()*5000 );""")
+            cores()*16*1024 );""")
             state.addInitializers([init_template % locals()])
             self.right.produce(state)
             state.saveExpr(self.right,
@@ -514,7 +514,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
         if src.childtag == "left":
             left_template = ct("""
-            %(hashname)s.lookup_iter( %(keyname)s.get(%(keypos)s), \
+            %(hashname)s.lookup_iter<&%(pipeline_sync)s>( \
+            %(keyname)s.get(%(keypos)s), \
             [=](%(right_tuple_type)s& %(right_tuple_name)s) {
               join_coarse_result_count++;
               %(out_tuple_type)s %(out_tuple_name)s = \
@@ -529,6 +530,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
             keytype = t.getTupleTypename()
+
+            pipeline_sync = state.getPipelineProperty('global_syncname')
 
             if self.rightCondIsRightAttr:
                 keypos = self.condition.left.position
@@ -607,10 +610,14 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
     # we resolve it later, so use %%
     ascii_scan_template = """
     {
+    if (FLAGS_bin) {
+    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( "%(name)s.bin" );
+    } else {
     %(resultsym)s.data = readTuples<%%(result_type)s>( "%(name)s", FLAGS_nt);
     %(resultsym)s.numtuples = FLAGS_nt;
     auto l_%(resultsym)s = %(resultsym)s;
     on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
+    }
     }
     """
 

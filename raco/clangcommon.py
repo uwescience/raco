@@ -71,10 +71,10 @@ class StagedTupleRef:
     template = """
           // can be just the necessary schema
   class %(tupletypename)s {
-    private:
-    %(fielddefs)s
-    
+
     public:
+    %(fielddefs)s
+
     int64_t get(int field) const {
       return _fields[field];
     }
