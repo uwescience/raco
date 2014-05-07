@@ -39,3 +39,9 @@ grappa-install: strings.cc strings.h utils.h
 	ln -sf `pwd`/strings.h $(GRAPPA_HOME)/applications/join
 	ln -sf `pwd`/utils.h $(GRAPPA_HOME)/applications/join
 
+
+rdfprint: rdfprint.c
+	gcc -o rdfprint rdfprint.c -I../../raptor-2.2-install/include/raptor2 -L../../raptor-2.2-install/lib -lraptor2
+
+filesplit: filesplit.cpp
+	g++ -std=c++11 filesplit.cpp -o filesplit
