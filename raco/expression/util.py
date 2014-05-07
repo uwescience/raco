@@ -2,7 +2,8 @@
 Utility functions for use in Raco expressions
 """
 
-from .expression import BinaryOperator, NamedAttributeRef, UnnamedAttributeRef, NamedStateAttributeRef  # noqa
+from .expression import (BinaryOperator, AttributeRef, NamedAttributeRef,
+                         UnnamedAttributeRef, NamedStateAttributeRef)
 from .aggregate import AggregateExpression
 
 import copy
@@ -82,12 +83,12 @@ def udf_undefined_vars(expr, vars):
             if isinstance(ex, NamedAttributeRef) and ex.name not in vars]
 
 
-def resolve_udf(udf_expr, arg_dict):
-    """Bind variables to arguments in a UDF expression.
+def resolve_function(func_expr, arg_dict):
+    """Bind variables to arguments in a function invocation.
 
-    :param udf_expr: An expression corresponding to UDF
-    :type upf_expr: Expresison
-    :param arg_dict: The arguments to the UDF
+    :param func_expr: An expression corresponding to function
+    :type func_expr: Expression
+    :param arg_dict: The arguments to the function
     :type arg_dict: A dictionary mapping string to Expression
     :returns: An expression with no variables
     """
@@ -95,10 +96,11 @@ def resolve_udf(udf_expr, arg_dict):
     def convert(n):
         if isinstance(n, NamedAttributeRef):
             n = arg_dict[n.name]
-        n.apply(convert)
+        else:
+            n.apply(convert)
         return n
 
-    return convert(copy.deepcopy(udf_expr))
+    return convert(copy.deepcopy(func_expr))
 
 
 def resolve_state_vars(expr, state_vars, mangled_names):
@@ -117,7 +119,8 @@ def resolve_state_vars(expr, state_vars, mangled_names):
     def convert(n):
         if isinstance(n, NamedAttributeRef) and n.name in state_vars:
             n = NamedStateAttributeRef(mangled_names[n.name])
-        n.apply(convert)
+        else:
+            n.apply(convert)
         return n
 
     return convert(copy.copy(expr))
@@ -148,3 +151,17 @@ def rebase_expr(expr, offset):
         assert not isinstance(ex, NamedAttributeRef)
         if isinstance(ex, UnnamedAttributeRef):
             ex.position -= offset
+
+
+def reindex_expr(expr, index_map):
+    """Changes references to key columns to references to value columns in
+    index_map.
+
+    Assumes that named attribute references have been converted to integer
+    positions.
+    """
+    for ex in expr.walk():
+        assert (not isinstance(ex, AttributeRef)
+                or isinstance(ex, UnnamedAttributeRef))
+        if isinstance(ex, UnnamedAttributeRef) and ex.position in index_map:
+            ex.position = index_map[ex.position]

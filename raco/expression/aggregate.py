@@ -137,7 +137,7 @@ class SUM(UnaryFunction, DecomposableAggregate):
         return sum
 
 
-class AVERAGE(UnaryFunction, DecomposableAggregate):
+class AVG(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         filtered = (x for x in inputs if x is not None)

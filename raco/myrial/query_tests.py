@@ -8,7 +8,8 @@ import raco.myrial.interpreter as interpreter
 import raco.scheme as scheme
 import raco.myrial.groupby
 import raco.myrial.myrial_test as myrial_test
-import raco.myrial.exceptions
+
+from raco.myrial.exceptions import *
 
 
 class TestQueryFunctions(myrial_test.MyrialTestCase):
@@ -969,7 +970,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
-        with self.assertRaises(raco.myrial.exceptions.ColumnIndexOutOfBounds):
+        with self.assertRaises(ColumnIndexOutOfBounds):
             self.check_result(query, collections.Counter())
 
     def test_abs(self):
@@ -1080,7 +1081,26 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
+        with self.assertRaises(MyrialCompileException):
+            self.check_result(query, collections.Counter())
+
+    def test_relation_scope_error(self):
+        query = """
+        out = [FROM EMPTY(x:int) AS X EMIT z.*];
+        STORE(out, OUTPUT);
+        """
+
+        with self.assertRaises(AssertionError):
+            self.check_result(query, collections.Counter())
+
+    def test_relation_scope_error2(self):
+        query = """
+        z = EMPTY(z:int);
+        out = [FROM EMPTY(x:int) AS X EMIT z.*];
+        STORE(out, OUTPUT);
+        """
+
+        with self.assertRaises(AssertionError):
             self.check_result(query, collections.Counter())
 
     def test_parse_error(self):
@@ -1089,7 +1109,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.MyrialCompileException):
+        with self.assertRaises(MyrialCompileException):
             self.check_result(query, collections.Counter())
 
     def test_no_such_udf(self):
@@ -1098,7 +1118,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.NoSuchFunctionException):
+        with self.assertRaises(NoSuchFunctionException):
+            self.check_result(query, collections.Counter())
+
+    def test_reserved_udf(self):
+        query = """
+        DEF avg(x, y): (x + y) / 2;
+        out = [FROM SCAN(%s) AS X EMIT avg(X.salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(ReservedTokenException):
             self.check_result(query, collections.Counter())
 
     def test_duplicate_udf(self):
@@ -1111,7 +1141,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.DuplicateFunctionDefinitionException):  # noqa
+        with self.assertRaises(DuplicateFunctionDefinitionException):
             self.check_result(query, collections.Counter())
 
     def test_invalid_argument_udf(self):
@@ -1121,7 +1151,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.InvalidArgumentList):
+        with self.assertRaises(InvalidArgumentList):
             self.check_result(query, collections.Counter())
 
     def test_undefined_variable_udf(self):
@@ -1131,7 +1161,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.UndefinedVariableException):  # noqa
+        with self.assertRaises(UndefinedVariableException):
             self.check_result(query, collections.Counter())
 
     def test_duplicate_variable_udf(self):
@@ -1141,7 +1171,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.exceptions.DuplicateVariableException):  # noqa
+        with self.assertRaises(DuplicateVariableException):
             self.check_result(query, collections.Counter())
 
     def test_triangle_udf(self):
@@ -1239,6 +1269,50 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """
 
         expected = collections.Counter([(42,)])
+        self.check_result(query, expected)
+
+    def test_least_function(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT least(X.id,X.dept_id,1)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(min(t[0], t[1], 1),)
+             for t in self.emp_table])
+        self.check_result(query, expected)
+
+    def test_greatest_function(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT greatest(X.id,X.dept_id,3)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(max(t[0], t[1], 3),)
+             for t in self.emp_table])
+        self.check_result(query, expected)
+
+    def test_lesser_function(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT lesser(X.id,X.dept_id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(min(t[0], t[1]),)
+             for t in self.emp_table])
+        self.check_result(query, expected)
+
+    def test_greater_function(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT greater(X.id,X.dept_id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(max(t[0], t[1],),)
+             for t in self.emp_table])
         self.check_result(query, expected)
 
     def test_running_mean_sapply(self):
@@ -1400,3 +1474,75 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter([(x[0], 0) for x
                                         in self.emp_table.elements()])
         self.check_result(query, expected)
+
+    def test_substr(self):
+        query = """
+        ZERO = [0];
+        THREE = [3];
+        out = [FROM SCAN(%s) AS X EMIT X.id, substr(X.name, *ZERO, *THREE)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[0], x[2][0:3]) for x in self.emp_table.elements()])
+        self.check_result(query, expected)
+
+    def test_len(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT X.id, len(X.name)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[0], len(x[2])) for x in self.emp_table.elements()])
+        self.check_result(query, expected)
+
+    def test_head(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT X.id, head(X.name, 10)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[0], x[2][0:10]) for x in self.emp_table.elements()])
+        self.check_result(query, expected)
+
+    def test_tail(self):
+        query = """
+        ZERO = [0];
+        THREE = [3];
+        out = [FROM SCAN(%s) AS X EMIT X.id, tail(X.name, 10)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [(x[0], (lambda i: i if len(i) <= 10 else i[len(i) - 10:])(x[2]))
+                for x in self.emp_table.elements()])
+        self.check_result(query, expected)
+
+    def test_column_name_reserved(self):
+        query = """
+        T = EMPTY(x:int);
+        A = [FROM T EMIT SafeDiv(x, 3) AS SafeDiv];
+        STORE (A, BadProgram);
+        """
+        with self.assertRaises(ReservedTokenException):
+            self.check_result(query, None)
+
+    def test_column_mixed_case_reserved(self):
+        query = """
+        T = EMPTY(x:int);
+        A = [FROM T EMIT MAX(x) AS maX];
+        STORE (A, BadProgram);
+        """
+        with self.assertRaises(ReservedTokenException):
+            self.check_result(query, None)
+
+    def test_variable_name_reserved(self):
+        query = """
+        T = EMPTY(x:int);
+        avg = COUNTALL(T);
+        STORE (countall, BadProgram);
+        """
+        with self.assertRaises(ReservedTokenException):
+            self.check_result(query, None)
