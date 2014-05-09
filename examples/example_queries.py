@@ -1,5 +1,9 @@
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
+import raco.algebra as algebra
 from emitcode import emitCode
+import raco.rules as rules
+from raco.grappalang import GrappaShuffleHashJoin, GrappaSymmetricHashJoin, GrappaHashJoin
+from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -68,15 +72,29 @@ if __name__ == "__main__":
             #("A(a,b,c,d,e):-X(a,b),Y(a,c),Z(a,d,e),T(a,b),K(b,a)", "complex_joins"),
             ]
 
-    algebra = CCAlgebra
+    alg = CCAlgebra
     prefix = ""
     import sys
     if len(sys.argv) > 1:
         if sys.argv[1] ==  "grappa":
-            algebra = GrappaAlgebra
+            alg = GrappaAlgebra
             prefix = "grappa_"
+
+    # plan hacking
+    newRule = None
+    if len(sys.argv) > 2:
+        if sys.argv[2] == "sym":
+            newRule = rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin)
+        elif sys.argv[2] == "shuf":
+            newRule = rules.OneToOne(algebra.Join, GrappaShuffleHashJoin)
+
+    if newRule:
+        for i in range(0, len(alg.rules)):
+            r = alg.rules[i]
+            if isinstance(r, rules.OneToOne) and r.opto == GrappaHashJoin:
+                alg.rules[i] = newRule
 
     for q in queries:
         query, name = q
-        emitCode(query, prefix+name, algebra)
+        emitCode(query, prefix+name, alg)
 

@@ -4,7 +4,6 @@ from raco.compile import compile
 import generateDot
 
 import logging
-logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 
 def comment(s):
