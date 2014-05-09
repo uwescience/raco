@@ -284,18 +284,27 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         """)
 
     @classmethod
-    def __genHashName__(cls):
-        name = "dhash_%03d" % cls._i
+    def __genBaseName__(cls):
+        name = "%03d" % cls._i
         cls._i += 1
         return name
 
-    def __genSyncName__(cls):
-        name = "dh_sync_%03d" % cls._i
-        cls._i += 1
+    def __getHashName__(self):
+        name = "dhash_%s" % self.symBase
         return name
+
+    def __getSyncName__(self, side):
+        base = "dh_sync_%s" % self.symBase
+        if side == "left":
+            return base+"_L"
+        if side == "right":
+            return base+"_R"
+        assert False, "type error {left,right}"
+
 
     def produce(self, state):
         self.syncnames = []
+        self.symBase = self.__genBaseName__()
 
         if not isinstance(self.condition, expression.EQ):
             msg = "The C compiler can only handle equi-join conditions\
@@ -313,7 +322,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
       DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s %(hashname)s;
       """)
         # declaration of hash map
-        self._hashname = self.__genHashName__()
+        self._hashname = self.__getHashName__()
         hashname = self._hashname
         self.leftTypeRef = state.createUnresolvedSymbol()
         left_in_tuple_type = self.leftTypeRef.getPlaceholder()
@@ -432,18 +441,26 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         """)
 
     @classmethod
-    def __genHashName__(cls):
-        name = "hashjoin_reducer_%03d" % cls._i
+    def __genBaseName__(cls):
+        name = "%03d" % cls._i
         cls._i += 1
         return name
 
-    def __genSyncName__(cls):
-        name = "shj_sync_%03d" % cls._i
-        cls._i += 1
+    def __getHashName__(self):
+        name = "hashjoin_reducer_%s" % self.symBase
         return name
+
+    def __getSyncName__(self, side):
+        base = "shj_sync_%s" % self.symBase
+        if side == "left":
+            return base+"_L"
+        if side == "right":
+            return base+"_R"
+        assert False, "type error {left,right}"
 
     def produce(self, state):
         self.syncnames = []
+        self.symBase = self.__genBaseName__()
 
         self.right.childtag = "right"
         self.rightTupleTypeRef = None  # may remain None if CSE succeeds
@@ -466,7 +483,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         if not hashtableInfo:
             # if right child never bound then store hashtable symbol and
             # call right child produce
-            self._hashname = self.__genHashName__()
+            self._hashname = self.__getHashName__()
             LOG.debug("generate hashname %s for %s", self._hashname, self)
 
             hashname = self._hashname
