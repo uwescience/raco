@@ -89,7 +89,7 @@ class GrappaLanguage(Language):
         auto end_%(ident)s = walltime();
         auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
         %(timer_metric)s += runtime_%(ident)s;
-        VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
+        VLOG(1) << "pipeline group %(ident)s: " << runtime_%(ident)s << " s";
         """)
 
         timer_metric = None
@@ -491,7 +491,8 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
 
 
-        # now that Relation is produced, call consume on its contents
+        # now that Relation is produced, produce its contents by iterating over
+        # the join result
         iterate_template = ct("""MapReduce::forall_symmetric<&%(pipeline_sync)s>(\
             %(hashname)s, &JoinReducer\
                     <int64_t,%(left_type)s,%(right_type)s,%(out_tuple_type)s>::\
@@ -512,6 +513,15 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         pipeline_sync = gensym()
         state.addDeclarations([global_sync_decl_template % locals()])
         state.setPipelineProperty('global_syncname', pipeline_sync)
+
+        # reduce is a single self contained pipeline.
+        # future hashjoin implementations may pipeline out of it
+        # by passing a continuation to reduceExecute
+        reduce_template = ct("""
+        %(hashname)s_ctx.reduceExecute();
+
+        """)
+        state.addPreCode(reduce_template % locals())
 
         delete_template = ct("""
             freeJoinReducers(%(hashname)s, %(hashname)s_num_reducers);""")
