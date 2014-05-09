@@ -128,8 +128,11 @@ class CC(Language):
     @classmethod
     def compile_stringliteral(cls, s):
         sid = cls.newstringident()
-        init = """auto %s = string_index.string_lookup("%s");""" % (sid, s)
-        return """(%s)""" % sid, [], [init]
+        lookup_init = """auto %s = string_index.string_lookup("%s");""" % (sid, s)
+        build_init = """
+        string_index = build_string_index("sp2bench_1m.index");
+        """
+        return """(%s)""" % sid, [], [build_init, lookup_init]
         #raise ValueError("String Literals not supported in C language: %s" % s)
 
     @classmethod

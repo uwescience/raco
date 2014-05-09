@@ -125,7 +125,17 @@ class CompileState:
         self.current_pipeline_postcode.append(c)
 
     def getInitCode(self):
-        code = emitlist(self.initializers)
+        # inits is a set
+        # If this ever becomes a bottleneck when declarations are strings,
+        # as in clang, then resort to at least symbol name deduping.
+        s = set()
+        def f(x):
+            if x in s: return False
+            else:
+                s.add(x)
+                return True
+
+        code = emitlist(filter(f,self.initializers))
         return code % self.resolving_symbols
 
     def getDeclCode(self):
