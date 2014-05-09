@@ -428,6 +428,8 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
 
 class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
     _i = 0
+    wait_template = ct("""%(syncname)s.wait();
+        """)
 
     @classmethod
     def __genHashName__(cls):
@@ -435,7 +437,14 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         cls._i += 1
         return name
 
+    def __genSyncName__(cls):
+        name = "shj_sync_%03d" % cls._i
+        cls._i += 1
+        return name
+
     def produce(self, state):
+        self.syncnames = []
+
         self.right.childtag = "right"
         self.rightTupleTypeRef = None  # may remain None if CSE succeeds
         self.leftTupleTypeRef = None  # may remain None if CSE succeeds
@@ -487,6 +496,10 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
             state.saveExpr(self.right,
                            (self._hashname, right_type, left_type))
+
+            for sn in self.syncnames:
+                syncname = sn
+                state.addCode(self.wait_template % locals())
         else:
             # if found a common subexpression on right child then
             # use the same hashtable
@@ -574,7 +587,14 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         keyname = inputTuple.name
         keytype = inputTuple.getTupleTypename()
 
+        # intra-pipeline sync
         global_syncname = state.getPipelineProperty('global_syncname')
+
+        # inter-pipeline sync
+        syncname = self.__genSyncName__()
+        state.setPipelineProperty('sync', syncname)
+        state.setPipelineProperty('syncdef', syncname)
+        self.syncnames.append(syncname)
 
         mat_template = ct("""%(hashname)s_ctx.emitIntermediate%(side)s\
                 <&%(global_syncname)s>(\
