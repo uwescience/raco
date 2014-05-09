@@ -472,7 +472,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
             auto %(hashname)s_num_reducers = cores();
             auto %(hashname)s = allocateJoinReducers\
             <int64_t,%(left_type)s,%(right_type)s,%(out_tuple_type)s>(%(hashname)s_num_reducers);
-            auto %(hashname)s_ctx = HashJoinContext<%(left_type)s,%(right_type)s,%(out_tuple_type)s>\
+            auto %(hashname)s_ctx = HashJoinContext<int64_t,%(left_type)s,%(right_type)s,%(out_tuple_type)s>\
                 (%(hashname)s, %(hashname)s_num_reducers);""")
 
             state.addInitializers([init_template % locals()])
