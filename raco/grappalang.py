@@ -677,8 +677,8 @@ class GrappaAlgebra(object):
         rules.OneToOne(algebra.Apply, GrappaApply),
         # rules.OneToOne(algebra.Scan,MemoryScan),
         MemoryScanOfFileScan(),
-       #  rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
-         rules.OneToOne(algebra.Join, GrappaHashJoin),
+        #  rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
+        rules.OneToOne(algebra.Join, GrappaHashJoin),
         rules.OneToOne(algebra.Project, GrappaProject),
         # TODO: this Union obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll)
