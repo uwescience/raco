@@ -377,10 +377,12 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         out_tuple_type = self.outTuple.getTupleTypename()
         out_tuple_name = self.outTuple.name
 
-        syncname = self.__genSyncName__()
-        state.setPipelineProperty('sync', syncname)
-        state.setPipelineProperty('syncdef', syncname)
-        self.syncnames.append(syncname)
+        syncname = self.__getSyncName__(src.childtag)
+        # only add such a sync if one doesn't exist yet
+        if not state.checkPipelineProperty('sync'):
+            state.setPipelineProperty('sync', syncname)
+            state.setPipelineProperty('syncdef', syncname)
+            self.syncnames.append(syncname)
 
         global_syncname = state.getPipelineProperty('global_syncname')
 
@@ -608,10 +610,12 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         global_syncname = state.getPipelineProperty('global_syncname')
 
         # inter-pipeline sync
-        syncname = self.__genSyncName__()
-        state.setPipelineProperty('sync', syncname)
-        state.setPipelineProperty('syncdef', syncname)
-        self.syncnames.append(syncname)
+        syncname = self.__getSyncName__(fromOp.childtag)
+        # only add such a sync if one doesn't exist yet
+        if not state.checkPipelineProperty('sync'):
+            state.setPipelineProperty('sync', syncname)
+            state.setPipelineProperty('syncdef', syncname)
+            self.syncnames.append(syncname)
 
         mat_template = ct("""%(hashname)s_ctx.emitIntermediate%(side)s\
                 <&%(global_syncname)s>(\

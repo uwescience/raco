@@ -71,6 +71,13 @@ class CompileState:
         LOG.debug("get %s from %s" % (key, self.current_pipeline_properties))
         return self.current_pipeline_properties[key]
 
+    def checkPipelineProperty(self, key):
+        """
+        Like getPipelineProperty but returns None if no property is found
+        """
+        LOG.debug("get(to check) %s from %s" % (key, self.current_pipeline_properties))
+        return self.current_pipeline_properties.get(key)
+
     def createUnresolvedSymbol(self):
         name = gensym()
         rs = ResolvingSymbol(name)
