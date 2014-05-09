@@ -40,19 +40,6 @@ binops = {
     '=': sexpr.EQ,
     'AND': sexpr.AND,
     'OR': sexpr.OR,
-    'POW': sexpr.POW,
-}
-
-# Mapping from source symbols to raco.expression.UnaryOperator classes
-unary_funcs = {
-    'ABS': sexpr.ABS,
-    'CEIL': sexpr.CEIL,
-    'COS': sexpr.COS,
-    'FLOOR': sexpr.FLOOR,
-    'LOG': sexpr.LOG,
-    'SIN': sexpr.SIN,
-    'SQRT': sexpr.SQRT,
-    'TAN': sexpr.TAN,
 }
 
 
@@ -99,7 +86,7 @@ class Parser(object):
     @staticmethod
     def p_translation_unit(p):
         '''translation_unit : statement
-                            | function
+                            | udf
                             | apply'''
         p[0] = p[1]
 
@@ -107,11 +94,17 @@ class Parser(object):
     def check_for_undefined(p, name, _sexpr, args):
         undefined = sexpr.udf_undefined_vars(_sexpr, args)
         if undefined:
-            raise UndefinedVariableException(name, undefined[0], p.lineno)
+            raise UndefinedVariableException(name, undefined[0], p.lineno(0))
 
     @staticmethod
-    def add_function(p, name, args, body_expr):
-        """Add a function to the global function table.
+    def check_for_reserved(p, name):
+        """Check whether an identifier name is reserved."""
+        if expr_lib.is_defined(name):
+            raise ReservedTokenException(name, p.lineno(0))
+
+    @staticmethod
+    def add_udf(p, name, args, body_expr):
+        """Add a user-defined function to the global function table.
 
         :param p: The parser context
         :param name: The name of the function
@@ -122,10 +115,10 @@ class Parser(object):
         :type body_expr: raco.expression.Expression
         """
         if name in Parser.udf_functions:
-            raise DuplicateFunctionDefinitionException(name, p.lineno)
+            raise DuplicateFunctionDefinitionException(name, p.lineno(0))
 
         if len(args) != len(set(args)):
-            raise DuplicateVariableException(name, p.lineno)
+            raise DuplicateVariableException(name, p.lineno(0))
 
         Parser.check_for_undefined(p, name, body_expr, args)
 
@@ -140,29 +133,29 @@ class Parser(object):
     def add_apply(p, name, args, inits, updates, finalizer):
         """Register a stateful apply function.
 
-        TODO: de-duplicate logic from add_function.
+        TODO: de-duplicate logic from add_udf.
         """
         if name in Parser.udf_functions:
-            raise DuplicateFunctionDefinitionException(name, p.lineno)
+            raise DuplicateFunctionDefinitionException(name, p.lineno(0))
         if len(args) != len(set(args)):
-            raise DuplicateVariableException(name, p.lineno)
+            raise DuplicateVariableException(name, p.lineno(0))
         if len(inits) != len(updates):
-            raise BadApplyDefinitionException(name, p.lineno)
+            raise BadApplyDefinitionException(name, p.lineno(0))
 
         # Unpack the update, init expressions into a statemod dictionary
         statemods = {}
         for init, update in zip(inits, updates):
             if not isinstance(init, emitarg.SingletonEmitArg):
-                raise IllegalWildcardException(name, p.lineno)
+                raise IllegalWildcardException(name, p.lineno(0))
             if not isinstance(update, emitarg.SingletonEmitArg):
-                raise IllegalWildcardException(name, p.lineno)
+                raise IllegalWildcardException(name, p.lineno(0))
 
             # check for duplicate variable definitions
             sm_name = init.column_name
             if not sm_name:
-                raise UnnamedStateVariableException(name, p.lineno)
+                raise UnnamedStateVariableException(name, p.lineno(0))
             if sm_name in statemods or sm_name in args:
-                raise DuplicateVariableException(name, p.lineno)
+                raise DuplicateVariableException(name, p.lineno(0))
 
             statemods[sm_name] = (init.sexpr, update.sexpr)
 
@@ -180,9 +173,15 @@ class Parser(object):
         Parser.udf_functions[name] = Apply(args, statemods, finalizer)
 
     @staticmethod
-    def p_function(p):
-        '''function : DEF ID LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''  # noqa
-        Parser.add_function(p, p[2], p[4], p[7])
+    def p_unreserved_id(p):
+        'unreserved_id : ID'
+        Parser.check_for_reserved(p, p[1])
+        p[0] = p[1]
+
+    @staticmethod
+    def p_udf(p):
+        '''udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''  # noqa
+        Parser.add_udf(p, p[2], p[4], p[7])
         p[0] = None
 
     @staticmethod
@@ -193,8 +192,8 @@ class Parser(object):
 
     @staticmethod
     def p_function_arg_list(p):
-        '''function_arg_list : function_arg_list COMMA ID
-                             | ID'''
+        '''function_arg_list : function_arg_list COMMA unreserved_id
+                             | unreserved_id'''
         if len(p) == 4:
             p[0] = p[1] + [p[3]]
         else:
@@ -202,7 +201,7 @@ class Parser(object):
 
     @staticmethod
     def p_apply(p):
-        'apply : APPLY ID LPAREN optional_arg_list RPAREN LBRACE \
+        'apply : APPLY unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
         table_literal SEMI table_literal SEMI sexpr SEMI RBRACE SEMI'
         name = p[2]
         args = p[4]
@@ -214,7 +213,7 @@ class Parser(object):
 
     @staticmethod
     def p_statement_assign(p):
-        'statement : ID EQUALS rvalue SEMI'
+        'statement : unreserved_id EQUALS rvalue SEMI'
         p[0] = ('ASSIGN', p[1], p[3])
 
     @staticmethod
@@ -246,12 +245,12 @@ class Parser(object):
 
     @staticmethod
     def p_statement_store(p):
-        'statement : STORE LPAREN ID COMMA relation_key RPAREN SEMI'
+        'statement : STORE LPAREN unreserved_id COMMA relation_key RPAREN SEMI'
         p[0] = ('STORE', p[3], p[5])
 
     @staticmethod
     def p_expression_id(p):
-        'expression : ID'
+        'expression : unreserved_id'
         p[0] = ('ALIAS', p[1])
 
     @staticmethod
@@ -303,7 +302,7 @@ class Parser(object):
 
     @staticmethod
     def p_column_def(p):
-        'column_def : ID COLON type_name'
+        'column_def : unreserved_id COLON type_name'
         p[0] = (p[1], p[3])
 
     @staticmethod
@@ -315,7 +314,7 @@ class Parser(object):
 
     @staticmethod
     def p_string_arg(p):
-        '''string_arg : ID
+        '''string_arg : unreserved_id
                       | STRING_LITERAL'''
         p[0] = p[1]
 
@@ -336,8 +335,8 @@ class Parser(object):
 
     @staticmethod
     def p_from_arg(p):
-        '''from_arg : expression optional_as ID
-                    | ID'''
+        '''from_arg : expression optional_as unreserved_id
+                    | unreserved_id'''
         expr = None
         if len(p) == 4:
             expr = p[1]
@@ -372,7 +371,7 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_singleton(p):
-        '''emit_arg : sexpr AS ID
+        '''emit_arg : sexpr AS unreserved_id
                     | sexpr'''
         if len(p) == 4:
             name = p[3]
@@ -385,7 +384,7 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_table_wildcard(p):
-        '''emit_arg : ID DOT TIMES'''
+        '''emit_arg : unreserved_id DOT TIMES'''
         p[0] = emitarg.TableWildcardEmitArg(p[1])
 
     @staticmethod
@@ -487,7 +486,7 @@ class Parser(object):
 
     @staticmethod
     def p_column_ref_string(p):
-        'column_ref : ID'
+        'column_ref : unreserved_id'
         p[0] = p[1]
 
     @staticmethod
@@ -515,7 +514,7 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_id(p):
-        'sexpr : ID'
+        'sexpr : unreserved_id'
         p[0] = sexpr.NamedAttributeRef(p[1])
 
     @staticmethod
@@ -525,12 +524,12 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_id_dot_id(p):
-        'sexpr : ID DOT ID'
+        'sexpr : unreserved_id DOT unreserved_id'
         p[0] = sexpr.Unbox(p[1], p[3])
 
     @staticmethod
     def p_sexpr_id_dot_pos(p):
-        'sexpr : ID DOT DOLLAR INTEGER_LITERAL'
+        'sexpr : unreserved_id DOT DOLLAR INTEGER_LITERAL'
         p[0] = sexpr.Unbox(p[1], p[4])
 
     @staticmethod
@@ -547,18 +546,6 @@ class Parser(object):
     def p_sexpr_worker_id(p):
         '''sexpr : WORKER_ID LPAREN RPAREN'''
         p[0] = sexpr.WORKERID()
-
-    @staticmethod
-    def p_sexpr_unary_function(p):
-        '''sexpr : ABS LPAREN sexpr RPAREN
-                   | CEIL LPAREN sexpr RPAREN
-                   | COS LPAREN sexpr RPAREN
-                   | FLOOR LPAREN sexpr RPAREN
-                   | LOG LPAREN sexpr RPAREN
-                   | SIN LPAREN sexpr RPAREN
-                   | SQRT LPAREN sexpr RPAREN
-                   | TAN LPAREN sexpr RPAREN'''
-        p[0] = unary_funcs[p[1]](p[3])
 
     @staticmethod
     def p_sexpr_binop(p):
@@ -580,18 +567,13 @@ class Parser(object):
         p[0] = binops[p[2]](p[1], p[3])
 
     @staticmethod
-    def p_sexpr_pow(p):
-        'sexpr : POW LPAREN sexpr COMMA sexpr RPAREN'
-        p[0] = sexpr.POW(p[3], p[5])
-
-    @staticmethod
     def p_sexpr_not(p):
         'sexpr : NOT sexpr'
         p[0] = sexpr.NOT(p[2])
 
     @staticmethod
-    def resolve_udf(p, name, args):
-        """Resolve a UDF invocation into an Expression instance.
+    def resolve_function(p, name, args):
+        """Resolve a function invocation into an Expression instance.
 
         :param p: The parser context
         :param name: The name of the function
@@ -608,12 +590,12 @@ class Parser(object):
             func = expr_lib.lookup(name, len(args))
 
         if func is None:
-            raise NoSuchFunctionException(name, p.lineno)
+            raise NoSuchFunctionException(name, p.lineno(0))
         if len(func.args) != len(args):
-            raise InvalidArgumentList(name, func.args, p.lineno)
+            raise InvalidArgumentList(name, func.args, p.lineno(0))
 
         if isinstance(func, Function):
-            return sexpr.resolve_udf(func.sexpr, dict(zip(func.args, args)))
+            return sexpr.resolve_function(func.sexpr, dict(zip(func.args, args)))  # noqa
         elif isinstance(func, Apply):
             state_vars = func.statemods.keys()
 
@@ -624,28 +606,31 @@ class Parser(object):
 
             for sm_name, (init_expr, update_expr) in func.statemods.iteritems():  # noqa
                 # Convert state mod references into appropriate expressions
-                update_expr = sexpr.resolve_state_vars(update_expr, state_vars, mangled)  # noqa
+                update_expr = sexpr.resolve_state_vars(update_expr,
+                    state_vars, mangled)  # noqa
                 # Convert argument references into appropriate expressions
-                update_expr = sexpr.resolve_udf(update_expr, dict(zip(func.args, args)))  # noqa
-                Parser.statemods.append((mangled[sm_name], init_expr, update_expr))  # noqa
+                update_expr = sexpr.resolve_function(update_expr,
+                    dict(zip(func.args, args)))  # noqa
+                Parser.statemods.append((mangled[sm_name],
+                    init_expr, update_expr))  # noqa
             return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
         else:
             assert False
 
     @staticmethod
-    def p_sexpr_udf_k_args(p):
-        'sexpr : ID LPAREN udf_arg_list RPAREN'
-        p[0] = Parser.resolve_udf(p, p[1], p[3])
+    def p_sexpr_function_k_args(p):
+        'sexpr : ID LPAREN function_param_list RPAREN'
+        p[0] = Parser.resolve_function(p, p[1], p[3])
 
     @staticmethod
-    def p_sexpr_udf_zero_args(p):
+    def p_sexpr_function_zero_args(p):
         'sexpr : ID LPAREN RPAREN'
-        p[0] = Parser.resolve_udf(p, p[1], [])
+        p[0] = Parser.resolve_function(p, p[1], [])
 
     @staticmethod
-    def p_udf_arg_list(p):
-        '''udf_arg_list : udf_arg_list COMMA sexpr
-                        | sexpr'''
+    def p_function_param_list(p):
+        '''function_param_list : function_param_list COMMA sexpr
+                               | sexpr'''
         if len(p) == 4:
             p[0] = p[1] + [p[3]]
         else:
@@ -654,7 +639,7 @@ class Parser(object):
     @staticmethod
     def p_sexpr_countall(p):
         'sexpr : COUNTALL LPAREN RPAREN'
-        p[0] = sexpr.COUNTALL()
+        p[0] = Parser.resolve_function(p, 'COUNTALL', [])
 
     @staticmethod
     def p_sexpr_count(p):
@@ -669,32 +654,6 @@ class Parser(object):
         '''count_arg : TIMES
                      | sexpr'''
         p[0] = p[1]
-
-    @staticmethod
-    def p_sexpr_unary_aggregate(p):
-        'sexpr : unary_aggregate_func LPAREN sexpr RPAREN'
-        p[0] = p[1](p[3])
-
-    @staticmethod
-    def p_unary_aggregate_func(p):
-        '''unary_aggregate_func : MAX
-                                | MIN
-                                | SUM
-                                | AVG
-                                | STDEV'''
-
-        if p[1] == 'MAX':
-            func = sexpr.MAX
-        if p[1] == 'MIN':
-            func = sexpr.MIN
-        if p[1] == 'SUM':
-            func = sexpr.SUM
-        if p[1] == 'AVG':
-            func = sexpr.AVERAGE
-        if p[1] == 'STDEV':
-            func = sexpr.STDEV
-
-        p[0] = func
 
     @staticmethod
     def p_sexpr_unbox(p):

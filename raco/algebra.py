@@ -5,9 +5,6 @@ from raco.utility import emit, emitlist, Printable
 from abc import ABCMeta, abstractmethod
 import copy
 
-import logging
-LOG = logging.getLogger(__name__)
-
 # BEGIN Code to generate variables names
 var_id = 0
 
@@ -231,7 +228,6 @@ class UnaryOperator(Operator):
 
     def apply(self, f):
         """Apply a function to your children"""
-        print(self)
         self.input = f(self.input)
         return self
 
@@ -243,7 +239,7 @@ class UnaryOperator(Operator):
         self.input = other.input
         Operator.copy(self, other)
 
-    def compileme(self, resultsym, inputsym):
+    def compileme(self, inputsym):
         """Compile this operator with specified input and output symbol
         names"""
         raise NotImplementedError()
@@ -295,7 +291,7 @@ class BinaryOperator(Operator):
         self.right = other.right
         Operator.copy(self, other)
 
-    def compileme(self, resultsym, leftsym, rightsym):
+    def compileme(self, leftsym, rightsym):
         """Compile this operator with specified left, right, and output symbol
         names"""
         raise NotImplementedError()
@@ -343,7 +339,7 @@ class NaryOperator(Operator):
         self.args = [f(arg) for arg in self.args]
         return self
 
-    def compileme(self, resultsym, argsyms):
+    def compileme(self, *argsyms):
         """Compile this operator with specified children and output symbol
         names"""
         raise NotImplementedError()

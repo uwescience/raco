@@ -445,6 +445,13 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         self.right.childtag = "right"
         self.rightTupleTypeRef = None  # may remain None if CSE succeeds
 
+        # find the attribute that corresponds to the right child
+        self.rightCondIsRightAttr = \
+            self.condition.right.position >= len(self.left.scheme())
+        self.leftCondIsRightAttr = \
+            self.condition.left.position >= len(self.left.scheme())
+        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
+
         hashtableInfo = state.lookupExpr(self.right)
         if not hashtableInfo:
             # if right child never bound then store hashtable symbol and
@@ -488,13 +495,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
 
-            # find the attribute that corresponds to the right child
-            rightCondIsRightAttr = \
-                self.condition.right.position >= len(self.left.scheme())
-            leftCondIsRightAttr = \
-                self.condition.left.position >= len(self.left.scheme())
-            assert rightCondIsRightAttr ^ leftCondIsRightAttr
-            if rightCondIsRightAttr:
+            if self.rightCondIsRightAttr:
                 keypos = self.condition.right.position \
                     - len(self.left.scheme())
             else:
@@ -513,7 +514,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
         if src.childtag == "left":
             left_template = ct("""
-            %(hashname)s.lookup_iter( %(keyname)s.get(%(keypos)s), \
+            %(hashname)s.lookup_iter<&%(pipeline_sync)s>( \
+            %(keyname)s.get(%(keypos)s), \
             [=](%(right_tuple_type)s& %(right_tuple_name)s) {
               join_coarse_result_count++;
               %(out_tuple_type)s %(out_tuple_name)s = \
@@ -528,7 +530,13 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
             keytype = t.getTupleTypename()
-            keypos = self.condition.left.position
+
+            pipeline_sync = state.getPipelineProperty('global_syncname')
+
+            if self.rightCondIsRightAttr:
+                keypos = self.condition.left.position
+            else:
+                keypos = self.condition.right.position
 
             right_tuple_name = gensym()
             right_tuple_type = self.rightTupleTypename
@@ -602,10 +610,14 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
     # we resolve it later, so use %%
     ascii_scan_template = """
     {
+    if (FLAGS_bin) {
+    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( "%(name)s.bin" );
+    } else {
     %(resultsym)s.data = readTuples<%%(result_type)s>( "%(name)s", FLAGS_nt);
     %(resultsym)s.numtuples = FLAGS_nt;
     auto l_%(resultsym)s = %(resultsym)s;
     on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
+    }
     }
     """
 

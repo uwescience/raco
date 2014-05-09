@@ -1,6 +1,7 @@
 import raco.myrial.groupby as groupby
 import raco.myrial.multiway as multiway
 from raco.myrial.cfg import ControlFlowGraph
+from raco.myrial.emitarg import FullWildcardEmitArg, TableWildcardEmitArg
 import raco.algebra
 import raco.expression
 import raco.catalog
@@ -116,7 +117,7 @@ class ExpressionProcessor(object):
                     from_args[rex] = unbox_op
 
     def bagcomp(self, from_clause, where_clause, emit_clause):
-        """Evaluate a bag comprehsion.
+        """Evaluate a bag comprehension.
 
         from_clause: A list of tuples of the form (id, expr).  expr can
         be None, which means "read the value from the symbol table".
@@ -183,8 +184,11 @@ class ExpressionProcessor(object):
         else:
             if statemods:
                 return raco.algebra.StatefulApply(emit_args, statemods, op)
-            else:
-                return raco.algebra.Apply(emit_args, op)
+            if (len(from_args) == 1 and len(emit_clause) == 1 and
+                isinstance(emit_clause[0],
+                           (TableWildcardEmitArg, FullWildcardEmitArg))):
+                return op
+            return raco.algebra.Apply(emit_args, op)
 
     def distinct(self, expr):
         op = self.evaluate(expr)

@@ -46,6 +46,16 @@ class NoSuchFunctionException(MyrialCompileException):
                                                                   self.lineno)  # noqa
 
 
+class ReservedTokenException(MyrialCompileException):
+    def __init__(self, token, lineno):
+        self.token = token
+        self.lineno = lineno
+
+    def __str__(self):
+        return 'The token "%s" on line %d is reserved.' % (self.token,
+            self.lineno)  # noqa
+
+
 class InvalidArgumentList(MyrialCompileException):
     def __init__(self, funcname, expected_args, lineno):
         self.funcname = funcname

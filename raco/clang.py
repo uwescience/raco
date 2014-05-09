@@ -224,6 +224,12 @@ class HashJoin(algebra.Join, CCOperator):
       msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
       raise ValueError(msg)
 
+    # find the attribute that corresponds to the right child
+    self.rightCondIsRightAttr = \
+      self.condition.right.position >= len(self.left.scheme())
+    self.leftCondIsRightAttr = \
+      self.condition.left.position >= len(self.left.scheme())
+    assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
     self.right.childtag = "right"
 
@@ -257,10 +263,7 @@ class HashJoin(algebra.Join, CCOperator):
       keyname = t.name
 
       # find the attribute that corresponds to the right child
-      rightCondIsRightAttr = self.condition.right.position >= len(self.left.scheme())
-      leftCondIsRightAttr = self.condition.left.position >= len(self.left.scheme())
-      assert rightCondIsRightAttr^leftCondIsRightAttr
-      if rightCondIsRightAttr:
+      if self.rightCondIsRightAttr:
         keypos = self.condition.right.position-len(self.left.scheme())
       else:
         keypos = self.condition.left.position-len(self.left.scheme())
@@ -287,8 +290,12 @@ class HashJoin(algebra.Join, CCOperator):
       hashname = self._hashname
       keyname = t.name
       keytype = t.getTupleTypename()
-      keypos = self.condition.left.position
-      
+
+      if self.rightCondIsRightAttr:
+          keypos = self.condition.left.position
+      else:
+          keypos = self.condition.right.position
+
       right_tuple_name = gensym()
 
       outTuple = CStagedTupleRef(gensym(), self.scheme())
