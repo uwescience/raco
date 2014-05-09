@@ -128,6 +128,8 @@ class CompileState:
         # inits is a set
         # If this ever becomes a bottleneck when declarations are strings,
         # as in clang, then resort to at least symbol name deduping.
+        #TODO: better would be to mark elements of self.initializers as
+        #TODO: "do dedup" or "don't dedup"
         s = set()
         def f(x):
             if x in s: return False
