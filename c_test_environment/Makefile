@@ -1,6 +1,7 @@
 # WARNING: name environment source files .h or .cc, but not .cpp, which is reserved (.gitignore laziness)
 
-CXX = clang++
+#CXX = clang++
+CXX=g++
 
 CFLAGS = -ggdb -std=c++11 #-O3 #-m64 -Wno-deprecated -fPIC
 LIBS = 
@@ -34,8 +35,9 @@ strings.o : strings.cc strings.h
 %.o : %.cpp 
 	$(COMP) 
 
-grappa-install: strings.cc strings.h utils.h
+grappa-install: strings.cc strings.h utils.h utils.cpp
 	ln -sf `pwd`/strings.cc $(GRAPPA_HOME)/applications/join
 	ln -sf `pwd`/strings.h $(GRAPPA_HOME)/applications/join
 	ln -sf `pwd`/utils.h $(GRAPPA_HOME)/applications/join
+	ln -sf `pwd`/utils.cpp $(GRAPPA_HOME)/applications/join
 
