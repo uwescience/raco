@@ -4,6 +4,9 @@ import raco.rules as rules
 from raco.grappalang import GrappaSymmetricHashJoin, GrappaHashJoin
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+LOG = logging.getLogger(__name__)
 
 tr = "sp2bench_1m"
 queries = {}
@@ -116,12 +119,18 @@ if len(sys.argv) > 1:
         prefix="grappa_"
 
 # plan hacking
+newRule = None
 if len(sys.argv) > 2:
     if sys.argv[2] == "sym":
+        newRule = rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin)
+    elif sys.argv[3] == "shuf":
+        newRule = rules.OneToOne(algebra.Join, GrappaShuffleHashJoin)
+
+    if newRule:
         for i in range(0, len(alg.rules)):
             r = alg.rules[i]
             if isinstance(r, rules.OneToOne) and r.opto == GrappaHashJoin:
-                alg.rules[i] = rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin)
+                alg.rules[i] = newRule
 
 for name in queries:
     querystr = queries[name] % locals()
