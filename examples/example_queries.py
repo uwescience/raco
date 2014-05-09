@@ -78,14 +78,17 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1] ==  "grappa":
             alg = GrappaAlgebra
-            prefix = "grappa_"
+            prefix = "grappa"
 
     # plan hacking
     newRule = None
+    plan = ""
     if len(sys.argv) > 2:
         if sys.argv[2] == "sym":
+            plan = sys.argv[2]
             newRule = rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin)
         elif sys.argv[2] == "shuf":
+            plan = sys.argv[2]
             newRule = rules.OneToOne(algebra.Join, GrappaShuffleHashJoin)
 
     if newRule:
@@ -96,5 +99,5 @@ if __name__ == "__main__":
 
     for q in queries:
         query, name = q
-        emitCode(query, prefix+name, alg)
+        emitCode(query, "_".join([prefix,plan,name]), alg)
 
