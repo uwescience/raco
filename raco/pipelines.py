@@ -64,9 +64,11 @@ class CompileState:
         self.current_pipeline_postcode = []
 
     def setPipelineProperty(self, key, value):
+        LOG.debug("set %s in %s" % (key, self.current_pipeline_properties))
         self.current_pipeline_properties[key] = value
 
     def getPipelineProperty(self, key):
+        LOG.debug("get %s from %s" % (key, self.current_pipeline_properties))
         return self.current_pipeline_properties[key]
 
     def createUnresolvedSymbol(self):
@@ -94,6 +96,7 @@ class CompileState:
         self.initializers += i
 
     def addPipeline(self, p):
+        LOG.debug("output pipeline %s", self.current_pipeline_properties)
         pipeline_code = emitlist(self.current_pipeline_precode) +\
                         self.language.pipeline_wrap(self.pipeline_count, p, self.current_pipeline_properties) +\
                         emitlist(self.current_pipeline_postcode)
