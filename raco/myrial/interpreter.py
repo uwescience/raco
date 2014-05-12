@@ -29,6 +29,15 @@ class NoSuchRelationException(Exception):
     pass
 
 
+def get_unnamed_ref(column_ref, scheme, offset=0):
+    """Convert a string or int into an attribute ref on the new table"""  # noqa
+    if isinstance(column_ref, int):
+        index = column_ref
+    else:
+        index = scheme.getPosition(column_ref)
+    return raco.expression.UnnamedAttributeRef(index + offset)
+
+
 class ExpressionProcessor(object):
     """Convert syntactic expressions into relational algebra operations."""
     def __init__(self, symbols, catalog, use_dummy_schema=False):
@@ -233,20 +242,12 @@ class ExpressionProcessor(object):
 
         assert len(left_target.columns) == len(right_target.columns)
 
-        def get_attribute_ref(column_ref, scheme, offset):
-            """Convert a string or int into an attribute ref on the new table"""  # noqa
-            if isinstance(column_ref, int):
-                index = column_ref
-            else:
-                index = scheme.getPosition(column_ref)
-            return raco.expression.UnnamedAttributeRef(index + offset)
-
         left_scheme = left.scheme()
-        left_refs = [get_attribute_ref(c, left_scheme, 0)
+        left_refs = [get_unnamed_ref(c, left_scheme, 0)
                      for c in left_target.columns]
 
         right_scheme = right.scheme()
-        right_refs = [get_attribute_ref(c, right_scheme, len(left_scheme))
+        right_refs = [get_unnamed_ref(c, right_scheme, len(left_scheme))
                       for c in right_target.columns]
 
         join_conditions = [raco.expression.EQ(x, y) for x, y in
@@ -319,11 +320,17 @@ class StatementProcessor(object):
         '''Map a variable to the value of an expression.'''
         self.__do_assignment(_id, expr)
 
-    def store(self, _id, rel_key):
+    def store(self, _id, rel_key, how_partitioned):
         assert isinstance(rel_key, relation_key.RelationKey)
 
         alias_expr = ("ALIAS", _id)
         child_op = self.ep.evaluate(alias_expr)
+
+        if how_partitioned:
+            scheme = child_op.scheme()
+            col_list = [get_unnamed_ref(a, scheme).position
+                        for a in how_partitioned]
+            child_op = raco.algebra.Shuffle(child_op, col_list)
         op = raco.algebra.Store(rel_key, child_op)
 
         uses_set = self.ep.get_and_clear_uses_set()

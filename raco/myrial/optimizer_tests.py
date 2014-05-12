@@ -250,3 +250,20 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected2)
+
+    def test_explicit_shuffle(self):
+        """Test of a user-directed partition operation."""
+
+        query = """
+        T = SCAN(public:adhoc:X);
+        STORE(T, OUTPUT, [$2, b]);
+        """
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        lp = self.processor.get_logical_plan()
+
+        self.assertEquals(self.get_count(lp, Shuffle), 1)
+
+        for op in lp.walk():
+            if isinstance(op, Shuffle):
+                self.assertEquals(op.columnlist, [2, 1])
