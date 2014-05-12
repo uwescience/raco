@@ -266,4 +266,4 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         for op in lp.walk():
             if isinstance(op, Shuffle):
-                self.assertEquals(op.columnlist, [1, 2])
+                self.assertEquals(op.columnlist, [2, 1])

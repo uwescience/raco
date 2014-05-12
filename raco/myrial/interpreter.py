@@ -328,8 +328,8 @@ class StatementProcessor(object):
 
         if how_partitioned:
             scheme = child_op.scheme()
-            col_list = sorted([get_unnamed_ref(a, scheme).position
-                              for a in how_partitioned])
+            col_list = [get_unnamed_ref(a, scheme).position
+                        for a in how_partitioned]
             child_op = raco.algebra.Shuffle(child_op, col_list)
         op = raco.algebra.Store(rel_key, child_op)
 
