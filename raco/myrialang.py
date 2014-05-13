@@ -1165,7 +1165,7 @@ class MyriaAlgebra(object):
         MyriaScanTemp
     )
 
-    rules = [
+    opt_rules = [
         RemoveTrivialSequences(),
 
         SimpleGroupBy(),

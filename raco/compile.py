@@ -39,8 +39,8 @@ def optimize(exprs, target, source, eliminate_common_subexpressions=False):
     """Fire the rule-based optimizer on a list of exprs.  Fire all rules in the
     source algebra (logical) and the target algebra (physical)"""
     def opt(expr):
-        so = optimize_by_rules(expr, source.rules)
-        newexpr = optimize_by_rules(so, target.rules)
+        so = optimize_by_rules(expr, source.opt_rules)
+        newexpr = optimize_by_rules(so, target.opt_rules)
         if eliminate_common_subexpressions:
             newexpr = common_subexpression_elimination(newexpr)
         return newexpr

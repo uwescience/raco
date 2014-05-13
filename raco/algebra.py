@@ -1091,4 +1091,4 @@ class LogicalAlgebra(object):
         Select,
         Scan
     ]
-    rules = []
+    opt_rules = []
