@@ -353,7 +353,19 @@ class NaryOperator(Operator):
 
 
 class NaryJoin(NaryOperator):
+    """Logical Nary Join operator"""
+    def __init__(self, children=None, join_map=None, columnlist=None):
+        self.join_map = join_map
+        self.columnlist = columnlist
+        NaryOperator.__init__(self, children)
+
+    def __eq__(self, other):
+        return (NaryOperator.__eq__(self, other)
+                and self.join_map == other.join_map)
+
     def scheme(self):
+        if self.columnlist:
+            return self.columnlist
         sch = scheme.Scheme()
         for arg in self.args:
             sch = sch + arg.scheme()
