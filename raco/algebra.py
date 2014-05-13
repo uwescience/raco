@@ -346,7 +346,10 @@ class NaryOperator(Operator):
         self.args = [f(arg) for arg in self.args]
         return self
 
-    def compileme(self, *argsyms):
+    def __repr__(self):
+        return str(self)
+
+    def compileme(self, resultsym, argsyms):
         """Compile this operator with specified children and output symbol
         names"""
         raise NotImplementedError("{op}.compileme".format(op=type(self)))
@@ -370,6 +373,15 @@ class NaryJoin(NaryOperator):
         for arg in self.args:
             sch = sch + arg.scheme()
         return sch
+
+    def copy(self, other):
+        """deep copy"""
+        self.join_map = other.join_map
+        self.columnlist = other.columnlist
+        NaryOperator.copy(self, other)
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.join_map)
 
 
 """Logical Relational Algebra"""

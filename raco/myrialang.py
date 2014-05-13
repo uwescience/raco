@@ -12,6 +12,7 @@ from raco.relation_key import RelationKey
 from expression import (accessed_columns, to_unnamed_recursive,
                         UnnamedAttributeRef)
 from raco.expression.aggregate import DecomposableAggregate
+from raco.datastructure.UnionFind import UnionFind
 
 
 def scheme_to_schema(s):
@@ -1147,6 +1148,80 @@ class RemoveTrivialSequences(rules.Rule):
             return expr
 
 
+class MergeToNaryJoin(rules.Rule):
+    """Merge consecutive binary join into a single multiway join
+       Note: this code assume that the binary joins form a left deep tree
+       before the merge
+    """
+    @staticmethod
+    def mergable(op):
+        """ check an operator is mergable to Nary join or not.
+            An operator will be merged to Nary Join if its subtree contains
+            only join
+        """
+        allowed_itermediate_types = (algebra.ProjectingJoin, algebra.Select)
+        if issubclass(type(op), algebra.ZeroaryOperator):
+            return True
+        if not isinstance(op, allowed_itermediate_types):
+            return False
+        elif issubclass(type(op), algebra.UnaryOperator):
+            return MergeToNaryJoin.mergable(op.input)
+        elif issubclass(type(op), algebra.BinaryOperator):
+            return MergeToNaryJoin.mergable(op.left) and\
+                MergeToNaryJoin.mergable(op.right)
+
+    @staticmethod
+    def collect_join_groups(op, join_map, children):
+        assert(isinstance(op, algebra.ProjectingJoin))
+        assert(isinstance(op.right, algebra.Select)
+               or issubclass(type(op.right), algebra.ZeroaryOperator))
+        children.append(op.right)
+        conjuncs = expression.extract_conjuncs(op.condition)
+        for cond in conjuncs:
+            join_map[cond.left]
+            join_map[cond.right]
+            join_map.union(cond.left, cond.right)
+        scan_then_select = isinstance(op.left, algebra.Select) and\
+            isinstance(op.left.input, algebra.ZeroaryOperator)
+        if scan_then_select or\
+           issubclass(type(op.left), algebra.ZeroaryOperator):
+            children.append(op.left)
+            return
+        elif(isinstance(op.left, algebra.ProjectingJoin)):
+            MergeToNaryJoin.collect_join_groups(op.left, join_map, children)
+        else:
+            raise Exception("Error in merge joins to nary join.")
+
+    @staticmethod
+    def merge_to_multiway_join(op):
+        # if it is only binary join, return
+        if not isinstance(op.left, algebra.ProjectingJoin):
+            return op
+        # if it is not mergable, e.g. aggregation along the path, return
+        if not MergeToNaryJoin.mergable(op):
+            return op
+        # do the actual merge
+        # 1. collect join groups
+        join_groups = UnionFind()
+        children = []
+        MergeToNaryJoin.collect_join_groups(
+            op, join_groups, children)
+        # 2. extract join groups from the union find datastructure
+        join_conds = defaultdict(list)
+        for field, key in join_groups.parents.items():
+            join_conds[key].append(field)
+        join_map = [v for (k, v) in join_conds.items()]
+        # 3. reverse the children due to top-down tree traversal
+        return algebra.NaryJoin(
+            reversed(children), join_map, op.columnlist)
+
+    def fire(self, op):
+        if not isinstance(op, algebra.ProjectingJoin):
+            return op
+        else:
+            return MergeToNaryJoin.merge_to_multiway_join(op)
+
+
 class MyriaAlgebra(object):
     language = MyriaLanguage
 
@@ -1216,6 +1291,25 @@ class MyriaAlgebra(object):
         BreakShuffle(),
         BreakCollect(),
         BreakBroadcast(),
+    ]
+
+    multiway_join_rules = [
+        RemoveTrivialSequences(),
+
+        SimpleGroupBy(),
+
+        # These rules form a logical group; PushSelects assumes that
+        # AND clauses have been broken apart into multiple selections.
+        SplitSelects(),
+        PushSelects(),
+        MergeSelects(),
+
+        rules.ProjectingJoin(),
+        rules.JoinToProjectingJoin(),
+        BroadcastBeforeCross(),
+        DistributedGroupBy(),
+        ProjectToDistinctColumnSelect(),
+        MergeToNaryJoin()
     ]
 
 
