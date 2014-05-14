@@ -31,7 +31,7 @@ print "//-------"
 # expression to a target expression
 #result = optimize(ra, target=PseudoCodeAlgebra, source=LogicalAlgebra)
 #result = optimize(ra, target=ProtobufAlgebra, source=LogicalAlgebra)
-result = optimize(ra, target=MyriaAlgebra, source=LogicalAlgebra)
+result = optimize(ra, target=MyriaAlgebra(), source=LogicalAlgebra)
 
 print result
 

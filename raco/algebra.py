@@ -41,6 +41,10 @@ class Operator(Printable):
         self._trace = []
 
     @abstractmethod
+    def apply(self, f):
+        """ apply function f to its children. """
+
+    @abstractmethod
     def children(self):
         """Return all the children of this operator."""
 
@@ -810,6 +814,25 @@ class Shuffle(UnaryOperator):
 
     def copy(self, other):
         self.columnlist = other.columnlist
+        UnaryOperator.copy(self, other)
+
+
+class HyperCubeShuffle(UnaryOperator):
+    """HyperCube Shuffle for multiway join"""
+    def __init__(self, child=None, indexes=None,
+                 hyper_cube_dims=None, cell_partition=None):
+        UnaryOperator.__init__(self, child)
+        self.indexes = indexes
+        self.hyper_cube_dimensions = hyper_cube_dims
+        self.cell_partition = cell_partition
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.indexes)
+
+    def copy(self, other):
+        self.indexes = other.indexes
+        self.hyper_cube_dimensions = other.hyper_cube_dimensions
+        self.cell_partition = other.cell_partition
         UnaryOperator.copy(self, other)
 
 

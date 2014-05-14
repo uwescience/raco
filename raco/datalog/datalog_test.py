@@ -23,7 +23,7 @@ class DatalogTestCase(unittest.TestCase):
 
         # print dlog.logicalplan
 
-        dlog.optimize(target=MyriaAlgebra,
+        dlog.optimize(target=MyriaAlgebra(),
                       eliminate_common_subexpressions=False)
 
         # print dlog.physicalplan

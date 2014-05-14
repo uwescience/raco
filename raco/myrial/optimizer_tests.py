@@ -60,7 +60,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
     @staticmethod
     def logical_to_physical(lp):
         physical_plans = optimize([('root', lp)],
-                                  target=MyriaAlgebra,
+                                  target=MyriaAlgebra(),
                                   source=LogicalAlgebra)
         return physical_plans[0][1]
 

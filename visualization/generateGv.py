@@ -1,9 +1,8 @@
 #!/usr/bin/env PYTHONPATH=.. python
 
 from raco import RACompiler
-from raco.language import MyriaAlgebra
-from raco.algebra import LogicalAlgebra
 from raco.viz import graph_to_dot, operator_to_dot, plan_to_dot
+
 
 def main():
     # A simple join

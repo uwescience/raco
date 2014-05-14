@@ -43,9 +43,9 @@ def optimize(exprs, target, source,
     def opt(expr):
         so = optimize_by_rules(expr, source.opt_rules)
         if multiway_join:
-            newexpr = optimize_by_rules(so, target.multiway_join_rules)
+            newexpr = optimize_by_rules(so, target.multiway_join_rules())
         else:
-            newexpr = optimize_by_rules(so, target.opt_rules)
+            newexpr = optimize_by_rules(so, target.opt_rules())
         if eliminate_common_subexpressions:
             newexpr = common_subexpression_elimination(newexpr)
         return newexpr

@@ -20,9 +20,10 @@ class RACompiler(object):
         LOG.debug("parser output: %s", self.parsed)
         self.logicalplan = self.parsed.toRA()
 
-    def optimize(self, target=MyriaAlgebra,
+    def optimize(self, target=MyriaAlgebra(),
                  eliminate_common_subexpressions=False,
-                 multiway_join=False):
+                 multiway_join=False,
+                 environment_variables=None):
         """Convert logical plan to physical plan"""
         self.target = target
         self.physicalplan = optimize(

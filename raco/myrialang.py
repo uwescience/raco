@@ -554,6 +554,47 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
+class MyriaHyperShuffle(algebra.UnaryOperator, MyriaOperator):
+    """Represents a HyperShuffle shuffle operator"""
+    def compileme(self, inputsym):
+        raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')  # noqa
+
+
+class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
+    """A Myria HyperShuffleProducer"""
+    def __init__(self, input, indexes, hyper_cube_dims, cell_partition):
+        algebra.UnaryOperator.__init__(self, input)
+        self.indexes = indexes
+        self.hyper_cube_dimensions = hyper_cube_dims
+        self.cell_partition = cell_partition
+
+    def shortStr(self):
+        return "%s(@%s)" % (self.opname(), self.server)
+
+    def compileme(self, inputsym):
+        return {
+            'opType': 'HyperShuffleProducer',
+            'indexes': self.indexes,
+            'hyperCubeDimensions': self.hyper_cube_dimensions,
+            'cellPartition': self.cell_partition
+        }
+
+
+class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
+    """A Myria HyperShuffleConsumer"""
+    def __init__(self, input):
+        algebra.UnaryOperator.__init__(self, input)
+
+    def shortStr(self):
+        return "%s" % self.opname()
+
+    def compileme(self, inputsym):
+        return {
+            'opType': 'HyperShuffleConsumer',
+            'argOperatorId': inputsym
+        }
+
+
 class BreakShuffle(rules.Rule):
     def fire(self, expr):
         if not isinstance(expr, MyriaShuffle):
@@ -669,6 +710,25 @@ class ShuffleBeforeJoin(rules.Rule):
         elif isinstance(expr, algebra.Join):
             return algebra.Join(expr.condition, left_shuffle, right_shuffle)
         raise NotImplementedError("How the heck did you get here?")
+
+
+class HyperCubeShuffleBeforeLocalNaryJoin(rules.Rule):
+    def __init__(self, catalog=None):
+        assert(not catalog)     # HyperCube shuffle requires catalog
+        self.catalog = catalog
+
+    def fire(self, expr):
+        # only apply to NaryJoin
+        if not isinstance(expr, algebra.NaryJoin):
+            return expr
+        # check if HC shuffle has been placed before
+        shuffled_child = sum([1 for op in expr.children
+                              if isinstance(op, algebra.HyperCubeShuffle)])
+        if shuffled_child == len(expr.children):    # already shuffled
+            return expr
+        elif shuffled_child == 0:   # place shuffles
+            pass
+        raise NotImplementedError("NaryJoin is partially shuffled?")
 
 
 class BroadcastBeforeCross(rules.Rule):
@@ -1240,77 +1300,108 @@ class MyriaAlgebra(object):
         MyriaScanTemp
     )
 
-    opt_rules = [
-        RemoveTrivialSequences(),
+    def opt_rules():
+        return [
+            RemoveTrivialSequences(),
 
-        SimpleGroupBy(),
+            SimpleGroupBy(),
 
-        # These rules form a logical group; PushSelects assumes that
-        # AND clauses have been broken apart into multiple selections.
-        SplitSelects(),
-        PushSelects(),
-        MergeSelects(),
+            # These rules form a logical group; PushSelects assumes that
+            # AND clauses have been broken apart into multiple selections.
+            SplitSelects(),
+            PushSelects(),
+            MergeSelects(),
 
-        rules.ProjectingJoin(),
-        rules.JoinToProjectingJoin(),
+            rules.ProjectingJoin(),
+            rules.JoinToProjectingJoin(),
 
-        # These really ought to be run until convergence.
-        # For now, run twice and finish with PushApply.
-        PushApply(),
-        RemoveUnusedColumns(),
-        PushApply(),
-        RemoveUnusedColumns(),
-        PushApply(),
+            # These really ought to be run until convergence.
+            # For now, run twice and finish with PushApply.
+            PushApply(),
+            RemoveUnusedColumns(),
+            PushApply(),
+            RemoveUnusedColumns(),
+            PushApply(),
 
-        ShuffleBeforeDistinct(),
-        ShuffleBeforeSetop(),
-        ShuffleBeforeJoin(),
-        BroadcastBeforeCross(),
-        # DistributedGroupBy may introduce a complex GroupBy, so we must run
-        # SimpleGroupBy after it. TODO no one likes this.
-        DistributedGroupBy(), SimpleGroupBy(),
+            ShuffleBeforeDistinct(),
+            ShuffleBeforeSetop(),
+            ShuffleBeforeJoin(),
+            BroadcastBeforeCross(),
+            # DistributedGroupBy may introduce a complex GroupBy,
+            # so we must run SimpleGroupBy after it. TODO no one likes this.
+            DistributedGroupBy(), SimpleGroupBy(),
 
-        ProjectToDistinctColumnSelect(),
-        rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
-        rules.OneToOne(algebra.Store, MyriaStore),
-        rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),
-        rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply),
-        rules.OneToOne(algebra.Apply, MyriaApply),
-        rules.OneToOne(algebra.Select, MyriaSelect),
-        rules.OneToOne(algebra.GroupBy, MyriaGroupBy),
-        rules.OneToOne(algebra.Distinct, MyriaDupElim),
-        rules.OneToOne(algebra.Shuffle, MyriaShuffle),
-        rules.OneToOne(algebra.Collect, MyriaCollect),
-        rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin),
-        rules.OneToOne(algebra.Scan, MyriaScan),
-        rules.OneToOne(algebra.ScanTemp, MyriaScanTemp),
-        rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
-        rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
-        rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
-        rules.OneToOne(algebra.Difference, MyriaDifference),
-        BreakShuffle(),
-        BreakCollect(),
-        BreakBroadcast(),
-    ]
+            ProjectToDistinctColumnSelect(),
+            rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
+            rules.OneToOne(algebra.Store, MyriaStore),
+            rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),
+            rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply),
+            rules.OneToOne(algebra.Apply, MyriaApply),
+            rules.OneToOne(algebra.Select, MyriaSelect),
+            rules.OneToOne(algebra.GroupBy, MyriaGroupBy),
+            rules.OneToOne(algebra.Distinct, MyriaDupElim),
+            rules.OneToOne(algebra.Shuffle, MyriaShuffle),
+            rules.OneToOne(algebra.Collect, MyriaCollect),
+            rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin),
+            rules.OneToOne(algebra.Scan, MyriaScan),
+            rules.OneToOne(algebra.ScanTemp, MyriaScanTemp),
+            rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
+            rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
+            rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
+            rules.OneToOne(algebra.Difference, MyriaDifference),
+            BreakShuffle(),
+            BreakCollect(),
+            BreakBroadcast(),
+        ]
 
-    multiway_join_rules = [
-        RemoveTrivialSequences(),
+    def multiway_join_rules(self):
+        return [
+            RemoveTrivialSequences(),
 
-        SimpleGroupBy(),
+            SimpleGroupBy(),
 
-        # These rules form a logical group; PushSelects assumes that
-        # AND clauses have been broken apart into multiple selections.
-        SplitSelects(),
-        PushSelects(),
-        MergeSelects(),
+            # These rules form a logical group; PushSelects assumes that
+            # AND clauses have been broken apart into multiple selections.
+            SplitSelects(),
+            PushSelects(),
+            MergeSelects(),
 
-        rules.ProjectingJoin(),
-        rules.JoinToProjectingJoin(),
-        BroadcastBeforeCross(),
-        DistributedGroupBy(),
-        ProjectToDistinctColumnSelect(),
-        MergeToNaryJoin()
-    ]
+            # These really ought to be run until convergence.
+            # For now, run twice and finish with PushApply.
+            PushApply(),
+            RemoveUnusedColumns(),
+            PushApply(),
+            RemoveUnusedColumns(),
+            PushApply(),
+
+            rules.ProjectingJoin(),
+            rules.JoinToProjectingJoin(),
+            BroadcastBeforeCross(),
+            DistributedGroupBy(),
+            ProjectToDistinctColumnSelect(),
+            MergeToNaryJoin(),
+            HyperCubeShuffleBeforeLocalNaryJoin(self.catalog),
+            rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
+            rules.OneToOne(algebra.Store, MyriaStore),
+            rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),
+            rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply),
+            rules.OneToOne(algebra.Apply, MyriaApply),
+            rules.OneToOne(algebra.Select, MyriaSelect),
+            rules.OneToOne(algebra.GroupBy, MyriaGroupBy),
+            rules.OneToOne(algebra.Distinct, MyriaDupElim),
+            rules.OneToOne(algebra.Shuffle, MyriaShuffle),
+            rules.OneToOne(algebra.Collect, MyriaCollect),
+            rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin),
+            rules.OneToOne(algebra.Scan, MyriaScan),
+            rules.OneToOne(algebra.ScanTemp, MyriaScanTemp),
+            rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
+            rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
+            rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
+            rules.OneToOne(algebra.Difference, MyriaDifference),
+        ]
+
+    def __init__(self, catalog=None):
+        self.catalog = catalog
 
 
 def apply_schema_recursive(operator, catalog):
