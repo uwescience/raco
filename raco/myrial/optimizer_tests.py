@@ -105,6 +105,30 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected)
 
+    def test_collapse_applies(self):
+        """Test pushing applies together."""
+        lp = StoreTemp('OUTPUT',
+               Apply([(None, AttIndex(1)), ('w', expression.PLUS(AttIndex(0), AttIndex(0)))],       # noqa
+                 Apply([(None, AttIndex(1)), (None, AttIndex(0)), (None, AttIndex(1))],             # noqa
+                   Apply([('x', AttIndex(0)), ('y', expression.PLUS(AttIndex(1), AttIndex(0)))],    # noqa
+                     Apply([(None, AttIndex(0)), (None, AttIndex(1))],
+                           Scan(self.x_key, self.x_scheme))))))  # noqa
+
+        self.assertEquals(self.get_count(lp, Apply), 4)
+
+        pp = self.logical_to_physical(lp)
+        self.assertTrue(isinstance(pp.input, Apply))
+        self.assertEquals(self.get_count(pp, Apply), 1)
+
+        expected = collections.Counter(
+            [(b, a + a) for (a, b, c) in
+             [(b, a, b) for (a, b) in
+              [(a, b + a) for (a, b) in
+                [(a, b) for (a, b, c) in self.x_data]]]])  # noqa
+        self.db.evaluate(pp)
+        result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, expected)
+
     def test_push_selects_apply(self):
         """Test pushing selections through apply."""
         lp = StoreTemp('OUTPUT',
