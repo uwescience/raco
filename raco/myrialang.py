@@ -521,16 +521,6 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
-class BreakShuffle(rules.Rule):
-    def fire(self, expr):
-        if not isinstance(expr, MyriaShuffle):
-            return expr
-
-        producer = MyriaShuffleProducer(expr.input, expr.columnlist)
-        consumer = MyriaShuffleConsumer(producer)
-        return consumer
-
-
 class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria CollectProducer"""
 
@@ -562,6 +552,16 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
             'opType': 'CollectConsumer',
             'argOperatorId': inputid
         }
+
+
+class BreakShuffle(rules.Rule):
+    def fire(self, expr):
+        if not isinstance(expr, MyriaShuffle):
+            return expr
+
+        producer = MyriaShuffleProducer(expr.input, expr.columnlist)
+        consumer = MyriaShuffleConsumer(producer)
+        return consumer
 
 
 class BreakCollect(rules.Rule):
