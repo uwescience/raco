@@ -129,8 +129,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
-    def test_push_apply_join(self):
-        """Test pushing applies into the column select of a projecting join."""
+    def test_projects_apply_join(self):
+        """Test column selection both Apply into ProjectingJoin
+        and ProjectingJoin into its input.
+        """
         lp = StoreTemp('OUTPUT',
                Apply([(None, AttIndex(1))],       # noqa
                  ProjectingJoin(expression.EQ(AttIndex(0), AttIndex(3)),
@@ -143,8 +145,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                           len(lp.input.input.scheme()))
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input.input, ProjectingJoin))
-        self.assertEquals(1, len(pp.input.input.scheme()))
+        proj_join = pp.input.input
+        self.assertTrue(isinstance(proj_join, ProjectingJoin))
+        self.assertEquals(1, len(proj_join.scheme()))
+        self.assertEquals(2, len(proj_join.left.scheme()))
+        self.assertEquals(1, len(proj_join.right.scheme()))
 
         expected = collections.Counter(
             [(b,)
