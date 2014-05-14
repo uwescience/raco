@@ -45,7 +45,7 @@ def compile_expr(op, child_scheme, state_scheme):
     ####
     if isinstance(op, expression.NumericLiteral):
         if type(op.value) == int:
-            if op.value <= (2 ** 31) - 1 and op.value >= -2 ** 31:
+            if (2 ** 31) - 1 >= op.value >= -2 ** 31:
                 myria_type = 'INT_TYPE'
             else:
                 myria_type = 'LONG_TYPE'
@@ -851,7 +851,7 @@ def is_column_equality_comparison(cond):
     if isinstance(cond, expression.EQ) and \
        isinstance(cond.left, UnnamedAttributeRef) and \
        isinstance(cond.right, UnnamedAttributeRef):
-        return (cond.left.position, cond.right.position)
+        return cond.left.position, cond.right.position
     else:
         return None
 
@@ -1149,14 +1149,13 @@ def apply_schema_recursive(operator, catalog):
     that scan relations in the map."""
 
     # We found a scan, let's fill in its scheme
-    if isinstance(operator, MyriaScan) or isinstance(operator, MyriaScanTemp):
+    if isinstance(operator, (MyriaScan, MyriaScanTemp)):
 
         if isinstance(operator, MyriaScan):
             rel_key = operator.relation_key
-            rel_scheme = catalog.get_scheme(rel_key)
-        elif isinstance(operator, MyriaScanTemp):
+        else:
             rel_key = RelationKey.from_string(operator.name)
-            rel_scheme = catalog.get_scheme(rel_key)
+        rel_scheme = catalog.get_scheme(rel_key)
 
         if rel_scheme:
             # The Catalog has an entry for this relation
