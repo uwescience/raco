@@ -524,7 +524,12 @@ class Parser(object):
     @staticmethod
     def p_sexpr_id(p):
         'sexpr : unreserved_id'
-        p[0] = sexpr.NamedAttributeRef(p[1])
+        try:
+            # Check for zero-argument function
+            p[0] = Parser.resolve_function(p, p[1], [])
+        except:
+            # Resolve as an attribute reference
+            p[0] = sexpr.NamedAttributeRef(p[1])
 
     @staticmethod
     def p_sexpr_index(p):
