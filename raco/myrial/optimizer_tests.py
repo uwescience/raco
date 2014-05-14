@@ -129,6 +129,33 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
+    def test_push_apply_join(self):
+        """Test pushing applies into the column select of a projecting join."""
+        lp = StoreTemp('OUTPUT',
+               Apply([(None, AttIndex(1))],       # noqa
+                 ProjectingJoin(expression.EQ(AttIndex(0), AttIndex(3)),
+                   Scan(self.x_key, self.x_scheme),
+                   Scan(self.x_key, self.x_scheme),
+                   [AttIndex(i) for i in xrange(2 * len(self.x_scheme))])))  # noqa
+
+        self.assertTrue(isinstance(lp.input.input, ProjectingJoin))
+        self.assertEquals(2 * len(self.x_scheme),
+                          len(lp.input.input.scheme()))
+
+        pp = self.logical_to_physical(lp)
+        self.assertTrue(isinstance(pp.input.input, ProjectingJoin))
+        self.assertEquals(1, len(pp.input.input.scheme()))
+
+        expected = collections.Counter(
+            [(b,)
+             for (a, b, c) in self.x_data
+             for (d, e, f) in self.x_data
+             if a == d])
+
+        self.db.evaluate(pp)
+        result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, expected)
+
     def test_push_selects_apply(self):
         """Test pushing selections through apply."""
         lp = StoreTemp('OUTPUT',
