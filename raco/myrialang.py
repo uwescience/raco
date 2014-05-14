@@ -910,7 +910,7 @@ class PushApply(rules.Rule):
 
 
 class RemoveUnusedColumns(rules.Rule):
-    """Push apply"""
+    """For operators that """
     def fire(self, op):
         if isinstance(op, algebra.GroupBy):
             child = op.input
@@ -926,9 +926,7 @@ class RemoveUnusedColumns(rules.Rule):
                 emitters = [(None, UnnamedAttributeRef(i)) for i in accessed]
                 new_apply = algebra.Apply(emitters, child)
                 index_map = {a: i for (i, a) in enumerate(accessed)}
-                for agg_expr in grp_list:
-                    expression.reindex_expr(agg_expr, index_map)
-                for agg_expr in agg_list:
+                for agg_expr in itertools.chain(grp_list, agg_list):
                     expression.reindex_expr(agg_expr, index_map)
                 op.grouping_list = grp_list
                 op.aggregate_list = agg_list
