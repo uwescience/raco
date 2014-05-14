@@ -22,7 +22,7 @@ class RACompiler(object):
 
     def optimize(self, target=MyriaAlgebra,
                  eliminate_common_subexpressions=False,
-                 multiway_join=True):
+                 multiway_join=False):
         """Convert logical plan to physical plan"""
         self.target = target
         self.physicalplan = optimize(
