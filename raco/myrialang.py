@@ -1,4 +1,6 @@
 from collections import defaultdict
+import copy
+import itertools
 
 from raco import algebra
 from raco import rules
@@ -854,6 +856,59 @@ def is_column_equality_comparison(cond):
         return None
 
 
+class PushApply(rules.Rule):
+    """Push apply"""
+    def fire(self, op):
+        """
+
+        :rtype : Expression
+        """
+        if not isinstance(op, algebra.Apply):
+            return op
+
+        child = op.input
+
+        if isinstance(child, algebra.Apply):
+            in_scheme = child.scheme()
+            child_in_scheme = child.input.scheme()
+            names, emits = zip(*op.emitters)
+            emits = [to_unnamed_recursive(e, in_scheme)
+                     for e in emits]
+            child_emits = [to_unnamed_recursive(e[1], child_in_scheme)
+                           for e in child.emitters]
+
+            def convert(n):
+                if isinstance(n, expression.UnnamedAttributeRef):
+                    n = child_emits[n.position]
+                else:
+                    n.apply(convert)
+                return n
+            emits = [convert(copy.copy(e)) for e in emits]
+
+            new_apply = algebra.Apply(emitters=zip(names, emits),
+                                      input=child.input)
+            return self.fire(new_apply)
+
+        elif isinstance(child, algebra.ProjectingJoin):
+            in_scheme = child.scheme()
+            names, emits = zip(*op.emitters)
+            emits = [to_unnamed_recursive(e, in_scheme)
+                     for e in emits]
+            accessed = sorted(set(itertools.chain(*(accessed_columns(e)
+                                                    for e in emits))))
+            index_map = {a: i for (i, a) in enumerate(accessed)}
+            child.columnlist = [child.columnlist[i] for i in accessed]
+            for e in emits:
+                expression.reindex_expr(e, index_map)
+            return algebra.Apply(emitters=zip(names, emits),
+                                 input=child)
+
+        return op
+
+    def __str__(self):
+        return 'Push Apply into Apply, ProjectingJoin'
+
+
 class PushSelects(rules.Rule):
     """Push selections."""
 
@@ -989,6 +1044,9 @@ class MyriaAlgebra(object):
 
         rules.ProjectingJoin(),
         rules.JoinToProjectingJoin(),
+
+        PushApply(),
+
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
         DistributedGroupBy(),
