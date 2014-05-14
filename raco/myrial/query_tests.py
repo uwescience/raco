@@ -1199,6 +1199,20 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter([(val,)])
         self.check_result(query, expected)
 
+    def test_noop_udf_sugared(self):
+        expr = "30 + 15 // 7 + -45"
+
+        query = """
+        DEF Noop(): %s;
+
+        out = [Noop AS t];
+        STORE(out, OUTPUT);
+        """ % expr
+
+        val = eval(expr)
+        expected = collections.Counter([(val,)])
+        self.check_result(query, expected)
+
     def test_composition_udf(self):
         query = """
         DEF Add7(x): x + 7;
