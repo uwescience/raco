@@ -340,6 +340,10 @@ class UnnamedAttributeRef(AttributeRef):
     def __str__(self):
         return "$%s" % (self.position)
 
+    def __eq__(self, other):
+        return (other.__class__ == self.__class__
+                and other.position == self.position)
+
     def get_position(self, scheme, state_scheme=None):
         return self.position
 
