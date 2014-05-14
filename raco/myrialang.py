@@ -909,6 +909,69 @@ class PushApply(rules.Rule):
         return 'Push Apply into Apply, ProjectingJoin'
 
 
+class RemoveUnusedColumns(rules.Rule):
+    """Push apply"""
+    def fire(self, op):
+        if isinstance(op, algebra.GroupBy):
+            child = op.input
+            child_scheme = child.scheme()
+            grp_list = [to_unnamed_recursive(g, child_scheme)
+                        for g in op.grouping_list]
+            agg_list = [to_unnamed_recursive(a, child_scheme)
+                        for a in op.aggregate_list]
+            agg = [accessed_columns(a) for a in agg_list]
+            pos = [g.position for g in grp_list]
+            accessed = sorted(set(itertools.chain(*(agg + [pos]))))
+            if len(accessed) != len(child_scheme):
+                emitters = [(None, UnnamedAttributeRef(i)) for i in accessed]
+                new_apply = algebra.Apply(emitters, child)
+                index_map = {a: i for (i, a) in enumerate(accessed)}
+                for agg_expr in grp_list:
+                    expression.reindex_expr(agg_expr, index_map)
+                for agg_expr in agg_list:
+                    expression.reindex_expr(agg_expr, index_map)
+                op.grouping_list = grp_list
+                op.aggregate_list = agg_list
+                op.input = new_apply
+                return self.fire(op)
+        elif isinstance(op, algebra.ProjectingJoin):
+            l_scheme = op.left.scheme()
+            r_scheme = op.right.scheme()
+            in_scheme = l_scheme + r_scheme
+            condition = to_unnamed_recursive(op.condition, in_scheme)
+            column_list = [to_unnamed_recursive(c, in_scheme)
+                           for c in op.columnlist]
+
+            accessed = (accessed_columns(condition)
+                        | set(c.position for c in op.columnlist))
+            if len(accessed) == len(in_scheme):
+                return op
+
+            accessed = sorted(accessed)
+            left = [a for a in accessed if a < len(l_scheme)]
+            if len(left) < len(l_scheme):
+                emits = [(None, UnnamedAttributeRef(a)) for a in left]
+                apply = algebra.Apply(emits, op.left)
+                op.left = apply
+            right = [a - len(l_scheme) for a in accessed
+                     if a >= len(l_scheme)]
+            if len(right) < len(r_scheme):
+                emits = [(None, UnnamedAttributeRef(a)) for a in right]
+                apply = algebra.Apply(emits, op.right)
+                op.right = apply
+            index_map = {a: i for (i, a) in enumerate(accessed)}
+            expression.reindex_expr(condition, index_map)
+            [expression.reindex_expr(c, index_map) for c in column_list]
+            op.condition = condition
+            op.columnlist = column_list
+            return op
+
+        return op
+
+    def __str__(self):
+        return 'Remove unused columns'
+
+
 class PushSelects(rules.Rule):
     """Push selections."""
 
@@ -1045,6 +1108,12 @@ class MyriaAlgebra(object):
         rules.ProjectingJoin(),
         rules.JoinToProjectingJoin(),
 
+        # These really ought to be run until convergence.
+        # For now, run twice and finish with PushApply.
+        PushApply(),
+        RemoveUnusedColumns(),
+        PushApply(),
+        RemoveUnusedColumns(),
         PushApply(),
 
         ShuffleBeforeJoin(),
