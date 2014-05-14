@@ -7,6 +7,8 @@ from raco import expression
 from raco.language import Language
 from raco.utility import emit
 from raco.relation_key import RelationKey
+from expression import (accessed_columns, to_unnamed_recursive,
+                        UnnamedAttributeRef)
 from raco.expression.aggregate import DecomposableAggregate
 
 
@@ -360,7 +362,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         for expr in self.aggregate_list:
             if isinstance(expr, expression.COUNTALL):
                 # XXX Wrong in the presence of nulls
-                agg_fields.append(expression.UnnamedAttributeRef(0))
+                agg_fields.append(UnnamedAttributeRef(0))
             else:
                 agg_fields.append(expression.toUnnamed(
                     expr.input, child_scheme))
@@ -675,12 +677,12 @@ class DistributedGroupBy(rules.Rule):
         local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input)
 
         # Create a merge aggregate; grouping terms are passed through.
-        merge_groupings = [expression.UnnamedAttributeRef(i)
+        merge_groupings = [UnnamedAttributeRef(i)
                            for i in range(num_grouping_terms)]
 
         # Connect the output of local aggregates to merge aggregates
         for pos, agg in enumerate(merge_aggs, num_grouping_terms):
-            agg.input = expression.UnnamedAttributeRef(pos)
+            agg.input = UnnamedAttributeRef(pos)
 
         merge_gb = MyriaGroupBy(merge_groupings, merge_aggs, local_gb)
         op_out = self.do_transfer(merge_gb)
@@ -699,13 +701,13 @@ class DistributedGroupBy(rules.Rule):
             offset = num_grouping_terms + agg_offsets[pos]
 
             if fexpr is None:
-                return expression.UnnamedAttributeRef(offset)
+                return UnnamedAttributeRef(offset)
             else:
                 # Convert MergeAggregateOutput instances to absolute col refs
                 return expression.finalizer_expr_to_absolute(fexpr, offset)
 
         # pass through grouping terms
-        gmappings = [(None, expression.UnnamedAttributeRef(i))
+        gmappings = [(None, UnnamedAttributeRef(i))
                      for i in range(len(op.grouping_list))]
         # extract a single result for aggregate terms
         fmappings = [(None, resolve_finalizer_expr(agg, pos)) for pos, agg in
@@ -725,7 +727,7 @@ class SplitSelects(rules.Rule):
 
         # Normalize named references to integer indexes
         scheme = op.scheme()
-        conjuncs = [expression.to_unnamed_recursive(c, scheme)
+        conjuncs = [to_unnamed_recursive(c, scheme)
                     for c in conjuncs]
 
         op.condition = conjuncs[0]
@@ -813,7 +815,7 @@ class SimpleGroupBy(rules.Rule):
         # Construct the Apply we're going to stick before the GroupBy
 
         # First: copy every column from the input verbatim
-        mappings = [(None, expression.UnnamedAttributeRef(i))
+        mappings = [(None, UnnamedAttributeRef(i))
                     for i in range(len(child_scheme))]
 
         # Next: move the complex grouping expressions into the Apply, replace
@@ -821,14 +823,14 @@ class SimpleGroupBy(rules.Rule):
         for i, grp_expr in complex_grp_exprs:
             mappings.append((None, grp_expr))
             expr.grouping_list[i] = \
-                expression.UnnamedAttributeRef(len(mappings) - 1)
+                UnnamedAttributeRef(len(mappings) - 1)
 
         # Finally: move the complex aggregate expressions into the Apply,
         # replace with simple refs
         for agg_expr in complex_agg_exprs:
             mappings.append((None, agg_expr.input))
             agg_expr.input = \
-                expression.UnnamedAttributeRef(len(mappings) - 1)
+                UnnamedAttributeRef(len(mappings) - 1)
 
         # Construct and prepend the new Apply
         new_apply = algebra.Apply(mappings, expr.input)
@@ -845,8 +847,8 @@ def is_column_equality_comparison(cond):
     """
 
     if isinstance(cond, expression.EQ) and \
-       isinstance(cond.left, expression.UnnamedAttributeRef) and \
-       isinstance(cond.right, expression.UnnamedAttributeRef):
+       isinstance(cond.left, UnnamedAttributeRef) and \
+       isinstance(cond.right, UnnamedAttributeRef):
         return (cond.left.position, cond.right.position)
     else:
         return None
@@ -874,7 +876,7 @@ class PushSelects(rules.Rule):
         elif isinstance(op, algebra.CompositeBinaryOperator):
             # Joins and cross-products; consider conversion to an equijoin
             left_len = len(op.left.scheme())
-            accessed = expression.accessed_columns(cond)
+            accessed = accessed_columns(cond)
             in_left = [col < left_len for col in accessed]
             if all(in_left):
                 # Push the select into the left sub-tree.
@@ -893,7 +895,7 @@ class PushSelects(rules.Rule):
                     return op.add_equijoin_condition(cols[0], cols[1])
         elif isinstance(op, algebra.Apply):
             # Convert accessed to a list from a set to ensure consistent order
-            accessed = list(expression.accessed_columns(cond))
+            accessed = list(accessed_columns(cond))
             accessed_emits = [op.emitters[i][1] for i in accessed]
             if all(isinstance(e, expression.AttributeRef)
                    for e in accessed_emits):
@@ -908,7 +910,7 @@ class PushSelects(rules.Rule):
                 return op
         elif isinstance(op, algebra.GroupBy):
             # Convert accessed to a list from a set to ensure consistent order
-            accessed = list(expression.accessed_columns(cond))
+            accessed = list(accessed_columns(cond))
             if all((a < len(op.grouping_list)) for a in accessed):
                 accessed_grps = [op.grouping_list[a] for a in accessed]
                 # This condition only touches columns that are copied verbatim
