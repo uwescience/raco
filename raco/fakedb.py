@@ -256,7 +256,7 @@ class FakeDatabase(object):
 
         # project-out columns
         def project(input_tuple):
-            output = [input_tuple[x.position] for x in op.columnlist]
+            output = [input_tuple[x.position] for x in op.output_columns]
             return tuple(output)
         return (project(t) for t in it)
 
