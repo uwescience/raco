@@ -889,7 +889,7 @@ class PushApply(rules.Rule):
                 else:
                     n.apply(convert)
                 return n
-            emits = [convert(copy.copy(e)) for e in emits]
+            emits = [convert(copy.deepcopy(e)) for e in emits]
 
             new_apply = algebra.Apply(emitters=zip(names, emits),
                                       input=child.input)
