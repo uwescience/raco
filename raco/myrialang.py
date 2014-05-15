@@ -910,7 +910,13 @@ class PushApply(rules.Rule):
 
 
 class RemoveUnusedColumns(rules.Rule):
-    """For operators that """
+    """For operators that construct new tuples (e.g., GroupBy or Join), we are
+    guaranteed that any columns from an input tuple that are ignored (neither
+    used internally nor to produce the output columns) cannot be used higher
+    in the query tree. For these cases, this rule will prepend an Apply that
+    keeps only the referenced columns. The goal is that after this rule,
+    a subsequent invocation of PushApply will be able to push that
+    column-selection operation further down the tree."""
     def fire(self, op):
         if isinstance(op, algebra.GroupBy):
             child = op.input
