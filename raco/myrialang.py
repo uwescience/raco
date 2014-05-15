@@ -946,7 +946,7 @@ class RemoveUnusedColumns(rules.Rule):
                 op.grouping_list = grp_list
                 op.aggregate_list = agg_list
                 op.input = new_apply
-                return self.fire(op)
+                return op
         elif isinstance(op, algebra.ProjectingJoin):
             l_scheme = op.left.scheme()
             r_scheme = op.right.scheme()
