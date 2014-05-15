@@ -317,11 +317,11 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
                                                left_len,
                                                combined)
 
-        if self.columnlist is None:
-            self.columnlist = self.scheme().ascolumnlist()
+        if self.output_columns is None:
+            self.output_columns = self.scheme().ascolumnlist()
         column_names = [name for (name, _) in self.scheme()]
 
-        pos = [i.get_position(combined) for i in self.columnlist]
+        pos = [i.get_position(combined) for i in self.output_columns]
         allleft = [i for i in pos if i < left_len]
         allright = [i - left_len for i in pos if i >= left_len]
 
@@ -608,7 +608,7 @@ class ShuffleBeforeJoin(rules.Rule):
         if isinstance(expr, algebra.ProjectingJoin):
             return algebra.ProjectingJoin(expr.condition,
                                           left_shuffle, right_shuffle,
-                                          expr.columnlist)
+                                          expr.output_columns)
         elif isinstance(expr, algebra.Join):
             return algebra.Join(expr.condition, left_shuffle, right_shuffle)
         raise NotImplementedError("How the heck did you get here?")
@@ -897,7 +897,7 @@ class PushApply(rules.Rule):
             accessed = sorted(set(itertools.chain(*(accessed_columns(e)
                                                     for e in emits))))
             index_map = {a: i for (i, a) in enumerate(accessed)}
-            child.columnlist = [child.columnlist[i] for i in accessed]
+            child.output_columns = [child.output_columns[i] for i in accessed]
             for e in emits:
                 expression.reindex_expr(e, index_map)
             return algebra.Apply(emitters=zip(names, emits),
@@ -944,10 +944,10 @@ class RemoveUnusedColumns(rules.Rule):
             in_scheme = l_scheme + r_scheme
             condition = to_unnamed_recursive(op.condition, in_scheme)
             column_list = [to_unnamed_recursive(c, in_scheme)
-                           for c in op.columnlist]
+                           for c in op.output_columns]
 
             accessed = (accessed_columns(condition)
-                        | set(c.position for c in op.columnlist))
+                        | set(c.position for c in op.output_columns))
             if len(accessed) == len(in_scheme):
                 return op
 
@@ -967,7 +967,7 @@ class RemoveUnusedColumns(rules.Rule):
             expression.reindex_expr(condition, index_map)
             [expression.reindex_expr(c, index_map) for c in column_list]
             op.condition = condition
-            op.columnlist = column_list
+            op.output_columns = column_list
             return op
 
         return op
