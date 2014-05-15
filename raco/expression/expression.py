@@ -289,7 +289,8 @@ class Literal(ZeroaryOperator):
 
 
 class StringLiteral(Literal):
-    pass
+    def __str__(self):
+        return '"{val}"'.format(val=self.value)
 
 
 class NumericLiteral(Literal):
