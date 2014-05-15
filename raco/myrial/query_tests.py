@@ -598,11 +598,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_unbox_from_where_nary_name(self):
         query = """
-        CONST = [25 AS twenty_five, 1000 AS thousand];
+        _CONST = [25 AS twenty_five, 1000 AS thousand];
 
         emp = SCAN(%s);
-        out = [FROM emp WHERE salary == *CONST.twenty_five *
-        *CONST.thousand EMIT *];
+        out = [FROM emp WHERE salary == *_CONST.twenty_five *
+        *_CONST.thousand EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -613,11 +613,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_unbox_from_where_nary_pos(self):
         query = """
-        CONST = [25 AS twenty_five, 1000 AS thousand];
+        _CONST = [25 AS twenty_five, 1000 AS thousand];
 
         emp = SCAN(%s);
-        out = [FROM emp WHERE salary == *CONST.$0 *
-        *CONST.$1 EMIT *];
+        out = [FROM emp WHERE salary == *_CONST.$0 *
+        *_CONST.$1 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
