@@ -869,10 +869,6 @@ class PushApply(rules.Rule):
         ProjectingJoin is everything the Apply was doing. See note below.
     """
     def fire(self, op):
-        """
-
-        :rtype : Expression
-        """
         if not isinstance(op, algebra.Apply):
             return op
 
