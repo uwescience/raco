@@ -857,7 +857,17 @@ def is_column_equality_comparison(cond):
 
 
 class PushApply(rules.Rule):
-    """Push apply"""
+    """Many Applies in MyriaL are added to select fewer columns from the
+    input. In some  of these cases, we can do less work in the children by
+    preventing them from producing columns we will then immediately drop.
+
+    Currently, this rule:
+      - merges consecutive Apply operations into one Apply, possibly dropping
+        some of the produced columns along the way.
+      - makes ProjectingJoin only produce columns that are later read.
+        TODO: drop the Apply if the column-selection pushed into the
+        ProjectingJoin is everything the Apply was doing. See note below.
+    """
     def fire(self, op):
         """
 
