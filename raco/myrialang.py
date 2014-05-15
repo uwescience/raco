@@ -900,6 +900,9 @@ class PushApply(rules.Rule):
             child.output_columns = [child.output_columns[i] for i in accessed]
             for e in emits:
                 expression.reindex_expr(e, index_map)
+            # TODO(dhalperi) we may not need the Apply if all it did was rename
+            # and/or select certain columns. Figure out these cases and omit
+            # the Apply
             return algebra.Apply(emitters=zip(names, emits),
                                  input=child)
 
