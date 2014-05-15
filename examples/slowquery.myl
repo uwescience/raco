@@ -1,0 +1,86 @@
+Snapshot512 = scan(astro:cosmo50:snapshot512Hash);
+Snapshot504 = scan(astro:cosmo50:snapshot504Hash);
+Snapshot480 = scan(astro:cosmo50:snapshot480Hash);
+Snapshot466 = scan(astro:cosmo50:snapshot466Hash);
+Snapshot456 = scan(astro:cosmo50:snapshot456Hash);
+Snapshot455 = scan(astro:cosmo50:snapshot455Hash);
+Snapshot432 = scan(astro:cosmo50:snapshot432Hash);
+Snapshot408 = scan(astro:cosmo50:snapshot408Hash);
+Snapshot406 = scan(astro:cosmo50:snapshot406Hash);
+Snapshot384 = scan(astro:cosmo50:snapshot384Hash);
+Snapshot336 = scan(astro:cosmo50:snapshot336Hash);
+Snapshot328 = scan(astro:cosmo50:snapshot328Hash);
+Snapshot312 = scan(astro:cosmo50:snapshot312Hash);
+Snapshot288 = scan(astro:cosmo50:snapshot288Hash);
+Snapshot264 = scan(astro:cosmo50:snapshot264Hash);
+Snapshot240 = scan(astro:cosmo50:snapshot240Hash);
+Snapshot226 = scan(astro:cosmo50:snapshot226Hash);
+Snapshot216 = scan(astro:cosmo50:snapshot216Hash);
+Snapshot192 = scan(astro:cosmo50:snapshot192Hash);
+Snapshot168 = scan(astro:cosmo50:snapshot168Hash);
+Snapshot144 = scan(astro:cosmo50:snapshot144Hash);
+Snapshot128 = scan(astro:cosmo50:snapshot128Hash);
+Snapshot096 = scan(astro:cosmo50:snapshot096Hash);
+Snapshot084 = scan(astro:cosmo50:snapshot084Hash);
+Snapshot072 = scan(astro:cosmo50:snapshot072Hash);
+Snapshot048 = scan(astro:cosmo50:snapshot048Hash);
+Snapshot024 = scan(astro:cosmo50:snapshot024Hash);
+
+s512 = select distinct 1 as timestep, s512.*
+        from Snapshot512 as s512;
+s504 = select distinct 2 as timestep, s504.*
+       from Snapshot504 as s504;
+s480 = select distinct 3 as timestep, s480.*
+        from Snapshot480 as s480;
+s466 = select distinct 4 as timestep, s466.*
+       from Snapshot466 as s466;
+s456 = select distinct 5 as timestep, s456.*
+        from Snapshot456 as s456;
+s455 = select distinct 6 as timestep, s455.*
+       from Snapshot455 as s455;
+s432 = select distinct 7 as timestep, s432.*
+        from Snapshot432 as s432;
+s408 = select distinct 8 as timestep, s408.*
+       from Snapshot408 as s408;
+s406 = select distinct 9 as timestep, s406.*
+        from Snapshot406 as s406;
+s384 = select distinct 10 as timestep, s384.*
+       from Snapshot384 as s384;      
+s336 = select distinct 11 as timestep, s336.*
+        from Snapshot336 as s336;
+s328 = select distinct 12 as timestep, s328.*
+       from Snapshot328 as s328;
+s312 = select distinct 13 as timestep, s312.*
+        from Snapshot312 as s312;
+s288 = select distinct 14 as timestep, s288.*
+       from Snapshot288 as s288;
+s264 = select distinct 15 as timestep, s264.*
+        from Snapshot264 as s264;
+s240 = select distinct 16 as timestep, s240.*
+       from Snapshot240 as s240;
+s226 = select distinct 17 as timestep, s226.*
+        from Snapshot226 as s226;
+s216 = select distinct 18 as timestep, s216.*
+       from Snapshot216 as s216;
+s192 = select distinct 19 as timestep, s192.*
+        from Snapshot192 as s192;
+s168 = select distinct 20 as timestep, s168.*
+       from Snapshot168 as s168;
+s144 = select distinct 21 as timestep, s144.*
+       from Snapshot144 as s144;
+s128 = select distinct 22 as timestep, s128.*
+        from Snapshot128 as s128;
+s096 = select distinct 23 as timestep, s096.*
+       from Snapshot096 as s096;
+s084 = select distinct 24 as timestep, s084.*
+        from Snapshot084 as s084;
+s072 = select distinct 25 as timestep, s072.*
+       from Snapshot072 as s072;
+s048 = select distinct 26 as timestep, s048.*
+        from Snapshot048 as s048;
+s024 = select distinct 27 as timestep, s024.*
+       from Snapshot024 as s024;
+
+Cosmo50AllSnapshots = s512 + s504 + s480 + s466 + s456 + s455 + s432 + s408 + s406 + s384 + s336 + s328 + s312 + s288 + s264 + s240 + s226 + s216 + s192 + s168 + s144 + s128 + s096 + s084 + s072 + s048 + s024;
+
+store(Cosmo50AllSnapshots, public:demo:Cosmo50AllSnapshots);

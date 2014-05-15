@@ -58,8 +58,7 @@ class FakeCatalog(object):
         self.catalog = catalog
 
     def get_scheme(self, rel_key):
-        string_key = str(rel_key)
-        return raco.scheme.Scheme(self.catalog[string_key])
+        return raco.scheme.Scheme([('iOrder', 'int'), ('mass', 'float'), ('grp', 'int'), ('type', 'string')])
 
     @classmethod
     def load_from_file(cls, path):
