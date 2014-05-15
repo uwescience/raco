@@ -345,6 +345,9 @@ class UnnamedAttributeRef(AttributeRef):
         return (other.__class__ == self.__class__
                 and other.position == self.position)
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def get_position(self, scheme, state_scheme=None):
         return self.position
 
