@@ -485,12 +485,12 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         if len(self.hash_columns) == 1:
             pf = {
                 "type": "SingleFieldHash",
-                "index": self.hash_columns[0]
+                "index": self.hash_columns[0].position
             }
         else:
             pf = {
                 "type": "MultiFieldHash",
-                "indexes": self.hash_columns
+                "indexes": [x.position for x in self.hash_columns]
             }
 
         return {
@@ -597,11 +597,15 @@ class ShuffleBeforeJoin(rules.Rule):
         if isinstance(expr.left, algebra.Shuffle):
             left_shuffle = expr.left
         else:
+            left_cols = [expression.UnnamedAttributeRef(i)
+                         for i in left_cols]
             left_shuffle = algebra.Shuffle(expr.left, left_cols)
         # Right shuffle
         if isinstance(expr.right, algebra.Shuffle):
             right_shuffle = expr.right
         else:
+            right_cols = [expression.UnnamedAttributeRef(i)
+                          for i in right_cols]
             right_shuffle = algebra.Shuffle(expr.right, right_cols)
 
         # Construct the object!
@@ -638,7 +642,7 @@ class DistributedGroupBy(rules.Rule):
 
         # Get an array of position references to columns in the child scheme
         child_scheme = op.input.scheme()
-        group_fields = [expression.toUnnamed(ref, child_scheme).position
+        group_fields = [expression.toUnnamed(ref, child_scheme)
                         for ref in op.grouping_list]
         if len(group_fields) == 0:
             # Need to Collect all tuples at once place

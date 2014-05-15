@@ -289,7 +289,8 @@ class Literal(ZeroaryOperator):
 
 
 class StringLiteral(Literal):
-    pass
+    def __str__(self):
+        return '"{val}"'.format(val=self.value)
 
 
 class NumericLiteral(Literal):
@@ -339,6 +340,13 @@ class UnnamedAttributeRef(AttributeRef):
 
     def __str__(self):
         return "$%s" % (self.position)
+
+    def __eq__(self, other):
+        return (other.__class__ == self.__class__
+                and other.position == self.position)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def get_position(self, scheme, state_scheme=None):
         return self.position
