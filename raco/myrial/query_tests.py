@@ -1199,13 +1199,13 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter([(val,)])
         self.check_result(query, expected)
 
-    def test_noop_udf_sugared(self):
+    def test_const(self):
         expr = "30 + 15 // 7 + -45"
 
         query = """
-        DEF Noop(): %s;
+        CONST myconstant: %s;
 
-        out = [Noop AS t];
+        out = [myconstant AS t];
         STORE(out, OUTPUT);
         """ % expr
 
