@@ -129,6 +129,27 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
+    def test_select_count_star(self):
+        """Test that we don't generate 0-length applies from a COUNT(*)."""
+        lp = StoreTemp('OUTPUT',
+                       GroupBy([], [expression.COUNTALL()],
+                               Scan(self.x_key, self.x_scheme)))
+
+        self.assertEquals(self.get_count(lp, GroupBy), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertTrue(isinstance(pp.input, GroupBy))
+        # GroupBy.CollectProducer.CollectConsumer.GroupBy.Apply
+        apply = pp.input.input.input.input.input
+        self.assertTrue(isinstance(apply, Apply))
+        self.assertEquals(self.get_count(pp, Apply), 1)
+        self.assertEquals(len(apply.scheme()), 1)
+
+        expected = collections.Counter([(len(self.x_data),)])
+        self.db.evaluate(pp)
+        result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, expected)
+
     def test_projects_apply_join(self):
         """Test column selection both Apply into ProjectingJoin
         and ProjectingJoin into its input.
