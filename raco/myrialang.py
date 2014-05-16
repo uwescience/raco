@@ -941,6 +941,11 @@ class RemoveUnusedColumns(rules.Rule):
             agg = [accessed_columns(a) for a in agg_list]
             pos = [g.position for g in grp_list]
             accessed = sorted(set(itertools.chain(*(agg + [pos]))))
+            if not accessed:
+                # Bug #207: COUNTALL() does not access any columns. So if the
+                #  query is just a COUNT(*), we would generate an empty Apply.
+                # If this happens, just keep the first column of the input.
+                accessed = [0]
             if len(accessed) != len(child_scheme):
                 emitters = [(None, UnnamedAttributeRef(i)) for i in accessed]
                 new_apply = algebra.Apply(emitters, child)
