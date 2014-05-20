@@ -113,6 +113,11 @@ class DatalogTest(unittest.TestCase):
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
+    def test_unsupported_head(self):
+        query = "A(a/b) :- R(a,b)"
+        with self.assertRaises(AssertionError):
+            testresult = RATest(query)
+
 
 class ExpressionTest(unittest.TestCase):
     def test_postorder(self):

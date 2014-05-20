@@ -426,7 +426,10 @@ class Rule(object):
                 return e.__class__(findvar(e.input))
             elif isinstance(e, Var):
                 return findvar(e)
+            else:
+                assert False, "toAttrRef does not support %s" % e
         columnlist = [toAttrRef(v) for v in self.head.valuerefs]
+        LOG.debug("columnlist for Project (or group by) is %s", columnlist)
 
         # If any of the expressions in the head are aggregate expression,
         # construct a group by
