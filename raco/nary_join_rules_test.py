@@ -23,6 +23,8 @@ class testNaryJoin(unittest.TestCase):
         dlog.fromDatalog(query)
         dlog.optimize(target=MyriaAlgebra(Catalog(num_server, child_size)),
                       multiway_join=True)
+        # from raco.myrialang import compile_to_json
+        # print compile_to_json(query, dlog.logicalplan, dlog.physicalplan)
         return dlog.physicalplan[0][1]
 
     def test_merge_to_nary_join(self):
@@ -72,7 +74,10 @@ class testNaryJoin(unittest.TestCase):
         # 1. triangular join
         trianglular_join = testNaryJoin.get_phys_plan_root(
             "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64, [1, 1, 1])
-        shuffle_r, shuffle_s, shuffle_t = trianglular_join.children()
+        r_consumer, s_consumer, t_consumer = trianglular_join.children()
+        shuffle_r = r_consumer.input
+        shuffle_s = s_consumer.input
+        shuffle_t = t_consumer.input
         # x in R and x in T are shuffled to the same dimension
         self.assertEqual(get_hc_dim(shuffle_r, 0), get_hc_dim(shuffle_t, 1))
         # y in R and y in S are shuffled to the same dimension
@@ -83,7 +88,10 @@ class testNaryJoin(unittest.TestCase):
         # 2. star join
         star_join = testNaryJoin.get_phys_plan_root(
             "A(x,y,z,p):-R(x,y),S(x,z),T(x,p)", 64, [1, 1, 1])
-        shuffle_r, shuffle_s, shuffle_t = tuple(star_join.children())
+        r_consumer, s_consumer, t_consumer = tuple(star_join.children())
+        shuffle_r = r_consumer.input
+        shuffle_s = s_consumer.input
+        shuffle_t = t_consumer.input
         # x in R and x in S are shuffled to the same dimension
         self.assertEqual(get_hc_dim(shuffle_r, 0), get_hc_dim(shuffle_s, 0))
         # x in S and x in T are shuffled to the same dimension
@@ -92,10 +100,12 @@ class testNaryJoin(unittest.TestCase):
     def test_cell_partition(self):
         def get_cell_partiton(expr, dim_sizes, child_idx):
             children = expr.children()
-            child_shemes = [c.scheme() for c in children]
-            conditions = convert_nary_conditions(expr.conditions, child_shemes)
+            children = [c.input for c in children]
+            child_schemes = [c.scheme() for c in children]
+            conditions = convert_nary_conditions(
+                expr.conditions, child_schemes)
             return HCShuffleBeforeNaryJoin.get_cell_partition(
-                dim_sizes, conditions, child_shemes,
+                dim_sizes, conditions, child_schemes,
                 child_idx, children[child_idx].hashed_columns)
 
         # 1. triangular join
@@ -122,6 +132,34 @@ class testNaryJoin(unittest.TestCase):
             get_cell_partiton(expr, dim_sizes, 1), [[0], [1], [2], [3]])
         self.assertEqual(
             get_cell_partiton(expr, dim_sizes, 2), [[0, 2], [1, 3]])
+
+    def test_dim_size(self):
+        def get_dim_size(expr):
+            producer = expr.children()[0].input
+            return producer.hyper_cube_dimensions
+
+        def get_work_load(expr, dim_sizes):
+            children = expr.children()
+            children = [c.input for c in children]
+            child_schemes = [c.scheme() for c in children]
+            conditions = convert_nary_conditions(
+                expr.conditions, child_schemes)
+            HSClass = HCShuffleBeforeNaryJoin
+            r_index = HSClass.reversed_index(child_schemes, conditions)
+            child_sizes = [len(cs) for cs in child_schemes]
+            return HSClass.workload(dim_sizes, child_sizes, r_index)
+
+        # test triangle join with equal input size
+        trianglular_join = testNaryJoin.get_phys_plan_root(
+            "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64, [1, 1, 1])
+        self.assertEqual(get_dim_size(trianglular_join), (4, 4, 4))
+
+        # test rectange join with equal input size
+        rect_join = testNaryJoin.get_phys_plan_root(
+            "A(x,y,z):-R(x,y),S(y,z),T(z,p), N(p,x)", 256, [1, 1, 1, 1])
+        # note: there is more than one optimal [4,4,4,4] or [1,16,1,16] etc.
+        self.assertEqual(get_work_load(rect_join, [4, 4, 4, 4]),
+                         get_work_load(rect_join, get_dim_size(rect_join)))
 
 if __name__ == '__main__':
     unittest.main()
