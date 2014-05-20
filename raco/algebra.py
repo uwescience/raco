@@ -374,12 +374,15 @@ class NaryJoin(NaryOperator):
                 and self.conditions == other.conditions)
 
     def scheme(self):
+        combined = []
+        for c in self.children():
+            combined.extend(c.scheme())
+        # do projection
         if self.columnlist:
-            return self.columnlist
-        sch = scheme.Scheme()
-        for arg in self.args:
-            sch = sch + arg.scheme()
-        return sch
+            ret = [combined[attr.get_position(combined)]
+                   for attr in self.columnlist]
+            return ret
+        return combined
 
     def copy(self, other):
         """deep copy"""
