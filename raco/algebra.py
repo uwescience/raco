@@ -175,6 +175,9 @@ class ZeroaryOperator(Operator):
     def __eq__(self, other):
         return self.__class__ == other.__class__
 
+    def __repr__(self):
+        return self.opname()
+
     def children(self):
         return []
 
