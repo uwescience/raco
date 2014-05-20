@@ -364,14 +364,14 @@ class NaryOperator(Operator):
 
 class NaryJoin(NaryOperator):
     """Logical Nary Join operator"""
-    def __init__(self, children=None, join_map=None, columnlist=None):
-        self.join_map = join_map
+    def __init__(self, children=None, conditions=None, columnlist=None):
+        self.conditions = conditions
         self.columnlist = columnlist
         NaryOperator.__init__(self, children)
 
     def __eq__(self, other):
         return (NaryOperator.__eq__(self, other)
-                and self.join_map == other.join_map)
+                and self.conditions == other.conditions)
 
     def scheme(self):
         if self.columnlist:
@@ -383,12 +383,12 @@ class NaryJoin(NaryOperator):
 
     def copy(self, other):
         """deep copy"""
-        self.join_map = other.join_map
+        self.conditions = other.conditions
         self.columnlist = other.columnlist
         NaryOperator.copy(self, other)
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), self.join_map)
+        return "%s(%s)" % (self.opname(), self.conditions)
 
 
 """Logical Relational Algebra"""
