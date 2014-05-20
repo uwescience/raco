@@ -1,7 +1,5 @@
 import emitcode
 import raco.algebra as algebra
-import raco.rules as rules
-from raco.grappalang import GrappaSymmetricHashJoin, GrappaHashJoin
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 
 import logging
@@ -118,22 +116,14 @@ if len(sys.argv) > 1:
         alg = GrappaAlgebra
         prefix="grappa_"
 
-# plan hacking
-newRule = None
 if len(sys.argv) > 2:
-    if sys.argv[2] == "sym":
-        newRule = rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin)
-    elif sys.argv[3] == "shuf":
-        newRule = rules.OneToOne(algebra.Join, GrappaShuffleHashJoin)
+    plan = sys.argv[2]
 
-    if newRule:
-        for i in range(0, len(alg.rules)):
-            r = alg.rules[i]
-            if isinstance(r, rules.OneToOne) and r.opto == GrappaHashJoin:
-                alg.rules[i] = newRule
-
-for name in queries:
-    querystr = queries[name] % locals()
-    emitcode.emitCode(querystr, prefix+name, alg)
-
+for q in queries:
+    query, name = q
+    lst = []
+    if prefix: lst.append(prefix)
+    if plan: lst.append(plan)
+    if name: lst.append(name)
+    emitCode(query, "_".join(lst), alg, prefix, plan)
 
