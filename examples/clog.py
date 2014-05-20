@@ -1,12 +1,24 @@
-import test_query
+from emitcode import emitCode
+from raco.language import CCAlgebra
 import sys
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+LOG = logging.getLogger(__name__)
+  
 if __name__ == "__main__":
   query = sys.argv[1]
   print query
   name = sys.argv[2]
   print name
 
-  fname = test_query.testEmit(query, name, test_query.CCAlgebra)
-  
-  
+  plan = ""
+  if len(sys.argv) > 3:
+      plan = sys.argv[3]
+
+  lst = []
+  alg = CCAlgebra
+  if plan: lst.append(plan)
+  if name: lst.append(name)
+  emitCode(query, "_".join(lst), alg, plan)
+
