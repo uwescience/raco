@@ -45,9 +45,9 @@ class testNaryJoin(unittest.TestCase):
         conds = []
         for cond in triangle_join.conditions:
             conds.append([attribute.position for attribute in cond])
-        self.assertEqual(in_cond_idx(0, conds),  in_cond_idx(5, conds))
-        self.assertEqual(in_cond_idx(1, conds),  in_cond_idx(2, conds))
-        self.assertEqual(in_cond_idx(3, conds),  in_cond_idx(4, conds))
+        self.assertEqual(in_cond_idx(0, conds), in_cond_idx(5, conds))
+        self.assertEqual(in_cond_idx(1, conds), in_cond_idx(2, conds))
+        self.assertEqual(in_cond_idx(3, conds), in_cond_idx(4, conds))
 
         # 2. star join
         star_join = testNaryJoin.get_phys_plan_root(
@@ -60,8 +60,8 @@ class testNaryJoin(unittest.TestCase):
         conds = []
         for cond in star_join.conditions:
             conds.append([attribute.position for attribute in cond])
-        self.assertEqual(in_cond_idx(0, conds),  in_cond_idx(2, conds))
-        self.assertEqual(in_cond_idx(2, conds),  in_cond_idx(4, conds))
+        self.assertEqual(in_cond_idx(0, conds), in_cond_idx(2, conds))
+        self.assertEqual(in_cond_idx(2, conds), in_cond_idx(4, conds))
 
     def test_hashed_column_mapping(self):
         """Test whether hashed columns are mapped to correct HC dimensions."""

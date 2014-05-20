@@ -817,7 +817,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         assert(len(coordinate) == len(dim_sizes))
         ret = 0
         for k, v in enumerate(coordinate):
-            ret = ret + v * reduce(mul, dim_sizes[k+1:], 1)
+            ret = ret + v * reduce(mul, dim_sizes[k + 1:], 1)
         return ret
 
     @staticmethod
