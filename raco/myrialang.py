@@ -3,6 +3,8 @@ import itertools
 from collections import defaultdict, deque
 from operator import mul
 
+import itertools
+
 from raco import algebra
 from raco import rules
 from raco.scheme import Scheme
@@ -305,7 +307,7 @@ def convertcondition(condition, left_len, combined_scheme):
     raise NotImplementedError("Myria only supports EquiJoins, not %s" % condition)  # noqa
 
 
-def convert_nary_join_map(join_map, schemes):
+def convert_nary_conditions(conditions, schemes):
     """Convert an nary join map from global column index to local"""
     attr_map = {}   # map of global attribute to local column index
     count = 0
@@ -313,13 +315,13 @@ def convert_nary_join_map(join_map, schemes):
         for j, attr in enumerate(scheme.ascolumnlist()):
             attr_map[count] = [i, j]
             count += 1
-    new_join_map = []   # arrays of [child_index, column_index]
-    for join_cond in join_map:
+    new_conditions = []   # arrays of [child_index, column_index]
+    for join_cond in conditions:
         new_join_cond = []
         for attr in join_cond:
             new_join_cond.append(attr_map[attr.position])
-        new_join_map.append(new_join_cond)
-    return new_join_map
+        new_conditions.append(new_join_cond)
+    return new_conditions
 
 
 class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
@@ -730,92 +732,159 @@ class ShuffleBeforeJoin(rules.Rule):
         raise NotImplementedError("How the heck did you get here?")
 
 
-class HyperCubeShuffleBeforeLocalNaryJoin(rules.Rule):
+class HCShuffleBeforeNaryJoin(rules.Rule):
     def __init__(self, catalog=None):
-        assert(not catalog)     # HyperCube shuffle requires catalog
+        assert(catalog)     # HyperCube shuffle requires catalog
         self.catalog = catalog
 
     @staticmethod
-    def workload(dim_sizes, child_sizes, join_map):
-        """Compute the workload given a hyper cube size assignment"""
-        assert(dim_sizes, len(join_map))
-        # build reverse index: relation->joinField
-        rIndex = [[]]*len(child_sizes)
-        for i, jf_list in enumerate(join_map):
+    def reversed_index(child_schemes, conditions):
+        """Return the reversed index of join conditions. The reverse index
+           specify for each column on each relation, which hypercube dimension
+           it is mapped to, -1 means this columns is not in the hyper cube
+           (not joined).
+
+        Keyword arguments:
+        child_schemes -- schemes of children.
+        conditions -- join conditions.
+        """
+        # make it -1 first
+        r_index = [[-1] * len(scheme) for scheme in child_schemes]
+        for i, jf_list in enumerate(conditions):
             for jf in jf_list:
-                rIndex[jf[0]].append(i)
+                r_index[jf[0]][jf[1]] = i
+        return r_index
+
+    @staticmethod
+    def workload(dim_sizes, child_sizes, r_index):
+        """Compute the workload given a hyper cube size assignment"""
         load = float(0)
         for i, size in enumerate(child_sizes):
+            # compute subcube sizes
             scale = 1
-            for index in rIndex[i]:
-                scale = scale*dim_sizes[index]
-            load = load + float(child_sizes[i])/float(scale)
+            for index in r_index[i]:
+                if r_index[i] != -1:
+                    scale = scale * dim_sizes[index]
+            # add load per server by child i
+            load = load + float(child_sizes[i]) / float(scale)
         return load
 
     @staticmethod
-    def get_hyper_cube_dim_size(num_server, child_sizes, join_map):
-        """Find the optimal hyper cube dimension sizes using BFS."""
+    def get_hyper_cube_dim_size(num_server, child_sizes,
+                                child_schemes, conditions, r_index):
+        """Find the optimal hyper cube dimension sizes using BFS.
+
+        Keyword arguments:
+        num_server -- number of servers, this sets upper bound of HC cells.
+        child_sizes -- cardinality of each child.
+        child_schemes -- schemes of children.
+        conditions -- join conditions.
+        r_index -- reversed index of join conditions.
+        """
         # Helper function: compute the product.
         def product(array):
             return reduce(mul, array, 1)
         # Use BFS to find the best possible assignment.
-        this = HyperCubeShuffleBeforeLocalNaryJoin
+        this = HCShuffleBeforeNaryJoin
         visited = set()
         toVisit = deque()
-        toVisit.append(tuple([1 for i in join_map]))
+        toVisit.append(tuple([1 for i in conditions]))
         min_work_load = sum(child_sizes)
         while len(toVisit) > 0:
             dim_sizes = toVisit.pop()
-            if this.workload(dim_sizes, child_sizes, join_map) <\
+            if this.workload(dim_sizes, child_sizes, r_index) <\
                min_work_load:
                 min_work_load = this.workload(
-                    dim_sizes, child_sizes, join_map)
+                    dim_sizes, child_sizes, r_index)
                 opt_dim_sizes = dim_sizes
             visited.add(dim_sizes)
             for i, d in enumerate(dim_sizes):
                 new_dim_sizes = dim_sizes[0:i] +\
-                    tuple([dim_sizes[i]+1]) + dim_sizes[i+1:]
+                    tuple([dim_sizes[i] + 1]) + dim_sizes[i + 1:]
                 if product(new_dim_sizes) <= num_server\
                    and new_dim_sizes not in visited:
                     toVisit.append(new_dim_sizes)
-        return opt_dim_sizes
+        return (opt_dim_sizes, min_work_load)
 
     @staticmethod
     def coord_to_worker_id(coordinate, dim_sizes):
-        """Convert coordinate of cell to worker id"""
+        """Convert coordinate of cell to worker id
+
+        Keyword arguments:
+        coordinate -- coordinate of hyper cube cell.
+        dim_sizes -- sizes of dimensons of hyper cube.
+        """
         assert(len(coordinate) == len(dim_sizes))
         ret = 0
         for k, v in enumerate(coordinate):
-            ret = ret+v
-            if k != (len(dim_sizes)-1):
-                ret = ret * dim_sizes[k]
+            ret = ret + v * reduce(mul, dim_sizes[k+1:], 1)
         return ret
 
     @staticmethod
-    def get_cell_partition(dim_sizes, join_map, child_idx):
-        """Generate cell_partition for a child."""
-        # TODO
-        pass
+    def get_cell_partition(dim_sizes, conditions,
+                           child_shemes, child_idx, hashed_columns):
+        """Generate the cell_partition for a specific child.
+
+        Keyword arguments:
+        dim_sizes -- size of each dimension of the hypercube.
+        conditions -- each element is an array of (child_idx, column).
+        child_shemes -- schemes of children.
+        child_idx -- index of this child.
+        hashed_columns -- hashed columns of this child.
+        """
+        assert(len(dim_sizes) == len(conditions))
+        # make life a little bit easier
+        this = HCShuffleBeforeNaryJoin
+        # get reverse index
+        r_index = this.reversed_index(child_shemes, conditions)
+        # find which dims in hyper cube this relation is involved
+        hashed_dims = [r_index[child_idx][col] for col in hashed_columns]
+        assert(-1 not in hashed_dims)
+        # group by cell according to their projection on subcube voxel
+        cell_partition = defaultdict(list)
+        coor_ranges = [list(range(d)) for d in dim_sizes]
+        for coordinate in itertools.product(*coor_ranges):
+            # project a hypercube cell to a subcube voxel
+            voxel = [coordinate[dim] for dim in hashed_dims]
+            cell_partition[tuple(voxel)].append(
+                this.coord_to_worker_id(coordinate, dim_sizes))
+        return [wid for vox, wid in sorted(cell_partition.items())]
 
     def fire(self, expr):
         def add_hyper_shuffle():
             """ Helper function: put a HyperCube shuffle before each child."""
-            # some dumb work
-            this = HyperCubeShuffleBeforeLocalNaryJoin
-            new_children = []
+            # make calling static method easier
+            this = HCShuffleBeforeNaryJoin
+            # get child schemes
             child_shemes = [op.scheme() for op in expr.children()]
-            join_map = convert_nary_join_map(expr.join_map, child_shemes)
+            # convert join conditions from expressions to 2d array
+            conditions = convert_nary_conditions(expr.conditions, child_shemes)
+            # get number of servers from catalog
             num_server = self.catalog.get_num_servers()
             child_sizes = self.catalog.get_child_sizes()
-            dim_sizes = this.get_hyper_cube_dim_size(
-                num_server, child_sizes, join_map)
+            # get reversed index of join conditions
+            r_index = this.reversed_index(child_shemes, conditions)
+            # compute optimal dimension sizes
+            (dim_sizes, workload) = this.get_hyper_cube_dim_size(
+                num_server, child_sizes, child_shemes, conditions, r_index)
             # specify HyperCube shuffle to each child
-            for i, child in op.children():
-                indexes = []    # TODO
+            new_children = []
+            for child_idx, child in enumerate(expr.children()):
+                # (mapped hc dimension, column index)
+                hashed_fields = [(hc_dim, i)
+                                 for i, hc_dim
+                                 in enumerate(r_index[child_idx])
+                                 if hc_dim != -1]
+                mapped_dims, hashed_columns = zip(*sorted(hashed_fields))
+                # get cell partition for child i
                 cell_partition = this.get_cell_partition(
-                    dim_sizes, join_map, i)
-                new_children.append(algebra.HyperCubeShuffle(
-                    child, indexes, dim_sizes, cell_partition))
+                    dim_sizes, conditions, child_shemes,
+                    child_idx, hashed_columns)
+                # generate new children
+                new_children.append(
+                    algebra.HyperCubeShuffle(
+                        child, hashed_columns, mapped_dims,
+                        dim_sizes, cell_partition))
             # replace the children
             expr.args = new_children
 
@@ -823,9 +892,10 @@ class HyperCubeShuffleBeforeLocalNaryJoin(rules.Rule):
         if not isinstance(expr, algebra.NaryJoin):
             return expr
         # check if HC shuffle has been placed before
-        shuffled_child = sum([1 for op in expr.children
+        shuffled_child = sum([1 for op in list(expr.children())
                               if isinstance(op, algebra.HyperCubeShuffle)])
-        if shuffled_child == len(expr.children):    # already shuffled
+        if shuffled_child == len(expr.children()):    # already shuffled
+            assert(len(expr.children()))
             return expr
         elif shuffled_child == 0:   # place shuffles
             add_hyper_shuffle()
@@ -1333,16 +1403,16 @@ class MergeToNaryJoin(rules.Rule):
                 MergeToNaryJoin.mergable(op.right)
 
     @staticmethod
-    def collect_join_groups(op, join_map, children):
+    def collect_join_groups(op, conditions, children):
         assert(isinstance(op, algebra.ProjectingJoin))
         assert(isinstance(op.right, algebra.Select)
                or issubclass(type(op.right), algebra.ZeroaryOperator))
         children.append(op.right)
         conjuncs = expression.extract_conjuncs(op.condition)
         for cond in conjuncs:
-            join_map[cond.left]
-            join_map[cond.right]
-            join_map.union(cond.left, cond.right)
+            conditions[cond.left]
+            conditions[cond.right]
+            conditions.union(cond.left, cond.right)
         scan_then_select = isinstance(op.left, algebra.Select) and\
             isinstance(op.left.input, algebra.ZeroaryOperator)
         if scan_then_select or\
@@ -1350,7 +1420,7 @@ class MergeToNaryJoin(rules.Rule):
             children.append(op.left)
             return
         elif(isinstance(op.left, algebra.ProjectingJoin)):
-            MergeToNaryJoin.collect_join_groups(op.left, join_map, children)
+            MergeToNaryJoin.collect_join_groups(op.left, conditions, children)
         else:
             raise Exception("Error in merge joins to nary join.")
 
@@ -1372,10 +1442,10 @@ class MergeToNaryJoin(rules.Rule):
         join_conds = defaultdict(list)
         for field, key in join_groups.parents.items():
             join_conds[key].append(field)
-        join_map = [v for (k, v) in join_conds.items()]
+        conditions = [v for (k, v) in join_conds.items()]
         # 3. reverse the children due to top-down tree traversal
         return algebra.NaryJoin(
-            reversed(children), join_map, op.columnlist)
+            list(reversed(children)), conditions, op.columnlist)
 
     def fire(self, op):
         if not isinstance(op, algebra.ProjectingJoin):
@@ -1482,7 +1552,7 @@ class MyriaAlgebra(object):
             DistributedGroupBy(),
             ProjectToDistinctColumnSelect(),
             MergeToNaryJoin(),
-            #HyperCubeShuffleBeforeLocalNaryJoin(self.catalog),
+            HCShuffleBeforeNaryJoin(self.catalog),
             rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
             rules.OneToOne(algebra.Store, MyriaStore),
             rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),

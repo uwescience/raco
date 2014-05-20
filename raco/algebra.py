@@ -822,18 +822,28 @@ class Shuffle(UnaryOperator):
 
 class HyperCubeShuffle(UnaryOperator):
     """HyperCube Shuffle for multiway join"""
-    def __init__(self, child=None, indexes=None,
-                 hyper_cube_dims=None, cell_partition=None):
+    def __init__(self, child=None, hashed_columns=None,
+                 mapped_hc_dims=None, hyper_cube_dims=None,
+                 cell_partition=None):
+        """ Keyword arguments:
+            child -- child operator.
+            hashed_columns -- list of columns to be hashed.
+            mapped_hc_dims --  mapped dimensions in HC of hashed columns.
+            hyper_cube_dims -- size of dimensions of hyper cube.
+            cell_partition -- partition of the HC cells for this shuffle.
+        """
         UnaryOperator.__init__(self, child)
-        self.indexes = indexes
+        self.hashed_columns = hashed_columns
+        self.mapped_hc_dimensions = mapped_hc_dims
         self.hyper_cube_dimensions = hyper_cube_dims
         self.cell_partition = cell_partition
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), self.indexes)
+        return "%s(%s)" % (self.opname(), self.hashed_columns)
 
     def copy(self, other):
-        self.indexes = other.indexes
+        self.hashed_columns = other.hashed_columns
+        self.mapped_hc_dimensions = other.mapped_hc_dimensions
         self.hyper_cube_dimensions = other.hyper_cube_dimensions
         self.cell_partition = other.cell_partition
         UnaryOperator.copy(self, other)
