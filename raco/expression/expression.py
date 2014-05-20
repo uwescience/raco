@@ -330,7 +330,7 @@ class NamedAttributeRef(AttributeRef):
         return hash(self.name)
 
     def __eq__(self, other):
-        return self.name == other.name
+        return type(self) == type(other) and self.name == other.name
 
     def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
