@@ -29,6 +29,12 @@ class UnionFind:
         self.weights = {}
         self.parents = {}
 
+    def __getitem__(self, object):
+        if object not in self.parents:
+            raise Exception("Cannot find {}!".format(object))
+        else:
+            return self.get_or_insert(object)
+
     def get_or_insert(self, object):
         """Find and return the name of the set containing the object."""
 
