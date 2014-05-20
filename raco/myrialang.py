@@ -1437,7 +1437,7 @@ class MergeToNaryJoin(rules.Rule):
     """
     @staticmethod
     def mergable(op):
-        """ check an operator is mergable to Nary join or not.
+        """ Check if an operator is mergable to Nary join.
             An operator will be merged to Nary Join if its subtree contains
             only join
         """
@@ -1460,8 +1460,8 @@ class MergeToNaryJoin(rules.Rule):
         children.append(op.right)
         conjuncs = expression.extract_conjuncs(op.condition)
         for cond in conjuncs:
-            conditions[cond.left]
-            conditions[cond.right]
+            conditions.get_or_insert(cond.left)
+            conditions.get_or_insert(cond.right)
             conditions.union(cond.left, cond.right)
         scan_then_select = isinstance(op.left, algebra.Select) and\
             isinstance(op.left.input, algebra.ZeroaryOperator)

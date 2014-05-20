@@ -29,7 +29,7 @@ class UnionFind:
         self.weights = {}
         self.parents = {}
 
-    def __getitem__(self, object):
+    def get_or_insert(self, object):
         """Find and return the name of the set containing the object."""
 
         # check for previously unknown object
@@ -57,7 +57,7 @@ class UnionFind:
 
     def union(self, *objects):
         """Find the sets containing the objects and merge them all."""
-        roots = [self[x] for x in objects]
+        roots = [self.get_or_insert(x) for x in objects]
         heaviest = max([(self.weights[r], r) for r in roots])[1]
         for r in roots:
             if r != heaviest:
