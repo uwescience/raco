@@ -357,6 +357,15 @@ class UnnamedAttributeRef(AttributeRef):
     def __hash__(self):
         return hash(self.position)
 
+    def __cmp__(self, other):
+        assert(other.__class__ == self.__class__)
+        if self.position < other.position:
+            return -1
+        elif self.position == other.position:
+            return 0
+        else:
+            return 1
+
     def get_position(self, scheme, state_scheme=None):
         return self.position
 
