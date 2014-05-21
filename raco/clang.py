@@ -138,7 +138,7 @@ class CC(Language):
         return "(!%s)" % (innerexpr,), [], inits
 
     @classmethod
-    def boolean_combine(cls, args, operator="&&"):
+    def expression_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
         conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
         decls = reduce(lambda sofar, x: sofar+x, [d for _, d, _ in args])

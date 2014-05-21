@@ -40,7 +40,8 @@ class Python(Language):
     @classmethod
     def boolean_combine(cls, args, operator="and"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["%s" % cls.compile_boolean(arg) for arg in args])
+        conjunc = \
+            opstr.join(["%s" % cls.compile_expression(arg) for arg in args])
         return "(%s)" % conjunc
 
     @staticmethod
@@ -66,7 +67,8 @@ class pyScan(algebra.Scan, PythonOperator):
 class pySelect(algebra.Select, PythonOperator):
     def compileme(self, resultsym, inputsym):
         opcode = """pyra.select(%s, %s)""" % \
-            (Python.mklambda(Python.compile_boolean(self.condition)), inputsym)
+            (Python.mklambda(Python.compile_expression(self.condition)),
+             inputsym)
         code = self.language.new_relation_assignment(resultsym, opcode)
         return code
 
@@ -74,7 +76,8 @@ class pySelect(algebra.Select, PythonOperator):
 class pyHashJoin(algebra.Join, PythonOperator):
     def compileme(self, resultsym, leftsym, rightsym):
         opcode = """pyra.hashjoin(%s, %s, %s)\n""" % \
-            (self.language.compile_boolean(self.condition), leftsym, rightsym)
+            (self.language.compile_expression(self.condition),
+             leftsym, rightsym)
         code = self.language.new_relation_assignment(resultsym, opcode)
         return code
 

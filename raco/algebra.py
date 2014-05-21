@@ -159,7 +159,7 @@ class Operator(Printable):
 
     def resolveAttribute(self, ref):
         """Return a tuple of (column_name, type) for a given AttributeRef."""
-        assert isinstance(ref, expression.AttributeRef)
+        assert isinstance(ref, expression.AttributeRef), ref
         return self.scheme().resolve(ref)
 
 
@@ -705,6 +705,7 @@ class Project(UnaryOperator):
         """scheme of the result. Raises a TypeError if a name in the project
         list is not in the source schema"""
         # TODO: columnlist should perhaps be a list of column expressions, TBD
+        # bmyerz: actually save this for Apply
         attrs = [self.input.resolveAttribute(attref)
                  for attref in self.columnlist]
         return scheme.Scheme(attrs)

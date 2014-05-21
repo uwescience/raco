@@ -553,3 +553,34 @@ class Case(Expression):
 
     def __repr__(self):
         return self.__str__()
+
+
+import boolean
+import abc
+
+
+class ExpressionVisitor(boolean.BooleanExprVisitor):
+
+    @abc.abstractmethod
+    def visit_DIVIDE(self, binaryExpr):
+        return
+
+    @abc.abstractmethod
+    def visit_PLUS(self, binaryExpr):
+        return
+
+    @abstractmethod
+    def visit_MINUS(self, binaryExpr):
+        return
+
+    @abstractmethod
+    def IDIVIDE(self, binaryExpr):
+        return
+
+    @abstractmethod
+    def visit_TIMES(self, binaryExpr):
+        return
+
+    @abstractmethod
+    def visit_NEG(self, unaryExpr):
+        return

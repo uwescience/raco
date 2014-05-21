@@ -52,11 +52,11 @@ class Language(object):
 
     @classmethod
     def conjunction(cls, *args):
-        return cls.boolean_combine(args, operator="and")
+        return cls.expression_combine(args, operator="and")
 
     @classmethod
     def disjunction(cls, *args):
-        return cls.boolean_combine(args, operator="or")
+        return cls.expression_combine(args, operator="or")
 
     @classmethod
     def unnamed(cls, condition, sch):
@@ -85,14 +85,14 @@ class Language(object):
         return result
 
     @classmethod
-    def compile_boolean(cls, boolexpr):
-        compilevisitor = CompileBooleanVisitor(cls)
-        boolexpr.accept(compilevisitor)
+    def compile_expression(cls, expr):
+        compilevisitor = CompileExpressionVisitor(cls)
+        expr.accept(compilevisitor)
         return compilevisitor.getresult()
 
     @classmethod
     @abstractmethod
-    def boolean_combine(cls, args, operator="and"):
+    def expression_combine(cls, args, operator="and"):
         """Combine the given arguments using the specified infix operator"""
 
 
@@ -102,14 +102,14 @@ import expression.boolean as boolean
 class CompileBooleanVisitor(boolean.BooleanExprVisitor):
     def __init__(self, language):
         self.language = language
-        self.combine = language.boolean_combine
+        self.combine = language.expression_combine
         self.stack = []
 
     def getresult(self):
         assert len(self.stack) == 1
         return self.stack.pop()
 
-    def __visit_BinaryBooleanOperator__(self, binaryexpr):
+    def __visit_BinaryOperator__(self, binaryexpr):
         right = self.stack.pop()
         left = self.stack.pop()
         return left, right
@@ -119,35 +119,35 @@ class CompileBooleanVisitor(boolean.BooleanExprVisitor):
         self.stack.append(self.language.negation(inputexpr))
 
     def visit_AND(self, binaryexpr):
-        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.language.conjunction(left, right))
 
     def visit_OR(self, binaryexpr):
-        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.language.disjunction(left, right))
 
     def visit_EQ(self, binaryexpr):
-        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.combine([left, right], operator="=="))
 
     def visit_NEQ(self, binaryexpr):
-        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.combine([left, right], operator="!="))
 
     def visit_GT(self, binaryexpr):
-        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.combine([left, right], operator=">"))
 
     def visit_LT(self, binaryexpr):
-        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.combine([left, right], operator="<"))
 
     def visit_GTEQ(self, binaryexpr):
-        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.combine([left, right], operator=">="))
 
     def visit_LTEQ(self, binaryexpr):
-        left, right = self.__visit_BinaryBooleanOperator__(binaryexpr)
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.combine([left, right], operator="<="))
 
     def visit_NamedAttributeRef(self, named):
