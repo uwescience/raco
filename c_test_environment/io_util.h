@@ -53,8 +53,8 @@ struct relationInfo {
 bool operator!=(const RangeIter& o1, const RangeIter& o2);
 bool operator==(const RangeIter& o1, const RangeIter& o2);
 
-struct relationInfo *inhale(char *path, struct relationInfo *relInfo);
-struct relationInfo *binary_inhale(char *path, struct relationInfo *relInfo);
+struct relationInfo *inhale(const char *path, struct relationInfo *relInfo);
+struct relationInfo *binary_inhale(const char *path, struct relationInfo *relInfo);
 
 void printrelation(struct relationInfo *R);
 
