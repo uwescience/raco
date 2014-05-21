@@ -118,7 +118,15 @@ def mkagg(x):
 aggregate = (Word(alphas) + drop("(") + variable + drop(")"))
 aggregate.setParseAction(mkagg)
 
-headvalueref = aggregate | variable | literal
+
+# TODO deeper instead of enumeration
+arithExpression = (valueref + binop + valueref) | \
+                  (aggregate + binop + valueref) | \
+                  (valueref + binop + aggregate)
+arithExpression.setParseAction(parsebinop)
+
+# greedy parsing so put arithExpression first
+headvalueref = arithExpression | aggregate | variable | literal
 
 headterm = (predicate + Optional(server)
             + drop("(") + Group(delimitedList(headvalueref, ",")) + drop(")"))

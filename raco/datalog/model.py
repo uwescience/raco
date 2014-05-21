@@ -426,8 +426,16 @@ class Rule(object):
                 return e.__class__(findvar(e.input))
             elif isinstance(e, Var):
                 return findvar(e)
+            elif isinstance(e, expression.BinaryOperator):
+                # two vars and binary op
+                # TODO: make this creation fully general instead
+                # TODO: of all these special cases
+                # FIXME: should make this not mutable
+                e.apply(lambda operand: findvar(operand))
+                return e
             else:
-                assert False, "toAttrRef does not support %s" % e
+                assert False, \
+                    "toAttrRef does not support %s of type %s" % (e, type(e))
         columnlist = [toAttrRef(v) for v in self.head.valuerefs]
         LOG.debug("columnlist for Project (or group by) is %s", columnlist)
 
