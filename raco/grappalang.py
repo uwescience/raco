@@ -257,22 +257,6 @@ class MemoryScan(algebra.UnaryOperator, GrappaOperator):
         return UnaryOperator.__eq__(self, other)
 
 
-def getTaggingFunc(t):
-    """
-    Return a visitor function that will tag
-    UnnamedAttributes with the provided TupleRef
-    """
-
-    def tagAttributes(expr):
-        # TODO non mutable would be nice
-        if isinstance(expr, expression.UnnamedAttributeRef):
-            expr.tupleref = t
-
-        return None
-
-    return tagAttributes
-
-
 class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
     _i = 0
     wait_template = ct("""%(syncname)s.wait();

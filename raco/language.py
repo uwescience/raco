@@ -164,6 +164,37 @@ class CompileBooleanVisitor(boolean.BooleanExprVisitor):
         self.stack.append(self.language.compile_stringliteral(stringliteral))
 
 
+class CompileExpressionVisitor(expression.ExpressionVisitor,
+                               CompileBooleanVisitor):
+    """
+    Adds more expression types.
+    """
+
+    def visit_DIVIDE(self, binaryexpr):
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
+        self.stack.append(self.combine([left, right], operator="/"))
+
+    def visit_PLUS(self, binaryexpr):
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
+        self.stack.append(self.combine([left, right], operator="+"))
+
+    def visit_MINUS(self, binaryexpr):
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
+        self.stack.append(self.combine([left, right], operator="-"))
+
+    def IDIVIDE(self, binaryexpr):
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
+        self.stack.append(self.combine([left, right], operator="/"))
+
+    def visit_TIMES(self, binaryexpr):
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
+        self.stack.append(self.combine([left, right], operator="*"))
+
+    def visit_NEG(self, unaryexpr):
+        left, right = self.__visit_BinaryOperator__(unaryexpr)
+        self.stack.append(self.combine([left, right], operator="-"))
+
+
 # import everything from each language
 from raco.pythonlang import PythonAlgebra
 from raco.pseudocodelang import PseudoCodeAlgebra

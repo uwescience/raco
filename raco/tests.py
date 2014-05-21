@@ -15,37 +15,37 @@ def RATest(query):
 class DatalogTest(unittest.TestCase):
     def test_join(self):
         join = """A(x,z) :- R(x,y), S(y,z)"""
-        desiredresult = """[('A', Project($0,$3)[Join(($1 = $2))[Scan(public:adhoc:R), Scan(public:adhoc:S)]])]"""  # noqa
+        desiredresult = """[('A', Apply(x=$0,z=$3)[Join(($1 = $2))[Scan(public:adhoc:R), Scan(public:adhoc:S)]])]"""  # noqa
         testresult = RATest(join)
         self.assertEqual(testresult, desiredresult)
 
     def test_selfjoin(self):
         join = """A(x,z) :- R(x,y), R(y,z)"""
-        desiredresult = """[('A', Project($0,$3)[Join(($1 = $2))[Scan(public:adhoc:R), Scan(public:adhoc:R)]])]"""  # noqa
+        desiredresult = """[('A', Apply(x=$0,z=$3)[Join(($1 = $2))[Scan(public:adhoc:R), Scan(public:adhoc:R)]])]"""  # noqa
         testresult = RATest(join)
         self.assertEqual(testresult, desiredresult)
 
     def test_triangle(self):
         join = """A(x,y,z) :- R(x,y), S(y,z), T(z,x)"""
-        desiredresult = """[('A', Project($0,$1,$3)[Select(($3 = $4))[Join(($0 = $5))[Join(($1 = $2))[Scan(public:adhoc:R), Scan(public:adhoc:S)], Scan(public:adhoc:T)]]])]"""  # noqa
+        desiredresult = """[('A', Apply(x=$0,y=$1,z=$3)[Select(($3 = $4))[Join(($0 = $5))[Join(($1 = $2))[Scan(public:adhoc:R), Scan(public:adhoc:S)], Scan(public:adhoc:T)]]])]"""  # noqa
         testresult = RATest(join)
         self.assertEqual(testresult, desiredresult)
 
     def test_explicit_conditions(self):
         join = """A(x,y,z) :- R(x,y), S(w,z), x<y,y<z,y=w"""
-        desiredresult = """[('A', Project($0,$1,$3)[Join((($1 < $3) and ($1 = $2)))[Select(($0 < $1))[Scan(public:adhoc:R)], Scan(public:adhoc:S)]])]"""  # noqa
+        desiredresult = """[('A', Apply(x=$0,y=$1,z=$3)[Join((($1 < $3) and ($1 = $2)))[Select(($0 < $1))[Scan(public:adhoc:R)], Scan(public:adhoc:S)]])]"""  # noqa
         testresult = RATest(join)
         self.assertEqual(testresult, desiredresult)
 
     def test_select(self):
         select = "A(x) :- R(x,3)"
-        desiredresult = """[('A', Project($0)[Select(($1 = 3))[Scan(public:adhoc:R)]])]"""  # noqa
+        desiredresult = """[('A', Apply(x=$0)[Select(($1 = 3))[Scan(public:adhoc:R)]])]"""  # noqa
         testresult = RATest(select)
         self.assertEqual(testresult, desiredresult)
 
     def test_select2(self):
         select = "A(x) :- R(x,y), S(y,z,4), z<3"
-        desiredresult = """[('A', Project($0)[Join(($1 = $2))[Scan(public:adhoc:R), Select((($2 = 4) and ($1 < 3)))[Scan(public:adhoc:S)]]])]"""  # noqa
+        desiredresult = """[('A', Apply(x=$0)[Join(($1 = $2))[Scan(public:adhoc:R), Select((($2 = 4) and ($1 < 3)))[Scan(public:adhoc:S)]]])]"""  # noqa
         testresult = RATest(select)
         self.assertEqual(testresult, desiredresult)
 
@@ -54,7 +54,7 @@ class DatalogTest(unittest.TestCase):
     A(x) :- B(x,y)
     A(x) :- C(y,x)
     """
-        desiredresult = """[('A', Union[Project($0)[Scan(public:adhoc:B)], Project($1)[Scan(public:adhoc:C)]])]"""  # noqa
+        desiredresult = """[('A', Union[Apply(x=$0)[Scan(public:adhoc:B)], Apply(x=$1)[Scan(public:adhoc:C)]])]"""  # noqa
         testresult = RATest(query)
         self.assertEqual(testresult, desiredresult)
 
@@ -64,7 +64,7 @@ class DatalogTest(unittest.TestCase):
     JustXBill2(x) :- JustXBill(x)
     JustXBillSquared(x) :- JustXBill(x), JustXBill2(x)
     """
-        desiredresult = """[('JustXBillSquared', Project($0)[Join(($0 = $1))[Apply(x=$0)[Project($0)[Scan(public:adhoc:TwitterK)]], Apply(x=$0)[Project($0)[Apply(x=$0)[Project($0)[Scan(public:adhoc:TwitterK)]]]]]])]"""  # noqa
+        desiredresult = """[('JustXBillSquared', Apply(x=$0)[Join(($0 = $1))[Apply(x=$0)[Apply(x=$0)[Scan(public:adhoc:TwitterK)]], Apply(x=$0)[Apply(x=$0)[Apply(x=$0)[Apply(x=$0)[Scan(public:adhoc:TwitterK)]]]]]])]"""  # noqa
         testresult = RATest(query)
         self.assertEqual(testresult, desiredresult)
 
@@ -73,13 +73,13 @@ class DatalogTest(unittest.TestCase):
         A(x,z) :- R(x,y,z);
         B(w) :- A(3,w)
     """
-        desiredresult = """[('B', Project($1)[Select(($0 = 3))[Apply(x=$0,w=$1)[Project($0,$2)[Scan(public:adhoc:R)]]]])]"""  # noqa
+        desiredresult = """[('B', Apply(w=$1)[Select(($0 = 3))[Apply(x=$0,w=$1)[Apply(x=$0,z=$2)[Scan(public:adhoc:R)]]]])]"""  # noqa
         testresult = RATest(query)
         self.assertEqual(testresult, desiredresult)
 
     def test_filter_expression(self):
         query = """filtered(src, dst, time) :- nccdc(src, dst, proto, time, a, b, c), time > 1366475761, time < 1366475821"""  # noqa
-        desiredresult = "[('filtered', Project($0,$1,$3)[Select((($3 > 1366475761) and ($3 < 1366475821)))[Scan(public:adhoc:nccdc)]])]"  # noqa
+        desiredresult = "[('filtered', Apply(src=$0,dst=$1,time=$3)[Select((($3 > 1366475761) and ($3 < 1366475821)))[Scan(public:adhoc:nccdc)]])]"  # noqa
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
@@ -101,7 +101,7 @@ class DatalogTest(unittest.TestCase):
     # test that attributes are correct amid multiple conditions
     def test_attributes_forward(self):
         query = "A(a) :- R(a,b), T(x,y,a,c), b=c"
-        desiredresult = """[('A', Project($0)[Join((($0 = $4) and ($1 = $5)))[Scan(public:adhoc:R), Scan(public:adhoc:T)]])]"""  # noqa
+        desiredresult = """[('A', Apply(a=$0)[Join((($0 = $4) and ($1 = $5)))[Scan(public:adhoc:R), Scan(public:adhoc:T)]])]"""  # noqa
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
@@ -109,14 +109,15 @@ class DatalogTest(unittest.TestCase):
     # order of variables in the terms is opposite of the explicit condition
     def test_attributes_reverse(self):
         query = "A(a) :- R(a,b), T(x,y,a,c), c=b"
-        desiredresult = """[('A', Project($0)[Join((($0 = $4) and ($5 = $1)))[Scan(public:adhoc:R), Scan(public:adhoc:T)]])]"""  # noqa
+        desiredresult = """[('A', Apply(a=$0)[Join((($0 = $4) and ($5 = $1)))[Scan(public:adhoc:R), Scan(public:adhoc:T)]])]"""  # noqa
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
     def test_unsupported_head(self):
         query = "A(a/b) :- R(a,b)"
-        with self.assertRaises(AssertionError):
-            testresult = RATest(query)
+        desiredresult = """[('A', Apply(_COLUMN0_=($0 / $1))[Scan(public:adhoc:R)])]"""  # noqa
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
 
 
 class ExpressionTest(unittest.TestCase):

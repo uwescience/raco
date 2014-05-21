@@ -460,8 +460,8 @@ class Rule(object):
                         for orig_pos, col in groups + aggs]
             plan = raco.algebra.Apply(mappings, groupby)
         else:
-            # otherwise, just build a project
-            plan = raco.algebra.Project(columnlist, plan)
+            # otherwise, just build an Apply
+            plan = raco.algebra.Apply([(None, e) for e in columnlist], plan)
 
         # If we found a cycle, the "root" of the plan is the fixpoint operator
         if self.fixpoint:
