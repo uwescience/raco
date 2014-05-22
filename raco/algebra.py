@@ -773,6 +773,31 @@ class GroupBy(UnaryOperator):
         return scheme.Scheme(attrs)
 
 
+class OrderBy(UnaryOperator):
+    """ Logical Sort operator
+    """
+    def __init__(self, input=None, sort_columns=None, ascending=None):
+        UnaryOperator.__init__(self, input)
+        self.sort_columns = sort_columns
+        self.ascending = ascending
+
+    def __repr__(self):
+        return "%s" % self
+
+    def shortStr(self):
+        return "%s(%s, asc:%s)" % (
+            self.opname, self.sort_columns, self.ascending)
+
+    def copy(self, other):
+        """deep copy"""
+        self.sort_columns = other.sort_columns
+        self.ascending = other.ascending
+        UnaryOperator.copy(self, other)
+
+    def scheme(self):
+        return self.input.scheme()
+
+
 class ProjectingJoin(Join):
     """Logical Projecting Join operator"""
     def __init__(self, condition=None, left=None, right=None,
