@@ -781,12 +781,9 @@ class OrderBy(UnaryOperator):
         self.sort_columns = sort_columns
         self.ascending = ascending
 
-    def __repr__(self):
-        return "%s" % self
-
     def shortStr(self):
         return "%s(%s, asc:%s)" % (
-            self.opname, self.sort_columns, self.ascending)
+            self.opname(), self.sort_columns, self.ascending)
 
     def copy(self, other):
         """deep copy"""

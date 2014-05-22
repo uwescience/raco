@@ -71,13 +71,17 @@ class testNaryJoin(unittest.TestCase):
             """Return the mapped dimension in hyper cube."""
             return expr.mapped_hc_dimensions[expr.hashed_columns.index(column)]
 
+        def get_shuffle_producers(expr):
+            """ Go two steps deeper in the tree, find shuffle producers.
+            """
+            ret = [child.input.input for child in expr.children()]
+            return tuple(ret)
+
         # 1. triangular join
         trianglular_join = testNaryJoin.get_phys_plan_root(
             "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64, [1, 1, 1])
-        r_consumer, s_consumer, t_consumer = trianglular_join.children()
-        shuffle_r = r_consumer.input
-        shuffle_s = s_consumer.input
-        shuffle_t = t_consumer.input
+        shuffle_r, shuffle_s, shuffle_t = get_shuffle_producers(
+            trianglular_join)
         # x in R and x in T are shuffled to the same dimension
         self.assertEqual(get_hc_dim(shuffle_r, 0), get_hc_dim(shuffle_t, 1))
         # y in R and y in S are shuffled to the same dimension
@@ -88,10 +92,7 @@ class testNaryJoin(unittest.TestCase):
         # 2. star join
         star_join = testNaryJoin.get_phys_plan_root(
             "A(x,y,z,p):-R(x,y),S(x,z),T(x,p)", 64, [1, 1, 1])
-        r_consumer, s_consumer, t_consumer = tuple(star_join.children())
-        shuffle_r = r_consumer.input
-        shuffle_s = s_consumer.input
-        shuffle_t = t_consumer.input
+        shuffle_r, shuffle_s, shuffle_t = get_shuffle_producers(star_join)
         # x in R and x in S are shuffled to the same dimension
         self.assertEqual(get_hc_dim(shuffle_r, 0), get_hc_dim(shuffle_s, 0))
         # x in S and x in T are shuffled to the same dimension
@@ -100,11 +101,11 @@ class testNaryJoin(unittest.TestCase):
     def test_cell_partition(self):
         def get_cell_partiton(expr, dim_sizes, child_idx):
             children = expr.children()
-            children = [c.input for c in children]
+            children = [c.input.input for c in children]
             child_schemes = [c.scheme() for c in children]
             conditions = convert_nary_conditions(
                 expr.conditions, child_schemes)
-            return HCShuffleBeforeNaryJoin.get_cell_partition(
+            return HCShuffleAndSortBeforeNaryJoin.get_cell_partition(
                 dim_sizes, conditions, child_schemes,
                 child_idx, children[child_idx].hashed_columns)
 
@@ -135,7 +136,7 @@ class testNaryJoin(unittest.TestCase):
 
     def test_dim_size(self):
         def get_dim_size(expr):
-            producer = expr.children()[0].input
+            producer = expr.children()[0].input.input
             return producer.hyper_cube_dimensions
 
         def get_work_load(expr, dim_sizes):
@@ -144,7 +145,7 @@ class testNaryJoin(unittest.TestCase):
             child_schemes = [c.scheme() for c in children]
             conditions = convert_nary_conditions(
                 expr.conditions, child_schemes)
-            HSClass = HCShuffleBeforeNaryJoin
+            HSClass = HCShuffleAndSortBeforeNaryJoin
             r_index = HSClass.reversed_index(child_schemes, conditions)
             child_sizes = [len(cs) for cs in child_schemes]
             return HSClass.workload(dim_sizes, child_sizes, r_index)

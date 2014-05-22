@@ -442,6 +442,17 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         return ret
 
 
+class MyriaInMemoryOrderBy(algebra.OrderBy, MyriaOperator):
+
+    def compileme(self, inputsym):
+        return {
+            "opType": "InMemoryOrderBy",
+            "argChild": inputsym,
+            "argSortColumns": self.sort_columns,
+            "argAscending": self.ascending
+        }
+
+
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
     """Represents a simple shuffle operator"""
 
@@ -790,7 +801,7 @@ class ShuffleBeforeJoin(rules.Rule):
         raise NotImplementedError("How the heck did you get here?")
 
 
-class HCShuffleBeforeNaryJoin(rules.Rule):
+class HCShuffleAndSortBeforeNaryJoin(rules.Rule):
     def __init__(self, catalog=None):
         assert(catalog)     # HyperCube shuffle requires catalog
         self.catalog = catalog
@@ -843,7 +854,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         def product(array):
             return reduce(mul, array, 1)
         # Use BFS to find the best possible assignment.
-        this = HCShuffleBeforeNaryJoin
+        this = HCShuffleAndSortBeforeNaryJoin
         visited = set()
         toVisit = deque()
         toVisit.append(tuple([1 for i in conditions]))
@@ -892,7 +903,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         """
         assert(len(dim_sizes) == len(conditions))
         # make life a little bit easier
-        this = HCShuffleBeforeNaryJoin
+        this = HCShuffleAndSortBeforeNaryJoin
         # get reverse index
         r_index = this.reversed_index(child_schemes, conditions)
         # find which dims in hyper cube this relation is involved
@@ -912,7 +923,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         def add_hyper_shuffle():
             """ Helper function: put a HyperCube shuffle before each child."""
             # make calling static method easier
-            this = HCShuffleBeforeNaryJoin
+            this = HCShuffleAndSortBeforeNaryJoin
             # get child schemes
             child_schemes = [op.scheme() for op in expr.children()]
             # convert join conditions from expressions to 2d array
@@ -950,6 +961,17 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
             # replace the children
             expr.args = new_children
 
+        def add_order_by():
+            new_children = []
+            for child in expr.children():
+                # do this after add shuffle
+                assert(isinstance(child, algebra.HyperCubeShuffle))
+                ascending = [True] * len(child.hashed_columns)
+                new_children.append(
+                    algebra.OrderBy(
+                        child, child.hashed_columns, ascending))
+            expr.args = new_children
+
         # only apply to NaryJoin
         if not isinstance(expr, algebra.NaryJoin):
             return expr
@@ -959,8 +981,9 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         if shuffled_child == len(expr.children()):    # already shuffled
             assert(len(expr.children()))
             return expr
-        elif shuffled_child == 0:   # place shuffles
+        elif shuffled_child == 0:   # add shuffle and order by
             add_hyper_shuffle()
+            add_order_by()
             return expr
         raise NotImplementedError("NaryJoin is partially shuffled?")
 
@@ -1586,6 +1609,7 @@ class MyriaAlgebra(object):
             rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
             rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
             rules.OneToOne(algebra.Difference, MyriaDifference),
+            rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
             BreakShuffle(),
             BreakCollect(),
             BreakBroadcast(),
@@ -1617,7 +1641,7 @@ class MyriaAlgebra(object):
             DistributedGroupBy(),
             ProjectToDistinctColumnSelect(),
             MergeToNaryJoin(),
-            HCShuffleBeforeNaryJoin(self.catalog),
+            HCShuffleAndSortBeforeNaryJoin(self.catalog),
             rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
             rules.OneToOne(algebra.Store, MyriaStore),
             rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),
@@ -1637,6 +1661,7 @@ class MyriaAlgebra(object):
             rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
             rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
             rules.OneToOne(algebra.Difference, MyriaDifference),
+            rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
             BreakHyperCubeShuffle(),
             BreakShuffle(),
             BreakCollect(),
