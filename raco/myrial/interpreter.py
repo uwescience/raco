@@ -285,7 +285,8 @@ class ExpressionProcessor(object):
 class StatementProcessor(object):
     '''Evaluate a list of statements'''
 
-    def __init__(self, catalog=None, use_dummy_schema=False):
+    def __init__(self, catalog=None, use_dummy_schema=False,
+                 multiway_join=False):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
@@ -293,6 +294,7 @@ class StatementProcessor(object):
         self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
 
         self.cfg = ControlFlowGraph()
+        self.multiway_join = multiway_join
 
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
@@ -386,8 +388,9 @@ class StatementProcessor(object):
         # Return first (only) plan; strip off dummy label.
         logical_plan = self.get_logical_plan()
         physical_plans = optimize([('root', logical_plan)],
-                                  target=MyriaAlgebra(),
-                                  source=LogicalAlgebra)
+                                  target=MyriaAlgebra(self.catalog),
+                                  source=LogicalAlgebra,
+                                  multiway_join=self.multiway_join)
         return physical_plans[0][1]
 
     def get_json(self):
