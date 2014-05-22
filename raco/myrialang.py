@@ -337,7 +337,6 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
         if self.output_columns is None:
             self.output_columns = self.scheme().ascolumnlist()
         column_names = [name for (name, _) in self.scheme()]
-
         pos = [i.get_position(combined) for i in self.output_columns]
         allleft = [i for i in pos if i < left_len]
         allright = [i - left_len for i in pos if i >= left_len]
@@ -359,6 +358,9 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
 class MyriaLeapFrogJoin(algebra.NaryJoin, MyriaOperator):
 
     def compileme(self, sym):
+        def convert_join_cond(pos_to_rel_col, cond, scheme):
+            join_col_pos = [c.get_position(scheme) for c in cond]
+            return [pos_to_rel_col[p] for p in join_col_pos]
         # map a output column to its origin
         rel_of_pos = {}     # pos => [rel_idx, field_idx]
         schemes = [c.scheme().ascolumnlist() for c in self.children()]
@@ -375,13 +377,18 @@ class MyriaLeapFrogJoin(algebra.NaryJoin, MyriaOperator):
         print self.scheme()
         column_names = [name for (name, _) in self.scheme()]
         # get rel_idx and field_idx of select columns
-        pos_list = [i.get_position(combined) for i in list(self.columnlist)]
-        output_fields = [rel_of_pos[p] for p in pos_list]
+        out_pos_list = [
+            i.get_position(combined) for i in list(self.columnlist)]
+        output_fields = [rel_of_pos[p] for p in out_pos_list]
+        join_fields = [
+            convert_join_cond(rel_of_pos, cond, combined)
+            for cond in self.conditions]
         return {
             "opType": "LeapFrogJoin",
-            "joinFieldMapping": self.conditions,
+            "joinFieldMapping": join_fields,
             "argColumnNames": column_names,
-            "outputFieldMapping": output_fields
+            "outputFieldMapping": output_fields,
+            "argChildren": sym
         }
 
 
@@ -620,15 +627,17 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         self.cell_partition = cell_partition
 
     def shortStr(self):
-        return "%s(h(%s))" % (self.opname(), self.hashed_columns)
+        hash_string = ','.join([str(x) for x in self.hashed_columns])
+        return "%s(h(%s))" % (self.opname(), hash_string)
 
     def compileme(self, inputsym):
         return {
-            'opType': 'HyperShuffleProducer',
-            'hashedColumns': self.hashed_columns,
-            'mappedHCDimensions': self.mapped_hc_dimensions,
-            'hyperCubeDimensions': self.hyper_cube_dimensions,
-            'cellPartition': self.cell_partition
+            "opType": "HyperShuffleProducer",
+            "hashedColumns": list(self.hashed_columns),
+            "mappedHCDimensions": list(self.mapped_hc_dimensions),
+            "hyperCubeDimensions": list(self.hyper_cube_dimensions),
+            "cellPartition": self.cell_partition,
+            "argChild": inputsym
         }
 
 
@@ -642,8 +651,8 @@ class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def compileme(self, inputsym):
         return {
-            'opType': 'HyperShuffleConsumer',
-            'argOperatorId': inputsym
+            "opType": "HyperShuffleConsumer",
+            "argOperatorId": inputsym
         }
 
 
@@ -912,6 +921,9 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
             # get number of servers from catalog
             num_server = self.catalog.get_num_servers()
             child_sizes = self.catalog.get_child_sizes()
+            # if no information provided, assume they are equal
+            if not child_sizes:
+                child_sizes = [1 for child in expr.children()]
             # get reversed index of join conditions
             r_index = this.reversed_index(child_schemes, conditions)
             # compute optimal dimension sizes
@@ -1520,6 +1532,7 @@ class MyriaAlgebra(object):
         MyriaShuffleConsumer,
         MyriaCollectConsumer,
         MyriaBroadcastConsumer,
+        MyriaHyperShuffleConsumer,
         MyriaScan,
         MyriaScanTemp
     )
