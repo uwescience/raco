@@ -4,6 +4,7 @@ from raco.utility import emit, emitlist, Printable
 
 from abc import ABCMeta, abstractmethod
 import copy
+import operator
 
 # BEGIN Code to generate variables names
 var_id = 0
@@ -374,9 +375,7 @@ class NaryJoin(NaryOperator):
                 and self.conditions == other.conditions)
 
     def scheme(self):
-        combined = []
-        for c in self.children():
-            combined.extend(c.scheme())
+        combined = reduce(operator.add, [c.scheme() for c in self.children()])
         # do projection
         if self.columnlist:
             ret = [combined[attr.get_position(combined)]
