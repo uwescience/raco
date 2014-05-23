@@ -801,7 +801,7 @@ class ShuffleBeforeJoin(rules.Rule):
         raise NotImplementedError("How the heck did you get here?")
 
 
-class HCShuffleAndSortBeforeNaryJoin(rules.Rule):
+class HCShuffleBeforeNaryJoin(rules.Rule):
     def __init__(self, catalog=None):
         assert(catalog)     # HyperCube shuffle requires catalog
         self.catalog = catalog
@@ -854,7 +854,7 @@ class HCShuffleAndSortBeforeNaryJoin(rules.Rule):
         def product(array):
             return reduce(mul, array, 1)
         # Use BFS to find the best possible assignment.
-        this = HCShuffleAndSortBeforeNaryJoin
+        this = HCShuffleBeforeNaryJoin
         visited = set()
         toVisit = deque()
         toVisit.append(tuple([1 for i in conditions]))
@@ -903,7 +903,7 @@ class HCShuffleAndSortBeforeNaryJoin(rules.Rule):
         """
         assert(len(dim_sizes) == len(conditions))
         # make life a little bit easier
-        this = HCShuffleAndSortBeforeNaryJoin
+        this = HCShuffleBeforeNaryJoin
         # get reverse index
         r_index = this.reversed_index(child_schemes, conditions)
         # find which dims in hyper cube this relation is involved
@@ -923,7 +923,7 @@ class HCShuffleAndSortBeforeNaryJoin(rules.Rule):
         def add_hyper_shuffle():
             """ Helper function: put a HyperCube shuffle before each child."""
             # make calling static method easier
-            this = HCShuffleAndSortBeforeNaryJoin
+            this = HCShuffleBeforeNaryJoin
             # get child schemes
             child_schemes = [op.scheme() for op in expr.children()]
             # convert join conditions from expressions to 2d array
@@ -961,17 +961,6 @@ class HCShuffleAndSortBeforeNaryJoin(rules.Rule):
             # replace the children
             expr.args = new_children
 
-        def add_order_by():
-            new_children = []
-            for child in expr.children():
-                # do this after add shuffle
-                assert(isinstance(child, algebra.HyperCubeShuffle))
-                ascending = [True] * len(child.hashed_columns)
-                new_children.append(
-                    algebra.OrderBy(
-                        child, child.hashed_columns, ascending))
-            expr.args = new_children
-
         # only apply to NaryJoin
         if not isinstance(expr, algebra.NaryJoin):
             return expr
@@ -983,9 +972,35 @@ class HCShuffleAndSortBeforeNaryJoin(rules.Rule):
             return expr
         elif shuffled_child == 0:   # add shuffle and order by
             add_hyper_shuffle()
-            add_order_by()
             return expr
         raise NotImplementedError("NaryJoin is partially shuffled?")
+
+
+class OrderByBeforeNaryJoin(rules.Rule):
+    def fire(self, expr):
+        # if not Nary join, who cares?
+        if not isinstance(expr, algebra.NaryJoin):
+            return expr
+        ordered_child = sum(
+            [1 for child in expr.children()
+             if isinstance(child, algebra.OrderBy)])
+
+        # already applied
+        if ordered_child == len(expr.children()):
+            return expr
+        elif ordered_child > 0:
+            raise Exception("children are partially ordered? ")
+
+        new_children = []
+        for child in expr.children():
+            # check: this rule must be applied after shuffle
+            assert(isinstance(child, algebra.HyperCubeShuffle))
+            ascending = [True] * len(child.hashed_columns)
+            new_children.append(
+                algebra.OrderBy(
+                    child, child.hashed_columns, ascending))
+        expr.args = new_children
+        return expr
 
 
 class BroadcastBeforeCross(rules.Rule):
@@ -1641,7 +1656,8 @@ class MyriaAlgebra(object):
             DistributedGroupBy(),
             ProjectToDistinctColumnSelect(),
             MergeToNaryJoin(),
-            HCShuffleAndSortBeforeNaryJoin(self.catalog),
+            HCShuffleBeforeNaryJoin(self.catalog),
+            OrderByBeforeNaryJoin(),
             rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
             rules.OneToOne(algebra.Store, MyriaStore),
             rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),

@@ -105,7 +105,7 @@ class testNaryJoin(unittest.TestCase):
             child_schemes = [c.scheme() for c in children]
             conditions = convert_nary_conditions(
                 expr.conditions, child_schemes)
-            return HCShuffleAndSortBeforeNaryJoin.get_cell_partition(
+            return HCShuffleBeforeNaryJoin.get_cell_partition(
                 dim_sizes, conditions, child_schemes,
                 child_idx, children[child_idx].hashed_columns)
 
@@ -145,7 +145,7 @@ class testNaryJoin(unittest.TestCase):
             child_schemes = [c.scheme() for c in children]
             conditions = convert_nary_conditions(
                 expr.conditions, child_schemes)
-            HSClass = HCShuffleAndSortBeforeNaryJoin
+            HSClass = HCShuffleBeforeNaryJoin
             r_index = HSClass.reversed_index(child_schemes, conditions)
             child_sizes = [len(cs) for cs in child_schemes]
             return HSClass.workload(dim_sizes, child_sizes, r_index)
