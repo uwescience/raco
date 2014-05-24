@@ -418,25 +418,33 @@ class Rule(object):
                              for v in self.head.serverspec.variables]
                 plan = raco.algebra.PartitionBy(positions, plan)
 
-        # Resolve variable references in the head; pass through aggregate
-        # expressions
         def toAttrRef(e):
+            """
+             Resolve variable references in the head; pass through aggregate
+             expressions
+
+             If expression requires an Apply then return True, else False
+             """
             if expression.isaggregate(e):
                 # assuming that every aggregate has exactly one argument
-                return e.__class__(findvar(e.input))
+                return e.__class__(findvar(e.input)), False
             elif isinstance(e, Var):
-                return findvar(e)
+                return findvar(e), False
             elif isinstance(e, expression.BinaryOperator):
                 # two vars and binary op
                 # TODO: make this creation fully general instead
                 # TODO: of all these special cases
                 # FIXME: should make this not mutable
                 e.apply(lambda operand: findvar(operand))
-                return e
+                return e, True
+            elif isinstance(e, expression.Literal):
+                return e, True
             else:
                 assert False, \
                     "toAttrRef does not support %s of type %s" % (e, type(e))
-        columnlist = [toAttrRef(v) for v in self.head.valuerefs]
+
+        columnAndNeedApplyList = [toAttrRef(v) for v in self.head.valuerefs]
+        columnlist = [c for c, _ in columnAndNeedApplyList]
         LOG.debug("columnlist for Project (or group by) is %s", columnlist)
 
         # If any of the expressions in the head are aggregate expression,
@@ -459,9 +467,27 @@ class Rule(object):
             mappings = [(None, expression.UnnamedAttributeRef(orig_pos))
                         for orig_pos, col in groups + aggs]
             plan = raco.algebra.Apply(mappings, groupby)
-        else:
-            # otherwise, just build an Apply
+        elif any([p for _, p in columnAndNeedApplyList]):
+            # if head contains one or more expressions,
+            # then need to do an Apply first
             plan = raco.algebra.Apply([(None, e) for e in columnlist], plan)
+            # since we already do Apply,
+            # the project just gets the position of the attributes
+            # TODO bmyerz: I would prefer Apply to only append expressions
+            # TODO         to the scheme,
+            # TODO         leaving projections to only Project.
+            # TODO         (sufficient as is for now since occurs on IDB head)
+            # TODO         Can do this by only providing emitters
+            # TODO         as appended attributes,
+            # TODO         where in algebra.py the original attributes
+            # TODO         can come from input.scheme
+            plan = raco.algebra.Project([
+                                        expression.UnnamedAttributeRef(i)
+                                        for i, _ in enumerate(columnlist)],
+                                        plan)
+        else:
+            # otherwise, just build a Project
+            plan = raco.algebra.Project([e for e in columnlist], plan)
 
         # If we found a cycle, the "root" of the plan is the fixpoint operator
         if self.fixpoint:
