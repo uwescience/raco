@@ -209,6 +209,75 @@ class MemoryScan(algebra.UnaryOperator, CCOperator):
     """
     return UnaryOperator.__eq__(self, other)
 
+class CGroupby(algebra.GroupBy, CCOperator):
+    _i = 0
+
+    @classmethod
+    def __genHashName__(cls):
+        name = "group_hash_%03d" % cls._i;
+        cls._i += 1
+        return name
+
+    def produce(self, state):
+
+        declr_template = """std::unordered_map<int64_t, int64_t> %(hashname)s;
+      """
+
+        self.hashname = self.__genHashName__()
+        hashname = self.hashname
+
+        hash_declr = declr_template % locals()
+        state.addDeclarations([hash_declr])
+
+        LOG.debug("aggregates: %s", self.aggregate_list)
+        LOG.debug("columns: %s", self.column_list)
+        LOG.debug("groupings: %s", self.grouping_list)
+        LOG.debug("groupby scheme: %s", self.scheme())
+        LOG.debug("groupby scheme[0] type: %s", type(self.scheme()[0]))
+
+        self.input.produce(state)
+
+        # now that everything is aggregated, produce the tuples
+        assert isinstance(self.column_list[0], expression.UnnamedAttributeRef), \
+            "assumes first column is the key and second is aggregate result"
+
+        produce_template = """for (auto it=%(hashname)s.begin(); it!=%(hashname)s.end(); it++) {
+        %(output_tuple_type)s %(output_tuple_name)s({it->first, it->second});
+        %(inner_code)s
+        }
+        """
+        output_tuple = CStagedTupleRef(gensym(), self.scheme())
+        output_tuple_name = output_tuple.name
+        output_tuple_type = output_tuple.getTupleTypename()
+        state.addDeclarations([output_tuple.generateDefinition()])
+
+        inner_code = self.parent.consume(output_tuple, self, state)
+        code = produce_template % locals()
+        state.setPipelineProperty("type", "in_memory")
+        state.addPipeline(code)
+
+    def consume(self, inputTuple, fromOp, state):
+        materialize_template = """%(op)s_insert(%(hashname)s, %(tuple_name)s, %(keypos)s, %(valpos)s);
+      """
+
+        assert len(self.grouping_list) <= 1, \
+            "%s does not currently support groupings of more than 1 attribute" % self.__class__.__name__
+        assert len(self.aggregate_list) == 1, \
+            "%s currently only supports aggregates of 1 attribute" % self.__class__.__name__
+
+        hashname = self.hashname
+        tuple_name = inputTuple.name
+
+        # make key from grouped attributes
+        keypos = self.grouping_list[0].get_position(self.scheme())
+
+        # get value positions from aggregated attributes
+        valpos = self.aggregate_list[0].input.get_position(self.scheme())
+        op = self.aggregate_list[0].__class__.__name__
+
+        code = materialize_template % locals()
+        return code
+
 
 class HashJoin(algebra.Join, CCOperator):
   _i = 0
@@ -232,8 +301,8 @@ class HashJoin(algebra.Join, CCOperator):
     assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
     self.right.childtag = "right"
-
     hashsym = state.lookupExpr(self.right)
+
     if not hashsym:
         # if right child never bound then store hashtable symbol and
         # call right child produce
@@ -362,6 +431,7 @@ class CCAlgebra(object):
     CUnionAll,
     CApply,
     CProject,
+    CGroupby,
     HashJoin
   ]
     rules = [
@@ -377,6 +447,7 @@ class CCAlgebra(object):
     MemoryScanOfFileScan(),
     rules.OneToOne(algebra.Apply, CApply),
     rules.OneToOne(algebra.Join,HashJoin),
+    rules.OneToOne(algebra.GroupBy,CGroupby),
     rules.OneToOne(algebra.Project, CProject),
     rules.OneToOne(algebra.Union,CUnionAll) #TODO: obviously breaks semantics
   #  rules.FreeMemory()

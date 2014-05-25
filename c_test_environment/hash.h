@@ -20,6 +20,25 @@ void insert(std::unordered_map<int64_t, std::vector<T>* >& hash, T tuple, uint64
 }
 
 template <typename T>
+void SUM_insert(std::unordered_map<int64_t, int64_t >& hash, T tuple, uint64_t keypos, uint64_t valpos) {
+  auto key = tuple.get(keypos);
+  auto val = tuple.get(valpos);
+  // NOTE: this method is only valid for 0 identity functions
+  auto& slot = hash[key];
+  std::cout << tuple << " key:" << key << " val:" << val << " existingVal:" << slot << std::endl;
+  slot += val;
+}
+
+template <typename T>
+void COUNT_insert(std::unordered_map<int64_t, int64_t >& hash, T tuple, uint64_t keypos, uint64_t valpos) {
+  auto key = tuple.get(keypos);
+  auto val = tuple.get(valpos);
+  // NOTE: this method is only valid for 0 identity functions
+  auto& slot = hash[key];
+  slot += 1;
+}
+
+template <typename T>
 std::vector<T>& lookup(std::unordered_map<int64_t, std::vector<T>* >& hash, int64_t key) {
   static std::vector<T> emptyResult;
 
