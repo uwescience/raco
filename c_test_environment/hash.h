@@ -25,7 +25,6 @@ void SUM_insert(std::unordered_map<int64_t, int64_t >& hash, T tuple, uint64_t k
   auto val = tuple.get(valpos);
   // NOTE: this method is only valid for 0 identity functions
   auto& slot = hash[key];
-  std::cout << tuple << " key:" << key << " val:" << val << " existingVal:" << slot << std::endl;
   slot += val;
 }
 
@@ -36,6 +35,19 @@ void COUNT_insert(std::unordered_map<int64_t, int64_t >& hash, T tuple, uint64_t
   // NOTE: this method is only valid for 0 identity functions
   auto& slot = hash[key];
   slot += 1;
+}
+
+// one key
+template <typename T>
+void SUM_insert(int64_t& var, T tuple, uint64_t valpos) {
+  auto val = tuple.get(valpos);
+  var += val;
+}
+
+// one key
+template <typename T>
+void COUNT_insert(int64_t& var, T tuple, uint64_t valpos) {
+  var += 1;
 }
 
 template <typename T>

@@ -209,7 +209,8 @@ class MemoryScan(algebra.UnaryOperator, CCOperator):
     """
     return UnaryOperator.__eq__(self, other)
 
-class CGroupby(algebra.GroupBy, CCOperator):
+
+class CGroupBy(algebra.GroupBy, CCOperator):
     _i = 0
 
     @classmethod
@@ -219,12 +220,23 @@ class CGroupby(algebra.GroupBy, CCOperator):
         return name
 
     def produce(self, state):
+        assert len(self.grouping_list) <= 1, \
+            "%s does not currently support groupings of more than 1 attribute" % self.__class__.__name__
+        assert len(self.aggregate_list) == 1, \
+            "%s currently only supports aggregates of 1 attribute" % self.__class__.__name__
 
-        declr_template = """std::unordered_map<int64_t, int64_t> %(hashname)s;
+        self.useMap = len(self.grouping_list) > 0
+
+        if self.useMap:
+            declr_template = """std::unordered_map<int64_t, int64_t> %(hashname)s;
       """
+        else:
+            declr_template = """int64_t %(hashname)s;
+            """
 
         self.hashname = self.__genHashName__()
         hashname = self.hashname
+
 
         hash_declr = declr_template % locals()
         state.addDeclarations([hash_declr])
@@ -238,14 +250,22 @@ class CGroupby(algebra.GroupBy, CCOperator):
         self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
-        assert isinstance(self.column_list[0], expression.UnnamedAttributeRef), \
+        assert (not self.useMap) or isinstance(self.column_list[0], expression.UnnamedAttributeRef), \
             "assumes first column is the key and second is aggregate result"
 
-        produce_template = """for (auto it=%(hashname)s.begin(); it!=%(hashname)s.end(); it++) {
-        %(output_tuple_type)s %(output_tuple_name)s({it->first, it->second});
-        %(inner_code)s
-        }
-        """
+        if self.useMap:
+            produce_template = """for (auto it=%(hashname)s.begin(); it!=%(hashname)s.end(); it++) {
+            %(output_tuple_type)s %(output_tuple_name)s({it->first, it->second});
+            %(inner_code)s
+            }
+            """
+        else:
+            produce_template = """{
+            %(output_tuple_type)s %(output_tuple_name)s({ %(hashname)s });
+            %(inner_code)s
+            }
+            """
+
         output_tuple = CStagedTupleRef(gensym(), self.scheme())
         output_tuple_name = output_tuple.name
         output_tuple_type = output_tuple.getTupleTypename()
@@ -257,22 +277,23 @@ class CGroupby(algebra.GroupBy, CCOperator):
         state.addPipeline(code)
 
     def consume(self, inputTuple, fromOp, state):
-        materialize_template = """%(op)s_insert(%(hashname)s, %(tuple_name)s, %(keypos)s, %(valpos)s);
+        if self.useMap:
+            materialize_template = """%(op)s_insert(%(hashname)s, %(tuple_name)s, %(keypos)s, %(valpos)s);
       """
-
-        assert len(self.grouping_list) <= 1, \
-            "%s does not currently support groupings of more than 1 attribute" % self.__class__.__name__
-        assert len(self.aggregate_list) == 1, \
-            "%s currently only supports aggregates of 1 attribute" % self.__class__.__name__
+        else:
+            materialize_template = """%(op)s_insert(%(hashname)s, %(tuple_name)s, %(valpos)s);
+            """
 
         hashname = self.hashname
         tuple_name = inputTuple.name
 
         # make key from grouped attributes
-        keypos = self.grouping_list[0].get_position(self.scheme())
+        if self.useMap:
+            keypos = self.grouping_list[0].get_position(self.scheme())
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())
+
         op = self.aggregate_list[0].__class__.__name__
 
         code = materialize_template % locals()
@@ -431,7 +452,7 @@ class CCAlgebra(object):
     CUnionAll,
     CApply,
     CProject,
-    CGroupby,
+    CGroupBy,
     HashJoin
   ]
     rules = [
@@ -447,7 +468,7 @@ class CCAlgebra(object):
     MemoryScanOfFileScan(),
     rules.OneToOne(algebra.Apply, CApply),
     rules.OneToOne(algebra.Join,HashJoin),
-    rules.OneToOne(algebra.GroupBy,CGroupby),
+    rules.OneToOne(algebra.GroupBy,CGroupBy),
     rules.OneToOne(algebra.Project, CProject),
     rules.OneToOne(algebra.Union,CUnionAll) #TODO: obviously breaks semantics
   #  rules.FreeMemory()
