@@ -119,6 +119,12 @@ class DatalogTest(unittest.TestCase):
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
+    def test_aggregate(self):
+        query = "A(SUM(b), a) :- R(a,b,c)"
+        desiredresult = """[('A', Apply(_COLUMN0_=$1,a=$0)[GroupBy($0; SUM($1))[Scan(public:adhoc:R)]])]"""  # noqa
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
 
 class ExpressionTest(unittest.TestCase):
     def test_postorder(self):
