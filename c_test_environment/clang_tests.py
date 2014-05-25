@@ -131,6 +131,26 @@ class ClangTest(unittest.TestCase):
     @nottest
     def test_head_scalar_op(self):
         self.check("""A(a+b) :- R2(a,b)""", "head_scalar_op")
+    
+    @nottest
+    def test_aggregate_sum(self):
+        self.check("""A(SUM(a)) :- R1(a)""", "aggregate_sum")
+    
+    @nottest
+    def test_aggregate_count(self):
+        self.check("""A(COUNT(a)) :- R1(a)""", "aggregate_count")
+    
+    @nottest
+    def test_aggregate_count_group_one(self):
+        self.check("""A(b, COUNT(a)) :- R2(a,b)""", "aggregate_count_group_one")
+    
+    @nottest
+    def test_aggregate_count_group_one_notgroup_one(self):
+        self.check("""A(b, COUNT(a)) :- R3(a,b,c)""", "aggregate_count_group_one_notgroup_one")
+    
+    @nottest
+    def test_aggregate_count_group_one_notgroup_filtered_one(self):
+        self.check("""A(b, COUNT(a)) :- R3(a,b,c), c<5""", "aggregate_count_group_one_notgroup_filtered_one")
 
 
 if __name__ == '__main__':
