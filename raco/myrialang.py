@@ -855,7 +855,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
             # compute subcube sizes
             scale = 1
             for index in r_index[i]:
-                if r_index[i] != -1:
+                if index != -1:
                     scale = scale * dim_sizes[index]
             # add load per server by child i
             load = load + float(child_sizes[i]) / float(scale)
