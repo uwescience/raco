@@ -515,6 +515,9 @@ class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s" % self.opname()
 
@@ -530,6 +533,9 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         return "%s" % self.opname()
@@ -551,6 +557,9 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         hash_string = ','.join([str(x) for x in self.hash_columns])
         return "%s(h(%s))" % (self.opname(), hash_string)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def compileme(self, inputid):
         if len(self.hash_columns) == 1:
@@ -577,6 +586,9 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s" % self.opname()
 
@@ -594,6 +606,9 @@ class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
         algebra.UnaryOperator.__init__(self, input)
         self.server = server
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s(@%s)" % (self.opname(), self.server)
 
@@ -609,6 +624,9 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         return "%s" % self.opname()
