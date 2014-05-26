@@ -60,6 +60,10 @@ class Operator(Printable):
             for x in c.walk():
                 yield x
 
+    @abstractmethod
+    def num_tuples(self):
+        """Return the expected number of tuples output by this operator."""
+
     def postorder(self, f):
         """Postorder traversal, applying a function to each operator.  The
         function returns an iterator"""
@@ -178,6 +182,9 @@ class ZeroaryOperator(Operator):
 
     def __repr__(self):
         return self.opname()
+
+    def num_tuples(self):
+        return self._cardinality
 
     def children(self):
         return []
@@ -374,6 +381,10 @@ class NaryJoin(NaryOperator):
         return (NaryOperator.__eq__(self, other)
                 and self.conditions == other.conditions)
 
+    def num_tuples(self):
+        # TODO: use AGM bound (P10 in http://arxiv.org/pdf/1310.3314v2.pdf)
+        return 10000
+
     def scheme(self):
         combined = reduce(operator.add, [c.scheme() for c in self.children()])
         # do projection
@@ -401,6 +412,10 @@ class Union(BinaryOperator):
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
 
+    def num_tuples(self):
+        # a heuristic
+        return int((self.left.num_tuples() + self.right.num_tuples()) / 2)
+
     def scheme(self):
         """Same semantics as SQL: Assume first schema "wins" and throw an
         error if they don't match during evaluation"""
@@ -414,6 +429,9 @@ class UnionAll(BinaryOperator):
     """Bag union."""
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
+
+    def num_tuples(self):
+        return self.left.num_tuples() + self.right.num_tuples()
 
     def copy(self, other):
         """deep copy"""
@@ -432,6 +450,9 @@ class Intersection(BinaryOperator):
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
 
+    def num_tuples(self):
+        return min(self.left.num_tuples(), self.right.num_tuples())
+
     def scheme(self):
         return self.left.scheme()
 
@@ -444,6 +465,9 @@ class Difference(BinaryOperator):
 
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
+
+    def num_tuples(self):
+        return abs(self.left.num_tuples() - self.right.num_tuples())
 
     def scheme(self):
         return self.left.scheme()
@@ -476,6 +500,9 @@ class CrossProduct(CompositeBinaryOperator):
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
 
+    def num_tuples(self):
+        return self.left.num_tuples() * self.right.num_tuples()
+
     def copy(self, other):
         """deep copy"""
         BinaryOperator.copy(self, other)
@@ -502,6 +529,10 @@ class Join(CompositeBinaryOperator):
     def __eq__(self, other):
         return (BinaryOperator.__eq__(self, other)
                 and self.condition == other.condition)
+
+    def num_tuples(self):
+        # this is black magic
+        return int(self.left.num_tuples() * self.right.num_tuples() / 3)
 
     def copy(self, other):
         """deep copy"""
@@ -573,6 +604,9 @@ class Apply(UnaryOperator):
         return (UnaryOperator.__eq__(self, other) and
                 self.emitters == other.emitters)
 
+    def num_tuples(self):
+        return input.num_tuples()
+
     def copy(self, other):
         """deep copy"""
         self.emitters = other.emitters
@@ -633,6 +667,9 @@ class StatefulApply(UnaryOperator):
                 self.updaters == other.updaters and
                 self.inits == other.inits)
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def copy(self, other):
         """deep copy"""
         self.emitters = other.emitters
@@ -658,6 +695,10 @@ class Distinct(UnaryOperator):
     def __init__(self, input=None):
         UnaryOperator.__init__(self, input)
 
+    def num_tuples(self):
+        # TODO: better heuristics?
+        return self.input.num_tuples()
+
     def scheme(self):
         """scheme of the result"""
         return self.input.scheme()
@@ -673,6 +714,9 @@ class Limit(UnaryOperator):
 
     def __eq__(self, other):
         return UnaryOperator.__eq__(self, other) and self.count == other.count
+
+    def num_tuples(self):
+        return self.count
 
     def copy(self, other):
         self.count = other.count
@@ -694,6 +738,9 @@ class Select(UnaryOperator):
     def __eq__(self, other):
         return (UnaryOperator.__eq__(self, other)
                 and self.condition == other.condition)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         if isinstance(self.condition, dict):
@@ -721,6 +768,9 @@ class Project(UnaryOperator):
     def __eq__(self, other):
         return (UnaryOperator.__eq__(self, other)
                 and self.columnlist == other.columnlist)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         colstring = ",".join([str(x) for x in self.columnlist])
@@ -751,6 +801,10 @@ class GroupBy(UnaryOperator):
         self.column_list = self.grouping_list + self.aggregate_list
         UnaryOperator.__init__(self, input)
 
+    def num_tuples(self):
+        # TODO: better estimation?
+        return self.input.num_tuples()
+
     def shortStr(self):
         groupstring = ",".join([str(x) for x in self.grouping_list])
         aggstr = ",".join([str(x) for x in self.aggregate_list])
@@ -780,6 +834,9 @@ class OrderBy(UnaryOperator):
         UnaryOperator.__init__(self, input)
         self.sort_columns = sort_columns
         self.ascending = ascending
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         return "%s(%s, asc:%s)" % (
@@ -836,6 +893,9 @@ class Shuffle(UnaryOperator):
         UnaryOperator.__init__(self, child)
         self.columnlist = columnlist
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.columnlist)
 
@@ -862,6 +922,9 @@ class HyperCubeShuffle(UnaryOperator):
         self.hyper_cube_dimensions = hyper_cube_dims
         self.cell_partition = cell_partition
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.hashed_columns)
 
@@ -879,6 +942,9 @@ class Collect(UnaryOperator):
         UnaryOperator.__init__(self, child)
         self.server = server
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s(@%s)" % (self.opname(), self.server)
 
@@ -889,6 +955,9 @@ class Collect(UnaryOperator):
 
 class Broadcast(UnaryOperator):
     """Send input to all servers"""
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return self.opname()
 
@@ -902,6 +971,9 @@ class PartitionBy(UnaryOperator):
     def __eq__(self, other):
         return (UnaryOperator.__eq__(self, other)
                 and self.columnlist == other.columnlist)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         colstring = ",".join([str(x) for x in self.columnlist])
@@ -927,6 +999,10 @@ class Fixpoint(Operator):
 
     def children(self):
         return [self.body]
+
+    def num_tuples(self):
+        # TODO:  what is the correct estimation?
+        return 10000
 
     def __str__(self):
         return "%s[%s]" % (self.shortStr(), str(self.body))
@@ -977,6 +1053,9 @@ class Store(UnaryOperator):
         UnaryOperator.__init__(self, plan)
         self.relation_key = relation_key
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.relation_key)
 
@@ -990,6 +1069,9 @@ class EmptyRelation(ZeroaryOperator):
 
     def __init__(self, _scheme=None):
         self._scheme = _scheme
+
+    def num_tuples(self):
+        return 0
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self._scheme)
@@ -1012,6 +1094,9 @@ class SingletonRelation(ZeroaryOperator):
     def shortStr(self):
         return "SingletonRelation"
 
+    def num_tuples(self):
+        return 1
+
     def copy(self, other):
         """deep copy"""
         pass
@@ -1032,6 +1117,7 @@ class Scan(ZeroaryOperator):
         """
         self.relation_key = relation_key
         self._scheme = _scheme
+        self._cardinality = 10000   # a place holder, will be updated
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
@@ -1056,6 +1142,7 @@ class Scan(ZeroaryOperator):
         """deep copy"""
         self.relation_key = other.relation_key
         self._scheme = other._scheme
+        self._cardinality = other._cardinality
 
         # TODO: need a cleaner and more general way of tracing information
         # through the compilation process for debugging purposes
@@ -1076,6 +1163,9 @@ class StoreTemp(UnaryOperator):
     def __init__(self, name=None, input=None):
         UnaryOperator.__init__(self, input)
         self.name = name
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         return 'StoreTemp(%s)' % self.name
@@ -1100,6 +1190,9 @@ class ScanTemp(ZeroaryOperator):
         return (ZeroaryOperator.__eq__(self, other) and self.name == other.name
                 and self._scheme == other._scheme)
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s(%s,%s)" % (self.opname(), self.name, str(self._scheme))
 
@@ -1116,6 +1209,10 @@ class Parallel(NaryOperator):
     """Execute a set of independent plans in parallel."""
     def __init__(self, ops=None):
         NaryOperator.__init__(self, ops)
+
+    def num_tuples(self):
+        # TODO: better estimation?
+        return 10000
 
     def shortStr(self):
         return self.opname()
@@ -1148,6 +1245,10 @@ class DoWhile(Sequence):
         continues if its value is True.
         """
         Sequence.__init__(self, ops)
+
+    def num_tuples(self):
+        # TODO: better estimation?
+        return 10000
 
     def shortStr(self):
         return self.opname()

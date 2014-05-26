@@ -6,25 +6,36 @@ import unittest
 class Catalog(object):
     def __init__(self, num_servers, child_sizes):
         self.num_servers = num_servers
-        self.child_sizes = child_sizes
+        # default sizes
+        self.cached = {
+            "public:adhoc:R": 10000,
+            "public:adhoc:S": 10000,
+            "public:adhoc:T": 10000,
+            "public:adhoc:N": 10000,
+        }
+        # overwrite default sizes if necessary
+        if child_sizes:
+            for child, size in child_sizes.items():
+                self.cached["public:adhoc:{}".format(child)] = size
 
     def get_num_servers(self):
         return self.num_servers
 
-    def get_child_sizes(self):
-        return self.child_sizes
+    def num_tuples(self, rel_key):
+        key = "{}:{}:{}".format(
+            rel_key.user, rel_key.program, rel_key.relation)
+        return self.cached[key]
 
 
 class testNaryJoin(unittest.TestCase):
     """ Unit tests for Nary Join related rules"""
     @staticmethod
-    def get_phys_plan_root(query, num_server, child_size):
+    def get_phys_plan_root(query, num_server, child_size=None):
         dlog = RACompiler()
         dlog.fromDatalog(query)
         dlog.optimize(target=MyriaAlgebra(Catalog(num_server, child_size)),
                       multiway_join=True)
         # from raco.myrialang import compile_to_json
-        # print compile_to_json(query, dlog.logicalplan, dlog.physicalplan)
         return dlog.physicalplan[0][1]
 
     def test_merge_to_nary_join(self):
@@ -38,7 +49,7 @@ class testNaryJoin(unittest.TestCase):
 
         # 1. trianglular join
         triangle_join = testNaryJoin.get_phys_plan_root(
-            "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64, [1, 1, 1])
+            "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64)
         # test root operator type
         self.assertTrue(isinstance(triangle_join, algebra.NaryJoin))
         # test arity of join conditions
@@ -53,7 +64,7 @@ class testNaryJoin(unittest.TestCase):
 
         # 2. star join
         star_join = testNaryJoin.get_phys_plan_root(
-            "A(x,y,z,p):-R(x,y),S(x,z),T(x,p)", 64, [1, 1, 1])
+            "A(x,y,z,p):-R(x,y),S(x,z),T(x,p)", 64)
         # test root operator type
         self.assertTrue(isinstance(star_join, algebra.NaryJoin))
         # test arity of join conditions
@@ -79,7 +90,7 @@ class testNaryJoin(unittest.TestCase):
 
         # 1. triangular join
         trianglular_join = testNaryJoin.get_phys_plan_root(
-            "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64, [1, 1, 1])
+            "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64)
         shuffle_r, shuffle_s, shuffle_t = get_shuffle_producers(
             trianglular_join)
         # x in R and x in T are shuffled to the same dimension
@@ -91,7 +102,7 @@ class testNaryJoin(unittest.TestCase):
 
         # 2. star join
         star_join = testNaryJoin.get_phys_plan_root(
-            "A(x,y,z,p):-R(x,y),S(x,z),T(x,p)", 64, [1, 1, 1])
+            "A(x,y,z,p):-R(x,y),S(x,z),T(x,p)", 64)
         shuffle_r, shuffle_s, shuffle_t = get_shuffle_producers(star_join)
         # x in R and x in S are shuffled to the same dimension
         self.assertEqual(get_hc_dim(shuffle_r, 0), get_hc_dim(shuffle_s, 0))
@@ -111,7 +122,7 @@ class testNaryJoin(unittest.TestCase):
 
         # 1. triangular join
         expr = testNaryJoin.get_phys_plan_root(
-            "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64, [1, 100, 20])
+            "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64, {"R": 1, "S": 100, "T": 20})
         dim_sizes = [1, 2, 2]
         # test cell partion of scan r
         self.assertEqual(
@@ -125,7 +136,7 @@ class testNaryJoin(unittest.TestCase):
 
         # 2. chain join
         expr = testNaryJoin.get_phys_plan_root(
-            "A(x,y,z,p):-R(x,y),S(y,z),T(z,p)", 64, [1, 1, 1])
+            "A(x,y,z,p):-R(x,y),S(y,z),T(z,p)", 64)
         dim_sizes = [2, 2]
         self.assertEqual(
             get_cell_partiton(expr, dim_sizes, 0), [[0, 1], [2, 3]])
@@ -152,12 +163,12 @@ class testNaryJoin(unittest.TestCase):
 
         # test triangle join with equal input size
         trianglular_join = testNaryJoin.get_phys_plan_root(
-            "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64, [1, 1, 1])
+            "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64)
         self.assertEqual(get_dim_size(trianglular_join), (4, 4, 4))
 
         # test rectange join with equal input size
         rect_join = testNaryJoin.get_phys_plan_root(
-            "A(x,y,z):-R(x,y),S(y,z),T(z,p), N(p,x)", 256, [1, 1, 1, 1])
+            "A(x,y,z):-R(x,y),S(y,z),T(z,p), N(p,x)", 256)
         # note: there is more than one optimal [4,4,4,4] or [1,16,1,16] etc.
         self.assertEqual(get_work_load(rect_join, [4, 4, 4, 4]),
                          get_work_load(rect_join, get_dim_size(rect_join)))

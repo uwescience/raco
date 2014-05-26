@@ -374,7 +374,6 @@ class MyriaLeapFrogJoin(algebra.NaryJoin, MyriaOperator):
         # build column names
         if self.columnlist is None:
             self.columnlist = self.scheme().ascolumnlist()
-        print self.scheme()
         column_names = [name for (name, _) in self.scheme()]
         # get rel_idx and field_idx of select columns
         out_pos_list = [
@@ -637,6 +636,9 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         self.hyper_cube_dimensions = hyper_cube_dims
         self.cell_partition = cell_partition
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         hash_string = ','.join([str(x) for x in self.hashed_columns])
         return "%s(h(%s))" % (self.opname(), hash_string)
@@ -656,6 +658,9 @@ class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     """A Myria HyperShuffleConsumer"""
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         return "%s" % self.opname()
@@ -931,10 +936,8 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
                 expr.conditions, child_schemes)
             # get number of servers from catalog
             num_server = self.catalog.get_num_servers()
-            child_sizes = self.catalog.get_child_sizes()
-            # if no information provided, assume they are equal
-            if not child_sizes:
-                child_sizes = [1 for child in expr.children()]
+            # get estimated cardinalities of children
+            child_sizes = [child.num_tuples() for child in expr.children()]
             # get reversed index of join conditions
             r_index = this.reversed_index(child_schemes, conditions)
             # compute optimal dimension sizes
@@ -1556,6 +1559,26 @@ class MergeToNaryJoin(rules.Rule):
             return MergeToNaryJoin.merge_to_multiway_join(op)
 
 
+class GetCadinalities(rules.Rule):
+    """ get cardinalities information of Zeroary operators.
+    """
+    def __init__(self, catalog=None):
+        assert(catalog)     # Evaluate cardinalites requires catalog
+        self.catalog = catalog
+
+    def fire(self, expr):
+        # if not Zeroary operator, who cares?
+        if not issubclass(type(expr), algebra.ZeroaryOperator):
+            return expr
+
+        if issubclass(type(expr), algebra.Scan):
+            rel = expr.relation_key
+            expr._cardinality = self.catalog.num_tuples(rel)
+            return expr
+        expr._cardinality = 10  # this is a magic number
+        return expr
+
+
 class MyriaAlgebra(object):
     language = MyriaLanguage
 
@@ -1632,6 +1655,7 @@ class MyriaAlgebra(object):
 
     def multiway_join_rules(self):
         return [
+            # Part 1. catalog transparent rules.
             RemoveTrivialSequences(),
 
             SimpleGroupBy(),
@@ -1656,6 +1680,9 @@ class MyriaAlgebra(object):
             DistributedGroupBy(),
             ProjectToDistinctColumnSelect(),
             MergeToNaryJoin(),
+
+            # Part 2. catalog aware rules.
+            GetCadinalities(self.catalog),
             HCShuffleBeforeNaryJoin(self.catalog),
             OrderByBeforeNaryJoin(),
             rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
