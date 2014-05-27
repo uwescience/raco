@@ -62,7 +62,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         """ % (self.emp_key1, self.emp_key2)
 
         with self.assertRaises(SchemaMismatchException):
-            self.check_result(query, None)
+            self.get_logical_plan(query)
 
     def test_unionall_inline(self):
         query = """
@@ -110,7 +110,7 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         """ % (self.emp_key1, self.emp_key2)
 
         with self.assertRaises(SchemaMismatchException):
-            self.check_result(query, None)
+            self.get_logical_plan(query)
 
     def test_intersect1(self):
         query = """
@@ -140,4 +140,4 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         """ % (self.emp_key1, self.emp_key2)
 
         with self.assertRaises(SchemaMismatchException):
-            self.check_result(query, None)
+            self.get_logical_plan(query)
