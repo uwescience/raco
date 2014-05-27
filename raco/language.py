@@ -181,8 +181,8 @@ class CompileExpressionVisitor(expression.ExpressionVisitor):
         self.stack.append(self.combine([left, right], operator="*"))
 
     def visit_NEG(self, unaryexpr):
-        left, right = self.__visit_BinaryOperator__(unaryexpr)
-        self.stack.append(self.combine([left, right], operator="-"))
+        inputexpr = self.stack.pop()
+        self.stack.append(self.language.negative(inputexpr))
 
 
 # import everything from each language
