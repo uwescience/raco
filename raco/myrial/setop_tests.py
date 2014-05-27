@@ -112,6 +112,36 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(SchemaMismatchException):
             self.get_logical_plan(query)
 
+    def test_diff_while_schema_mismatch(self):
+        query = """
+        Orig = [2 as x];
+        T1 = [2 as x];
+        do
+          Bad = diff(T1, Orig);
+          T1 = [3 as x, 3 as y];
+        while [from Bad emit count(*) > 0];
+        store(T1, OUTPUT);
+        """
+
+        with self.assertRaises(SchemaMismatchException):
+            # TODO Even if executed, this test does not throw exception
+            self.get_logical_plan(query)
+
+    def test_diff_while_schema_mismatch2(self):
+        query = """
+        Orig = [2 as x];
+        T1 = [3 as x];
+        do
+          Bad = diff(T1, Orig);
+          T1 = [3 as x, 3 as y];
+        while [from Bad emit count(*) > 0];
+        store(T1, OUTPUT);
+        """
+
+        with self.assertRaises(SchemaMismatchException):
+            # TODO If executed, this test loops infinitely
+            self.get_logical_plan(query)
+
     def test_intersect1(self):
         query = """
         out = INTERSECT(SCAN(%s), SCAN(%s));
