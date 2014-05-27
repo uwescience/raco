@@ -210,7 +210,7 @@ class ExpressionProcessor(object):
         # Todo: check for type compatibilty here?
         # https://github.com/uwescience/raco/issues/213
         if len(left.scheme()) != len(right.scheme()):
-            raise IncompatibleSchemaException(op_name)
+            raise SchemaMismatchException(op_name)
 
     def unionall(self, e1, e2):
         left = self.evaluate(e1)

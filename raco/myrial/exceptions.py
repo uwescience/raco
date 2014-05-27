@@ -122,7 +122,7 @@ class ColumnIndexOutOfBounds(Exception):
     pass
 
 
-class IncompatibleSchemaException(MyrialCompileException):
+class SchemaMismatchException(MyrialCompileException):
     def __init__(self, op_name):
         self.op_name = op_name
 
