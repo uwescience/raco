@@ -138,6 +138,11 @@ class CC(Language):
         return "(!%s)" % (innerexpr,), [], inits
 
     @classmethod
+    def negative(cls, input):
+        innerexpr, decls, inits = input
+        return "(-%s)" % (innerexpr,), decls, inits
+
+    @classmethod
     def expression_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
         conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])

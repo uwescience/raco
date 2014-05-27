@@ -644,3 +644,81 @@ class ExpressionVisitor:
     @abstractmethod
     def visit_NEG(self, unaryExpr):
         return
+
+
+class SimpleExpressionVisitor(ExpressionVisitor):
+    @abstractmethod
+    def visit_unary(self, unaryexpr):
+        pass
+
+    @abstractmethod
+    def visit_binary(self, binaryexpr):
+        pass
+
+    @abstractmethod
+    def visit_zeroary(self, zeroaryexpr):
+        pass
+
+    @abstractmethod
+    def visit_nary(self, naryexpr):
+        pass
+
+    def visit_attr(self, attr):
+        pass
+
+    def visit_NOT(self, unaryExpr):
+        self.visit_unary(unaryExpr)
+
+    def visit_AND(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_OR(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_EQ(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_NEQ(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_GT(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_LT(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_GTEQ(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_LTEQ(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_NamedAttributeRef(self, named):
+        self.visit_attr(named)
+
+    def visit_UnnamedAttributeRef(self, unnamed):
+        self.visit_attr(unnamed)
+
+    def visit_StringLiteral(self, stringLiteral):
+        self.visit_zeroary(stringLiteral)
+
+    def visit_NumericLiteral(self, numericLiteral):
+        self.visit_zeroary(numericLiteral)
+
+    def visit_DIVIDE(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_PLUS(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_MINUS(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_IDIVIDE(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_TIMES(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_NEG(self, unaryExpr):
+        self.visit_unary(unaryExpr)
