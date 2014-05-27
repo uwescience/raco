@@ -487,7 +487,7 @@ class Rule(object):
                                         plan)
         else:
             # otherwise, just build a Project
-            plan = raco.algebra.Project([e for e in columnlist], plan)
+            plan = raco.algebra.Project(columnlist, plan)
 
         # If we found a cycle, the "root" of the plan is the fixpoint operator
         if self.fixpoint:
