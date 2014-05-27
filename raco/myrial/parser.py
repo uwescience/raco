@@ -86,6 +86,7 @@ class Parser(object):
     @staticmethod
     def p_translation_unit(p):
         '''translation_unit : statement
+                            | constant
                             | udf
                             | apply'''
         p[0] = p[1]
@@ -182,6 +183,12 @@ class Parser(object):
     def p_udf(p):
         '''udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''  # noqa
         Parser.add_udf(p, p[2], p[4], p[7])
+        p[0] = None
+
+    @staticmethod
+    def p_constant(p):
+        '''constant : CONST unreserved_id COLON sexpr SEMI'''
+        Parser.add_udf(p, p[2], [], p[4])
         p[0] = None
 
     @staticmethod
@@ -524,7 +531,12 @@ class Parser(object):
     @staticmethod
     def p_sexpr_id(p):
         'sexpr : unreserved_id'
-        p[0] = sexpr.NamedAttributeRef(p[1])
+        try:
+            # Check for zero-argument function
+            p[0] = Parser.resolve_function(p, p[1], [])
+        except:
+            # Resolve as an attribute reference
+            p[0] = sexpr.NamedAttributeRef(p[1])
 
     @staticmethod
     def p_sexpr_index(p):
