@@ -405,6 +405,13 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         assert False, "src not equal to left or right"
 
 
+class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
+
+    def produce(self, state):
+        pass
+
+
+
 class GrappaHashJoin(algebra.Join, GrappaOperator):
     _i = 0
 
