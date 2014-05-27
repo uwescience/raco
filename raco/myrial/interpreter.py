@@ -2,6 +2,7 @@ import raco.myrial.groupby as groupby
 import raco.myrial.multiway as multiway
 from raco.myrial.cfg import ControlFlowGraph
 from raco.myrial.emitarg import FullWildcardEmitArg, TableWildcardEmitArg
+from raco.myrial.exceptions import *
 import raco.algebra
 import raco.expression
 import raco.catalog
@@ -203,9 +204,18 @@ class ExpressionProcessor(object):
         op = self.evaluate(expr)
         return raco.algebra.Distinct(input=op)
 
+    @staticmethod
+    def check_binop_compatability(op_name, left, right):
+        """Check whether the arguments to an operation are compatible."""
+        # Todo: check for type compatibilty here?
+        # https://github.com/uwescience/raco/issues/213
+        if len(left.scheme()) != len(right.scheme()):
+            raise IncompatibleSchemaException(op_name)
+
     def unionall(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
+        self.check_binop_compatability("unionall", left, right)
         return raco.algebra.UnionAll(left, right)
 
     def countall(self, expr):
@@ -217,11 +227,13 @@ class ExpressionProcessor(object):
     def intersect(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
+        self.check_binop_compatability("intersect", left, right)
         return raco.algebra.Intersection(left, right)
 
     def diff(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
+        self.check_binop_compatability("diff", left, right)
         return raco.algebra.Difference(left, right)
 
     def limit(self, expr, count):
