@@ -325,6 +325,7 @@ class Parser(object):
     def p_type_name(p):
         '''type_name : STRING
                      | INT
+                     | BOOLEAN
                      | FLOAT'''
         p[0] = p[1]
 
