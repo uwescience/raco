@@ -11,6 +11,7 @@ import raco.myrial.emitarg as emitarg
 from raco.expression.udf import Function, Apply
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
+import raco.types
 
 
 class JoinColumnCountMismatchException(Exception):
@@ -318,7 +319,7 @@ class Parser(object):
                      | INT
                      | BOOLEAN
                      | FLOAT'''
-        p[0] = p[1]
+        p[0] = raco.types.type_map[p[1]]
 
     @staticmethod
     def p_string_arg(p):
