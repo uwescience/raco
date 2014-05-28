@@ -1,16 +1,16 @@
 # Schemas corresponding to Myrial examples
 
 {
-    'public:adhoc:edges': [('src','int'), ('dst', 'int')],
-    'public:adhoc:vertices': [('id','int')],
-    'public:adhoc:points': [('id','int'), ('x','float'), ('y', 'float')],
-    'public:adhoc:sc_points': [('id', 'int'), ('v', 'float')],
-    'public:adhoc:employee' : [('id', 'int'), ('dept_id', 'int'), ('name', 'string'),
-                                ('salary','int')],
-    'public:adhoc:departments' : [('id', 'int'), ('name','string')],
-    'armbrustlab:seaflow:all_data' : [('Cruise', 'int'),
-                                      ('Day', 'int'),
-                                      ('File_Id', 'int'),
-                                      ('chl_small', 'float'),
-                                      ('pe', 'float')]
+    'public:adhoc:edges': [('src','LONG_TYPE'), ('dst', 'LONG_TYPE')],
+    'public:adhoc:vertices': [('id','LONG_TYPE')],
+    'public:adhoc:points': [('id','LONG_TYPE'), ('x','FLOAT_TYPE'), ('y', 'FLOAT_TYPE')],
+    'public:adhoc:sc_points': [('id', 'LONG_TYPE'), ('v', 'FLOAT_TYPE')],
+    'public:adhoc:employee' : [('id', 'LONG_TYPE'), ('dept_id', 'LONG_TYPE'), ('name', 'STRING_TYPE'),
+                                ('salary','LONG_TYPE')],
+    'public:adhoc:departments' : [('id', 'LONG_TYPE'), ('name','STRING_TYPE')],
+    'armbrustlab:seaflow:all_data' : [('Cruise', 'LONG_TYPE'),
+                                      ('Day', 'LONG_TYPE'),
+                                      ('File_Id', 'LONG_TYPE'),
+                                      ('chl_small', 'FLOAT_TYPE'),
+                                      ('pe', 'FLOAT_TYPE')]
 }
