@@ -356,8 +356,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         dept = SCAN(%s);
         out = JOIN(emp, dept_id, dept, id);
-        out = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
-        STORE(out, OUTPUT);
+        out2 = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
+        STORE(out2, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
@@ -598,11 +598,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_unbox_from_where_nary_name(self):
         query = """
-        CONST = [25 AS twenty_five, 1000 AS thousand];
+        _CONST = [25 AS twenty_five, 1000 AS thousand];
 
         emp = SCAN(%s);
-        out = [FROM emp WHERE salary == *CONST.twenty_five *
-        *CONST.thousand EMIT *];
+        out = [FROM emp WHERE salary == *_CONST.twenty_five *
+        *_CONST.thousand EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -613,11 +613,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_unbox_from_where_nary_pos(self):
         query = """
-        CONST = [25 AS twenty_five, 1000 AS thousand];
+        _CONST = [25 AS twenty_five, 1000 AS thousand];
 
         emp = SCAN(%s);
-        out = [FROM emp WHERE salary == *CONST.$0 *
-        *CONST.$1 EMIT *];
+        out = [FROM emp WHERE salary == *_CONST.$0 *
+        *_CONST.$1 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -1192,6 +1192,20 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DEF Noop(): %s;
 
         out = [Noop() AS t];
+        STORE(out, OUTPUT);
+        """ % expr
+
+        val = eval(expr)
+        expected = collections.Counter([(val,)])
+        self.check_result(query, expected)
+
+    def test_const(self):
+        expr = "30 + 15 // 7 + -45"
+
+        query = """
+        CONST myconstant: %s;
+
+        out = [myconstant AS t];
         STORE(out, OUTPUT);
         """ % expr
 

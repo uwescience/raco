@@ -120,7 +120,8 @@ aggregate.setParseAction(mkagg)
 
 
 # TODO deeper instead of enumeration
-arithExpression = (valueref + binop + valueref) | \
+arithExpression = (aggregate + binop + aggregate) | \
+                  (valueref + binop + valueref) | \
                   (aggregate + binop + valueref) | \
                   (valueref + binop + aggregate)
 arithExpression.setParseAction(parsebinop)

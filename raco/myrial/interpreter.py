@@ -2,6 +2,7 @@ import raco.myrial.groupby as groupby
 import raco.myrial.multiway as multiway
 from raco.myrial.cfg import ControlFlowGraph
 from raco.myrial.emitarg import FullWildcardEmitArg, TableWildcardEmitArg
+from raco.myrial.exceptions import *
 import raco.algebra
 import raco.expression
 import raco.catalog
@@ -36,6 +37,21 @@ def get_unnamed_ref(column_ref, scheme, offset=0):
     else:
         index = scheme.getPosition(column_ref)
     return raco.expression.UnnamedAttributeRef(index + offset)
+
+
+def check_binop_compatability(op_name, left, right):
+    """Check whether the arguments to an operation are compatible."""
+    # Todo: check for type compatibilty here?
+    # https://github.com/uwescience/raco/issues/213
+    if len(left.scheme()) != len(right.scheme()):
+        raise SchemaMismatchException(op_name)
+
+
+def check_assignment_compatability(before, after):
+    """Check whether multiple assignments are compatible."""
+    # TODO: check for exact schema match -- this is blocked by a general
+    # cleanup of raco types.
+    check_binop_compatability("assignment", before, after)
 
 
 class ExpressionProcessor(object):
@@ -206,6 +222,7 @@ class ExpressionProcessor(object):
     def unionall(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
+        check_binop_compatability("unionall", left, right)
         return raco.algebra.UnionAll(left, right)
 
     def countall(self, expr):
@@ -217,11 +234,13 @@ class ExpressionProcessor(object):
     def intersect(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
+        check_binop_compatability("intersect", left, right)
         return raco.algebra.Intersection(left, right)
 
     def diff(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
+        check_binop_compatability("diff", left, right)
         return raco.algebra.Difference(left, right)
 
     def limit(self, expr, count):
@@ -308,6 +327,9 @@ class StatementProcessor(object):
         """
 
         child_op = self.ep.evaluate(expr)
+        if _id in self.symbols:
+            check_assignment_compatability(child_op, self.symbols[_id])
+
         op = raco.algebra.StoreTemp(_id, child_op)
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, _id, uses_set)

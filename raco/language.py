@@ -96,10 +96,7 @@ class Language(object):
         """Combine the given arguments using the specified infix operator"""
 
 
-import expression.boolean as boolean
-
-
-class CompileBooleanVisitor(boolean.BooleanExprVisitor):
+class CompileExpressionVisitor(expression.ExpressionVisitor):
     def __init__(self, language):
         self.language = language
         self.combine = language.expression_combine
@@ -163,13 +160,6 @@ class CompileBooleanVisitor(boolean.BooleanExprVisitor):
     def visit_StringLiteral(self, stringliteral):
         self.stack.append(self.language.compile_stringliteral(stringliteral))
 
-
-class CompileExpressionVisitor(expression.ExpressionVisitor,
-                               CompileBooleanVisitor):
-    """
-    Adds more expression types.
-    """
-
     def visit_DIVIDE(self, binaryexpr):
         left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.combine([left, right], operator="/"))
@@ -182,7 +172,7 @@ class CompileExpressionVisitor(expression.ExpressionVisitor,
         left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.combine([left, right], operator="-"))
 
-    def IDIVIDE(self, binaryexpr):
+    def visit_IDIVIDE(self, binaryexpr):
         left, right = self.__visit_BinaryOperator__(binaryexpr)
         self.stack.append(self.combine([left, right], operator="/"))
 
@@ -191,8 +181,8 @@ class CompileExpressionVisitor(expression.ExpressionVisitor,
         self.stack.append(self.combine([left, right], operator="*"))
 
     def visit_NEG(self, unaryexpr):
-        left, right = self.__visit_BinaryOperator__(unaryexpr)
-        self.stack.append(self.combine([left, right], operator="-"))
+        inputexpr = self.stack.pop()
+        self.stack.append(self.language.negative(inputexpr))
 
 
 # import everything from each language

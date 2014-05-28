@@ -704,8 +704,6 @@ class Project(UnaryOperator):
     def scheme(self):
         """scheme of the result. Raises a TypeError if a name in the project
         list is not in the source schema"""
-        # TODO: columnlist should perhaps be a list of column expressions, TBD
-        # bmyerz: actually save this for Apply
         attrs = [self.input.resolveAttribute(attref)
                  for attref in self.columnlist]
         return scheme.Scheme(attrs)
