@@ -16,10 +16,8 @@ class Expression(Printable):
     __metaclass__ = ABCMeta
     literals = None
 
-    @classmethod
-    def typeof(cls):
-        # By default, we don't know the type
-        return None
+    def typeof(self):
+        """Returns a string describing the expression's return type."""
 
     @classmethod
     def opstr(cls):
