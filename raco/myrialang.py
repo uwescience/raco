@@ -771,12 +771,8 @@ class ProjectToDistinctColumnSelect(rules.Rule):
 
         mappings = [(None, x) for x in expr.columnlist]
         colSelect = algebra.Apply(mappings, expr.input)
-        # TODO(dhalperi) the distinct logic is broken because we don't have a
-        # locality-aware optimizer. For now, don't insert Distinct for a
-        # logical project. This is BROKEN.
-        # distinct = algebra.Distinct(colSelect)
-        # return distinct
-        return colSelect
+        distinct = algebra.Distinct(colSelect)
+        return distinct
 
 
 class SimpleGroupBy(rules.Rule):
