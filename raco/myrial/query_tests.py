@@ -356,8 +356,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         dept = SCAN(%s);
         out = JOIN(emp, dept_id, dept, id);
-        out = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
-        STORE(out, OUTPUT);
+        out2 = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
+        STORE(out2, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
