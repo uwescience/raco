@@ -39,6 +39,21 @@ def get_unnamed_ref(column_ref, scheme, offset=0):
     return raco.expression.UnnamedAttributeRef(index + offset)
 
 
+def check_binop_compatability(op_name, left, right):
+    """Check whether the arguments to an operation are compatible."""
+    # Todo: check for type compatibilty here?
+    # https://github.com/uwescience/raco/issues/213
+    if len(left.scheme()) != len(right.scheme()):
+        raise SchemaMismatchException(op_name)
+
+
+def check_assignment_compatability(before, after):
+    """Check whether multiple assignments are compatible."""
+    # TODO: check for exact schema match -- this is blocked by a general
+    # cleanup of raco types.
+    check_binop_compatability("assignment", before, after)
+
+
 class ExpressionProcessor(object):
     """Convert syntactic expressions into relational algebra operations."""
     def __init__(self, symbols, catalog, use_dummy_schema=False):
@@ -204,18 +219,10 @@ class ExpressionProcessor(object):
         op = self.evaluate(expr)
         return raco.algebra.Distinct(input=op)
 
-    @staticmethod
-    def check_binop_compatability(op_name, left, right):
-        """Check whether the arguments to an operation are compatible."""
-        # Todo: check for type compatibilty here?
-        # https://github.com/uwescience/raco/issues/213
-        if len(left.scheme()) != len(right.scheme()):
-            raise SchemaMismatchException(op_name)
-
     def unionall(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
-        self.check_binop_compatability("unionall", left, right)
+        check_binop_compatability("unionall", left, right)
         return raco.algebra.UnionAll(left, right)
 
     def countall(self, expr):
@@ -227,13 +234,13 @@ class ExpressionProcessor(object):
     def intersect(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
-        self.check_binop_compatability("intersect", left, right)
+        check_binop_compatability("intersect", left, right)
         return raco.algebra.Intersection(left, right)
 
     def diff(self, e1, e2):
         left = self.evaluate(e1)
         right = self.evaluate(e2)
-        self.check_binop_compatability("diff", left, right)
+        check_binop_compatability("diff", left, right)
         return raco.algebra.Difference(left, right)
 
     def limit(self, expr, count):
@@ -320,6 +327,9 @@ class StatementProcessor(object):
         """
 
         child_op = self.ep.evaluate(expr)
+        if _id in self.symbols:
+            check_assignment_compatability(child_op, self.symbols[_id])
+
         op = raco.algebra.StoreTemp(_id, child_op)
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, _id, uses_set)
