@@ -128,7 +128,7 @@ class CC(Language):
     @classmethod
     def compile_stringliteral(cls, s):
         sid = cls.newstringident()
-        init = """auto %s = string_index.string_lookup("%s");""" % (sid, s)
+        init = """auto %s = string_index.string_lookup(%s);""" % (sid, s)
         return """(%s)""" % sid, [], [init]
         #raise ValueError("String Literals not supported in C language: %s" % s)
 
@@ -138,7 +138,12 @@ class CC(Language):
         return "(!%s)" % (innerexpr,), [], inits
 
     @classmethod
-    def boolean_combine(cls, args, operator="&&"):
+    def negative(cls, input):
+        innerexpr, decls, inits = input
+        return "(-%s)" % (innerexpr,), decls, inits
+
+    @classmethod
+    def expression_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
         conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
         decls = reduce(lambda sofar, x: sofar+x, [d for _, d, _ in args])

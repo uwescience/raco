@@ -113,6 +113,42 @@ class DatalogTest(unittest.TestCase):
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
+    def test_apply_head(self):
+        query = "A(a/b) :- R(a,b)"
+        desiredresult = """[('A', Project($0)[Apply(_COLUMN0_=($0 / $1))[Scan(public:adhoc:R)]])]"""  # noqa
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
+    def test_aggregate_head(self):
+        query = "A(SUM(a)) :- R(a,b)"
+        desiredresult = """[('A', Apply(_COLUMN0_=$0)[GroupBy(; SUM($0))[Scan(public:adhoc:R)]])]"""  # noqa
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
+    def test_twoaggregate_head(self):
+        query = "A(SUM(a),COUNT(b)) :- R(a,b)"
+        desiredresult = """[('A', Apply(_COLUMN0_=$0,_COLUMN1_=$1)[GroupBy(; SUM($0),COUNT($1))[Scan(public:adhoc:R)]])]"""  # noqa
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
+    def test_aggregate_head_group(self):
+        query = "A(SUM(a),b) :- R(a,b)"
+        desiredresult = """[('A', Apply(_COLUMN0_=$1,b=$0)[GroupBy($1; SUM($0))[Scan(public:adhoc:R)]])]"""  # noqa
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
+    def test_aggregate_head_group_swap(self):
+        query = "A(b,SUM(a)) :- R(a,b)"
+        desiredresult = """[('A', Apply(b=$0,_COLUMN1_=$1)[GroupBy($1; SUM($0))[Scan(public:adhoc:R)]])]"""  # noqa
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
+    def test_binop_aggregates(self):
+        query = "A(SUM(b)+SUM(a)) :- R(a,b)"
+        desiredresult = """[('A', Apply(_COLUMN0_=$0)[GroupBy(; (SUM($1) + SUM($0)))[Scan(public:adhoc:R)]])]"""  # noqa
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
 
 class ExpressionTest(unittest.TestCase):
     def test_postorder(self):
@@ -141,7 +177,7 @@ class ExpressionTest(unittest.TestCase):
         self.assertEqual(e2any, False)
 
     def test_visitor(self):
-        class EvalVisitor(raco.expression.boolean.BooleanExprVisitor):
+        class EvalVisitor(raco.expression.ExpressionVisitor):
             def __init__(self):
                 self.stack = []
 
@@ -189,6 +225,24 @@ class ExpressionTest(unittest.TestCase):
                 pass
 
             def visit_NamedAttributeRef(self, named):
+                pass
+
+            def visit_DIVIDE(self, binaryExpr):
+                pass
+
+            def visit_IDIVIDE(self, binaryExpr):
+                pass
+
+            def visit_MINUS(self, binaryExpr):
+                pass
+
+            def visit_NEG(self, binaryExpr):
+                pass
+
+            def visit_PLUS(self, binaryExpr):
+                pass
+
+            def visit_TIMES(self, binaryExpr):
                 pass
 
         v = EvalVisitor()

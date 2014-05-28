@@ -141,10 +141,10 @@ class GrappaLanguage(Language):
         return '%s' % (value), [], []
 
     @classmethod
-    def compile_stringliteral(cls, s):
+    def compile_stringliteral(cls, st):
         sid = cls.newstringident()
         decl = """int64_t %s;""" % (sid)
-        init = """auto l_%(sid)s = string_index.string_lookup("%(s)s");
+        init = """auto l_%(sid)s = string_index.string_lookup(%(st)s);
                    on_all_cores([=] { %(sid)s = l_%(sid)s; });""" % locals()
         return """(%s)""" % sid, [decl], [init]
         # raise ValueError("String Literals not supported in
@@ -156,7 +156,12 @@ class GrappaLanguage(Language):
         return "(!%s)" % (innerexpr,), decls, inits
 
     @classmethod
-    def boolean_combine(cls, args, operator="&&"):
+    def negative(cls, input):
+        innerexpr, decls, inits = input
+        return "(-%s)" % (innerexpr,), decls, inits
+
+    @classmethod
+    def expression_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
         conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
         decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
@@ -255,22 +260,6 @@ class MemoryScan(algebra.UnaryOperator, GrappaOperator):
         @see FileScan.__eq__
         """
         return UnaryOperator.__eq__(self, other)
-
-
-def getTaggingFunc(t):
-    """
-    Return a visitor function that will tag
-    UnnamedAttributes with the provided TupleRef
-    """
-
-    def tagAttributes(expr):
-        # TODO non mutable would be nice
-        if isinstance(expr, expression.UnnamedAttributeRef):
-            expr.tupleref = t
-
-        return None
-
-    return tagAttributes
 
 
 class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):

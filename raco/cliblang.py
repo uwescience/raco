@@ -18,9 +18,9 @@ class CC(Language):
         return finalize % locals()  # TODO: is this ever used? # noqa
 
     @classmethod
-    def boolean_combine(cls, args, operator="&&"):
+    def expression_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg)
+        conjunc = opstr.join(["(%s)" % cls.compile_expression(arg)
                               for arg in args])
         return "( %s )" % conjunc
 
