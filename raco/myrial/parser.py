@@ -281,8 +281,8 @@ class Parser(object):
 
     @staticmethod
     def p_expression_empty(p):
-        'expression : EMPTY LPAREN optional_schema RPAREN'
-        p[0] = ('EMPTY', p[3])
+        'expression : EMPTY LPAREN column_def_list RPAREN'
+        p[0] = ('EMPTY', scheme.Scheme(p[3]))
 
     @staticmethod
     def p_expression_scan(p):
@@ -295,15 +295,6 @@ class Parser(object):
                         | string_arg COLON string_arg
                         | string_arg COLON string_arg COLON string_arg'''
         p[0] = relation_key.RelationKey.from_string(''.join(p[1:]))
-
-    @staticmethod
-    def p_optional_schema(p):
-        '''optional_schema : column_def_list
-                           | empty'''
-        if len(p) == 2:
-            p[0] = scheme.Scheme(p[1])
-        else:
-            p[0] = None
 
     # Note: column list cannot be empty
     @staticmethod
