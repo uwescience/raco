@@ -14,6 +14,7 @@ class TypeTests(MyrialTestCase):
          ("cint", "INT_TYPE"),
          ("cstring", "STRING_TYPE"),
          ("cfloat", "DOUBLE_TYPE"),
+         ("cbool", "BOOLEAN_TYPE"),
          ("cdate", "DATETIME_TYPE")])
 
     def setUp(self):
@@ -148,4 +149,11 @@ class TypeTests(MyrialTestCase):
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
 
-    
+    def test_invalid_cos(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS Y
+             EMIT cos(cbool)];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
