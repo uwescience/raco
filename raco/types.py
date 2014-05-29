@@ -33,3 +33,5 @@ python_type_map = {
     float: DOUBLE_TYPE,
     str: STRING_TYPE
 }
+
+reverse_python_type_map = {v: k for k, v in python_type_map.iteritems()}

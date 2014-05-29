@@ -47,8 +47,10 @@ class Scheme(object):
         return name
 
     def typecheck(self, tup):
+        rmap = raco.types.reverse_python_type_map
         try:
-            return all([tf(v) for (_, tf), v in zip(self.attributes, tup)])
+            return all([rmap[_type](v) for (_, _type), v in
+                       zip(self.attributes, tup)])
         except:
             raise TypeError("%s not of type %s" % (tup, self.attributes))
 
