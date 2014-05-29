@@ -9,14 +9,15 @@ import abc
 
 
 class BooleanExpression(Expression):
+    def typeof(self, scheme, state_scheme):
+        raise "BOOLEAN_TYPE"
+
+
+class UnaryBooleanOperator(BooleanExpression, UnaryOperator):
     pass
 
 
-class UnaryBooleanOperator(UnaryOperator, BooleanExpression):
-    pass
-
-
-class BinaryBooleanOperator(BinaryOperator, BooleanExpression):
+class BinaryBooleanOperator(BooleanExpression, BinaryOperator):
     pass
 
 
