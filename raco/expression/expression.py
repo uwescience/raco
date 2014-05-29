@@ -17,7 +17,8 @@ class Expression(Printable):
     __metaclass__ = ABCMeta
     literals = None
 
-    def typeof(self):
+    @abstractmethod
+    def typeof(self, scheme):
         """Returns a string describing the expression's return type."""
 
     @classmethod
@@ -276,7 +277,7 @@ class Literal(ZeroaryOperator):
     def __str__(self):
         return str(self.value)
 
-    def typeof(self):
+    def typeof(self, scheme):
         return raco.types.python_type_map[type(self.value)]
 
     def evaluate(self, _tuple, scheme, state=None):
@@ -327,6 +328,8 @@ class NamedAttributeRef(AttributeRef):
     def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
 
+    def typeof(self, scheme):
+        return scheme.getType(self.name)
 
 class UnnamedAttributeRef(AttributeRef):
 
@@ -349,6 +352,8 @@ class UnnamedAttributeRef(AttributeRef):
     def get_position(self, scheme, state_scheme=None):
         return self.position
 
+    def typeof(self, scheme):
+        return scheme.getType(self.position)
 
 class StateRef(Expression):
 
