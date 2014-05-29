@@ -147,3 +147,5 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    

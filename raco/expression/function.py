@@ -42,7 +42,7 @@ class UnaryLongFunction(UnaryFunction):
         return "LONG_TYPE"
 
 
-class UnaryFloatFunction(UnaryFunction):
+class UnaryDoubleFunction(UnaryFunction):
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
@@ -75,7 +75,7 @@ class CEIL(UnaryLongFunction):
         return math.ceil(self.input.evaluate(_tuple, scheme, state))
 
 
-class COS(UnaryFloatFunction):
+class COS(UnaryDoubleFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.cos(self.input.evaluate(_tuple, scheme, state))
 
@@ -85,22 +85,22 @@ class FLOOR(UnaryLongFunction):
         return math.floor(self.input.evaluate(_tuple, scheme, state))
 
 
-class LOG(UnaryFloatFunction):
+class LOG(UnaryDoubleFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.log(self.input.evaluate(_tuple, scheme, state))
 
 
-class SIN(UnaryFloatFunction):
+class SIN(UnaryDoubleFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.sin(self.input.evaluate(_tuple, scheme, state))
 
 
-class SQRT(UnaryFloatFunction):
+class SQRT(UnaryDoubleFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.sqrt(self.input.evaluate(_tuple, scheme, state))
 
 
-class TAN(UnaryFloatFunction):
+class TAN(UnaryDoubleFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.tan(self.input.evaluate(_tuple, scheme, state))
 
