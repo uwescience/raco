@@ -56,3 +56,8 @@ class MyrialTestCase(unittest.TestCase):
         '''Execute a test query with an expected output'''
         actual = self.execute_query(query, test_logical, skip_json)
         self.assertEquals(actual, expected)
+
+    def check_scheme(self, query, scheme):
+        '''Execute a test query with an expected output schema.'''
+        actual = self.execute_query(query)
+        self.assertEquals(self.db.get_scheme('OUTPUT'), scheme)
