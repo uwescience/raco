@@ -10,7 +10,7 @@ import abc
 
 class BooleanExpression(Expression):
     def typeof(self, scheme, state_scheme):
-        raise "BOOLEAN_TYPE"
+        return "BOOLEAN_TYPE"
 
 
 class UnaryBooleanOperator(BooleanExpression, UnaryOperator):
