@@ -107,3 +107,19 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    def test_divide(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat / cfloat AS y];
+        STORE(X, OUTPUT);
+        """
+        schema = Scheme([('y', "DOUBLE_TYPE")])
+        self.check_scheme(query, schema)
+
+    def test_idivide(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat // cint AS y];
+        STORE(X, OUTPUT);
+        """
+        schema = Scheme([('y', "LONG_TYPE")])
+        self.check_scheme(query, schema)
