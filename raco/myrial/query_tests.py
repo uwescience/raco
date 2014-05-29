@@ -24,8 +24,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (6, 3, "Dan Suciu", 90000),
         (7, 1, "Magdalena Balazinska", 25000)])
 
-    emp_schema = scheme.Scheme([("id", "LONG_TYPE"),
-                                ("dept_id", "LONG_TYPE"),
+    emp_schema = scheme.Scheme([("id", "INT_TYPE"),
+                                ("dept_id", "INT_TYPE"),
                                 ("name", "STRING_TYPE"),
                                 ("salary", "LONG_TYPE")])
 
