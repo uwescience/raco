@@ -305,107 +305,105 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         return code
 
 
-class HashJoin(algebra.Join, CCOperator):
-  _i = 0
+class CHashJoin(algebra.Join, CCOperator):
+    _i = 0
 
-  @classmethod
-  def __genHashName__(cls):
-    name = "hash_%03d" % cls._i;
-    cls._i += 1
-    return name
-  
-  def produce(self, state):
-    if not isinstance(self.condition, expression.EQ):
-      msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
-      raise ValueError(msg)
+    @classmethod
+    def __genHashName__(cls):
+        name = "hash_%03d" % cls._i;
+        cls._i += 1
+        return name
 
-    # find the attribute that corresponds to the right child
-    self.rightCondIsRightAttr = \
-      self.condition.right.position >= len(self.left.scheme())
-    self.leftCondIsRightAttr = \
-      self.condition.left.position >= len(self.left.scheme())
-    assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
+    def produce(self, state):
+        if not isinstance(self.condition, expression.EQ):
+            msg = "The C compiler can only handle equi-join conditions of a single attribute: %s" % self.condition
+            raise ValueError(msg)
 
-    self.right.childtag = "right"
-    hashsym = state.lookupExpr(self.right)
+        # find the attribute that corresponds to the right child
+        self.rightCondIsRightAttr = \
+          self.condition.right.position >= len(self.left.scheme())
+        self.leftCondIsRightAttr = \
+          self.condition.left.position >= len(self.left.scheme())
+        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
-    if not hashsym:
-        # if right child never bound then store hashtable symbol and
-        # call right child produce
-        self._hashname = self.__genHashName__()
-        LOG.debug("generate hashname %s for %s", self._hashname, self)
-        state.saveExpr(self.right, self._hashname)
-        self.right.produce(state)
-    else:
-        # if found a common subexpression on right child then
-        # use the same hashtable
-        self._hashname = hashsym
-        LOG.debug("reuse hash %s for %s", self._hashname, self)
+        self.right.childtag = "right"
+        hashsym = state.lookupExpr(self.right)
 
-    self.left.childtag = "left"
-    self.left.produce(state)
+        if not hashsym:
+            # if right child never bound then store hashtable symbol and
+            # call right child produce
+            self._hashname = self.__genHashName__()
+            LOG.debug("generate hashname %s for %s", self._hashname, self)
+            state.saveExpr(self.right, self._hashname)
+            self.right.produce(state)
+        else:
+            # if found a common subexpression on right child then
+            # use the same hashtable
+            self._hashname = hashsym
+            LOG.debug("reuse hash %s for %s", self._hashname, self)
 
-  
-  def consume(self, t, src, state):
-    if src.childtag == "right":
-      declr_template =  """std::unordered_map<int64_t, std::vector<%(in_tuple_type)s>* > %(hashname)s;
+        self.left.childtag = "left"
+        self.left.produce(state)
+
+    def consume(self, t, src, state):
+        if src.childtag == "right":
+            declr_template = """std::unordered_map<int64_t, std::vector<%(in_tuple_type)s>* > %(hashname)s;
+            """
+
+            right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
+            """
+
+            hashname = self._hashname
+            keyname = t.name
+
+            # find the attribute that corresponds to the right child
+            if self.rightCondIsRightAttr:
+                keypos = self.condition.right.position-len(self.left.scheme())
+            else:
+                keypos = self.condition.left.position-len(self.left.scheme())
+
+            in_tuple_type = t.getTupleTypename()
+
+            # declaration of hash map
+            hashdeclr =  declr_template % locals()
+            state.addDeclarations([hashdeclr])
+
+            # materialization point
+            code = right_template % locals()
+
+            return code
+
+        if src.childtag == "left":
+            left_template = """
+          for (auto %(right_tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
+            auto %(out_tuple_name)s = combine<%(out_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
+         %(inner_plan_compiled)s
+      }
       """
-      
-      right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
-      """   
+            hashname = self._hashname
+            keyname = t.name
+            keytype = t.getTupleTypename()
 
-      hashname = self._hashname
-      keyname = t.name
+            if self.rightCondIsRightAttr:
+                keypos = self.condition.left.position
+            else:
+                keypos = self.condition.right.position
 
-      # find the attribute that corresponds to the right child
-      if self.rightCondIsRightAttr:
-        keypos = self.condition.right.position-len(self.left.scheme())
-      else:
-        keypos = self.condition.left.position-len(self.left.scheme())
+            right_tuple_name = gensym()
 
+            outTuple = CStagedTupleRef(gensym(), self.scheme())
+            out_tuple_type_def = outTuple.generateDefinition()
+            out_tuple_type = outTuple.getTupleTypename()
+            out_tuple_name = outTuple.name
 
-      in_tuple_type = t.getTupleTypename()
+            state.addDeclarations([out_tuple_type_def])
 
-      # declaration of hash map
-      hashdeclr =  declr_template % locals()
-      state.addDeclarations([hashdeclr])
-      
-      # materialization point
-      code = right_template % locals()
-      
-      return code
-    
-    if src.childtag == "left":
-      left_template = """
-      for (auto %(right_tuple_name)s : lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
-        auto %(out_tuple_name)s = combine<%(out_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
-     %(inner_plan_compiled)s 
-  }
-  """
-      hashname = self._hashname
-      keyname = t.name
-      keytype = t.getTupleTypename()
+            inner_plan_compiled = self.parent.consume(outTuple, self, state)
 
-      if self.rightCondIsRightAttr:
-          keypos = self.condition.left.position
-      else:
-          keypos = self.condition.right.position
+            code = left_template % locals()
+            return code
 
-      right_tuple_name = gensym()
-
-      outTuple = CStagedTupleRef(gensym(), self.scheme())
-      out_tuple_type_def = outTuple.generateDefinition()
-      out_tuple_type = outTuple.getTupleTypename()
-      out_tuple_name = outTuple.name
-
-      state.addDeclarations([out_tuple_type_def])
-
-      inner_plan_compiled = self.parent.consume(outTuple, self, state)
-      
-      code = left_template % locals()
-      return code
-
-    assert False, "src not equal to left or right"
+        assert False, "src not equal to left or right"
       
 
 def indentby(code, level):
@@ -413,24 +411,30 @@ def indentby(code, level):
     return "\n".join([indent + line for line in code.split("\n")])
 
 
-
-
-
 # iteration  over table + insertion into hash table with filter
 
-class CUnionAll(clangcommon.CUnionAll, CCOperator): pass
+class CUnionAll(clangcommon.CUnionAll, CCOperator):
+    pass
 
-class CApply(clangcommon.CApply, CCOperator): pass
-  
-class CProject(clangcommon.CProject, CCOperator): pass
 
-class CSelect(clangcommon.CSelect, CCOperator): pass
+class CApply(clangcommon.CApply, CCOperator):
+    pass
+
+
+class CProject(clangcommon.CProject, CCOperator):
+    pass
+
+
+class CSelect(clangcommon.CSelect, CCOperator):
+    pass
+
 
 class CFileScan(clangcommon.CFileScan, CCOperator):
-    def __get_ascii_scan_template__(self): return ascii_scan_template
+    def __get_ascii_scan_template__(self):
+        return ascii_scan_template
 
-    def __get_binary_scan_template__(self): return binary_scan_template
-
+    def __get_binary_scan_template__(self):
+        return binary_scan_template
 
 
 class MemoryScanOfFileScan(rules.Rule):
@@ -458,7 +462,7 @@ class CCAlgebra(object):
     CApply,
     CProject,
     CGroupBy,
-    HashJoin
+    CHashJoin
   ]
     rules = [
      #rules.OneToOne(algebra.Join,TwoPassHashJoin),
@@ -472,7 +476,7 @@ class CCAlgebra(object):
   #  rules.OneToOne(algebra.Scan,MemoryScan),
     MemoryScanOfFileScan(),
     rules.OneToOne(algebra.Apply, CApply),
-    rules.OneToOne(algebra.Join,HashJoin),
+    rules.OneToOne(algebra.Join,CHashJoin),
     rules.OneToOne(algebra.GroupBy,CGroupBy),
     rules.OneToOne(algebra.Project, CProject),
     rules.OneToOne(algebra.Union,CUnionAll) #TODO: obviously breaks semantics
