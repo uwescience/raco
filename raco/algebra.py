@@ -580,13 +580,14 @@ class StatefulApply(UnaryOperator):
                 and the updater expression
         :type state_modifiers: list of tuples
         """
+
         if state_modifiers is not None:
             self.inits = [(x[0], x[1]) for x in state_modifiers]
             self.updaters = [(x[0], x[2]) for x in state_modifiers]
 
             self.state_scheme = scheme.Scheme()
             for (name, expr) in self.inits:
-                self.state_scheme.addAttribute(name, type(expr))
+                self.state_scheme.addAttribute(name, expr.typeof(None, None))
 
         if emitters is not None:
             in_scheme = input.scheme()
@@ -612,7 +613,9 @@ class StatefulApply(UnaryOperator):
 
     def scheme(self):
         """scheme of the result."""
-        new_attrs = [(name, expr.typeof()) for (name, expr) in self.emitters]
+        input_scheme = self.input.scheme()
+        new_attrs = [(name, expr.typeof(input_scheme, self.state_scheme))
+            for (name, expr) in self.emitters]
         return scheme.Scheme(new_attrs)
 
     def shortStr(self):
