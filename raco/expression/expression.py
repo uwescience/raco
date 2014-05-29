@@ -5,6 +5,7 @@ Most non-trivial operators and functions are in separate files in this package.
 """
 
 from raco.utility import Printable
+import raco.types
 
 from abc import ABCMeta, abstractmethod
 
@@ -276,8 +277,7 @@ class Literal(ZeroaryOperator):
         return str(self.value)
 
     def typeof(self):
-        # TODO: DANGEROUS
-        return type(self.value)
+        return raco.types.python_type_map[type(self.value)]
 
     def evaluate(self, _tuple, scheme, state=None):
         return self.value
