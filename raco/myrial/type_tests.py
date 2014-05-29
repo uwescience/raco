@@ -13,7 +13,8 @@ class TypeTests(MyrialTestCase):
         [("clong", "LONG_TYPE"),
          ("cint", "INT_TYPE"),
          ("cstring", "STRING_TYPE"),
-         ("cfloat", "DOUBLE_TYPE")])
+         ("cfloat", "DOUBLE_TYPE"),
+         ("cdate", "DATETIME_TYPE")])
 
     def setUp(self):
         super(TypeTests, self).setUp()
@@ -27,9 +28,17 @@ class TypeTests(MyrialTestCase):
 
         self.check_scheme(query, TypeTests.schema)
 
-    def invalid_eq(self):
+    def invalid_eq1(self):
         query = """
         X = [FROM SCAN(public:adhoc:mytable) AS X EMIT clong=cstring];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def invalid_eq2(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat=cdate];
         STORE(X, OUTPUT);
         """
         with self.assertRaises(TypeSafetyViolation):
