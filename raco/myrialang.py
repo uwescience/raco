@@ -1169,9 +1169,9 @@ def apply_schema_recursive(operator, catalog):
             operator._scheme = rel_scheme
         else:
             # The specified relation is not in the Catalog; replace its
-            # scheme's types with "unknown".
+            # scheme's types with LONG_TYPE
             old_sch = operator.scheme()
-            new_sch = [(old_sch.getName(i), "unknown")
+            new_sch = [(old_sch.getName(i), "LONG_TYPE")
                        for i in range(len(old_sch))]
             operator._scheme = Scheme(new_sch)
 
