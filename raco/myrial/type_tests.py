@@ -174,3 +174,11 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    def test_invalid_substr(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT SUBSTR(0, 3, cfloat)];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)

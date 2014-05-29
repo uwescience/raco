@@ -159,6 +159,11 @@ class SUBSTR(NaryFunction):
         return inputStr[beginIdx:endIdx]
 
     def typeof(self, scheme, state_scheme):
+        check_type(self.operands[0].typeof(scheme, state_scheme), "LONG_TYPE")
+        check_type(self.operands[1].typeof(scheme, state_scheme), "LONG_TYPE")
+        check_type(self.operands[2].typeof(scheme, state_scheme),
+            "STRING_TYPE")
+
         return "STRING_TYPE"
 
 
