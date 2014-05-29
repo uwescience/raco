@@ -34,9 +34,12 @@ class BinaryComparisonOperator(BinaryBooleanOperator):
     def typeof(self, scheme, state_scheme):
         lt = self.left.typeof(scheme, state_scheme)
         rt = self.left.typeof(scheme, state_scheme)
-        if lt != rt:
+        if lt == rt:
+            return raco.types.BOOLEAN_TYPE
+        if lt in raco.types.NUMERIC_TYPES and rt in raco.types.NUMERIC_TYPES:
+            return raco.types.BOOLEAN_TYPE
+        else:
             raise TypeSafetyViolation("Can't compare %s and %s", (l1, rt))
-        return raco.types.BOOLEAN_TYPE
 
 
 class NOT(UnaryBooleanOperator):
