@@ -206,3 +206,19 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    def test_invalid_sum_compare(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT SUM(clong) > "foo"];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_max_compare(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT MAX(cstring) == 7];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
