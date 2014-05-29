@@ -44,7 +44,7 @@ class MyrialTestCase(unittest.TestCase):
             # Test that JSON compilation runs without error
             # TODO: verify the JSON output somehow?
             json_string = json.dumps(compile_to_json(
-                "some query", "some logical plan", plan))
+                "some query", "some logical plan", plan, self.db))
             assert json_string
 
         self.db.evaluate(plan)
