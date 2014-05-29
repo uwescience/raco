@@ -547,7 +547,9 @@ class Apply(UnaryOperator):
 
     def scheme(self):
         """scheme of the result."""
-        new_attrs = [(name, expr.typeof()) for (name, expr) in self.emitters]
+        input_scheme = self.input.scheme()
+        new_attrs = [(name, expr.typeof(input_scheme, None))
+            for (name, expr) in self.emitters]
         return scheme.Scheme(new_attrs)
 
     def shortStr(self):
