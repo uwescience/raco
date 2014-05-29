@@ -166,3 +166,11 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    def test_invalid_pow(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT POW(cfloat, cstring)];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
