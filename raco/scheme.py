@@ -37,7 +37,7 @@ class Scheme(object):
             if _type not in TYPE_MAP:
                 print 'Invalid type name: %s' % str(_type)
                 assert False
-        _type = TYPE_MAP[_type]
+            _type = TYPE_MAP[_type]
 
         if name in self.asdict:
             # ugly.  I don't like throwing errors in this case, but it's worse
