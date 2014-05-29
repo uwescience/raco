@@ -21,7 +21,7 @@ def scheme_to_schema(s):
         if t.lower() in ['float', 'double']:
             return 'DOUBLE_TYPE'
 #    if t.lower() in ['float']:
-#      return 'FLOAT_TYPE'
+#      return 'DOUBLE_TYPE'
 #    if t.lower() in ['int', 'integer']:
 #      return 'INT_TYPE'
         if t.lower() in ['int', 'integer', 'long']:

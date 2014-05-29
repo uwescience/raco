@@ -9,8 +9,8 @@ import networkx as nx
 
 class CFGTest(myrial_test.MyrialTestCase):
     points_table = collections.Counter()
-    points_schema = scheme.Scheme([('id', 'LONG_TYPE'), ('x', 'FLOAT_TYPE'),
-                                   ('y', 'FLOAT_TYPE')])
+    points_schema = scheme.Scheme([('id', 'LONG_TYPE'), ('x', 'DOUBLE_TYPE'),
+                                   ('y', 'DOUBLE_TYPE')])
     points_key = "public:adhoc:points"
 
     def setUp(self):

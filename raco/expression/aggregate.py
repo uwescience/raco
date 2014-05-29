@@ -180,7 +180,7 @@ class AVG(UnaryFunction, DecomposableAggregate):
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
-        return "FLOAT_TYPE"
+        return "DOUBLE_TYPE"
 
 
 class STDEV(UnaryFunction, DecomposableAggregate):
@@ -221,4 +221,4 @@ class STDEV(UnaryFunction, DecomposableAggregate):
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
-        return "FLOAT_TYPE"
+        return "DOUBLE_TYPE"

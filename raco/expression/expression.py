@@ -18,7 +18,7 @@ class TypeSafetyViolation(Exception):
 
 
 def check_is_numeric(_type):
-    if _type not in ("FLOAT_TYPE", "LONG_TYPE"):
+    if _type not in ("DOUBLE_TYPE", "LONG_TYPE"):
         raise TypeSafetyViolation("Can't negate type: %s" % _type)
 
 
@@ -233,7 +233,7 @@ class BinaryOperator(Expression):
 
     def typeof(self, scheme, state_scheme):
         lt = "LONG_TYPE"
-        ft = "FLOAT_TYPE"
+        ft = "DOUBLE_TYPE"
         type_map = {(lt, lt): lt, (lt, ft): ft, (ft, lt): ft, (ft, ft): ft }
 
         left_type = self.left.typeof(scheme, state_scheme)
@@ -468,7 +468,7 @@ class DIVIDE(BinaryOperator):
                 self.right.evaluate(_tuple, scheme, state))
 
     def typeof(self, scheme, state_scheme):
-        return "FLOAT_TYPE"
+        return "DOUBLE_TYPE"
 
 
 class IDIVIDE(BinaryOperator):
@@ -496,7 +496,7 @@ class FLOAT_CAST(UnaryOperator):
         return float(self.input.evaluate(_tuple, scheme, state))
 
     def typeof(self, scheme, state_scheme):
-        return "FLOAT_TYPE"
+        return "DOUBLE_TYPE"
 
 
 class NEG(UnaryOperator):

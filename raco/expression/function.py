@@ -46,7 +46,7 @@ class UnaryFloatFunction(UnaryFunction):
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
-        return "FLOAT_TYPE"
+        return "DOUBLE_TYPE"
 
 
 class UnaryTypePreservingFunction(UnaryFunction):
@@ -118,7 +118,7 @@ class POW(BinaryFunction):
         rt = self.right.typeof(scheme, state_scheme)
         check_is_numeric(rt)
 
-        return "FLOAT_TYPE"
+        return "DOUBLE_TYPE"
 
 class CompareFunction(BinaryFunction):
     def typeof(self, scheme, state_scheme):

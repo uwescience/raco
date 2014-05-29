@@ -17,8 +17,8 @@ class KmeansTest(myrial_test.MyrialTestCase):
               (8, 100.99, 100.99), (9, 100.01, 100.01)]
     points_table = collections.Counter(points)
 
-    points_schema = scheme.Scheme([('id', 'LONG_TYPE'), ('x', 'FLOAT_TYPE'),
-                                   ('y', 'FLOAT_TYPE')])
+    points_schema = scheme.Scheme([('id', 'LONG_TYPE'), ('x', 'DOUBLE_TYPE'),
+                                   ('y', 'DOUBLE_TYPE')])
     points_key = "public:adhoc:points"
 
     def setUp(self):

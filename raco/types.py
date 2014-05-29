@@ -5,7 +5,7 @@
 myrial_type_map = {
     "STRING": "STRING_TYPE",
     "INT": "LONG_TYPE",
-    "FLOAT": "FLOAT_TYPE",
+    "FLOAT": "DOUBLE_TYPE",
     "BOOLEAN": "BOOLEAN_TYPE"
 }
 
@@ -13,7 +13,7 @@ myrial_type_map = {
 python_type_map = {
     int: "LONG_TYPE",
     bool: "BOOLEAN_TYPE",
-    float: "FLOAT_TYPE",
+    float: "DOUBLE_TYPE",
     str: "STRING_TYPE"
 }
 

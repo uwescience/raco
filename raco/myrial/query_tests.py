@@ -50,7 +50,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (16, -4.3)])
 
     numbers_schema = scheme.Scheme([("id", "LONG_TYPE"),
-                                    ("val", "FLOAT_TYPE")])
+                                    ("val", "DOUBLE_TYPE")])
 
     numbers_key = "public:adhoc:numbers"
 
