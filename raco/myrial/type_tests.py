@@ -152,7 +152,7 @@ class TypeTests(MyrialTestCase):
     def test_invalid_cos(self):
         query = """
         X = [FROM SCAN(public:adhoc:mytable) AS Y
-             EMIT cos(cbool)];
+             WHERE cos(cbool) > 1.0 EMIT *];
         STORE(X, OUTPUT);
         """
         with self.assertRaises(TypeSafetyViolation):
