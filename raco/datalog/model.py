@@ -20,10 +20,9 @@ LOG = logging.getLogger(__name__)
 def make_attr(i, r, relation_alias):
     if isinstance(r, Var):
         name = r.var
-        attrtype = "LONG_TYPE"  # Wrong!  fetch this from the catalog
     elif isinstance(r, expression.Literal):
         name = "pos%s" % i
-        attrtype = raco.types.python_type_map[type(r.value)]
+    attrtype = r.typeof(None, None)
     return (name, attrtype)
 
 
@@ -545,6 +544,9 @@ class Var(expression.Expression):
     def apply(self, f):
         raise NotImplementedError()
 
+    def typeof(self, scheme, state_scheme):
+        # WRONG: we should read this from a catalogue
+        return raco.types.LONG_TYPE
 
 class Term(object):
     def __init__(self, parsedterm):
