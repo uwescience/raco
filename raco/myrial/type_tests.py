@@ -182,3 +182,11 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    def test_invalid_len(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT LEN(cfloat)];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
