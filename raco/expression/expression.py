@@ -18,8 +18,15 @@ class Expression(Printable):
     literals = None
 
     @abstractmethod
-    def typeof(self, scheme):
-        """Returns a string describing the expression's return type."""
+    def typeof(self, scheme, state_scheme):
+        """Returns a string describing the expression's return type.
+
+        :param scheme: The schema of the relation corresponding to this
+        expression
+        :param state_scheme: The schema of the state corresponding to this
+        expression; this is None except for teh StatefulApply operator.
+        :return: A string from among raco.types.type_names.
+        """
 
     @classmethod
     def opstr(cls):
@@ -277,7 +284,7 @@ class Literal(ZeroaryOperator):
     def __str__(self):
         return str(self.value)
 
-    def typeof(self, scheme):
+    def typeof(self, scheme, state_scheme):
         return raco.types.python_type_map[type(self.value)]
 
     def evaluate(self, _tuple, scheme, state=None):
@@ -328,7 +335,7 @@ class NamedAttributeRef(AttributeRef):
     def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
 
-    def typeof(self, scheme):
+    def typeof(self, scheme, state_scheme):
         return scheme.getType(self.name)
 
 class UnnamedAttributeRef(AttributeRef):
@@ -352,13 +359,10 @@ class UnnamedAttributeRef(AttributeRef):
     def get_position(self, scheme, state_scheme=None):
         return self.position
 
-    def typeof(self, scheme):
+    def typeof(self, scheme, state_scheme):
         return scheme.getType(self.position)
 
 class StateRef(Expression):
-
-    def evaluate(self, _tuple, scheme, state=None):
-        return _tuple[self.get_position(scheme, state.scheme)]
 
     @abstractmethod
     def get_position(self, scheme, state_scheme):
@@ -383,6 +387,10 @@ class UnnamedStateAttributeRef(StateRef):
     def evaluate(self, _tuple, scheme, state):
         return state.values[self.position]
 
+    def typeof(self, scheme, state_scheme):
+        assert state_scheme is not None
+        return state_scheme.getType(self.position)
+
 
 class NamedStateAttributeRef(StateRef):
 
@@ -400,6 +408,10 @@ class NamedStateAttributeRef(StateRef):
 
     def get_position(self, scheme, state_scheme):
         return state_scheme.getPosition(self.name)
+
+    def typeof(self, scheme, state_scheme):
+        assert state_scheme is not None
+        return state_scheme.getType(self.name)
 
 
 class UDF(NaryOperator):
