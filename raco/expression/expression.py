@@ -18,7 +18,7 @@ class TypeSafetyViolation(Exception):
 
 
 def check_is_numeric(_type):
-    if _type not in (FLOAT_TYPE, LONG_TYPE):
+    if _type not in ("FLOAT_TYPE", "LONG_TYPE"):
         raise TypeSafetyViolation("Can't negate type: %s" % _type)
 
 
