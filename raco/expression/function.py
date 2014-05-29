@@ -126,8 +126,6 @@ class CompareFunction(BinaryFunction):
         lt = self.left.typeof(scheme, state_scheme)
         rt = self.right.typeof(scheme, state_scheme)
         if lt != rt:
-            print self.left
-            print self.right
             raise TypeSafetyViolation("Can't compare %s with %s" % (
                 lt, rt))
         return lt
@@ -159,8 +157,7 @@ class SUBSTR(NaryFunction):
         return inputStr[beginIdx:endIdx]
 
     def typeof(self, scheme, state_scheme):
-        check_type(self.operands[0].typeof(scheme, state_scheme),
-            "STRING_TYPE")
+        check_type(self.operands[0].typeof(scheme, state_scheme), "STRING_TYPE")  # noqa
         check_type(self.operands[1].typeof(scheme, state_scheme), "LONG_TYPE")
         check_type(self.operands[2].typeof(scheme, state_scheme), "LONG_TYPE")
 
