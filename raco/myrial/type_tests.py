@@ -222,3 +222,19 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    def test_invalid_avg(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT AVG(cbool)];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_stdev(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT STDEV(cdate)];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
