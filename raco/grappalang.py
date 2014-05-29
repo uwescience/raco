@@ -415,6 +415,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
     def produce(self, state):
         pass
 
+    def consume(self, inputTuple, fromOp, state):
+        pass
 
 
 class GrappaHashJoin(algebra.Join, GrappaOperator):
