@@ -157,3 +157,12 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    def test_invalid_tan(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS Y
+             WHERE tan(cstring) > 1.0 EMIT *];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
