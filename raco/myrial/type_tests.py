@@ -83,3 +83,27 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    def test_invalid_plus(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cdate + cint];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_times(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cdate * cstring];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_divide(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cdate / clong];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)

@@ -472,6 +472,8 @@ class DIVIDE(BinaryOperator):
                 self.right.evaluate(_tuple, scheme, state))
 
     def typeof(self, scheme, state_scheme):
+        check_is_numeric(self.left.typeof(scheme, state_scheme))
+        check_is_numeric(self.right.typeof(scheme, state_scheme))
         return "DOUBLE_TYPE"
 
 
@@ -483,6 +485,8 @@ class IDIVIDE(BinaryOperator):
                    self.right.evaluate(_tuple, scheme, state))
 
     def typeof(self, scheme, state_scheme):
+        check_is_numeric(self.left.typeof(scheme, state_scheme))
+        check_is_numeric(self.right.typeof(scheme, state_scheme))
         return "LONG_TYPE"
 
 
