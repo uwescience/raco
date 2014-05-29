@@ -11,10 +11,20 @@ import raco.algebra
 from raco import scheme
 import raco.catalog
 from raco import relation_key
-
+import raco.types
 
 import logging
 LOG = logging.getLogger(__name__)
+
+
+def make_attr(i, r, relation_alias):
+    if isinstance(r, Var):
+        name = r.var
+        attrtype = "LONG_TYPE"  # Wrong!  fetch this from the catalog
+    elif isinstance(r, expression.Literal):
+        name = "pos%s" % i
+        attrtype = raco.types.python_type_map[type(r.value)]
+    return (name, attrtype)
 
 
 class Program(object):
@@ -386,19 +396,10 @@ class Rule(object):
         for newplan in component_plans[1:]:
             plan = raco.algebra.CrossProduct(plan, newplan)
 
-        def attr(i, r, relation_alias):
-            if isinstance(r, Var):
-                name = r.var
-                attrtype = None
-            elif isinstance(r, expression.Literal):
-                name = "pos%s" % i
-                attrtype = type(r.value)
-            return (name, attrtype)
-
         try:
             scheme = plan.scheme()
         except AttributeError:
-            scheme = scheme.Scheme([attr(i, r, self.head.name) for i, r in enumerate(self.head.valuerefs)])  # noqa
+            scheme = scheme.Scheme([make_attr(i, r, self.head.name) for i, r in enumerate(self.head.valuerefs)])  # noqa
 
         # Helper function for the next two steps (TODO: move this to a method?)
         def findvar(variable):
@@ -760,15 +761,7 @@ class Term(object):
         try:
             sch = plan.scheme()
         except raco.algebra.RecursionError:
-            def attr(i, r, relation_alias):
-                if isinstance(r, Var):
-                    name = r.var
-                    attrtype = None
-                elif isinstance(r, expression.Literal):
-                    name = "pos%s" % i
-                    attrtype = type(r.value)
-                return (name, attrtype)
-            sch = scheme.Scheme([attr(i, r, term.name)
+            sch = scheme.Scheme([make_attr(i, r, term.name)
                                  for i, r in enumerate(term.valuerefs)])
 
         oldscheme = [name for (name, _) in sch]
@@ -805,23 +798,13 @@ class Term(object):
         like A(X,"foo") -> Select(pos1="foo", Scan(A)) and separate condition
         terms, like A(X,Y), X=3 -> Select(pos0=3, Scan(A)) separate condition
         terms are passed in as an argument."""
-        def attr(i, r, relation_alias):
-            if isinstance(r, Var):
-                name = r.var
-                attrtype = None
-            elif isinstance(r, expression.Literal):
-                name = "pos%s" % i
-                attrtype = type(r.value)
-            return (name, attrtype)
-            # return AttributeSpec(relation_alias, name, attrtype)
 
         # Chain rules together
         if program.isIDB(self):
             plan = program.compileIDB(self.name)
             scan = self.renameIDB(plan)
         else:
-            # TODO: A call to some catalog?
-            sch = scheme.Scheme([attr(i, r, self.name)
+            sch = scheme.Scheme([make_attr(i, r, self.name)
                                  for i, r in enumerate(self.valuerefs)])
             rel_key = relation_key.RelationKey.from_string(self.name)
             scan = raco.algebra.Scan(rel_key, sch)

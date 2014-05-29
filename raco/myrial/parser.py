@@ -319,7 +319,7 @@ class Parser(object):
                      | INT
                      | BOOLEAN
                      | FLOAT'''
-        p[0] = raco.types.type_map[p[1]]
+        p[0] = raco.types.myrial_type_map[p[1]]
 
     @staticmethod
     def p_string_arg(p):
