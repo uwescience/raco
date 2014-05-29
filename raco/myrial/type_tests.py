@@ -20,7 +20,7 @@ class TypeTests(MyrialTestCase):
         super(TypeTests, self).setUp()
         self.db.ingest("public:adhoc:mytable", Counter(), TypeTests.schema)
 
-    def noop_test(self):
+    def test_noop(self):
         query = """
         X = SCAN(public:adhoc:mytable);
         STORE(X, OUTPUT);
@@ -28,7 +28,7 @@ class TypeTests(MyrialTestCase):
 
         self.check_scheme(query, TypeTests.schema)
 
-    def invalid_eq1(self):
+    def test_invalid_eq1(self):
         query = """
         X = [FROM SCAN(public:adhoc:mytable) AS X EMIT clong=cstring];
         STORE(X, OUTPUT);
@@ -36,9 +36,17 @@ class TypeTests(MyrialTestCase):
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
 
-    def invalid_eq2(self):
+    def test_invalid_eq2(self):
         query = """
         X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat=cdate];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_ge(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat>=cstring];
         STORE(X, OUTPUT);
         """
         with self.assertRaises(TypeSafetyViolation):
