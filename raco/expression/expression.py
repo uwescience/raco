@@ -17,6 +17,11 @@ class TypeSafetyViolation(Exception):
     pass
 
 
+def check_is_numeric(_type):
+    if _type not in (FLOAT_TYPE, LONG_TYPE):
+        raise TypeSafetyViolation("Can't negate type: %s" % _type)
+
+
 class Expression(Printable):
     __metaclass__ = ABCMeta
     literals = None
@@ -503,8 +508,7 @@ class NEG(UnaryOperator):
 
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
-        if input_type not in (FLOAT_TYPE, LONG_TYPE):
-            raise TypeSafetyViolation("Can't negate type: %s" % input_type)
+        check_is_numeric(input_type)
         return input_type
 
 

@@ -31,43 +31,76 @@ class WORKERID(ZeroaryOperator):
     def evaluate(self, _tuple, scheme, state=None):
         return 0
 
+    def typeof(self, scheme, state_scheme):
+        return "LONG_TYPE"
 
-class ABS(UnaryFunction):
+
+class UnaryLongFunction(UnaryFunction):
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        check_is_numeric(input_type)
+        return "LONG_TYPE"
+
+
+class UnaryFloatFunction(UnaryFunction):
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        check_is_numeric(input_type)
+        return "FLOAT_TYPE"
+
+
+class UnaryTypePreservingFunction(UnaryFunction):
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        check_is_numeric(input_type)
+        return input_type
+
+
+class StringFunction(UnaryFunction):
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        if input_type != "STRING_TYPE":
+            raise TypeSafetyViolation("Must be a string for %s" % (
+                self.__class__,))
+        return "STRING_TYPE"
+
+
+class ABS(UnaryTypePreservingFunction):    
     def evaluate(self, _tuple, scheme, state=None):
         return abs(self.input.evaluate(_tuple, scheme, state))
 
 
-class CEIL(UnaryFunction):
+class CEIL(UnaryLongFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.ceil(self.input.evaluate(_tuple, scheme, state))
 
 
-class COS(UnaryFunction):
+class COS(UnaryFloatFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.cos(self.input.evaluate(_tuple, scheme, state))
 
 
-class FLOOR(UnaryFunction):
+class FLOOR(UnaryLongFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.floor(self.input.evaluate(_tuple, scheme, state))
 
 
-class LOG(UnaryFunction):
+class LOG(UnaryFloatFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.log(self.input.evaluate(_tuple, scheme, state))
 
 
-class SIN(UnaryFunction):
+class SIN(UnaryFloatFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.sin(self.input.evaluate(_tuple, scheme, state))
 
 
-class SQRT(UnaryFunction):
+class SQRT(UnaryFloatFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.sqrt(self.input.evaluate(_tuple, scheme, state))
 
 
-class TAN(UnaryFunction):
+class TAN(UnaryFloatFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.tan(self.input.evaluate(_tuple, scheme, state))
 
@@ -79,8 +112,25 @@ class POW(BinaryFunction):
         return pow(self.left.evaluate(_tuple, scheme, state),
                    self.right.evaluate(_tuple, scheme, state))
 
+    def typeof(self, scheme, state_scheme):
+        lt = self.left.typeof(scheme, state_scheme)
+        check_is_numeric(lt)
+        rt = self.right.typeof(scheme, state_scheme)
+        check_is_numeric(rt)
 
-class LESSER(BinaryFunction):
+        return "FLOAT_TYPE"
+
+class CompareFunction(BinaryFunction):
+    def typeof(self, scheme, state_scheme):
+        lt = self.left.typeof(scheme, state_scheme)
+        rt = self.right.typeof(scheme, state_scheme)
+        if lt != rt:
+            raise TypeSafetyViolation("Can't compare %s with %s" % (
+                lt, rt))
+        return lt
+
+
+class LESSER(CompareFunction):
     literals = ['LESSER']
 
     def evaluate(self, _tuple, scheme, state=None):
@@ -88,7 +138,7 @@ class LESSER(BinaryFunction):
                    self.right.evaluate(_tuple, scheme, state))
 
 
-class GREATER(BinaryFunction):
+class GREATER(CompareFunction):
     literals = ['GREATER']
 
     def evaluate(self, _tuple, scheme, state=None):
@@ -105,8 +155,11 @@ class SUBSTR(NaryFunction):
         endIdx = self.operands[2].evaluate(_tuple, scheme, state)
         return inputStr[beginIdx:endIdx]
 
+    def typeof(self, scheme, state_scheme):
+        return "STRING_TYPE"
 
-class LEN(UnaryFunction):
+
+class LEN(StringFunction):
     literals = ["LEN"]
 
     def evaluate(self, _tuple, scheme, state=None):
