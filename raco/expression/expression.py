@@ -17,9 +17,13 @@ class TypeSafetyViolation(Exception):
     pass
 
 
+def check_type(_type, allowed_types):
+    if _type not in allowed_types:
+        raise TypeSafetyViolation("Type %s not among %s" % (_type,
+            allowed_types))
+
 def check_is_numeric(_type):
-    if _type not in ("DOUBLE_TYPE", "LONG_TYPE"):
-        raise TypeSafetyViolation("Can't negate type: %s" % _type)
+    check_type(_type, {raco.types.DOUBLE_TYPE, raco.types.LONG_TYPE})
 
 
 class Expression(Printable):
