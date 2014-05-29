@@ -737,9 +737,12 @@ class GroupBy(UnaryOperator):
         in_scheme = self.input.scheme()
         # Note: user-provided column names are supplied by a subsequent Apply
         # invocation; see raco/myrial/groupby.py
-        attrs = [(resolve_attribute_name(None, in_scheme, sexpr, index), sexpr)
-                 for index, sexpr in enumerate(self.column_list)]
-        return scheme.Scheme(attrs)
+        schema = scheme.Scheme()
+        for index, sexpr in enumerate(self.column_list):
+            name = resolve_attribute_name(None, in_scheme, sexpr, index)
+            _type = sexpr.typeof(in_scheme, None)
+            schema.addAttribute(name, _type)
+        return schema
 
 
 class ProjectingJoin(Join):
