@@ -123,3 +123,27 @@ class TypeTests(MyrialTestCase):
         """
         schema = Scheme([('y', "LONG_TYPE")])
         self.check_scheme(query, schema)
+
+    def test_invalid_case1(self):
+        query = """
+        t = SCAN(public:adhoc:mytable);
+        rich = [FROM t EMIT
+                CASE WHEN clong <= 5000 THEN "poor"
+                     WHEN clong <= 25000 THEN 5.5
+                     ELSE "rich" END];
+        STORE(rich, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_case2(self):
+        query = """
+        t = SCAN(public:adhoc:mytable);
+        rich = [FROM t EMIT
+                CASE WHEN clong <= 5000 THEN "poor"
+                     WHEN clong <= 25000 THEN "middle class"
+                     ELSE 1922 END];
+        STORE(rich, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
