@@ -59,3 +59,27 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    def test_invalid_and(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat AND cdate];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_or(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat OR cdate];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_not(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT not cdate];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
