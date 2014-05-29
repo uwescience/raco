@@ -23,7 +23,7 @@ def check_type(_type, allowed_types):
             allowed_types))
 
 def check_is_numeric(_type):
-    check_type(_type, {raco.types.DOUBLE_TYPE, raco.types.LONG_TYPE})
+    check_type(_type, raco.types.NUMERIC_TYPES)
 
 
 class Expression(Printable):
