@@ -13,11 +13,18 @@ class DummyScheme(object):
         return "DummyScheme()"
 
 
+# If arbitrary types are not allowed, attempt to convert external types
+# to the canonical type name used by raco's type analysis system.
+TYPE_MAP = {k: k for k in raco.types.type_names}
+TYPE_MAP["INT_TYPE"] = raco.types.LONG_TYPE
+
 class Scheme(object):
     '''Add an attribute to the scheme.'''
     salt = "1"
 
-    def __init__(self, attributes=None):
+    def __init__(self, attributes=None, allow_arbitrary_types=False):
+        self.allow_arbitrary_types = allow_arbitrary_types
+
         if attributes is None:
             attributes = []
         self.attributes = []
@@ -26,9 +33,11 @@ class Scheme(object):
             self.addAttribute(n, t)
 
     def addAttribute(self, name, _type):
-        if not _type in raco.types.type_names:
-            print 'Invalid type name: %s' % str(_type)
-            assert False
+        if not self.allow_arbitrary_types:
+            if _type not in TYPE_MAP:
+                print 'Invalid type name: %s' % str(_type)
+                assert False
+        _type = TYPE_MAP[_type]
 
         if name in self.asdict:
             # ugly.  I don't like throwing errors in this case, but it's worse
