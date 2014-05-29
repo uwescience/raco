@@ -958,7 +958,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % (self.emp_key,)
 
-        with self.assertRaises(LONG_TYPEerpreter.DuplicateAliasException):
+        with self.assertRaises(interpreter.DuplicateAliasException):
             self.check_result(query, collections.Counter())
 
     def test_bagcomp_column_index_out_of_bounds(self):
@@ -1072,7 +1072,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(raco.myrial.LONG_TYPEerpreter.NoSuchRelationException):  # noqa
+        with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):  # noqa
             self.check_result(query, collections.Counter())
 
     def test_scan_error(self):
@@ -1086,7 +1086,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_relation_scope_error(self):
         query = """
-        out = [FROM EMPTY(x:LONG_TYPE) AS X EMIT z.*];
+        out = [FROM EMPTY(x:INT) AS X EMIT z.*];
         STORE(out, OUTPUT);
         """
 
@@ -1095,8 +1095,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_relation_scope_error2(self):
         query = """
-        z = EMPTY(z:LONG_TYPE);
-        out = [FROM EMPTY(x:LONG_TYPE) AS X EMIT z.*];
+        z = EMPTY(z:INT);
+        out = [FROM EMPTY(x:INT) AS X EMIT z.*];
         STORE(out, OUTPUT);
         """
 
@@ -1532,7 +1532,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_column_name_reserved(self):
         query = """
-        T = EMPTY(x:LONG_TYPE);
+        T = EMPTY(x:INT);
         A = [FROM T EMIT SafeDiv(x, 3) AS SafeDiv];
         STORE (A, BadProgram);
         """
@@ -1541,7 +1541,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_column_mixed_case_reserved(self):
         query = """
-        T = EMPTY(x:LONG_TYPE);
+        T = EMPTY(x:INT);
         A = [FROM T EMIT MAX(x) AS maX];
         STORE (A, BadProgram);
         """
@@ -1550,7 +1550,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_variable_name_reserved(self):
         query = """
-        T = EMPTY(x:LONG_TYPE);
+        T = EMPTY(x:INT);
         avg = COUNTALL(T);
         STORE (countall, BadProgram);
         """
@@ -1559,7 +1559,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_empty_query(self):
         query = """
-        T1 = empty(x:LONG_TYPE);
+        T1 = empty(x:INT);
         """
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
