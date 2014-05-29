@@ -125,6 +125,14 @@ class TypeTests(MyrialTestCase):
         schema = Scheme([('y', "LONG_TYPE")])
         self.check_scheme(query, schema)
 
+    def test_neg(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT -cstring];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
     def test_invalid_case1(self):
         query = """
         t = SCAN(public:adhoc:mytable);
