@@ -347,6 +347,9 @@ class AttributeRef(Expression):
     def walk(self):
         yield self
 
+    def typeof(self, scheme, state_scheme):
+        return scheme.getType(self.get_position(scheme, state_scheme))
+
 
 class NamedAttributeRef(AttributeRef):
 
@@ -362,8 +365,6 @@ class NamedAttributeRef(AttributeRef):
     def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
 
-    def typeof(self, scheme, state_scheme):
-        return scheme.getType(self.name)
 
 class UnnamedAttributeRef(AttributeRef):
 
@@ -386,8 +387,6 @@ class UnnamedAttributeRef(AttributeRef):
     def get_position(self, scheme, state_scheme=None):
         return self.position
 
-    def typeof(self, scheme, state_scheme):
-        return scheme.getType(self.position)
 
 class StateRef(Expression):
 
@@ -438,7 +437,7 @@ class NamedStateAttributeRef(StateRef):
 
     def typeof(self, scheme, state_scheme):
         assert state_scheme is not None
-        return state_scheme.getType(self.name)
+        return state_scheme.getType(self.get_position(scheme, state_scheme))
 
 
 class UDF(NaryOperator):
