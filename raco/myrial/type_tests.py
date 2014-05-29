@@ -190,3 +190,19 @@ class TypeTests(MyrialTestCase):
         """
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
+
+    def test_invalid_greater(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT GREATER(cbool, 3)];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_lesser(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT LESSER(3.0, cdate)];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
