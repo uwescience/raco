@@ -19,8 +19,9 @@ class TypeSafetyViolation(Exception):
 
 def check_type(_type, allowed_types):
     if _type not in allowed_types:
-        raise TypeSafetyViolation("Type %s not among %s" % (_type,
-            allowed_types))
+        raise TypeSafetyViolation("Type %s not among %s" % (
+            _type, allowed_types))
+
 
 def check_is_numeric(_type):
     check_type(_type, raco.types.NUMERIC_TYPES)
@@ -234,11 +235,10 @@ class BinaryOperator(Expression):
         self.right.accept(visitor)
         visitor.visit(self)
 
-
     def typeof(self, scheme, state_scheme):
         lt = "LONG_TYPE"
         ft = "DOUBLE_TYPE"
-        type_map = {(lt, lt): lt, (lt, ft): ft, (ft, lt): ft, (ft, ft): ft }
+        type_map = {(lt, lt): lt, (lt, ft): ft, (ft, lt): ft, (ft, ft): ft}
 
         left_type = self.left.typeof(scheme, state_scheme)
         right_type = self.right.typeof(scheme, state_scheme)
@@ -247,7 +247,7 @@ class BinaryOperator(Expression):
             return type_map[(left_type, right_type)]
         else:
             raise TypeSafetyViolation("Can't combine %s, %s for %s" % (
-                left_type, right_type,  self.__class__ ))
+                left_type, right_type, self.__class__))
 
 
 class NaryOperator(Expression):
@@ -537,7 +537,7 @@ class Unbox(ZeroaryOperator):
         raise NotImplementedError()
 
     def typeof(self, scheme, state_scheme):
-        raise NotImplementedError()  #  See above comment
+        raise NotImplementedError()  # See above comment
 
 
 class Case(Expression):

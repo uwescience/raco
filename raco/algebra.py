@@ -549,7 +549,7 @@ class Apply(UnaryOperator):
         """scheme of the result."""
         input_scheme = self.input.scheme()
         new_attrs = [(name, expr.typeof(input_scheme, None))
-            for (name, expr) in self.emitters]
+                     for (name, expr) in self.emitters]
         return scheme.Scheme(new_attrs)
 
     def shortStr(self):
@@ -615,7 +615,7 @@ class StatefulApply(UnaryOperator):
         """scheme of the result."""
         input_scheme = self.input.scheme()
         new_attrs = [(name, expr.typeof(input_scheme, self.state_scheme))
-            for (name, expr) in self.emitters]
+                     for (name, expr) in self.emitters]
         return scheme.Scheme(new_attrs)
 
     def shortStr(self):

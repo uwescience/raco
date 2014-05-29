@@ -18,6 +18,7 @@ class DummyScheme(object):
 TYPE_MAP = {k: k for k in raco.types.type_names}
 TYPE_MAP["INT_TYPE"] = raco.types.LONG_TYPE
 
+
 class Scheme(object):
     '''Add an attribute to the scheme.'''
     salt = "1"

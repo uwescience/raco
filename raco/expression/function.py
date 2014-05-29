@@ -65,7 +65,7 @@ class StringFunction(UnaryFunction):
         return "STRING_TYPE"
 
 
-class ABS(UnaryTypePreservingFunction):    
+class ABS(UnaryTypePreservingFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return abs(self.input.evaluate(_tuple, scheme, state))
 
@@ -120,11 +120,14 @@ class POW(BinaryFunction):
 
         return "DOUBLE_TYPE"
 
+
 class CompareFunction(BinaryFunction):
     def typeof(self, scheme, state_scheme):
         lt = self.left.typeof(scheme, state_scheme)
         rt = self.right.typeof(scheme, state_scheme)
         if lt != rt:
+            print self.left
+            print self.right
             raise TypeSafetyViolation("Can't compare %s with %s" % (
                 lt, rt))
         return lt
