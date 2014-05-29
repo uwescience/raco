@@ -20,10 +20,10 @@ class TestQueryFunctions():
         (6, 3, "Dan Suciu", 90000),
         (7, 1, "Magdalena Balazinska", 25000)])
 
-    emp_schema = scheme.Scheme([("id", "int"),
-                                ("dept_id", "int"),
-                                ("name", "string"),
-                                ("salary", "int")])
+    emp_schema = scheme.Scheme([("id", "LONG_TYPE"),
+                                ("dept_id", "LONG_TYPE"),
+                                ("name", "STRING_TYPE"),
+                                ("salary", "LONG_TYPE")])
 
     emp_key = relation_key.RelationKey.from_string("andrew:adhoc:employee")
 

@@ -17,8 +17,8 @@ import raco.myrial.myrial_test as myrial_test
 
 class OptimizerTest(myrial_test.MyrialTestCase):
 
-    x_scheme = scheme.Scheme([("a", "int"), ("b", "int"), ("c", "int")])
-    y_scheme = scheme.Scheme([("d", "int"), ("e", "int"), ("f", "int")])
+    x_scheme = scheme.Scheme([("a", "LONG_TYPE"), ("b", "LONG_TYPE"), ("c", "LONG_TYPE")])  # noqa
+    y_scheme = scheme.Scheme([("d", "LONG_TYPE"), ("e", "LONG_TYPE"), ("f", "LONG_TYPE")])  # noqa
     x_key = relation_key.RelationKey.from_string("public:adhoc:X")
     y_key = relation_key.RelationKey.from_string("public:adhoc:Y")
 
@@ -48,7 +48,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.z_key = relation_key.RelationKey.from_string("public:adhoc:Z")
         self.z_data = collections.Counter([(1, 2), (2, 3), (1, 2), (3, 4)])
-        self.z_scheme = scheme.Scheme([('src', 'int'), ('dst', 'int')])
+        self.z_scheme = scheme.Scheme([('src', 'LONG_TYPE'), ('dst', 'LONG_TYPE')])  # noqa
         self.db.ingest('public:adhoc:Z', self.z_data, self.z_scheme)
 
         self.expected2 = collections.Counter(
