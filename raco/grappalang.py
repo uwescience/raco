@@ -150,7 +150,7 @@ class GrappaLanguage(Language):
         string_index = build_string_index("sp2bench_1m.index");
         """
 
-        return """(%s)""" % sid, [decl], [build_init,lookup_init]
+        return """(%s)""" % sid, [decl], [build_init, lookup_init]
         # raise ValueError("String Literals not supported in
         # C language: %s" % s)
 
@@ -285,11 +285,10 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
     def __getSyncName__(self, side):
         base = "dh_sync_%s" % self.symBase
         if side == "left":
-            return base+"_L"
+            return base + "_L"
         if side == "right":
-            return base+"_R"
+            return base + "_R"
         assert False, "type error {left,right}"
-
 
     def produce(self, state):
         self.syncnames = []
@@ -444,9 +443,9 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
     def __getSyncName__(self, side):
         base = "shj_sync_%s" % self.symBase
         if side == "left":
-            return base+"_L"
+            return base + "_L"
         if side == "right":
-            return base+"_R"
+            return base + "_R"
         assert False, "type error {left,right}"
 
     def produce(self, state):
@@ -486,14 +485,15 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
             right_type = self.rightTupleTypeRef.getPlaceholder()
             left_type = self.leftTupleTypeRef.getPlaceholder()
 
-
             # TODO: really want this addInitializers to be addPreCode
             # TODO: *for all pipelines that use this hashname*
             init_template = ct("""
             auto %(hashname)s_num_reducers = cores();
             auto %(hashname)s = allocateJoinReducers\
-            <int64_t,%(left_type)s,%(right_type)s,%(out_tuple_type)s>(%(hashname)s_num_reducers);
-            auto %(hashname)s_ctx = HashJoinContext<int64_t,%(left_type)s,%(right_type)s,%(out_tuple_type)s>\
+            <int64_t,%(left_type)s,%(right_type)s,%(out_tuple_type)s>
+                (%(hashname)s_num_reducers);
+            auto %(hashname)s_ctx = HashJoinContext<int64_t,%(left_type)s,
+                %(right_type)s,%(out_tuple_type)s>
                 (%(hashname)s, %(hashname)s_num_reducers);""")
 
             state.addInitializers([init_template % locals()])
@@ -514,14 +514,12 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
             self._hashname, right_type, left_type = hashtableInfo
             LOG.debug("reuse hash %s for %s", self._hashname, self)
 
-
-
         # now that Relation is produced, produce its contents by iterating over
         # the join result
-        iterate_template = ct("""MapReduce::forall_symmetric<&%(pipeline_sync)s>(\
-            %(hashname)s, &JoinReducer\
-                    <int64_t,%(left_type)s,%(right_type)s,%(out_tuple_type)s>::\
-                    resultAccessor,
+        iterate_template = ct("""MapReduce::forall_symmetric
+        <&%(pipeline_sync)s>
+        (%(hashname)s, &JoinReducer<int64_t,%(left_type)s,
+        %(right_type)s,%(out_tuple_type)s>::resultAccessor,
             [=](%(out_tuple_type)s& %(out_tuple_name)s) {
                  %(inner_code_compiled)s
             });
@@ -559,7 +557,6 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         state.setPipelineProperty('source', self.__class__)
         state.addPipeline(code)
 
-
     def consume(self, inputTuple, fromOp, state):
         if fromOp.childtag == "right":
             side = "Right"
@@ -590,7 +587,6 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         else:
             assert False, "src not equal to left or right"
 
-
         hashname = self._hashname
         keyname = inputTuple.name
         keytype = inputTuple.getTupleTypename()
@@ -610,12 +606,10 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
                 <&%(global_syncname)s>(\
                 %(keyname)s.get(%(keypos)s), %(keyname)s);""")
 
-
         # materialization point
         code = mat_template % locals()
 
         return code
-
 
 
 class GrappaHashJoin(algebra.Join, GrappaOperator):
