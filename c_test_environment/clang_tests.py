@@ -151,6 +151,10 @@ class ClangTest(unittest.TestCase):
     @nottest
     def test_aggregate_count_group_one_notgroup_filtered_one(self):
         self.check("""A(b, COUNT(a)) :- R3(a,b,c), c<5""", "aggregate_count_group_one_notgroup_filtered_one")
+    
+    @nottest
+    def test_aggregate_of_binop(self):
+        self.check("""A(SUM(a+b)) :- R2(a,b)""", "aggregate_of_binop")
 
 
 if __name__ == '__main__':
