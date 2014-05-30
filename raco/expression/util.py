@@ -127,7 +127,7 @@ def resolve_state_vars(expr, state_vars, mangled_names):
 
 
 def accessed_columns(expr):
-    """Return a set of column indexes accesed by an expression.
+    """Return a set of column indexes accessed by an expression.
 
     Assumes that named attribute references have been converted to integer
     positions.

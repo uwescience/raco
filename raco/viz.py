@@ -26,7 +26,7 @@ def graph_to_dot(graph):
 }"""
 
     # Nodes:
-    nodes = ['"%s" [label="%s"] ;' % (id(n), n.shortStr())
+    nodes = ['"%s" [label="%s"] ;' % (id(n), n.shortStr().replace(r'"', r'\"'))
              for n in graph['nodes']]
     node_str = '\n      '.join(nodes)
 

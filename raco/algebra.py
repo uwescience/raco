@@ -48,6 +48,13 @@ class Operator(Printable):
     def scheme(self):
         """Return the scheme of the tuples output by this operator."""
 
+    def walk(self):
+        """Return an iterator over the tree of operators."""
+        yield self
+        for c in self.children():
+            for x in c.walk():
+                yield x
+
     def postorder(self, f):
         """Postorder traversal, applying a function to each operator.  The
         function returns an iterator"""
@@ -152,7 +159,7 @@ class Operator(Printable):
 
     def resolveAttribute(self, ref):
         """Return a tuple of (column_name, type) for a given AttributeRef."""
-        assert isinstance(ref, expression.AttributeRef)
+        assert isinstance(ref, expression.AttributeRef), ref
         return self.scheme().resolve(ref)
 
 
@@ -697,7 +704,6 @@ class Project(UnaryOperator):
     def scheme(self):
         """scheme of the result. Raises a TypeError if a name in the project
         list is not in the source schema"""
-        # TODO: columnlist should perhaps be a list of column expressions, TBD
         attrs = [self.input.resolveAttribute(attref)
                  for attref in self.columnlist]
         return scheme.Scheme(attrs)
@@ -736,32 +742,33 @@ class GroupBy(UnaryOperator):
 
 class ProjectingJoin(Join):
     """Logical Projecting Join operator"""
-    def __init__(self, condition=None, left=None, right=None, columnlist=None):
-        self.columnlist = columnlist
+    def __init__(self, condition=None, left=None, right=None,
+                 output_columns=None):
+        self.output_columns = output_columns
         Join.__init__(self, condition, left, right)
 
     def __eq__(self, other):
-        return Join.__eq__(self, other) and self.columnlist == other.columnlist
+        return (Join.__eq__(self, other)
+                and self.output_columns == other.output_columns)
 
     def shortStr(self):
-        if self.columnlist is None:
+        if self.output_columns is None:
             return Join.shortStr(self)
-        return "%s(%s; %s)" % (self.opname(), self.condition, self.columnlist)
+        return "%s(%s; %s)" % (self.opname(), self.condition,
+                               self.output_columns)
 
     def copy(self, other):
         """deep copy"""
-        self.columnlist = other.columnlist
+        self.output_columns = other.output_columns
         Join.copy(self, other)
 
     def scheme(self):
         """Return the scheme of the result."""
-        if self.columnlist is None:
+        if self.output_columns is None:
             return Join.scheme(self)
         combined = self.left.scheme() + self.right.scheme()
-        # TODO: columnlist should perhaps be a list of arbitrary column
-        # expressions, TBD
         return scheme.Scheme([combined[p.get_position(combined)]
-                             for p in self.columnlist])
+                             for p in self.output_columns])
 
     def add_equijoin_condition(self, col0, col1):
         # projects are pushed after selections

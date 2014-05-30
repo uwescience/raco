@@ -120,3 +120,11 @@ class IllegalWildcardException(MyrialCompileException):
 
 class ColumnIndexOutOfBounds(Exception):
     pass
+
+
+class SchemaMismatchException(MyrialCompileException):
+    def __init__(self, op_name):
+        self.op_name = op_name
+
+    def __str__(self):
+        return "Incompatible input schemas for %s operation" % self.op_name
