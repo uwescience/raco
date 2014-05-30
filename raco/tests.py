@@ -151,7 +151,7 @@ class DatalogTest(unittest.TestCase):
 
     def test_aggregate_of_binop(self):
         query = "A(SUM(b+a)) :- R(a,b)"
-        desiredresult = """[('A', Apply(_COLUMN0_=$0)[GroupBy(; (SUM($1 + $0)))[Scan(public:adhoc:R)]])]"""  # noqa
+        desiredresult = """[('A', Apply(_COLUMN0_=$0)[GroupBy(; SUM(($1 + $0)))[Scan(public:adhoc:R)]])]"""  # noqa
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
