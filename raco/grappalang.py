@@ -415,15 +415,17 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
     @classmethod
     def __genHashName__(cls):
-        name = "group_hash_%03d" % cls._i;
+        name = "group_hash_%03d" % cls._i
         cls._i += 1
         return name
 
     def produce(self, state):
         assert len(self.grouping_list) <= 1, \
-            "%s does not currently support groupings of more than 1 attribute" % self.__class__.__name__
+            "%s does not currently support groupings of more than 1 attribute"\
+            % self.__class__.__name__
         assert len(self.aggregate_list) == 1, \
-            "%s currently only supports aggregates of 1 attribute" % self.__class__.__name__
+            "%s currently only supports aggregates of 1 attribute"\
+            % self.__class__.__name__
         for agg_term in self.aggregate_list:
             assert isinstance(agg_term, expression.AggregateExpression), \
                 """%s only supports simple aggregate expressions.
@@ -452,21 +454,27 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
-        assert len(self.column_list) == 1 or isinstance(self.column_list[0], expression.UnnamedAttributeRef), \
+        assert len(self.column_list) == 1 \
+            or isinstance(self.column_list[0],
+                          expression.UnnamedAttributeRef), \
             """assumes first column is the key and second is aggregate result
             column_list: %s""" % self.column_list
 
         if self.useKey:
             mapping_var_name = gensym()
-            produce_template = ct("""forall_symmetric<&%(pipeline_sync)s> (%(hashname)s)[=](auto& %(mapping_var_name)s) {
-                %(output_tuple_type)s %(output_tuple_name)s({%(mapping_var_name)s.first, %(mapping_var_name)s.second});
+            produce_template = ct("""forall_symmetric<&%(pipeline_sync)s>
+            (%(hashname)s)[=](auto& %(mapping_var_name)s) {
+                %(output_tuple_type)s %(output_tuple_name)s(
+                {%(mapping_var_name)s.first, %(mapping_var_name)s.second});
                 %(inner_code)s
                 }
                 """)
         else:
             mapping_var_name = gensym()
-            produce_template = ct("""forall_symmetric<&%(pipeline_sync)s> (%(hashname)s)[=](auto& %(mapping_var_name)s) {
-                %(output_tuple_type)s %(output_tuple_name)s({%(mapping_var_name)s.second});
+            produce_template = ct("""forall_symmetric<&%(pipeline_sync)s>
+            (%(hashname)s)[=](auto& %(mapping_var_name)s) {
+                %(output_tuple_type)s %(output_tuple_name)s(
+                {%(mapping_var_name)s.second});
                 %(inner_code)s
                 }
                 """)
@@ -491,12 +499,14 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
     def consume(self, inputTuple, fromOp, state):
         if self.useKey:
-            materialize_template = ct("""%(hashname)s.%(op)s_insert<&%(pipeline_sync)s>(%(tuple_name)s, %(keypos)s, %(valpos)s);
+            materialize_template = ct("""%(hashname)s.%(op)s_insert
+            <&%(pipeline_sync)s>(%(tuple_name)s, %(keypos)s, %(valpos)s);
       """)
             # make key from grouped attributes
             keypos = self.grouping_list[0].get_position(self.scheme())
         else:
-            materialize_template = ct("""%(hashname)s.%(op)s_insert<&%(pipeline_sync)s>(%(tuple_name)s, %(valpos)s);
+            materialize_template = ct("""%(hashname)s.%(op)s_insert
+            <&%(pipeline_sync)s>(%(tuple_name)s, %(valpos)s);
       """)
 
         hashname = self._hashname
