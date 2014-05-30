@@ -17,7 +17,7 @@ class RACompiler(object):
         self.target = None
         self.source = program
         self.parsed = parse(program)
-        LOG.debug("parser output: %s" % (self.parsed))
+        LOG.debug("parser output: %s", self.parsed)
         self.logicalplan = self.parsed.toRA()
 
     def optimize(self, target=MyriaAlgebra,

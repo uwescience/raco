@@ -38,9 +38,9 @@ class PseudoCode(Language):
     """
 
     @classmethod
-    def boolean_combine(cls, args, operator="&&"):
+    def expression_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % cls.compile_boolean(arg)
+        conjunc = opstr.join(["(%s)" % cls.compile_expression(arg)
                               for arg in args])
         return "( %s )" % conjunc
 
@@ -69,7 +69,7 @@ class FileScan(algebra.Scan, PseudoCodeOperator):
 
 class TwoPassSelect(algebra.Select, PseudoCodeOperator):
     def compileme(self, resultsym, inputsym):
-        condition = PseudoCode.compile_boolean(self.condition)
+        condition = PseudoCode.compile_expression(self.condition)
         code = """
     int size = 0;
     Tuple *t;

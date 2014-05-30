@@ -5,6 +5,6 @@ install:
   - pip install -r requirements-dev.txt --use-mirrors
   - python setup.py install
   - pip install coveralls --use-mirrors
-script: nosetests --with-coverage --cover-package=raco
+script: nosetests --with-coverage --cover-package=raco --logging-level=WARN
 after_success:
   - coveralls

@@ -21,7 +21,7 @@ class TestEmit:
 
     code += "result.push_back(%s);\n" %(t.name)
     if self.emitprint:
-        code += self.language.log_unquoted("%s" % t.name, 1)
+        code += self.language.log_unquoted("%s" % t.name, 2)
 
     return code
 

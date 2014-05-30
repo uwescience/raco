@@ -105,6 +105,83 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected)
 
+    def test_collapse_applies(self):
+        """Test pushing applies together."""
+        lp = StoreTemp('OUTPUT',
+               Apply([(None, AttIndex(1)), ('w', expression.PLUS(AttIndex(0), AttIndex(0)))],       # noqa
+                 Apply([(None, AttIndex(1)), (None, AttIndex(0)), (None, AttIndex(1))],             # noqa
+                   Apply([('x', AttIndex(0)), ('y', expression.PLUS(AttIndex(1), AttIndex(0)))],    # noqa
+                     Apply([(None, AttIndex(0)), (None, AttIndex(1))],
+                           Scan(self.x_key, self.x_scheme))))))  # noqa
+
+        self.assertEquals(self.get_count(lp, Apply), 4)
+
+        pp = self.logical_to_physical(lp)
+        self.assertTrue(isinstance(pp.input, Apply))
+        self.assertEquals(self.get_count(pp, Apply), 1)
+
+        expected = collections.Counter(
+            [(b, a + a) for (a, b, c) in
+             [(b, a, b) for (a, b) in
+              [(a, b + a) for (a, b) in
+                [(a, b) for (a, b, c) in self.x_data]]]])  # noqa
+        self.db.evaluate(pp)
+        result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, expected)
+
+    def test_select_count_star(self):
+        """Test that we don't generate 0-length applies from a COUNT(*)."""
+        lp = StoreTemp('OUTPUT',
+                       GroupBy([], [expression.COUNTALL()],
+                               Scan(self.x_key, self.x_scheme)))
+
+        self.assertEquals(self.get_count(lp, GroupBy), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertTrue(isinstance(pp.input, GroupBy))
+        # GroupBy.CollectProducer.CollectConsumer.GroupBy.Apply
+        apply = pp.input.input.input.input.input
+        self.assertTrue(isinstance(apply, Apply))
+        self.assertEquals(self.get_count(pp, Apply), 1)
+        self.assertEquals(len(apply.scheme()), 1)
+
+        expected = collections.Counter([(len(self.x_data),)])
+        self.db.evaluate(pp)
+        result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, expected)
+
+    def test_projects_apply_join(self):
+        """Test column selection both Apply into ProjectingJoin
+        and ProjectingJoin into its input.
+        """
+        lp = StoreTemp('OUTPUT',
+               Apply([(None, AttIndex(1))],       # noqa
+                 ProjectingJoin(expression.EQ(AttIndex(0), AttIndex(3)),
+                   Scan(self.x_key, self.x_scheme),
+                   Scan(self.x_key, self.x_scheme),
+                   [AttIndex(i) for i in xrange(2 * len(self.x_scheme))])))  # noqa
+
+        self.assertTrue(isinstance(lp.input.input, ProjectingJoin))
+        self.assertEquals(2 * len(self.x_scheme),
+                          len(lp.input.input.scheme()))
+
+        pp = self.logical_to_physical(lp)
+        proj_join = pp.input.input
+        self.assertTrue(isinstance(proj_join, ProjectingJoin))
+        self.assertEquals(1, len(proj_join.scheme()))
+        self.assertEquals(2, len(proj_join.left.scheme()))
+        self.assertEquals(1, len(proj_join.right.scheme()))
+
+        expected = collections.Counter(
+            [(b,)
+             for (a, b, c) in self.x_data
+             for (d, e, f) in self.x_data
+             if a == d])
+
+        self.db.evaluate(pp)
+        result = self.db.get_temp_table('OUTPUT')
+        self.assertEquals(result, expected)
+
     def test_push_selects_apply(self):
         """Test pushing selections through apply."""
         lp = StoreTemp('OUTPUT',
@@ -250,3 +327,20 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected2)
+
+    def test_explicit_shuffle(self):
+        """Test of a user-directed partition operation."""
+
+        query = """
+        T = SCAN(public:adhoc:X);
+        STORE(T, OUTPUT, [$2, b]);
+        """
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        lp = self.processor.get_logical_plan()
+
+        self.assertEquals(self.get_count(lp, Shuffle), 1)
+
+        for op in lp.walk():
+            if isinstance(op, Shuffle):
+                self.assertEquals(op.columnlist, [AttIndex(2), AttIndex(1)])

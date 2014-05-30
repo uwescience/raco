@@ -86,6 +86,7 @@ class Parser(object):
     @staticmethod
     def p_translation_unit(p):
         '''translation_unit : statement
+                            | constant
                             | udf
                             | apply'''
         p[0] = p[1]
@@ -185,6 +186,12 @@ class Parser(object):
         p[0] = None
 
     @staticmethod
+    def p_constant(p):
+        '''constant : CONST unreserved_id COLON sexpr SEMI'''
+        Parser.add_udf(p, p[2], [], p[4])
+        p[0] = None
+
+    @staticmethod
     def p_optional_arg_list(p):
         '''optional_arg_list : function_arg_list
                              | empty'''
@@ -245,8 +252,17 @@ class Parser(object):
 
     @staticmethod
     def p_statement_store(p):
-        'statement : STORE LPAREN unreserved_id COMMA relation_key RPAREN SEMI'
-        p[0] = ('STORE', p[3], p[5])
+        'statement : STORE LPAREN unreserved_id COMMA relation_key optional_part_info RPAREN SEMI'  # noqa
+        p[0] = ('STORE', p[3], p[5], p[6])
+
+    @staticmethod
+    def p_optional_part_info(p):
+        '''optional_part_info : COMMA LBRACKET column_ref_list RBRACKET
+                              | empty'''
+        if len(p) > 2:
+            p[0] = p[3]
+        else:
+            p[0] = None
 
     @staticmethod
     def p_expression_id(p):
@@ -515,7 +531,12 @@ class Parser(object):
     @staticmethod
     def p_sexpr_id(p):
         'sexpr : unreserved_id'
-        p[0] = sexpr.NamedAttributeRef(p[1])
+        try:
+            # Check for zero-argument function
+            p[0] = Parser.resolve_function(p, p[1], [])
+        except:
+            # Resolve as an attribute reference
+            p[0] = sexpr.NamedAttributeRef(p[1])
 
     @staticmethod
     def p_sexpr_index(p):

@@ -166,7 +166,7 @@ class CSelect(algebra.Select):
     [_ for _ in self.condition.postorder(getTaggingFunc(t))]
     
     # compile the predicate into code
-    conditioncode, cond_decls, cond_inits = self.language.compile_boolean(self.condition)
+    conditioncode, cond_decls, cond_inits = self.language.compile_expression(self.condition)
     state.addInitializers(cond_inits)
     state.addDeclarations(cond_decls)
 
@@ -198,10 +198,45 @@ class CUnionAll(algebra.Union):
 
 class CApply(algebra.Apply):
   def produce(self, state):
+    # declare a single new type for project
+    #TODO: instead do mark used-columns?
+
+    # always does an assignment to new tuple
+    self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
+    state.addDeclarations( [self.newtuple.generateDefinition()] )
+
     self.input.produce(state)
-  
+
   def consume(self, t, src, state):
-    return self.parent.consume(t, self, state)
+    code = ""
+
+    assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_expr_compiled)s);
+    """
+
+    dst_name = self.newtuple.name
+    dst_type_name = self.newtuple.getTupleTypename()
+
+    # declaration of tuple instance
+    code += """%(dst_type_name)s %(dst_name)s;
+    """ % locals()
+
+    for dst_fieldnum, src_label_expr in enumerate(self.emitters):
+        src_label, src_expr = src_label_expr
+
+        # tag the attributes with references
+        # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
+        [_ for _ in src_expr.postorder(getTaggingFunc(t))]
+
+        src_expr_compiled, expr_decls, expr_inits = self.language.compile_expression(src_expr)
+        state.addInitializers(expr_inits)
+        state.addDeclarations(expr_decls)
+
+        code += assignment_template % locals()
+
+    innercode = self.parent.consume(self.newtuple, self, state)
+    code += innercode
+
+    return code
 
 
 class CProject(algebra.Project):

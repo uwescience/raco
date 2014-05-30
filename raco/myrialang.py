@@ -1,4 +1,6 @@
 from collections import defaultdict
+import copy
+import itertools
 
 from raco import algebra
 from raco import rules
@@ -7,6 +9,8 @@ from raco import expression
 from raco.language import Language
 from raco.utility import emit
 from raco.relation_key import RelationKey
+from expression import (accessed_columns, to_unnamed_recursive,
+                        UnnamedAttributeRef)
 from raco.expression.aggregate import DecomposableAggregate
 
 
@@ -41,7 +45,7 @@ def compile_expr(op, child_scheme, state_scheme):
     ####
     if isinstance(op, expression.NumericLiteral):
         if type(op.value) == int:
-            if op.value <= (2 ** 31) - 1 and op.value >= -2 ** 31:
+            if (2 ** 31) - 1 >= op.value >= -2 ** 31:
                 myria_type = 'INT_TYPE'
             else:
                 myria_type = 'LONG_TYPE'
@@ -313,11 +317,11 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
                                                left_len,
                                                combined)
 
-        if self.columnlist is None:
-            self.columnlist = self.scheme().ascolumnlist()
+        if self.output_columns is None:
+            self.output_columns = self.scheme().ascolumnlist()
         column_names = [name for (name, _) in self.scheme()]
 
-        pos = [i.get_position(combined) for i in self.columnlist]
+        pos = [i.get_position(combined) for i in self.output_columns]
         allleft = [i for i in pos if i < left_len]
         allright = [i - left_len for i in pos if i >= left_len]
 
@@ -360,7 +364,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         for expr in self.aggregate_list:
             if isinstance(expr, expression.COUNTALL):
                 # XXX Wrong in the presence of nulls
-                agg_fields.append(expression.UnnamedAttributeRef(0))
+                agg_fields.append(UnnamedAttributeRef(0))
             else:
                 agg_fields.append(expression.toUnnamed(
                     expr.input, child_scheme))
@@ -481,12 +485,12 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         if len(self.hash_columns) == 1:
             pf = {
                 "type": "SingleFieldHash",
-                "index": self.hash_columns[0]
+                "index": self.hash_columns[0].position
             }
         else:
             pf = {
                 "type": "MultiFieldHash",
-                "indexes": self.hash_columns
+                "indexes": [x.position for x in self.hash_columns]
             }
 
         return {
@@ -593,18 +597,22 @@ class ShuffleBeforeJoin(rules.Rule):
         if isinstance(expr.left, algebra.Shuffle):
             left_shuffle = expr.left
         else:
+            left_cols = [expression.UnnamedAttributeRef(i)
+                         for i in left_cols]
             left_shuffle = algebra.Shuffle(expr.left, left_cols)
         # Right shuffle
         if isinstance(expr.right, algebra.Shuffle):
             right_shuffle = expr.right
         else:
+            right_cols = [expression.UnnamedAttributeRef(i)
+                          for i in right_cols]
             right_shuffle = algebra.Shuffle(expr.right, right_cols)
 
         # Construct the object!
         if isinstance(expr, algebra.ProjectingJoin):
             return algebra.ProjectingJoin(expr.condition,
                                           left_shuffle, right_shuffle,
-                                          expr.columnlist)
+                                          expr.output_columns)
         elif isinstance(expr, algebra.Join):
             return algebra.Join(expr.condition, left_shuffle, right_shuffle)
         raise NotImplementedError("How the heck did you get here?")
@@ -634,7 +642,7 @@ class DistributedGroupBy(rules.Rule):
 
         # Get an array of position references to columns in the child scheme
         child_scheme = op.input.scheme()
-        group_fields = [expression.toUnnamed(ref, child_scheme).position
+        group_fields = [expression.toUnnamed(ref, child_scheme)
                         for ref in op.grouping_list]
         if len(group_fields) == 0:
             # Need to Collect all tuples at once place
@@ -675,12 +683,12 @@ class DistributedGroupBy(rules.Rule):
         local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input)
 
         # Create a merge aggregate; grouping terms are passed through.
-        merge_groupings = [expression.UnnamedAttributeRef(i)
+        merge_groupings = [UnnamedAttributeRef(i)
                            for i in range(num_grouping_terms)]
 
         # Connect the output of local aggregates to merge aggregates
         for pos, agg in enumerate(merge_aggs, num_grouping_terms):
-            agg.input = expression.UnnamedAttributeRef(pos)
+            agg.input = UnnamedAttributeRef(pos)
 
         merge_gb = MyriaGroupBy(merge_groupings, merge_aggs, local_gb)
         op_out = self.do_transfer(merge_gb)
@@ -699,13 +707,13 @@ class DistributedGroupBy(rules.Rule):
             offset = num_grouping_terms + agg_offsets[pos]
 
             if fexpr is None:
-                return expression.UnnamedAttributeRef(offset)
+                return UnnamedAttributeRef(offset)
             else:
                 # Convert MergeAggregateOutput instances to absolute col refs
                 return expression.finalizer_expr_to_absolute(fexpr, offset)
 
         # pass through grouping terms
-        gmappings = [(None, expression.UnnamedAttributeRef(i))
+        gmappings = [(None, UnnamedAttributeRef(i))
                      for i in range(len(op.grouping_list))]
         # extract a single result for aggregate terms
         fmappings = [(None, resolve_finalizer_expr(agg, pos)) for pos, agg in
@@ -725,7 +733,7 @@ class SplitSelects(rules.Rule):
 
         # Normalize named references to integer indexes
         scheme = op.scheme()
-        conjuncs = [expression.to_unnamed_recursive(c, scheme)
+        conjuncs = [to_unnamed_recursive(c, scheme)
                     for c in conjuncs]
 
         op.condition = conjuncs[0]
@@ -763,12 +771,8 @@ class ProjectToDistinctColumnSelect(rules.Rule):
 
         mappings = [(None, x) for x in expr.columnlist]
         colSelect = algebra.Apply(mappings, expr.input)
-        # TODO(dhalperi) the distinct logic is broken because we don't have a
-        # locality-aware optimizer. For now, don't insert Distinct for a
-        # logical project. This is BROKEN.
-        # distinct = algebra.Distinct(colSelect)
-        # return distinct
-        return colSelect
+        distinct = algebra.Distinct(colSelect)
+        return distinct
 
 
 class SimpleGroupBy(rules.Rule):
@@ -813,7 +817,7 @@ class SimpleGroupBy(rules.Rule):
         # Construct the Apply we're going to stick before the GroupBy
 
         # First: copy every column from the input verbatim
-        mappings = [(None, expression.UnnamedAttributeRef(i))
+        mappings = [(None, UnnamedAttributeRef(i))
                     for i in range(len(child_scheme))]
 
         # Next: move the complex grouping expressions into the Apply, replace
@@ -821,14 +825,14 @@ class SimpleGroupBy(rules.Rule):
         for i, grp_expr in complex_grp_exprs:
             mappings.append((None, grp_expr))
             expr.grouping_list[i] = \
-                expression.UnnamedAttributeRef(len(mappings) - 1)
+                UnnamedAttributeRef(len(mappings) - 1)
 
         # Finally: move the complex aggregate expressions into the Apply,
         # replace with simple refs
         for agg_expr in complex_agg_exprs:
             mappings.append((None, agg_expr.input))
             agg_expr.input = \
-                expression.UnnamedAttributeRef(len(mappings) - 1)
+                UnnamedAttributeRef(len(mappings) - 1)
 
         # Construct and prepend the new Apply
         new_apply = algebra.Apply(mappings, expr.input)
@@ -845,11 +849,145 @@ def is_column_equality_comparison(cond):
     """
 
     if isinstance(cond, expression.EQ) and \
-       isinstance(cond.left, expression.UnnamedAttributeRef) and \
-       isinstance(cond.right, expression.UnnamedAttributeRef):
-        return (cond.left.position, cond.right.position)
+       isinstance(cond.left, UnnamedAttributeRef) and \
+       isinstance(cond.right, UnnamedAttributeRef):
+        return cond.left.position, cond.right.position
     else:
         return None
+
+
+class PushApply(rules.Rule):
+    """Many Applies in MyriaL are added to select fewer columns from the
+    input. In some  of these cases, we can do less work in the children by
+    preventing them from producing columns we will then immediately drop.
+
+    Currently, this rule:
+      - merges consecutive Apply operations into one Apply, possibly dropping
+        some of the produced columns along the way.
+      - makes ProjectingJoin only produce columns that are later read.
+        TODO: drop the Apply if the column-selection pushed into the
+        ProjectingJoin is everything the Apply was doing. See note below.
+    """
+    def fire(self, op):
+        if not isinstance(op, algebra.Apply):
+            return op
+
+        child = op.input
+
+        if isinstance(child, algebra.Apply):
+            in_scheme = child.scheme()
+            child_in_scheme = child.input.scheme()
+            names, emits = zip(*op.emitters)
+            emits = [to_unnamed_recursive(e, in_scheme)
+                     for e in emits]
+            child_emits = [to_unnamed_recursive(e[1], child_in_scheme)
+                           for e in child.emitters]
+
+            def convert(n):
+                if isinstance(n, expression.UnnamedAttributeRef):
+                    n = child_emits[n.position]
+                else:
+                    n.apply(convert)
+                return n
+            emits = [convert(copy.deepcopy(e)) for e in emits]
+
+            new_apply = algebra.Apply(emitters=zip(names, emits),
+                                      input=child.input)
+            return self.fire(new_apply)
+
+        elif isinstance(child, algebra.ProjectingJoin):
+            in_scheme = child.scheme()
+            names, emits = zip(*op.emitters)
+            emits = [to_unnamed_recursive(e, in_scheme)
+                     for e in emits]
+            accessed = sorted(set(itertools.chain(*(accessed_columns(e)
+                                                    for e in emits))))
+            index_map = {a: i for (i, a) in enumerate(accessed)}
+            child.output_columns = [child.output_columns[i] for i in accessed]
+            for e in emits:
+                expression.reindex_expr(e, index_map)
+            # TODO(dhalperi) we may not need the Apply if all it did was rename
+            # and/or select certain columns. Figure out these cases and omit
+            # the Apply
+            return algebra.Apply(emitters=zip(names, emits),
+                                 input=child)
+
+        return op
+
+    def __str__(self):
+        return 'Push Apply into Apply, ProjectingJoin'
+
+
+class RemoveUnusedColumns(rules.Rule):
+    """For operators that construct new tuples (e.g., GroupBy or Join), we are
+    guaranteed that any columns from an input tuple that are ignored (neither
+    used internally nor to produce the output columns) cannot be used higher
+    in the query tree. For these cases, this rule will prepend an Apply that
+    keeps only the referenced columns. The goal is that after this rule,
+    a subsequent invocation of PushApply will be able to push that
+    column-selection operation further down the tree."""
+    def fire(self, op):
+        if isinstance(op, algebra.GroupBy):
+            child = op.input
+            child_scheme = child.scheme()
+            grp_list = [to_unnamed_recursive(g, child_scheme)
+                        for g in op.grouping_list]
+            agg_list = [to_unnamed_recursive(a, child_scheme)
+                        for a in op.aggregate_list]
+            agg = [accessed_columns(a) for a in agg_list]
+            pos = [g.position for g in grp_list]
+            accessed = sorted(set(itertools.chain(*(agg + [pos]))))
+            if not accessed:
+                # Bug #207: COUNTALL() does not access any columns. So if the
+                #  query is just a COUNT(*), we would generate an empty Apply.
+                # If this happens, just keep the first column of the input.
+                accessed = [0]
+            if len(accessed) != len(child_scheme):
+                emitters = [(None, UnnamedAttributeRef(i)) for i in accessed]
+                new_apply = algebra.Apply(emitters, child)
+                index_map = {a: i for (i, a) in enumerate(accessed)}
+                for agg_expr in itertools.chain(grp_list, agg_list):
+                    expression.reindex_expr(agg_expr, index_map)
+                op.grouping_list = grp_list
+                op.aggregate_list = agg_list
+                op.input = new_apply
+                return op
+        elif isinstance(op, algebra.ProjectingJoin):
+            l_scheme = op.left.scheme()
+            r_scheme = op.right.scheme()
+            in_scheme = l_scheme + r_scheme
+            condition = to_unnamed_recursive(op.condition, in_scheme)
+            column_list = [to_unnamed_recursive(c, in_scheme)
+                           for c in op.output_columns]
+
+            accessed = (accessed_columns(condition)
+                        | set(c.position for c in op.output_columns))
+            if len(accessed) == len(in_scheme):
+                return op
+
+            accessed = sorted(accessed)
+            left = [a for a in accessed if a < len(l_scheme)]
+            if len(left) < len(l_scheme):
+                emits = [(None, UnnamedAttributeRef(a)) for a in left]
+                apply = algebra.Apply(emits, op.left)
+                op.left = apply
+            right = [a - len(l_scheme) for a in accessed
+                     if a >= len(l_scheme)]
+            if len(right) < len(r_scheme):
+                emits = [(None, UnnamedAttributeRef(a)) for a in right]
+                apply = algebra.Apply(emits, op.right)
+                op.right = apply
+            index_map = {a: i for (i, a) in enumerate(accessed)}
+            expression.reindex_expr(condition, index_map)
+            [expression.reindex_expr(c, index_map) for c in column_list]
+            op.condition = condition
+            op.output_columns = column_list
+            return op
+
+        return op
+
+    def __str__(self):
+        return 'Remove unused columns'
 
 
 class PushSelects(rules.Rule):
@@ -874,7 +1012,7 @@ class PushSelects(rules.Rule):
         elif isinstance(op, algebra.CompositeBinaryOperator):
             # Joins and cross-products; consider conversion to an equijoin
             left_len = len(op.left.scheme())
-            accessed = expression.accessed_columns(cond)
+            accessed = accessed_columns(cond)
             in_left = [col < left_len for col in accessed]
             if all(in_left):
                 # Push the select into the left sub-tree.
@@ -893,7 +1031,7 @@ class PushSelects(rules.Rule):
                     return op.add_equijoin_condition(cols[0], cols[1])
         elif isinstance(op, algebra.Apply):
             # Convert accessed to a list from a set to ensure consistent order
-            accessed = list(expression.accessed_columns(cond))
+            accessed = list(accessed_columns(cond))
             accessed_emits = [op.emitters[i][1] for i in accessed]
             if all(isinstance(e, expression.AttributeRef)
                    for e in accessed_emits):
@@ -908,7 +1046,7 @@ class PushSelects(rules.Rule):
                 return op
         elif isinstance(op, algebra.GroupBy):
             # Convert accessed to a list from a set to ensure consistent order
-            accessed = list(expression.accessed_columns(cond))
+            accessed = list(accessed_columns(cond))
             if all((a < len(op.grouping_list)) for a in accessed):
                 accessed_grps = [op.grouping_list[a] for a in accessed]
                 # This condition only touches columns that are copied verbatim
@@ -987,6 +1125,15 @@ class MyriaAlgebra(object):
 
         rules.ProjectingJoin(),
         rules.JoinToProjectingJoin(),
+
+        # These really ought to be run until convergence.
+        # For now, run twice and finish with PushApply.
+        PushApply(),
+        RemoveUnusedColumns(),
+        PushApply(),
+        RemoveUnusedColumns(),
+        PushApply(),
+
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
         DistributedGroupBy(),
@@ -1020,14 +1167,13 @@ def apply_schema_recursive(operator, catalog):
     that scan relations in the map."""
 
     # We found a scan, let's fill in its scheme
-    if isinstance(operator, MyriaScan) or isinstance(operator, MyriaScanTemp):
+    if isinstance(operator, (MyriaScan, MyriaScanTemp)):
 
         if isinstance(operator, MyriaScan):
             rel_key = operator.relation_key
-            rel_scheme = catalog.get_scheme(rel_key)
-        elif isinstance(operator, MyriaScanTemp):
+        else:
             rel_key = RelationKey.from_string(operator.name)
-            rel_scheme = catalog.get_scheme(rel_key)
+        rel_scheme = catalog.get_scheme(rel_key)
 
         if rel_scheme:
             # The Catalog has an entry for this relation
