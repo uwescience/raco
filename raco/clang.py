@@ -228,7 +228,13 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         assert len(self.grouping_list) <= 1, \
             "%s does not currently support groupings of more than 1 attribute" % self.__class__.__name__
         assert len(self.aggregate_list) == 1, \
-            "%s currently only supports aggregates of 1 attribute" % self.__class__.__name__
+            """%s currently only supports aggregates of 1 attribute
+            (aggregate_list=%s)""" % (self.__class__.__name__, self.aggregate_list)
+        for agg_term in self.aggregate_list:
+            assert isinstance(agg_term, expression.AggregateExpression), \
+                """%s only supports simple aggregate expressions.
+                A rule should create Apply[GroupBy]""" \
+                % self.__class__.__name__
 
         self.useMap = len(self.grouping_list) > 0
 
@@ -468,6 +474,7 @@ class CCAlgebra(object):
      #rules.OneToOne(algebra.Join,TwoPassHashJoin),
     #rules.removeProject(),
     rules.CrossProduct2Join(),
+    rules.SimpleGroupBy(),
 #    FilteringNestedLoopJoinRule(),
 #    FilteringHashJoinChainRule(),
 #    LeftDeepFilteringJoinChainRule(),

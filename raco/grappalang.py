@@ -424,6 +424,11 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             "%s does not currently support groupings of more than 1 attribute" % self.__class__.__name__
         assert len(self.aggregate_list) == 1, \
             "%s currently only supports aggregates of 1 attribute" % self.__class__.__name__
+        for agg_term in self.aggregate_list:
+            assert isinstance(agg_term, expression.AggregateExpression), \
+                """%s only supports simple aggregate expressions.
+                A rule should create Apply[GroupBy]""" \
+                % self.__class__.__name__
 
         self.useKey = len(self.grouping_list) > 0
 
@@ -759,6 +764,7 @@ class GrappaAlgebra(object):
     rules = [
         # rules.removeProject(),
         rules.CrossProduct2Join(),
+        rules.SimpleGroupBy(),
         # SwapJoinSides(),
         rules.OneToOne(algebra.Select, GrappaSelect),
         rules.OneToOne(algebra.Apply, GrappaApply),
