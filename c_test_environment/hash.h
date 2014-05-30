@@ -5,8 +5,8 @@
 
 #include <iostream>
 
-template <typename T>
-void insert(std::unordered_map<int64_t, std::vector<T>* >& hash, T tuple, uint64_t pos) {
+template <typename T, typename K>
+void insert(std::unordered_map<K, std::vector<T>* >& hash, T tuple, uint64_t pos) {
   auto key = tuple.get(pos);
   auto r = hash.find(key);
   if (r != hash.end()) {
@@ -19,8 +19,8 @@ void insert(std::unordered_map<int64_t, std::vector<T>* >& hash, T tuple, uint64
   }
 }
 
-template <typename T>
-void SUM_insert(std::unordered_map<int64_t, int64_t >& hash, T tuple, uint64_t keypos, uint64_t valpos) {
+template <typename T, typename K, typename V>
+void SUM_insert(std::unordered_map<K, V >& hash, T tuple, uint64_t keypos, uint64_t valpos) {
   auto key = tuple.get(keypos);
   auto val = tuple.get(valpos);
   // NOTE: this method is only valid for 0 identity functions
@@ -28,8 +28,8 @@ void SUM_insert(std::unordered_map<int64_t, int64_t >& hash, T tuple, uint64_t k
   slot += val;
 }
 
-template <typename T>
-void COUNT_insert(std::unordered_map<int64_t, int64_t >& hash, T tuple, uint64_t keypos, uint64_t valpos) {
+template <typename T, typename K, typename V>
+void COUNT_insert(std::unordered_map<K, V>& hash, T tuple, uint64_t keypos, uint64_t valpos) {
   auto key = tuple.get(keypos);
   auto val = tuple.get(valpos);
   // NOTE: this method is only valid for 0 identity functions
@@ -38,20 +38,20 @@ void COUNT_insert(std::unordered_map<int64_t, int64_t >& hash, T tuple, uint64_t
 }
 
 // one key
-template <typename T>
-void SUM_insert(int64_t& var, T tuple, uint64_t valpos) {
+template <typename T, typename V>
+void SUM_insert(V& var, T tuple, uint64_t valpos) {
   auto val = tuple.get(valpos);
   var += val;
 }
 
 // one key
-template <typename T>
-void COUNT_insert(int64_t& var, T tuple, uint64_t valpos) {
+template <typename T, typename V>
+void COUNT_insert(V& var, T tuple, uint64_t valpos) {
   var += 1;
 }
 
-template <typename T>
-std::vector<T>& lookup(std::unordered_map<int64_t, std::vector<T>* >& hash, int64_t key) {
+template <typename T, typename K>
+std::vector<T>& lookup(std::unordered_map<K, std::vector<T>* >& hash, K key) {
   static std::vector<T> emptyResult;
 
   auto r = hash.find(key);
