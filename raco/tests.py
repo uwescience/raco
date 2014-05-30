@@ -155,6 +155,12 @@ class DatalogTest(unittest.TestCase):
         testresult = RATest(query)
         self.assertEquals(testresult, desiredresult)
 
+    def test_literal_expr(self):
+        query = "A(a+1) :- R(a)"
+        desiredresult = """[('A', Project($0)[Apply(_COLUMN0_=($0 + 1))[Scan(public:adhoc:R)]])]"""  # noqa
+        testresult = RATest(query)
+        self.assertEquals(testresult, desiredresult)
+
 
 class ExpressionTest(unittest.TestCase):
     def test_postorder(self):
