@@ -36,6 +36,7 @@ class WORKERID(ZeroaryOperator):
 
 
 class UnaryLongFunction(UnaryFunction):
+    """A unary function that returns a long."""
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
@@ -43,6 +44,7 @@ class UnaryLongFunction(UnaryFunction):
 
 
 class UnaryDoubleFunction(UnaryFunction):
+    """A unary function that returns a double."""
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
