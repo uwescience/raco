@@ -504,6 +504,8 @@ class FLOAT_CAST(UnaryOperator):
         return float(self.input.evaluate(_tuple, scheme, state))
 
     def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        check_is_numeric(input_type)
         return "DOUBLE_TYPE"
 
 
