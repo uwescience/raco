@@ -35,14 +35,6 @@ class WORKERID(ZeroaryOperator):
         return "LONG_TYPE"
 
 
-class UnaryLongFunction(UnaryFunction):
-    """A unary function that returns a long."""
-    def typeof(self, scheme, state_scheme):
-        input_type = self.input.typeof(scheme, state_scheme)
-        check_is_numeric(input_type)
-        return "LONG_TYPE"
-
-
 class UnaryDoubleFunction(UnaryFunction):
     """A unary function that returns a double."""
     def typeof(self, scheme, state_scheme):
@@ -63,7 +55,7 @@ class ABS(UnaryTypePreservingFunction):
         return abs(self.input.evaluate(_tuple, scheme, state))
 
 
-class CEIL(UnaryLongFunction):
+class CEIL(UnaryDoubleFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.ceil(self.input.evaluate(_tuple, scheme, state))
 
@@ -73,7 +65,7 @@ class COS(UnaryDoubleFunction):
         return math.cos(self.input.evaluate(_tuple, scheme, state))
 
 
-class FLOOR(UnaryLongFunction):
+class FLOOR(UnaryDoubleFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.floor(self.input.evaluate(_tuple, scheme, state))
 
