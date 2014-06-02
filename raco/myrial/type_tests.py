@@ -166,6 +166,24 @@ class TypeTests(MyrialTestCase):
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
 
+    def test_invalid_floor(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS Y
+             WHERE floor(cbool) > 1.0 EMIT *];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_ceil(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS Y
+             WHERE ceil(clong) == "Hello world" EMIT *];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
     def test_invalid_tan(self):
         query = """
         X = [FROM SCAN(public:adhoc:mytable) AS Y
