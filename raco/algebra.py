@@ -115,7 +115,7 @@ class Operator(Printable):
                         for k, v in self.gettrace()])
 
     def set_alias(self, alias):
-        """Set a user-defined identififer for this operator.  Used in
+        """Set a user-defined identifier for this operator.  Used in
         optimization and transformation of plans"""
         self.alias = alias
 

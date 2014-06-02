@@ -195,19 +195,19 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
 
 
 class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
-    def compileme(self, leftsym, rightsym):
+    def compileme(self, leftid, rightid):
         return {
             "opType": "UnionAll",
-            "argChildren": [leftsym, rightsym]
+            "argChildren": [leftid, rightid]
         }
 
 
 class MyriaDifference(algebra.Difference, MyriaOperator):
-    def compileme(self, leftsym, rightsym):
+    def compileme(self, leftid, rightid):
         return {
             "opType": "Difference",
-            "argChild1": leftsym,
-            "argChild2": rightsym,
+            "argChild1": leftid,
+            "argChild2": rightid,
         }
 
 
@@ -227,11 +227,11 @@ class MyriaEmptyRelation(algebra.EmptyRelation, MyriaOperator):
 
 
 class MyriaSelect(algebra.Select, MyriaOperator):
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         pred = compile_expr(self.condition, self.scheme(), None)
         return {
             "opType": "Filter",
-            "argChild": inputsym,
+            "argChild": inputid,
             "argPredicate": {
                 "rootExpressionOperator": pred
             }
@@ -239,15 +239,15 @@ class MyriaSelect(algebra.Select, MyriaOperator):
 
 
 class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
-    def compileme(self, leftsym, rightsym):
+    def compileme(self, leftid, rightid):
         column_names = [name for (name, _) in self.scheme()]
         allleft = [i.position for i in self.left.scheme().ascolumnlist()]
         allright = [i.position for i in self.right.scheme().ascolumnlist()]
         return {
             "opType": "SymmetricHashJoin",
             "argColumnNames": column_names,
-            "argChild1": leftsym,
-            "argChild2": rightsym,
+            "argChild1": leftid,
+            "argChild2": rightid,
             "argColumns1": [],
             "argColumns2": [],
             "argSelect1": allleft,
@@ -256,7 +256,7 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
 
 
 class MyriaStore(algebra.Store, MyriaOperator):
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             "opType": "DbInsert",
             "relationKey": {
@@ -265,12 +265,12 @@ class MyriaStore(algebra.Store, MyriaOperator):
                 "relationName": self.relation_key.relation
             },
             "argOverwriteTable": True,
-            "argChild": inputsym,
+            "argChild": inputid,
         }
 
 
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             "opType": "DbInsert",
             "relationKey": {
@@ -279,7 +279,7 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
                 "relationName": self.name
             },
             "argOverwriteTable": True,
-            "argChild": inputsym,
+            "argChild": inputid,
         }
 
 
@@ -308,7 +308,7 @@ def convertcondition(condition, left_len, combined_scheme):
 
 class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
 
-    def compileme(self, leftsym, rightsym):
+    def compileme(self, leftid, rightid):
         """Compile the operator to a sequence of json operators"""
 
         left_len = len(self.left.scheme())
@@ -328,9 +328,9 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
         join = {
             "opType": "SymmetricHashJoin",
             "argColumnNames": column_names,
-            "argChild1": "%s" % leftsym,
+            "argChild1": "%s" % leftid,
             "argColumns1": leftcols,
-            "argChild2": "%s" % rightsym,
+            "argChild2": "%s" % rightid,
             "argColumns2": rightcols,
             "argSelect1": allleft,
             "argSelect2": allright
@@ -355,7 +355,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         elif isinstance(agg_expr, expression.SUM):
             return "AGG_OP_SUM"
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         child_scheme = self.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme)
                         for ref in self.grouping_list]
@@ -372,7 +372,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)]
                      for agg_expr in self.aggregate_list]
         ret = {
-            "argChild": inputsym,
+            "argChild": inputid,
             "argAggFields": [agg_field.position for agg_field in agg_fields],
             "argAggOperators": agg_types,
         }
@@ -391,41 +391,41 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
 
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
     """Represents a simple shuffle operator"""
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')  # noqa
 
 
 class MyriaCollect(algebra.Collect, MyriaOperator):
     """Represents a simple collect operator"""
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         raise NotImplementedError('shouldn''t ever get here, should be turned into CP-CC pair')  # noqa
 
 
 class MyriaDupElim(algebra.Distinct, MyriaOperator):
     """Represents duplicate elimination"""
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             "opType": "DupElim",
-            "argChild": inputsym,
+            "argChild": inputid,
         }
 
 
 class MyriaApply(algebra.Apply, MyriaOperator):
     """Represents a simple apply operator"""
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         child_scheme = self.input.scheme()
         emitters = [compile_mapping(x, child_scheme, None)
                     for x in self.emitters]
         return {
             'opType': 'Apply',
-            'argChild': inputsym,
+            'argChild': inputid,
             'emitExpressions': emitters
         }
 
 
 class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
     """Represents a stateful apply operator"""
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         child_scheme = self.input.scheme()
         state_scheme = self.state_scheme
         comp_map = lambda x: compile_mapping(x, child_scheme, state_scheme)
@@ -434,7 +434,7 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
         updaters = [comp_map(x) for x in self.updaters]
         return {
             'opType': 'StatefulApply',
-            'argChild': inputsym,
+            'argChild': inputid,
             'emitExpressions': emitters,
             'initializerExpressions': inits,
             'updaterExpressions': updaters
@@ -449,10 +449,10 @@ class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         return "%s" % self.opname()
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             "opType": "BroadcastProducer",
-            "argChild": inputsym,
+            "argChild": inputid,
         }
 
 
@@ -464,10 +464,10 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         return "%s" % self.opname()
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             'opType': 'BroadcastConsumer',
-            'argOperatorId': inputsym
+            'argOperatorId': inputid
         }
 
 
@@ -481,7 +481,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         hash_string = ','.join([str(x) for x in self.hash_columns])
         return "%s(h(%s))" % (self.opname(), hash_string)
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         if len(self.hash_columns) == 1:
             pf = {
                 "type": "SingleFieldHash",
@@ -495,7 +495,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
         return {
             "opType": "ShuffleProducer",
-            "argChild": inputsym,
+            "argChild": inputid,
             "argPf": pf
         }
 
@@ -508,10 +508,10 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         return "%s" % self.opname()
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             'opType': 'ShuffleConsumer',
-            'argOperatorId': inputsym
+            'argOperatorId': inputid
         }
 
 
@@ -534,10 +534,10 @@ class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         return "%s(@%s)" % (self.opname(), self.server)
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             "opType": "CollectProducer",
-            "argChild": inputsym,
+            "argChild": inputid,
         }
 
 
@@ -549,10 +549,10 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         return "%s" % self.opname()
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             'opType': 'CollectConsumer',
-            'argOperatorId': inputsym
+            'argOperatorId': inputid
         }
 
 
@@ -1203,12 +1203,12 @@ class EmptyCatalog(object):
         return None
 
 
-class SymbolFactory(object):
+class OpIdFactory(object):
     def __init__(self):
         self.count = 0
 
     def alloc(self):
-        ret = "V{0}".format(self.count)
+        ret = self.count
         self.count += 1
         return ret
 
@@ -1235,11 +1235,11 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     for (label, root_op) in physical_plan:
         apply_schema_recursive(root_op, catalog)
 
-    # A dictionary mapping each object to a unique, object-dependent symbol.
+    # A dictionary mapping each object to a unique, object-dependent id.
     # Since we want this to be truly unique for each object instance, even if
     # two objects are equal, we use id(obj) as the key.
-    symbol_factory = SymbolFactory()
-    syms = defaultdict(symbol_factory.getter())
+    opid_factory = OpIdFactory()
+    op_ids = defaultdict(opid_factory.getter())
 
     def one_fragment(rootOp):
         """Given an operator that is the root of a query fragment/plan, extract
@@ -1294,50 +1294,40 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
 
     def call_compile_me(op):
         "A shortcut to call the operator's compile_me function."
-        opsym = syms[id(op)]
-        childsyms = [syms[id(child)] for child in op.children()]
-        op_dict = op.compileme(*childsyms)
+        op_id = op_ids[id(op)]
+        child_op_ids = [op_ids[id(child)] for child in op.children()]
+        op_dict = op.compileme(*child_op_ids)
         op_dict['opName'] = op.shortStr()
-        op_dict['opId'] = opsym
+        assert isinstance(op_id, int), (type(op_id), op_id)
+        op_dict['opId'] = op_id
         return op_dict
 
     # The actual code. all_frags collects up the fragments.
     all_frags = []
     # For each IDB, generate a plan that assembles all its fragments and stores
     # them back to a relation named (label).
+
     for (label, rootOp) in physical_plan:
-
-        # If the root operator is not a Store-type, we need to add one at the
-        # top. We actually do this later, but we want to allocate the new
-        # operator's label first
-        if not isinstance(rootOp, (algebra.Store, algebra.StoreTemp)):
-            store_label = symbol_factory.alloc()
-
         # Sometimes the root operator is not labeled, usually because we were
         # lazy when submitting a manual plan. In this case, generate a new
         # label.
         if not label:
-            label = syms[id(rootOp)]
+            label = "V" + str(op_ids[id(rootOp)])
 
         if not isinstance(rootOp, (algebra.Store, algebra.StoreTemp)):
             # Here we actually create the Store that goes at the root
             frag_root = MyriaStore(plan=rootOp,
                                    relation_key=RelationKey.from_string(label))
-            label = store_label
-            del store_label                 # Aggressive bug detection
         else:
             frag_root = rootOp
 
-        # Make sure the root is in the symbol dictionary, but rather than using
-        # a generated symbol use the IDB label.
-        syms[id(frag_root)] = label
         # Determine the fragments.
         frags = fragments(frag_root)
         # Build the fragments.
         all_frags.extend([{'operators': [call_compile_me(op) for op in frag]}
                           for frag in frags])
-        # Clear out the symbol dictionary for the next IDB.
-        syms.clear()
+        # Clear out the id dictionary for the next IDB.
+        op_ids.clear()
 
     # Assemble all the fragments into a single JSON query plan
     query = {
