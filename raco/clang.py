@@ -198,6 +198,9 @@ class MemoryScan(algebra.UnaryOperator, CCOperator):
     state.addPipeline(code)
     return None
 
+  def num_tuples():
+    #TODO: get correct return value
+    return 0
 
   def shortStr(self):
     return "%s" % (self.opname())
@@ -368,21 +371,24 @@ class CCAlgebra(object):
     CApply,
     CProject,
     HashJoin
-  ]
-    rules = [
-     #rules.OneToOne(algebra.Join,TwoPassHashJoin),
-    #rules.removeProject(),
-    rules.CrossProduct2Join(),
-#    FilteringNestedLoopJoinRule(),
-#    FilteringHashJoinChainRule(),
-#    LeftDeepFilteringJoinChainRule(),
-    rules.OneToOne(algebra.Select,CSelect),
- #   rules.OneToOne(algebra.Select,TwoPassSelect),
-  #  rules.OneToOne(algebra.Scan,MemoryScan),
-    MemoryScanOfFileScan(),
-    rules.OneToOne(algebra.Apply, CApply),
-    rules.OneToOne(algebra.Join,HashJoin),
-    rules.OneToOne(algebra.Project, CProject),
-    rules.OneToOne(algebra.Union,CUnionAll) #TODO: obviously breaks semantics
-  #  rules.FreeMemory()
-  ]
+    ]
+
+    def opt_rules(self):
+        return [
+            # rules.OneToOne(algebra.Join,TwoPassHashJoin),
+            # rules.removeProject(),
+            rules.CrossProduct2Join(),
+            #    FilteringNestedLoopJoinRule(),
+            #    FilteringHashJoinChainRule(),
+            #    LeftDeepFilteringJoinChainRule(),
+            rules.OneToOne(algebra.Select, CSelect),
+            #   rules.OneToOne(algebra.Select,TwoPassSelect),
+            #  rules.OneToOne(algebra.Scan,MemoryScan),
+            MemoryScanOfFileScan(),
+            rules.OneToOne(algebra.Apply, CApply),
+            rules.OneToOne(algebra.Join, HashJoin),
+            rules.OneToOne(algebra.Project, CProject),
+            # TODO: obviously breaks semantics
+            rules.OneToOne(algebra.Union, CUnionAll)
+            #  rules.FreeMemory()
+        ]

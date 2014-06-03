@@ -1568,7 +1568,7 @@ class MergeToNaryJoin(rules.Rule):
         ordered_conds = sorted(conditions, key=lambda cond: min(cond))
         # 3. reverse the children due to top-down tree traversal
         return algebra.NaryJoin(
-            list(reversed(children)), ordered_conds, op.columnlist)
+            list(reversed(children)), ordered_conds, op.output_columns)
 
     def fire(self, op):
         if not isinstance(op, algebra.ProjectingJoin):
