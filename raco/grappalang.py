@@ -447,7 +447,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         hashdeclr = declr_template % locals()
         state.addDeclarationsUnresolved([hashdeclr])
 
-        init_template = ct("""auto %(hashname)s = DHT_int64.create_DHT_symmetric( );""")
+        init_template = ct("""auto %(hashname)s = DHT_int64::create_DHT_symmetric( );""")
         state.addInitializers([init_template % locals()])
         self.input.produce(state)
 
@@ -462,7 +462,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             mapping_var_name = gensym()
             produce_template = ct("""%(hashname)s->\
             forall_entries<&%(pipeline_sync)s>\
-            ([=](auto& %(mapping_var_name)s) {
+            ([=](std::pair<const int64_t,int64_t>& %(mapping_var_name)s) {
                 %(output_tuple_type)s %(output_tuple_name)s(\
                 {%(mapping_var_name)s.first, %(mapping_var_name)s.second});
                 %(inner_code)s
@@ -472,7 +472,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             mapping_var_name = gensym()
             produce_template = ct("""%(hashname)s->\
             forall_entries<&%(pipeline_sync)s>\
-            ([=](auto& %(mapping_var_name)s) {
+            ([=](std::pair<const int64_t,int64_t>& %(mapping_var_name)s) {
                 %(output_tuple_type)s %(output_tuple_name)s(\
                 {%(mapping_var_name)s.second});
                 %(inner_code)s
@@ -501,7 +501,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         if self.useKey:
             materialize_template = ct("""%(hashname)s.update\
             <&%(pipeline_sync)s, int64_t, \
-            &Aggregates::%(op)s<int64_t,int64_t>>(\
+            &Aggregates::%(op)s<int64_t,int64_t,0>>(\
             %(tuple_name)s.get(%(keypos)s),\
             %(tuple_name)s.get(%(valpos)s));
       """)
@@ -511,7 +511,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             # TODO: use optimization for few keys
             materialize_template = ct("""%(hashname)s.update\
                                       <&%(pipeline_sync)s, int64_t, \
-                                      &Aggregates::%(op)s<int64_t,int64_t>>(\
+                                      &Aggregates::%(op)s<int64_t,int64_t,0>>(\
                                       0,\
                                       %(tuple_name)s.get(%(valpos)s);
             """)
