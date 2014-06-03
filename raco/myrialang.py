@@ -631,8 +631,8 @@ class BroadcastBeforeCross(rules.Rule):
         if not isinstance(expr, algebra.CrossProduct):
             return expr
 
-        if isinstance(expr.left, algebra.Broadcast) or \
-                isinstance(expr.right, algebra.Broadcast):
+        if (isinstance(expr.left, algebra.Broadcast) or
+                isinstance(expr.right, algebra.Broadcast)):
             return expr
 
         # By default, broadcast the right child
@@ -831,15 +831,13 @@ class SimpleGroupBy(rules.Rule):
         # with simple refs
         for i, grp_expr in complex_grp_exprs:
             mappings.append((None, grp_expr))
-            expr.grouping_list[i] = \
-                UnnamedAttributeRef(len(mappings) - 1)
+            expr.grouping_list[i] = UnnamedAttributeRef(len(mappings) - 1)
 
         # Finally: move the complex aggregate expressions into the Apply,
         # replace with simple refs
         for agg_expr in complex_agg_exprs:
             mappings.append((None, agg_expr.input))
-            agg_expr.input = \
-                UnnamedAttributeRef(len(mappings) - 1)
+            agg_expr.input = UnnamedAttributeRef(len(mappings) - 1)
 
         # Construct and prepend the new Apply
         new_apply = algebra.Apply(mappings, expr.input)
@@ -855,9 +853,9 @@ def is_column_equality_comparison(cond):
     """Return a tuple of column indexes if the condition is an equality test.
     """
 
-    if isinstance(cond, expression.EQ) and \
-            isinstance(cond.left, UnnamedAttributeRef) and \
-            isinstance(cond.right, UnnamedAttributeRef):
+    if (isinstance(cond, expression.EQ) and
+            isinstance(cond.left, UnnamedAttributeRef) and
+            isinstance(cond.right, UnnamedAttributeRef)):
         return cond.left.position, cond.right.position
     else:
         return None
@@ -1346,14 +1344,15 @@ def compile_plan(plan_op):
 
 
 def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
-    """This function compiles a logical RA plan to the JSON suitable for
-    submission to the Myria REST API server."""
+    """This function compiles a physical query plan to the JSON suitable for
+    submission to the Myria REST API server. The logical plan is converted to a
+    string and passed along unchanged."""
 
     # raw_query must be a string
     if not isinstance(raw_query, basestring):
         raise ValueError("raw query must be a string")
 
-    # old-style plan with (name, label) pair. Turn it into a single operator.
+    # old-style plan with (name, root_op) pair. Turn it into a single operator.
     # If the list has length > 1, it will be a Parallel. Otherwise it will
     # just be the root operator.
     if isinstance(physical_plan, list):
