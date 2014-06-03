@@ -1146,10 +1146,9 @@ class MyriaAlgebra(object):
 
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
-        DistributedGroupBy(),
-
-        SimpleGroupBy(),  # TODO in case DistributedGroupBy added a complex GB
-                          # If triggered, don't we want to redo above?
+        # DistributedGroupBy may introduce a complex GroupBy, so we must run
+        # SimpleGroupBy after it. TODO no one likes this.
+        DistributedGroupBy(), SimpleGroupBy(),
 
         ProjectToDistinctColumnSelect(),
         rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
