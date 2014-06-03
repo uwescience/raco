@@ -17,7 +17,7 @@ from nose.tools import nottest
 class ClangTest(unittest.TestCase):
     def check(self, query, name):
         chdir = Chdir("c_test_environment")
-        emitCode(query, name, CCAlgebra)
+        emitCode(query, name, CCAlgebra())
         checkquery(name)
 
     def setUp(self):
