@@ -588,13 +588,30 @@ class ShuffleBeforeDistinct(rules.Rule):
         return exp
 
 
+class ShuffleBeforeDifference(rules.Rule):
+    def fire(self, exp):
+        if not isinstance(exp, algebra.Difference):
+            return exp
+
+        def shuffle_after(op):
+            cols = [expression.UnnamedAttributeRef(i)
+                    for i in range(len(op.scheme()))]
+            return algebra.Shuffle(child=op, columnlist=cols)
+
+        if not isinstance(exp.left, algebra.Shuffle):
+            exp.left = shuffle_after(exp.left)
+        if not isinstance(exp.right, algebra.Shuffle):
+            exp.right = shuffle_after(exp.right)
+        return exp
+
+
 class ShuffleBeforeJoin(rules.Rule):
     def fire(self, expr):
         # If not a join, who cares?
         if not isinstance(expr, algebra.Join):
             return expr
 
-        # If both have shuffles already, who cares?
+        # If both have Shuffles already, who cares?
         if (isinstance(expr.left, algebra.Shuffle)
                 and isinstance(expr.right, algebra.Shuffle)):
             return expr
@@ -1147,6 +1164,7 @@ class MyriaAlgebra(object):
         PushApply(),
 
         ShuffleBeforeDistinct(),
+        ShuffleBeforeDifference(),
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
         DistributedGroupBy(),
