@@ -49,7 +49,7 @@ def evaluate(plan, connection=None, validate=False):
             evaluate(child, connection, validate)
     else:
         logical = str(plan)
-        physical = [('', plan)]
+        physical = plan
         phys = myrialang.compile_to_json(logical, logical, physical)
         if connection is not None:
             if validate:

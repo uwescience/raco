@@ -20,15 +20,12 @@ def scheme_to_schema(s):
             return 'BOOLEAN_TYPE'
         if t.lower() in ['float', 'double']:
             return 'DOUBLE_TYPE'
-#    if t.lower() in ['float']:
-#      return 'FLOAT_TYPE'
-#    if t.lower() in ['int', 'integer']:
-#      return 'INT_TYPE'
         if t.lower() in ['int', 'integer', 'long']:
             return 'LONG_TYPE'
         if t.lower() in ['str', 'string']:
             return 'STRING_TYPE'
         return t
+
     if s:
         names, descrs = zip(*s.asdict.items())
         names = ["%s" % n for n in names]
@@ -307,7 +304,6 @@ def convertcondition(condition, left_len, combined_scheme):
 
 
 class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
-
     def compileme(self, leftid, rightid):
         """Compile the operator to a sequence of json operators"""
 
@@ -391,18 +387,21 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
 
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
     """Represents a simple shuffle operator"""
+
     def compileme(self, inputid):
         raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')  # noqa
 
 
 class MyriaCollect(algebra.Collect, MyriaOperator):
     """Represents a simple collect operator"""
+
     def compileme(self, inputid):
         raise NotImplementedError('shouldn''t ever get here, should be turned into CP-CC pair')  # noqa
 
 
 class MyriaDupElim(algebra.Distinct, MyriaOperator):
     """Represents duplicate elimination"""
+
     def compileme(self, inputid):
         return {
             "opType": "DupElim",
@@ -412,6 +411,7 @@ class MyriaDupElim(algebra.Distinct, MyriaOperator):
 
 class MyriaApply(algebra.Apply, MyriaOperator):
     """Represents a simple apply operator"""
+
     def compileme(self, inputid):
         child_scheme = self.input.scheme()
         emitters = [compile_mapping(x, child_scheme, None)
@@ -425,6 +425,7 @@ class MyriaApply(algebra.Apply, MyriaOperator):
 
 class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
     """Represents a stateful apply operator"""
+
     def compileme(self, inputid):
         child_scheme = self.input.scheme()
         state_scheme = self.state_scheme
@@ -443,6 +444,7 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria BroadcastProducer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
@@ -458,6 +460,7 @@ class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
 
 class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
     """A Myria BroadcastConsumer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
@@ -473,6 +476,7 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
 
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleProducer"""
+
     def __init__(self, input, hash_columns):
         algebra.UnaryOperator.__init__(self, input)
         self.hash_columns = hash_columns
@@ -502,6 +506,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
 class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleConsumer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
@@ -527,6 +532,7 @@ class BreakShuffle(rules.Rule):
 
 class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria CollectProducer"""
+
     def __init__(self, input, server):
         algebra.UnaryOperator.__init__(self, input)
         self.server = server
@@ -543,6 +549,7 @@ class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
 
 class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
     """A Myria CollectConsumer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
@@ -669,8 +676,8 @@ class BroadcastBeforeCross(rules.Rule):
         if not isinstance(expr, algebra.CrossProduct):
             return expr
 
-        if isinstance(expr.left, algebra.Broadcast) or \
-                isinstance(expr.right, algebra.Broadcast):
+        if (isinstance(expr.left, algebra.Broadcast) or
+                isinstance(expr.right, algebra.Broadcast)):
             return expr
 
         # By default, broadcast the right child
@@ -680,7 +687,6 @@ class BroadcastBeforeCross(rules.Rule):
 
 
 class DistributedGroupBy(rules.Rule):
-
     @staticmethod
     def do_transfer(op):
         """Introduce a network transfer before a groupby operation."""
@@ -714,8 +720,8 @@ class DistributedGroupBy(rules.Rule):
         # e.g., average requires a SUM and a COUNT.  In turn, these local
         # aggregates are consumed by merge aggregates.
 
-        local_aggs = []   # aggregates executed on each local machine
-        merge_aggs = []   # aggregates executed after local aggs
+        local_aggs = []  # aggregates executed on each local machine
+        merge_aggs = []  # aggregates executed after local aggs
         agg_offsets = []  # map from logical index to local/merge index.
 
         for logical_agg in op.aggregate_list:
@@ -794,6 +800,7 @@ class SplitSelects(rules.Rule):
 
 class MergeSelects(rules.Rule):
     """Merge consecutive Selects into a single conjunctive selection."""
+
     def fire(self, op):
         if not isinstance(op, algebra.Select):
             return op
@@ -846,10 +853,10 @@ class SimpleGroupBy(rules.Rule):
         # A simple aggregate expression is an aggregate whose input is an
         # AttributeRef
         def is_simple_agg_expr(agg):
-            return isinstance(agg, expression.COUNTALL) or \
-                (isinstance(agg, expression.UnaryOperator) and
-                 isinstance(agg, expression.AggregateExpression) and
-                 isinstance(agg.input, expression.AttributeRef))
+            return (isinstance(agg, expression.COUNTALL) or
+                    (isinstance(agg, expression.UnaryOperator) and
+                     isinstance(agg, expression.AggregateExpression) and
+                     isinstance(agg.input, expression.AttributeRef)))
 
         complex_agg_exprs = [agg for agg in expr.aggregate_list
                              if not is_simple_agg_expr(agg)]
@@ -869,15 +876,13 @@ class SimpleGroupBy(rules.Rule):
         # with simple refs
         for i, grp_expr in complex_grp_exprs:
             mappings.append((None, grp_expr))
-            expr.grouping_list[i] = \
-                UnnamedAttributeRef(len(mappings) - 1)
+            expr.grouping_list[i] = UnnamedAttributeRef(len(mappings) - 1)
 
         # Finally: move the complex aggregate expressions into the Apply,
         # replace with simple refs
         for agg_expr in complex_agg_exprs:
             mappings.append((None, agg_expr.input))
-            agg_expr.input = \
-                UnnamedAttributeRef(len(mappings) - 1)
+            agg_expr.input = UnnamedAttributeRef(len(mappings) - 1)
 
         # Construct and prepend the new Apply
         new_apply = algebra.Apply(mappings, expr.input)
@@ -893,9 +898,9 @@ def is_column_equality_comparison(cond):
     """Return a tuple of column indexes if the condition is an equality test.
     """
 
-    if isinstance(cond, expression.EQ) and \
-       isinstance(cond.left, UnnamedAttributeRef) and \
-       isinstance(cond.right, UnnamedAttributeRef):
+    if (isinstance(cond, expression.EQ) and
+            isinstance(cond.left, UnnamedAttributeRef) and
+            isinstance(cond.right, UnnamedAttributeRef)):
         return cond.left.position, cond.right.position
     else:
         return None
@@ -913,6 +918,7 @@ class PushApply(rules.Rule):
         TODO: drop the Apply if the column-selection pushed into the
         ProjectingJoin is everything the Apply was doing. See note below.
     """
+
     def fire(self, op):
         if not isinstance(op, algebra.Apply):
             return op
@@ -934,6 +940,7 @@ class PushApply(rules.Rule):
                 else:
                     n.apply(convert)
                 return n
+
             emits = [convert(copy.deepcopy(e)) for e in emits]
 
             new_apply = algebra.Apply(emitters=zip(names, emits),
@@ -971,6 +978,7 @@ class RemoveUnusedColumns(rules.Rule):
     keeps only the referenced columns. The goal is that after this rule,
     a subsequent invocation of PushApply will be able to push that
     column-selection operation further down the tree."""
+
     def fire(self, op):
         if isinstance(op, algebra.GroupBy):
             child = op.input
@@ -984,7 +992,7 @@ class RemoveUnusedColumns(rules.Rule):
             accessed = sorted(set(itertools.chain(*(agg + [pos]))))
             if not accessed:
                 # Bug #207: COUNTALL() does not access any columns. So if the
-                #  query is just a COUNT(*), we would generate an empty Apply.
+                # query is just a COUNT(*), we would generate an empty Apply.
                 # If this happens, just keep the first column of the input.
                 accessed = [0]
             if len(accessed) != len(child_scheme):
@@ -1183,7 +1191,10 @@ class MyriaAlgebra(object):
         ShuffleBeforeSetop(),
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
-        DistributedGroupBy(),
+        # DistributedGroupBy may introduce a complex GroupBy, so we must run
+        # SimpleGroupBy after it. TODO no one likes this.
+        DistributedGroupBy(), SimpleGroupBy(),
+
         ProjectToDistinctColumnSelect(),
         rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
         rules.OneToOne(algebra.Store, MyriaStore),
@@ -1263,24 +1274,32 @@ class OpIdFactory(object):
         return lambda: self.alloc()
 
 
-def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
-    """This function compiles a logical RA plan to the JSON suitable for
-    submission to the Myria REST API server."""
+def label_op_to_op(label, op):
+    """If needed, insert a Store above the op with the relation name label"""
+    if isinstance(op, (algebra.Store, algebra.StoreTemp)):
+        # Already a store, we're done
+        return op
 
-    # raw_query must be a string
-    if not isinstance(raw_query, basestring):
-        raise ValueError("raw query must be a string")
+    if not label:
+        raise ValueError('label must be a non-empty string')
 
-    # No catalog supplied; create the empty catalog
-    if catalog is None:
-        catalog = EmptyCatalog()
+    return MyriaStore(plan=op, relation_key=RelationKey.from_string(label))
 
-    # Some plans may just be an operator, others may be a list of operators
-    if isinstance(physical_plan, algebra.Operator):
-        physical_plan = [(None, physical_plan)]
 
-    for (label, root_op) in physical_plan:
-        apply_schema_recursive(root_op, catalog)
+def op_list_to_operator(physical_plan):
+    """Given a Datalog-style list (label, root_operator) of IDBs,
+    add a Store operator to name the output of that operator the
+    corresponding label. Gracefully handle the missing label or present Store
+    cases."""
+    if len(physical_plan) == 1:
+        (label, op) = physical_plan[0]
+        return label_op_to_op(label, op)
+
+    return algebra.Parallel(label_op_to_op(l, o) for (l, o) in physical_plan)
+
+
+def compile_fragment(frag_root):
+    """Given a root operator, produce a SubQueryEncoding."""
 
     # A dictionary mapping each object to a unique, object-dependent id.
     # Since we want this to be truly unique for each object instance, even if
@@ -1349,37 +1368,58 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
         op_dict['opId'] = op_id
         return op_dict
 
-    # The actual code. all_frags collects up the fragments.
-    all_frags = []
-    # For each IDB, generate a plan that assembles all its fragments and stores
-    # them back to a relation named (label).
+    # Determine and encode the fragments.
+    return [{'operators': [call_compile_me(op) for op in frag]}
+            for frag in fragments(frag_root)]
 
-    for (label, rootOp) in physical_plan:
-        # Sometimes the root operator is not labeled, usually because we were
-        # lazy when submitting a manual plan. In this case, generate a new
-        # label.
-        if not label:
-            label = "V" + str(op_ids[id(rootOp)])
 
-        if not isinstance(rootOp, (algebra.Store, algebra.StoreTemp)):
-            # Here we actually create the Store that goes at the root
-            frag_root = MyriaStore(plan=rootOp,
-                                   relation_key=RelationKey.from_string(label))
-        else:
-            frag_root = rootOp
+def compile_plan(plan_op):
+    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
+    if not isinstance(plan_op, subplan_ops):
+        plan_op = algebra.Parallel([plan_op])
 
-        # Determine the fragments.
-        frags = fragments(frag_root)
-        # Build the fragments.
-        all_frags.extend([{'operators': [call_compile_me(op) for op in frag]}
-                          for frag in frags])
-        # Clear out the id dictionary for the next IDB.
-        op_ids.clear()
+    if isinstance(plan_op, algebra.Parallel):
+        frag_list = [compile_fragment(op) for op in plan_op.children()]
+        return {"type": "SubQuery",
+                "fragments": list(itertools.chain(*frag_list))}
 
-    # Assemble all the fragments into a single JSON query plan
-    query = {
-        'fragments': all_frags,
-        'rawDatalog': raw_query,
-        'logicalRa': str(logical_plan)
-    }
-    return query
+    elif isinstance(plan_op, algebra.Sequence):
+        plan_list = [compile_plan(pl_op) for pl_op in plan_op.children()]
+        return {"type": "Sequence", "plans": plan_list}
+
+    raise NotImplementedError("compiling subplan op {}".format(type(plan_op)))
+
+
+def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
+    """This function compiles a physical query plan to the JSON suitable for
+    submission to the Myria REST API server. The logical plan is converted to a
+    string and passed along unchanged."""
+
+    # raw_query must be a string
+    if not isinstance(raw_query, basestring):
+        raise ValueError("raw query must be a string")
+
+    # old-style plan with (name, root_op) pair. Turn it into a single operator.
+    # If the list has length > 1, it will be a Parallel. Otherwise it will
+    # just be the root operator.
+    if isinstance(physical_plan, list):
+        physical_plan = op_list_to_operator(physical_plan)
+
+    # At this point physical_plan better be a single operator
+    if not isinstance(physical_plan, algebra.Operator):
+        raise ValueError('Physical plan must be an operator')
+
+    # If the physical_plan is not a SubPlan operator, make it a Parallel
+    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
+    if not isinstance(physical_plan, subplan_ops):
+        physical_plan = algebra.Parallel([physical_plan])
+
+    # If no catalog was supplied, create the empty catalog
+    if catalog is None:
+        catalog = EmptyCatalog()
+    # Update the scheme of all scans
+    apply_schema_recursive(physical_plan, catalog)
+
+    return {"rawDatalog": raw_query,
+            "logicalRa": str(logical_plan),
+            "plan": compile_plan(physical_plan)}
