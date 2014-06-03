@@ -396,4 +396,4 @@ class StatementProcessor(object):
                        source=LogicalAlgebra)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
-        return compile_to_json(str(lp), lp, pps)
+        return compile_to_json(str(lp), pps[0][1], pps)
