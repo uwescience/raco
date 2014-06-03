@@ -1562,3 +1562,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
+
+    def test_sequence(self):
+        query = """
+        T1 = scan({rel});
+        store(T1, OUTPUT);
+        T2 = scan({rel});
+        store(T2, OUTPUT2);
+        """.format(rel=self.emp_key)
+
+        physical_plan = self.get_physical_plan(query)
+        self.assertTrue(isinstance(physical_plan, raco.algebra.Sequence))
+        self.check_result(query, self.emp_table, output='OUTPUT')
+        self.check_result(query, self.emp_table, output='OUTPUT2')
