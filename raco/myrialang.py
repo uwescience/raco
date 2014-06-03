@@ -588,9 +588,9 @@ class ShuffleBeforeDistinct(rules.Rule):
         return exp
 
 
-class ShuffleBeforeDifference(rules.Rule):
+class ShuffleBeforeSetop(rules.Rule):
     def fire(self, exp):
-        if not isinstance(exp, algebra.Difference):
+        if not isinstance(exp, (algebra.Difference, algebra.Intersection)):
             return exp
 
         def shuffle_after(op):
@@ -1164,7 +1164,7 @@ class MyriaAlgebra(object):
         PushApply(),
 
         ShuffleBeforeDistinct(),
-        ShuffleBeforeDifference(),
+        ShuffleBeforeSetop(),
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
         DistributedGroupBy(),
