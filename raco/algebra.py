@@ -1028,6 +1028,19 @@ class ScanTemp(ZeroaryOperator):
         return self._scheme
 
 
+class Parallel(NaryOperator):
+    """Execute a set of independent plans in parallel."""
+    def __init__(self, ops=None):
+        NaryOperator.__init__(self, ops)
+
+    def shortStr(self):
+        return self.opname()
+
+    def scheme(self):
+        """Parallel does not return any tuples."""
+        return None
+
+
 class Sequence(NaryOperator):
     """Execute a sequence of plans in serial order."""
     def __init__(self, ops=None):
