@@ -1220,24 +1220,32 @@ class OpIdFactory(object):
         return lambda: self.alloc()
 
 
-def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
-    """This function compiles a logical RA plan to the JSON suitable for
-    submission to the Myria REST API server."""
+def label_op_to_op(label, op):
+    """If needed, insert a Store above the op with the relation name label"""
+    if isinstance(op, (algebra.Store, algebra.StoreTemp)):
+        # Already a store, we're done
+        return op
 
-    # raw_query must be a string
-    if not isinstance(raw_query, basestring):
-        raise ValueError("raw query must be a string")
+    if not label:
+        raise ValueError('label must be a non-empty string')
 
-    # No catalog supplied; create the empty catalog
-    if catalog is None:
-        catalog = EmptyCatalog()
+    return MyriaStore(plan=op, relation_key=RelationKey.from_string(label))
 
-    # Some plans may just be an operator, others may be a list of operators
-    if isinstance(physical_plan, algebra.Operator):
-        physical_plan = [(None, physical_plan)]
 
-    for (label, root_op) in physical_plan:
-        apply_schema_recursive(root_op, catalog)
+def op_list_to_operator(physical_plan):
+    """Given a Datalog-style list (label, root_operator) of IDBs,
+    add a Store operator to name the output of that operator the
+    corresponding label. Gracefully handle the missing label or present Store
+    cases."""
+    if len(physical_plan) == 1:
+        (label, op) = physical_plan[0]
+        return label_op_to_op(label, op)
+
+    return algebra.Parallel(label_op_to_op(l, o) for (l, o) in physical_plan)
+
+
+def compile_fragment(frag_root):
+    """Given a root operator, produce a SubQueryEncoding."""
 
     # A dictionary mapping each object to a unique, object-dependent id.
     # Since we want this to be truly unique for each object instance, even if
@@ -1306,37 +1314,58 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
         op_dict['opId'] = op_id
         return op_dict
 
-    # The actual code. all_frags collects up the fragments.
-    all_frags = []
-    # For each IDB, generate a plan that assembles all its fragments and stores
-    # them back to a relation named (label).
+    # Determine and encode the fragments.
+    return [{'operators': [call_compile_me(op) for op in frag]}
+            for frag in fragments(frag_root)]
 
-    for (label, rootOp) in physical_plan:
-        # Sometimes the root operator is not labeled, usually because we were
-        # lazy when submitting a manual plan. In this case, generate a new
-        # label.
-        if not label:
-            label = "V" + str(op_ids[id(rootOp)])
 
-        if not isinstance(rootOp, (algebra.Store, algebra.StoreTemp)):
-            # Here we actually create the Store that goes at the root
-            frag_root = MyriaStore(plan=rootOp,
-                                   relation_key=RelationKey.from_string(label))
-        else:
-            frag_root = rootOp
+def compile_plan(plan_op):
+    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
+    assert isinstance(plan_op, subplan_ops), \
+        "{op} is not a subplan op ({ops})".format(op=plan_op, ops=subplan_ops)
 
-        # Determine the fragments.
-        frags = fragments(frag_root)
-        # Build the fragments.
-        all_frags.extend([{'operators': [call_compile_me(op) for op in frag]}
-                          for frag in frags])
-        # Clear out the id dictionary for the next IDB.
-        op_ids.clear()
+    if isinstance(plan_op, algebra.Parallel):
+        print plan_op
+        frag_list = [compile_fragment(op) for op in plan_op.children()]
+        return {"type": "SubQuery",
+                "fragments": list(itertools.chain(*frag_list))}
 
-    # Assemble all the fragments into a single JSON query plan
-    query = {
-        'fragments': all_frags,
-        'rawDatalog': raw_query,
-        'logicalRa': str(logical_plan)
-    }
-    return query
+    elif isinstance(plan_op, algebra.Sequence):
+        plan_list = [compile_plan(pl_op) for pl_op in plan_op.children()]
+        return {"type": "Sequence", "plans": plan_list}
+
+    raise NotImplementedError("compiling subplan op {}".format(type(plan_op)))
+
+
+def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
+    """This function compiles a logical RA plan to the JSON suitable for
+    submission to the Myria REST API server."""
+
+    # raw_query must be a string
+    if not isinstance(raw_query, basestring):
+        raise ValueError("raw query must be a string")
+
+    # old-style plan with (name, label) pair. Turn it into a single operator.
+    # If the list has length > 1, it will be a Parallel. Otherwise it will
+    # just be the root operator.
+    if isinstance(physical_plan, list):
+        physical_plan = op_list_to_operator(physical_plan)
+
+    # At this point physical_plan better be a single operator
+    if not isinstance(physical_plan, algebra.Operator):
+        raise ValueError('Physical plan must be an operator')
+
+    # If the physical_plan is not a SubPlan operator, make it a Parallel
+    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
+    if not isinstance(physical_plan, subplan_ops):
+        physical_plan = algebra.Parallel([physical_plan])
+
+    # If no catalog was supplied, create the empty catalog
+    if catalog is None:
+        catalog = EmptyCatalog()
+    # Update the scheme of all scans
+    apply_schema_recursive(physical_plan, catalog)
+
+    return {"rawDatalog": raw_query,
+            "logicalRa": str(logical_plan),
+            "plan": compile_plan(physical_plan)}
