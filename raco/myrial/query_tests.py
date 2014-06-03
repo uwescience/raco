@@ -735,8 +735,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        # TODO: Fix json compilation
-        res = self.execute_query(query, skip_json=True)
+        res = self.execute_query(query)
         tp = res.elements().next()
         self.assertAlmostEqual(tp[0], 34001.8006726)
 

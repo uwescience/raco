@@ -1137,6 +1137,10 @@ class MyriaAlgebra(object):
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
         DistributedGroupBy(),
+
+        SimpleGroupBy(),  # TODO in case DistributedGroupBy added a complex GB
+                          # If triggered, don't we want to redo above?
+
         ProjectToDistinctColumnSelect(),
         rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
         rules.OneToOne(algebra.Store, MyriaStore),
