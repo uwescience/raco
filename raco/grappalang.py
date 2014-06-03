@@ -501,7 +501,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         if self.useKey:
             materialize_template = ct("""%(hashname)s->update\
             <&%(pipeline_sync)s, int64_t, \
-            &Aggregates::%(op)s<int64_t,int64_t,0>>(\
+            &Aggregates::%(op)s<int64_t,int64_t>,0>(\
             %(tuple_name)s.get(%(keypos)s),\
             %(tuple_name)s.get(%(valpos)s));
       """)
@@ -511,7 +511,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             # TODO: use optimization for few keys
             materialize_template = ct("""%(hashname)s->update\
                                       <&%(pipeline_sync)s, int64_t, \
-                                      &Aggregates::%(op)s<int64_t,int64_t,0>>(\
+                                      &Aggregates::%(op)s<int64_t,int64_t>,0>(\
                                       0,\
                                       %(tuple_name)s.get(%(valpos)s);
             """)
