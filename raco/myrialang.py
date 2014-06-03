@@ -20,15 +20,12 @@ def scheme_to_schema(s):
             return 'BOOLEAN_TYPE'
         if t.lower() in ['float', 'double']:
             return 'DOUBLE_TYPE'
-#    if t.lower() in ['float']:
-#      return 'FLOAT_TYPE'
-#    if t.lower() in ['int', 'integer']:
-#      return 'INT_TYPE'
         if t.lower() in ['int', 'integer', 'long']:
             return 'LONG_TYPE'
         if t.lower() in ['str', 'string']:
             return 'STRING_TYPE'
         return t
+
     if s:
         names, descrs = zip(*s.asdict.items())
         names = ["%s" % n for n in names]
@@ -307,7 +304,6 @@ def convertcondition(condition, left_len, combined_scheme):
 
 
 class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
-
     def compileme(self, leftid, rightid):
         """Compile the operator to a sequence of json operators"""
 
@@ -391,18 +387,21 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
 
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
     """Represents a simple shuffle operator"""
+
     def compileme(self, inputid):
         raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')  # noqa
 
 
 class MyriaCollect(algebra.Collect, MyriaOperator):
     """Represents a simple collect operator"""
+
     def compileme(self, inputid):
         raise NotImplementedError('shouldn''t ever get here, should be turned into CP-CC pair')  # noqa
 
 
 class MyriaDupElim(algebra.Distinct, MyriaOperator):
     """Represents duplicate elimination"""
+
     def compileme(self, inputid):
         return {
             "opType": "DupElim",
@@ -412,6 +411,7 @@ class MyriaDupElim(algebra.Distinct, MyriaOperator):
 
 class MyriaApply(algebra.Apply, MyriaOperator):
     """Represents a simple apply operator"""
+
     def compileme(self, inputid):
         child_scheme = self.input.scheme()
         emitters = [compile_mapping(x, child_scheme, None)
@@ -425,6 +425,7 @@ class MyriaApply(algebra.Apply, MyriaOperator):
 
 class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
     """Represents a stateful apply operator"""
+
     def compileme(self, inputid):
         child_scheme = self.input.scheme()
         state_scheme = self.state_scheme
@@ -443,6 +444,7 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria BroadcastProducer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
@@ -458,6 +460,7 @@ class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
 
 class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
     """A Myria BroadcastConsumer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
@@ -473,6 +476,7 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
 
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleProducer"""
+
     def __init__(self, input, hash_columns):
         algebra.UnaryOperator.__init__(self, input)
         self.hash_columns = hash_columns
@@ -502,6 +506,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
 class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleConsumer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
@@ -527,6 +532,7 @@ class BreakShuffle(rules.Rule):
 
 class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria CollectProducer"""
+
     def __init__(self, input, server):
         algebra.UnaryOperator.__init__(self, input)
         self.server = server
@@ -543,6 +549,7 @@ class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
 
 class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
     """A Myria CollectConsumer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
@@ -583,8 +590,8 @@ class ShuffleBeforeJoin(rules.Rule):
             return expr
 
         # If both have shuffles already, who cares?
-        if (isinstance(expr.left, algebra.Shuffle)
-                and isinstance(expr.right, algebra.Shuffle)):
+        if (isinstance(expr.left, algebra.Shuffle) and
+                isinstance(expr.right, algebra.Shuffle)):
             return expr
 
         # Figure out which columns go in the shuffle
@@ -635,7 +642,6 @@ class BroadcastBeforeCross(rules.Rule):
 
 
 class DistributedGroupBy(rules.Rule):
-
     @staticmethod
     def do_transfer(op):
         """Introduce a network transfer before a groupby operation."""
@@ -669,8 +675,8 @@ class DistributedGroupBy(rules.Rule):
         # e.g., average requires a SUM and a COUNT.  In turn, these local
         # aggregates are consumed by merge aggregates.
 
-        local_aggs = []   # aggregates executed on each local machine
-        merge_aggs = []   # aggregates executed after local aggs
+        local_aggs = []  # aggregates executed on each local machine
+        merge_aggs = []  # aggregates executed after local aggs
         agg_offsets = []  # map from logical index to local/merge index.
 
         for logical_agg in op.aggregate_list:
@@ -749,6 +755,7 @@ class SplitSelects(rules.Rule):
 
 class MergeSelects(rules.Rule):
     """Merge consecutive Selects into a single conjunctive selection."""
+
     def fire(self, op):
         if not isinstance(op, algebra.Select):
             return op
@@ -801,10 +808,10 @@ class SimpleGroupBy(rules.Rule):
         # A simple aggregate expression is an aggregate whose input is an
         # AttributeRef
         def is_simple_agg_expr(agg):
-            return isinstance(agg, expression.COUNTALL) or \
-                (isinstance(agg, expression.UnaryOperator) and
-                 isinstance(agg, expression.AggregateExpression) and
-                 isinstance(agg.input, expression.AttributeRef))
+            return (isinstance(agg, expression.COUNTALL) or
+                    (isinstance(agg, expression.UnaryOperator) and
+                     isinstance(agg, expression.AggregateExpression) and
+                     isinstance(agg.input, expression.AttributeRef)))
 
         complex_agg_exprs = [agg for agg in expr.aggregate_list
                              if not is_simple_agg_expr(agg)]
@@ -849,8 +856,8 @@ def is_column_equality_comparison(cond):
     """
 
     if isinstance(cond, expression.EQ) and \
-       isinstance(cond.left, UnnamedAttributeRef) and \
-       isinstance(cond.right, UnnamedAttributeRef):
+            isinstance(cond.left, UnnamedAttributeRef) and \
+            isinstance(cond.right, UnnamedAttributeRef):
         return cond.left.position, cond.right.position
     else:
         return None
@@ -868,6 +875,7 @@ class PushApply(rules.Rule):
         TODO: drop the Apply if the column-selection pushed into the
         ProjectingJoin is everything the Apply was doing. See note below.
     """
+
     def fire(self, op):
         if not isinstance(op, algebra.Apply):
             return op
@@ -889,6 +897,7 @@ class PushApply(rules.Rule):
                 else:
                     n.apply(convert)
                 return n
+
             emits = [convert(copy.deepcopy(e)) for e in emits]
 
             new_apply = algebra.Apply(emitters=zip(names, emits),
@@ -926,6 +935,7 @@ class RemoveUnusedColumns(rules.Rule):
     keeps only the referenced columns. The goal is that after this rule,
     a subsequent invocation of PushApply will be able to push that
     column-selection operation further down the tree."""
+
     def fire(self, op):
         if isinstance(op, algebra.GroupBy):
             child = op.input
@@ -939,7 +949,7 @@ class RemoveUnusedColumns(rules.Rule):
             accessed = sorted(set(itertools.chain(*(agg + [pos]))))
             if not accessed:
                 # Bug #207: COUNTALL() does not access any columns. So if the
-                #  query is just a COUNT(*), we would generate an empty Apply.
+                # query is just a COUNT(*), we would generate an empty Apply.
                 # If this happens, just keep the first column of the input.
                 accessed = [0]
             if len(accessed) != len(child_scheme):
