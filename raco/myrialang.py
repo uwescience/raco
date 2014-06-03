@@ -583,6 +583,52 @@ class BreakBroadcast(rules.Rule):
         return consumer
 
 
+class ShuffleBeforeDistinct(rules.Rule):
+    def fire(self, exp):
+        if not isinstance(exp, algebra.Distinct):
+            return exp
+        if isinstance(exp.input, algebra.Shuffle):
+            return exp
+        cols = [expression.UnnamedAttributeRef(i)
+                for i in range(len(exp.scheme()))]
+        exp.input = algebra.Shuffle(child=exp.input, columnlist=cols)
+        return exp
+
+
+def check_shuffle_xor(exp):
+    """Enforce that neither or both inputs to a binary op are shuffled.
+
+    Return True if the arguments are shuffled; False if they are not;
+    or raise a ValueError on xor failure.
+
+    Note that we assume that inputs are shuffled in a compatible way.
+    """
+    left_shuffle = isinstance(exp.left, algebra.Shuffle)
+    right_shuffle = isinstance(exp.right, algebra.Shuffle)
+
+    if left_shuffle and right_shuffle:
+        return True
+    if left_shuffle or right_shuffle:
+        raise ValueError("Must shuffle on both inputs of %s" % exp)
+    return False
+
+
+class ShuffleBeforeSetop(rules.Rule):
+    def fire(self, exp):
+        if not isinstance(exp, (algebra.Difference, algebra.Intersection)):
+            return exp
+
+        def shuffle_after(op):
+            cols = [expression.UnnamedAttributeRef(i)
+                    for i in range(len(op.scheme()))]
+            return algebra.Shuffle(child=op, columnlist=cols)
+
+        if not check_shuffle_xor(exp):
+            exp.left = shuffle_after(exp.left)
+            exp.right = shuffle_after(exp.right)
+        return exp
+
+
 class ShuffleBeforeJoin(rules.Rule):
     def fire(self, expr):
         # If not a join, who cares?
@@ -590,8 +636,7 @@ class ShuffleBeforeJoin(rules.Rule):
             return expr
 
         # If both have shuffles already, who cares?
-        if (isinstance(expr.left, algebra.Shuffle) and
-                isinstance(expr.right, algebra.Shuffle)):
+        if check_shuffle_xor(expr):
             return expr
 
         # Figure out which columns go in the shuffle
@@ -1142,6 +1187,8 @@ class MyriaAlgebra(object):
         RemoveUnusedColumns(),
         PushApply(),
 
+        ShuffleBeforeDistinct(),
+        ShuffleBeforeSetop(),
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
         # DistributedGroupBy may introduce a complex GroupBy, so we must run
