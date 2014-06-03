@@ -357,7 +357,7 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
 
 class MyriaLeapFrogJoin(algebra.NaryJoin, MyriaOperator):
 
-    def compileme(self, sym):
+    def compileme(self, *args):
         def convert_join_cond(pos_to_rel_col, cond, scheme):
             join_col_pos = [c.get_position(scheme) for c in cond]
             return [pos_to_rel_col[p] for p in join_col_pos]
@@ -387,7 +387,7 @@ class MyriaLeapFrogJoin(algebra.NaryJoin, MyriaOperator):
             "joinFieldMapping": join_fields,
             "argColumnNames": column_names,
             "outputFieldMapping": output_fields,
-            "argChildren": sym
+            "argChildren": args
         }
 
 
