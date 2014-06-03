@@ -611,7 +611,7 @@ class ShuffleBeforeJoin(rules.Rule):
         if not isinstance(expr, algebra.Join):
             return expr
 
-        # If both have Shuffles already, who cares?
+        # If both have shuffles already, who cares?
         if (isinstance(expr.left, algebra.Shuffle)
                 and isinstance(expr.right, algebra.Shuffle)):
             return expr
