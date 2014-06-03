@@ -593,6 +593,8 @@ def check_shuffle_xor(exp):
 
     Return True if the arguments are shuffled; False if they are not;
     or raise a ValueError on xor failure.
+
+    Note that we assume that inputs are shuffled in a compatible way.
     """
     left_shuffle = isinstance(exp.left, algebra.Shuffle)
     right_shuffle = isinstance(exp.right, algebra.Shuffle)
