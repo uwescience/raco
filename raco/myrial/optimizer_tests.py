@@ -5,6 +5,7 @@ import random
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
+from raco.myrialang import (MyriaShuffleConsumer, MyriaShuffleProducer)
 from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
@@ -344,3 +345,17 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         for op in lp.walk():
             if isinstance(op, Shuffle):
                 self.assertEquals(op.columnlist, [AttIndex(2), AttIndex(1)])
+
+    def test_shuffle_before_distinct(self):
+        query = """
+        T = DISTINCT(SCAN(public:adhoc:Z));
+        STORE(T, OUTPUT);
+        """
+
+        pp = self.get_physical_plan(query)
+        print str(pp)
+        self.assertEquals(self.get_count(pp, Distinct), 1)
+        for op in pp.walk():
+            if isinstance(op, Distinct):
+                self.assertIsInstance(op.input, MyriaShuffleConsumer)
+                self.assertIsInstance(op.input.input, MyriaShuffleProducer)
