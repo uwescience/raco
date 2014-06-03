@@ -156,6 +156,11 @@ class ClangTest(unittest.TestCase):
     def test_aggregate_of_binop(self):
         self.check("""A(SUM(a+b)) :- R2(a,b)""", "aggregate_of_binop")
 
+    @nottest
+    def test_join_of_aggregate_of_join(self):
+        self.check("""A(SUM(a), c) :- R2(a,b), T2(b,c)
+                      B(x, y) :- A(x, z), S2(z, y)""", "join_of_aggregate_of_join")
+
 
 if __name__ == '__main__':
     unittest.main()
