@@ -1330,8 +1330,8 @@ def compile_fragment(frag_root):
 
 def compile_plan(plan_op):
     subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
-    assert isinstance(plan_op, subplan_ops), \
-        "{op} is not a subplan op ({ops})".format(op=plan_op, ops=subplan_ops)
+    if not isinstance(plan_op, subplan_ops):
+        plan_op = algebra.Parallel([plan_op])
 
     if isinstance(plan_op, algebra.Parallel):
         frag_list = [compile_fragment(op) for op in plan_op.children()]
