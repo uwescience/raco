@@ -588,6 +588,22 @@ class ShuffleBeforeDistinct(rules.Rule):
         return exp
 
 
+def check_shuffle_xor(exp):
+    """Enforce that neither or both inputs to a binary op are shuffled.
+
+    Return True if the arguments are shuffled; False if they are not;
+    or raise a ValueError on xor failure.
+    """
+    left_shuffle = isinstance(exp.left, algebra.Shuffle)
+    right_shuffle = isinstance(exp.right, algebra.Shuffle)
+
+    if left_shuffle and right_shuffle:
+        return True
+    if left_shuffle or right_shuffle:
+        raise ValueError("Must shuffle on both inputs of %s" % exp)
+    return False
+
+
 class ShuffleBeforeSetop(rules.Rule):
     def fire(self, exp):
         if not isinstance(exp, (algebra.Difference, algebra.Intersection)):
@@ -598,18 +614,9 @@ class ShuffleBeforeSetop(rules.Rule):
                     for i in range(len(op.scheme()))]
             return algebra.Shuffle(child=op, columnlist=cols)
 
-        left_shuffle = isinstance(exp.left, algebra.Shuffle)
-        right_shuffle = isinstance(exp.right, algebra.Shuffle)
-
-        if left_shuffle and right_shuffle:
-            # results already shuffled; note we assume that they
-            # are shuffled in a compatible way.
-            return exp
-        if left_shuffle or right_shuffle:
-            raise ValueError("Must shuffle on both inputs of %s" % exp)
-
-        exp.left = shuffle_after(exp.left)
-        exp.right = shuffle_after(exp.right)
+        if not check_shuffle_xor(exp):
+            exp.left = shuffle_after(exp.left)
+            exp.right = shuffle_after(exp.right)
         return exp
 
 
@@ -620,8 +627,7 @@ class ShuffleBeforeJoin(rules.Rule):
             return expr
 
         # If both have shuffles already, who cares?
-        if (isinstance(expr.left, algebra.Shuffle)
-                and isinstance(expr.right, algebra.Shuffle)):
+        if check_shuffle_xor(expr):
             return expr
 
         # Figure out which columns go in the shuffle
