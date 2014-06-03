@@ -598,10 +598,18 @@ class ShuffleBeforeSetop(rules.Rule):
                     for i in range(len(op.scheme()))]
             return algebra.Shuffle(child=op, columnlist=cols)
 
-        if not isinstance(exp.left, algebra.Shuffle):
-            exp.left = shuffle_after(exp.left)
-        if not isinstance(exp.right, algebra.Shuffle):
-            exp.right = shuffle_after(exp.right)
+        left_shuffle = isinstance(exp.left, algebra.Shuffle)
+        right_shuffle = isinstance(exp.right, algebra.Shuffle)
+
+        if left_shuffle and right_shuffle:
+            # results already shuffled; note we assume that they
+            # are shuffled in a compatible way.
+            return exp
+        if left_shuffle or right_shuffle:
+            raise ValueError("Must shuffle on both inputs of %s" % exp)
+
+        exp.left = shuffle_after(exp.left)
+        exp.right = shuffle_after(exp.right)
         return exp
 
 
