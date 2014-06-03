@@ -447,7 +447,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         hashdeclr = declr_template % locals()
         state.addDeclarationsUnresolved([hashdeclr])
 
-        init_template = ct("""auto %(hashname)s = DHT_int64::create_DHT_symmetric( );""")
+        init_template = ct("""auto %(hashname)s = \
+        DHT_int64::create_DHT_symmetric( );""")
         state.addInitializers([init_template % locals()])
         self.input.produce(state)
 
