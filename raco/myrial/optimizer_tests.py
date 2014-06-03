@@ -359,3 +359,19 @@ class OptimizerTest(myrial_test.MyrialTestCase):
             if isinstance(op, Distinct):
                 self.assertIsInstance(op.input, MyriaShuffleConsumer)
                 self.assertIsInstance(op.input.input, MyriaShuffleProducer)
+
+    def test_shuffle_before_difference(self):
+        query = """
+        T = DIFF(SCAN(public:adhoc:Z), SCAN(public:adhoc:Z));
+        STORE(T, OUTPUT);
+        """
+
+        pp = self.get_physical_plan(query)
+        print str(pp)
+        self.assertEquals(self.get_count(pp, Difference), 1)
+        for op in pp.walk():
+            if isinstance(op, Difference):
+                self.assertIsInstance(op.left, MyriaShuffleConsumer)
+                self.assertIsInstance(op.left.input, MyriaShuffleProducer)
+                self.assertIsInstance(op.right, MyriaShuffleConsumer)
+                self.assertIsInstance(op.right.input, MyriaShuffleProducer)
