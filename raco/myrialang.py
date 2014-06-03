@@ -576,6 +576,18 @@ class BreakBroadcast(rules.Rule):
         return consumer
 
 
+class ShuffleBeforeDistinct(rules.Rule):
+    def fire(self, exp):
+        if not isinstance(exp, algebra.Distinct):
+            return exp
+        if isinstance(exp.input, algebra.Shuffle):
+            return exp
+        cols = [expression.UnnamedAttributeRef(i)
+                for i in range(len(exp.scheme()))]
+        exp.input = algebra.Shuffle(child=exp.input, columnlist=cols)
+        return exp
+
+
 class ShuffleBeforeJoin(rules.Rule):
     def fire(self, expr):
         # If not a join, who cares?
@@ -1134,6 +1146,7 @@ class MyriaAlgebra(object):
         RemoveUnusedColumns(),
         PushApply(),
 
+        ShuffleBeforeDistinct(),
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
         DistributedGroupBy(),
