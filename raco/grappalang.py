@@ -466,7 +466,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 %(output_tuple_type)s %(output_tuple_name)s(\
                 {%(mapping_var_name)s.first, %(mapping_var_name)s.second});
                 %(inner_code)s
-                }
+                });
                 """)
         else:
             mapping_var_name = gensym()
@@ -476,7 +476,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 %(output_tuple_type)s %(output_tuple_name)s(\
                 {%(mapping_var_name)s.second});
                 %(inner_code)s
-                }
+                });
                 """)
 
         pipeline_sync_decl_template = ct("""
@@ -499,7 +499,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
     def consume(self, inputTuple, fromOp, state):
         if self.useKey:
-            materialize_template = ct("""%(hashname)s.update\
+            materialize_template = ct("""%(hashname)s->update\
             <&%(pipeline_sync)s, int64_t, \
             &Aggregates::%(op)s<int64_t,int64_t,0>>(\
             %(tuple_name)s.get(%(keypos)s),\
@@ -509,7 +509,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             keypos = self.grouping_list[0].get_position(self.scheme())
         else:
             # TODO: use optimization for few keys
-            materialize_template = ct("""%(hashname)s.update\
+            materialize_template = ct("""%(hashname)s->update\
                                       <&%(pipeline_sync)s, int64_t, \
                                       &Aggregates::%(op)s<int64_t,int64_t,0>>(\
                                       0,\
