@@ -1335,7 +1335,6 @@ def compile_plan(plan_op):
         "{op} is not a subplan op ({ops})".format(op=plan_op, ops=subplan_ops)
 
     if isinstance(plan_op, algebra.Parallel):
-        print plan_op
         frag_list = [compile_fragment(op) for op in plan_op.children()]
         return {"type": "SubQuery",
                 "fragments": list(itertools.chain(*frag_list))}
