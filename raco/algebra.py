@@ -198,7 +198,7 @@ class ZeroaryOperator(Operator):
 
     def compileme(self, resultsym):
         """Compile this operator, storing its result in resultsym"""
-        raise NotImplementedError()
+        raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
 
 class UnaryOperator(Operator):
@@ -249,7 +249,7 @@ class UnaryOperator(Operator):
     def compileme(self, inputsym):
         """Compile this operator with specified input and output symbol
         names"""
-        raise NotImplementedError()
+        raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
 
 class BinaryOperator(Operator):
@@ -301,7 +301,7 @@ class BinaryOperator(Operator):
     def compileme(self, leftsym, rightsym):
         """Compile this operator with specified left, right, and output symbol
         names"""
-        raise NotImplementedError()
+        raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
 
 class NaryOperator(Operator):
@@ -349,7 +349,7 @@ class NaryOperator(Operator):
     def compileme(self, *argsyms):
         """Compile this operator with specified children and output symbol
         names"""
-        raise NotImplementedError()
+        raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
 
 class NaryJoin(NaryOperator):
