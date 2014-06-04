@@ -1616,7 +1616,7 @@ class MyriaAlgebra(object):
         MyriaScanTemp
     )
 
-    def opt_rules():
+    def opt_rules(self):
         return [
             RemoveTrivialSequences(),
 
@@ -1684,6 +1684,11 @@ class MyriaAlgebra(object):
             PushSelects(),
             MergeSelects(),
 
+            rules.ProjectingJoin(),
+            rules.JoinToProjectingJoin(),
+
+            MergeToNaryJoin(),
+
             # These really ought to be run until convergence.
             # For now, run twice and finish with PushApply.
             PushApply(),
@@ -1692,12 +1697,14 @@ class MyriaAlgebra(object):
             RemoveUnusedColumns(),
             PushApply(),
 
-            rules.ProjectingJoin(),
-            rules.JoinToProjectingJoin(),
+            ShuffleBeforeDistinct(),
+            ShuffleBeforeSetop(),
+            ShuffleBeforeJoin(),
             BroadcastBeforeCross(),
-            DistributedGroupBy(),
+            # DistributedGroupBy may introduce a complex GroupBy,
+            # so we must run SimpleGroupBy after it. TODO no one likes this.
+            DistributedGroupBy(), SimpleGroupBy(),
             ProjectToDistinctColumnSelect(),
-            MergeToNaryJoin(),
 
             # Part 2. catalog aware rules.
             GetCadinalities(self.catalog),
@@ -1795,7 +1802,8 @@ def label_op_to_op(label, op):
         return op
 
     if not label:
-        raise ValueError('label must be a non-empty string')
+        raise ValueError(
+            'label must be a non-empty string, {} {}'.format(label, op))
 
     return MyriaStore(plan=op, relation_key=RelationKey.from_string(label))
 

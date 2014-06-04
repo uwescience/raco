@@ -77,7 +77,7 @@ class OperatorTest(unittest.TestCase):
         from myrialang import compile_to_json, MyriaAlgebra
         from compile import optimize
         import json
-        json_string = json.dumps(compile_to_json("", None, optimize([(None, sapply)], MyriaAlgebra(), LogicalAlgebra)))  # noqa
+        json_string = json.dumps(compile_to_json("", None, optimize([("sapply", sapply)], MyriaAlgebra(), LogicalAlgebra)))  # noqa
         assert json_string
 
     def test_cast_to_float(self):
@@ -89,3 +89,7 @@ class OperatorTest(unittest.TestCase):
             assert isinstance(x[0], float)
         self.assertEqual([x[0] for x in res],
                          [x[3] for x in TestQueryFunctions.emp_table])
+
+
+if __name__ == '__main__':
+    unittest.main()

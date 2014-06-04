@@ -1234,6 +1234,10 @@ class Sequence(NaryOperator):
         """Sequence does not return any tuples."""
         return None
 
+    def num_tuples(self):
+        children = list(self.children())
+        return children[-1].num_tuples()
+
 
 class DoWhile(Sequence):
     def __init__(self, ops=None):
