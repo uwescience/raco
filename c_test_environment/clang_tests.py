@@ -1,6 +1,7 @@
 import unittest
 from testquery import checkquery
 from testquery import testdbname
+from testquery import ClangRunner
 from generate_test_relations import generate_default
 from raco.language import CCAlgebra
 
@@ -18,7 +19,7 @@ class ClangTest(unittest.TestCase):
     def check(self, query, name):
         chdir = Chdir("c_test_environment")
         emitCode(query, name, CCAlgebra)
-        checkquery(name)
+        checkquery(name, ClangRunner())
 
     def setUp(self):
         chdir = Chdir("c_test_environment")

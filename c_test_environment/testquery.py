@@ -26,7 +26,141 @@ def make_query(name, query, delim=','):
     return query_modified
 
 
-def checkquery(name, tmppath="tmp", querypath="testqueries"):
+import abc
+
+
+class PlatformRunner:
+
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def run(self, name, tmppath):
+        """
+        Run the query on this platform.
+        Note that implementations are allowed to raise
+        exceptions if execution of the query on the platform
+        fails.
+
+        @param name query name
+        @return path of output file
+        """
+        pass
+
+
+class ClangRunner(PlatformRunner):
+    def __init__(self):
+        pass
+
+    def run(self, name, tmppath):
+        """
+        Expects the #{name}.cpp file to already exist.
+        """
+
+        envir = os.environ.copy()
+
+        # cpp -> exe
+        exe_name = './%s.exe' % (name)
+        subprocess.check_call(['make', exe_name], env=envir)
+
+        # run cpp
+        testoutfn = '%s/%s.out' % (tmppath, name)
+        with open(testoutfn, 'w') as outs:
+            try:
+                subprocess.check_call([exe_name], stdout=outs, env=envir)
+            except subprocess.CalledProcessError as e1:
+                # try again, this time collecting all output to print it
+                try:
+                    subprocess.check_call([exe_name], stderr=subprocess.STDOUT, env=envir)
+                    raise e1  # just in case this doesn't fail again
+                except subprocess.CalledProcessError as e2:
+                    print "see executable %s" % (os.path.abspath(exe_name))
+                    print subprocess.check_output(['ls', '-l', exe_name], env=envir)
+                    print subprocess.check_output(['cat', '%s.cpp' % (name)], env=envir)
+
+                    raise Exception('(Process output below)\n'+e2.output+'\n(end process output)')
+
+        return testoutfn
+
+
+from osutils import Chdir
+
+
+class GrappalangRunner(PlatformRunner):
+    def __init__(self):
+        pass
+
+    def run(self, name, tmppath):
+        """
+        Expects the #{name}.cpp file to already exist in
+        $GRAPPA_HOME/applications/join.
+        """
+
+        envir = os.environ.copy()
+
+        # cpp -> exe
+        orig_dir = Chdir(envir['GRAPPA_HOME'])
+        Chdir(envir['GRAPPA_HOME'])
+
+        # make at base in case the cpp file is new;
+        # i.e. cmake must generate the target
+        Chdir('build/Make+Release')
+        subprocess.check_call(['bin/distcc_make',
+                               '-j24'
+                               ], env=envir)
+
+        # build the grappa application
+        Chdir('applications/join')
+        subprocess.check_call(['../../bin/distcc_make',
+                               '-j24',
+                               '%s.exe' % name,
+                               ], env=envir)
+
+        # run the application
+        testoutfn = "%s/%s.out" % (tmppath, name)
+        with open(testoutfn, 'w') as outf:
+            subprocess.check_call(['../../bin/grappa_srun',
+                                   '--ppn=4',
+                                   '--nnode=2',
+                                   '--',
+                                   '%s.exe' % name,
+                                   ],
+                                    stderr=outf,
+                                    stdout=outf,
+                                    env=envir)
+
+        return testoutfn
+
+
+class SqliteRunner(PlatformRunner):
+    """
+    This platform is considered to be
+    correct and provide the expected output.
+    """
+
+    def __init__(self, querypath):
+        """
+        @param querypath directory containing sql files
+        """
+
+        self.querypath = querypath
+
+    def run(self, name, tmppath):
+        # run sql
+        querycode  = readquery("%s/%s.sql" % (self.querypath,name))
+        querystr = make_query(name, querycode)
+
+        conn = sqlite3.connect(testdbname())
+        c = conn.cursor()
+        expectedfn = '%s/%s.sqlite.csv' % (tmppath, name)
+        with open(expectedfn, 'w') as csvfile:
+            wr = csv.writer(csvfile, delimiter=' ')
+            for row in c.execute(querystr):
+                wr.writerow(list(row))
+
+        return expectedfn
+
+
+def checkquery(name, testplatform, trustedplatform=SqliteRunner("testqueries"), tmppath="tmp"):  # noqa
     
     """
     @param name: name of query
@@ -34,51 +168,25 @@ def checkquery(name, tmppath="tmp", querypath="testqueries"):
     """
  
     osutils.mkdir_p(tmppath)
-    envir = os.environ.copy()
 
-    # cpp -> exe
-    exe_name = './%s.exe' % (name)
-    subprocess.check_call(['make', exe_name], env=envir)
-    
-    # run cpp
-    testoutfn = '%s/%s.out' % (tmppath, name)
-    with open(testoutfn, 'w') as outs:
-        try:
-            subprocess.check_call([exe_name], stdout=outs, env=envir)
-        except subprocess.CalledProcessError as e1:
-            # try again, this time collecting all output to print it
-            try:
-                subprocess.check_call([exe_name], stderr=subprocess.STDOUT, env=envir)
-                raise e1  # just in case this doesn't fail again
-            except subprocess.CalledProcessError as e2:
-                print "see executable %s" % (os.path.abspath(exe_name))
-                print subprocess.check_output(['ls', '-l', exe_name], env=envir)
-                print subprocess.check_output(['cat', '%s.cpp' % (name)], env=envir)
-                 
-                raise Exception('(Process output below)\n'+e2.output+'\n(end process output)')
+    testoutfn = testplatform.run(name, tmppath)
 
-    querycode  = readquery("%s/%s.sql" % (querypath,name))
-    querystr = make_query(name, querycode)
+    expectedfn = trustedplatform.run(name, tmppath)
 
-    # run sql
-    conn = sqlite3.connect(testdbname())
-    c = conn.cursor()
-    expectedfn = '%s/%s.sqlite.csv' % (tmppath, name)
-    with open(expectedfn, 'w') as csvfile:
-        wr = csv.writer(csvfile, delimiter=' ')
-        for row in c.execute(querystr):
-            wr.writerow(list(row))
-    
     print "test: %s" % (name)
     verify(testoutfn, expectedfn, False)
 
 
+import argparse
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print "usage %s <query name>" % (sys.argv[0])
-        exit(1)
+    parser = argparse.ArgumentParser(description='Test a platform')
+    parser.add_argument('queryname', metavar='q', type=str)
+    parser.add_argument('--dut', dest='dut', metavar='d', type=str,
+                        default="Clang", help='platform to test {Clang,Grappalang}')
 
-    name = sys.argv[1]
+    args = parser.parse_args()
+    platform_runner = globals()['%sRunner' % args.dut]()
 
-    checkquery(name)
+    checkquery(args.queryname, platform_runner)
 
