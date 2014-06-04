@@ -98,35 +98,37 @@ class GrappalangRunner(PlatformRunner):
         envir = os.environ.copy()
 
         # cpp -> exe
-        orig_dir = Chdir(envir['GRAPPA_HOME'])
-        Chdir(envir['GRAPPA_HOME'])
+        subprocess.check_call(['cp', '%s.cpp' % name, envir['GRAPPA_HOME']+'/applications/join'], env=envir)
+        with Chdir(envir['GRAPPA_HOME']) as grappa_dir:
 
-        # make at base in case the cpp file is new;
-        # i.e. cmake must generate the target
-        Chdir('build/Make+Release')
-        subprocess.check_call(['bin/distcc_make',
-                               '-j24'
-                               ], env=envir)
+          # make at base in case the cpp file is new;
+          # i.e. cmake must generate the target
+          with Chdir('build/Make+Release') as makedir:
+            print os.getcwd()
+            subprocess.check_call(['bin/distcc_make',
+                                   '-j24'
+                                   ], env=envir)
 
-        # build the grappa application
-        Chdir('applications/join')
-        subprocess.check_call(['../../bin/distcc_make',
-                               '-j24',
-                               '%s.exe' % name,
-                               ], env=envir)
-
-        # run the application
-        testoutfn = "%s/%s.out" % (tmppath, name)
-        with open(testoutfn, 'w') as outf:
-            subprocess.check_call(['../../bin/grappa_srun',
-                                   '--ppn=4',
-                                   '--nnode=2',
-                                   '--',
+          with Chdir('build/Make+Release/applications/join') as appdir:
+            # build the grappa application
+            print os.getcwd()
+            subprocess.check_call(['../../bin/distcc_make',
+                                   '-j24',
                                    '%s.exe' % name,
-                                   ],
-                                    stderr=outf,
-                                    stdout=outf,
-                                    env=envir)
+                                   ], env=envir)
+
+            # run the application
+            testoutfn = "%s/%s.out" % (tmppath, name)
+            with open(testoutfn, 'w') as outf:
+                subprocess.check_call(['../../bin/grappa_srun',
+                                       '--ppn=4',
+                                       '--nnode=2',
+                                       '--',
+                                       '%s.exe' % name,
+                                       ],
+                                        stderr=outf,
+                                        stdout=outf,
+                                        env=envir)
 
         return testoutfn
 
