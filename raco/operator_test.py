@@ -74,10 +74,10 @@ class OperatorTest(unittest.TestCase):
         self.assertEqual([x[0] for x in result][-1], 37857)
 
         # test whether we can generate json without errors
-        from myrialang import compile_to_json, MyriaAlgebra
+        from myrialang import compile_to_json, MyriaLDTreeAlgebra
         from compile import optimize
         import json
-        json_string = json.dumps(compile_to_json("", None, optimize([("sapply", sapply)], MyriaAlgebra(), LogicalAlgebra)))  # noqa
+        json_string = json.dumps(compile_to_json("", None, optimize([("sapply", sapply)], MyriaLDTreeAlgebra(), LogicalAlgebra)))  # noqa
         assert json_string
 
     def test_cast_to_float(self):

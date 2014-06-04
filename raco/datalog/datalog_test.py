@@ -3,7 +3,7 @@ import json
 
 import raco.fakedb
 from raco import RACompiler
-from raco.language import MyriaAlgebra
+from raco.language import MyriaLDTreeAlgebra
 from raco.myrialang import compile_to_json
 from raco.relation_key import RelationKey
 
@@ -23,7 +23,7 @@ class DatalogTestCase(unittest.TestCase):
 
         # print dlog.logicalplan
 
-        dlog.optimize(target=MyriaAlgebra(),
+        dlog.optimize(target=MyriaLDTreeAlgebra(),
                       eliminate_common_subexpressions=False)
 
         # print dlog.physicalplan

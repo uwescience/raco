@@ -1,4 +1,5 @@
 import collections
+import unittest
 
 import raco.scheme as scheme
 import raco.datalog.datalog_test as datalog_test
@@ -150,3 +151,6 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         """
         expected = collections.Counter([(4,), (5,)])
         self.check_result(query, expected)
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,6 +1,7 @@
-from myrialang import *
+import myrialang
 from raco import RACompiler
 import unittest
+import algebra
 
 
 class Catalog(object):
@@ -33,8 +34,9 @@ class testNaryJoin(unittest.TestCase):
     def get_phys_plan_root(query, num_server, child_size=None):
         dlog = RACompiler()
         dlog.fromDatalog(query)
-        dlog.optimize(target=MyriaAlgebra(Catalog(num_server, child_size)),
-                      multiway_join=True)
+        dlog.optimize(
+            target=myrialang.MyriaHyperCubeAlgebra(
+                Catalog(num_server, child_size)))
         # from raco.myrialang import compile_to_json
         return dlog.physicalplan[0][1]
 
@@ -114,9 +116,9 @@ class testNaryJoin(unittest.TestCase):
             children = expr.children()
             children = [c.input.input for c in children]
             child_schemes = [c.scheme() for c in children]
-            conditions = convert_nary_conditions(
+            conditions = myrialang.convert_nary_conditions(
                 expr.conditions, child_schemes)
-            return HCShuffleBeforeNaryJoin.get_cell_partition(
+            return myrialang.HCShuffleBeforeNaryJoin.get_cell_partition(
                 dim_sizes, conditions, child_schemes,
                 child_idx, children[child_idx].hashed_columns)
 
@@ -154,9 +156,9 @@ class testNaryJoin(unittest.TestCase):
             children = expr.children()
             children = [c.input for c in children]
             child_schemes = [c.scheme() for c in children]
-            conditions = convert_nary_conditions(
+            conditions = myrialang.convert_nary_conditions(
                 expr.conditions, child_schemes)
-            HSClass = HCShuffleBeforeNaryJoin
+            HSClass = myrialang.HCShuffleBeforeNaryJoin
             r_index = HSClass.reversed_index(child_schemes, conditions)
             child_sizes = [len(cs) for cs in child_schemes]
             return HSClass.workload(dim_sizes, child_sizes, r_index)

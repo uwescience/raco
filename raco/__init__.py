@@ -1,5 +1,5 @@
 from raco.datalog.grammar import parse
-from raco.language import MyriaAlgebra
+from raco.language import MyriaLDTreeAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
 
@@ -20,9 +20,8 @@ class RACompiler(object):
         LOG.debug("parser output: %s", self.parsed)
         self.logicalplan = self.parsed.toRA()
 
-    def optimize(self, target=MyriaAlgebra(),
+    def optimize(self, target=MyriaLDTreeAlgebra(),
                  eliminate_common_subexpressions=False,
-                 multiway_join=False,
                  environment_variables=None):
         """Convert logical plan to physical plan"""
         self.target = target
@@ -30,6 +29,5 @@ class RACompiler(object):
             self.logicalplan,
             target=self.target,
             source=LogicalAlgebra,
-            eliminate_common_subexpressions=eliminate_common_subexpressions,
-            multiway_join=multiway_join
+            eliminate_common_subexpressions=eliminate_common_subexpressions
         )

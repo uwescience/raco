@@ -1,9 +1,8 @@
 import copy
 import itertools
 from collections import defaultdict, deque
-from operator import mul
-
-import itertools
+from operator import mul, add
+from abc import abstractmethod
 
 from raco import algebra
 from raco import rules
@@ -1596,8 +1595,91 @@ class GetCadinalities(rules.Rule):
         expr._cardinality = 10  # this is a magic number
         return expr
 
+# logical groups of catalog transparent rules
+# 1. this must be applied first
+remove_trivaial_sequences = [RemoveTrivialSequences()]
+
+# 2. simple group by
+simple_group_by = [SimpleGroupBy()]
+
+# 3. push down selection
+push_select = [
+    SplitSelects(),
+    PushSelects(),
+    MergeSelects()
+]
+
+# 4. push projection
+push_project = [
+    rules.ProjectingJoin(),
+    rules.JoinToProjectingJoin()
+]
+
+# 5. push apply
+push_apply = [
+    # These really ought to be run until convergence.
+    # For now, run twice and finish with PushApply.
+    PushApply(),
+    RemoveUnusedColumns(),
+    PushApply(),
+    RemoveUnusedColumns(),
+    PushApply(),
+]
+
+# 6. shuffle logics, hyper_cube_shuffle_logic is only used in HCAlgebra
+left_deep_tree_shuffle_logic = [
+    ShuffleBeforeDistinct(),
+    ShuffleBeforeSetop(),
+    ShuffleBeforeJoin(),
+    BroadcastBeforeCross()
+]
+
+# 7. distributed groupby
+# this need to be put after shuffle logic
+distributed_group_by = [
+    # DistributedGroupBy may introduce a complex GroupBy,
+    # so we must run SimpleGroupBy after it. TODO no one likes this.
+    DistributedGroupBy(), SimpleGroupBy(),
+    ProjectToDistinctColumnSelect()
+]
+
+# 8. Myriafy logical operators
+# replace logical operator with its corresponding Myra operators
+myriafy = [
+    rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
+    rules.OneToOne(algebra.Store, MyriaStore),
+    rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),
+    rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply),
+    rules.OneToOne(algebra.Apply, MyriaApply),
+    rules.OneToOne(algebra.Select, MyriaSelect),
+    rules.OneToOne(algebra.Distinct, MyriaDupElim),
+    rules.OneToOne(algebra.Shuffle, MyriaShuffle),
+    rules.OneToOne(algebra.HyperCubeShuffle, MyriaHyperShuffle),
+    rules.OneToOne(algebra.Collect, MyriaCollect),
+    rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin),
+    rules.OneToOne(algebra.NaryJoin, MyriaLeapFrogJoin),
+    rules.OneToOne(algebra.Scan, MyriaScan),
+    rules.OneToOne(algebra.ScanTemp, MyriaScanTemp),
+    rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
+    rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
+    rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
+    rules.OneToOne(algebra.Difference, MyriaDifference),
+    rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
+]
+
+# 9. break communication boundary
+# get producer/consumer pair
+break_communication = [
+    BreakHyperCubeShuffle(),
+    BreakShuffle(),
+    BreakCollect(),
+    BreakBroadcast(),
+]
+
 
 class MyriaAlgebra(object):
+    """ Myria algebra abstract class
+    """
     language = MyriaLanguage
 
     operators = [
@@ -1616,125 +1698,60 @@ class MyriaAlgebra(object):
         MyriaScanTemp
     )
 
+    @abstractmethod
     def opt_rules(self):
-        return [
-            RemoveTrivialSequences(),
+        """ Specific myria algebra must instantiate this method. """
 
-            SimpleGroupBy(),
 
-            # These rules form a logical group; PushSelects assumes that
-            # AND clauses have been broken apart into multiple selections.
-            SplitSelects(),
-            PushSelects(),
-            MergeSelects(),
+class MyriaLDTreeAlgebra(MyriaAlgebra):
+    """ Myria phyiscal algebra using left deep tree pipeline and 1-D shuffle
+    """
+    rule_grps_sequence = [
+        remove_trivaial_sequences,
+        simple_group_by,
+        push_select,
+        push_project,
+        push_apply,
+        left_deep_tree_shuffle_logic,
+        distributed_group_by,
+        myriafy,
+        break_communication
+    ]
 
-            rules.ProjectingJoin(),
-            rules.JoinToProjectingJoin(),
+    def opt_rules(self):
+        return reduce(add, self.rule_grps_sequence, [])
 
-            # These really ought to be run until convergence.
-            # For now, run twice and finish with PushApply.
-            PushApply(),
-            RemoveUnusedColumns(),
-            PushApply(),
-            RemoveUnusedColumns(),
-            PushApply(),
 
-            ShuffleBeforeDistinct(),
-            ShuffleBeforeSetop(),
-            ShuffleBeforeJoin(),
-            BroadcastBeforeCross(),
-            # DistributedGroupBy may introduce a complex GroupBy,
-            # so we must run SimpleGroupBy after it. TODO no one likes this.
-            DistributedGroupBy(), SimpleGroupBy(),
-
-            ProjectToDistinctColumnSelect(),
-            rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
-            rules.OneToOne(algebra.Store, MyriaStore),
-            rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),
-            rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply),
-            rules.OneToOne(algebra.Apply, MyriaApply),
-            rules.OneToOne(algebra.Select, MyriaSelect),
-            rules.OneToOne(algebra.GroupBy, MyriaGroupBy),
-            rules.OneToOne(algebra.Distinct, MyriaDupElim),
-            rules.OneToOne(algebra.Shuffle, MyriaShuffle),
-            rules.OneToOne(algebra.Collect, MyriaCollect),
-            rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin),
-            rules.OneToOne(algebra.Scan, MyriaScan),
-            rules.OneToOne(algebra.ScanTemp, MyriaScanTemp),
-            rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
-            rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
-            rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
-            rules.OneToOne(algebra.Difference, MyriaDifference),
-            rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
-            BreakShuffle(),
-            BreakCollect(),
-            BreakBroadcast(),
+class MyriaHyperCubeAlgebra(MyriaAlgebra):
+    """ Myria phyiscal algebra using hyper cube shuffle and LeapFrogJoin
+    """
+    def opt_rules(self):
+        # this rule is hyper cube shuffle specific
+        merge_to_nary_join = [
+            MergeToNaryJoin()
         ]
 
-    def multiway_join_rules(self):
-        return [
-            # Part 1. catalog transparent rules.
-            RemoveTrivialSequences(),
-
-            SimpleGroupBy(),
-
-            # These rules form a logical group; PushSelects assumes that
-            # AND clauses have been broken apart into multiple selections.
-            SplitSelects(),
-            PushSelects(),
-            MergeSelects(),
-
-            rules.ProjectingJoin(),
-            rules.JoinToProjectingJoin(),
-
-            MergeToNaryJoin(),
-
-            # These really ought to be run until convergence.
-            # For now, run twice and finish with PushApply.
-            PushApply(),
-            RemoveUnusedColumns(),
-            PushApply(),
-            RemoveUnusedColumns(),
-            PushApply(),
-
-            ShuffleBeforeDistinct(),
-            ShuffleBeforeSetop(),
-            ShuffleBeforeJoin(),
-            BroadcastBeforeCross(),
-            # DistributedGroupBy may introduce a complex GroupBy,
-            # so we must run SimpleGroupBy after it. TODO no one likes this.
-            DistributedGroupBy(), SimpleGroupBy(),
-            ProjectToDistinctColumnSelect(),
-
-            # Part 2. catalog aware rules.
+        # catalog aware hc shuffle rules, so put them here
+        hyper_cube_shuffle_logic = [
             GetCadinalities(self.catalog),
             HCShuffleBeforeNaryJoin(self.catalog),
             OrderByBeforeNaryJoin(),
-            rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
-            rules.OneToOne(algebra.Store, MyriaStore),
-            rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),
-            rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply),
-            rules.OneToOne(algebra.Apply, MyriaApply),
-            rules.OneToOne(algebra.Select, MyriaSelect),
-            rules.OneToOne(algebra.GroupBy, MyriaGroupBy),
-            rules.OneToOne(algebra.Distinct, MyriaDupElim),
-            rules.OneToOne(algebra.Shuffle, MyriaShuffle),
-            rules.OneToOne(algebra.HyperCubeShuffle, MyriaHyperShuffle),
-            rules.OneToOne(algebra.Collect, MyriaCollect),
-            rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin),
-            rules.OneToOne(algebra.NaryJoin, MyriaLeapFrogJoin),
-            rules.OneToOne(algebra.Scan, MyriaScan),
-            rules.OneToOne(algebra.ScanTemp, MyriaScanTemp),
-            rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
-            rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
-            rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
-            rules.OneToOne(algebra.Difference, MyriaDifference),
-            rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
-            BreakHyperCubeShuffle(),
-            BreakShuffle(),
-            BreakCollect(),
-            BreakBroadcast(),
         ]
+
+        rule_grps_sequence = [
+            remove_trivaial_sequences,
+            simple_group_by,
+            push_select,
+            push_project,
+            merge_to_nary_join,
+            push_apply,
+            left_deep_tree_shuffle_logic,
+            distributed_group_by,
+            hyper_cube_shuffle_logic,
+            myriafy,
+            break_communication
+        ]
+        return reduce(add, rule_grps_sequence, [])
 
     def __init__(self, catalog=None):
         self.catalog = catalog
