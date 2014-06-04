@@ -19,13 +19,17 @@ class MyrialTestCase(unittest.TestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
 
-    def get_plan(self, query, logical=False):
+    def get_plan(self, query, logical=False, multiway_join=False):
         '''Get the MyriaL query plan for a query'''
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         if logical:
             return self.processor.get_logical_plan()
         else:
+            if multiway_join:
+                self.processor.multiway_join = True
+            else:
+                self.processor.multiway_join = False
             return self.processor.get_physical_plan()
 
     def get_logical_plan(self, query):
