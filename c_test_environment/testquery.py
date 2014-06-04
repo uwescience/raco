@@ -95,10 +95,12 @@ class GrappalangRunner(PlatformRunner):
         $GRAPPA_HOME/applications/join.
         """
 
+        gname = 'grappa_%s'
+
         envir = os.environ.copy()
 
         # cpp -> exe
-        subprocess.check_call(['cp', '%s.cpp' % name, envir['GRAPPA_HOME']+'/applications/join'], env=envir)
+        subprocess.check_call(['cp', '%s.cpp' % gname, envir['GRAPPA_HOME']+'/applications/join'], env=envir)
         with Chdir(envir['GRAPPA_HOME']) as grappa_dir:
 
           # make at base in case the cpp file is new;
@@ -114,17 +116,17 @@ class GrappalangRunner(PlatformRunner):
             print os.getcwd()
             subprocess.check_call(['../../bin/distcc_make',
                                    '-j24',
-                                   '%s.exe' % name,
+                                   '%s.exe' % gname,
                                    ], env=envir)
 
             # run the application
-            testoutfn = "%s/%s.out" % (tmppath, name)
+            testoutfn = "%s/%s.out" % (tmppath, gname)
             with open(testoutfn, 'w') as outf:
                 subprocess.check_call(['../../bin/grappa_srun',
                                        '--ppn=4',
                                        '--nnode=2',
                                        '--',
-                                       '%s.exe' % name,
+                                       '%s.exe' % gname,
                                        ],
                                         stderr=outf,
                                         stdout=outf,

@@ -15,14 +15,14 @@ from osutils import Chdir
 
 class ClangTest(unittest.TestCase, PlatformTest):
     def check(self, query, name):
-        chdir = Chdir("c_test_environment")
-        emitCode(query, name, CCAlgebra)
-        checkquery(name, ClangRunner())
+        with Chdir("c_test_environment") as d:
+            emitCode(query, name, CCAlgebra)
+            checkquery(name, ClangRunner())
 
     def setUp(self):
-        chdir = Chdir("c_test_environment")
-        if not os.path.isfile(testdbname()):
-            generate_default()  
+        with Chdir("c_test_environment") as d:
+            if not os.path.isfile(testdbname()):
+                generate_default()  
         
 
 if __name__ == '__main__':

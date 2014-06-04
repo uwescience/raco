@@ -15,14 +15,14 @@ from osutils import Chdir
 
 class GrappaTest(unittest.TestCase, PlatformTest):
     def check(self, query, name):
-        chdir = Chdir("c_test_environment")
-        emitCode(query, name, GrappaAlgebra)
-        checkquery(name, GrappalangRunner())
+        with Chdir("c_test_environment") as d:
+            emitCode(query, 'grappa_%s' % name, GrappaAlgebra)
+            checkquery(name, GrappalangRunner())
 
     def setUp(self):
-        chdir = Chdir("c_test_environment")
-        if not os.path.isfile(testdbname()):
-            generate_default()
+        with Chdir("c_test_environment") as d:
+            if not os.path.isfile(testdbname()):
+                generate_default()
 
 
 if __name__ == '__main__':
