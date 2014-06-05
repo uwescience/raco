@@ -82,6 +82,9 @@ class Operator(Printable):
             parent_map.setdefault(c, []).append(self)
             c.collectParents(parent_map)
 
+    def __copy__(self):
+        raise RuntimeError("Shallow copy not supported for operators")
+
     def __eq__(self, other):
         return self.__class__ == other.__class__
 
@@ -115,7 +118,7 @@ class Operator(Printable):
                         for k, v in self.gettrace()])
 
     def set_alias(self, alias):
-        """Set a user-defined identififer for this operator.  Used in
+        """Set a user-defined identifier for this operator.  Used in
         optimization and transformation of plans"""
         self.alias = alias
 
@@ -198,7 +201,7 @@ class ZeroaryOperator(Operator):
 
     def compileme(self, resultsym):
         """Compile this operator, storing its result in resultsym"""
-        raise NotImplementedError()
+        raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
 
 class UnaryOperator(Operator):
@@ -249,7 +252,7 @@ class UnaryOperator(Operator):
     def compileme(self, inputsym):
         """Compile this operator with specified input and output symbol
         names"""
-        raise NotImplementedError()
+        raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
 
 class BinaryOperator(Operator):
@@ -301,7 +304,7 @@ class BinaryOperator(Operator):
     def compileme(self, leftsym, rightsym):
         """Compile this operator with specified left, right, and output symbol
         names"""
-        raise NotImplementedError()
+        raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
 
 class NaryOperator(Operator):
@@ -349,7 +352,7 @@ class NaryOperator(Operator):
     def compileme(self, *argsyms):
         """Compile this operator with specified children and output symbol
         names"""
-        raise NotImplementedError()
+        raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
 
 class NaryJoin(NaryOperator):
@@ -1036,6 +1039,19 @@ class ScanTemp(ZeroaryOperator):
         return self._scheme
 
 
+class Parallel(NaryOperator):
+    """Execute a set of independent plans in parallel."""
+    def __init__(self, ops=None):
+        NaryOperator.__init__(self, ops)
+
+    def shortStr(self):
+        return self.opname()
+
+    def scheme(self):
+        """Parallel does not return any tuples."""
+        return None
+
+
 class Sequence(NaryOperator):
     """Execute a sequence of plans in serial order."""
     def __init__(self, ops=None):
@@ -1073,7 +1089,7 @@ def inline_operator(dest_op, var, target_op):
     """
     def rewrite_node(node):
         if isinstance(node, ScanTemp) and node.name == var:
-            return copy.copy(target_op)
+            return copy.deepcopy(target_op)
         else:
             return node.apply(rewrite_node)
 

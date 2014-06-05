@@ -77,7 +77,7 @@ class ExpressionProcessor(object):
 
     def __lookup_symbol(self, _id):
         self.uses_set.add(_id)
-        return copy.copy(self.symbols[_id])
+        return copy.deepcopy(self.symbols[_id])
 
     def alias(self, _id):
         return self.__lookup_symbol(_id)
@@ -399,4 +399,4 @@ class StatementProcessor(object):
                        source=LogicalAlgebra)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
-        return compile_to_json(str(lp), lp, pps)
+        return compile_to_json(str(lp), pps[0][1], pps)

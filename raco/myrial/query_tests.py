@@ -735,8 +735,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        # TODO: Fix json compilation
-        res = self.execute_query(query, skip_json=True)
+        res = self.execute_query(query)
         tp = res.elements().next()
         self.assertAlmostEqual(tp[0], 34001.8006726)
 
@@ -1539,6 +1538,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(ReservedTokenException):
             self.check_result(query, None)
 
+    def test_bug_226(self):
+        query = """
+        T = scan({emp});
+        A = select id, salary from T where 1=1;
+        B = select id, salary from A where salary=90000;
+        C = select A.* from B, A where A.salary < B.salary;
+        STORE (C, OUTPUT);
+        """.format(emp=self.emp_key)
+
+        expected = collections.Counter(
+            (i, s) for (i, d, n, s) in self.emp_table
+            for (i2, d2, n2, s2) in self.emp_table
+            if s2 == 90000 and s < s2)
+
+        self.assertEquals(expected, self.execute_query(query))
+
     def test_column_mixed_case_reserved(self):
         query = """
         T = EMPTY(x:INT);
@@ -1563,3 +1578,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
+
+    def test_sequence(self):
+        query = """
+        T1 = scan({rel});
+        store(T1, OUTPUT);
+        T2 = scan({rel});
+        store(T2, OUTPUT2);
+        """.format(rel=self.emp_key)
+
+        physical_plan = self.get_physical_plan(query)
+        self.assertTrue(isinstance(physical_plan, raco.algebra.Sequence))
+        self.check_result(query, self.emp_table, output='OUTPUT')
+        self.check_result(query, self.emp_table, output='OUTPUT2')
