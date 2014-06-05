@@ -77,7 +77,7 @@ class ExpressionProcessor(object):
 
     def __lookup_symbol(self, _id):
         self.uses_set.add(_id)
-        return copy.copy(self.symbols[_id])
+        return copy.deepcopy(self.symbols[_id])
 
     def alias(self, _id):
         return self.__lookup_symbol(_id)
