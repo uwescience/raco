@@ -3,6 +3,7 @@ from testquery import checkquery
 from testquery import testdbname
 from testquery import ClangRunner
 from generate_test_relations import generate_default
+from generate_test_relations import need_generate
 from raco.language import CCAlgebra
 from platform_tests import PlatformTest
 
@@ -21,7 +22,7 @@ class ClangTest(unittest.TestCase, PlatformTest):
 
     def setUp(self):
         with Chdir("c_test_environment") as d:
-            if not os.path.isfile(testdbname()):
+          if need_generate():
                 generate_default()  
         
 
