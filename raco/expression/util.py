@@ -123,7 +123,7 @@ def resolve_state_vars(expr, state_vars, mangled_names):
             n.apply(convert)
         return n
 
-    return convert(copy.copy(expr))
+    return convert(copy.deepcopy(expr))
 
 
 def accessed_columns(expr):
