@@ -35,6 +35,9 @@ class Expression(Printable):
         This is used for unit tests written against the fake database.
         '''
 
+    def __copy__(self):
+        raise RuntimeError("Shallow copy not supported for expressions")
+
     def postorder(self, f):
         """Apply a function to each node in an expression tree.
 
