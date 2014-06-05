@@ -1078,7 +1078,7 @@ def inline_operator(dest_op, var, target_op):
     """
     def rewrite_node(node):
         if isinstance(node, ScanTemp) and node.name == var:
-            return copy.copy(target_op)
+            return copy.deepcopy(target_op)
         else:
             return node.apply(rewrite_node)
 
