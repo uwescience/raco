@@ -1538,6 +1538,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(ReservedTokenException):
             self.check_result(query, None)
 
+    def test_bug_226(self):
+        query = """
+        T = scan({emp});
+        A = select id, salary from T where 1=1;
+        B = select id, salary from A where salary=90000;
+        C = select A.* from B, A where A.salary < B.salary;
+        STORE (C, OUTPUT);
+        """.format(emp=self.emp_key)
+
+        expected = collections.Counter(
+            (i, s) for (i, d, n, s) in self.emp_table
+            for (i2, d2, n2, s2) in self.emp_table
+            if s2 == 90000 and s < s2)
+
+        self.assertEquals(expected, self.execute_query(query))
+
     def test_column_mixed_case_reserved(self):
         query = """
         T = EMPTY(x:int);
