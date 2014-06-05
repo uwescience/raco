@@ -134,7 +134,7 @@ class CC(Language):
         sid = cls.newstringident()
         init = """auto %s = string_index.string_lookup(%s);""" % (sid, s)
         return """(%s)""" % sid, [], [init]
-    #raise ValueError("String Literals not supported in C language: %s" % s)
+    # raise ValueError("String Literals not supported in C language: %s" % s)
 
     @classmethod
     def negation(cls, input):
