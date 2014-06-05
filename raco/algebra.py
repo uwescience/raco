@@ -82,6 +82,9 @@ class Operator(Printable):
             parent_map.setdefault(c, []).append(self)
             c.collectParents(parent_map)
 
+    def __copy__(self):
+        raise RuntimeError("Shallow copy not supported for operators")
+
     def __eq__(self, other):
         return self.__class__ == other.__class__
 
