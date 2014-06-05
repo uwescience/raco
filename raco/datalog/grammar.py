@@ -90,7 +90,7 @@ def checkval(xs):
 groundcondition = Group(literal + binop + literal)
 # groundcondition.setParseAction(checkval)
 
-#TODO: deeper expression trees
+# TODO: deeper expression trees
 condition = (valueref + binop + valueref)
 condition.setParseAction(parsebinop)
 

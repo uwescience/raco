@@ -134,7 +134,7 @@ class CC(Language):
         sid = cls.newstringident()
         init = """auto %s = string_index.string_lookup(%s);""" % (sid, s)
         return """(%s)""" % sid, [], [init]
-    #raise ValueError("String Literals not supported in C language: %s" % s)
+    # raise ValueError("String Literals not supported in C language: %s" % s)
 
     @classmethod
     def negation(cls, input):
@@ -189,7 +189,7 @@ class MemoryScan(algebra.UnaryOperator, CCOperator):
     def consume(self, inputsym, src, state):
         # now generate the scan from memory
 
-        #TODO: generate row variable to avoid naming conflict for nested scans
+        # TODO: generate row variable to avoid naming conflict for nested scans
         memory_scan_template = """for (uint64_t i : %(inputsym)s->range()) {
           %(tuple_type)s %(tuple_name)s(%(inputsym)s, i);
 
@@ -482,10 +482,10 @@ class CCAlgebra(object):
     language = CC
 
     operators = [
-        #TwoPassHashJoin,
-        #FilteringNestedLoopJoin,
-        #TwoPassSelect,
-        #FileScan,
+        # TwoPassHashJoin,
+        # FilteringNestedLoopJoin,
+        # TwoPassSelect,
+        # FileScan,
         MemoryScan,
         CSelect,
         CUnionAll,
@@ -495,8 +495,8 @@ class CCAlgebra(object):
         CHashJoin
     ]
     rules = [
-        #rules.OneToOne(algebra.Join,TwoPassHashJoin),
-        #rules.removeProject(),
+        # rules.OneToOne(algebra.Join,TwoPassHashJoin),
+        # rules.removeProject(),
         rules.CrossProduct2Join(),
         rules.SimpleGroupBy(),
         #    FilteringNestedLoopJoinRule(),
@@ -510,7 +510,7 @@ class CCAlgebra(object):
         rules.OneToOne(algebra.Join, CHashJoin),
         rules.OneToOne(algebra.GroupBy, CGroupBy),
         rules.OneToOne(algebra.Project, CProject),
-        #TODO: obviously breaks semantics
+        # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll)
         #  rules.FreeMemory()
     ]
