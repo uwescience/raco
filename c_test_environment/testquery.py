@@ -95,7 +95,7 @@ class GrappalangRunner(PlatformRunner):
         $GRAPPA_HOME/applications/join.
         """
 
-        gname = 'grappa_%s'
+        gname = 'grappa_%s' % name
 
         envir = os.environ.copy()
 
@@ -127,6 +127,8 @@ class GrappalangRunner(PlatformRunner):
                                        '--nnode=2',
                                        '--',
                                        '%s.exe' % gname,
+                                       '--bin=false',
+                                       '--vmodule=%s=2' % gname  # result out
                                        ],
                                         stderr=outf,
                                         stdout=outf,
@@ -172,10 +174,11 @@ def checkquery(name, testplatform, trustedplatform=SqliteRunner("testqueries"), 
     """
  
     osutils.mkdir_p(tmppath)
+    abstmppath = os.path.abspath(tmppath)
 
-    testoutfn = testplatform.run(name, tmppath)
+    testoutfn = testplatform.run(name, abstmppath)
 
-    expectedfn = trustedplatform.run(name, tmppath)
+    expectedfn = trustedplatform.run(name, abstmppath)
 
     print "test: %s" % (name)
     verify(testoutfn, expectedfn, False)
