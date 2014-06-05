@@ -514,7 +514,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                                       <&%(pipeline_sync)s, int64_t, \
                                       &Aggregates::%(op)s<int64_t,int64_t>,0>(\
                                       0,\
-                                      %(tuple_name)s.get(%(valpos)s);
+                                      %(tuple_name)s.get(%(valpos)s));
             """)
 
         hashname = self._hashname
