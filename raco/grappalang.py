@@ -89,7 +89,7 @@ class GrappaLanguage(Language):
         auto end_%(ident)s = walltime();
         auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
         %(timer_metric)s += runtime_%(ident)s;
-        VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
+        VLOG(1) << "pipeline group %(ident)s: " << runtime_%(ident)s << " s";
         """)
 
         timer_metric = None
@@ -104,6 +104,17 @@ class GrappaLanguage(Language):
     @staticmethod
     def pipeline_wrap(ident, plcode, attrs):
         code = plcode
+
+        # timing code
+        if True:
+            inner_code = code
+            timing_template = ct("""auto start_%(ident)s = walltime();
+            %(inner_code)s
+            auto end_%(ident)s = walltime();
+            auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
+            VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
+            """)
+            code = timing_template % locals()
 
         syncname = attrs.get('sync')
         if syncname:
