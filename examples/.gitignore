@@ -2,4 +2,9 @@
 *.cpp.orig
 *.dot
 build/
-log.rb*
+log*.rb
+*.logical.pdf
+*.physical.pdf
+*.logical.ps
+*.physical.ps
+

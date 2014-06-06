@@ -19,4 +19,9 @@ tmp/
 Index
 Str
 *.ttl
-log.rb
+edges
+*.ps
+*.pdf
+log*.rb
+*.cpp.*
+test.txt
