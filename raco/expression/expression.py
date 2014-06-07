@@ -659,6 +659,9 @@ class SimpleExpressionVisitor(ExpressionVisitor):
     def visit_zeroary(self, zeroaryexpr):
         pass
 
+    def visit_literal(self, literalexpr):
+        pass
+
     @abstractmethod
     def visit_nary(self, naryexpr):
         pass
@@ -700,10 +703,10 @@ class SimpleExpressionVisitor(ExpressionVisitor):
         self.visit_attr(unnamed)
 
     def visit_StringLiteral(self, stringLiteral):
-        self.visit_zeroary(stringLiteral)
+        self.visit_literal(stringLiteral)
 
     def visit_NumericLiteral(self, numericLiteral):
-        self.visit_zeroary(numericLiteral)
+        self.visit_literal(numericLiteral)
 
     def visit_DIVIDE(self, binaryExpr):
         self.visit_binary(binaryExpr)
