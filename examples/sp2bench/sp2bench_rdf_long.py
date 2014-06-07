@@ -1,9 +1,10 @@
 import emitcode
 import raco.algebra as algebra
-import raco.rules as rules
-from raco.grappalang import GrappaSymmetricHashJoin, GrappaHashJoin
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+LOG = logging.getLogger(__name__)
 
 tr = "sp2bench_1m"
 queries = {}
@@ -115,16 +116,14 @@ if len(sys.argv) > 1:
         alg = GrappaAlgebra
         prefix="grappa_"
 
-# plan hacking
 if len(sys.argv) > 2:
-    if sys.argv[2] == "sym":
-        for i in range(0, len(alg.rules)):
-            r = alg.rules[i]
-            if isinstance(r, rules.OneToOne) and r.opto == GrappaHashJoin:
-                alg.rules[i] = rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin)
+    plan = sys.argv[2]
 
-for name in queries:
-    querystr = queries[name] % locals()
-    emitcode.emitCode(querystr, prefix+name, alg)
-
+for q in queries:
+    query, name = q
+    lst = []
+    if prefix: lst.append(prefix)
+    if plan: lst.append(plan)
+    if name: lst.append(name)
+    emitCode(query, "_".join(lst), alg, prefix, plan)
 
