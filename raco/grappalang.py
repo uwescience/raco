@@ -575,10 +575,10 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
             if self.rightCondIsRightAttr:
                 keypos = self.condition.right.position \
-                         - len(self.left.scheme())
+                    - len(self.left.scheme())
             else:
                 keypos = self.condition.left.position \
-                         - len(self.left.scheme())
+                    - len(self.left.scheme())
 
             self.rightTupleTypename = inputTuple.getTupleTypename()
             if self.rightTupleTypeRef is not None:
