@@ -138,7 +138,8 @@ class CC(Language):
         string_index = build_string_index("sp2bench_1m.index");
         """
         return """(%s)""" % sid, [], [build_init, lookup_init]
-        #raise ValueError("String Literals not supported in C language: %s" % s)  # noqa
+        # raise ValueError("String Literals not supported\
+        # in C language: %s" % s)
 
     @classmethod
     def negation(cls, input):
