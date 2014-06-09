@@ -129,7 +129,7 @@ class Parser(object):
     @staticmethod
     def mangle(name):
         Parser.mangle_id += 1
-        return "%s##%d" % (name, Parser.mangle_id)
+        return "{name}__{mid}".format(name=name, mid=Parser.mangle_id)
 
     @staticmethod
     def add_apply(p, name, args, inits, updates, finalizer):
