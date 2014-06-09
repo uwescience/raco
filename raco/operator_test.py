@@ -82,7 +82,7 @@ class OperatorTest(unittest.TestCase):
 
     def test_cast_to_float(self):
         scan = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
-        cast = CAST(NamedAttributeRef("salary"), TYPE(float))
+        cast = FLOAT_CAST(NamedAttributeRef("salary"))
         applyop = Apply([("salaryf", cast)], scan)
         res = list(self.db.evaluate(applyop))
         for x in res:

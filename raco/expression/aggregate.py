@@ -3,7 +3,7 @@ Aggregate expressions for use in Raco
 """
 
 from .expression import *
-from .function import UnaryFunction, SQRT, POW, CAST
+from .function import UnaryFunction, SQRT, POW
 
 from abc import abstractmethod
 import math
@@ -192,6 +192,6 @@ class STDEV(UnaryFunction, DecomposableAggregate):
         ssq = MergeAggregateOutput(1)
         count = MergeAggregateOutput(2)
 
-        return SQRT(MINUS(DIVIDE(CAST(ssq, TYPE(float)), count),
-                          POW(DIVIDE(CAST(_sum, TYPE(float)), count),
+        return SQRT(MINUS(DIVIDE(FLOAT_CAST(ssq), count),
+                          POW(DIVIDE(FLOAT_CAST(_sum), count),
                               NumericLiteral(2))))

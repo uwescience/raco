@@ -62,21 +62,6 @@ def compile_expr(op, child_scheme, state_scheme):
             'value': str(op.value),
             'valueType': 'STRING_TYPE'
         }
-    elif isinstance(op, expression.TYPE):
-        if op.type == int:
-            type_str = 'INT_TYPE'
-        elif op.type == long:
-            type_str = 'LONG_TYPE'
-        elif op.type == str:
-            type_str = 'STRING_TYPE'
-        elif op.type == float:
-            type_str = 'DOUBLE_TYPE'
-        else:
-            raise NotImplementedError('compiling TYPE {}'.format(op.type))
-        return {
-            'type': 'TYPE',
-            'outputType': type_str
-        }
     elif isinstance(op, expression.StateRef):
         return {
             'type': 'STATE',
