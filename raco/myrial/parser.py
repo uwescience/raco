@@ -6,6 +6,7 @@ from ply import yacc
 from raco import relation_key
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
+import raco.types
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
 from raco.expression.udf import Function, Apply
@@ -41,6 +42,14 @@ binops = {
     '=': sexpr.EQ,
     'AND': sexpr.AND,
     'OR': sexpr.OR,
+}
+
+# Map from myrial token name to raco internal type name.
+myrial_type_map = {
+    "STRING": raco.types.STRING_TYPE,
+    "INT": raco.types.LONG_TYPE,
+    "FLOAT": raco.types.DOUBLE_TYPE,
+    "BOOLEAN": raco.types.BOOLEAN_TYPE
 }
 
 
@@ -319,7 +328,7 @@ class Parser(object):
                      | INT
                      | BOOLEAN
                      | FLOAT'''
-        p[0] = raco.types.myrial_type_map[p[1]]
+        p[0] = myrial_type_map[p[1]]
 
     @staticmethod
     def p_string_arg(p):

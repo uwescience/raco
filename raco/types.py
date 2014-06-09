@@ -18,14 +18,6 @@ NUMERIC_TYPES = {LONG_TYPE, DOUBLE_TYPE}
 type_names = {LONG_TYPE, BOOLEAN_TYPE, DOUBLE_TYPE, STRING_TYPE, DATETIME_TYPE}
 
 
-# Map from myrial token name to "official" type name.
-myrial_type_map = {
-    "STRING": STRING_TYPE,
-    "INT": LONG_TYPE,
-    "FLOAT": DOUBLE_TYPE,
-    "BOOLEAN": BOOLEAN_TYPE
-}
-
 # Map from python primitive types to "official" types names
 python_type_map = {
     int: LONG_TYPE,
