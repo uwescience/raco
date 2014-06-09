@@ -458,12 +458,6 @@ class TYPE(ZeroaryOperator):
         raise Exception("Cannot evaluate this expression operator")
 
 
-class FLOAT_CAST(UnaryOperator):
-
-    def evaluate(self, _tuple, scheme, state=None):
-        return float(self.input.evaluate(_tuple, scheme, state))
-
-
 class NEG(UnaryOperator):
     literals = ["-"]
 

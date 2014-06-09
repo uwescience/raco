@@ -111,3 +111,12 @@ class LEN(UnaryFunction):
 
     def evaluate(self, _tuple, scheme, state=None):
         return len(self.input.evaluate(_tuple, scheme, state))
+
+
+class CAST(BinaryFunction):
+    literals = ["CAST"]
+
+    def evaluate(self, _tuple, scheme, state=None):
+        assert isinstance(self.right, TYPE)
+        pytype = self.right.type
+        return pytype(self.left.evaluate(_tuple, scheme, state))
