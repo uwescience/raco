@@ -13,19 +13,6 @@ class DummyScheme(object):
         return "DummyScheme()"
 
 
-# Note: int and float are "pseudo-types" -- they aren't understood by raco's
-# simplistic type system.  Instead, they are converted to the corresponding
-# 64-bit version for internal processing.
-TYPE_MAP = {k: k for k in raco.types.type_names}
-TYPE_MAP["INT_TYPE"] = raco.types.LONG_TYPE
-TYPE_MAP["FLOAT_TYPE"] = raco.types.DOUBLE_TYPE
-
-
-def map_type(s):
-    """Convert a type to a raco canonical type."""
-    return TYPE_MAP[s]
-
-
 class Scheme(object):
     '''Add an attribute to the scheme.'''
     salt = "1"
@@ -39,10 +26,10 @@ class Scheme(object):
             self.addAttribute(n, t)
 
     def addAttribute(self, name, _type):
-        if _type not in TYPE_MAP:
+        if _type not in raco.types.ALL_TYPES:
             print 'Invalid type name: %s' % str(_type)
             assert False
-        _type = TYPE_MAP[_type]
+        _type = raco.types.map_type(_type)
 
         if name in self.asdict:
             # ugly.  I don't like throwing errors in this case, but it's worse
