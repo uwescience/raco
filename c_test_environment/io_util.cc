@@ -105,7 +105,7 @@ uint64 fields;
 int64 *relation;
 
 
-struct relationInfo * inhale(char *path, struct relationInfo *relInfo) {
+struct relationInfo * inhale(const char *path, struct relationInfo *relInfo) {
 #ifdef ZAPPA
   double start = timer();
 #ifdef __MTA__
@@ -190,7 +190,7 @@ struct relationInfo * inhale(char *path, struct relationInfo *relInfo) {
 
 #pragma mta trace level 0
 #pragma mta no inline
-struct relationInfo * binary_inhale(char *path, struct relationInfo *relInfo) {
+struct relationInfo * binary_inhale(const char *path, struct relationInfo *relInfo) {
   double start = timer();
 #ifdef __MTA__
   snap_stat_buf stats;

@@ -3,13 +3,13 @@ Raco, the Relational Algebra COmpiler
 
 A pure Python compiler and optimization framework for relational algebra.
 
-[![Build Status](https://travis-ci.org/uwescience/datalogcompiler.png?branch=master)](https://travis-ci.org/uwescience/datalogcompiler)
-[![Coverage Status](https://coveralls.io/repos/uwescience/datalogcompiler/badge.png)](https://coveralls.io/r/uwescience/datalogcompiler)
+[![Build Status](https://travis-ci.org/uwescience/raco.png?branch=master)](https://travis-ci.org/uwescience/raco)
+[![Coverage Status](https://coveralls.io/repos/uwescience/raco/badge.png)](https://coveralls.io/r/uwescience/raco)
 
 Source languages include:
 
 * Datalog
-* SQL (TODO)
+* SQL (Subset)
 * Myrial, the language for the UW Myria project
 
 Output languages include:

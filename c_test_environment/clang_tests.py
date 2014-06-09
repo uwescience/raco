@@ -128,6 +128,10 @@ class ClangTest(unittest.TestCase):
     def test_join_swap_indexing(self):
         self.check("""A(a,h,y) :- T3(a,b,c), R3(x, y, z), S3(g,h,j), z=c, j=x""", "join_swap_indexing")
 
+    @nottest
+    def test_head_scalar_op(self):
+        self.check("""A(a+b) :- R2(a,b)""", "head_scalar_op")
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -3,6 +3,7 @@ import collections
 
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
+from raco.myrial.exceptions import *
 
 
 class SetopTestFunctions(myrial_test.MyrialTestCase):
@@ -53,6 +54,16 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         expected = self.emp_table1 + self.emp_table2
         self.check_result(query, expected)
 
+    def test_unionall_schema_mismatch(self):
+        query = """
+        T1 = [FROM SCAN(%s) AS X EMIT id, dept_id, name, salary, 7 as seven];
+        out = UNIONALL(T1, SCAN(%s));
+        STORE(out, OUTPUT);
+        """ % (self.emp_key1, self.emp_key2)
+
+        with self.assertRaises(SchemaMismatchException):
+            self.get_logical_plan(query)
+
     def test_unionall_inline(self):
         query = """
         out = SCAN(%s) + SCAN(%s);
@@ -91,6 +102,46 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
             set(self.emp_table2).difference(set(self.emp_table1)))
         self.check_result(query, expected)
 
+    def test_diff_schema_mismatch(self):
+        query = """
+        T1 = [FROM SCAN(%s) AS X EMIT id, dept_id, name];
+        out = DIFF(SCAN(%s), T1);
+        STORE(out, OUTPUT);
+        """ % (self.emp_key1, self.emp_key2)
+
+        with self.assertRaises(SchemaMismatchException):
+            self.get_logical_plan(query)
+
+    def test_diff_while_schema_mismatch(self):
+        query = """
+        Orig = [2 as x];
+        T1 = [2 as x];
+        do
+          Bad = diff(T1, Orig);
+          T1 = [3 as x, 3 as y];
+        while [from Bad emit count(*) > 0];
+        store(T1, OUTPUT);
+        """
+
+        with self.assertRaises(SchemaMismatchException):
+            # TODO Even if executed, this test does not throw exception
+            self.get_logical_plan(query)
+
+    def test_diff_while_schema_mismatch2(self):
+        query = """
+        Orig = [2 as x];
+        T1 = [3 as x];
+        do
+          Bad = diff(T1, Orig);
+          T1 = [3 as x, 3 as y];
+        while [from Bad emit count(*) > 0];
+        store(T1, OUTPUT);
+        """
+
+        with self.assertRaises(SchemaMismatchException):
+            # TODO If executed, this test loops infinitely
+            self.get_logical_plan(query)
+
     def test_intersect1(self):
         query = """
         out = INTERSECT(SCAN(%s), SCAN(%s));
@@ -110,3 +161,13 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(
             set(self.emp_table1).intersection(set(self.emp_table2)))
         self.check_result(query, expected, skip_json=True)
+
+    def test_intersect_schema_mismatch(self):
+        query = """
+        T1 = [FROM SCAN(%s) AS X EMIT id, dept_id, name];
+        out = INTERSECT(T1, SCAN(%s));
+        STORE(out, OUTPUT);
+        """ % (self.emp_key1, self.emp_key2)
+
+        with self.assertRaises(SchemaMismatchException):
+            self.get_logical_plan(query)

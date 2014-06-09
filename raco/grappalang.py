@@ -141,10 +141,10 @@ class GrappaLanguage(Language):
         return '%s' % (value), [], []
 
     @classmethod
-    def compile_stringliteral(cls, s):
+    def compile_stringliteral(cls, st):
         sid = cls.newstringident()
         decl = """int64_t %s;""" % (sid)
-        init = """auto l_%(sid)s = string_index.string_lookup("%(s)s");
+        init = """auto l_%(sid)s = string_index.string_lookup(%(st)s);
                    on_all_cores([=] { %(sid)s = l_%(sid)s; });""" % locals()
         return """(%s)""" % sid, [decl], [init]
         # raise ValueError("String Literals not supported in
@@ -156,7 +156,12 @@ class GrappaLanguage(Language):
         return "(!%s)" % (innerexpr,), decls, inits
 
     @classmethod
-    def boolean_combine(cls, args, operator="&&"):
+    def negative(cls, input):
+        innerexpr, decls, inits = input
+        return "(-%s)" % (innerexpr,), decls, inits
+
+    @classmethod
+    def expression_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
         conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
         decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
@@ -255,22 +260,6 @@ class MemoryScan(algebra.UnaryOperator, GrappaOperator):
         @see FileScan.__eq__
         """
         return UnaryOperator.__eq__(self, other)
-
-
-def getTaggingFunc(t):
-    """
-    Return a visitor function that will tag
-    UnnamedAttributes with the provided TupleRef
-    """
-
-    def tagAttributes(expr):
-        # TODO non mutable would be nice
-        if isinstance(expr, expression.UnnamedAttributeRef):
-            expr.tupleref = t
-
-        return None
-
-    return tagAttributes
 
 
 class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
@@ -468,7 +457,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             state.addDeclarationsUnresolved([hashdeclr])
 
             init_template = ct("""%(hashname)s.init_global_DHT( &%(hashname)s,
-            cores()*5000 );""")
+            cores()*16*1024 );""")
             state.addInitializers([init_template % locals()])
             self.right.produce(state)
             state.saveExpr(self.right,
@@ -514,7 +503,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
         if src.childtag == "left":
             left_template = ct("""
-            %(hashname)s.lookup_iter( %(keyname)s.get(%(keypos)s), \
+            %(hashname)s.lookup_iter<&%(pipeline_sync)s>( \
+            %(keyname)s.get(%(keypos)s), \
             [=](%(right_tuple_type)s& %(right_tuple_name)s) {
               join_coarse_result_count++;
               %(out_tuple_type)s %(out_tuple_name)s = \
@@ -529,6 +519,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
             keytype = t.getTupleTypename()
+
+            pipeline_sync = state.getPipelineProperty('global_syncname')
 
             if self.rightCondIsRightAttr:
                 keypos = self.condition.left.position
@@ -607,10 +599,14 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
     # we resolve it later, so use %%
     ascii_scan_template = """
     {
+    if (FLAGS_bin) {
+    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( "%(name)s.bin" );
+    } else {
     %(resultsym)s.data = readTuples<%%(result_type)s>( "%(name)s", FLAGS_nt);
     %(resultsym)s.numtuples = FLAGS_nt;
     auto l_%(resultsym)s = %(resultsym)s;
     on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
+    }
     }
     """
 
@@ -670,7 +666,7 @@ class GrappaAlgebra(object):
         rules.OneToOne(algebra.Apply, GrappaApply),
         # rules.OneToOne(algebra.Scan,MemoryScan),
         MemoryScanOfFileScan(),
-        # rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
+        #  rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
         rules.OneToOne(algebra.Join, GrappaHashJoin),
         rules.OneToOne(algebra.Project, GrappaProject),
         # TODO: this Union obviously breaks semantics

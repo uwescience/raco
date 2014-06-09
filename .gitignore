@@ -10,3 +10,4 @@ raco.egg-info
 .coverage
 .noseids
 .idea/
+*.dot

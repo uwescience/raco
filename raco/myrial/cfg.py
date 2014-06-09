@@ -1,7 +1,7 @@
 from raco.algebra import *
+from raco.myrial.exceptions import MyrialCompileException
 
 import bisect
-import collections
 import copy
 import itertools
 import logging
@@ -250,6 +250,9 @@ class ControlFlowGraph(object):
         if apply_chaining:
             self.apply_chaining()
 
+        if not self.graph:
+            raise MyrialCompileException("Optimized program is empty")
+
         op_stack = [Sequence()]
 
         def current_block():
@@ -259,7 +262,7 @@ class ControlFlowGraph(object):
             op = self.graph.node[i]['op']
 
             if self.graph.out_degree(i) == 2:
-                LOG.info("Terminating while loop (%d): %s" % (i, op))
+                LOG.info("Terminating while loop (%d): %s", i, op)
                 # Terminate current do/while loop
                 assert isinstance(current_block(), DoWhile)
                 current_block().add(op)
@@ -269,11 +272,11 @@ class ControlFlowGraph(object):
                 continue
 
             if self.graph.in_degree(i) == 2:
-                LOG.info("Introducing while loop (%d)" % i)
+                LOG.info("Introducing while loop (%d)", i)
                 # Introduce new do/while loop
                 op_stack.append(DoWhile())
 
-            LOG.info("Adding operation to sequence (%d) %s" % (i, op))
+            LOG.info("Adding operation to sequence (%d) %s", i, op)
             current_block().add(op)
 
         assert len(op_stack) == 1

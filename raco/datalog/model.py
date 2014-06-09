@@ -408,6 +408,42 @@ class Rule(object):
                 raise SyntaxError(msg)
             return expression.UnnamedAttributeRef(scheme.getPosition(var))
 
+        class FindVarExpressionVisitor(expression.SimpleExpressionVisitor):
+            def __init__(self):
+                self.stack = []
+
+            def getresult(self):
+                assert len(self.stack) == 1
+                return self.stack.pop()
+
+            def visit_unary(self, unaryexpr):
+                inputexpr = self.stack.pop()
+                self.stack.append(unaryexpr.__class__(inputexpr))
+
+            def visit_binary(self, binaryexpr):
+                right = self.stack.pop()
+                left = self.stack.pop()
+                self.stack.append(binaryexpr.__class__(left, right))
+
+            def visit_zeroary(self, zeroaryexpr):
+                self.stack.append(zeroaryexpr.__class__())
+
+            def visit_nary(self, naryexpr):
+                raise NotImplementedError(
+                    "TODO: implement findvar visit of nary expression")
+
+            def visit_Var(self, var):
+                asAttr = findvar(var)
+                self.stack.append(asAttr)
+
+            # TODO: add the other aggregates
+            # TODO and move aggregates to expression-visitor
+            def visit_SUM(self, x):
+                self.visit_unary(x)
+
+            def visit_COUNT(self, x):
+                self.visit_unary(x)
+
         # if this Rule includes a server specification, add a partition
         # operator
         if self.isParallel():
@@ -418,15 +454,20 @@ class Rule(object):
                              for v in self.head.serverspec.variables]
                 plan = raco.algebra.PartitionBy(positions, plan)
 
-        # Resolve variable references in the head; pass through aggregate
-        # expressions
         def toAttrRef(e):
-            if expression.isaggregate(e):
-                # assuming that every aggregate has exactly one argument
-                return e.__class__(findvar(e.input))
-            elif isinstance(e, Var):
-                return findvar(e)
+            """
+             Resolve variable references in the head; pass through aggregate
+             expressions
+
+             If expression requires an Apply then return True, else False
+             """
+            LOG.debug("find reference for %s", e)
+            visitor = FindVarExpressionVisitor()
+            e.accept(visitor)
+            return visitor.getresult()
+
         columnlist = [toAttrRef(v) for v in self.head.valuerefs]
+        LOG.debug("columnlist for Project (or group by) is %s", columnlist)
 
         # If any of the expressions in the head are aggregate expression,
         # construct a group by
@@ -436,10 +477,10 @@ class Rule(object):
 
             groups = [(orig_pos, col)
                       for orig_pos, col in enumerate(columnlist)
-                      if not isinstance(col, expression.AggregateExpression)]
+                      if not expression.isaggregate(col)]
             aggs = [(orig_pos, col)
                     for orig_pos, col in enumerate(columnlist)
-                    if isinstance(col, expression.AggregateExpression)]
+                    if expression.isaggregate(col)]
 
             group_cols = [col for _, col in groups]
             agg_cols = [col for _, col in aggs]
@@ -447,9 +488,25 @@ class Rule(object):
 
             mappings = [(None, expression.UnnamedAttributeRef(orig_pos))
                         for orig_pos, col in groups + aggs]
+
+            LOG.debug("creating groupby: \
+                      group_cols=%s agg_cols=%s mappings=%s",
+                      group_cols, agg_cols, mappings)
+
             plan = raco.algebra.Apply(mappings, groupby)
+        elif any([not isinstance(e, Var) for e in self.head.valuerefs]):
+            # If complex expressions in head, then precede Project with Apply
+            # NOTE: should Apply actually just append emitters to schema
+            # instead of doing column select?
+            # we decided probably not in
+            # https://github.com/uwescience/raco/pull/209
+            plan = raco.algebra.Apply([(None, e) for e in columnlist], plan)
+            plan = raco.algebra.Project([
+                                        expression.UnnamedAttributeRef(i)
+                                        for i, _ in enumerate(columnlist)],
+                                        plan)
         else:
-            # otherwise, just build a project
+            # otherwise, just build a Project
             plan = raco.algebra.Project(columnlist, plan)
 
         # If we found a cycle, the "root" of the plan is the fixpoint operator

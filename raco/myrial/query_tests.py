@@ -356,8 +356,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         emp = SCAN(%s);
         dept = SCAN(%s);
         out = JOIN(emp, dept_id, dept, id);
-        out = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
-        STORE(out, OUTPUT);
+        out2 = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
+        STORE(out2, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
@@ -598,11 +598,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_unbox_from_where_nary_name(self):
         query = """
-        CONST = [25 AS twenty_five, 1000 AS thousand];
+        _CONST = [25 AS twenty_five, 1000 AS thousand];
 
         emp = SCAN(%s);
-        out = [FROM emp WHERE salary == *CONST.twenty_five *
-        *CONST.thousand EMIT *];
+        out = [FROM emp WHERE salary == *_CONST.twenty_five *
+        *_CONST.thousand EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -613,11 +613,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_unbox_from_where_nary_pos(self):
         query = """
-        CONST = [25 AS twenty_five, 1000 AS thousand];
+        _CONST = [25 AS twenty_five, 1000 AS thousand];
 
         emp = SCAN(%s);
-        out = [FROM emp WHERE salary == *CONST.$0 *
-        *CONST.$1 EMIT *];
+        out = [FROM emp WHERE salary == *_CONST.$0 *
+        *_CONST.$1 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -735,8 +735,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        # TODO: Fix json compilation
-        res = self.execute_query(query, skip_json=True)
+        res = self.execute_query(query)
         tp = res.elements().next()
         self.assertAlmostEqual(tp[0], 34001.8006726)
 
@@ -1084,6 +1083,25 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, collections.Counter())
 
+    def test_relation_scope_error(self):
+        query = """
+        out = [FROM EMPTY(x:int) AS X EMIT z.*];
+        STORE(out, OUTPUT);
+        """
+
+        with self.assertRaises(AssertionError):
+            self.check_result(query, collections.Counter())
+
+    def test_relation_scope_error2(self):
+        query = """
+        z = EMPTY(z:int);
+        out = [FROM EMPTY(x:int) AS X EMIT z.*];
+        STORE(out, OUTPUT);
+        """
+
+        with self.assertRaises(AssertionError):
+            self.check_result(query, collections.Counter())
+
     def test_parse_error(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT $(val)];
@@ -1173,6 +1191,20 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         DEF Noop(): %s;
 
         out = [Noop() AS t];
+        STORE(out, OUTPUT);
+        """ % expr
+
+        val = eval(expr)
+        expected = collections.Counter([(val,)])
+        self.check_result(query, expected)
+
+    def test_const(self):
+        expr = "30 + 15 // 7 + -45"
+
+        query = """
+        CONST myconstant: %s;
+
+        out = [myconstant AS t];
         STORE(out, OUTPUT);
         """ % expr
 
@@ -1363,12 +1395,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_empty_statement_parse(self):
         """Program that contains nothing but empty statements."""
-        query = ";"
-
-        statements = self.parser.parse(";")
-        self.processor.evaluate(statements)
-        plan = self.processor.get_logical_plan()
-        self.assertEquals(plan, raco.algebra.Sequence())
+        with self.assertRaises(MyrialCompileException):
+            self.check_result(";", None)
 
     def test_case_binary(self):
         query = """
@@ -1510,6 +1538,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(ReservedTokenException):
             self.check_result(query, None)
 
+    def test_bug_226(self):
+        query = """
+        T = scan({emp});
+        A = select id, salary from T where 1=1;
+        B = select id, salary from A where salary=90000;
+        C = select A.* from B, A where A.salary < B.salary;
+        STORE (C, OUTPUT);
+        """.format(emp=self.emp_key)
+
+        expected = collections.Counter(
+            (i, s) for (i, d, n, s) in self.emp_table
+            for (i2, d2, n2, s2) in self.emp_table
+            if s2 == 90000 and s < s2)
+
+        self.assertEquals(expected, self.execute_query(query))
+
     def test_column_mixed_case_reserved(self):
         query = """
         T = EMPTY(x:int);
@@ -1527,3 +1571,23 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """
         with self.assertRaises(ReservedTokenException):
             self.check_result(query, None)
+
+    def test_empty_query(self):
+        query = """
+        T1 = empty(x:int);
+        """
+        with self.assertRaises(MyrialCompileException):
+            self.check_result(query, None)
+
+    def test_sequence(self):
+        query = """
+        T1 = scan({rel});
+        store(T1, OUTPUT);
+        T2 = scan({rel});
+        store(T2, OUTPUT2);
+        """.format(rel=self.emp_key)
+
+        physical_plan = self.get_physical_plan(query)
+        self.assertTrue(isinstance(physical_plan, raco.algebra.Sequence))
+        self.check_result(query, self.emp_table, output='OUTPUT')
+        self.check_result(query, self.emp_table, output='OUTPUT2')
