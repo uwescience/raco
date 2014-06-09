@@ -17,6 +17,7 @@ class DummyScheme(object):
 # type analysis system.
 TYPE_MAP = {k: k for k in raco.types.type_names}
 TYPE_MAP["INT_TYPE"] = raco.types.LONG_TYPE
+TYPE_MAP["FLOAT_TYPE"] = raco.types.DOUBLE_TYPE
 
 
 class Scheme(object):
