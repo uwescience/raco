@@ -21,6 +21,11 @@ TYPE_MAP["INT_TYPE"] = raco.types.LONG_TYPE
 TYPE_MAP["FLOAT_TYPE"] = raco.types.DOUBLE_TYPE
 
 
+def map_type(s):
+    """Convert a type to a raco canonical type."""
+    return TYPE_MAP[s]
+
+
 class Scheme(object):
     '''Add an attribute to the scheme.'''
     salt = "1"
