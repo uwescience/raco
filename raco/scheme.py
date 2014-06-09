@@ -13,8 +13,9 @@ class DummyScheme(object):
         return "DummyScheme()"
 
 
-# Convert external types to the canonical type name used by raco's simplified
-# type analysis system.
+# Note: int and float are "pseudo-types" -- they aren't understood by raco's
+# simplistic type system.  Instead, they are converted to the corresponding
+# 64-bit version for internal processing.
 TYPE_MAP = {k: k for k in raco.types.type_names}
 TYPE_MAP["INT_TYPE"] = raco.types.LONG_TYPE
 TYPE_MAP["FLOAT_TYPE"] = raco.types.DOUBLE_TYPE
