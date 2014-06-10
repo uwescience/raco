@@ -501,6 +501,27 @@ class TIMES(BinaryOperator):
                 self.right.evaluate(_tuple, scheme, state))
 
 
+class CAST(UnaryOperator):
+    def __init__(self, _type, input):
+        """Initialize a cast operator.
+
+        @param _type: A string denoting a type; must be from
+        raco.types.ALL_TYPES
+        """
+        assert _type in raco.types.ALL_TYPES
+        self._type = _type
+        UnaryOperator.__init__(self, input)
+
+    def evaluate(self, _tuple, scheme, state=None):
+        pytype = raco.types.reverse_python_type_map[self.typeof()]
+        return pytype(self.input.evaluate(_tuple, scheme, state))
+
+    def typeof(self, scheme, state_scheme):
+        # Note the lack of type-checking here; I didn't want to codify a
+        # particular set of casting rules.
+        raco.scheme.map_type(self._type)
+
+
 class FLOAT_CAST(UnaryOperator):
 
     def evaluate(self, _tuple, scheme, state=None):
