@@ -76,6 +76,15 @@ def compile_expr(op, child_scheme, state_scheme):
             'type': 'CONDITION',
             'children': [if_expr, then_expr, else_expr]
         }
+    elif isinstance(op, expression.CAST):
+        return {
+            'type': 'CAST',
+            'left': compile_expr(op.input, child_scheme, state_scheme),
+            'right': {
+                'type': 'TYPE',
+                'outputType': op._type
+            }
+        }
 
     ####
     # Everything below here is compiled automatically
