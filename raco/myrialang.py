@@ -166,15 +166,17 @@ class MyriaOperator(object):
     language = MyriaLanguage
 
 
+def relation_key_to_json(relation_key):
+    return {"userName": relation_key.user,
+            "programName": relation_key.program,
+            "relationName": relation_key.relation}
+
+
 class MyriaScan(algebra.Scan, MyriaOperator):
     def compileme(self):
         return {
             "opType": "TableScan",
-            "relationKey": {
-                "userName": self.relation_key.user,
-                "programName": self.relation_key.program,
-                "relationName": self.relation_key.relation
-            }
+            "relationKey": relation_key_to_json(self.relation_key)
         }
 
 
@@ -255,11 +257,7 @@ class MyriaStore(algebra.Store, MyriaOperator):
     def compileme(self, inputid):
         return {
             "opType": "DbInsert",
-            "relationKey": {
-                "userName": self.relation_key.user,
-                "programName": self.relation_key.program,
-                "relationName": self.relation_key.relation
-            },
+            "relationKey": relation_key_to_json(self.relation_key),
             "argOverwriteTable": True,
             "argChild": inputid,
         }
@@ -1389,6 +1387,22 @@ def compile_plan(plan_op):
     elif isinstance(plan_op, algebra.Sequence):
         plan_list = [compile_plan(pl_op) for pl_op in plan_op.children()]
         return {"type": "Sequence", "plans": plan_list}
+
+    elif isinstance(plan_op, algebra.DoWhile):
+        children = plan_op.children()
+        if len(children) < 2:
+            raise ValueError('DoWhile must have at >= 2 children: body and condition')  # noqa
+        condition = children[-1]
+        if isinstance(condition, subplan_ops):
+            raise ValueError('DoWhile condition cannot be a subplan op {cls}'.format(cls=condition.__class__))  # noqa
+        condition = label_op_to_op('__dowhile_{}_condition'.format(id(
+            plan_op)), condition)
+        plan_op.args = children[:-1] + [condition]
+        body = [compile_plan(pl_op) for pl_op in plan_op.children()]
+        condition_lbl = condition.relation_key
+        return {"type": "DoWhile",
+                "body": body,
+                "condition": relation_key_to_json(condition_lbl)}
 
     raise NotImplementedError("compiling subplan op {}".format(type(plan_op)))
 
