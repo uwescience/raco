@@ -1579,6 +1579,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
 
+    def test_string_cast(self):
+        query = """
+        emp = SCAN(%s);
+        bc = [FROM emp EMIT STRING(emp.dept_id) AS foo];
+        STORE(bc, OUTPUT);
+        """ % self.emp_key
+
+        ex = collections.Counter((str(d),) for (i, d, n, s) in self.emp_table)
+        ex_scheme = scheme.Scheme([('foo', 'STRING_TYPE')])
+        self.check_result(query, ex)
+
     def test_sequence(self):
         query = """
         T1 = scan({rel});
