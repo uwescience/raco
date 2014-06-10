@@ -1220,48 +1220,6 @@ class MyriaAlgebra(object):
     ]
 
 
-def apply_schema_recursive(operator, catalog):
-    """Given a catalog, which has a function get_scheme(relation_key) to map
-    a relation name to its scheme, update the schema for all scan operations
-    that scan relations in the map."""
-
-    # We found a scan, let's fill in its scheme
-    if isinstance(operator, (MyriaScan, MyriaScanTemp)):
-
-        if isinstance(operator, MyriaScan):
-            rel_key = operator.relation_key
-        else:
-            rel_key = RelationKey.from_string(operator.name)
-        rel_scheme = catalog.get_scheme(rel_key)
-
-        if rel_scheme:
-            # The Catalog has an entry for this relation
-            if len(operator.scheme()) != len(rel_scheme):
-                s = "scheme for %s (%d cols) does not match the catalog (%d cols)" % (rel_key, len(operator._scheme), len(rel_scheme))  # noqa
-                raise ValueError(s)
-            operator._scheme = rel_scheme
-        else:
-            # The specified relation is not in the Catalog; replace its
-            # scheme's types with LONG_TYPE
-            old_sch = operator.scheme()
-            new_sch = [(old_sch.getName(i), types.LONG_TYPE)
-                       for i in range(len(old_sch))]
-            operator._scheme = Scheme(new_sch)
-
-    # Recurse through all children
-    for child in operator.children():
-        apply_schema_recursive(child, catalog)
-
-    # Done
-    return
-
-
-class EmptyCatalog(object):
-    @staticmethod
-    def get_scheme(relation_name):
-        return None
-
-
 class OpIdFactory(object):
     def __init__(self):
         self.count = 0
@@ -1430,12 +1388,6 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
     if not isinstance(physical_plan, subplan_ops):
         physical_plan = algebra.Parallel([physical_plan])
-
-    # If no catalog was supplied, create the empty catalog
-    if catalog is None:
-        catalog = EmptyCatalog()
-    # Update the scheme of all scans
-    apply_schema_recursive(physical_plan, catalog)
 
     return {"rawDatalog": raw_query,
             "logicalRa": str(logical_plan),
