@@ -513,24 +513,13 @@ class CAST(UnaryOperator):
         UnaryOperator.__init__(self, input)
 
     def evaluate(self, _tuple, scheme, state=None):
-        pytype = raco.types.reverse_python_type_map[self.typeof()]
+        pytype = raco.types.reverse_python_type_map[self.typeof(None, None)]
         return pytype(self.input.evaluate(_tuple, scheme, state))
 
     def typeof(self, scheme, state_scheme):
         # Note the lack of type-checking here; I didn't want to codify a
         # particular set of casting rules.
-        raco.scheme.map_type(self._type)
-
-
-class FLOAT_CAST(UnaryOperator):
-
-    def evaluate(self, _tuple, scheme, state=None):
-        return float(self.input.evaluate(_tuple, scheme, state))
-
-    def typeof(self, scheme, state_scheme):
-        input_type = self.input.typeof(scheme, state_scheme)
-        check_is_numeric(input_type)
-        return "DOUBLE_TYPE"
+        return raco.types.map_type(self._type)
 
 
 class NEG(UnaryOperator):
