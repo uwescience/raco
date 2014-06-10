@@ -5,6 +5,7 @@ Most non-trivial operators and functions are in separate files in this package.
 """
 
 from raco.utility import Printable
+import raco.types
 
 from abc import ABCMeta, abstractmethod
 
@@ -12,14 +13,34 @@ import logging
 LOG = logging.getLogger(__name__)
 
 
+class TypeSafetyViolation(Exception):
+    pass
+
+
+def check_type(_type, allowed_types):
+    if _type not in allowed_types:
+        raise TypeSafetyViolation("Type %s not among %s" % (
+            _type, allowed_types))
+
+
+def check_is_numeric(_type):
+    check_type(_type, raco.types.NUMERIC_TYPES)
+
+
 class Expression(Printable):
     __metaclass__ = ABCMeta
     literals = None
 
-    @classmethod
-    def typeof(cls):
-        # By default, we don't know the type
-        return None
+    @abstractmethod
+    def typeof(self, scheme, state_scheme):
+        """Returns a string describing the expression's return type.
+
+        :param scheme: The schema of the relation corresponding to this
+        expression
+        :param state_scheme: The schema of the state corresponding to this
+        expression; this is None except for teh StatefulApply operator.
+        :return: A string from among raco.types.type_names.
+        """
 
     @classmethod
     def opstr(cls):
@@ -146,6 +167,9 @@ class UnaryOperator(Expression):
         self.input.accept(visitor)
         visitor.visit(self)
 
+    def typeof(self, scheme, state_scheme):
+        return self.input.typeof(scheme, state_scheme)
+
 
 class BinaryOperator(Expression):
 
@@ -214,6 +238,20 @@ class BinaryOperator(Expression):
         self.right.accept(visitor)
         visitor.visit(self)
 
+    def typeof(self, scheme, state_scheme):
+        lt = "LONG_TYPE"
+        ft = "DOUBLE_TYPE"
+        type_map = {(lt, lt): lt, (lt, ft): ft, (ft, lt): ft, (ft, ft): ft}
+
+        left_type = self.left.typeof(scheme, state_scheme)
+        right_type = self.right.typeof(scheme, state_scheme)
+
+        if (left_type, right_type) in type_map:
+            return type_map[(left_type, right_type)]
+        else:
+            raise TypeSafetyViolation("Can't combine %s, %s for %s" % (
+                left_type, right_type, self.__class__))
+
 
 class NaryOperator(Expression):
 
@@ -280,9 +318,8 @@ class Literal(ZeroaryOperator):
     def __str__(self):
         return str(self.value)
 
-    def typeof(self):
-        # TODO: DANGEROUS
-        return type(self.value)
+    def typeof(self, scheme, state_scheme):
+        return raco.types.python_type_map[type(self.value)]
 
     def evaluate(self, _tuple, scheme, state=None):
         return self.value
@@ -316,6 +353,9 @@ class AttributeRef(Expression):
 
     def walk(self):
         yield self
+
+    def typeof(self, scheme, state_scheme):
+        return scheme.getType(self.get_position(scheme, state_scheme))
 
 
 class NamedAttributeRef(AttributeRef):
@@ -357,9 +397,6 @@ class UnnamedAttributeRef(AttributeRef):
 
 class StateRef(Expression):
 
-    def evaluate(self, _tuple, scheme, state=None):
-        return _tuple[self.get_position(scheme, state.scheme)]
-
     @abstractmethod
     def get_position(self, scheme, state_scheme):
         """Return the position of the referenced attribute in the given
@@ -383,6 +420,10 @@ class UnnamedStateAttributeRef(StateRef):
     def evaluate(self, _tuple, scheme, state):
         return state.values[self.position]
 
+    def typeof(self, scheme, state_scheme):
+        assert state_scheme is not None
+        return state_scheme.getType(self.position)
+
 
 class NamedStateAttributeRef(StateRef):
 
@@ -400,6 +441,10 @@ class NamedStateAttributeRef(StateRef):
 
     def get_position(self, scheme, state_scheme):
         return state_scheme.getPosition(self.name)
+
+    def typeof(self, scheme, state_scheme):
+        assert state_scheme is not None
+        return state_scheme.getType(self.get_position(scheme, state_scheme))
 
 
 class UDF(NaryOperator):
@@ -429,6 +474,11 @@ class DIVIDE(BinaryOperator):
         return (float(self.left.evaluate(_tuple, scheme, state)) /
                 self.right.evaluate(_tuple, scheme, state))
 
+    def typeof(self, scheme, state_scheme):
+        check_is_numeric(self.left.typeof(scheme, state_scheme))
+        check_is_numeric(self.right.typeof(scheme, state_scheme))
+        return "DOUBLE_TYPE"
+
 
 class IDIVIDE(BinaryOperator):
     literals = ["//"]
@@ -436,6 +486,11 @@ class IDIVIDE(BinaryOperator):
     def evaluate(self, _tuple, scheme, state=None):
         return int(self.left.evaluate(_tuple, scheme, state) /
                    self.right.evaluate(_tuple, scheme, state))
+
+    def typeof(self, scheme, state_scheme):
+        check_is_numeric(self.left.typeof(scheme, state_scheme))
+        check_is_numeric(self.right.typeof(scheme, state_scheme))
+        return "LONG_TYPE"
 
 
 class TIMES(BinaryOperator):
@@ -446,22 +501,15 @@ class TIMES(BinaryOperator):
                 self.right.evaluate(_tuple, scheme, state))
 
 
-class TYPE(ZeroaryOperator):
-
-    def __init__(self, rtype):
-        self.type = rtype
-
-    def typeof(self):
-        return self.type
-
-    def evaluate(self, _tuple, scheme, state=None):
-        raise Exception("Cannot evaluate this expression operator")
-
-
 class FLOAT_CAST(UnaryOperator):
 
     def evaluate(self, _tuple, scheme, state=None):
         return float(self.input.evaluate(_tuple, scheme, state))
+
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        check_is_numeric(input_type)
+        return "DOUBLE_TYPE"
 
 
 class NEG(UnaryOperator):
@@ -469,6 +517,11 @@ class NEG(UnaryOperator):
 
     def evaluate(self, _tuple, scheme, state=None):
         return -1 * self.input.evaluate(_tuple, scheme, state)
+
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        check_is_numeric(input_type)
+        return input_type
 
 
 class Unbox(ZeroaryOperator):
@@ -491,6 +544,9 @@ class Unbox(ZeroaryOperator):
         are replaced with raw attribute references at evaluation time.
         """
         raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        raise NotImplementedError()  # See above comment
 
 
 class Case(Expression):
@@ -556,6 +612,15 @@ class Case(Expression):
 
     def __repr__(self):
         return self.__str__()
+
+    def typeof(self, scheme, state_scheme):
+        all_exprs = [res_expr for test_expr, res_expr in self.when_tuples]
+        all_exprs.append(self.else_expr)
+        types = [ex.typeof(scheme, state_scheme) for ex in all_exprs]
+        if len(set(types)) != 1:
+            raise TypeSafetyViolation(
+                "Case expresssions must resolve to a single type")
+        return types[0]
 
 
 import abc

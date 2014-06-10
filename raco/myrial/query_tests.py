@@ -24,10 +24,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (6, 3, "Dan Suciu", 90000),
         (7, 1, "Magdalena Balazinska", 25000)])
 
-    emp_schema = scheme.Scheme([("id", "int"),
-                                ("dept_id", "int"),
-                                ("name", "string"),
-                                ("salary", "int")])
+    emp_schema = scheme.Scheme([("id", "INT_TYPE"),
+                                ("dept_id", "INT_TYPE"),
+                                ("name", "STRING_TYPE"),
+                                ("salary", "LONG_TYPE")])
 
     emp_key = "public:adhoc:employee"
 
@@ -37,9 +37,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (3, "engineering", 2),
         (4, "sales", 7)])
 
-    dept_schema = scheme.Scheme([("id", "int"),
-                                 ("name", "string"),
-                                 ("manager", "int")])
+    dept_schema = scheme.Scheme([("id", "LONG_TYPE"),
+                                 ("name", "STRING_TYPE"),
+                                 ("manager", "LONG_TYPE")])
 
     dept_key = "public:adhoc:department"
 
@@ -49,8 +49,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (3, -2),
         (16, -4.3)])
 
-    numbers_schema = scheme.Scheme([("id", "int"),
-                                    ("val", "float")])
+    numbers_schema = scheme.Scheme([("id", "LONG_TYPE"),
+                                    ("val", "DOUBLE_TYPE")])
 
     numbers_key = "public:adhoc:numbers"
 
@@ -1085,7 +1085,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_relation_scope_error(self):
         query = """
-        out = [FROM EMPTY(x:int) AS X EMIT z.*];
+        out = [FROM EMPTY(x:INT) AS X EMIT z.*];
         STORE(out, OUTPUT);
         """
 
@@ -1094,8 +1094,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_relation_scope_error2(self):
         query = """
-        z = EMPTY(z:int);
-        out = [FROM EMPTY(x:int) AS X EMIT z.*];
+        z = EMPTY(z:INT);
+        out = [FROM EMPTY(x:INT) AS X EMIT z.*];
         STORE(out, OUTPUT);
         """
 
@@ -1531,7 +1531,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_column_name_reserved(self):
         query = """
-        T = EMPTY(x:int);
+        T = EMPTY(x:INT);
         A = [FROM T EMIT SafeDiv(x, 3) AS SafeDiv];
         STORE (A, BadProgram);
         """
@@ -1556,7 +1556,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_column_mixed_case_reserved(self):
         query = """
-        T = EMPTY(x:int);
+        T = EMPTY(x:INT);
         A = [FROM T EMIT MAX(x) AS maX];
         STORE (A, BadProgram);
         """
@@ -1565,7 +1565,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_variable_name_reserved(self):
         query = """
-        T = EMPTY(x:int);
+        T = EMPTY(x:INT);
         avg = COUNTALL(T);
         STORE (countall, BadProgram);
         """
@@ -1574,7 +1574,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_empty_query(self):
         query = """
-        T1 = empty(x:int);
+        T1 = empty(x:INT);
         """
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)

@@ -98,11 +98,17 @@ class MAX(UnaryFunction, DecomposableAggregate):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return max(inputs)
 
+    def typeof(self, scheme, state_scheme):
+        return self.input.typeof(scheme, state_scheme)
+
 
 class MIN(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return min(inputs)
+
+    def typeof(self, scheme, state_scheme):
+        return self.input.typeof(scheme, state_scheme)
 
 
 class COUNTALL(ZeroaryOperator, DecomposableAggregate):
@@ -111,6 +117,9 @@ class COUNTALL(ZeroaryOperator, DecomposableAggregate):
 
     def get_merge_aggregates(self):
         return [SUM(LocalAggregateOutput())]
+
+    def typeof(self, scheme, state_scheme):
+        return "LONG_TYPE"
 
 
 class COUNT(UnaryFunction, DecomposableAggregate):
@@ -125,6 +134,9 @@ class COUNT(UnaryFunction, DecomposableAggregate):
     def get_merge_aggregates(self):
         return [SUM(LocalAggregateOutput())]
 
+    def typeof(self, scheme, state_scheme):
+        return "LONG_TYPE"
+
 
 class SUM(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
@@ -135,6 +147,11 @@ class SUM(UnaryFunction, DecomposableAggregate):
             if t is not None:
                 sum += t
         return sum
+
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        check_is_numeric(input_type)
+        return input_type
 
 
 class AVG(UnaryFunction, DecomposableAggregate):
@@ -159,6 +176,11 @@ class AVG(UnaryFunction, DecomposableAggregate):
         # Note: denominator cannot equal zero because groups always have
         # at least one member.
         return DIVIDE(MergeAggregateOutput(0), MergeAggregateOutput(1))
+
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        check_is_numeric(input_type)
+        return "DOUBLE_TYPE"
 
 
 class STDEV(UnaryFunction, DecomposableAggregate):
@@ -195,3 +217,8 @@ class STDEV(UnaryFunction, DecomposableAggregate):
         return SQRT(MINUS(DIVIDE(FLOAT_CAST(ssq), count),
                           POW(DIVIDE(FLOAT_CAST(_sum), count),
                               NumericLiteral(2))))
+
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        check_is_numeric(input_type)
+        return "DOUBLE_TYPE"

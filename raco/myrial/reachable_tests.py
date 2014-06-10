@@ -25,8 +25,8 @@ class ReachableTest(myrial_test.MyrialTestCase):
         (13, 4),
         (10, 1)])
 
-    edge_schema = scheme.Scheme([("src", "int"),
-                                 ("dst", "int")])
+    edge_schema = scheme.Scheme([("src", "LONG_TYPE"),
+                                 ("dst", "LONG_TYPE")])
     edge_key = "public:adhoc:edges"
 
     def setUp(self):

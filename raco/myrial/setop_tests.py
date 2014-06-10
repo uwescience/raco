@@ -29,10 +29,10 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
 
     emp_key2 = "andrew:adhoc:employee2"
 
-    emp_schema = scheme.Scheme([("id", "int"),
-                                ("dept_id", "int"),
-                                ("name", "string"),
-                                ("salary", "int")])
+    emp_schema = scheme.Scheme([("id", "LONG_TYPE"),
+                                ("dept_id", "LONG_TYPE"),
+                                ("name", "STRING_TYPE"),
+                                ("salary", "LONG_TYPE")])
 
     def setUp(self):
         super(SetopTestFunctions, self).setUp()

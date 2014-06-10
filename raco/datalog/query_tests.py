@@ -15,10 +15,10 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         (6, 3, "Dan Suciu", 90000),
         (7, 1, "Magdalena Balazinska", 25000)])
 
-    emp_schema = scheme.Scheme([("id", "int"),
-                                ("dept_id", "int"),
-                                ("name", "string"),
-                                ("salary", "int")])
+    emp_schema = scheme.Scheme([("id", "LONG_TYPE"),
+                                ("dept_id", "LONG_TYPE"),
+                                ("name", "STRING_TYPE"),
+                                ("salary", "LONG_TYPE")])
 
     emp_key = "employee"
 
@@ -28,9 +28,9 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         (3, "engineering", 2),
         (4, "sales", 7)])
 
-    dept_schema = scheme.Scheme([("id", "int"),
-                                 ("name", "string"),
-                                 ("manager", "int")])
+    dept_schema = scheme.Scheme([("id", "LONG_TYPE"),
+                                 ("name", "STRING_TYPE"),
+                                 ("manager", "LONG_TYPE")])
 
     dept_key = "department"
 
@@ -51,8 +51,8 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         (13, 4),
         (10, 1)])
 
-    edge_schema = scheme.Scheme([("src", "int"),
-                                 ("dst", "int")])
+    edge_schema = scheme.Scheme([("src", "LONG_TYPE"),
+                                 ("dst", "LONG_TYPE")])
     edge_key = "Edge"
 
     def setUp(self):

@@ -45,7 +45,7 @@ class MyrialTestCase(unittest.TestCase):
             # Test that JSON compilation runs without error
             # TODO: verify the JSON output somehow?
             json_string = json.dumps(compile_to_json(
-                "some query", "some logical plan", plan))
+                "some query", "some logical plan", plan, self.db))
             assert json_string
 
         self.db.evaluate(plan)
@@ -57,3 +57,8 @@ class MyrialTestCase(unittest.TestCase):
         '''Execute a test query with an expected output'''
         actual = self.execute_query(query, test_logical, skip_json, output)
         self.assertEquals(actual, expected)
+
+    def check_scheme(self, query, scheme):
+        '''Execute a test query with an expected output schema.'''
+        actual = self.execute_query(query)
+        self.assertEquals(self.db.get_scheme('OUTPUT'), scheme)

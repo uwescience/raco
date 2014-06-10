@@ -196,6 +196,9 @@ class ExpressionProcessor(object):
         # rewrite clauses in terms of the new schema
         if where_clause:
             where_clause = multiway.rewrite_refs(where_clause, from_args, info)
+            # Extract the type of there where clause to force type safety
+            # to be checked
+            where_clause.typeof(op.scheme(), None)
             op = raco.algebra.Select(condition=where_clause, input=op)
 
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
