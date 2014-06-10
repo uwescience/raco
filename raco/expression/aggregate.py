@@ -214,8 +214,8 @@ class STDEV(UnaryFunction, DecomposableAggregate):
         ssq = MergeAggregateOutput(1)
         count = MergeAggregateOutput(2)
 
-        return SQRT(MINUS(DIVIDE(CAST("DOUBLE_TYPE", ssq), count),
-                          POW(DIVIDE(CAST("DOUBLE_TYPE", _sum), count),
+        return SQRT(MINUS(DIVIDE(ssq, count),
+                          POW(DIVIDE(_sum, count),
                               NumericLiteral(2))))
 
     def typeof(self, scheme, state_scheme):
