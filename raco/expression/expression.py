@@ -512,6 +512,9 @@ class CAST(UnaryOperator):
         self._type = _type
         UnaryOperator.__init__(self, input)
 
+    def __str__(self):
+        return "%s(%s, %s)" % (self.opstr(), self._type, self.input)
+
     def evaluate(self, _tuple, scheme, state=None):
         pytype = raco.types.reverse_python_type_map[self.typeof(None, None)]
         return pytype(self.input.evaluate(_tuple, scheme, state))
