@@ -1590,6 +1590,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         ex_scheme = scheme.Scheme([('foo', 'STRING_TYPE')])
         self.check_result(query, ex)
 
+    def test_float_cast(self):
+        query = """
+        emp = SCAN(%s);
+        bc = [FROM emp EMIT float(emp.dept_id) AS foo];
+        STORE(bc, OUTPUT);
+        """ % self.emp_key
+
+        ex = collections.Counter((float(d),) for (i, d, n, s) in self.emp_table)  # noqa
+        ex_scheme = scheme.Scheme([('foo', 'DOUBLE_TYPE')])
+        self.check_result(query, ex)
+
     def test_sequence(self):
         query = """
         T1 = scan({rel});
