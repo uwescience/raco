@@ -6,14 +6,15 @@ from raco.scheme import Scheme
 from raco.myrial.myrial_test import MyrialTestCase
 from raco.expression import TypeSafetyViolation
 from collections import Counter
+from raco import types
 
 
 class TypeTests(MyrialTestCase):
     schema = Scheme(
-        [("clong", "LONG_TYPE"),
+        [("clong", types.LONG_TYPE),
          ("cint", "INT_TYPE"),
-         ("cstring", "STRING_TYPE"),
-         ("cfloat", "DOUBLE_TYPE"),
+         ("cstring", types.STRING_TYPE),
+         ("cfloat", types.DOUBLE_TYPE),
          ("cbool", "BOOLEAN_TYPE"),
          ("cdate", "DATETIME_TYPE")])
 
@@ -114,7 +115,7 @@ class TypeTests(MyrialTestCase):
         X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat / cfloat AS y];
         STORE(X, OUTPUT);
         """
-        schema = Scheme([('y', "DOUBLE_TYPE")])
+        schema = Scheme([('y', types.DOUBLE_TYPE)])
         self.check_scheme(query, schema)
 
     def test_idivide(self):
@@ -122,7 +123,7 @@ class TypeTests(MyrialTestCase):
         X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat // cint AS y];
         STORE(X, OUTPUT);
         """
-        schema = Scheme([('y', "LONG_TYPE")])
+        schema = Scheme([('y', types.LONG_TYPE)])
         self.check_scheme(query, schema)
 
     def test_neg(self):

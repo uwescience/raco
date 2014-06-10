@@ -5,7 +5,7 @@ Most non-trivial operators and functions are in separate files in this package.
 """
 
 from raco.utility import Printable
-import raco.types
+from raco import types
 
 from abc import ABCMeta, abstractmethod
 
@@ -24,7 +24,7 @@ def check_type(_type, allowed_types):
 
 
 def check_is_numeric(_type):
-    check_type(_type, raco.types.NUMERIC_TYPES)
+    check_type(_type, types.NUMERIC_TYPES)
 
 
 class Expression(Printable):
@@ -39,7 +39,7 @@ class Expression(Printable):
         expression
         :param state_scheme: The schema of the state corresponding to this
         expression; this is None except for teh StatefulApply operator.
-        :return: A string from among raco.types.type_names.
+        :return: A string from among types.type_names.
         """
 
     @classmethod
@@ -239,8 +239,8 @@ class BinaryOperator(Expression):
         visitor.visit(self)
 
     def typeof(self, scheme, state_scheme):
-        lt = "LONG_TYPE"
-        ft = "DOUBLE_TYPE"
+        lt = types.LONG_TYPE
+        ft = types.DOUBLE_TYPE
         type_map = {(lt, lt): lt, (lt, ft): ft, (ft, lt): ft, (ft, ft): ft}
 
         left_type = self.left.typeof(scheme, state_scheme)
@@ -319,7 +319,7 @@ class Literal(ZeroaryOperator):
         return str(self.value)
 
     def typeof(self, scheme, state_scheme):
-        return raco.types.python_type_map[type(self.value)]
+        return types.python_type_map[type(self.value)]
 
     def evaluate(self, _tuple, scheme, state=None):
         return self.value
@@ -477,7 +477,7 @@ class DIVIDE(BinaryOperator):
     def typeof(self, scheme, state_scheme):
         check_is_numeric(self.left.typeof(scheme, state_scheme))
         check_is_numeric(self.right.typeof(scheme, state_scheme))
-        return "DOUBLE_TYPE"
+        return types.DOUBLE_TYPE
 
 
 class IDIVIDE(BinaryOperator):
@@ -490,7 +490,7 @@ class IDIVIDE(BinaryOperator):
     def typeof(self, scheme, state_scheme):
         check_is_numeric(self.left.typeof(scheme, state_scheme))
         check_is_numeric(self.right.typeof(scheme, state_scheme))
-        return "LONG_TYPE"
+        return types.LONG_TYPE
 
 
 class TIMES(BinaryOperator):
@@ -506,9 +506,9 @@ class CAST(UnaryOperator):
         """Initialize a cast operator.
 
         @param _type: A string denoting a type; must be from
-        raco.types.ALL_TYPES
+        types.ALL_TYPES
         """
-        assert _type in raco.types.ALL_TYPES
+        assert _type in types.ALL_TYPES
         self._type = _type
         UnaryOperator.__init__(self, input)
 
@@ -516,13 +516,13 @@ class CAST(UnaryOperator):
         return "%s(%s, %s)" % (self.opstr(), self._type, self.input)
 
     def evaluate(self, _tuple, scheme, state=None):
-        pytype = raco.types.reverse_python_type_map[self.typeof(None, None)]
+        pytype = types.reverse_python_type_map[self.typeof(None, None)]
         return pytype(self.input.evaluate(_tuple, scheme, state))
 
     def typeof(self, scheme, state_scheme):
         # Note the lack of type-checking here; I didn't want to codify a
         # particular set of casting rules.
-        return raco.types.map_type(self._type)
+        return types.map_type(self._type)
 
 
 class NEG(UnaryOperator):

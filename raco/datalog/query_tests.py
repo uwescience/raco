@@ -2,6 +2,7 @@ import collections
 
 import raco.scheme as scheme
 import raco.datalog.datalog_test as datalog_test
+from raco import types
 
 
 class TestQueryFunctions(datalog_test.DatalogTestCase):
@@ -15,10 +16,10 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         (6, 3, "Dan Suciu", 90000),
         (7, 1, "Magdalena Balazinska", 25000)])
 
-    emp_schema = scheme.Scheme([("id", "LONG_TYPE"),
-                                ("dept_id", "LONG_TYPE"),
-                                ("name", "STRING_TYPE"),
-                                ("salary", "LONG_TYPE")])
+    emp_schema = scheme.Scheme([("id", types.LONG_TYPE),
+                                ("dept_id", types.LONG_TYPE),
+                                ("name", types.STRING_TYPE),
+                                ("salary", types.LONG_TYPE)])
 
     emp_key = "employee"
 
@@ -28,9 +29,9 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         (3, "engineering", 2),
         (4, "sales", 7)])
 
-    dept_schema = scheme.Scheme([("id", "LONG_TYPE"),
-                                 ("name", "STRING_TYPE"),
-                                 ("manager", "LONG_TYPE")])
+    dept_schema = scheme.Scheme([("id", types.LONG_TYPE),
+                                 ("name", types.STRING_TYPE),
+                                 ("manager", types.LONG_TYPE)])
 
     dept_key = "department"
 
@@ -51,8 +52,8 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         (13, 4),
         (10, 1)])
 
-    edge_schema = scheme.Scheme([("src", "LONG_TYPE"),
-                                 ("dst", "LONG_TYPE")])
+    edge_schema = scheme.Scheme([("src", types.LONG_TYPE),
+                                 ("dst", types.LONG_TYPE)])
     edge_key = "Edge"
 
     def setUp(self):

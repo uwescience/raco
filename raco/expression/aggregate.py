@@ -4,7 +4,7 @@ Aggregate expressions for use in Raco
 
 from .expression import *
 from .function import UnaryFunction, SQRT, POW
-
+from raco import types
 from abc import abstractmethod
 import math
 
@@ -119,7 +119,7 @@ class COUNTALL(ZeroaryOperator, DecomposableAggregate):
         return [SUM(LocalAggregateOutput())]
 
     def typeof(self, scheme, state_scheme):
-        return "LONG_TYPE"
+        return types.LONG_TYPE
 
 
 class COUNT(UnaryFunction, DecomposableAggregate):
@@ -135,7 +135,7 @@ class COUNT(UnaryFunction, DecomposableAggregate):
         return [SUM(LocalAggregateOutput())]
 
     def typeof(self, scheme, state_scheme):
-        return "LONG_TYPE"
+        return types.LONG_TYPE
 
 
 class SUM(UnaryFunction, DecomposableAggregate):
@@ -180,7 +180,7 @@ class AVG(UnaryFunction, DecomposableAggregate):
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
-        return "DOUBLE_TYPE"
+        return types.DOUBLE_TYPE
 
 
 class STDEV(UnaryFunction, DecomposableAggregate):
@@ -221,4 +221,4 @@ class STDEV(UnaryFunction, DecomposableAggregate):
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
-        return "DOUBLE_TYPE"
+        return types.DOUBLE_TYPE
