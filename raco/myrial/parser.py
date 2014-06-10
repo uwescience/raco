@@ -673,6 +673,11 @@ class Parser(object):
             p[0] = sexpr.COUNT(p[3])
 
     @staticmethod
+    def p_sexpr_cast(p):
+        '''sexpr : type_name LPAREN sexpr RPAREN'''
+        p[0] = sexpr.CAST(p[1], p[3])
+
+    @staticmethod
     def p_count_arg(p):
         '''count_arg : TIMES
                      | sexpr'''
