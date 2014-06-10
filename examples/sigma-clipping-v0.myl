@@ -4,12 +4,11 @@
 Good = scan(public:adhoc:sc_points);
 
 -- number of allowed standard deviations
-N = [2];
+const N: 2;
 
 do
-    mean = [from Good emit avg(v) AS val];
-    std = [from Good emit stdev(v) AS val];
-    NewBad = [from Good where abs(Good.v - *mean) > *N * *std emit *];
+    stats = [from Good emit avg(v) AS mean, stdev(v) as std];
+    NewBad = [from Good, stats where abs(v - mean) > N * std emit Good.*];
     Good = diff(Good, NewBad);
     continue = [from NewBad emit count(NewBad.v) > 0];
 while continue;
