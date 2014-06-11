@@ -1650,6 +1650,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.check_result(query, collections.Counter([(1, 2)]),
                           scheme=expected_scheme)
 
+    def test_unbox_index_column_names(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit x2.$0, x2.$1];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('b', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 2)]),
+                          scheme=expected_scheme)
+
     def test_duplicate_column_names(self):
         query = """
         x = [1 as a, 2 as b];

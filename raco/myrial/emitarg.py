@@ -27,6 +27,8 @@ class EmitArg(object):
 
 
 def resolve_attribute_index(idx, symbols):
+    """Resolve a column name given a positional index."""
+
     for op in symbols.values():
         scheme = op.scheme()
         if idx < len(scheme):
@@ -36,10 +38,24 @@ def resolve_attribute_index(idx, symbols):
     raise ColumnIndexOutOfBounds(str(idx))
 
 
+def resolve_unbox(sx, symbols):
+    """Resolve a column name given an unbox expression.
+
+    e.g. [FROM A EMIT A.some_column]
+    """
+    if isinstance(sx.field, basestring):
+        return sx.field
+    else:
+        assert isinstance(sx.field, int)
+        op = symbols[sx.relational_expression]
+        scheme = op.scheme()
+        return scheme.getName(sx.field)
+
+
 class SingletonEmitArg(EmitArg):
     """An emit arg that defines a single column.
 
-    e.g.: [FROM Emp EMIT double_salary = salary * 2"""
+    e.g.: [FROM Emp EMIT double_salary = salary * 2]"""
 
     def __init__(self, column_name, sexpr, statemods):
         self.column_name = column_name
@@ -48,14 +64,14 @@ class SingletonEmitArg(EmitArg):
 
     def expand(self, symbols):
         colname = self.column_name
+        # Try to concoct a column name for simple attribute references.
         if colname is None:
             if isinstance(self.sexpr, sexpr.NamedAttributeRef):
                 colname = self.sexpr.name
             elif isinstance(self.sexpr, sexpr.UnnamedAttributeRef):
                 colname = resolve_attribute_index(self.sexpr.position, symbols)
-            elif (isinstance(self.sexpr, sexpr.Unbox)
-                    and isinstance(self.sexpr.field, basestring)):
-                colname = self.sexpr.field
+            elif isinstance(self.sexpr, sexpr.Unbox):
+                colname = resolve_unbox(self.sexpr, symbols)
         return [(colname, self.sexpr)]
 
     def get_statemods(self):
