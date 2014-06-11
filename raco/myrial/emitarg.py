@@ -1,5 +1,6 @@
 
 import raco.expression as sexpr
+from raco.myrial.exceptions import ColumnIndexOutOfBounds
 
 
 class EmitArg(object):
@@ -25,6 +26,16 @@ class EmitArg(object):
         return []
 
 
+def resolve_attribute_index(idx, symbols):
+    for op in symbols.values():
+        scheme = op.scheme()
+        if idx < len(scheme):
+            return scheme.getName(idx)
+        idx -= len(scheme)
+
+    raise ColumnIndexOutOfBounds(str(idx))
+
+
 class SingletonEmitArg(EmitArg):
     """An emit arg that defines a single column.
 
@@ -38,7 +49,11 @@ class SingletonEmitArg(EmitArg):
     def expand(self, symbols):
         colname = self.column_name
         if colname is None:
-            if (isinstance(self.sexpr, sexpr.Unbox)
+            if isinstance(self.sexpr, sexpr.NamedAttributeRef):
+                colname = self.sexpr.name
+            elif isinstance(self.sexpr, sexpr.UnnamedAttributeRef):
+                colname = resolve_attribute_index(self.sexpr.position, symbols)
+            elif (isinstance(self.sexpr, sexpr.Unbox)
                     and isinstance(self.sexpr.field, basestring)):
                 colname = self.sexpr.field
         return [(colname, self.sexpr)]
