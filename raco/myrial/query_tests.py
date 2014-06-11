@@ -1600,7 +1600,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         ex = collections.Counter((float(d),) for (i, d, n, s) in self.emp_table)  # noqa
         ex_scheme = scheme.Scheme([('foo', types.DOUBLE_TYPE)])
-        self.check_result(query, ex)
+        self.check_result(query, ex, ex_scheme)
 
     def test_sequence(self):
         query = """
@@ -1614,3 +1614,73 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.assertTrue(isinstance(physical_plan, raco.algebra.Sequence))
         self.check_result(query, self.emp_table, output='OUTPUT')
         self.check_result(query, self.emp_table, output='OUTPUT2')
+
+    def test_238_dont_renumber_columns(self):
+        # see https://github.com/uwescience/raco/issues/238
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit x2.a, x2.b];
+        z = [from y emit a];
+        store(z, OUTPUT);"""
+
+        self.check_result(query, collections.Counter([(1,)]))
+
+    def test_implicit_column_names(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit $0, $1];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('b', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 2)]),
+                          scheme=expected_scheme)
+
+    def test_implicit_column_names2(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit $2, $3];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('b', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 2)]),
+                          scheme=expected_scheme)
+
+    def test_implicit_column_names3(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit $2, $1];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('b', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 2)]),
+                          scheme=expected_scheme)
+
+    def test_unbox_index_column_names(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit x2.$0, x2.$1];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('b', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 2)]),
+                          scheme=expected_scheme)
+
+    def test_duplicate_column_names(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2 emit x1.a, x2.a];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('a1', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 1)]),
+                          scheme=expected_scheme)
