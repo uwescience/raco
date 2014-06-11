@@ -8,6 +8,7 @@ import raco.myrial.interpreter as interpreter
 import raco.scheme as scheme
 import raco.myrial.groupby
 import raco.myrial.myrial_test as myrial_test
+from raco import types
 
 from raco.myrial.exceptions import *
 
@@ -24,10 +25,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (6, 3, "Dan Suciu", 90000),
         (7, 1, "Magdalena Balazinska", 25000)])
 
-    emp_schema = scheme.Scheme([("id", "int"),
-                                ("dept_id", "int"),
-                                ("name", "string"),
-                                ("salary", "int")])
+    emp_schema = scheme.Scheme([("id", types.INT_TYPE),
+                                ("dept_id", types.INT_TYPE),
+                                ("name", types.STRING_TYPE),
+                                ("salary", types.LONG_TYPE)])
 
     emp_key = "public:adhoc:employee"
 
@@ -37,9 +38,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (3, "engineering", 2),
         (4, "sales", 7)])
 
-    dept_schema = scheme.Scheme([("id", "int"),
-                                 ("name", "string"),
-                                 ("manager", "int")])
+    dept_schema = scheme.Scheme([("id", types.LONG_TYPE),
+                                 ("name", types.STRING_TYPE),
+                                 ("manager", types.LONG_TYPE)])
 
     dept_key = "public:adhoc:department"
 
@@ -49,8 +50,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (3, -2),
         (16, -4.3)])
 
-    numbers_schema = scheme.Scheme([("id", "int"),
-                                    ("val", "float")])
+    numbers_schema = scheme.Scheme([("id", types.LONG_TYPE),
+                                    ("val", types.DOUBLE_TYPE)])
 
     numbers_key = "public:adhoc:numbers"
 
@@ -735,8 +736,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        # TODO: Fix json compilation
-        res = self.execute_query(query, skip_json=True)
+        res = self.execute_query(query)
         tp = res.elements().next()
         self.assertAlmostEqual(tp[0], 34001.8006726)
 
@@ -1086,7 +1086,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_relation_scope_error(self):
         query = """
-        out = [FROM EMPTY(x:int) AS X EMIT z.*];
+        out = [FROM EMPTY(x:INT) AS X EMIT z.*];
         STORE(out, OUTPUT);
         """
 
@@ -1095,8 +1095,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_relation_scope_error2(self):
         query = """
-        z = EMPTY(z:int);
-        out = [FROM EMPTY(x:int) AS X EMIT z.*];
+        z = EMPTY(z:INT);
+        out = [FROM EMPTY(x:INT) AS X EMIT z.*];
         STORE(out, OUTPUT);
         """
 
@@ -1532,16 +1532,32 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_column_name_reserved(self):
         query = """
-        T = EMPTY(x:int);
+        T = EMPTY(x:INT);
         A = [FROM T EMIT SafeDiv(x, 3) AS SafeDiv];
         STORE (A, BadProgram);
         """
         with self.assertRaises(ReservedTokenException):
             self.check_result(query, None)
 
+    def test_bug_226(self):
+        query = """
+        T = scan({emp});
+        A = select id, salary from T where 1=1;
+        B = select id, salary from A where salary=90000;
+        C = select A.* from B, A where A.salary < B.salary;
+        STORE (C, OUTPUT);
+        """.format(emp=self.emp_key)
+
+        expected = collections.Counter(
+            (i, s) for (i, d, n, s) in self.emp_table
+            for (i2, d2, n2, s2) in self.emp_table
+            if s2 == 90000 and s < s2)
+
+        self.assertEquals(expected, self.execute_query(query))
+
     def test_column_mixed_case_reserved(self):
         query = """
-        T = EMPTY(x:int);
+        T = EMPTY(x:INT);
         A = [FROM T EMIT MAX(x) AS maX];
         STORE (A, BadProgram);
         """
@@ -1550,7 +1566,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_variable_name_reserved(self):
         query = """
-        T = EMPTY(x:int);
+        T = EMPTY(x:INT);
         avg = COUNTALL(T);
         STORE (countall, BadProgram);
         """
@@ -1559,7 +1575,112 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     def test_empty_query(self):
         query = """
-        T1 = empty(x:int);
+        T1 = empty(x:INT);
         """
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
+
+    def test_string_cast(self):
+        query = """
+        emp = SCAN(%s);
+        bc = [FROM emp EMIT STRING(emp.dept_id) AS foo];
+        STORE(bc, OUTPUT);
+        """ % self.emp_key
+
+        ex = collections.Counter((str(d),) for (i, d, n, s) in self.emp_table)
+        ex_scheme = scheme.Scheme([('foo', 'STRING_TYPE')])
+        self.check_result(query, ex)
+
+    def test_float_cast(self):
+        query = """
+        emp = SCAN(%s);
+        bc = [FROM emp EMIT float(emp.dept_id) AS foo];
+        STORE(bc, OUTPUT);
+        """ % self.emp_key
+
+        ex = collections.Counter((float(d),) for (i, d, n, s) in self.emp_table)  # noqa
+        ex_scheme = scheme.Scheme([('foo', types.DOUBLE_TYPE)])
+        self.check_result(query, ex, ex_scheme)
+
+    def test_sequence(self):
+        query = """
+        T1 = scan({rel});
+        store(T1, OUTPUT);
+        T2 = scan({rel});
+        store(T2, OUTPUT2);
+        """.format(rel=self.emp_key)
+
+        physical_plan = self.get_physical_plan(query)
+        self.assertTrue(isinstance(physical_plan, raco.algebra.Sequence))
+        self.check_result(query, self.emp_table, output='OUTPUT')
+        self.check_result(query, self.emp_table, output='OUTPUT2')
+
+    def test_238_dont_renumber_columns(self):
+        # see https://github.com/uwescience/raco/issues/238
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit x2.a, x2.b];
+        z = [from y emit a];
+        store(z, OUTPUT);"""
+
+        self.check_result(query, collections.Counter([(1,)]))
+
+    def test_implicit_column_names(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit $0, $1];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('b', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 2)]),
+                          scheme=expected_scheme)
+
+    def test_implicit_column_names2(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit $2, $3];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('b', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 2)]),
+                          scheme=expected_scheme)
+
+    def test_implicit_column_names3(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit $2, $1];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('b', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 2)]),
+                          scheme=expected_scheme)
+
+    def test_unbox_index_column_names(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit x2.$0, x2.$1];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('b', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 2)]),
+                          scheme=expected_scheme)
+
+    def test_duplicate_column_names(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2 emit x1.a, x2.a];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('a1', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 1)]),
+                          scheme=expected_scheme)

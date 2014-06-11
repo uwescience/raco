@@ -35,11 +35,11 @@ EXPRESSIONS_CASE = {
     'SafeDiv': {
         2: Function(['n', 'd'], Case(
             [(EQ(NamedAttributeRef('d'), NumericLiteral(0)),
-              NumericLiteral(0))],
+              NumericLiteral(0.0))],
             DIVIDE(NamedAttributeRef('n'), NamedAttributeRef('d')))),
         3: Function(['n', 'd', 'default'], Case(
             [(EQ(NamedAttributeRef('d'), NumericLiteral(0)),
-              NamedAttributeRef('default'))],
+              CAST(types.DOUBLE_TYPE, NamedAttributeRef('default')))],
             DIVIDE(NamedAttributeRef('n'), NamedAttributeRef('d'))))
     },
     'TheAnswerToLifeTheUniverseAndEverything': Function(

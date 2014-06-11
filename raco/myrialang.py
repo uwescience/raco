@@ -12,27 +12,14 @@ from raco.relation_key import RelationKey
 from expression import (accessed_columns, to_unnamed_recursive,
                         UnnamedAttributeRef)
 from raco.expression.aggregate import DecomposableAggregate
+from raco import types
 
 
 def scheme_to_schema(s):
-    def convert_typestr(t):
-        if t.lower() in ['bool', 'boolean']:
-            return 'BOOLEAN_TYPE'
-        if t.lower() in ['float', 'double']:
-            return 'DOUBLE_TYPE'
-#    if t.lower() in ['float']:
-#      return 'FLOAT_TYPE'
-#    if t.lower() in ['int', 'integer']:
-#      return 'INT_TYPE'
-        if t.lower() in ['int', 'integer', 'long']:
-            return 'LONG_TYPE'
-        if t.lower() in ['str', 'string']:
-            return 'STRING_TYPE'
-        return t
     if s:
         names, descrs = zip(*s.asdict.items())
         names = ["%s" % n for n in names]
-        types = [convert_typestr(r[1]) for r in descrs]
+        types = [r[1] for r in descrs]
     else:
         names = []
         types = []
@@ -48,9 +35,9 @@ def compile_expr(op, child_scheme, state_scheme):
             if (2 ** 31) - 1 >= op.value >= -2 ** 31:
                 myria_type = 'INT_TYPE'
             else:
-                myria_type = 'LONG_TYPE'
+                myria_type = types.LONG_TYPE
         elif type(op.value) == float:
-            myria_type = 'DOUBLE_TYPE'
+            myria_type = types.DOUBLE_TYPE
         else:
             raise NotImplementedError("Compiling NumericLiteral %s of type %s" % (op, type(op.value)))  # noqa
 
@@ -89,6 +76,15 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type': 'CONDITION',
             'children': [if_expr, then_expr, else_expr]
+        }
+    elif isinstance(op, expression.CAST):
+        return {
+            'type': 'CAST',
+            'left': compile_expr(op.input, child_scheme, state_scheme),
+            'right': {
+                'type': 'TYPE',
+                'outputType': op._type
+            }
         }
 
     ####
@@ -195,19 +191,19 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
 
 
 class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
-    def compileme(self, leftsym, rightsym):
+    def compileme(self, leftid, rightid):
         return {
             "opType": "UnionAll",
-            "argChildren": [leftsym, rightsym]
+            "argChildren": [leftid, rightid]
         }
 
 
 class MyriaDifference(algebra.Difference, MyriaOperator):
-    def compileme(self, leftsym, rightsym):
+    def compileme(self, leftid, rightid):
         return {
             "opType": "Difference",
-            "argChild1": leftsym,
-            "argChild2": rightsym,
+            "argChild1": leftid,
+            "argChild2": rightid,
         }
 
 
@@ -227,11 +223,11 @@ class MyriaEmptyRelation(algebra.EmptyRelation, MyriaOperator):
 
 
 class MyriaSelect(algebra.Select, MyriaOperator):
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         pred = compile_expr(self.condition, self.scheme(), None)
         return {
             "opType": "Filter",
-            "argChild": inputsym,
+            "argChild": inputid,
             "argPredicate": {
                 "rootExpressionOperator": pred
             }
@@ -239,15 +235,15 @@ class MyriaSelect(algebra.Select, MyriaOperator):
 
 
 class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
-    def compileme(self, leftsym, rightsym):
+    def compileme(self, leftid, rightid):
         column_names = [name for (name, _) in self.scheme()]
         allleft = [i.position for i in self.left.scheme().ascolumnlist()]
         allright = [i.position for i in self.right.scheme().ascolumnlist()]
         return {
             "opType": "SymmetricHashJoin",
             "argColumnNames": column_names,
-            "argChild1": leftsym,
-            "argChild2": rightsym,
+            "argChild1": leftid,
+            "argChild2": rightid,
             "argColumns1": [],
             "argColumns2": [],
             "argSelect1": allleft,
@@ -256,7 +252,7 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
 
 
 class MyriaStore(algebra.Store, MyriaOperator):
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             "opType": "DbInsert",
             "relationKey": {
@@ -265,12 +261,12 @@ class MyriaStore(algebra.Store, MyriaOperator):
                 "relationName": self.relation_key.relation
             },
             "argOverwriteTable": True,
-            "argChild": inputsym,
+            "argChild": inputid,
         }
 
 
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             "opType": "DbInsert",
             "relationKey": {
@@ -279,7 +275,7 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
                 "relationName": self.name
             },
             "argOverwriteTable": True,
-            "argChild": inputsym,
+            "argChild": inputid,
         }
 
 
@@ -307,8 +303,7 @@ def convertcondition(condition, left_len, combined_scheme):
 
 
 class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
-
-    def compileme(self, leftsym, rightsym):
+    def compileme(self, leftid, rightid):
         """Compile the operator to a sequence of json operators"""
 
         left_len = len(self.left.scheme())
@@ -328,9 +323,9 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
         join = {
             "opType": "SymmetricHashJoin",
             "argColumnNames": column_names,
-            "argChild1": "%s" % leftsym,
+            "argChild1": "%s" % leftid,
             "argColumns1": leftcols,
-            "argChild2": "%s" % rightsym,
+            "argChild2": "%s" % rightid,
             "argColumns2": rightcols,
             "argSelect1": allleft,
             "argSelect2": allright
@@ -355,7 +350,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         elif isinstance(agg_expr, expression.SUM):
             return "AGG_OP_SUM"
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         child_scheme = self.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme)
                         for ref in self.grouping_list]
@@ -372,7 +367,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)]
                      for agg_expr in self.aggregate_list]
         ret = {
-            "argChild": inputsym,
+            "argChild": inputid,
             "argAggFields": [agg_field.position for agg_field in agg_fields],
             "argAggOperators": agg_types,
         }
@@ -391,41 +386,46 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
 
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
     """Represents a simple shuffle operator"""
-    def compileme(self, inputsym):
+
+    def compileme(self, inputid):
         raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')  # noqa
 
 
 class MyriaCollect(algebra.Collect, MyriaOperator):
     """Represents a simple collect operator"""
-    def compileme(self, inputsym):
+
+    def compileme(self, inputid):
         raise NotImplementedError('shouldn''t ever get here, should be turned into CP-CC pair')  # noqa
 
 
 class MyriaDupElim(algebra.Distinct, MyriaOperator):
     """Represents duplicate elimination"""
-    def compileme(self, inputsym):
+
+    def compileme(self, inputid):
         return {
             "opType": "DupElim",
-            "argChild": inputsym,
+            "argChild": inputid,
         }
 
 
 class MyriaApply(algebra.Apply, MyriaOperator):
     """Represents a simple apply operator"""
-    def compileme(self, inputsym):
+
+    def compileme(self, inputid):
         child_scheme = self.input.scheme()
         emitters = [compile_mapping(x, child_scheme, None)
                     for x in self.emitters]
         return {
             'opType': 'Apply',
-            'argChild': inputsym,
+            'argChild': inputid,
             'emitExpressions': emitters
         }
 
 
 class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
     """Represents a stateful apply operator"""
-    def compileme(self, inputsym):
+
+    def compileme(self, inputid):
         child_scheme = self.input.scheme()
         state_scheme = self.state_scheme
         comp_map = lambda x: compile_mapping(x, child_scheme, state_scheme)
@@ -434,7 +434,7 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
         updaters = [comp_map(x) for x in self.updaters]
         return {
             'opType': 'StatefulApply',
-            'argChild': inputsym,
+            'argChild': inputid,
             'emitExpressions': emitters,
             'initializerExpressions': inits,
             'updaterExpressions': updaters
@@ -443,36 +443,39 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria BroadcastProducer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
     def shortStr(self):
         return "%s" % self.opname()
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             "opType": "BroadcastProducer",
-            "argChild": inputsym,
+            "argChild": inputid,
         }
 
 
 class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
     """A Myria BroadcastConsumer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
     def shortStr(self):
         return "%s" % self.opname()
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             'opType': 'BroadcastConsumer',
-            'argOperatorId': inputsym
+            'argOperatorId': inputid
         }
 
 
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleProducer"""
+
     def __init__(self, input, hash_columns):
         algebra.UnaryOperator.__init__(self, input)
         self.hash_columns = hash_columns
@@ -481,7 +484,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         hash_string = ','.join([str(x) for x in self.hash_columns])
         return "%s(h(%s))" % (self.opname(), hash_string)
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         if len(self.hash_columns) == 1:
             pf = {
                 "type": "SingleFieldHash",
@@ -495,23 +498,24 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
         return {
             "opType": "ShuffleProducer",
-            "argChild": inputsym,
+            "argChild": inputid,
             "argPf": pf
         }
 
 
 class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleConsumer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
     def shortStr(self):
         return "%s" % self.opname()
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             'opType': 'ShuffleConsumer',
-            'argOperatorId': inputsym
+            'argOperatorId': inputid
         }
 
 
@@ -527,6 +531,7 @@ class BreakShuffle(rules.Rule):
 
 class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria CollectProducer"""
+
     def __init__(self, input, server):
         algebra.UnaryOperator.__init__(self, input)
         self.server = server
@@ -534,25 +539,26 @@ class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         return "%s(@%s)" % (self.opname(), self.server)
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             "opType": "CollectProducer",
-            "argChild": inputsym,
+            "argChild": inputid,
         }
 
 
 class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
     """A Myria CollectConsumer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
     def shortStr(self):
         return "%s" % self.opname()
 
-    def compileme(self, inputsym):
+    def compileme(self, inputid):
         return {
             'opType': 'CollectConsumer',
-            'argOperatorId': inputsym
+            'argOperatorId': inputid
         }
 
 
@@ -576,6 +582,52 @@ class BreakBroadcast(rules.Rule):
         return consumer
 
 
+class ShuffleBeforeDistinct(rules.Rule):
+    def fire(self, exp):
+        if not isinstance(exp, algebra.Distinct):
+            return exp
+        if isinstance(exp.input, algebra.Shuffle):
+            return exp
+        cols = [expression.UnnamedAttributeRef(i)
+                for i in range(len(exp.scheme()))]
+        exp.input = algebra.Shuffle(child=exp.input, columnlist=cols)
+        return exp
+
+
+def check_shuffle_xor(exp):
+    """Enforce that neither or both inputs to a binary op are shuffled.
+
+    Return True if the arguments are shuffled; False if they are not;
+    or raise a ValueError on xor failure.
+
+    Note that we assume that inputs are shuffled in a compatible way.
+    """
+    left_shuffle = isinstance(exp.left, algebra.Shuffle)
+    right_shuffle = isinstance(exp.right, algebra.Shuffle)
+
+    if left_shuffle and right_shuffle:
+        return True
+    if left_shuffle or right_shuffle:
+        raise ValueError("Must shuffle on both inputs of %s" % exp)
+    return False
+
+
+class ShuffleBeforeSetop(rules.Rule):
+    def fire(self, exp):
+        if not isinstance(exp, (algebra.Difference, algebra.Intersection)):
+            return exp
+
+        def shuffle_after(op):
+            cols = [expression.UnnamedAttributeRef(i)
+                    for i in range(len(op.scheme()))]
+            return algebra.Shuffle(child=op, columnlist=cols)
+
+        if not check_shuffle_xor(exp):
+            exp.left = shuffle_after(exp.left)
+            exp.right = shuffle_after(exp.right)
+        return exp
+
+
 class ShuffleBeforeJoin(rules.Rule):
     def fire(self, expr):
         # If not a join, who cares?
@@ -583,8 +635,7 @@ class ShuffleBeforeJoin(rules.Rule):
             return expr
 
         # If both have shuffles already, who cares?
-        if (isinstance(expr.left, algebra.Shuffle)
-                and isinstance(expr.right, algebra.Shuffle)):
+        if check_shuffle_xor(expr):
             return expr
 
         # Figure out which columns go in the shuffle
@@ -624,8 +675,8 @@ class BroadcastBeforeCross(rules.Rule):
         if not isinstance(expr, algebra.CrossProduct):
             return expr
 
-        if isinstance(expr.left, algebra.Broadcast) or \
-                isinstance(expr.right, algebra.Broadcast):
+        if (isinstance(expr.left, algebra.Broadcast) or
+                isinstance(expr.right, algebra.Broadcast)):
             return expr
 
         # By default, broadcast the right child
@@ -635,7 +686,6 @@ class BroadcastBeforeCross(rules.Rule):
 
 
 class DistributedGroupBy(rules.Rule):
-
     @staticmethod
     def do_transfer(op):
         """Introduce a network transfer before a groupby operation."""
@@ -669,8 +719,8 @@ class DistributedGroupBy(rules.Rule):
         # e.g., average requires a SUM and a COUNT.  In turn, these local
         # aggregates are consumed by merge aggregates.
 
-        local_aggs = []   # aggregates executed on each local machine
-        merge_aggs = []   # aggregates executed after local aggs
+        local_aggs = []  # aggregates executed on each local machine
+        merge_aggs = []  # aggregates executed after local aggs
         agg_offsets = []  # map from logical index to local/merge index.
 
         for logical_agg in op.aggregate_list:
@@ -749,6 +799,7 @@ class SplitSelects(rules.Rule):
 
 class MergeSelects(rules.Rule):
     """Merge consecutive Selects into a single conjunctive selection."""
+
     def fire(self, op):
         if not isinstance(op, algebra.Select):
             return op
@@ -771,17 +822,21 @@ class ProjectToDistinctColumnSelect(rules.Rule):
 
         mappings = [(None, x) for x in expr.columnlist]
         colSelect = algebra.Apply(mappings, expr.input)
-        distinct = algebra.Distinct(colSelect)
-        return distinct
+        # TODO(dhalperi) the distinct logic is broken because we don't have a
+        # locality-aware optimizer. For now, don't insert Distinct for a
+        # logical project. This is BROKEN.
+        # distinct = algebra.Distinct(colSelect)
+        # return distinct
+        return colSelect
 
 
 def is_column_equality_comparison(cond):
     """Return a tuple of column indexes if the condition is an equality test.
     """
 
-    if isinstance(cond, expression.EQ) and \
-       isinstance(cond.left, UnnamedAttributeRef) and \
-       isinstance(cond.right, UnnamedAttributeRef):
+    if (isinstance(cond, expression.EQ) and
+            isinstance(cond.left, UnnamedAttributeRef) and
+            isinstance(cond.right, UnnamedAttributeRef)):
         return cond.left.position, cond.right.position
     else:
         return None
@@ -799,6 +854,7 @@ class PushApply(rules.Rule):
         TODO: drop the Apply if the column-selection pushed into the
         ProjectingJoin is everything the Apply was doing. See note below.
     """
+
     def fire(self, op):
         if not isinstance(op, algebra.Apply):
             return op
@@ -820,6 +876,7 @@ class PushApply(rules.Rule):
                 else:
                     n.apply(convert)
                 return n
+
             emits = [convert(copy.deepcopy(e)) for e in emits]
 
             new_apply = algebra.Apply(emitters=zip(names, emits),
@@ -857,6 +914,7 @@ class RemoveUnusedColumns(rules.Rule):
     keeps only the referenced columns. The goal is that after this rule,
     a subsequent invocation of PushApply will be able to push that
     column-selection operation further down the tree."""
+
     def fire(self, op):
         if isinstance(op, algebra.GroupBy):
             child = op.input
@@ -870,7 +928,7 @@ class RemoveUnusedColumns(rules.Rule):
             accessed = sorted(set(itertools.chain(*(agg + [pos]))))
             if not accessed:
                 # Bug #207: COUNTALL() does not access any columns. So if the
-                #  query is just a COUNT(*), we would generate an empty Apply.
+                # query is just a COUNT(*), we would generate an empty Apply.
                 # If this happens, just keep the first column of the input.
                 accessed = [0]
             if len(accessed) != len(child_scheme):
@@ -1065,9 +1123,14 @@ class MyriaAlgebra(object):
         RemoveUnusedColumns(),
         PushApply(),
 
+        ShuffleBeforeDistinct(),
+        ShuffleBeforeSetop(),
         ShuffleBeforeJoin(),
         BroadcastBeforeCross(),
-        DistributedGroupBy(),
+        # DistributedGroupBy may introduce a complex GroupBy, so we must run
+        # SimpleGroupBy after it. TODO no one likes this.
+        DistributedGroupBy(), rules.SimpleGroupBy(),
+
         ProjectToDistinctColumnSelect(),
         rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
         rules.OneToOne(algebra.Store, MyriaStore),
@@ -1114,9 +1177,9 @@ def apply_schema_recursive(operator, catalog):
             operator._scheme = rel_scheme
         else:
             # The specified relation is not in the Catalog; replace its
-            # scheme's types with "unknown".
+            # scheme's types with LONG_TYPE
             old_sch = operator.scheme()
-            new_sch = [(old_sch.getName(i), "unknown")
+            new_sch = [(old_sch.getName(i), types.LONG_TYPE)
                        for i in range(len(old_sch))]
             operator._scheme = Scheme(new_sch)
 
@@ -1134,12 +1197,12 @@ class EmptyCatalog(object):
         return None
 
 
-class SymbolFactory(object):
+class OpIdFactory(object):
     def __init__(self):
         self.count = 0
 
     def alloc(self):
-        ret = "V{0}".format(self.count)
+        ret = self.count
         self.count += 1
         return ret
 
@@ -1147,30 +1210,38 @@ class SymbolFactory(object):
         return lambda: self.alloc()
 
 
-def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
-    """This function compiles a logical RA plan to the JSON suitable for
-    submission to the Myria REST API server."""
+def label_op_to_op(label, op):
+    """If needed, insert a Store above the op with the relation name label"""
+    if isinstance(op, (algebra.Store, algebra.StoreTemp)):
+        # Already a store, we're done
+        return op
 
-    # raw_query must be a string
-    if not isinstance(raw_query, basestring):
-        raise ValueError("raw query must be a string")
+    if not label:
+        raise ValueError('label must be a non-empty string')
 
-    # No catalog supplied; create the empty catalog
-    if catalog is None:
-        catalog = EmptyCatalog()
+    return MyriaStore(plan=op, relation_key=RelationKey.from_string(label))
 
-    # Some plans may just be an operator, others may be a list of operators
-    if isinstance(physical_plan, algebra.Operator):
-        physical_plan = [(None, physical_plan)]
 
-    for (label, root_op) in physical_plan:
-        apply_schema_recursive(root_op, catalog)
+def op_list_to_operator(physical_plan):
+    """Given a Datalog-style list (label, root_operator) of IDBs,
+    add a Store operator to name the output of that operator the
+    corresponding label. Gracefully handle the missing label or present Store
+    cases."""
+    if len(physical_plan) == 1:
+        (label, op) = physical_plan[0]
+        return label_op_to_op(label, op)
 
-    # A dictionary mapping each object to a unique, object-dependent symbol.
+    return algebra.Parallel(label_op_to_op(l, o) for (l, o) in physical_plan)
+
+
+def compile_fragment(frag_root):
+    """Given a root operator, produce a SubQueryEncoding."""
+
+    # A dictionary mapping each object to a unique, object-dependent id.
     # Since we want this to be truly unique for each object instance, even if
     # two objects are equal, we use id(obj) as the key.
-    symbol_factory = SymbolFactory()
-    syms = defaultdict(symbol_factory.getter())
+    opid_factory = OpIdFactory()
+    op_ids = defaultdict(opid_factory.getter())
 
     def one_fragment(rootOp):
         """Given an operator that is the root of a query fragment/plan, extract
@@ -1225,55 +1296,66 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
 
     def call_compile_me(op):
         "A shortcut to call the operator's compile_me function."
-        opsym = syms[id(op)]
-        childsyms = [syms[id(child)] for child in op.children()]
-        op_dict = op.compileme(*childsyms)
+        op_id = op_ids[id(op)]
+        child_op_ids = [op_ids[id(child)] for child in op.children()]
+        op_dict = op.compileme(*child_op_ids)
         op_dict['opName'] = op.shortStr()
-        op_dict['opId'] = opsym
+        assert isinstance(op_id, int), (type(op_id), op_id)
+        op_dict['opId'] = op_id
         return op_dict
 
-    # The actual code. all_frags collects up the fragments.
-    all_frags = []
-    # For each IDB, generate a plan that assembles all its fragments and stores
-    # them back to a relation named (label).
-    for (label, rootOp) in physical_plan:
+    # Determine and encode the fragments.
+    return [{'operators': [call_compile_me(op) for op in frag]}
+            for frag in fragments(frag_root)]
 
-        # If the root operator is not a Store-type, we need to add one at the
-        # top. We actually do this later, but we want to allocate the new
-        # operator's label first
-        if not isinstance(rootOp, (algebra.Store, algebra.StoreTemp)):
-            store_label = symbol_factory.alloc()
 
-        # Sometimes the root operator is not labeled, usually because we were
-        # lazy when submitting a manual plan. In this case, generate a new
-        # label.
-        if not label:
-            label = syms[id(rootOp)]
+def compile_plan(plan_op):
+    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
+    if not isinstance(plan_op, subplan_ops):
+        plan_op = algebra.Parallel([plan_op])
 
-        if not isinstance(rootOp, (algebra.Store, algebra.StoreTemp)):
-            # Here we actually create the Store that goes at the root
-            frag_root = MyriaStore(plan=rootOp,
-                                   relation_key=RelationKey.from_string(label))
-            label = store_label
-            del store_label                 # Aggressive bug detection
-        else:
-            frag_root = rootOp
+    if isinstance(plan_op, algebra.Parallel):
+        frag_list = [compile_fragment(op) for op in plan_op.children()]
+        return {"type": "SubQuery",
+                "fragments": list(itertools.chain(*frag_list))}
 
-        # Make sure the root is in the symbol dictionary, but rather than using
-        # a generated symbol use the IDB label.
-        syms[id(frag_root)] = label
-        # Determine the fragments.
-        frags = fragments(frag_root)
-        # Build the fragments.
-        all_frags.extend([{'operators': [call_compile_me(op) for op in frag]}
-                          for frag in frags])
-        # Clear out the symbol dictionary for the next IDB.
-        syms.clear()
+    elif isinstance(plan_op, algebra.Sequence):
+        plan_list = [compile_plan(pl_op) for pl_op in plan_op.children()]
+        return {"type": "Sequence", "plans": plan_list}
 
-    # Assemble all the fragments into a single JSON query plan
-    query = {
-        'fragments': all_frags,
-        'rawDatalog': raw_query,
-        'logicalRa': str(logical_plan)
-    }
-    return query
+    raise NotImplementedError("compiling subplan op {}".format(type(plan_op)))
+
+
+def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
+    """This function compiles a physical query plan to the JSON suitable for
+    submission to the Myria REST API server. The logical plan is converted to a
+    string and passed along unchanged."""
+
+    # raw_query must be a string
+    if not isinstance(raw_query, basestring):
+        raise ValueError("raw query must be a string")
+
+    # old-style plan with (name, root_op) pair. Turn it into a single operator.
+    # If the list has length > 1, it will be a Parallel. Otherwise it will
+    # just be the root operator.
+    if isinstance(physical_plan, list):
+        physical_plan = op_list_to_operator(physical_plan)
+
+    # At this point physical_plan better be a single operator
+    if not isinstance(physical_plan, algebra.Operator):
+        raise ValueError('Physical plan must be an operator')
+
+    # If the physical_plan is not a SubPlan operator, make it a Parallel
+    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
+    if not isinstance(physical_plan, subplan_ops):
+        physical_plan = algebra.Parallel([physical_plan])
+
+    # If no catalog was supplied, create the empty catalog
+    if catalog is None:
+        catalog = EmptyCatalog()
+    # Update the scheme of all scans
+    apply_schema_recursive(physical_plan, catalog)
+
+    return {"rawDatalog": raw_query,
+            "logicalRa": str(logical_plan),
+            "plan": compile_plan(physical_plan)}

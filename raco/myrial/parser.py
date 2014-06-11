@@ -6,11 +6,13 @@ from ply import yacc
 from raco import relation_key
 import raco.myrial.scanner as scanner
 import raco.scheme as scheme
+import raco.types
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
 from raco.expression.udf import Function, Apply
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
+import raco.types
 
 
 class JoinColumnCountMismatchException(Exception):
@@ -40,6 +42,14 @@ binops = {
     '=': sexpr.EQ,
     'AND': sexpr.AND,
     'OR': sexpr.OR,
+}
+
+# Map from myrial token name to raco internal type name.
+myrial_type_map = {
+    "STRING": raco.types.STRING_TYPE,
+    "INT": raco.types.LONG_TYPE,
+    "FLOAT": raco.types.DOUBLE_TYPE,
+    "BOOLEAN": raco.types.BOOLEAN_TYPE
 }
 
 
@@ -128,7 +138,7 @@ class Parser(object):
     @staticmethod
     def mangle(name):
         Parser.mangle_id += 1
-        return "%s##%d" % (name, Parser.mangle_id)
+        return "{name}__{mid}".format(name=name, mid=Parser.mangle_id)
 
     @staticmethod
     def add_apply(p, name, args, inits, updates, finalizer):
@@ -281,8 +291,8 @@ class Parser(object):
 
     @staticmethod
     def p_expression_empty(p):
-        'expression : EMPTY LPAREN optional_schema RPAREN'
-        p[0] = ('EMPTY', p[3])
+        'expression : EMPTY LPAREN column_def_list RPAREN'
+        p[0] = ('EMPTY', scheme.Scheme(p[3]))
 
     @staticmethod
     def p_expression_scan(p):
@@ -295,15 +305,6 @@ class Parser(object):
                         | string_arg COLON string_arg
                         | string_arg COLON string_arg COLON string_arg'''
         p[0] = relation_key.RelationKey.from_string(''.join(p[1:]))
-
-    @staticmethod
-    def p_optional_schema(p):
-        '''optional_schema : column_def_list
-                           | empty'''
-        if len(p) == 2:
-            p[0] = scheme.Scheme(p[1])
-        else:
-            p[0] = None
 
     # Note: column list cannot be empty
     @staticmethod
@@ -325,8 +326,9 @@ class Parser(object):
     def p_type_name(p):
         '''type_name : STRING
                      | INT
+                     | BOOLEAN
                      | FLOAT'''
-        p[0] = p[1]
+        p[0] = myrial_type_map[p[1]]
 
     @staticmethod
     def p_string_arg(p):
@@ -669,6 +671,11 @@ class Parser(object):
             p[0] = sexpr.COUNTALL()
         else:
             p[0] = sexpr.COUNT(p[3])
+
+    @staticmethod
+    def p_sexpr_cast(p):
+        '''sexpr : type_name LPAREN sexpr RPAREN'''
+        p[0] = sexpr.CAST(p[1], p[3])
 
     @staticmethod
     def p_count_arg(p):

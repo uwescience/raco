@@ -36,7 +36,8 @@ class MyrialTestCase(unittest.TestCase):
         '''Get the physical plan for a MyriaL query'''
         return self.get_plan(query, False)
 
-    def execute_query(self, query, test_logical=False, skip_json=False):
+    def execute_query(self, query, test_logical=False, skip_json=False,
+                      output='OUTPUT'):
         '''Run a test query against the fake database'''
         plan = self.get_plan(query, test_logical)
 
@@ -44,15 +45,22 @@ class MyrialTestCase(unittest.TestCase):
             # Test that JSON compilation runs without error
             # TODO: verify the JSON output somehow?
             json_string = json.dumps(compile_to_json(
-                "some query", "some logical plan", plan))
+                "some query", "some logical plan", plan, self.db))
             assert json_string
 
         self.db.evaluate(plan)
 
-        return self.db.get_table('OUTPUT')
+        return self.db.get_table(output)
 
     def check_result(self, query, expected, test_logical=False,
-                        skip_json=False):  # noqa
+                     skip_json=False, output='OUTPUT', scheme=None):
         '''Execute a test query with an expected output'''
-        actual = self.execute_query(query, test_logical, skip_json)
+        actual = self.execute_query(query, test_logical, skip_json, output)
         self.assertEquals(actual, expected)
+        if scheme:
+            self.assertEquals(self.db.get_scheme(output), scheme)
+
+    def check_scheme(self, query, scheme):
+        '''Execute a test query with an expected output schema.'''
+        actual = self.execute_query(query)
+        self.assertEquals(self.db.get_scheme('OUTPUT'), scheme)

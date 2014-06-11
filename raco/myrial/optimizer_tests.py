@@ -5,6 +5,7 @@ import random
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
+from raco.myrialang import (MyriaShuffleConsumer, MyriaShuffleProducer)
 from raco.language import MyriaAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
@@ -13,12 +14,13 @@ from raco import relation_key
 import raco.expression as expression
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
+from raco import types
 
 
 class OptimizerTest(myrial_test.MyrialTestCase):
 
-    x_scheme = scheme.Scheme([("a", "int"), ("b", "int"), ("c", "int")])
-    y_scheme = scheme.Scheme([("d", "int"), ("e", "int"), ("f", "int")])
+    x_scheme = scheme.Scheme([("a", types.LONG_TYPE), ("b", types.LONG_TYPE), ("c", types.LONG_TYPE)])  # noqa
+    y_scheme = scheme.Scheme([("d", types.LONG_TYPE), ("e", types.LONG_TYPE), ("f", types.LONG_TYPE)])  # noqa
     x_key = relation_key.RelationKey.from_string("public:adhoc:X")
     y_key = relation_key.RelationKey.from_string("public:adhoc:Y")
 
@@ -48,7 +50,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.z_key = relation_key.RelationKey.from_string("public:adhoc:Z")
         self.z_data = collections.Counter([(1, 2), (2, 3), (1, 2), (3, 4)])
-        self.z_scheme = scheme.Scheme([('src', 'int'), ('dst', 'int')])
+        self.z_scheme = scheme.Scheme([('src', types.LONG_TYPE), ('dst', types.LONG_TYPE)])  # noqa
         self.db.ingest('public:adhoc:Z', self.z_data, self.z_scheme)
 
         self.expected2 = collections.Counter(
@@ -344,3 +346,33 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         for op in lp.walk():
             if isinstance(op, Shuffle):
                 self.assertEquals(op.columnlist, [AttIndex(2), AttIndex(1)])
+
+    def test_shuffle_before_distinct(self):
+        query = """
+        T = DISTINCT(SCAN(public:adhoc:Z));
+        STORE(T, OUTPUT);
+        """
+
+        pp = self.get_physical_plan(query)
+        print str(pp)
+        self.assertEquals(self.get_count(pp, Distinct), 1)
+        for op in pp.walk():
+            if isinstance(op, Distinct):
+                self.assertIsInstance(op.input, MyriaShuffleConsumer)
+                self.assertIsInstance(op.input.input, MyriaShuffleProducer)
+
+    def test_shuffle_before_difference(self):
+        query = """
+        T = DIFF(SCAN(public:adhoc:Z), SCAN(public:adhoc:Z));
+        STORE(T, OUTPUT);
+        """
+
+        pp = self.get_physical_plan(query)
+        print str(pp)
+        self.assertEquals(self.get_count(pp, Difference), 1)
+        for op in pp.walk():
+            if isinstance(op, Difference):
+                self.assertIsInstance(op.left, MyriaShuffleConsumer)
+                self.assertIsInstance(op.left.input, MyriaShuffleProducer)
+                self.assertIsInstance(op.right, MyriaShuffleConsumer)
+                self.assertIsInstance(op.right.input, MyriaShuffleProducer)

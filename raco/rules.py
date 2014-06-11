@@ -117,10 +117,10 @@ class SimpleGroupBy(Rule):
         # A simple aggregate expression is an aggregate whose input is an
         # AttributeRef
         def is_simple_agg_expr(agg):
-            return isinstance(agg, expression.COUNTALL) or (
-                isinstance(agg, expression.UnaryOperator) and
-                isinstance(agg, expression.AggregateExpression) and
-                isinstance(agg.input, expression.AttributeRef))
+            return (isinstance(agg, expression.COUNTALL) or
+                    (isinstance(agg, expression.UnaryOperator) and
+                     isinstance(agg, expression.AggregateExpression) and
+                     isinstance(agg.input, expression.AttributeRef)))
 
         complex_agg_exprs = [agg for agg in expr.aggregate_list
                              if not is_simple_agg_expr(agg)]
@@ -140,15 +140,13 @@ class SimpleGroupBy(Rule):
         # with simple refs
         for i, grp_expr in complex_grp_exprs:
             mappings.append((None, grp_expr))
-            expr.grouping_list[i] = \
-                UnnamedAttributeRef(len(mappings) - 1)
+            expr.grouping_list[i] = UnnamedAttributeRef(len(mappings) - 1)
 
         # Finally: move the complex aggregate expressions into the Apply,
         # replace with simple refs
         for agg_expr in complex_agg_exprs:
             mappings.append((None, agg_expr.input))
-            agg_expr.input = \
-                UnnamedAttributeRef(len(mappings) - 1)
+            agg_expr.input = UnnamedAttributeRef(len(mappings) - 1)
 
         # Construct and prepend the new Apply
         new_apply = algebra.Apply(mappings, expr.input)
