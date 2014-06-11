@@ -1614,3 +1614,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         self.assertTrue(isinstance(physical_plan, raco.algebra.Sequence))
         self.check_result(query, self.emp_table, output='OUTPUT')
         self.check_result(query, self.emp_table, output='OUTPUT2')
+
+    def test_238_dont_renumber_columns(self):
+        # see https://github.com/uwescience/raco/issues/238
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2
+             emit x2.a, x2.b];
+        z = [from y emit a];
+        store(z, OUTPUT);"""
+
+        self.check_result(query, collections.Counter([(1,)]))
