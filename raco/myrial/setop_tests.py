@@ -4,6 +4,7 @@ import collections
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 from raco.myrial.exceptions import *
+from raco import types
 
 
 class SetopTestFunctions(myrial_test.MyrialTestCase):
@@ -29,10 +30,10 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
 
     emp_key2 = "andrew:adhoc:employee2"
 
-    emp_schema = scheme.Scheme([("id", "LONG_TYPE"),
-                                ("dept_id", "LONG_TYPE"),
-                                ("name", "STRING_TYPE"),
-                                ("salary", "LONG_TYPE")])
+    emp_schema = scheme.Scheme([("id", types.LONG_TYPE),
+                                ("dept_id", types.LONG_TYPE),
+                                ("name", types.STRING_TYPE),
+                                ("salary", types.LONG_TYPE)])
 
     def setUp(self):
         super(SetopTestFunctions, self).setUp()

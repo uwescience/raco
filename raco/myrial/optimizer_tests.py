@@ -14,12 +14,13 @@ from raco import relation_key
 import raco.expression as expression
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
+from raco import types
 
 
 class OptimizerTest(myrial_test.MyrialTestCase):
 
-    x_scheme = scheme.Scheme([("a", "LONG_TYPE"), ("b", "LONG_TYPE"), ("c", "LONG_TYPE")])  # noqa
-    y_scheme = scheme.Scheme([("d", "LONG_TYPE"), ("e", "LONG_TYPE"), ("f", "LONG_TYPE")])  # noqa
+    x_scheme = scheme.Scheme([("a", types.LONG_TYPE), ("b", types.LONG_TYPE), ("c", types.LONG_TYPE)])  # noqa
+    y_scheme = scheme.Scheme([("d", types.LONG_TYPE), ("e", types.LONG_TYPE), ("f", types.LONG_TYPE)])  # noqa
     x_key = relation_key.RelationKey.from_string("public:adhoc:X")
     y_key = relation_key.RelationKey.from_string("public:adhoc:Y")
 
@@ -49,7 +50,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.z_key = relation_key.RelationKey.from_string("public:adhoc:Z")
         self.z_data = collections.Counter([(1, 2), (2, 3), (1, 2), (3, 4)])
-        self.z_scheme = scheme.Scheme([('src', 'LONG_TYPE'), ('dst', 'LONG_TYPE')])  # noqa
+        self.z_scheme = scheme.Scheme([('src', types.LONG_TYPE), ('dst', types.LONG_TYPE)])  # noqa
         self.db.ingest('public:adhoc:Z', self.z_data, self.z_scheme)
 
         self.expected2 = collections.Counter(

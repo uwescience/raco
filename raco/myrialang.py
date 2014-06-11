@@ -12,6 +12,7 @@ from raco.relation_key import RelationKey
 from expression import (accessed_columns, to_unnamed_recursive,
                         UnnamedAttributeRef)
 from raco.expression.aggregate import DecomposableAggregate
+from raco import types
 
 
 def scheme_to_schema(s):
@@ -34,9 +35,9 @@ def compile_expr(op, child_scheme, state_scheme):
             if (2 ** 31) - 1 >= op.value >= -2 ** 31:
                 myria_type = 'INT_TYPE'
             else:
-                myria_type = 'LONG_TYPE'
+                myria_type = types.LONG_TYPE
         elif type(op.value) == float:
-            myria_type = 'DOUBLE_TYPE'
+            myria_type = types.DOUBLE_TYPE
         else:
             raise NotImplementedError("Compiling NumericLiteral %s of type %s" % (op, type(op.value)))  # noqa
 
@@ -75,6 +76,15 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type': 'CONDITION',
             'children': [if_expr, then_expr, else_expr]
+        }
+    elif isinstance(op, expression.CAST):
+        return {
+            'type': 'CAST',
+            'left': compile_expr(op.input, child_scheme, state_scheme),
+            'right': {
+                'type': 'TYPE',
+                'outputType': op._type
+            }
         }
 
     ####
@@ -1236,7 +1246,7 @@ def apply_schema_recursive(operator, catalog):
             # The specified relation is not in the Catalog; replace its
             # scheme's types with LONG_TYPE
             old_sch = operator.scheme()
-            new_sch = [(old_sch.getName(i), "LONG_TYPE")
+            new_sch = [(old_sch.getName(i), types.LONG_TYPE)
                        for i in range(len(old_sch))]
             operator._scheme = Scheme(new_sch)
 

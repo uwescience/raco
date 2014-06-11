@@ -8,6 +8,7 @@ import raco.myrial.interpreter as interpreter
 import raco.scheme as scheme
 import raco.myrial.groupby
 import raco.myrial.myrial_test as myrial_test
+from raco import types
 
 from raco.myrial.exceptions import *
 
@@ -24,10 +25,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (6, 3, "Dan Suciu", 90000),
         (7, 1, "Magdalena Balazinska", 25000)])
 
-    emp_schema = scheme.Scheme([("id", "INT_TYPE"),
-                                ("dept_id", "INT_TYPE"),
-                                ("name", "STRING_TYPE"),
-                                ("salary", "LONG_TYPE")])
+    emp_schema = scheme.Scheme([("id", types.INT_TYPE),
+                                ("dept_id", types.INT_TYPE),
+                                ("name", types.STRING_TYPE),
+                                ("salary", types.LONG_TYPE)])
 
     emp_key = "public:adhoc:employee"
 
@@ -37,9 +38,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (3, "engineering", 2),
         (4, "sales", 7)])
 
-    dept_schema = scheme.Scheme([("id", "LONG_TYPE"),
-                                 ("name", "STRING_TYPE"),
-                                 ("manager", "LONG_TYPE")])
+    dept_schema = scheme.Scheme([("id", types.LONG_TYPE),
+                                 ("name", types.STRING_TYPE),
+                                 ("manager", types.LONG_TYPE)])
 
     dept_key = "public:adhoc:department"
 
@@ -49,8 +50,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         (3, -2),
         (16, -4.3)])
 
-    numbers_schema = scheme.Scheme([("id", "LONG_TYPE"),
-                                    ("val", "DOUBLE_TYPE")])
+    numbers_schema = scheme.Scheme([("id", types.LONG_TYPE),
+                                    ("val", types.DOUBLE_TYPE)])
 
     numbers_key = "public:adhoc:numbers"
 
@@ -1578,6 +1579,28 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
+
+    def test_string_cast(self):
+        query = """
+        emp = SCAN(%s);
+        bc = [FROM emp EMIT STRING(emp.dept_id) AS foo];
+        STORE(bc, OUTPUT);
+        """ % self.emp_key
+
+        ex = collections.Counter((str(d),) for (i, d, n, s) in self.emp_table)
+        ex_scheme = scheme.Scheme([('foo', 'STRING_TYPE')])
+        self.check_result(query, ex)
+
+    def test_float_cast(self):
+        query = """
+        emp = SCAN(%s);
+        bc = [FROM emp EMIT float(emp.dept_id) AS foo];
+        STORE(bc, OUTPUT);
+        """ % self.emp_key
+
+        ex = collections.Counter((float(d),) for (i, d, n, s) in self.emp_table)  # noqa
+        ex_scheme = scheme.Scheme([('foo', types.DOUBLE_TYPE)])
+        self.check_result(query, ex)
 
     def test_sequence(self):
         query = """

@@ -3,6 +3,7 @@ import collections
 
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
+from raco import types
 
 
 class SigmaClippingTest(myrial_test.MyrialTestCase):
@@ -11,7 +12,7 @@ class SigmaClippingTest(myrial_test.MyrialTestCase):
     points_tuples = [(i, x) for i, x in enumerate(points)]
     points_table = collections.Counter(points_tuples)
 
-    points_schema = scheme.Scheme([('id', 'LONG_TYPE'), ('v', 'DOUBLE_TYPE')])
+    points_schema = scheme.Scheme([('id', types.LONG_TYPE), ('v', types.DOUBLE_TYPE)])  # noqa
     points_key = "public:adhoc:sc_points"
 
     def setUp(self):

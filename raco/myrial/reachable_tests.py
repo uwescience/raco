@@ -4,6 +4,7 @@ import collections
 import raco.algebra
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
+from raco import types
 
 
 class ReachableTest(myrial_test.MyrialTestCase):
@@ -25,8 +26,8 @@ class ReachableTest(myrial_test.MyrialTestCase):
         (13, 4),
         (10, 1)])
 
-    edge_schema = scheme.Scheme([("src", "LONG_TYPE"),
-                                 ("dst", "LONG_TYPE")])
+    edge_schema = scheme.Scheme([("src", types.LONG_TYPE),
+                                 ("dst", types.LONG_TYPE)])
     edge_key = "public:adhoc:edges"
 
     def setUp(self):

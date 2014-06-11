@@ -39,7 +39,7 @@ EXPRESSIONS_CASE = {
             DIVIDE(NamedAttributeRef('n'), NamedAttributeRef('d')))),
         3: Function(['n', 'd', 'default'], Case(
             [(EQ(NamedAttributeRef('d'), NumericLiteral(0)),
-              FLOAT_CAST(NamedAttributeRef('default')))],
+              CAST(types.DOUBLE_TYPE, NamedAttributeRef('default')))],
             DIVIDE(NamedAttributeRef('n'), NamedAttributeRef('d'))))
     },
     'TheAnswerToLifeTheUniverseAndEverything': Function(

@@ -32,7 +32,7 @@ class WORKERID(ZeroaryOperator):
         return 0
 
     def typeof(self, scheme, state_scheme):
-        return "LONG_TYPE"
+        return types.LONG_TYPE
 
 
 class UnaryDoubleFunction(UnaryFunction):
@@ -40,7 +40,7 @@ class UnaryDoubleFunction(UnaryFunction):
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
-        return "DOUBLE_TYPE"
+        return types.DOUBLE_TYPE
 
 
 class UnaryTypePreservingFunction(UnaryFunction):
@@ -103,7 +103,7 @@ class POW(BinaryFunction):
         rt = self.right.typeof(scheme, state_scheme)
         check_is_numeric(rt)
 
-        return "DOUBLE_TYPE"
+        return types.DOUBLE_TYPE
 
 
 class CompareFunction(BinaryFunction):
@@ -142,11 +142,11 @@ class SUBSTR(NaryFunction):
         return inputStr[beginIdx:endIdx]
 
     def typeof(self, scheme, state_scheme):
-        check_type(self.operands[0].typeof(scheme, state_scheme), "STRING_TYPE")  # noqa
-        check_type(self.operands[1].typeof(scheme, state_scheme), "LONG_TYPE")
-        check_type(self.operands[2].typeof(scheme, state_scheme), "LONG_TYPE")
+        check_type(self.operands[0].typeof(scheme, state_scheme), types.STRING_TYPE)  # noqa
+        check_type(self.operands[1].typeof(scheme, state_scheme), types.LONG_TYPE)  # noqa
+        check_type(self.operands[2].typeof(scheme, state_scheme), types.LONG_TYPE)  # noqa
 
-        return "STRING_TYPE"
+        return types.STRING_TYPE
 
 
 class LEN(UnaryFunction):
@@ -157,7 +157,7 @@ class LEN(UnaryFunction):
 
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
-        if input_type != "STRING_TYPE":
+        if input_type != types.STRING_TYPE:
             raise TypeSafetyViolation("Must be a string for %s" % (
                 self.__class__,))
-        return "LONG_TYPE"
+        return types.LONG_TYPE

@@ -4,13 +4,15 @@ import collections
 
 import raco.myrial.myrial_test as myrial_test
 import raco.scheme as scheme
+from raco import types
 import networkx as nx
 
 
 class CFGTest(myrial_test.MyrialTestCase):
     points_table = collections.Counter()
-    points_schema = scheme.Scheme([('id', 'LONG_TYPE'), ('x', 'DOUBLE_TYPE'),
-                                   ('y', 'DOUBLE_TYPE')])
+    points_schema = scheme.Scheme([('id', types.LONG_TYPE),
+                                   ('x', types.DOUBLE_TYPE),
+                                   ('y', types.DOUBLE_TYPE)])
     points_key = "public:adhoc:points"
 
     def setUp(self):
