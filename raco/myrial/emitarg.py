@@ -36,12 +36,12 @@ class SingletonEmitArg(EmitArg):
         self.statemods = statemods
 
     def expand(self, symbols):
-        if self.column_name is None:
+        colname = self.column_name
+        if colname is None:
             if (isinstance(self.sexpr, sexpr.Unbox)
                     and isinstance(self.sexpr.field, basestring)):
-                self.column_name = self.sexpr.field
-            # TODO: choose a default column_name if not supplied.
-        return [(self.column_name, self.sexpr)]
+                colname = self.sexpr.field
+        return [(colname, self.sexpr)]
 
     def get_statemods(self):
         return self.statemods
