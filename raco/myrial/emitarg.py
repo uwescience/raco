@@ -40,7 +40,6 @@ class SingletonEmitArg(EmitArg):
             if (isinstance(self.sexpr, sexpr.Unbox)
                     and isinstance(self.sexpr.field, basestring)):
                 self.column_name = self.sexpr.field
-            # TODO: choose a default column_name if not supplied.
         return [(self.column_name, self.sexpr)]
 
     def get_statemods(self):
