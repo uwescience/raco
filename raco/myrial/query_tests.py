@@ -1600,7 +1600,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         ex = collections.Counter((float(d),) for (i, d, n, s) in self.emp_table)  # noqa
         ex_scheme = scheme.Scheme([('foo', types.DOUBLE_TYPE)])
-        self.check_result(query, ex)
+        self.check_result(query, ex, ex_scheme)
 
     def test_sequence(self):
         query = """
@@ -1625,3 +1625,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         store(z, OUTPUT);"""
 
         self.check_result(query, collections.Counter([(1,)]))
+
+    def test_duplicate_column_names(self):
+        query = """
+        x = [1 as a, 2 as b];
+        y = [from x as x1, x as x2 emit x1.a, x2.a];
+        store(y, OUTPUT);"""
+
+        expected_scheme = scheme.Scheme([('a', types.LONG_TYPE),
+                                         ('a1', types.LONG_TYPE)])
+        self.check_result(query, collections.Counter([(1, 1)]),
+                          scheme=expected_scheme)
