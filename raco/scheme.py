@@ -1,4 +1,5 @@
 from raco import expression
+import raco.types
 
 from collections import OrderedDict
 
@@ -13,8 +14,7 @@ class DummyScheme(object):
 
 
 class Scheme(object):
-    '''Add an attribute to the scheme. Type is a function that returns true for
-    any value that is of the correct type'''
+    '''Add an attribute to the scheme.'''
     salt = "1"
 
     def __init__(self, attributes=None):
@@ -25,19 +25,26 @@ class Scheme(object):
         for n, t in attributes:
             self.addAttribute(n, t)
 
-    def addAttribute(self, name, type):
+    def addAttribute(self, name, _type):
+        if _type not in raco.types.ALL_TYPES:
+            print 'Invalid type name: %s' % str(_type)
+            assert False
+        _type = raco.types.map_type(_type)
+
         if name in self.asdict:
             # ugly.  I don't like throwing errors in this case, but it's worse
             # not to
-            return self.addAttribute(name + self.salt, type)
-        self.asdict[name] = (len(self.attributes), type)
-        self.attributes.append((name, type))
+            return self.addAttribute(name + self.salt, _type)
+        self.asdict[name] = (len(self.attributes), _type)
+        self.attributes.append((name, _type))
         # just in case we changed the name.  ugly.
         return name
 
     def typecheck(self, tup):
+        rmap = raco.types.reverse_python_type_map
         try:
-            return all([tf(v) for (_, tf), v in zip(self.attributes, tup)])
+            return all([rmap[_type](v) for (_, _type), v in
+                       zip(self.attributes, tup)])
         except:
             raise TypeError("%s not of type %s" % (tup, self.attributes))
 

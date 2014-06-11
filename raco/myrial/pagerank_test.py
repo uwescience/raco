@@ -8,6 +8,7 @@ import collections
 
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
+from raco import types
 
 
 class PageRankTest(myrial_test.MyrialTestCase):
@@ -29,13 +30,13 @@ class PageRankTest(myrial_test.MyrialTestCase):
         (4, 3),
         (4, 4)])
 
-    edge_schema = scheme.Scheme([("src", "int"),
-                                 ("dst", "int")])
+    edge_schema = scheme.Scheme([("src", types.LONG_TYPE),
+                                 ("dst", types.LONG_TYPE)])
     edge_key = "public:adhoc:edges"
 
     vertex_table = collections.Counter([(x,) for x in range(5)])
     vertex_key = "public:adhoc:vertices"
-    vertex_schema = scheme.Scheme([("id", "int")])
+    vertex_schema = scheme.Scheme([("id", types.LONG_TYPE)])
 
     def setUp(self):
         super(PageRankTest, self).setUp()

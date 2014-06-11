@@ -77,7 +77,7 @@ class ExpressionProcessor(object):
 
     def __lookup_symbol(self, _id):
         self.uses_set.add(_id)
-        return copy.copy(self.symbols[_id])
+        return copy.deepcopy(self.symbols[_id])
 
     def alias(self, _id):
         return self.__lookup_symbol(_id)
@@ -196,6 +196,9 @@ class ExpressionProcessor(object):
         # rewrite clauses in terms of the new schema
         if where_clause:
             where_clause = multiway.rewrite_refs(where_clause, from_args, info)
+            # Extract the type of there where clause to force type safety
+            # to be checked
+            where_clause.typeof(op.scheme(), None)
             op = raco.algebra.Select(condition=where_clause, input=op)
 
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
@@ -396,4 +399,4 @@ class StatementProcessor(object):
                        source=LogicalAlgebra)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
-        return compile_to_json(str(lp), lp, pps)
+        return compile_to_json(str(lp), pps[0][1], pps)

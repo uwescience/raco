@@ -49,7 +49,7 @@ def evaluate(plan, connection=None, validate=False):
             evaluate(child, connection, validate)
     else:
         logical = str(plan)
-        physical = [('', plan)]
+        physical = plan
         phys = myrialang.compile_to_json(logical, logical, physical)
         if connection is not None:
             if validate:
@@ -121,7 +121,7 @@ def main(args):
     try:
         myria_connection.upload_fp(
                 { 'userName' : 'public', 'programName' : 'adhoc', 'relationName':'sc_points'},
-                { 'columnNames' : ['v'], 'columnTypes' : ['DOUBLE_TYPE'] },
+                { 'columnNames' : ['v'], 'columnTypes' : [types.DOUBLE_TYPE] },
                 open('examples/sigma_clipping_points.txt', 'r'))
     except myria.MyriaError as e:
         if '409' in str(e):

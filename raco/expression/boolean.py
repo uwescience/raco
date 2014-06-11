@@ -3,7 +3,9 @@ Boolean operators for use in Raco expression trees
 """
 
 from .expression import Expression, UnaryOperator, BinaryOperator, \
-    AttributeRef, NumericLiteral
+    AttributeRef, NumericLiteral, check_type, TypeSafetyViolation
+
+import raco.types
 
 import abc
 
@@ -12,16 +14,32 @@ class BooleanExpression(Expression):
     pass
 
 
-class UnaryBooleanOperator(UnaryOperator, BooleanExpression):
-    pass
+class UnaryBooleanOperator(BooleanExpression, UnaryOperator):
+    def typeof(self, scheme, state_scheme):
+        lt = self.input.typeof(scheme, state_scheme)
+        check_type(lt, raco.types.BOOLEAN_TYPE)
+        return raco.types.BOOLEAN_TYPE
 
 
-class BinaryBooleanOperator(BinaryOperator, BooleanExpression):
-    pass
+class BinaryBooleanOperator(BooleanExpression, BinaryOperator):
+    def typeof(self, scheme, state_scheme):
+        lt = self.left.typeof(scheme, state_scheme)
+        check_type(lt, raco.types.BOOLEAN_TYPE)
+        rt = self.left.typeof(scheme, state_scheme)
+        check_type(rt, raco.types.BOOLEAN_TYPE)
+        return raco.types.BOOLEAN_TYPE
 
 
 class BinaryComparisonOperator(BinaryBooleanOperator):
-    pass
+    def typeof(self, scheme, state_scheme):
+        lt = self.left.typeof(scheme, state_scheme)
+        rt = self.right.typeof(scheme, state_scheme)
+        if lt == rt:
+            return raco.types.BOOLEAN_TYPE
+        if lt in raco.types.NUMERIC_TYPES and rt in raco.types.NUMERIC_TYPES:
+            return raco.types.BOOLEAN_TYPE
+        else:
+            raise TypeSafetyViolation("Can't compare %s and %s", (lt, rt))
 
 
 class NOT(UnaryBooleanOperator):

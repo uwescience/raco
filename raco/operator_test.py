@@ -20,10 +20,10 @@ class TestQueryFunctions():
         (6, 3, "Dan Suciu", 90000),
         (7, 1, "Magdalena Balazinska", 25000)])
 
-    emp_schema = scheme.Scheme([("id", "int"),
-                                ("dept_id", "int"),
-                                ("name", "string"),
-                                ("salary", "int")])
+    emp_schema = scheme.Scheme([("id", types.LONG_TYPE),
+                                ("dept_id", types.LONG_TYPE),
+                                ("name", types.STRING_TYPE),
+                                ("salary", types.LONG_TYPE)])
 
     emp_key = relation_key.RelationKey.from_string("andrew:adhoc:employee")
 
@@ -77,12 +77,12 @@ class OperatorTest(unittest.TestCase):
         from myrialang import compile_to_json, MyriaAlgebra
         from compile import optimize
         import json
-        json_string = json.dumps(compile_to_json("", None, optimize([(None, sapply)], LogicalAlgebra, MyriaAlgebra)))  # noqa
+        json_string = json.dumps(compile_to_json("", None, optimize([('root', sapply)], LogicalAlgebra, MyriaAlgebra)))  # noqa
         assert json_string
 
     def test_cast_to_float(self):
         scan = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
-        cast = FLOAT_CAST(NamedAttributeRef("salary"))
+        cast = CAST(types.DOUBLE_TYPE, NamedAttributeRef("salary"))
         applyop = Apply([("salaryf", cast)], scan)
         res = list(self.db.evaluate(applyop))
         for x in res:
