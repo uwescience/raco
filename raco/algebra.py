@@ -919,6 +919,7 @@ class Dump(UnaryOperator):
     def shortStr(self):
         return "%s()" % self.opname()
 
+
 class EmptyRelation(ZeroaryOperator):
     """Relation with no tuples."""
 

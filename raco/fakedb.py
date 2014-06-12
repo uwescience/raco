@@ -251,6 +251,11 @@ class FakeDatabase(object):
         self.tables[op.relation_key] = (bag, scheme)
         return None
 
+    def dump(self, op):
+        for tpl in self.evaluate(op.input):
+            print ','.join(tpl)
+        return None
+
     def storetemp(self, op):
         bag = self.evaluate_to_bag(op.input)
         self.temp_tables[op.name] = bag
