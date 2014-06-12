@@ -8,7 +8,7 @@ from raco import types
 
 class SigmaClippingTest(myrial_test.MyrialTestCase):
     points = [25.0, 27.2, 23.4, 25.1, 26.3, 24.9, 23.5, 22.7, 108.2,
-              26.2, 25.3, 24.7, 25.0, 26.1, 22.8, 2.2, 24.8, 25.05, 25.15]
+              26.2, 25.3, 24.7, 25.01, 26.1, 22.8, 2.2, 24.8, 25.05, 25.15]
     points_tuples = [(i, x) for i, x in enumerate(points)]
     points_table = collections.Counter(points_tuples)
 
