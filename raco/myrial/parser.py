@@ -302,7 +302,7 @@ class Parser(object):
     @staticmethod
     def p_expression_load(p):
         'expression :  LOAD LPAREN relation_key COMMA column_def_list RPAREN'
-        p[0] = ('LOAD', p[3], p[5])
+        p[0] = ('LOAD', p[3], scheme.Scheme(p[5]))
 
     @staticmethod
     def p_relation_key(p):
