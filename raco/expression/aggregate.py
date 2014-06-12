@@ -38,18 +38,18 @@ class MergeAggregateOutput(object):
         """
         self.pos = pos
 
-    def to_absolute(self, offset):
-        return UnnamedAttributeRef(offset + self.pos)
+    def to_absolute(self, offsets):
+        return UnnamedAttributeRef(offsets[self.pos])
 
 
-def finalizer_expr_to_absolute(expr, offset):
+def finalizer_expr_to_absolute(expr, offsets):
     """Convert a finalizer expression to absolute column positions."""
 
     assert isinstance(expr, Expression)
 
     def convert(n):
         if isinstance(n, MergeAggregateOutput):
-            n = n.to_absolute(offset)
+            n = n.to_absolute(offsets)
         n.apply(convert)
         return n
     return convert(expr)
@@ -89,8 +89,8 @@ class DecomposableAggregate(AggregateExpression):
         return [self.__class__(LocalAggregateOutput())]
 
     def get_finalizer(self):
-        """Return a rule for extracting the result from the merge aggregats."""
-        return None  # use the result from merge aggregate 0
+        """Return a rule for computing the result from the merge aggregates."""
+        return None  # by default, use the result from merge aggregate 0
 
 
 class MAX(UnaryFunction, DecomposableAggregate):

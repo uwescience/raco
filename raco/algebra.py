@@ -1066,19 +1066,23 @@ class Sequence(NaryOperator):
         return None
 
 
-class DoWhile(Sequence):
+class DoWhile(NaryOperator):
     def __init__(self, ops=None):
-        """Repeatedly execute a sequence of plans until a termination condtion.
+        """Repeatedly execute a sequence of plans until a termination condition.
 
         :params ops: A list of operations to execute in serial.  By convention,
         the last operation is the termination condition.  The termination
         condition should map to a single row, single column relation.  The loop
         continues if its value is True.
         """
-        Sequence.__init__(self, ops)
+        NaryOperator.__init__(self, ops)
 
     def shortStr(self):
         return self.opname()
+
+    def scheme(self):
+        """DoWhile does not return any tuples."""
+        return None
 
 
 def inline_operator(dest_op, var, target_op):
