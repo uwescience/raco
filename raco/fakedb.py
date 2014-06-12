@@ -86,7 +86,7 @@ class FakeDatabase(object):
             fh.seek(0)
             reader = csv.reader(fh, dialect)
             for row in reader:
-                pairs=  zip(row, type_list)
+                pairs = zip(row, type_list)
                 cols = [types.parse_string(s, t) for s, t in pairs]
                 yield tuple(cols)
 
