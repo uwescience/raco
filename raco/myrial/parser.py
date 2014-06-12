@@ -300,6 +300,11 @@ class Parser(object):
         p[0] = ('SCAN', p[3])
 
     @staticmethod
+    def p_expression_load(p):
+        'expression :  LOAD LPAREN relation_key COMMA column_def_list RPAREN'
+        p[0] = ('LOAD', p[3], p[5])
+
+    @staticmethod
     def p_relation_key(p):
         '''relation_key : string_arg
                         | string_arg COLON string_arg
