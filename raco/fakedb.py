@@ -78,7 +78,7 @@ class FakeDatabase(object):
         return bag.elements()
 
     def filescan(self, op):
-        types = op.scheme().get_types()
+        type_list = op.scheme().get_types()
 
         with open(op.path, 'r') as fh:
             sample = fh.read(1024)
@@ -86,7 +86,8 @@ class FakeDatabase(object):
             fh.seek(0)
             reader = csv.reader(fh, dialect)
             for row in reader:
-                cols = [types.from_string(s, t) for s, t in zip(row, types)]
+                pairs=  zip(row, type_list)
+                cols = [types.parse_string(s, t) for s, t in pairs]
                 yield tuple(cols)
 
     def select(self, op):
