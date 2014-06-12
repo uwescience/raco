@@ -1684,3 +1684,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                                          ('a1', types.LONG_TYPE)])
         self.check_result(query, collections.Counter([(1, 1)]),
                           scheme=expected_scheme)
+
+    def test_distinct_aggregate_combinations(self):
+        """Test to make sure that aggregates of different columns are not
+        combined together by the optimizer."""
+        query = """
+        emp = scan(%s);
+        ans = [from emp emit sum(dept_id) as d, sum(salary) as s];
+        store(ans, OUTPUT);""" % self.emp_key
+
+        sum_dept_id = sum([e[1] for e in self.emp_table])
+        sum_salary = sum([e[3] for e in self.emp_table])
+        expected = collections.Counter([(sum_dept_id, sum_salary)])
+        self.check_result(query, expected)
