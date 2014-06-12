@@ -266,6 +266,11 @@ class Parser(object):
         p[0] = ('STORE', p[3], p[5], p[6])
 
     @staticmethod
+    def p_statement_dump(p):
+        'statement : DUMP LPAREN unreserved_id RPAREN SEMI'
+        p[0] = ('DUMP', p[3])
+
+    @staticmethod
     def p_optional_part_info(p):
         '''optional_part_info : COMMA LBRACKET column_ref_list RBRACKET
                               | empty'''

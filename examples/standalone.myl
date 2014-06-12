@@ -4,3 +4,4 @@ Dept = load("./examples/dept.csv", id:int, dept_id:int, name:string, salary:int)
 out = [from Emp, Dept
        where Emp.dept_id == Dept.id AND Emp.salary > 5000
        emit Emp.name as emp_name, Dept.name as dept_name];
+dump(out);

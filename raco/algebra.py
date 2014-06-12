@@ -913,6 +913,12 @@ class Store(UnaryOperator):
         UnaryOperator.copy(self, other)
 
 
+class Dump(UnaryOperator):
+    """Echo input to standard out; only useful for standalone raco."""
+
+    def shortStr(self):
+        return "%s()" % self.opname()
+
 class EmptyRelation(ZeroaryOperator):
     """Relation with no tuples."""
 

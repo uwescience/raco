@@ -363,6 +363,13 @@ class StatementProcessor(object):
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, None, uses_set)
 
+    def dump(self, _id):
+        alias_expr = ("ALIAS", _id)
+        child_op = self.ep.evaluate(alias_expr)
+        op = raco.algebra.Dump(child_op)
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, None, uses_set)
+
     def dowhile(self, statement_list, termination_ex):
         first_op_id = self.cfg.next_op_id  # op ID of the top of the loop
 
