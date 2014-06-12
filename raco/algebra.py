@@ -723,7 +723,6 @@ class GroupBy(UnaryOperator):
     def __init__(self, grouping_list=None, aggregate_list=None, input=None):
         self.grouping_list = grouping_list or []
         self.aggregate_list = aggregate_list or []
-        self.column_list = self.grouping_list + self.aggregate_list
         UnaryOperator.__init__(self, input)
 
     def shortStr(self):
@@ -733,10 +732,12 @@ class GroupBy(UnaryOperator):
 
     def copy(self, other):
         """deep copy"""
-        self.column_list = other.column_list
         self.grouping_list = other.grouping_list
         self.aggregate_list = other.aggregate_list
         UnaryOperator.copy(self, other)
+
+    def column_list(self):
+        return self.grouping_list + self.aggregate_list
 
     def scheme(self):
         """scheme of the result."""
@@ -744,7 +745,7 @@ class GroupBy(UnaryOperator):
         # Note: user-provided column names are supplied by a subsequent Apply
         # invocation; see raco/myrial/groupby.py
         schema = scheme.Scheme()
-        for index, sexpr in enumerate(self.column_list):
+        for index, sexpr in enumerate(self.column_list()):
             name = resolve_attribute_name(None, in_scheme, sexpr, index)
             _type = sexpr.typeof(in_scheme, None)
             schema.addAttribute(name, _type)

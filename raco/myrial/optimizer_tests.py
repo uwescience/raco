@@ -354,7 +354,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         """
 
         pp = self.get_physical_plan(query)
-        print str(pp)
         self.assertEquals(self.get_count(pp, Distinct), 1)
         for op in pp.walk():
             if isinstance(op, Distinct):
@@ -368,7 +367,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         """
 
         pp = self.get_physical_plan(query)
-        print str(pp)
         self.assertEquals(self.get_count(pp, Difference), 1)
         for op in pp.walk():
             if isinstance(op, Difference):
@@ -376,3 +374,22 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                 self.assertIsInstance(op.left.input, MyriaShuffleProducer)
                 self.assertIsInstance(op.right, MyriaShuffleConsumer)
                 self.assertIsInstance(op.right.input, MyriaShuffleProducer)
+
+    def test_bug_240_broken_remove_unused_columns_rule(self):
+        query = """
+        particles = empty(nowGroup:int, timestep:int, grp:int);
+
+        haloTable1 = [from particles as P
+                      emit P.nowGroup,
+                           (P.timestep+P.grp) as halo,
+                           count(*) as totalParticleCount];
+
+        haloTable2 = [from haloTable1 as H, particles as P
+                      where H.nowGroup = P.nowGroup
+                      emit *];
+        store(haloTable2, OutputTemp);
+        """
+
+        # This is it -- just test that we can get the physical plan and
+        # compile to JSON. See https://github.com/uwescience/raco/issues/240
+        pp = self.execute_query(query, output='OutputTemp')
