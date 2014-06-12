@@ -719,12 +719,18 @@ class DistributedGroupBy(rules.Rule):
 
         local_aggs = []  # aggregates executed on each local machine
         merge_aggs = []  # aggregates executed after local aggs
-        agg_offsets = []  # map from logical index to local/merge index.
+        agg_offsets = defaultdict(list)  # map aggregate to local agg indices
 
-        for logical_agg in op.aggregate_list:
-            agg_offsets.append(len(local_aggs))
-            local_aggs.extend(logical_agg.get_local_aggregates())
-            merge_aggs.extend(logical_agg.get_merge_aggregates())
+        for (i, logical_agg) in enumerate(op.aggregate_list):
+            for local, merge in zip(logical_agg.get_local_aggregates(),
+                                    logical_agg.get_merge_aggregates()):
+                try:
+                    idx = local_aggs.index(local)
+                    agg_offsets[i].append(idx)
+                except ValueError:
+                    agg_offsets[i].append(len(local_aggs))
+                    local_aggs.append(local)
+                    merge_aggs.append(merge)
 
         assert len(merge_aggs) == len(local_aggs)
 
@@ -752,13 +758,14 @@ class DistributedGroupBy(rules.Rule):
             fexpr = logical_agg.get_finalizer()
 
             # Start of merge aggregates for this logical aggregate
-            offset = num_grouping_terms + agg_offsets[pos]
+            offsets = [idx + num_grouping_terms for idx in agg_offsets[pos]]
 
             if fexpr is None:
-                return UnnamedAttributeRef(offset)
+                assert len(offsets) == 1
+                return UnnamedAttributeRef(offsets[0])
             else:
                 # Convert MergeAggregateOutput instances to absolute col refs
-                return expression.finalizer_expr_to_absolute(fexpr, offset)
+                return expression.finalizer_expr_to_absolute(fexpr, offsets)
 
         # pass through grouping terms
         gmappings = [(None, UnnamedAttributeRef(i))
