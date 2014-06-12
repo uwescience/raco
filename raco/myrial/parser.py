@@ -306,7 +306,7 @@ class Parser(object):
 
     @staticmethod
     def p_expression_load(p):
-        'expression :  LOAD LPAREN relation_key COMMA column_def_list RPAREN'
+        'expression :  LOAD LPAREN STRING_LITERAL COMMA column_def_list RPAREN'
         p[0] = ('LOAD', p[3], scheme.Scheme(p[5]))
 
     @staticmethod
