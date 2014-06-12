@@ -5,6 +5,7 @@ import csv
 
 from raco import relation_key
 from raco import types
+from raco.algebra import Store
 
 debug = False
 
@@ -214,6 +215,8 @@ class FakeDatabase(object):
         children = op.children()
         body_ops = children[:-1]
         term_op = children[-1]
+        if isinstance(term_op, Store):
+            term_op = term_op.input
 
         if debug:
             print '---------- Values at top of do/while -----'

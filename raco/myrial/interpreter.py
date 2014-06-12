@@ -405,8 +405,8 @@ class StatementProcessor(object):
 
     def get_json(self):
         lp = self.get_logical_plan()
-        pps = optimize([('root', lp)], target=MyriaAlgebra,
+        pps = optimize([(None, lp)], target=MyriaAlgebra,
                        source=LogicalAlgebra)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
-        return compile_to_json(str(lp), pps[0][1], pps)
+        return compile_to_json(str(lp), pps[0][1], pps[0][1])
