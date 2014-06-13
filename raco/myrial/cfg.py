@@ -47,7 +47,7 @@ class ControlFlowGraph(object):
     def __str__(self):
         g = self.graph
         node_strs = ['%s: uses=%s def=%s' % (str(n), repr(g.node[n]['uses']),
-                                             repr(c.node[n]['def_var']))
+                                             repr(g.node[n]['def_var']))
                      for n in g]
         edge_strs = ['%s=>%s' % (str(s), str(d)) for s, d in g.edges()]
         return '; '.join(node_strs) + '\n' + '; '.join(edge_strs)
