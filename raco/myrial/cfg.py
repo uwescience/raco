@@ -238,6 +238,7 @@ class ControlFlowGraph(object):
         if len(self.sorted_vertices) == 0:
             return
 
+        # A stack that contains the defined variables within each loop.
         def_set_stack = []
 
         def current_def_set():
