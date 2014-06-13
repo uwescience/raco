@@ -81,6 +81,17 @@ class CFGTest(myrial_test.MyrialTestCase):
         self.processor.cfg.dead_code_elimination()
         self.assertEquals(set(self.processor.cfg.graph.nodes()), {2, 6, 7, 8})
 
+    def test_bug_245_dead_code_elim_do_while(self):
+        with open('examples/deadcode2.myl') as fh:
+            query = fh.read()
+
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), set(range(3)))
+
+        self.processor.cfg.dead_code_elimination()
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), {})
+
     def test_chaining(self):
         query = """
         A = SCAN(public:adhoc:points);
