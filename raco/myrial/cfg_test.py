@@ -89,8 +89,9 @@ class CFGTest(myrial_test.MyrialTestCase):
         self.processor.evaluate(statements)
         self.assertEquals(set(self.processor.cfg.graph.nodes()), set(range(3)))
 
+        self.processor.cfg.dead_loop_elimination()
         self.processor.cfg.dead_code_elimination()
-        self.assertEquals(set(self.processor.cfg.graph.nodes()), {})
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), set())
 
     def test_chaining(self):
         query = """
