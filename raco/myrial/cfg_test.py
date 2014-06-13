@@ -81,7 +81,7 @@ class CFGTest(myrial_test.MyrialTestCase):
         self.processor.cfg.dead_code_elimination()
         self.assertEquals(set(self.processor.cfg.graph.nodes()), {2, 6, 7, 8})
 
-    def test_bug_245_dead_code_elim_do_while(self):
+    def test_bug_245_dead_loop_elim_do_while(self):
         with open('examples/deadcode2.myl') as fh:
             query = fh.read()
 
@@ -92,6 +92,26 @@ class CFGTest(myrial_test.MyrialTestCase):
         self.processor.cfg.dead_loop_elimination()
         self.processor.cfg.dead_code_elimination()
         self.assertEquals(set(self.processor.cfg.graph.nodes()), set())
+
+    def test_dead_loop_interior(self):
+        """Test of a dead loop before the end of the program."""
+        query = """
+        x = [0 as val, 1 as exp];
+        y = [0 as val, 1 as exp];
+
+        do
+            x = [from x emit val+1 as val, 2*exp as exp];
+        while [from x emit val < 5];
+        store(y, OUTPUT);
+        """
+
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), set(range(5)))
+
+        self.processor.cfg.dead_loop_elimination()
+        self.processor.cfg.dead_code_elimination()
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), {1, 4})
 
     def test_chaining(self):
         query = """
