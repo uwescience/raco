@@ -12,6 +12,11 @@ class CliTest(unittest.TestCase):
         self.assertIn('DO', out)
         self.assertIn('WHILE', out)
 
+    def test_cli_standalone(self):
+        out = subprocess.check_output(['python', 'scripts/myrial', '-f',
+                                       'examples/standalone.myl'])
+        self.assertIn('Dan Suciu,engineering', out)
+
     def test_cli_reserved_column_name(self):
         proc = subprocess.Popen(
             ['python', 'scripts/myrial', 'examples/bad_column_name.myl'],

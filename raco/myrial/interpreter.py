@@ -96,6 +96,9 @@ class ExpressionProcessor(object):
 
         return raco.algebra.Scan(rel_key, scheme)
 
+    def load(self, path, scheme):
+        return raco.algebra.FileScan(path, scheme)
+
     def table(self, emit_clause):
         """Emit a single-row table literal."""
         emit_args = []
@@ -357,6 +360,13 @@ class StatementProcessor(object):
             child_op = raco.algebra.Shuffle(child_op, col_list)
         op = raco.algebra.Store(rel_key, child_op)
 
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, None, uses_set)
+
+    def dump(self, _id):
+        alias_expr = ("ALIAS", _id)
+        child_op = self.ep.evaluate(alias_expr)
+        op = raco.algebra.Dump(child_op)
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, None, uses_set)
 
