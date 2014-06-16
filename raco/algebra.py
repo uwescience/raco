@@ -913,6 +913,13 @@ class Store(UnaryOperator):
         UnaryOperator.copy(self, other)
 
 
+class Dump(UnaryOperator):
+    """Echo input to standard out; only useful for standalone raco."""
+
+    def shortStr(self):
+        return "%s()" % self.opname()
+
+
 class EmptyRelation(ZeroaryOperator):
     """Relation with no tuples."""
 
@@ -947,6 +954,39 @@ class SingletonRelation(ZeroaryOperator):
     def scheme(self):
         """scheme of the result."""
         return scheme.Scheme()
+
+
+class FileScan(ZeroaryOperator):
+    """Load table data from a file."""
+
+    def __init__(self, path=None, _scheme=None):
+        self.path = path
+        self._scheme = _scheme
+        ZeroaryOperator.__init__(self)
+
+    def __eq__(self, other):
+        return (ZeroaryOperator.__eq__(self, other)
+                and self.path == other.path
+                and self.scheme() == other.scheme())
+
+    def __hash__(self):
+        return ("%s-%s" % (self.opname(), self.path)).__hash__()
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.path)
+
+    def __repr__(self):
+        return str(self)
+
+    def copy(self, other):
+        """deep copy"""
+        self.path = other.path
+        self._scheme = other._scheme
+
+        ZeroaryOperator.copy(self, other)
+
+    def scheme(self):
+        return self._scheme
 
 
 class Scan(ZeroaryOperator):
