@@ -279,6 +279,9 @@ class ControlFlowGraph(object):
                 if def_var:
                     def_set_stack[-1].add(def_var)
 
+        if not loops_to_delete:
+            return
+
         # Delete the operations corresponding to dead loops
         for begin, end in loops_to_delete:
             for ix in range(begin, end + 1):
@@ -286,9 +289,11 @@ class ControlFlowGraph(object):
                 self.sorted_vertices.remove(ix)
             # Add a control flow edge that "skips over" the deleted loop
             if begin > 0 and end < last_op:
+                assert begin - 1 in self.graph
+                assert end + 1 in self.graph
                 self.graph.add_edge(begin - 1, end + 1)
 
-        # TODO: consider whether we should run this recursively...
+        self.dead_loop_elimination()
 
     def get_logical_plan(self, dead_code_elimination=True,
                          apply_chaining=True):

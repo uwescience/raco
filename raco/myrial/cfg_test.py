@@ -137,6 +137,33 @@ class CFGTest(myrial_test.MyrialTestCase):
         self.processor.cfg.dead_code_elimination()
         self.assertEquals(set(self.processor.cfg.graph.nodes()), {0, 1, 7})
 
+    def test_two_dead_loops_samevar(self):
+        """Test that recursive calls to dead_loop_elimination remove
+        repeated dead loops reading/writing the same variable."""
+        query = """
+        x = [0 as val, 1 as exp];
+        y = x;
+
+        do
+            x = [from x emit val+1 as val, 2*exp as exp];
+        while [from x emit val < 5];
+
+        do
+            x = [from x emit val+1 as val, 2*exp as exp];
+        while [from x emit val < 5];
+
+        store(y, OUTPUT);
+        """
+
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), set(range(7)))
+
+        self.processor.cfg.dead_loop_elimination()
+        return
+        self.processor.cfg.dead_code_elimination()
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), {1, 6})
+
     def test_chaining(self):
         query = """
         A = SCAN(public:adhoc:points);
