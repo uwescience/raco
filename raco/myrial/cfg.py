@@ -92,9 +92,9 @@ class ControlFlowGraph(object):
         """
 
         # All variables that are accessed are live-in at a node
-        live_in = dict([(i, copy.copy(self.graph.node[i]['uses']))
-                        for i in self.graph])
-        live_out = dict([(i, set()) for i in self.graph])
+        live_in = {i: copy.copy(self.graph.node[i]['uses'])
+                   for i in self.graph}
+        live_out = {i: set() for i in self.graph}
 
         while True:
             live_in_prev = copy.deepcopy(live_in)
