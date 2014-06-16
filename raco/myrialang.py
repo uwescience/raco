@@ -1597,7 +1597,7 @@ class GetCadinalities(rules.Rule):
 
 # logical groups of catalog transparent rules
 # 1. this must be applied first
-remove_trivaial_sequences = [RemoveTrivialSequences()]
+remove_trivial_sequences = [RemoveTrivialSequences()]
 
 # 2. simple group by
 simple_group_by = [SimpleGroupBy()]
@@ -1707,7 +1707,7 @@ class MyriaLDTreeAlgebra(MyriaAlgebra):
     """ Myria phyiscal algebra using left deep tree pipeline and 1-D shuffle
     """
     rule_grps_sequence = [
-        remove_trivaial_sequences,
+        remove_trivial_sequences,
         simple_group_by,
         push_select,
         push_project,
@@ -1739,7 +1739,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
         ]
 
         rule_grps_sequence = [
-            remove_trivaial_sequences,
+            remove_trivial_sequences,
             simple_group_by,
             push_select,
             push_project,

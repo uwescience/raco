@@ -1,7 +1,6 @@
 
 import collections
 import random
-import unittest
 
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
@@ -18,7 +17,7 @@ import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 
 
-# facking catalog here
+# faking catalog here
 class Catalog(object):
     def __init__(self, num_servers, child_sizes=None):
         self.num_servers = num_servers
