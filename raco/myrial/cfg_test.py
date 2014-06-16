@@ -97,7 +97,7 @@ class CFGTest(myrial_test.MyrialTestCase):
         """Test of a dead loop before the end of the program."""
         query = """
         x = [0 as val, 1 as exp];
-        y = [0 as val, 1 as exp];
+        y = x;
 
         do
             x = [from x emit val+1 as val, 2*exp as exp];
@@ -111,7 +111,7 @@ class CFGTest(myrial_test.MyrialTestCase):
 
         self.processor.cfg.dead_loop_elimination()
         self.processor.cfg.dead_code_elimination()
-        self.assertEquals(set(self.processor.cfg.graph.nodes()), {1, 4})
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), {0, 1, 4})
 
     def test_chaining(self):
         query = """
