@@ -233,7 +233,9 @@ class ControlFlowGraph(object):
                     break
 
     def dead_loop_elimination(self):
-        """Delete entire do/while loops whose results are not consumed."""
+        """Delete entire do/while loops whose results are not consumed.
+
+        See get_logical_plan for logic."""
 
         if len(self.sorted_vertices) == 0:
             return
