@@ -176,7 +176,8 @@ class MyriaScan(algebra.Scan, MyriaOperator):
     def compileme(self):
         return {
             "opType": "TableScan",
-            "relationKey": relation_key_to_json(self.relation_key)
+            "relationKey": relation_key_to_json(self.relation_key),
+            "temporary": False,
         }
 
 
@@ -184,11 +185,9 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
     def compileme(self):
         return {
             "opType": "TableScan",
-            "relationKey": {
-                "userName": 'public',
-                "programName": '__TEMP__',
-                "relationName": self.name
-            }
+            "relationKey": relation_key_to_json(RelationKey.from_string(
+                "public:__TEMP__:" + self.name)),
+            "temporary": True,
         }
 
 
@@ -259,6 +258,7 @@ class MyriaStore(algebra.Store, MyriaOperator):
             "opType": "DbInsert",
             "relationKey": relation_key_to_json(self.relation_key),
             "argOverwriteTable": True,
+            "argTemporary": False,
             "argChild": inputid,
         }
 
@@ -267,11 +267,9 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
     def compileme(self, inputid):
         return {
             "opType": "DbInsert",
-            "relationKey": {
-                "userName": 'public',
-                "programName": '__TEMP__',
-                "relationName": self.name
-            },
+            "relationKey": relation_key_to_json(RelationKey.from_string(
+                "public:__TEMP__:" + self.name)),
+            "argTemporary": True,
             "argOverwriteTable": True,
             "argChild": inputid,
         }
@@ -1249,7 +1247,7 @@ def label_op_to_op(label, op):
     if not label:
         raise ValueError('label must be a non-empty string')
 
-    return MyriaStore(plan=op, relation_key=RelationKey.from_string(label))
+    return MyriaStoreTemp(input=op, name=label)
 
 
 def op_list_to_operator(physical_plan):
@@ -1364,7 +1362,8 @@ def compile_plan(plan_op):
             plan_op)), condition)
         plan_op.args = children[:-1] + [condition]
         body = [compile_plan(pl_op) for pl_op in plan_op.children()]
-        condition_lbl = condition.relation_key
+        condition_lbl = RelationKey.from_string(
+            "public:__TEMP__:" + condition.name)
         return {"type": "DoWhile",
                 "body": body,
                 "condition": relation_key_to_json(condition_lbl)}

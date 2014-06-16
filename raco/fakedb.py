@@ -3,9 +3,8 @@ import collections
 import itertools
 import csv
 
-from raco import relation_key
-from raco import types
-from raco.algebra import Store
+from raco import relation_key, types
+from raco.algebra import Store, StoreTemp
 
 debug = False
 
@@ -215,7 +214,7 @@ class FakeDatabase(object):
         children = op.children()
         body_ops = children[:-1]
         term_op = children[-1]
-        if isinstance(term_op, Store):
+        if isinstance(term_op, StoreTemp):
             term_op = term_op.input
 
         if debug:
