@@ -113,6 +113,30 @@ class CFGTest(myrial_test.MyrialTestCase):
         self.processor.cfg.dead_code_elimination()
         self.assertEquals(set(self.processor.cfg.graph.nodes()), {0, 1, 4})
 
+    def test_two_dead_loops(self):
+        """Test of two unrelated dead loops."""
+        query = """
+        x = [0 as val, 1 as exp];
+        y = x;
+        z = y;
+
+        do
+            x = [from x emit val+1 as val, 2*exp as exp];
+        while [from x emit val < 5];
+        do
+            z = [from z emit val+1 as val, 2*exp as exp];
+        while [from z emit val < 5];
+        store(y, OUTPUT);
+        """
+
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), set(range(8)))
+
+        self.processor.cfg.dead_loop_elimination()
+        self.processor.cfg.dead_code_elimination()
+        self.assertEquals(set(self.processor.cfg.graph.nodes()), {0, 1, 7})
+
     def test_chaining(self):
         query = """
         A = SCAN(public:adhoc:points);
