@@ -4,11 +4,9 @@ import itertools
 
 from raco import algebra
 from raco import rules
-from raco.scheme import Scheme
 from raco import expression
 from raco.language import Language
 from raco.utility import emit
-from raco.relation_key import RelationKey
 from expression import (accessed_columns, to_unnamed_recursive,
                         UnnamedAttributeRef)
 from raco.expression.aggregate import DecomposableAggregate
@@ -177,17 +175,14 @@ class MyriaScan(algebra.Scan, MyriaOperator):
         return {
             "opType": "TableScan",
             "relationKey": relation_key_to_json(self.relation_key),
-            "temporary": False,
         }
 
 
 class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
     def compileme(self):
         return {
-            "opType": "TableScan",
-            "relationKey": relation_key_to_json(RelationKey.from_string(
-                "public:__TEMP__:" + self.name)),
-            "temporary": True,
+            "opType": "TempTableScan",
+            "table": self.name,
         }
 
 
@@ -258,7 +253,6 @@ class MyriaStore(algebra.Store, MyriaOperator):
             "opType": "DbInsert",
             "relationKey": relation_key_to_json(self.relation_key),
             "argOverwriteTable": True,
-            "argTemporary": False,
             "argChild": inputid,
         }
 
@@ -266,10 +260,8 @@ class MyriaStore(algebra.Store, MyriaOperator):
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
     def compileme(self, inputid):
         return {
-            "opType": "DbInsert",
-            "relationKey": relation_key_to_json(RelationKey.from_string(
-                "public:__TEMP__:" + self.name)),
-            "argTemporary": True,
+            "opType": "TempInsert",
+            "table": self.name,
             "argOverwriteTable": True,
             "argChild": inputid,
         }
@@ -1362,11 +1354,9 @@ def compile_plan(plan_op):
             plan_op)), condition)
         plan_op.args = children[:-1] + [condition]
         body = [compile_plan(pl_op) for pl_op in plan_op.children()]
-        condition_lbl = RelationKey.from_string(
-            "public:__TEMP__:" + condition.name)
         return {"type": "DoWhile",
                 "body": body,
-                "condition": relation_key_to_json(condition_lbl)}
+                "condition": condition.name}
 
     raise NotImplementedError("compiling subplan op {}".format(type(plan_op)))
 
