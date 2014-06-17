@@ -1706,3 +1706,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
+
+    def test_simple_do_while(self):
+        """count to 32 by powers of 2"""
+        query = """
+        x = [0 as val, 1 as exp];
+        do
+            x = [from x emit val+1 as val, exp*2 as exp];
+        while [from x emit val < 5];
+        store(x, OUTPUT);"""
+
+        expected = collections.Counter([(5, 32)])
+        self.check_result(query, expected)
