@@ -634,28 +634,20 @@ class ShuffleBeforeJoin(rules.Rule):
                              expr.left.scheme() + expr.right.scheme())
 
         # Left shuffle
-        if isinstance(expr.left, algebra.Shuffle):
-            left_shuffle = expr.left
-        else:
-            left_cols = [expression.UnnamedAttributeRef(i)
-                         for i in left_cols]
-            left_shuffle = algebra.Shuffle(expr.left, left_cols)
+        left_cols = [expression.UnnamedAttributeRef(i)
+                     for i in left_cols]
+        left_shuffle = algebra.Shuffle(expr.left, left_cols)
         # Right shuffle
-        if isinstance(expr.right, algebra.Shuffle):
-            right_shuffle = expr.right
-        else:
-            right_cols = [expression.UnnamedAttributeRef(i)
-                          for i in right_cols]
-            right_shuffle = algebra.Shuffle(expr.right, right_cols)
+        right_cols = [expression.UnnamedAttributeRef(i)
+                      for i in right_cols]
+        right_shuffle = algebra.Shuffle(expr.right, right_cols)
 
         # Construct the object!
+        assert isinstance(expr, algebra.ProjectingJoin)
         if isinstance(expr, algebra.ProjectingJoin):
             return algebra.ProjectingJoin(expr.condition,
                                           left_shuffle, right_shuffle,
                                           expr.output_columns)
-        elif isinstance(expr, algebra.Join):
-            return algebra.Join(expr.condition, left_shuffle, right_shuffle)
-        raise NotImplementedError("How the heck did you get here?")
 
 
 class BroadcastBeforeCross(rules.Rule):
