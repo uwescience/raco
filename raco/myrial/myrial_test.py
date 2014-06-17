@@ -24,9 +24,13 @@ class MyrialTestCase(unittest.TestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         if logical:
-            return self.processor.get_logical_plan()
+            p = self.processor.get_logical_plan()
         else:
-            return self.processor.get_physical_plan()
+            p = self.processor.get_physical_plan()
+        # verify that we can stringify p
+        # TODO verify the string somehow?
+        assert str(p)
+        return p
 
     def get_logical_plan(self, query):
         '''Get the logical plan for a MyriaL query'''
