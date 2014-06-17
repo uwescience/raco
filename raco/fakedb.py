@@ -1,8 +1,11 @@
 
 import collections
 import itertools
+import csv
 
 from raco import relation_key
+from raco import types
+from raco.algebra import Store
 
 debug = False
 
@@ -74,6 +77,19 @@ class FakeDatabase(object):
         assert isinstance(op.relation_key, relation_key.RelationKey)
         (bag, _) = self.tables[op.relation_key]
         return bag.elements()
+
+    def filescan(self, op):
+        type_list = op.scheme().get_types()
+
+        with open(op.path, 'r') as fh:
+            sample = fh.read(1024)
+            dialect = csv.Sniffer().sniff(sample)
+            fh.seek(0)
+            reader = csv.reader(fh, dialect)
+            for row in reader:
+                pairs = zip(row, type_list)
+                cols = [types.parse_string(s, t) for s, t in pairs]
+                yield tuple(cols)
 
     def select(self, op):
         child_it = self.evaluate(op.input)
@@ -199,6 +215,8 @@ class FakeDatabase(object):
         children = op.children()
         body_ops = children[:-1]
         term_op = children[-1]
+        if isinstance(term_op, Store):
+            term_op = term_op.input
 
         if debug:
             print '---------- Values at top of do/while -----'
@@ -235,6 +253,11 @@ class FakeDatabase(object):
         bag = self.evaluate_to_bag(op.input)
         scheme = op.input.scheme()
         self.tables[op.relation_key] = (bag, scheme)
+        return None
+
+    def dump(self, op):
+        for tpl in self.evaluate(op.input):
+            print ','.join(tpl)
         return None
 
     def storetemp(self, op):

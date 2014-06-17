@@ -6,7 +6,6 @@ from abc import abstractmethod
 
 from raco import algebra
 from raco import rules
-from raco.scheme import Scheme
 from raco import expression
 from raco.language import Language
 from raco.utility import emit
@@ -15,24 +14,14 @@ from expression import (accessed_columns, to_unnamed_recursive,
                         UnnamedAttributeRef)
 from raco.expression.aggregate import DecomposableAggregate
 from raco.datastructure.UnionFind import UnionFind
+from raco import types
 
 
 def scheme_to_schema(s):
-    def convert_typestr(t):
-        if t.lower() in ['bool', 'boolean']:
-            return 'BOOLEAN_TYPE'
-        if t.lower() in ['float', 'double']:
-            return 'DOUBLE_TYPE'
-        if t.lower() in ['int', 'integer', 'long']:
-            return 'LONG_TYPE'
-        if t.lower() in ['str', 'string']:
-            return 'STRING_TYPE'
-        return t
-
     if s:
         names, descrs = zip(*s.asdict.items())
         names = ["%s" % n for n in names]
-        types = [convert_typestr(r[1]) for r in descrs]
+        types = [r[1] for r in descrs]
     else:
         names = []
         types = []
@@ -48,9 +37,9 @@ def compile_expr(op, child_scheme, state_scheme):
             if (2 ** 31) - 1 >= op.value >= -2 ** 31:
                 myria_type = 'INT_TYPE'
             else:
-                myria_type = 'LONG_TYPE'
+                myria_type = types.LONG_TYPE
         elif type(op.value) == float:
-            myria_type = 'DOUBLE_TYPE'
+            myria_type = types.DOUBLE_TYPE
         else:
             raise NotImplementedError("Compiling NumericLiteral %s of type %s" % (op, type(op.value)))  # noqa
 
@@ -89,6 +78,15 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type': 'CONDITION',
             'children': [if_expr, then_expr, else_expr]
+        }
+    elif isinstance(op, expression.CAST):
+        return {
+            'type': 'CAST',
+            'left': compile_expr(op.input, child_scheme, state_scheme),
+            'right': {
+                'type': 'TYPE',
+                'outputType': op._type
+            }
         }
 
     ####
@@ -170,15 +168,17 @@ class MyriaOperator(object):
     language = MyriaLanguage
 
 
+def relation_key_to_json(relation_key):
+    return {"userName": relation_key.user,
+            "programName": relation_key.program,
+            "relationName": relation_key.relation}
+
+
 class MyriaScan(algebra.Scan, MyriaOperator):
     def compileme(self):
         return {
             "opType": "TableScan",
-            "relationKey": {
-                "userName": self.relation_key.user,
-                "programName": self.relation_key.program,
-                "relationName": self.relation_key.relation
-            }
+            "relationKey": relation_key_to_json(self.relation_key)
         }
 
 
@@ -259,11 +259,7 @@ class MyriaStore(algebra.Store, MyriaOperator):
     def compileme(self, inputid):
         return {
             "opType": "DbInsert",
-            "relationKey": {
-                "userName": self.relation_key.user,
-                "programName": self.relation_key.program,
-                "relationName": self.relation_key.relation
-            },
+            "relationKey": relation_key_to_json(self.relation_key),
             "argOverwriteTable": True,
             "argChild": inputid,
         }
@@ -1075,12 +1071,18 @@ class DistributedGroupBy(rules.Rule):
 
         local_aggs = []  # aggregates executed on each local machine
         merge_aggs = []  # aggregates executed after local aggs
-        agg_offsets = []  # map from logical index to local/merge index.
+        agg_offsets = defaultdict(list)  # map aggregate to local agg indices
 
-        for logical_agg in op.aggregate_list:
-            agg_offsets.append(len(local_aggs))
-            local_aggs.extend(logical_agg.get_local_aggregates())
-            merge_aggs.extend(logical_agg.get_merge_aggregates())
+        for (i, logical_agg) in enumerate(op.aggregate_list):
+            for local, merge in zip(logical_agg.get_local_aggregates(),
+                                    logical_agg.get_merge_aggregates()):
+                try:
+                    idx = local_aggs.index(local)
+                    agg_offsets[i].append(idx)
+                except ValueError:
+                    agg_offsets[i].append(len(local_aggs))
+                    local_aggs.append(local)
+                    merge_aggs.append(merge)
 
         assert len(merge_aggs) == len(local_aggs)
 
@@ -1108,13 +1110,14 @@ class DistributedGroupBy(rules.Rule):
             fexpr = logical_agg.get_finalizer()
 
             # Start of merge aggregates for this logical aggregate
-            offset = num_grouping_terms + agg_offsets[pos]
+            offsets = [idx + num_grouping_terms for idx in agg_offsets[pos]]
 
             if fexpr is None:
-                return UnnamedAttributeRef(offset)
+                assert len(offsets) == 1
+                return UnnamedAttributeRef(offsets[0])
             else:
                 # Convert MergeAggregateOutput instances to absolute col refs
-                return expression.finalizer_expr_to_absolute(fexpr, offset)
+                return expression.finalizer_expr_to_absolute(fexpr, offsets)
 
         # pass through grouping terms
         gmappings = [(None, UnnamedAttributeRef(i))
@@ -1176,8 +1179,12 @@ class ProjectToDistinctColumnSelect(rules.Rule):
 
         mappings = [(None, x) for x in expr.columnlist]
         colSelect = algebra.Apply(mappings, expr.input)
-        distinct = algebra.Distinct(colSelect)
-        return distinct
+        # TODO(dhalperi) the distinct logic is broken because we don't have a
+        # locality-aware optimizer. For now, don't insert Distinct for a
+        # logical project. This is BROKEN.
+        # distinct = algebra.Distinct(colSelect)
+        # return distinct
+        return colSelect
 
 
 class SimpleGroupBy(rules.Rule):
@@ -1757,48 +1764,6 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
         self.catalog = catalog
 
 
-def apply_schema_recursive(operator, catalog):
-    """Given a catalog, which has a function get_scheme(relation_key) to map
-    a relation name to its scheme, update the schema for all scan operations
-    that scan relations in the map."""
-
-    # We found a scan, let's fill in its scheme
-    if isinstance(operator, (MyriaScan, MyriaScanTemp)):
-
-        if isinstance(operator, MyriaScan):
-            rel_key = operator.relation_key
-        else:
-            rel_key = RelationKey.from_string(operator.name)
-        rel_scheme = catalog.get_scheme(rel_key)
-
-        if rel_scheme:
-            # The Catalog has an entry for this relation
-            if len(operator.scheme()) != len(rel_scheme):
-                s = "scheme for %s (%d cols) does not match the catalog (%d cols)" % (rel_key, len(operator._scheme), len(rel_scheme))  # noqa
-                raise ValueError(s)
-            operator._scheme = rel_scheme
-        else:
-            # The specified relation is not in the Catalog; replace its
-            # scheme's types with "unknown".
-            old_sch = operator.scheme()
-            new_sch = [(old_sch.getName(i), "unknown")
-                       for i in range(len(old_sch))]
-            operator._scheme = Scheme(new_sch)
-
-    # Recurse through all children
-    for child in operator.children():
-        apply_schema_recursive(child, catalog)
-
-    # Done
-    return
-
-
-class EmptyCatalog(object):
-    @staticmethod
-    def get_scheme(relation_name):
-        return None
-
-
 class OpIdFactory(object):
     def __init__(self):
         self.count = 0
@@ -1926,6 +1891,22 @@ def compile_plan(plan_op):
         plan_list = [compile_plan(pl_op) for pl_op in plan_op.children()]
         return {"type": "Sequence", "plans": plan_list}
 
+    elif isinstance(plan_op, algebra.DoWhile):
+        children = plan_op.children()
+        if len(children) < 2:
+            raise ValueError('DoWhile must have at >= 2 children: body and condition')  # noqa
+        condition = children[-1]
+        if isinstance(condition, subplan_ops):
+            raise ValueError('DoWhile condition cannot be a subplan op {cls}'.format(cls=condition.__class__))  # noqa
+        condition = label_op_to_op('__dowhile_{}_condition'.format(id(
+            plan_op)), condition)
+        plan_op.args = children[:-1] + [condition]
+        body = [compile_plan(pl_op) for pl_op in plan_op.children()]
+        condition_lbl = condition.relation_key
+        return {"type": "DoWhile",
+                "body": body,
+                "condition": relation_key_to_json(condition_lbl)}
+
     raise NotImplementedError("compiling subplan op {}".format(type(plan_op)))
 
 
@@ -1952,12 +1933,6 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
     if not isinstance(physical_plan, subplan_ops):
         physical_plan = algebra.Parallel([physical_plan])
-
-    # If no catalog was supplied, create the empty catalog
-    if catalog is None:
-        catalog = EmptyCatalog()
-    # Update the scheme of all scans
-    apply_schema_recursive(physical_plan, catalog)
 
     return {"rawDatalog": raw_query,
             "logicalRa": str(logical_plan),

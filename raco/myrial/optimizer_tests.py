@@ -15,6 +15,7 @@ from raco import relation_key
 import raco.expression as expression
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
+from raco import types
 
 
 # faking catalog here
@@ -45,8 +46,8 @@ class Catalog(object):
 
 class OptimizerTest(myrial_test.MyrialTestCase):
 
-    x_scheme = scheme.Scheme([("a", "int"), ("b", "int"), ("c", "int")])
-    y_scheme = scheme.Scheme([("d", "int"), ("e", "int"), ("f", "int")])
+    x_scheme = scheme.Scheme([("a", types.LONG_TYPE), ("b", types.LONG_TYPE), ("c", types.LONG_TYPE)])  # noqa
+    y_scheme = scheme.Scheme([("d", types.LONG_TYPE), ("e", types.LONG_TYPE), ("f", types.LONG_TYPE)])  # noqa
     x_key = relation_key.RelationKey.from_string("public:adhoc:X")
     y_key = relation_key.RelationKey.from_string("public:adhoc:Y")
 
@@ -76,7 +77,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.z_key = relation_key.RelationKey.from_string("public:adhoc:Z")
         self.z_data = collections.Counter([(1, 2), (2, 3), (1, 2), (3, 4)])
-        self.z_scheme = scheme.Scheme([('src', 'int'), ('dst', 'int')])
+        self.z_scheme = scheme.Scheme([('src', types.LONG_TYPE), ('dst', types.LONG_TYPE)])  # noqa
         self.db.ingest('public:adhoc:Z', self.z_data, self.z_scheme)
 
         self.expected2 = collections.Counter(
@@ -396,7 +397,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         """
 
         pp = self.get_physical_plan(query)
-        print str(pp)
         self.assertEquals(self.get_count(pp, Distinct), 1)
         for op in pp.walk():
             if isinstance(op, Distinct):
@@ -410,7 +410,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         """
 
         pp = self.get_physical_plan(query)
-        print str(pp)
         self.assertEquals(self.get_count(pp, Difference), 1)
         for op in pp.walk():
             if isinstance(op, Difference):
@@ -418,3 +417,22 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                 self.assertIsInstance(op.left.input, MyriaShuffleProducer)
                 self.assertIsInstance(op.right, MyriaShuffleConsumer)
                 self.assertIsInstance(op.right.input, MyriaShuffleProducer)
+
+    def test_bug_240_broken_remove_unused_columns_rule(self):
+        query = """
+        particles = empty(nowGroup:int, timestep:int, grp:int);
+
+        haloTable1 = [from particles as P
+                      emit P.nowGroup,
+                           (P.timestep+P.grp) as halo,
+                           count(*) as totalParticleCount];
+
+        haloTable2 = [from haloTable1 as H, particles as P
+                      where H.nowGroup = P.nowGroup
+                      emit *];
+        store(haloTable2, OutputTemp);
+        """
+
+        # This is it -- just test that we can get the physical plan and
+        # compile to JSON. See https://github.com/uwescience/raco/issues/240
+        pp = self.execute_query(query, output='OutputTemp')

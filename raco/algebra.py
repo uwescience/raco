@@ -91,6 +91,9 @@ class Operator(Printable):
             parent_map.setdefault(c, []).append(self)
             c.collectParents(parent_map)
 
+    def __copy__(self):
+        raise RuntimeError("Shallow copy not supported for operators")
+
     def __eq__(self, other):
         return self.__class__ == other.__class__
 
@@ -614,7 +617,9 @@ class Apply(UnaryOperator):
 
     def scheme(self):
         """scheme of the result."""
-        new_attrs = [(name, expr.typeof()) for (name, expr) in self.emitters]
+        input_scheme = self.input.scheme()
+        new_attrs = [(name, expr.typeof(input_scheme, None))
+                     for (name, expr) in self.emitters]
         return scheme.Scheme(new_attrs)
 
     def shortStr(self):
@@ -645,13 +650,14 @@ class StatefulApply(UnaryOperator):
                 and the updater expression
         :type state_modifiers: list of tuples
         """
+
         if state_modifiers is not None:
             self.inits = [(x[0], x[1]) for x in state_modifiers]
             self.updaters = [(x[0], x[2]) for x in state_modifiers]
 
             self.state_scheme = scheme.Scheme()
             for (name, expr) in self.inits:
-                self.state_scheme.addAttribute(name, type(expr))
+                self.state_scheme.addAttribute(name, expr.typeof(None, None))
 
         if emitters is not None:
             in_scheme = input.scheme()
@@ -680,7 +686,9 @@ class StatefulApply(UnaryOperator):
 
     def scheme(self):
         """scheme of the result."""
-        new_attrs = [(name, expr.typeof()) for (name, expr) in self.emitters]
+        input_scheme = self.input.scheme()
+        new_attrs = [(name, expr.typeof(input_scheme, self.state_scheme))
+                     for (name, expr) in self.emitters]
         return scheme.Scheme(new_attrs)
 
     def shortStr(self):
@@ -798,7 +806,6 @@ class GroupBy(UnaryOperator):
     def __init__(self, grouping_list=None, aggregate_list=None, input=None):
         self.grouping_list = grouping_list or []
         self.aggregate_list = aggregate_list or []
-        self.column_list = self.grouping_list + self.aggregate_list
         UnaryOperator.__init__(self, input)
 
     def num_tuples(self):
@@ -812,19 +819,24 @@ class GroupBy(UnaryOperator):
 
     def copy(self, other):
         """deep copy"""
-        self.column_list = other.column_list
         self.grouping_list = other.grouping_list
         self.aggregate_list = other.aggregate_list
         UnaryOperator.copy(self, other)
+
+    def column_list(self):
+        return self.grouping_list + self.aggregate_list
 
     def scheme(self):
         """scheme of the result."""
         in_scheme = self.input.scheme()
         # Note: user-provided column names are supplied by a subsequent Apply
         # invocation; see raco/myrial/groupby.py
-        attrs = [(resolve_attribute_name(None, in_scheme, sexpr, index), sexpr)
-                 for index, sexpr in enumerate(self.column_list)]
-        return scheme.Scheme(attrs)
+        schema = scheme.Scheme()
+        for index, sexpr in enumerate(self.column_list()):
+            name = resolve_attribute_name(None, in_scheme, sexpr, index)
+            _type = sexpr.typeof(in_scheme, None)
+            schema.addAttribute(name, _type)
+        return schema
 
 
 class OrderBy(UnaryOperator):
@@ -1064,6 +1076,13 @@ class Store(UnaryOperator):
         UnaryOperator.copy(self, other)
 
 
+class Dump(UnaryOperator):
+    """Echo input to standard out; only useful for standalone raco."""
+
+    def shortStr(self):
+        return "%s()" % self.opname()
+
+
 class EmptyRelation(ZeroaryOperator):
     """Relation with no tuples."""
 
@@ -1104,6 +1123,39 @@ class SingletonRelation(ZeroaryOperator):
     def scheme(self):
         """scheme of the result."""
         return scheme.Scheme()
+
+
+class FileScan(ZeroaryOperator):
+    """Load table data from a file."""
+
+    def __init__(self, path=None, _scheme=None):
+        self.path = path
+        self._scheme = _scheme
+        ZeroaryOperator.__init__(self)
+
+    def __eq__(self, other):
+        return (ZeroaryOperator.__eq__(self, other)
+                and self.path == other.path
+                and self.scheme() == other.scheme())
+
+    def __hash__(self):
+        return ("%s-%s" % (self.opname(), self.path)).__hash__()
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.path)
+
+    def __repr__(self):
+        return str(self)
+
+    def copy(self, other):
+        """deep copy"""
+        self.path = other.path
+        self._scheme = other._scheme
+
+        ZeroaryOperator.copy(self, other)
+
+    def scheme(self):
+        return self._scheme
 
 
 class Scan(ZeroaryOperator):
@@ -1239,16 +1291,16 @@ class Sequence(NaryOperator):
         return children[-1].num_tuples()
 
 
-class DoWhile(Sequence):
+class DoWhile(NaryOperator):
     def __init__(self, ops=None):
-        """Repeatedly execute a sequence of plans until a termination condtion.
+        """Repeatedly execute a sequence of plans until a termination condition.
 
         :params ops: A list of operations to execute in serial.  By convention,
         the last operation is the termination condition.  The termination
         condition should map to a single row, single column relation.  The loop
         continues if its value is True.
         """
-        Sequence.__init__(self, ops)
+        NaryOperator.__init__(self, ops)
 
     def num_tuples(self):
         # TODO: better estimation?
@@ -1256,6 +1308,10 @@ class DoWhile(Sequence):
 
     def shortStr(self):
         return self.opname()
+
+    def scheme(self):
+        """DoWhile does not return any tuples."""
+        return None
 
 
 def inline_operator(dest_op, var, target_op):
@@ -1267,7 +1323,7 @@ def inline_operator(dest_op, var, target_op):
     """
     def rewrite_node(node):
         if isinstance(node, ScanTemp) and node.name == var:
-            return copy.copy(target_op)
+            return copy.deepcopy(target_op)
         else:
             return node.apply(rewrite_node)
 

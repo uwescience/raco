@@ -3,15 +3,16 @@ import collections
 
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
+from raco import types
 
 
 class SigmaClippingTest(myrial_test.MyrialTestCase):
     points = [25.0, 27.2, 23.4, 25.1, 26.3, 24.9, 23.5, 22.7, 108.2,
-              26.2, 25.3, 24.7, 25.0, 26.1, 22.8, 2.2, 24.8, 25.05, 25.15]
+              26.2, 25.3, 24.7, 25.01, 26.1, 22.8, 2.2, 24.8, 25.05, 25.15]
     points_tuples = [(i, x) for i, x in enumerate(points)]
     points_table = collections.Counter(points_tuples)
 
-    points_schema = scheme.Scheme([('id', 'int'), ('v', 'float')])
+    points_schema = scheme.Scheme([('id', types.LONG_TYPE), ('v', types.DOUBLE_TYPE)])  # noqa
     points_key = "public:adhoc:sc_points"
 
     def setUp(self):
@@ -28,7 +29,7 @@ class SigmaClippingTest(myrial_test.MyrialTestCase):
     def run_it(self, query):
         points = [(i, x) for i, x in self.points_tuples if x < 28 and x > 22]
         expected = collections.Counter(points)
-        self.check_result(query, expected, skip_json=True)
+        self.check_result(query, expected)
 
     def test_v0(self):
         with open('examples/sigma-clipping-v0.myl') as fh:
