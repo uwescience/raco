@@ -1115,6 +1115,8 @@ class DoWhile(NaryOperator):
         condition should map to a single row, single column relation.  The loop
         continues if its value is True.
         """
+        if ops is not None:
+            assert len(ops) >= 2, "DoWhile should have at least two children"
         NaryOperator.__init__(self, ops)
 
     def shortStr(self):
