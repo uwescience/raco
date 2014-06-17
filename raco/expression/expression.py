@@ -79,13 +79,6 @@ class Expression(Printable):
     def apply(self, f):
         """Replace children with the result of a function"""
 
-    def add_offset(self, offset):
-        """Add a constant offset to every positional reference in this tree"""
-
-        for ex in self.walk():
-            if isinstance(ex, UnnamedAttributeRef):
-                ex.position += offset
-
     def add_offset_by_terms(self, termsToOffset):
         """Add a constant offset to every positional reference in this tree
         using the map of terms to offset.
@@ -200,28 +193,6 @@ class BinaryOperator(Expression):
     def apply(self, f):
         self.left = f(self.left)
         self.right = f(self.right)
-
-    def leftoffset(self, offset):
-        """Add a constant offset to all positional references in the left
-        subtree"""
-        # TODO this is a very weird mechanism. It's really: take all terms that
-        # reference the left child and add the offset to them. The
-        # implementation is awkward and, is it correct? Elephant x Rhino!
-        if isinstance(self.left, BinaryOperator):
-            self.left.leftoffset(offset)
-            self.right.leftoffset(offset)
-        else:
-            self.left.add_offset(offset)
-
-    def rightoffset(self, offset):
-        """Add a constant offset to all positional references in the right
-        subtree"""
-        # TODO see leftoffset
-        if isinstance(self.right, BinaryOperator):
-            self.left.rightoffset(offset)
-            self.right.rightoffset(offset)
-        else:
-            self.right.add_offset(offset)
 
     def walk(self):
         yield self
