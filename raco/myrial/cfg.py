@@ -16,10 +16,18 @@ LOG = logging.getLogger(__name__)
 
 
 def find_gt(a, x):
-    '''Find leftmost value greater than x'''
-    i = bisect.bisect_right(a, x)
+    '''Find smallest value strictly greater than x'''
+    i = bisect.bisect(a, x)
     if i != len(a):
         return a[i]
+    return None
+
+
+def find_lt(a, x):
+    '''Find largest value strictly less than x'''
+    i = bisect.bisect(a, x)
+    if i - 1 > 0:
+        return a[i - 1]
     return None
 
 
@@ -287,11 +295,17 @@ class ControlFlowGraph(object):
             for ix in range(begin, end + 1):
                 self.graph.remove_node(ix)
                 self.sorted_vertices.remove(ix)
+
             # Add a control flow edge that "skips over" the deleted loop
             if begin > 0 and end < last_op:
-                assert begin - 1 in self.graph
-                assert end + 1 in self.graph
-                self.graph.add_edge(begin - 1, end + 1)
+                prev = find_lt(self.sorted_vertices, begin)
+                _next = find_gt(self.sorted_vertices, end)
+
+                assert prev in self.graph
+                assert _next in self.graph
+                assert prev < begin
+                assert _next > end
+                self.graph.add_edge(prev, _next)
 
         self.dead_loop_elimination()
 
