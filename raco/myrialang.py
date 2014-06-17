@@ -1231,44 +1231,15 @@ class OpIdFactory(object):
         return lambda: self.alloc()
 
 
-def label_op_to_op(label, op):
-    """If needed, insert a Store above the op with the relation name label"""
-    if isinstance(op, (algebra.Store, algebra.StoreTemp)):
-        # Already a store, we're done
-        return op
-
-    if not label:
-        raise ValueError('label must be a non-empty string')
-
-    return MyriaStore(plan=op, relation_key=RelationKey(label))
-
-
-def add_temp_store(label, op):
-    """If needed, insert a StoreTemp above the op with the relation name
-    label"""
-    if isinstance(op, algebra.StoreTemp):
-        # Already a store, we're done
-        return op
-
-    if not label:
-        raise ValueError('label must be a non-empty string')
-
-    if isinstance(op, algebra.Store):
-        op = op.input
-
+def ensure_store_temp(label, op):
+    """Returns a StoreTemp that assigns the given operator to a temp relation
+    with the given name. Op must be a 'normal operator', i.e.,
+    not a Store/StoreTemp or a control-flow sub-plan operator."""
+    assert not isinstance(op, (algebra.Store, algebra.StoreTemp))
+    assert not isinstance(op, (algebra.Sequence, algebra.Parallel,
+                               algebra.DoWhile))
+    assert isinstance(label, basestring) and len(label) > 0
     return MyriaStoreTemp(input=op, name=label)
-
-
-def op_list_to_operator(physical_plan):
-    """Given a Datalog-style list (label, root_operator) of IDBs,
-    add a Store operator to name the output of that operator the
-    corresponding label. Gracefully handle the missing label or present Store
-    cases."""
-    if len(physical_plan) == 1:
-        (label, op) = physical_plan[0]
-        return label_op_to_op(label, op)
-
-    return algebra.Parallel(label_op_to_op(l, o) for (l, o) in physical_plan)
 
 
 def compile_fragment(frag_root):
@@ -1367,7 +1338,7 @@ def compile_plan(plan_op):
         condition = children[-1]
         if isinstance(condition, subplan_ops):
             raise ValueError('DoWhile condition cannot be a subplan op {cls}'.format(cls=condition.__class__))  # noqa
-        condition = add_temp_store('__dowhile_{}_condition'.format(id(
+        condition = ensure_store_temp('__dowhile_{}_condition'.format(id(
             plan_op)), condition)
         plan_op.args = children[:-1] + [condition]
         body = [compile_plan(pl_op) for pl_op in plan_op.children()]
@@ -1388,21 +1359,12 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
         physical_plan = algebra.Parallel([physical_plan])
 
     subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
-    assert isinstance(physical_plan, subplan_ops)
+    assert isinstance(physical_plan, subplan_ops), \
+        'Physical plan must be a subplan operator, not {}'.format(type(physical_plan))  # noqa
 
     # raw_query must be a string
     if not isinstance(raw_query, basestring):
         raise ValueError("raw query must be a string")
-
-    # old-style plan with (name, root_op) pair. Turn it into a single operator.
-    # If the list has length > 1, it will be a Parallel. Otherwise it will
-    # just be the root operator.
-    if isinstance(physical_plan, list):
-        physical_plan = op_list_to_operator(physical_plan)
-
-    # At this point physical_plan better be a single operator
-    if not isinstance(physical_plan, algebra.Operator):
-        raise ValueError('Physical plan must be an operator')
 
     return {"rawDatalog": raw_query,
             "logicalRa": str(logical_plan),
