@@ -5,6 +5,7 @@ import itertools
 from raco import algebra
 from raco import rules
 from raco import expression
+from raco.relation_key import RelationKey
 from raco.language import Language
 from raco.utility import emit
 from expression import (accessed_columns, to_unnamed_recursive,
@@ -1239,6 +1240,22 @@ def label_op_to_op(label, op):
     if not label:
         raise ValueError('label must be a non-empty string')
 
+    return MyriaStore(plan=op, relation_key=RelationKey(label))
+
+
+def add_temp_store(label, op):
+    """If needed, insert a StoreTemp above the op with the relation name
+    label"""
+    if isinstance(op, algebra.StoreTemp):
+        # Already a store, we're done
+        return op
+
+    if not label:
+        raise ValueError('label must be a non-empty string')
+
+    if isinstance(op, algebra.Store):
+        op = op.input
+
     return MyriaStoreTemp(input=op, name=label)
 
 
@@ -1350,7 +1367,7 @@ def compile_plan(plan_op):
         condition = children[-1]
         if isinstance(condition, subplan_ops):
             raise ValueError('DoWhile condition cannot be a subplan op {cls}'.format(cls=condition.__class__))  # noqa
-        condition = label_op_to_op('__dowhile_{}_condition'.format(id(
+        condition = add_temp_store('__dowhile_{}_condition'.format(id(
             plan_op)), condition)
         plan_op.args = children[:-1] + [condition]
         body = [compile_plan(pl_op) for pl_op in plan_op.children()]
