@@ -1079,6 +1079,9 @@ class Store(UnaryOperator):
 class Dump(UnaryOperator):
     """Echo input to standard out; only useful for standalone raco."""
 
+    def num_tuples(self):
+        return -1
+
     def shortStr(self):
         return "%s()" % self.opname()
 
