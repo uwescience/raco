@@ -16,10 +16,18 @@ LOG = logging.getLogger(__name__)
 
 
 def find_gt(a, x):
-    '''Find leftmost value greater than x'''
-    i = bisect.bisect_right(a, x)
+    '''Find smallest value strictly greater than x'''
+    i = bisect.bisect(a, x)
     if i != len(a):
         return a[i]
+    return None
+
+
+def find_lt(a, x):
+    '''Find largest value strictly less than x'''
+    i = bisect.bisect(a, x)
+    if i - 1 > 0:
+        return a[i - 1]
     return None
 
 
@@ -47,7 +55,7 @@ class ControlFlowGraph(object):
     def __str__(self):
         g = self.graph
         node_strs = ['%s: uses=%s def=%s' % (str(n), repr(g.node[n]['uses']),
-                                             repr(c.node[n]['def_var']))
+                                             repr(g.node[n]['def_var']))
                      for n in g]
         edge_strs = ['%s=>%s' % (str(s), str(d)) for s, d in g.edges()]
         return '; '.join(node_strs) + '\n' + '; '.join(edge_strs)
@@ -92,9 +100,9 @@ class ControlFlowGraph(object):
         """
 
         # All variables that are accessed are live-in at a node
-        live_in = dict([(i, copy.copy(self.graph.node[i]['uses']))
-                        for i in self.graph])
-        live_out = dict([(i, set()) for i in self.graph])
+        live_in = {i: copy.copy(self.graph.node[i]['uses'])
+                   for i in self.graph}
+        live_out = {i: set() for i in self.graph}
 
         while True:
             live_in_prev = copy.deepcopy(live_in)
@@ -232,6 +240,75 @@ class ControlFlowGraph(object):
                     _continue = True
                     break
 
+    def dead_loop_elimination(self):
+        """Delete entire do/while loops whose results are not consumed.
+
+        See get_logical_plan for logic."""
+
+        if len(self.sorted_vertices) == 0:
+            return
+
+        # A stack that contains the defined variables within each loop.
+        def_set_stack = []
+
+        def current_def_set():
+            if len(def_set_stack) > 0:
+                return def_set_stack[-1]
+            else:
+                return None
+
+        current_loop_first_index = -1
+        loops_to_delete = []  # tuples of the form [begin_index, end_index]
+
+        live_in, live_out = self.compute_liveness()
+        last_op = self.sorted_vertices[-1]
+
+        for i in self.sorted_vertices:
+            if self.graph.in_degree(i) == 2:
+                # start new do/while loop
+                current_loop_first_index = i
+                def_set_stack.append(set())
+            elif (current_def_set() is not None and
+                    (self.graph.out_degree(i) == 2 or i == last_op)):
+                # end of do/while loop: check whether anything this loop
+                # defines is live_in after the loop.
+                def_set = def_set_stack.pop()
+                next_op = i + 1
+                loop_range = (current_loop_first_index, i)
+
+                if next_op > last_op:
+                    # no next node?  Loop is obviously dead
+                    loops_to_delete.append(loop_range)
+                elif len(def_set.intersection(live_in[next_op])) == 0:
+                    loops_to_delete.append(loop_range)
+            elif current_def_set() is not None:
+                # Add anything defined by the current statement to the def_set
+                def_var = self.graph.node[i]['def_var']
+                if def_var:
+                    def_set_stack[-1].add(def_var)
+
+        if not loops_to_delete:
+            return
+
+        # Delete the operations corresponding to dead loops
+        for begin, end in loops_to_delete:
+            for ix in range(begin, end + 1):
+                self.graph.remove_node(ix)
+                self.sorted_vertices.remove(ix)
+
+            # Add a control flow edge that "skips over" the deleted loop
+            if begin > 0 and end < last_op:
+                prev = find_lt(self.sorted_vertices, begin)
+                _next = find_gt(self.sorted_vertices, end)
+
+                assert prev in self.graph
+                assert _next in self.graph
+                assert prev < begin
+                assert _next > end
+                self.graph.add_edge(prev, _next)
+
+        self.dead_loop_elimination()
+
     def get_logical_plan(self, dead_code_elimination=True,
                          apply_chaining=True):
         """Extract a logical plan from the control flow graph.
@@ -245,6 +322,7 @@ class ControlFlowGraph(object):
         """
 
         if dead_code_elimination:
+            self.dead_loop_elimination()
             self.dead_code_elimination()
 
         if apply_chaining:
