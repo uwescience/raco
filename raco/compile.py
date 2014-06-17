@@ -24,17 +24,6 @@ def optimize_by_rules(expr, rules):
     return expr
 
 
-def optimize_by_rules_breadth_first(expr, rules):
-    def optimizeto(expr):
-        return optimize_by_rules(expr, rules)  # TODO: why isn't this BF too?
-
-    for rule in rules:
-        newexpr = rule(expr)
-        expr = newexpr
-    expr = expr.apply(optimizeto)
-    return expr
-
-
 def optimize(expr, target, source, eliminate_common_subexpressions=False):
     """Fire the rule-based optimizer on an expression.  Fire all rules in the
     source algebra (logical) and the target algebra (physical)"""
@@ -102,11 +91,3 @@ def common_subexpression_elimination(expr):
                 return witness
 
     return expr.apply(replace)
-
-
-def showids(expr):
-    """Traverse the plan and show the operator ids"""
-    def getid(node):
-        yield node, id(node)
-
-    return expr.preorder(getid)
