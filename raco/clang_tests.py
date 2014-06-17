@@ -4,8 +4,10 @@ import sys
 sys.path.append('./examples')
 from emitcode import emitCode
 from raco.language import CCAlgebra, GrappaAlgebra
+from nose.plugins.skip import SkipTest
 
 
+@SkipTest
 class ClangEmitTest(unittest.TestCase):
     def check(self, query, name):
         emitCode(query, name, CCAlgebra)
@@ -21,6 +23,7 @@ class ClangEmitTest(unittest.TestCase):
         self.check("A(a,b) :- R2(a,b), R2(a,c)", "self_join")
 
 
+@SkipTest
 class GrappaEmitTest(unittest.TestCase):
     def check(self, query, name):
         emitCode(query, name, CCAlgebra)

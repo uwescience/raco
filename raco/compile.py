@@ -35,16 +35,18 @@ def optimize_by_rules_breadth_first(expr, rules):
     return expr
 
 
-def optimize(exprs, target, source, eliminate_common_subexpressions=False):
-    """Fire the rule-based optimizer on a list of exprs.  Fire all rules in the
+def optimize(expr, target, source, eliminate_common_subexpressions=False):
+    """Fire the rule-based optimizer on an expression.  Fire all rules in the
     source algebra (logical) and the target algebra (physical)"""
+    assert isinstance(expr, algebra.Operator)
+
     def opt(expr):
         so = optimize_by_rules(expr, source.rules)
         newexpr = optimize_by_rules(so, target.rules)
         if eliminate_common_subexpressions:
             newexpr = common_subexpression_elimination(newexpr)
         return newexpr
-    return [(var, opt(exp)) for var, exp in exprs]
+    return opt(expr)
 
 
 def compile(exprs):

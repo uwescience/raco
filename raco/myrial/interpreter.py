@@ -398,14 +398,13 @@ class StatementProcessor(object):
         # TODO: Get rid of the dummy label argument here.
         # Return first (only) plan; strip off dummy label.
         logical_plan = self.get_logical_plan()
-        physical_plans = optimize([('root', logical_plan)],
-                                  target=MyriaAlgebra,
-                                  source=LogicalAlgebra)
-        return physical_plans[0][1]
+        return optimize(logical_plan,
+                        target=MyriaAlgebra,
+                        source=LogicalAlgebra)
 
     def get_json(self):
         lp = self.get_logical_plan()
-        pps = optimize([(None, lp)], target=MyriaAlgebra,
+        pps = optimize(lp, target=MyriaAlgebra,
                        source=LogicalAlgebra)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan

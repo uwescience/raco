@@ -81,7 +81,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
                 department(dept_id, dept_name, c)
         """
 
-        self.check_result(query, expected)
+        self.check_result(query, expected, 'EmpDepts')
 
     def test_filter(self):
         query = """
@@ -91,7 +91,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         expected = collections.Counter(
             [(x[2],) for x in TestQueryFunctions.emp_table.elements()
              if x[3] > 25000])
-        self.check_result(query, expected)
+        self.check_result(query, expected, 'RichGuys')
 
     def test_count(self):
         query = """
@@ -104,7 +104,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
 
         ex = [(src, cnt) for src, cnt in counter.iteritems()]
         expected = collections.Counter(ex)
-        self.check_result(query, expected)
+        self.check_result(query, expected, 'OutDegree')
 
     def test_sum_reorder(self):
         query = """
@@ -113,7 +113,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         for emp in self.emp_table.elements():
             results[emp[1]] += emp[3]
         expected = collections.Counter([(y, x) for x, y in results.iteritems()])  # noqa
-        self.check_result(query, expected)
+        self.check_result(query, expected, 'SalaryByDept')
 
     def test_aggregate_no_groups(self):
         query = """
@@ -121,7 +121,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         """
         expected = collections.Counter([
             (len(self.edge_table),)])
-        self.check_result(query, expected)
+        self.check_result(query, expected, 'Total')
 
     def test_multiway_join_chained(self):
         query = """
@@ -131,7 +131,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         """
 
         expected = collections.Counter([(4,), (5,)])
-        self.check_result(query, expected)
+        self.check_result(query, expected, 'ThreeHop')
 
     def test_triangles(self):
         # TODO. Right now we have do this separately so that the x<y and y<z
@@ -143,11 +143,11 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         """
 
         expected = collections.Counter([(3, 5, 4), (10, 11, 12)])
-        self.check_result(query, expected)
+        self.check_result(query, expected, 'A')
 
     def test_multiway_join(self):
         query = """
         ThreeHop(z) :- Edge(1, x), Edge(x,y), Edge(y, z);
         """
         expected = collections.Counter([(4,), (5,)])
-        self.check_result(query, expected)
+        self.check_result(query, expected, 'ThreeHop')

@@ -1383,6 +1383,13 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     submission to the Myria REST API server. The logical plan is converted to a
     string and passed along unchanged."""
 
+    # Store/StoreTemp is a reasonable physical plan... for now.
+    if isinstance(physical_plan, (algebra.Store, algebra.StoreTemp)):
+        physical_plan = algebra.Parallel([physical_plan])
+
+    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
+    assert isinstance(physical_plan, subplan_ops)
+
     # raw_query must be a string
     if not isinstance(raw_query, basestring):
         raise ValueError("raw query must be a string")
@@ -1396,11 +1403,6 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     # At this point physical_plan better be a single operator
     if not isinstance(physical_plan, algebra.Operator):
         raise ValueError('Physical plan must be an operator')
-
-    # If the physical_plan is not a SubPlan operator, make it a Parallel
-    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
-    if not isinstance(physical_plan, subplan_ops):
-        physical_plan = algebra.Parallel([physical_plan])
 
     return {"rawDatalog": raw_query,
             "logicalRa": str(logical_plan),

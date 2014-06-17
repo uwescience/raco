@@ -208,6 +208,11 @@ class FakeDatabase(object):
             self.evaluate(child_op)
         return None
 
+    def parallel(self, op):
+        for child_op in op.children():
+            self.evaluate(child_op)
+        return None
+
     def dowhile(self, op):
         i = 0
 
