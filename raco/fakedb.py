@@ -140,6 +140,23 @@ class FakeDatabase(object):
         # Return tuples that match on the join conditions
         return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
 
+    def naryjoin(self, op):
+        # evalute conditions of naryjoin
+        def fulfill_conditions(conditions, tpl):
+            for cond in conditions:
+                values = [attr.evaluate(tpl, op.scheme) for attr in cond]
+                if values.count(values[0]) != len(values):
+                    return False
+            return True
+
+        def product_and_cat(x, y):
+            return (a + b for (a, b) in itertools.product(x, y))
+
+        child_its = [self.evaluate(child) for child in op.children()]
+        product = reduce(product_and_cat, child_its)
+        return (
+            tpl for tpl in product if fulfill_conditions(op.conditions, tpl))
+
     def crossproduct(self, op):
         left_it = self.evaluate(op.left)
         right_it = self.evaluate(op.right)
@@ -282,6 +299,24 @@ class FakeDatabase(object):
             output = [input_tuple[x.position] for x in op.output_columns]
             return tuple(output)
         return (project(t) for t in it)
+
+    def myrialeapfrogjoin(self, op):
+        it = self.naryjoin(op)
+
+        # project-out columns
+        def project(input_tuple):
+            output = [input_tuple[x.position] for x in op.output_columns]
+            return tuple(output)
+        return (project(t) for t in it)
+
+    def myriainmemoryorderby(self, op):
+        return self.evaluate(op.input)
+
+    def myriahypershuffleconsumer(self, op):
+        return self.evaluate(op.input)
+
+    def myriahypershuffleproducer(self, op):
+        return self.evaluate(op.input)
 
     def myriastore(self, op):
         return self.store(op)
