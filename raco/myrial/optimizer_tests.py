@@ -11,7 +11,7 @@ from raco.language import MyriaHyperCubeAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
 from raco import relation_key
-from catalog import FakeCatalog
+from raco.catalog import FakeCatalog
 
 import raco.expression as expression
 import raco.scheme as scheme
