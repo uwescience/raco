@@ -11,37 +11,12 @@ from raco.language import MyriaHyperCubeAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
 from raco import relation_key
+from catalog import FakeCatalog
 
 import raco.expression as expression
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 from raco import types
-
-
-# faking catalog here
-class Catalog(object):
-    def __init__(self, num_servers, child_sizes=None):
-        self.num_servers = num_servers
-        # default sizes
-        self.cached = {
-            "public:adhoc:R": 10000,
-            "public:adhoc:S": 10000,
-            "public:adhoc:T": 10000,
-            "public:adhoc:N": 10000,
-            "public:adhoc:Z": 10000
-        }
-        # overwrite default sizes if necessary
-        if child_sizes:
-            for child, size in child_sizes.items():
-                self.cached["public:adhoc:{}".format(child)] = size
-
-    def get_num_servers(self):
-        return self.num_servers
-
-    def num_tuples(self, rel_key):
-        key = "{}:{}:{}".format(
-            rel_key.user, rel_key.program, rel_key.relation)
-        return self.cached[key]
 
 
 class OptimizerTest(myrial_test.MyrialTestCase):
@@ -94,9 +69,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
     @staticmethod
     def logical_to_HCAlgebra(lp):
-        physical_plans = optimize([('root', lp)],
-                                  target=MyriaHyperCubeAlgebra(Catalog(64)),
-                                  source=LogicalAlgebra)
+        physical_plans = optimize(
+            [('root', lp)],
+            target=MyriaHyperCubeAlgebra(FakeCatalog(64)),
+            source=LogicalAlgebra)
         return physical_plans[0][1]
 
     @staticmethod

@@ -2,30 +2,7 @@ import myrialang
 from raco import RACompiler
 import unittest
 import algebra
-
-
-class Catalog(object):
-    def __init__(self, num_servers, child_sizes):
-        self.num_servers = num_servers
-        # default sizes
-        self.cached = {
-            "public:adhoc:R": 10000,
-            "public:adhoc:S": 10000,
-            "public:adhoc:T": 10000,
-            "public:adhoc:N": 10000,
-        }
-        # overwrite default sizes if necessary
-        if child_sizes:
-            for child, size in child_sizes.items():
-                self.cached["public:adhoc:{}".format(child)] = size
-
-    def get_num_servers(self):
-        return self.num_servers
-
-    def num_tuples(self, rel_key):
-        key = "{}:{}:{}".format(
-            rel_key.user, rel_key.program, rel_key.relation)
-        return self.cached[key]
+from catalog import FakeCatalog
 
 
 class testNaryJoin(unittest.TestCase):
@@ -36,7 +13,7 @@ class testNaryJoin(unittest.TestCase):
         dlog.fromDatalog(query)
         dlog.optimize(
             target=myrialang.MyriaHyperCubeAlgebra(
-                Catalog(num_server, child_size)))
+                FakeCatalog(num_server, child_size)))
         # from raco.myrialang import compile_to_json
         return dlog.physicalplan[0][1]
 
