@@ -535,7 +535,7 @@ class Join(CompositeBinaryOperator):
 
     def num_tuples(self):
         # this is black magic
-        return int(self.left.num_tuples() * self.right.num_tuples() / 3)
+        return int(self.left.num_tuples() * self.right.num_tuples() / 10)
 
     def copy(self, other):
         """deep copy"""
