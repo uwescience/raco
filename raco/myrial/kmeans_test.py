@@ -9,6 +9,7 @@ import collections
 
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
+from raco import types
 
 
 class KmeansTest(myrial_test.MyrialTestCase):
@@ -17,8 +18,9 @@ class KmeansTest(myrial_test.MyrialTestCase):
               (8, 100.99, 100.99), (9, 100.01, 100.01)]
     points_table = collections.Counter(points)
 
-    points_schema = scheme.Scheme([('id', 'int'), ('x', 'float'),
-                                   ('y', 'float')])
+    points_schema = scheme.Scheme([('id', types.LONG_TYPE),
+                                   ('x', types.DOUBLE_TYPE),
+                                   ('y', types.DOUBLE_TYPE)])
     points_key = "public:adhoc:points"
 
     def setUp(self):
