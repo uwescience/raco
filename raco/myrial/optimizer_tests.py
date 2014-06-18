@@ -6,7 +6,7 @@ from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.myrialang import (MyriaShuffleConsumer, MyriaShuffleProducer)
-from raco.language import MyriaLDTreeAlgebra
+from raco.language import MyriaLeftDeepTreeAlgebra
 from raco.language import MyriaHyperCubeAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
@@ -63,7 +63,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
     @staticmethod
     def logical_to_LDTreeAlgebra(lp):
         physical_plans = optimize([('root', lp)],
-                                  target=MyriaLDTreeAlgebra(),
+                                  target=MyriaLeftDeepTreeAlgebra(),
                                   source=LogicalAlgebra)
         return physical_plans[0][1]
 

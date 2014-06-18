@@ -3,7 +3,7 @@ import json
 
 import raco.fakedb
 from raco import RACompiler
-from raco.language import MyriaLDTreeAlgebra, MyriaHyperCubeAlgebra
+from raco.language import MyriaLeftDeepTreeAlgebra, MyriaHyperCubeAlgebra
 from raco.myrialang import compile_to_json
 from raco.relation_key import RelationKey
 from raco.catalog import FakeCatalog
@@ -22,9 +22,9 @@ class DatalogTestCase(unittest.TestCase):
         dlog = RACompiler()
         dlog.fromDatalog(query)
 
-        if myria_algebra == MyriaLDTreeAlgebra:
+        if myria_algebra == MyriaLeftDeepTreeAlgebra:
             dlog.optimize(
-                target=MyriaLDTreeAlgebra(),
+                target=MyriaLeftDeepTreeAlgebra(),
                 eliminate_common_subexpressions=False)
         elif myria_algebra == MyriaHyperCubeAlgebra:
             dlog.optimize(
@@ -46,7 +46,8 @@ class DatalogTestCase(unittest.TestCase):
         self.db.evaluate(output_op)
         return self.db.get_table('__OUTPUT__')
 
-    def check_result(self, query, expected, myria_algebra=MyriaLDTreeAlgebra):
+    def check_result(self, query, expected,
+                     myria_algebra=MyriaLeftDeepTreeAlgebra):
         '''Execute a test query with an expected output'''
         actual = self.execute_query(query, myria_algebra)
         self.assertEquals(actual, expected)

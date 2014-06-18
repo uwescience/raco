@@ -1710,7 +1710,7 @@ class MyriaAlgebra(object):
         """ Specific myria algebra must instantiate this method. """
 
 
-class MyriaLDTreeAlgebra(MyriaAlgebra):
+class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """ Myria phyiscal algebra using left deep tree pipeline and 1-D shuffle
     """
     rule_grps_sequence = [

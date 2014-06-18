@@ -7,7 +7,7 @@ import raco.algebra
 import raco.expression
 import raco.catalog
 import raco.scheme
-from raco.language import MyriaLDTreeAlgebra, MyriaHyperCubeAlgebra
+from raco.language import MyriaLeftDeepTreeAlgebra, MyriaHyperCubeAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.myrialang import compile_to_json
 from raco.compile import optimize
@@ -401,7 +401,7 @@ class StatementProcessor(object):
         # Return first (only) plan; strip off dummy label.
         logical_plan = self.get_logical_plan()
         target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog) if\
-            self.multiway_join else MyriaLDTreeAlgebra()
+            self.multiway_join else MyriaLeftDeepTreeAlgebra()
         physical_plans = optimize([('root', logical_plan)],
                                   target=target_phys_algebra,
                                   source=LogicalAlgebra)
