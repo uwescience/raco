@@ -1290,8 +1290,7 @@ class Sequence(NaryOperator):
         return None
 
     def num_tuples(self):
-        children = list(self.children())
-        return children[-1].num_tuples()
+        raise NotImplementedError("cannot call num_tuples of Sequence.")
 
 
 class DoWhile(NaryOperator):
