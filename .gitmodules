@@ -1,0 +1,3 @@
+[submodule "SciDB-py"]
+	path = SciDB-py
+	url = https://github.com/Paradigm4/SciDB-py.git

@@ -787,6 +787,28 @@ class ProjectingJoin(Join):
         raise NotImplementedError()
 
 
+class ExecScan(ZeroaryOperator):
+  """Pass an uninterpreted command to the back end language.  No parameters or inputs."""
+  def __init__(self, command, languagetag, connection, scheme=None):
+    self.command = command
+    self.connection = connection
+    self.scheme = scheme
+    self.languagetag = languagetag
+
+  def __eq__(self, other):
+    return (self.command == other.command and self.connection == other.connection)
+
+  def shortStr(self):
+    return "Exec(%s, %s, %s)" % (self.command, self.connection, self.scheme)
+
+  def copy(self, other):
+    self.command = other.command
+    self.connection = other.connection
+    self.scheme = other.scheme
+
+  def scheme(self):
+    return self.scheme
+
 class Shuffle(UnaryOperator):
     """Send the input to the specified servers"""
     def __init__(self, child=None, columnlist=None):
