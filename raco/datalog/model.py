@@ -428,6 +428,9 @@ class Rule(object):
             def visit_zeroary(self, zeroaryexpr):
                 self.stack.append(zeroaryexpr.__class__())
 
+            def visit_literal(self, literalexpr):
+                self.stack.append(literalexpr.__class__(literalexpr.value))
+
             def visit_nary(self, naryexpr):
                 raise NotImplementedError(
                     "TODO: implement findvar visit of nary expression")

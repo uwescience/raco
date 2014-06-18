@@ -13,6 +13,8 @@ using namespace Grappa;
 #include "relation_io.hpp"
 #include "MatchesDHT.hpp"
 #include "DoubleDHT.hpp"
+#include "DHT_symmetric.hpp"
+#include "Aggregates.hpp"
 #include "utils.h"
 #include "stats.h"
 #include "strings.h"
