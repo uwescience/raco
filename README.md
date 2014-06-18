@@ -97,7 +97,7 @@ Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 # C++ and Grappa output
 There are also C++ and Grappa output for Raco.
 
-### Run the datalog->C++ tests
+### Run the datalog -> C++ tests
 
 #### Requirements
 - C++11 compiler
@@ -118,7 +118,7 @@ cd examples
 
 Available test tables are `{R,S,T}{1,2,3}` with that number of columns.
 
-### Run the datalog->Grappa tests
+### Run the datalog -> Grappa tests
 
 1. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
 2. set GRAPPA_HOME to root of Grappa
