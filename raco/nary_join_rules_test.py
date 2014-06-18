@@ -2,7 +2,7 @@ import myrialang
 from raco import RACompiler
 import unittest
 import algebra
-from catalog import FakeCatalog
+from raco.catalog import FakeCatalog
 
 
 class testNaryJoin(unittest.TestCase):
@@ -151,6 +151,3 @@ class testNaryJoin(unittest.TestCase):
         # note: there is more than one optimal [4,4,4,4] or [1,16,1,16] etc.
         self.assertEqual(get_work_load(rect_join, [4, 4, 4, 4]),
                          get_work_load(rect_join, get_dim_size(rect_join)))
-
-if __name__ == '__main__':
-    unittest.main()

@@ -6,7 +6,7 @@ from raco import RACompiler
 from raco.language import MyriaLDTreeAlgebra, MyriaHyperCubeAlgebra
 from raco.myrialang import compile_to_json
 from raco.relation_key import RelationKey
-from catalog import FakeCatalog
+from raco.catalog import FakeCatalog
 
 
 class DatalogTestCase(unittest.TestCase):
