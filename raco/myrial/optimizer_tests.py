@@ -323,7 +323,23 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_table('OUTPUT')
         self.assertEquals(result, self.expected2)
 
-    def right_deep_join(self):
+    def test_naryjoin_merge(self):
+        query = """
+        T1 = scan(public:adhoc:Z);
+        T2 = [from T1 emit count(dst) as dst, src];
+        T3 = scan(public:adhoc:Z);
+        twohop = [from T1, T2, T3
+                  where T1.dst = T2.src and T2.dst = T3.src
+                  emit *];
+        store(twohop, anothertwohop);
+        """
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        lp = self.processor.get_logical_plan()
+        pp = self.logical_to_HCAlgebra(lp)
+        self.assertEquals(self.get_count(pp, NaryJoin), 0)
+
+    def test_right_deep_join(self):
         """Test pushing a selection into a right-deep join tree.
 
         Myrial doesn't emit these, so we need to cook up a plan by hand."""
