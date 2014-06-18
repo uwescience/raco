@@ -1338,4 +1338,7 @@ class LogicalAlgebra(object):
         Select,
         Scan
     ]
-    opt_rules = []
+
+    @staticmethod
+    def opt_rules():
+        return []
