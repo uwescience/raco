@@ -1,4 +1,4 @@
-import emitcode
+from emitcode import emitCode
 import raco.algebra as algebra
 from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 
@@ -116,14 +116,15 @@ if len(sys.argv) > 1:
         alg = GrappaAlgebra
         prefix="grappa_"
 
+plan = None
 if len(sys.argv) > 2:
     plan = sys.argv[2]
 
-for q in queries:
-    query, name = q
+for name, query in queries.iteritems():
+    query = query % locals()
     lst = []
     if prefix: lst.append(prefix)
     if plan: lst.append(plan)
     if name: lst.append(name)
-    emitCode(query, "_".join(lst), alg, prefix, plan)
+    emitCode(query, "_".join(lst), alg, plan)
 
