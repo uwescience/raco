@@ -495,6 +495,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         out_tuple_name = outTuple.name
 
         # common index is defined by same right side and same key
+        # TODO: probably want also left side
         hashtableInfo = state.lookupExpr((self.right, self.right_keypos))
         if not hashtableInfo:
             # if right child never bound then store hashtable symbol and
