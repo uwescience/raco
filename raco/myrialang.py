@@ -981,15 +981,16 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         if not isinstance(expr, algebra.NaryJoin):
             return expr
         # check if HC shuffle has been placed before
-        shuffled_child = sum([1 for op in list(expr.children())
-                              if isinstance(op, algebra.HyperCubeShuffle)])
-        if shuffled_child == len(expr.children()):    # already shuffled
+        shuffled_child = [isinstance(op, algebra.HyperCubeShuffle)
+                          for op in list(expr.children())]
+        if all(shuffled_child):    # already shuffled
             assert(len(expr.children()))
             return expr
-        elif shuffled_child == 0:   # add shuffle and order by
+        elif any(shuffled_child):
+            raise NotImplementedError("NaryJoin is partially shuffled?")
+        else:                      # add shuffle and order by
             add_hyper_shuffle()
             return expr
-        raise NotImplementedError("NaryJoin is partially shuffled?")
 
 
 class OrderByBeforeNaryJoin(rules.Rule):
