@@ -477,10 +477,10 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         # find right key position
         if self.rightCondIsRightAttr:
             self.right_keypos = self.condition.right.position \
-                     - len(self.left.scheme())
+                - len(self.left.scheme())
         else:
             self.right_keypos = self.condition.left.position \
-                     - len(self.left.scheme())
+                - len(self.left.scheme())
 
         # find left key position
         if self.rightCondIsRightAttr:
@@ -785,10 +785,10 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         # right key position
         if self.rightCondIsRightAttr:
             self.right_keypos = self.condition.right.position \
-                     - len(self.left.scheme())
+                - len(self.left.scheme())
         else:
             self.right_keypos = self.condition.left.position \
-                     - len(self.left.scheme())
+                - len(self.left.scheme())
 
         # left key position
         if self.rightCondIsRightAttr:
