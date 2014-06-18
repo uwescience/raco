@@ -5,6 +5,7 @@
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme
+from raco.fakedb import FakeDatabase
 
 from raco import algebra
 from raco import relation_key
@@ -47,7 +48,8 @@ def parse_options(args):
                        action='store_true')
     group.add_argument('-j', dest='json',
                         help="Encode plan as JSON", action='store_true')
-
+    group.add_argument('-f', dest='standalone', action='store_true',
+                       help='Execute the program in standalone mode')
     parser.add_argument('file', help='File containing Myrial source program')
 
     ns = parser.parse_args(args)
@@ -96,6 +98,10 @@ def main(args):
                 print operator_to_dot(processor.get_logical_plan())
             elif opt.json:
                 print json.dumps(processor.get_json())
+            elif opt.standalone:
+                pp = processor.get_physical_plan()
+                db = FakeDatabase()
+                db.evaluate(pp)
             else:
                 print_pretty_plan(processor.get_physical_plan())
 

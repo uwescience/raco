@@ -40,6 +40,10 @@ class Scheme(object):
         # just in case we changed the name.  ugly.
         return name
 
+    def get_types(self):
+        """Return a list of the types in this scheme."""
+        return [_type for name, _type in self.attributes]
+
     def typecheck(self, tup):
         rmap = raco.types.reverse_python_type_map
         try:
