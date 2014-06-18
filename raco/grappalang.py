@@ -474,13 +474,29 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
             self.condition.left.position >= len(self.left.scheme())
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
+        # find right key position
+        if self.rightCondIsRightAttr:
+            self.right_keypos = self.condition.right.position \
+                - len(self.left.scheme())
+        else:
+            self.right_keypos = self.condition.left.position \
+                - len(self.left.scheme())
+
+        # find left key position
+        if self.rightCondIsRightAttr:
+            self.left_keypos = self.condition.left.position
+        else:
+            self.left_keypos = self.condition.right.position
+
         # define output tuple
         outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
         out_tuple_type_def = outTuple.generateDefinition()
         out_tuple_type = outTuple.getTupleTypename()
         out_tuple_name = outTuple.name
 
-        hashtableInfo = state.lookupExpr(self.right)
+        # common index is defined by same right side and same key
+        # TODO: probably want also left side
+        hashtableInfo = state.lookupExpr((self.right, self.right_keypos))
         if not hashtableInfo:
             # if right child never bound then store hashtable symbol and
             # call right child produce
@@ -513,7 +529,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
             self.left.childtag = "left"
             self.left.produce(state)
 
-            state.saveExpr(self.right,
+            state.saveExpr((self.right, self.right_keypos),
                            (self._hashname, right_type, left_type))
 
             for sn in self.syncnames:
@@ -573,12 +589,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         if fromOp.childtag == "right":
             side = "Right"
 
-            if self.rightCondIsRightAttr:
-                keypos = self.condition.right.position \
-                    - len(self.left.scheme())
-            else:
-                keypos = self.condition.left.position \
-                    - len(self.left.scheme())
+            keypos = self.right_keypos
 
             self.rightTupleTypename = inputTuple.getTupleTypename()
             if self.rightTupleTypeRef is not None:
@@ -587,10 +598,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         elif fromOp.childtag == "left":
             side = "Left"
 
-            if self.rightCondIsRightAttr:
-                keypos = self.condition.left.position
-            else:
-                keypos = self.condition.right.position
+            keypos = self.left_keypos
 
             self.leftTupleTypename = inputTuple.getTupleTypename()
             if self.leftTupleTypeRef is not None:
@@ -774,7 +782,22 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             self.condition.left.position >= len(self.left.scheme())
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
-        hashtableInfo = state.lookupExpr(self.right)
+        # right key position
+        if self.rightCondIsRightAttr:
+            self.right_keypos = self.condition.right.position \
+                - len(self.left.scheme())
+        else:
+            self.right_keypos = self.condition.left.position \
+                - len(self.left.scheme())
+
+        # left key position
+        if self.rightCondIsRightAttr:
+            self.left_keypos = self.condition.left.position
+        else:
+            self.left_keypos = self.condition.right.position
+
+        # common index is defined by same right side and same key
+        hashtableInfo = state.lookupExpr((self.right, self.right_keypos))
         if not hashtableInfo:
             # if right child never bound then store hashtable symbol and
             # call right child produce
@@ -793,7 +816,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             cores()*16*1024 );""")
             state.addInitializers([init_template % locals()])
             self.right.produce(state)
-            state.saveExpr(self.right,
+            state.saveExpr((self.right, self.right_keypos),
                            (self._hashname, self.rightTupleTypename))
             # TODO always safe here? I really want to call
             # TODO saveExpr before self.right.produce(),
@@ -817,12 +840,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
 
-            if self.rightCondIsRightAttr:
-                keypos = self.condition.right.position \
-                    - len(self.left.scheme())
-            else:
-                keypos = self.condition.left.position \
-                    - len(self.left.scheme())
+            keypos = self.right_keypos
 
             self.rightTupleTypename = t.getTupleTypename()
             if self.rightTupleTypeRef is not None:
@@ -855,10 +873,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
             pipeline_sync = state.getPipelineProperty('global_syncname')
 
-            if self.rightCondIsRightAttr:
-                keypos = self.condition.left.position
-            else:
-                keypos = self.condition.right.position
+            keypos = self.left_keypos
 
             right_tuple_name = gensym()
             right_tuple_type = self.rightTupleTypename
