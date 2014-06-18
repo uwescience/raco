@@ -8,6 +8,7 @@ import operator
 
 # BEGIN Code to generate variables names
 var_id = 0
+default_cardinality = 10000
 
 
 def reset():
@@ -386,7 +387,7 @@ class NaryJoin(NaryOperator):
 
     def num_tuples(self):
         # TODO: use AGM bound (P10 in http://arxiv.org/pdf/1310.3314v2.pdf)
-        return 10000
+        return default_cardinality
 
     def scheme(self):
         combined = reduce(operator.add, [c.scheme() for c in self.children()])
@@ -1013,8 +1014,7 @@ class Fixpoint(Operator):
         return [self.body]
 
     def num_tuples(self):
-        # TODO:  what is the correct estimation?
-        return 10000
+        raise NotImplementedError("Fixpoint is not implemented yet.")
 
     def __str__(self):
         return "%s[%s]" % (self.shortStr(), str(self.body))
@@ -1080,7 +1080,7 @@ class Dump(UnaryOperator):
     """Echo input to standard out; only useful for standalone raco."""
 
     def num_tuples(self):
-        return -1
+        raise NotImplementedError("num_tuples of Dump should be not called.")
 
     def shortStr(self):
         return "%s()" % self.opname()
@@ -1266,8 +1266,8 @@ class Parallel(NaryOperator):
         NaryOperator.__init__(self, ops)
 
     def num_tuples(self):
-        # TODO: better estimation?
-        return 10000
+        raise NotImplementedError(
+            "num_tuples should not be called in Parallel")
 
     def shortStr(self):
         return self.opname()
@@ -1296,7 +1296,8 @@ class Sequence(NaryOperator):
 
 class DoWhile(NaryOperator):
     def __init__(self, ops=None):
-        """Repeatedly execute a sequence of plans until a termination condition.
+        """Repeatedly execute a sequence of plans until a termination
+           condition.
 
         :params ops: A list of operations to execute in serial.  By convention,
         the last operation is the termination condition.  The termination
@@ -1306,8 +1307,7 @@ class DoWhile(NaryOperator):
         NaryOperator.__init__(self, ops)
 
     def num_tuples(self):
-        # TODO: better estimation?
-        return 10000
+        raise NotImplementedError("num_tuples should not be called in DoWhile")
 
     def shortStr(self):
         return self.opname()
