@@ -268,15 +268,20 @@ class ControlFlowGraph(object):
                 # start new do/while loop
                 current_loop_first_index = i
                 def_set_stack.append(set())
+                # Add anything defined by the current statement to the def_set
+                def_var = self.graph.node[i]['def_var']
+                if def_var:
+                    def_set_stack[-1].add(def_var)
             elif (current_def_set() is not None and
                     (self.graph.out_degree(i) == 2 or i == last_op)):
                 # end of do/while loop: check whether anything this loop
                 # defines is live_in after the loop.
                 def_set = def_set_stack.pop()
-                next_op = i + 1
+                next_op = find_gt(self.sorted_vertices, i)
+
                 loop_range = (current_loop_first_index, i)
 
-                if next_op > last_op:
+                if next_op is None:
                     # no next node?  Loop is obviously dead
                     loops_to_delete.append(loop_range)
                 elif len(def_set.intersection(live_in[next_op])) == 0:
