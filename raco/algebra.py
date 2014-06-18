@@ -375,9 +375,9 @@ class NaryOperator(Operator):
 
 class NaryJoin(NaryOperator):
     """Logical Nary Join operator"""
-    def __init__(self, children=None, conditions=None, columnlist=None):
+    def __init__(self, children=None, conditions=None, output_columns=None):
         self.conditions = conditions
-        self.columnlist = columnlist
+        self.output_columns = output_columns
         NaryOperator.__init__(self, children)
 
     def __eq__(self, other):
@@ -391,16 +391,16 @@ class NaryJoin(NaryOperator):
     def scheme(self):
         combined = reduce(operator.add, [c.scheme() for c in self.children()])
         # do projection
-        if self.columnlist:
+        if self.output_columns:
             ret = [combined[attr.get_position(combined)]
-                   for attr in self.columnlist]
+                   for attr in self.output_columns]
             return ret
         return combined
 
     def copy(self, other):
         """deep copy"""
         self.conditions = other.conditions
-        self.columnlist = other.columnlist
+        self.output_columns = other.output_columns
         NaryOperator.copy(self, other)
 
     def shortStr(self):

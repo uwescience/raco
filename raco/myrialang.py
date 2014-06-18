@@ -367,12 +367,12 @@ class MyriaLeapFrogJoin(algebra.NaryJoin, MyriaOperator):
                 rel_of_pos[pos] = [rel_idx, field_idx]
                 pos += 1
         # build column names
-        if self.columnlist is None:
-            self.columnlist = self.scheme().ascolumnlist()
+        if self.output_columns is None:
+            self.output_columns = self.scheme().ascolumnlist()
         column_names = [name for (name, _) in self.scheme()]
         # get rel_idx and field_idx of select columns
         out_pos_list = [
-            i.get_position(combined) for i in list(self.columnlist)]
+            i.get_position(combined) for i in list(self.output_columns)]
         output_fields = [rel_of_pos[p] for p in out_pos_list]
         join_fields = [
             convert_join_cond(rel_of_pos, cond, combined)
