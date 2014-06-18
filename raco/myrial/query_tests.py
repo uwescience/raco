@@ -1697,3 +1697,24 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         sum_salary = sum([e[3] for e in self.emp_table])
         expected = collections.Counter([(sum_dept_id, sum_salary)])
         self.check_result(query, expected)
+
+    def test_bug_245_dead_code_with_do_while_plan(self):
+        """Test to make sure that a dead program (no Stores) with a DoWhile
+        throws the correct parse error."""
+        with open('examples/deadcode2.myl') as fh:
+            query = fh.read()
+
+        with self.assertRaises(MyrialCompileException):
+            self.check_result(query, None)
+
+    def test_simple_do_while(self):
+        """count to 32 by powers of 2"""
+        query = """
+        x = [0 as val, 1 as exp];
+        do
+            x = [from x emit val+1 as val, exp*2 as exp];
+        while [from x emit val < 5];
+        store(x, OUTPUT);"""
+
+        expected = collections.Counter([(5, 32)])
+        self.check_result(query, expected)

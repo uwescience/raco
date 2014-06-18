@@ -2,9 +2,13 @@ import random
 import os
 from subprocess import check_call
 
+def get_name(basename, fields):
+    return basename+str(fields)
+
 def generate(basename, fields, tuples, datarange):
-    with open(basename+str(fields), 'w') as f:
-        print "generating %s" % (os.path.abspath(basename+str(fields)))
+    fn = get_name(basename, fields)
+    with open(fn, 'w') as f:
+        print "generating %s" % (os.path.abspath(fn))
         for i in range(0,tuples):
             for j in range(0,fields):
                 dat = random.randint(0, datarange)
@@ -30,18 +34,32 @@ def importStatement(basename, fields):
     text = template % locals()
     return text
 
-def generate_default():
+def need_generate(cpdir=None):
+  if cpdir:
+    return not os.path.isfile(os.path.join(cpdir, 'test.db'))
+  else:
+    return not os.path.isfile('test.db')
+
+def generate_default(cpdir=None):
     print 'generating'
     with open('importTestData.sql', 'w') as f:
         for n in ['R','S','T']:
             for nf in [1,2,3]:
                 generate(n, nf, 30, 10)
                 f.write(importStatement(n, nf))
+                if cpdir:
+                    fn = get_name(n, nf)
+                    check_call(['ln', '-fs', os.path.abspath(fn), cpdir])
+
+        if cpdir:
+          check_call(['ln', '-fs', os.path.abspath('test.db'), cpdir])
 
     # import to sqlite3
     print 'importing'
+    check_call(['rm', '-f', 'test.db'])
     with open('importTestData.sql', 'r') as f:
        check_call(['sqlite3', 'test.db'], stdin=f) 
+
 
 if __name__ == "__main__":
     generate_default()

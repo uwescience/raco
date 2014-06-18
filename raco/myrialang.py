@@ -178,7 +178,8 @@ class MyriaScan(algebra.Scan, MyriaOperator):
     def compileme(self):
         return {
             "opType": "TableScan",
-            "relationKey": relation_key_to_json(self.relation_key)
+            "relationKey": relation_key_to_json(self.relation_key),
+            "temporary": False,
         }
 
 
@@ -186,11 +187,9 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
     def compileme(self):
         return {
             "opType": "TableScan",
-            "relationKey": {
-                "userName": 'public',
-                "programName": '__TEMP__',
-                "relationName": self.name
-            }
+            "relationKey": relation_key_to_json(RelationKey.from_string(
+                "public:__TEMP__:" + self.name)),
+            "temporary": True,
         }
 
 
@@ -261,6 +260,7 @@ class MyriaStore(algebra.Store, MyriaOperator):
             "opType": "DbInsert",
             "relationKey": relation_key_to_json(self.relation_key),
             "argOverwriteTable": True,
+            "argTemporary": False,
             "argChild": inputid,
         }
 
@@ -269,11 +269,9 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
     def compileme(self, inputid):
         return {
             "opType": "DbInsert",
-            "relationKey": {
-                "userName": 'public',
-                "programName": '__TEMP__',
-                "relationName": self.name
-            },
+            "relationKey": relation_key_to_json(RelationKey.from_string(
+                "public:__TEMP__:" + self.name)),
+            "argTemporary": True,
             "argOverwriteTable": True,
             "argChild": inputid,
         }
@@ -1188,73 +1186,6 @@ class ProjectToDistinctColumnSelect(rules.Rule):
         return colSelect
 
 
-class SimpleGroupBy(rules.Rule):
-    # A "Simple" GroupBy is one that has only AttributeRefs as its grouping
-    # fields, and only AggregateExpression(AttributeRef) as its aggregate
-    # fields.
-    #
-    # Even AggregateExpression(Literal) is more complicated than Myria's
-    # GroupBy wants to handle. Thus we will insert Apply before a GroupBy to
-    # take all the "Complex" expressions away.
-
-    def fire(self, expr):
-        if not isinstance(expr, algebra.GroupBy):
-            return expr
-
-        child_scheme = expr.input.scheme()
-
-        # A simple grouping expression is an AttributeRef
-        def is_simple_grp_expr(grp):
-            return isinstance(grp, expression.AttributeRef)
-
-        complex_grp_exprs = [(i, grp)
-                             for (i, grp) in enumerate(expr.grouping_list)
-                             if not is_simple_grp_expr(grp)]
-
-        # A simple aggregate expression is an aggregate whose input is an
-        # AttributeRef
-        def is_simple_agg_expr(agg):
-            return (isinstance(agg, expression.COUNTALL) or
-                    (isinstance(agg, expression.UnaryOperator) and
-                     isinstance(agg, expression.AggregateExpression) and
-                     isinstance(agg.input, expression.AttributeRef)))
-
-        complex_agg_exprs = [agg for agg in expr.aggregate_list
-                             if not is_simple_agg_expr(agg)]
-
-        # There are no complicated expressions, we're okay with the existing
-        # GroupBy.
-        if not complex_grp_exprs and not complex_agg_exprs:
-            return expr
-
-        # Construct the Apply we're going to stick before the GroupBy
-
-        # First: copy every column from the input verbatim
-        mappings = [(None, UnnamedAttributeRef(i))
-                    for i in range(len(child_scheme))]
-
-        # Next: move the complex grouping expressions into the Apply, replace
-        # with simple refs
-        for i, grp_expr in complex_grp_exprs:
-            mappings.append((None, grp_expr))
-            expr.grouping_list[i] = UnnamedAttributeRef(len(mappings) - 1)
-
-        # Finally: move the complex aggregate expressions into the Apply,
-        # replace with simple refs
-        for agg_expr in complex_agg_exprs:
-            mappings.append((None, agg_expr.input))
-            agg_expr.input = UnnamedAttributeRef(len(mappings) - 1)
-
-        # Construct and prepend the new Apply
-        new_apply = algebra.Apply(mappings, expr.input)
-        expr.input = new_apply
-
-        # Don't overwrite expr.grouping_list or expr.aggregate_list, instead we
-        # are mutating the objects it contains when we modify grp_expr or
-        # agg_expr in the above for loops.
-        return expr
-
-
 def is_column_equality_comparison(cond):
     """Return a tuple of column indexes if the condition is an equality test.
     """
@@ -1608,7 +1539,7 @@ class GetCadinalities(rules.Rule):
 remove_trivial_sequences = [RemoveTrivialSequences()]
 
 # 2. simple group by
-simple_group_by = [SimpleGroupBy()]
+simple_group_by = [rules.SimpleGroupBy()]
 
 # 3. push down selection
 push_select = [
@@ -1647,7 +1578,7 @@ left_deep_tree_shuffle_logic = [
 distributed_group_by = [
     # DistributedGroupBy may introduce a complex GroupBy,
     # so we must run SimpleGroupBy after it. TODO no one likes this.
-    DistributedGroupBy(), SimpleGroupBy(),
+    DistributedGroupBy(), rules.SimpleGroupBy(),
     ProjectToDistinctColumnSelect()
 ]
 
@@ -1788,7 +1719,7 @@ def label_op_to_op(label, op):
         raise ValueError(
             'label must be a non-empty string, {} {}'.format(label, op))
 
-    return MyriaStore(plan=op, relation_key=RelationKey.from_string(label))
+    return MyriaStoreTemp(input=op, name=label)
 
 
 def op_list_to_operator(physical_plan):
@@ -1903,7 +1834,8 @@ def compile_plan(plan_op):
             plan_op)), condition)
         plan_op.args = children[:-1] + [condition]
         body = [compile_plan(pl_op) for pl_op in plan_op.children()]
-        condition_lbl = condition.relation_key
+        condition_lbl = RelationKey.from_string(
+            "public:__TEMP__:" + condition.name)
         return {"type": "DoWhile",
                 "body": body,
                 "condition": relation_key_to_json(condition_lbl)}
