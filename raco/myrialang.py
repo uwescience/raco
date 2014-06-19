@@ -4,9 +4,8 @@ from collections import defaultdict, deque
 from operator import mul, add
 from abc import abstractmethod
 
-from raco import algebra
-from raco import rules
-from raco import expression
+from raco import algebra, expression, rules
+from raco.catalog import MyriaCatalog
 from raco.language import Language
 from raco.utility import emit
 from raco.relation_key import RelationKey
@@ -818,8 +817,8 @@ class ShuffleBeforeJoin(rules.Rule):
 
 
 class HCShuffleBeforeNaryJoin(rules.Rule):
-    def __init__(self, catalog=None):
-        assert(catalog)     # HyperCube shuffle requires catalog
+    def __init__(self, catalog):
+        assert isinstance(catalog, MyriaCatalog)
         self.catalog = catalog
 
     @staticmethod
@@ -899,7 +898,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         coordinate -- coordinate of hyper cube cell.
         dim_sizes -- sizes of dimensons of hyper cube.
         """
-        assert(len(coordinate) == len(dim_sizes))
+        assert len(coordinate) == len(dim_sizes)
         ret = 0
         for k, v in enumerate(coordinate):
             ret = ret + v * reduce(mul, dim_sizes[k + 1:], 1)
@@ -917,14 +916,14 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         child_idx -- index of this child.
         hashed_columns -- hashed columns of this child.
         """
-        assert(len(dim_sizes) == len(conditions))
+        assert len(dim_sizes) == len(conditions)
         # make life a little bit easier
         this = HCShuffleBeforeNaryJoin
         # get reverse index
         r_index = this.reversed_index(child_schemes, conditions)
         # find which dims in hyper cube this relation is involved
         hashed_dims = [r_index[child_idx][col] for col in hashed_columns]
-        assert(-1 not in hashed_dims)
+        assert -1 not in hashed_dims
         # group by cell according to their projection on subcube voxel
         cell_partition = defaultdict(list)
         coor_ranges = [list(range(d)) for d in dim_sizes]
@@ -982,7 +981,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         shuffled_child = [isinstance(op, algebra.HyperCubeShuffle)
                           for op in list(expr.children())]
         if all(shuffled_child):    # already shuffled
-            assert(len(expr.children()))
+            assert len(expr.children()) > 0
             return expr
         elif any(shuffled_child):
             raise NotImplementedError("NaryJoin is partially shuffled?")
@@ -1009,7 +1008,7 @@ class OrderByBeforeNaryJoin(rules.Rule):
         new_children = []
         for child in expr.children():
             # check: this rule must be applied after shuffle
-            assert(isinstance(child, algebra.HyperCubeShuffle))
+            assert isinstance(child, algebra.HyperCubeShuffle)
             ascending = [True] * len(child.hashed_columns)
             new_children.append(
                 algebra.OrderBy(
@@ -1463,9 +1462,9 @@ class MergeToNaryJoin(rules.Rule):
 
     @staticmethod
     def collect_join_groups(op, conditions, children):
-        assert(isinstance(op, algebra.ProjectingJoin))
-        assert(isinstance(op.right, algebra.Select)
-               or issubclass(type(op.right), algebra.ZeroaryOperator))
+        assert isinstance(op, algebra.ProjectingJoin)
+        assert (isinstance(op.right, algebra.Select)
+                or issubclass(type(op.right), algebra.ZeroaryOperator))
         children.append(op.right)
         conjuncs = expression.extract_conjuncs(op.condition)
         for cond in conjuncs:
@@ -1518,8 +1517,8 @@ class MergeToNaryJoin(rules.Rule):
 class GetCardinalities(rules.Rule):
     """ get cardinalities information of Zeroary operators.
     """
-    def __init__(self, catalog=None):
-        assert(catalog)     # Evaluate cardinalites requires catalog
+    def __init__(self, catalog):
+        assert isinstance(catalog, MyriaCatalog)
         self.catalog = catalog
 
     def fire(self, expr):
