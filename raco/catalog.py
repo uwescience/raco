@@ -34,7 +34,7 @@ class MyriaCatalog(object):
 
 
 class FakeCatalog(MyriaCatalog):
-    """ fake catlog, should only be used in test """
+    """ fake catalog, should only be used in test """
     def __init__(self, num_servers, child_sizes=None):
         self.num_servers = num_servers
         # default sizes
