@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from raco.relation_key import RelationKey
 
 
@@ -24,6 +24,7 @@ class ASCIIFile(FileRelation):
 
 
 class MyriaCatalog(object):
+    __metaclass__ = ABCMeta
 
     @abstractmethod
     def get_num_servers(self):
