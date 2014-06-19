@@ -291,10 +291,11 @@ class ExpressionProcessor(object):
 class StatementProcessor(object):
     '''Evaluate a list of statements'''
 
-    def __init__(self, catalog=None, use_dummy_schema=False):
+    def __init__(self, catalog, use_dummy_schema=False):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
+        assert isinstance(catalog, raco.catalog.Catalog)
         self.catalog = catalog
         self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
 
