@@ -63,7 +63,7 @@ t_DOLLAR = r'\$'
 
 
 def t_AQL(t):
-    r'%%aql(.|\n)*?;/'
+    r'%aql (.|\n)*?;'
     t.lexer.lineno += t.value.count('\n')
     t.value = t.value[4:-1]
     return t

@@ -1142,6 +1142,9 @@ class Exec(ZeroaryOperator, CommonEqualityMixin):
         self.command = other.command
         self.language = language
 
+    def shortStr(self):
+        return "Exec(%s, %s)" % (self.command, self.language)
+
     def scheme(self):
         raise SchemaError()
 
