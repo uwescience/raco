@@ -311,6 +311,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, NaryJoin), 0)
         self.assertEquals(self.get_count(pp, MyriaHyperShuffleProducer), 0)
 
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        self.assertEquals(result, self.expected2)
+
         lp = self.processor.get_logical_plan()
         hcp = self.logical_to_physical(lp, True)
         self.assertEquals(self.get_count(hcp, CrossProduct), 0)
@@ -318,11 +322,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(hcp, MyriaShuffleProducer), 0)
         self.assertEquals(self.get_count(hcp, NaryJoin), 1)
         self.assertEquals(self.get_count(hcp, MyriaHyperShuffleProducer), 3)
-
-        self.db.evaluate(pp)
-
-        result = self.db.get_table('OUTPUT')
-        self.assertEquals(result, self.expected2)
 
         self.db.evaluate(hcp)
         result = self.db.get_table('OUTPUT')
