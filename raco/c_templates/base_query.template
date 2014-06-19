@@ -34,7 +34,6 @@ typedef uint64_t uint64;
 #endif
 
 #include "io_util.h"
-#include "counters_util.h"
 #include "hash.h"
 #include "utils.h"
 #include "strings.h"
@@ -104,16 +103,9 @@ void init( ) {
 void query(struct relationInfo *resultInfo)
 {
   printf("\nstarting Query stdout\n");fflush(stdout);
-  printf("\nstarting Query stderr\n");
-
-  int numCounters = 7;
-  int currCounter = 0;
-  int *counters = mallocCounterMemory(numCounters);
+  fprintf(stderr, "\nstarting Query stderr\n");fflush(stderr);
 
   double start = timer();
-
-  getCounters(counters, currCounter);
-  currCounter = currCounter + 1; // 1
 
   uint64 resultcount = 0;
   struct relationInfo %(resultsym)s_val;
@@ -160,6 +152,5 @@ int main(int argc, char **argv) {
 
     printf("exiting stdout\n");fflush(stdout);
     fprintf(stderr, "exiting stderr\n");
-    exit(1);
 
 }
