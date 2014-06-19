@@ -38,23 +38,32 @@ def optimize(expr, target, source, eliminate_common_subexpressions=False):
     return opt(expr)
 
 
-def compile(exprs):
+def compile(expr):
     """Compile physical plan to linearized form for execution"""
     # TODO: Fix this
     algebra.reset()
     exprcode = []
-    for result, expr in exprs:
-        lang = expr.language
-        init = lang.initialize(result)
 
-        # TODO cleanup this dispatch to be transparent
-        if isinstance(expr, Pipelined):
-            body = lang.body(expr.compilePipeline(result), result)
-        else:
-            body = lang.body(expr.compile(result))
+    # TODO, actually use Parallel[Store...]]? Right now assumes it
+    assert isinstance(expr, algebra.Parallel), "expected Parallel toplevel only"
+    assert len(expr.children()) == 1, "expected single expression only"
+    store_expr = expr.children()[0]
+    assert len(store_expr.children()) == 1, "expected single expression only"
 
-        final = lang.finalize(result)
-        exprcode.append(emit(init, body, final))
+    only_expr = store_expr.children()[0]
+
+    lang = only_expr.language
+    # TODO: refactor lang to remove resultsym arguments?
+    init = lang.initialize(None)
+
+    # TODO cleanup this dispatch to be transparent
+    if isinstance(only_expr, Pipelined):
+        body = lang.body(only_expr.compilePipeline(), None)
+    else:
+        body = lang.body(only_expr.compile(None))
+
+    final = lang.finalize(None)
+    exprcode.append(emit(init, body, final))
     return emit(*exprcode)
 
 

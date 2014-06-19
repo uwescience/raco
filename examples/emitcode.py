@@ -4,7 +4,6 @@ from raco.compile import compile
 import raco.viz as viz
 
 import logging
-logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 
 def comment(s):
@@ -22,16 +21,16 @@ def emitCode(query, name, algebra):
     LOG.info("logical: %s",dlog.logicalplan)
 
     print dlog.logicalplan
-    logical_dot = viz.operator_to_dot(dlog.logicalplan[0][1])
+    logical_dot = viz.operator_to_dot(dlog.logicalplan)
     with open("%s.logical.dot"%(name), 'w') as dwf:
         dwf.write(logical_dot)
 
     dlog.optimize(target=algebra, eliminate_common_subexpressions=False)
 
-    LOG.info("physical: %s",dlog.physicalplan[0][1])
+    LOG.info("physical: %s",dlog.physicalplan)
     
     print dlog.physicalplan
-    physical_dot = viz.operator_to_dot(dlog.physicalplan[0][1])
+    physical_dot = viz.operator_to_dot(dlog.physicalplan)
     with open("%s.physical.dot"%(name), 'w') as dwf:
         dwf.write(physical_dot)
 
