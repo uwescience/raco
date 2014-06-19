@@ -62,18 +62,14 @@ class OptimizerTest(myrial_test.MyrialTestCase):
              for (s3, d3) in self.z_data.elements() if d1 == s2 and d2 == s3])
 
     @staticmethod
-    def logical_to_LDTreeAlgebra(lp):
+    def logical_to_physical(lp, hypercube=False):
+        if not hypercube:
+            algebra = MyriaLeftDeepTreeAlgebra()
+        else:
+            algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
         physical_plans = optimize([('root', lp)],
-                                  target=MyriaLeftDeepTreeAlgebra(),
+                                  target=algebra,
                                   source=LogicalAlgebra)
-        return physical_plans[0][1]
-
-    @staticmethod
-    def logical_to_HCAlgebra(lp):
-        physical_plans = optimize(
-            [('root', lp)],
-            target=MyriaHyperCubeAlgebra(FakeCatalog(64)),
-            source=LogicalAlgebra)
         return physical_plans[0][1]
 
     @staticmethod
@@ -109,7 +105,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, Select), 3)
         self.assertEquals(self.get_count(lp, CrossProduct), 1)
 
-        pp = self.logical_to_LDTreeAlgebra(lp)
+        pp = self.logical_to_physical(lp)
         self.assertTrue(isinstance(pp.input, Join))
         self.assertEquals(self.get_count(pp, Select), 2)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
@@ -129,7 +125,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_count(lp, Apply), 4)
 
-        pp = self.logical_to_LDTreeAlgebra(lp)
+        pp = self.logical_to_physical(lp)
         self.assertTrue(isinstance(pp.input, Apply))
         self.assertEquals(self.get_count(pp, Apply), 1)
 
@@ -150,7 +146,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_count(lp, GroupBy), 1)
 
-        pp = self.logical_to_LDTreeAlgebra(lp)
+        pp = self.logical_to_physical(lp)
         self.assertTrue(isinstance(pp.input, GroupBy))
         # GroupBy.CollectProducer.CollectConsumer.GroupBy.Apply
         apply = pp.input.input.input.input.input
@@ -178,7 +174,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(2 * len(self.x_scheme),
                           len(lp.input.input.scheme()))
 
-        pp = self.logical_to_LDTreeAlgebra(lp)
+        pp = self.logical_to_physical(lp)
         proj_join = pp.input.input
         self.assertTrue(isinstance(proj_join, ProjectingJoin))
         self.assertEquals(1, len(proj_join.scheme()))
@@ -212,7 +208,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, Scan), 1)
         self.assertTrue(isinstance(lp.input, Select))
 
-        pp = self.logical_to_LDTreeAlgebra(lp)
+        pp = self.logical_to_physical(lp)
         self.assertTrue(isinstance(pp.input, Apply))
         self.assertEquals(self.get_count(pp, Select), 1)
 
@@ -237,7 +233,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, Scan), 1)
         self.assertTrue(isinstance(lp.input, Select))
 
-        pp = self.logical_to_LDTreeAlgebra(lp)
+        pp = self.logical_to_physical(lp)
         self.assertTrue(isinstance(pp.input, GroupBy))
         self.assertEquals(self.get_count(pp, Select), 1)
 
@@ -258,7 +254,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_num_select_conjuncs(lp), 3)
 
-        pp = self.logical_to_LDTreeAlgebra(lp)
+        pp = self.logical_to_physical(lp)
 
         # non-equijoin conditions should get pushed separately below the join
         self.assertTrue(isinstance(pp.input, Join))
@@ -279,7 +275,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_num_select_conjuncs(lp), 2)
 
-        pp = self.logical_to_LDTreeAlgebra(lp)
+        pp = self.logical_to_physical(lp)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
         self.assertEquals(self.get_count(pp, Select), 0)
 
@@ -306,8 +302,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         lp = self.processor.get_logical_plan()
         self.assertEquals(self.get_count(lp, CrossProduct), 2)
+        self.assertEquals(self.get_count(lp, Join), 0)
 
-        pp = self.logical_to_LDTreeAlgebra(lp)
+        pp = self.logical_to_physical(lp)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
         self.assertEquals(self.get_count(pp, Join), 2)
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 4)
@@ -315,8 +312,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaHyperShuffleProducer), 0)
 
         lp = self.processor.get_logical_plan()
-        hcp = self.logical_to_HCAlgebra(lp)
-
+        hcp = self.logical_to_physical(lp, True)
         self.assertEquals(self.get_count(hcp, CrossProduct), 0)
         self.assertEquals(self.get_count(hcp, Join), 0)
         self.assertEquals(self.get_count(hcp, MyriaShuffleProducer), 0)
@@ -345,7 +341,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         lp = self.processor.get_logical_plan()
-        pp = self.logical_to_HCAlgebra(lp)
+        pp = self.logical_to_physical(lp, True)
         self.assertEquals(self.get_count(pp, NaryJoin), 0)
 
     def test_right_deep_join(self):
@@ -366,7 +362,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_count(lp, CrossProduct), 2)
 
-        pp = self.logical_to_LDTreeAlgebra(lp)
+        pp = self.logical_to_physical(lp)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
 
         self.db.evaluate(pp)
