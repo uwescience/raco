@@ -237,6 +237,6 @@ class Pipelined(object):
 
       self.produce(state)
 
-      state.addCode( self.language.log("Evaluating subplan %s" % self) )
+      #state.addCode( self.language.log("Evaluating subplan %s" % self) )
 
       return state

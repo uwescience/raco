@@ -113,6 +113,8 @@ class GrappaLanguage(Language):
             auto end_%(ident)s = walltime();
             auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
             VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
+            VLOG(1) << "timestamp %(ident)s start " << std::setprecision(15) << start_%(ident)s;
+            VLOG(1) << "timestamp %(ident)s end " << std::setprecision(15) << end_%(ident)s;
             """)
             code = timing_template % locals()
 
@@ -158,7 +160,7 @@ class GrappaLanguage(Language):
         lookup_init = """auto l_%(sid)s = string_index.string_lookup(%(st)s);
                    on_all_cores([=] { %(sid)s = l_%(sid)s; });""" % locals()
         build_init = """
-        string_index = build_string_index("sp2bench_1m.index");
+        string_index = build_string_index("sp2bench_1m.index.medium");
         """
 
         return """(%s)""" % sid, [decl], [build_init, lookup_init]
