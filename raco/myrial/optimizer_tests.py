@@ -287,7 +287,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
-    def test_multiway_join(self):
+    def test_multiway_join_left_deep(self):
 
         query = """
         T = SCAN(public:adhoc:Z);
@@ -297,10 +297,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         STORE(U, OUTPUT);
         """
 
-        statements = self.parser.parse(query)
-        self.processor.evaluate(statements)
-
-        lp = self.processor.get_logical_plan()
+        lp = self.get_logical_plan(query)
         self.assertEquals(self.get_count(lp, CrossProduct), 2)
         self.assertEquals(self.get_count(lp, Join), 0)
 
@@ -315,15 +312,28 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_table('OUTPUT')
         self.assertEquals(result, self.expected2)
 
-        lp = self.processor.get_logical_plan()
-        hcp = self.logical_to_physical(lp, True)
-        self.assertEquals(self.get_count(hcp, CrossProduct), 0)
-        self.assertEquals(self.get_count(hcp, Join), 0)
-        self.assertEquals(self.get_count(hcp, MyriaShuffleProducer), 0)
-        self.assertEquals(self.get_count(hcp, NaryJoin), 1)
-        self.assertEquals(self.get_count(hcp, MyriaHyperShuffleProducer), 3)
+    def test_multiway_join_hyper_cube(self):
 
-        self.db.evaluate(hcp)
+        query = """
+        T = SCAN(public:adhoc:Z);
+        U = [FROM T AS T1, T AS T2, T AS T3
+             WHERE T1.dst==T2.src AND T2.dst==T3.src
+             EMIT T1.src AS x, T3.dst AS y];
+        STORE(U, OUTPUT);
+        """
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, CrossProduct), 2)
+        self.assertEquals(self.get_count(lp, Join), 0)
+
+        pp = self.logical_to_physical(lp, hypercube=True)
+        self.assertEquals(self.get_count(pp, CrossProduct), 0)
+        self.assertEquals(self.get_count(pp, Join), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+        self.assertEquals(self.get_count(pp, NaryJoin), 1)
+        self.assertEquals(self.get_count(pp, MyriaHyperShuffleProducer), 3)
+
+        self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
         self.assertEquals(result, self.expected2)
 
