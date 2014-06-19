@@ -290,22 +290,14 @@ class FakeDatabase(object):
         return self.scantemp(op)
 
     def myriasymmetrichashjoin(self, op):
-        it = self.join(op)
-
-        # project-out columns
-        def project(input_tuple):
-            output = [input_tuple[x.position] for x in op.output_columns]
-            return tuple(output)
-        return (project(t) for t in it)
+        # standard join, projecting the output columns
+        return (tuple(t[x.position] for x in op.output_columns)
+                for t in self.join(op))
 
     def myrialeapfrogjoin(self, op):
-        it = self.naryjoin(op)
-
-        # project-out columns
-        def project(input_tuple):
-            output = [input_tuple[x.position] for x in op.output_columns]
-            return tuple(output)
-        return (project(t) for t in it)
+        # standard naryjoin, projecting the output columns
+        return (tuple(t[x.position] for x in op.output_columns)
+                for t in self.naryjoin(op))
 
     def myriainmemoryorderby(self, op):
         return self.evaluate(op.input)
