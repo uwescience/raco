@@ -1108,7 +1108,8 @@ class Sequence(NaryOperator):
 
 class DoWhile(NaryOperator):
     def __init__(self, ops=None):
-        """Repeatedly execute a sequence of plans until a termination condition.
+        """Repeatedly execute a sequence of plans
+        until a termination condition.
 
         :params ops: A list of operations to execute in serial.  By convention,
         the last operation is the termination condition.  The termination
