@@ -57,10 +57,19 @@ class ClangRunner(PlatformRunner):
         """
 
         envir = os.environ.copy()
-
         # cpp -> exe
         exe_name = './%s.exe' % (name)
-        subprocess.check_call(['make', exe_name], stderr=subprocess.STDOUT, env=envir)
+        try:
+            subprocess.check_output(['make', 'clean'],
+                                    stderr=subprocess.STDOUT,
+                                    env=envir)
+            subprocess.check_output(['make', exe_name],
+                                    stderr=subprocess.STDOUT,
+                                    env=envir)
+        except subprocess.CalledProcessError as e:
+            print 'make {exe} failed:'.format(exe=exe_name)
+            print e.output
+            raise
 
         # run cpp
         testoutfn = '%s/%s.out' % (tmppath, name)
