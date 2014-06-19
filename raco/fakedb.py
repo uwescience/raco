@@ -5,6 +5,7 @@ import csv
 
 from raco import relation_key, types
 from raco.algebra import Store, StoreTemp
+from raco.expression import AND, EQ
 
 debug = False
 
@@ -140,21 +141,19 @@ class FakeDatabase(object):
         return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
 
     def naryjoin(self, op):
-        # evalute conditions of naryjoin
-        def fulfill_conditions(conditions, tpl):
-            for cond in conditions:
-                values = [attr.evaluate(tpl, op.scheme) for attr in cond]
-                if values.count(values[0]) != len(values):
-                    return False
-            return True
+        def eval_conditions(conditions, tpl):
+            """Turns the weird NaryJoin condition set into a proper
+            expression, then evaluates it."""
+            cond = reduce(lambda a, b: AND(a, b),
+                          map(lambda (a, b): EQ(a, b), conditions))
+            return cond.evaluate(tpl, op.scheme())
 
-        def product_and_cat(x, y):
-            return (a + b for (a, b) in itertools.product(x, y))
-
-        child_its = [self.evaluate(child) for child in op.children()]
-        product = reduce(product_and_cat, child_its)
-        return (
-            tpl for tpl in product if fulfill_conditions(op.conditions, tpl))
+        # Elements of prod are tuples of tuples like ((1, 2), (3, 4))
+        prod = itertools.product(*(self.evaluate(child)
+                                   for child in op.children()))
+        # Elements of tuples have been flattened like (1, 2, 3, 4)
+        tuples = (sum(x, ()) for x in prod)
+        return (tpl for tpl in tuples if eval_conditions(op.conditions, tpl))
 
     def crossproduct(self, op):
         left_it = self.evaluate(op.left)
