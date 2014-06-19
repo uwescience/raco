@@ -842,7 +842,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
     @staticmethod
     def workload(dim_sizes, child_sizes, r_index):
         """Compute the workload given a hyper cube size assignment"""
-        load = float(0)
+        load = 0.0
         for i, size in enumerate(child_sizes):
             # compute subcube sizes
             scale = 1
@@ -850,12 +850,12 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
                 if index != -1:
                     scale = scale * dim_sizes[index]
             # add load per server by child i
-            load = load + float(child_sizes[i]) / float(scale)
+            load += float(child_sizes[i]) / float(scale)
         return load
 
     @staticmethod
     def get_hyper_cube_dim_size(num_server, child_sizes,
-                                child_schemes, conditions, r_index):
+                                conditions, r_index):
         """Find the optimal hyper cube dimension sizes using BFS.
 
         Keyword arguments:
@@ -872,23 +872,23 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         this = HCShuffleBeforeNaryJoin
         visited = set()
         toVisit = deque()
-        toVisit.append(tuple([1 for i in conditions]))
+        toVisit.append(tuple([1 for _ in conditions]))
         min_work_load = sum(child_sizes)
         while len(toVisit) > 0:
             dim_sizes = toVisit.pop()
-            if this.workload(dim_sizes, child_sizes, r_index) <\
-               min_work_load:
+            if this.workload(dim_sizes, child_sizes, r_index) < min_work_load:
                 min_work_load = this.workload(
                     dim_sizes, child_sizes, r_index)
                 opt_dim_sizes = dim_sizes
             visited.add(dim_sizes)
             for i, d in enumerate(dim_sizes):
-                new_dim_sizes = dim_sizes[0:i] +\
-                    tuple([dim_sizes[i] + 1]) + dim_sizes[i + 1:]
-                if product(new_dim_sizes) <= num_server\
-                   and new_dim_sizes not in visited:
+                new_dim_sizes = (dim_sizes[0:i] +
+                                 tuple([dim_sizes[i] + 1]) +
+                                 dim_sizes[i + 1:])
+                if (product(new_dim_sizes) <= num_server
+                        and new_dim_sizes not in visited):
                     toVisit.append(new_dim_sizes)
-        return (opt_dim_sizes, min_work_load)
+        return opt_dim_sizes, min_work_load
 
     @staticmethod
     def coord_to_worker_id(coordinate, dim_sizes):
@@ -901,7 +901,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         assert len(coordinate) == len(dim_sizes)
         ret = 0
         for k, v in enumerate(coordinate):
-            ret = ret + v * reduce(mul, dim_sizes[k + 1:], 1)
+            ret += v * reduce(mul, dim_sizes[k + 1:], 1)
         return ret
 
     @staticmethod
@@ -952,7 +952,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
             r_index = this.reversed_index(child_schemes, conditions)
             # compute optimal dimension sizes
             (dim_sizes, workload) = this.get_hyper_cube_dim_size(
-                num_server, child_sizes, child_schemes, conditions, r_index)
+                num_server, child_sizes, conditions, r_index)
             # specify HyperCube shuffle to each child
             new_children = []
             for child_idx, child in enumerate(expr.children()):
@@ -1457,8 +1457,8 @@ class MergeToNaryJoin(rules.Rule):
         elif issubclass(type(op), algebra.UnaryOperator):
             return MergeToNaryJoin.mergable(op.input)
         elif issubclass(type(op), algebra.BinaryOperator):
-            return MergeToNaryJoin.mergable(op.left) and\
-                MergeToNaryJoin.mergable(op.right)
+            return (MergeToNaryJoin.mergable(op.left) and
+                    MergeToNaryJoin.mergable(op.right))
 
     @staticmethod
     def collect_join_groups(op, conditions, children):
@@ -1471,16 +1471,14 @@ class MergeToNaryJoin(rules.Rule):
             conditions.get_or_insert(cond.left)
             conditions.get_or_insert(cond.right)
             conditions.union(cond.left, cond.right)
-        scan_then_select = isinstance(op.left, algebra.Select) and\
-            isinstance(op.left.input, algebra.ZeroaryOperator)
-        if scan_then_select or\
-           issubclass(type(op.left), algebra.ZeroaryOperator):
+        scan_then_select = (isinstance(op.left, algebra.Select) and
+                            isinstance(op.left.input, algebra.ZeroaryOperator))
+        if (scan_then_select or
+                issubclass(type(op.left), algebra.ZeroaryOperator)):
             children.append(op.left)
-            return
-        elif(isinstance(op.left, algebra.ProjectingJoin)):
-            MergeToNaryJoin.collect_join_groups(op.left, conditions, children)
         else:
-            raise Exception("Error in merge joins to nary join.")
+            assert isinstance(op.left, algebra.ProjectingJoin)
+            MergeToNaryJoin.collect_join_groups(op.left, conditions, children)
 
     @staticmethod
     def merge_to_multiway_join(op):
