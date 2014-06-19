@@ -1524,7 +1524,7 @@ class GetCardinalities(rules.Rule):
             rel = expr.relation_key
             expr._cardinality = self.catalog.num_tuples(rel)
             return expr
-        expr._cardinality = 10  # this is a magic number
+        expr._cardinality = algebra.default_cardinality
         return expr
 
 # logical groups of catalog transparent rules
