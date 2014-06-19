@@ -208,9 +208,8 @@ class MemoryScan(algebra.UnaryOperator, CCOperator):
         state.addPipeline(code)
         return None
 
-    def num_tuples():
-        # TODO: get correct return value
-        return 0
+    def num_tuples(self):
+        raise NotImplementedError("{}.num_tuples()".format(op=self.opname()))
 
     def shortStr(self):
         return "%s" % (self.opname())
