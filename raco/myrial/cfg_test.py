@@ -2,13 +2,16 @@
 
 import collections
 
-import raco.myrial.myrial_test as myrial_test
+import unittest
 import raco.scheme as scheme
 from raco import types
+from raco.fakedb import FakeDatabase
+import raco.myrial.parser
+import raco.myrial.interpreter
 import networkx as nx
 
 
-class CFGTest(myrial_test.MyrialTestCase):
+class CFGTest(unittest.TestCase):
     points_table = collections.Counter()
     points_schema = scheme.Scheme([('id', types.LONG_TYPE),
                                    ('x', types.DOUBLE_TYPE),
@@ -16,11 +19,12 @@ class CFGTest(myrial_test.MyrialTestCase):
     points_key = "public:adhoc:points"
 
     def setUp(self):
-        super(CFGTest, self).setUp()
-
+        self.db = FakeDatabase()
         self.db.ingest(CFGTest.points_key,
                        CFGTest.points_table,
                        CFGTest.points_schema)
+        self.parser = raco.myrial.parser.Parser()
+        self.processor = raco.myrial.interpreter.StatementProcessor(self.db)
 
     def test_cfg(self):
         query = """
