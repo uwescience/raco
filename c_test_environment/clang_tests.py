@@ -17,7 +17,7 @@ from osutils import Chdir
 class ClangTest(unittest.TestCase, PlatformTest):
     def check(self, query, name):
         with Chdir("c_test_environment") as d:
-            emitCode(query, name, CCAlgebra)
+            emitCode(query, name, CCAlgebra())
             checkquery(name, ClangRunner())
 
     def setUp(self):

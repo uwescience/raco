@@ -20,6 +20,3 @@ def get_keywords():
             kw.lower() for kw in comprehension_keywords),
         'word_operators': sorted(kw.lower() for kw in word_operators),
     }
-
-if __name__ == '__main__':
-    print get_keywords()

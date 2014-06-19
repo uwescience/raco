@@ -26,7 +26,7 @@ def testRA():
   R = raco.catalog.Relation("R", sch)
   J = Join(EQ(e.UnnamedAttributeRef(0), e.NamedAttributeRef("x")), Scan(R), Scan(R))
   A = Apply(J, z=e.PLUS(e.NamedAttributeRef("x"), e.NamedAttributeRef("y")), w=e.UnnamedAttributeRef(3))
-  exprs = optimize([('A',A)], target=MyriaAlgebra, source=LogicalAlgebra)
+  exprs = optimize([('A',A)], target=MyriaAlgebra(), source=LogicalAlgebra)
   print exprs
   print compile(exprs)
 
@@ -46,7 +46,7 @@ def testDatalog():
 
   # Optimize the query, includes producing a physical plan
   print "************ PHYSICAL PLAN *************"
-  dlog.optimize(target=MyriaAlgebra, eliminate_common_subexpressions=False)
+  dlog.optimize(target=MyriaAlgebra(), eliminate_common_subexpressions=False)
   print dlog.physicalplan
   print
 

@@ -8,7 +8,7 @@ from raco.language import CCAlgebra, GrappaAlgebra
 
 class ClangEmitTest(unittest.TestCase):
     def check(self, query, name):
-        emitCode(query, name, CCAlgebra)
+        emitCode(query, name, CCAlgebra())
 
         fn = name + ".cpp"
 
@@ -23,7 +23,7 @@ class ClangEmitTest(unittest.TestCase):
 
 class GrappaEmitTest(unittest.TestCase):
     def check(self, query, name):
-        emitCode(query, name, CCAlgebra)
+        emitCode(query, name, CCAlgebra())
 
         fn = name + ".cpp"
 

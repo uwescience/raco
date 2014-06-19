@@ -4,12 +4,14 @@ import itertools
 import csv
 
 from raco import relation_key, types
-from raco.algebra import Store, StoreTemp
+from raco.algebra import StoreTemp, DEFAULT_CARDINALITY
+from raco.catalog import Catalog
+from raco.expression import AND, EQ
 
 debug = False
 
 
-class FakeDatabase(object):
+class FakeDatabase(Catalog):
     """An in-memory implementation of relational algebra operators"""
 
     def __init__(self):
@@ -18,6 +20,12 @@ class FakeDatabase(object):
 
         # Map from relation names to bags; schema is tracked by the runtime.
         self.temp_tables = {}
+
+    def get_num_servers(self):
+        return 1
+
+    def num_tuples(self, rel_key):
+        return DEFAULT_CARDINALITY
 
     def evaluate(self, op):
         '''Evaluate a relational algebra operation.
@@ -138,6 +146,21 @@ class FakeDatabase(object):
 
         # Return tuples that match on the join conditions
         return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
+
+    def naryjoin(self, op):
+        def eval_conditions(conditions, tpl):
+            """Turns the weird NaryJoin condition set into a proper
+            expression, then evaluates it."""
+            cond = reduce(lambda a, b: AND(a, b),
+                          map(lambda (a, b): EQ(a, b), conditions))
+            return cond.evaluate(tpl, op.scheme())
+
+        # Elements of prod are tuples of tuples like ((1, 2), (3, 4))
+        prod = itertools.product(*(self.evaluate(child)
+                                   for child in op.children()))
+        # Elements of tuples have been flattened like (1, 2, 3, 4)
+        tuples = (sum(x, ()) for x in prod)
+        return (tpl for tpl in tuples if eval_conditions(op.conditions, tpl))
 
     def crossproduct(self, op):
         left_it = self.evaluate(op.left)
@@ -274,13 +297,23 @@ class FakeDatabase(object):
         return self.scantemp(op)
 
     def myriasymmetrichashjoin(self, op):
-        it = self.join(op)
+        # standard join, projecting the output columns
+        return (tuple(t[x.position] for x in op.output_columns)
+                for t in self.join(op))
 
-        # project-out columns
-        def project(input_tuple):
-            output = [input_tuple[x.position] for x in op.output_columns]
-            return tuple(output)
-        return (project(t) for t in it)
+    def myrialeapfrogjoin(self, op):
+        # standard naryjoin, projecting the output columns
+        return (tuple(t[x.position] for x in op.output_columns)
+                for t in self.naryjoin(op))
+
+    def myriainmemoryorderby(self, op):
+        return self.evaluate(op.input)
+
+    def myriahypershuffleconsumer(self, op):
+        return self.evaluate(op.input)
+
+    def myriahypershuffleproducer(self, op):
+        return self.evaluate(op.input)
 
     def myriastore(self, op):
         return self.store(op)

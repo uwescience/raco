@@ -118,7 +118,7 @@ dlog = RACompiler()
 dlog.fromDatalog(query)
 print dlog.logicalplan
 
-dlog.optimize(target=MyriaAlgebra, eliminate_common_subexpressions=False)
+dlog.optimize(target=MyriaAlgebra(), eliminate_common_subexpressions=False)
 
 code = dlog.compile()
 print code

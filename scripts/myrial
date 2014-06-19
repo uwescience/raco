@@ -5,10 +5,10 @@
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme
+import raco.catalog
 from raco.fakedb import FakeDatabase
 
 from raco import algebra
-from raco import relation_key
 from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
 
@@ -55,7 +55,7 @@ def parse_options(args):
     ns = parser.parse_args(args)
     return ns
 
-class FakeCatalog(object):
+class FakeCatalog(raco.catalog.Catalog):
     def __init__(self, catalog):
         self.catalog = catalog
 
@@ -67,6 +67,12 @@ class FakeCatalog(object):
     def load_from_file(cls, path):
         with open(path) as fh:
             return cls(eval(fh.read()))
+
+    def get_num_servers(self):
+        return 1
+
+    def num_tuples(self, rel_key):
+        return algebra.DEFAULT_CARDINALITY
 
 def main(args):
     opt = parse_options(args)

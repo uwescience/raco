@@ -3,9 +3,10 @@ import json
 
 import raco.fakedb
 from raco import RACompiler
-from raco.language import MyriaAlgebra
+from raco.language import MyriaLeftDeepTreeAlgebra, MyriaHyperCubeAlgebra
 from raco.myrialang import compile_to_json
 from raco.relation_key import RelationKey
+from raco.catalog import FakeCatalog
 
 
 class DatalogTestCase(unittest.TestCase):
@@ -13,7 +14,7 @@ class DatalogTestCase(unittest.TestCase):
     def setUp(self):
         self.db = raco.fakedb.FakeDatabase()
 
-    def execute_query(self, query):
+    def execute_query(self, query, myria_algebra):
         '''Run a test query against the fake database'''
 
         # print query
@@ -21,10 +22,17 @@ class DatalogTestCase(unittest.TestCase):
         dlog = RACompiler()
         dlog.fromDatalog(query)
 
-        # print dlog.logicalplan
+        assert myria_algebra in [MyriaLeftDeepTreeAlgebra,
+                                 MyriaHyperCubeAlgebra]
 
-        dlog.optimize(target=MyriaAlgebra,
-                      eliminate_common_subexpressions=False)
+        if myria_algebra == MyriaLeftDeepTreeAlgebra:
+            dlog.optimize(
+                target=MyriaLeftDeepTreeAlgebra(),
+                eliminate_common_subexpressions=False)
+        else:
+            dlog.optimize(
+                target=MyriaHyperCubeAlgebra(FakeCatalog(64)),
+                eliminate_common_subexpressions=False)
 
         # print dlog.physicalplan
 
@@ -39,7 +47,8 @@ class DatalogTestCase(unittest.TestCase):
         self.db.evaluate(output_op)
         return self.db.get_table('__OUTPUT__')
 
-    def check_result(self, query, expected):
+    def check_result(self, query, expected,
+                     myria_algebra=MyriaLeftDeepTreeAlgebra):
         '''Execute a test query with an expected output'''
-        actual = self.execute_query(query)
+        actual = self.execute_query(query, myria_algebra)
         self.assertEquals(actual, expected)

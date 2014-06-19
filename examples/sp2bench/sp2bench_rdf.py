@@ -1,5 +1,5 @@
 import test_query
-from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
+from raco.language import CCAlgebra, GrappaAlgebra
 
 
 tr = "sp2bench_1m"
