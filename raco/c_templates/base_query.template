@@ -143,11 +143,22 @@ int main(int argc, char **argv) {
 
   init();
 
+    printf("post-init stdout\n");
+    fprintf(stderr, "post-init stderr\n");
+
   // Execute the query
   query(&resultInfo);
+
+    printf("post-query stdout\n");
+    fprintf(stderr, "post-query stderr\n");
 
 #ifdef ZAPPA
 //  printrelation(&resultInfo);
 #endif
 //  free(resultInfo.relation);
+
+    printf("exiting stdout\n");
+    fprintf(stderr, "exiting stderr\n");
+    exit(1);
+
 }

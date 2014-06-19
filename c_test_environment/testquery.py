@@ -67,19 +67,11 @@ class ClangRunner(PlatformRunner):
         with open(testoutfn, 'w') as outs:
             try:
                 subprocess.check_call([exe_name], stdout=outs, env=envir)
-            except subprocess.CalledProcessError as e1:
-                # try again, this time collecting all output to print it
-                try:
-                    subprocess.check_call([exe_name],
-                                          stderr=subprocess.STDOUT,
-                                          env=envir)
-                    raise e1  # just in case this doesn't fail again
-                except subprocess.CalledProcessError as e2:
-                    print >> sys.stderr, "see executable %s" % (os.path.abspath(exe_name))
-                    print >> sys.stderr, subprocess.check_output(['ls', '-l', exe_name], env=envir)
-                    print >> sys.stderr, subprocess.check_output(['cat', '%s.cpp' % (name)], env=envir)
-                    print >> sys.stderr, '(Process output below)\n{}\n(end process output)'.format(e2.output)
-                    raise
+            except subprocess.CalledProcessError:
+                print "see executable %s" % (os.path.abspath(exe_name))
+                print subprocess.check_output(['ls', '-l', exe_name], env=envir)
+                print subprocess.check_output(['cat', testoutfn], env=envir)
+                raise
 
         return testoutfn
 
