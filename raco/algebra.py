@@ -1,6 +1,6 @@
 from raco import expression
 from raco import scheme
-from raco.utility import emit, emitlist, Printable
+from raco.utility import *
 
 from abc import ABCMeta, abstractmethod
 import copy
@@ -1123,6 +1123,27 @@ class DoWhile(NaryOperator):
     def scheme(self):
         """DoWhile does not return any tuples."""
         return None
+
+
+class Exec(ZeroaryOperator, CommonEqualityMixin):
+    """Execute an uninterpreted query on the given backend system."""
+
+    def __init__(self, command=None, language=None):
+        """
+        @param command: The query to execute
+        @type command: basestring
+        @param language: The query language of the query
+        @type language: basestring
+        """
+        self.command = command
+        self.language = language
+
+    def copy(self, other):
+        self.command = other.command
+        self.language = language
+
+    def scheme(self):
+        raise SchemaError()
 
 
 def inline_operator(dest_op, var, target_op):
