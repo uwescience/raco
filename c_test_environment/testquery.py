@@ -64,14 +64,14 @@ class ClangRunner(PlatformRunner):
 
         # run cpp
         testoutfn = '%s/%s.out' % (tmppath, name)
-        with open(testoutfn, 'w') as outs:
-            try:
+        try:
+            with open(testoutfn, 'w') as outs:
                 subprocess.check_call([exe_name], stdout=outs, env=envir)
-            except subprocess.CalledProcessError:
-                print "see executable %s" % (os.path.abspath(exe_name))
-                print subprocess.check_output(['ls', '-l', exe_name], env=envir)
-                print subprocess.check_output(['cat', testoutfn], env=envir)
-                raise
+        except subprocess.CalledProcessError:
+            print "see executable %s" % (os.path.abspath(exe_name))
+            print subprocess.check_output(['ls', '-l', exe_name], env=envir)
+            print subprocess.check_output(['cat', testoutfn], env=envir)
+            raise
 
         return testoutfn
 
