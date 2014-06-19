@@ -9,7 +9,6 @@ import raco.catalog
 from raco.fakedb import FakeDatabase
 
 from raco import algebra
-from raco import relation_key
 from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
 
@@ -73,7 +72,7 @@ class FakeCatalog(raco.catalog.Catalog):
         return 1
 
     def num_tuples(self, rel_key):
-        return 10000
+        return algebra.DEFAULT_CARDINALITY
 
 def main(args):
     opt = parse_options(args)

@@ -1,7 +1,7 @@
 import copy
 import itertools
 from collections import defaultdict, deque
-from operator import mul, add
+from operator import mul
 from abc import abstractmethod
 
 from raco import algebra, expression, rules
@@ -626,7 +626,7 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
 class MyriaHyperShuffle(algebra.HyperCubeShuffle, MyriaOperator):
     """Represents a HyperShuffle shuffle operator"""
     def compileme(self, inputsym):
-        raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')  # noqa
+        raise NotImplementedError('shouldn''t ever get here, should be turned into HCSP-HCSC pair')  # noqa
 
 
 class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
@@ -1509,7 +1509,7 @@ class GetCardinalities(rules.Rule):
             rel = expr.relation_key
             expr._cardinality = self.catalog.num_tuples(rel)
             return expr
-        expr._cardinality = 10  # this is a magic number
+        expr._cardinality = algebra.DEFAULT_CARDINALITY
         return expr
 
 # logical groups of catalog transparent rules

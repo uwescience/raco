@@ -4,7 +4,7 @@ import itertools
 import csv
 
 from raco import relation_key, types
-from raco.algebra import Store, StoreTemp
+from raco.algebra import StoreTemp, DEFAULT_CARDINALITY
 from raco.catalog import Catalog
 from raco.expression import AND, EQ
 
@@ -25,7 +25,7 @@ class FakeDatabase(Catalog):
         return 1
 
     def num_tuples(self, rel_key):
-        return 10000
+        return DEFAULT_CARDINALITY
 
     def evaluate(self, op):
         '''Evaluate a relational algebra operation.
