@@ -178,15 +178,18 @@ class CompileState:
 
         return resolved
 
-
     def lookupExpr(self, expr):
+
         if self.common_subexpression_elim:
-            return self.materialized.get(expr)
+            res = self.materialized.get(expr)
+            LOG.debug("lookup subexpression %s -> %s", expr, res)
+            return res
         else:
             # if CSE is turned off then always return None for expression matches
             return None
 
     def saveExpr(self, expr, sym):
+        LOG.debug("saving subexpression %s -> %s", expr, sym)
         self.materialized[expr] = sym
 
     def lookupTupleDef(self, sym):
