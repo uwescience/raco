@@ -28,7 +28,7 @@ tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
           'TIMES', 'DIVIDE', 'IDIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ', 'NE',
           'NE2', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
           'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL', 'LBRACE',
-          'RBRACE'] + reserved
+          'RBRACE', 'AQL'] + reserved
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('
@@ -60,6 +60,13 @@ t_COLON = r':'
 t_DOLLAR = r'\$'
 
 # Regular expressions for non-trivial tokens
+
+
+def t_AQL(t):
+    r'%%aql(.|\n)*?;/'
+    t.lexer.lineno += t.value.count('\n')
+    t.value = t.value[4:-1]
+    return t
 
 
 def t_ID(t):
