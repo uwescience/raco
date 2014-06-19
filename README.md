@@ -18,8 +18,8 @@ Output languages include:
 * The Myria physical algebra.
 * A pseudocode algebra
 * A Python algebra
-* A C algebra
-* A Grappa algebra
+* A C++ algebra, C++ source code
+* A Grappa algebra, Grappa source code
 
 Users can of course author programs by directly instantiating one of the intermediate or output algebras as well as one of the source languages.
 

@@ -3,6 +3,7 @@ import collections
 import raco.scheme as scheme
 import raco.datalog.datalog_test as datalog_test
 from raco import types
+from raco.language import MyriaHyperCubeAlgebra
 
 
 class TestQueryFunctions(datalog_test.DatalogTestCase):
@@ -150,4 +151,12 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         ThreeHop(z) :- Edge(1, x), Edge(x,y), Edge(y, z);
         """
         expected = collections.Counter([(4,), (5,)])
-        self.check_result(query, expected, 'ThreeHop')
+        self.check_result(query, expected, name='ThreeHop')
+
+    def test_multiway_join_hyper_cube(self):
+        query = """
+        ThreeHop(z) :- Edge(1, x), Edge(x,y), Edge(y, z);
+        """
+        expected = collections.Counter([(4,), (5,)])
+        self.check_result(query, expected, name='ThreeHop',
+                          algebra=MyriaHyperCubeAlgebra)

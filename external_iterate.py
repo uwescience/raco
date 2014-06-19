@@ -7,8 +7,6 @@ import raco.myrial.parser as parser
 import raco.scheme
 from raco import algebra
 from raco import myrialang
-from raco.compile import optimize
-from raco.language import MyriaAlgebra
 
 import myria
 

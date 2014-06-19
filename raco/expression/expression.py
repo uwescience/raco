@@ -340,6 +340,12 @@ class NamedAttributeRef(AttributeRef):
     def __str__(self):
         return "%s" % (self.name)
 
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other):
+        return type(self) == type(other) and self.name == other.name
+
     def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
 
@@ -361,6 +367,13 @@ class UnnamedAttributeRef(AttributeRef):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.position)
+
+    def __cmp__(self, other):
+        assert other.__class__ == self.__class__
+        return cmp(self.position, other.position)
 
     def get_position(self, scheme, state_scheme=None):
         return self.position

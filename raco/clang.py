@@ -201,6 +201,9 @@ class MemoryScan(algebra.UnaryOperator, CCOperator):
         state.addPipeline(code)
         return None
 
+    def num_tuples(self):
+        raise NotImplementedError("{}.num_tuples()".format(op=self.opname()))
+
     def shortStr(self):
         return "%s" % (self.opname())
 
@@ -487,23 +490,25 @@ class CCAlgebra(object):
         CGroupBy,
         CHashJoin
     ]
-    rules = [
-        # rules.OneToOne(algebra.Join,TwoPassHashJoin),
-        # rules.removeProject(),
-        rules.CrossProduct2Join(),
-        rules.SimpleGroupBy(),
-        #    FilteringNestedLoopJoinRule(),
-        #    FilteringHashJoinChainRule(),
-        #    LeftDeepFilteringJoinChainRule(),
-        rules.OneToOne(algebra.Select, CSelect),
-        #   rules.OneToOne(algebra.Select,TwoPassSelect),
-        #  rules.OneToOne(algebra.Scan,MemoryScan),
-        MemoryScanOfFileScan(),
-        rules.OneToOne(algebra.Apply, CApply),
-        rules.OneToOne(algebra.Join, CHashJoin),
-        rules.OneToOne(algebra.GroupBy, CGroupBy),
-        rules.OneToOne(algebra.Project, CProject),
-        # TODO: obviously breaks semantics
-        rules.OneToOne(algebra.Union, CUnionAll)
-        #  rules.FreeMemory()
-    ]
+
+    def opt_rules(self):
+        return [
+            # rules.OneToOne(algebra.Join,TwoPassHashJoin),
+            # rules.removeProject(),
+            rules.CrossProduct2Join(),
+            rules.SimpleGroupBy(),
+            #    FilteringNestedLoopJoinRule(),
+            #    FilteringHashJoinChainRule(),
+            #    LeftDeepFilteringJoinChainRule(),
+            rules.OneToOne(algebra.Select, CSelect),
+            #   rules.OneToOne(algebra.Select,TwoPassSelect),
+            #  rules.OneToOne(algebra.Scan,MemoryScan),
+            MemoryScanOfFileScan(),
+            rules.OneToOne(algebra.Apply, CApply),
+            rules.OneToOne(algebra.Join, CHashJoin),
+            rules.OneToOne(algebra.GroupBy, CGroupBy),
+            rules.OneToOne(algebra.Project, CProject),
+            # TODO: obviously breaks semantics
+            rules.OneToOne(algebra.Union, CUnionAll)
+            #  rules.FreeMemory()
+        ]

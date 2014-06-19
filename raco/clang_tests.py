@@ -10,7 +10,7 @@ from nose.plugins.skip import SkipTest
 @SkipTest
 class ClangEmitTest(unittest.TestCase):
     def check(self, query, name):
-        emitCode(query, name, CCAlgebra)
+        emitCode(query, name, CCAlgebra())
 
         fn = name + ".cpp"
 
@@ -26,7 +26,7 @@ class ClangEmitTest(unittest.TestCase):
 @SkipTest
 class GrappaEmitTest(unittest.TestCase):
     def check(self, query, name):
-        emitCode(query, name, CCAlgebra)
+        emitCode(query, name, CCAlgebra())
 
         fn = name + ".cpp"
 

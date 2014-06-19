@@ -105,7 +105,7 @@ print
 
 # Optimize the query, includes producing a physical plan
 print "************ PHYSICAL PLAN *************"
-dlog.optimize(target=MyriaAlgebra, eliminate_common_subexpressions=False)
+dlog.optimize(target=MyriaAlgebra(), eliminate_common_subexpressions=False)
 print dlog.physicalplan
 print
 
