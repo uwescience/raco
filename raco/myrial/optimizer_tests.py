@@ -5,7 +5,8 @@ import random
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
-from raco.myrialang import (MyriaShuffleConsumer, MyriaShuffleProducer)
+from raco.myrialang import (MyriaShuffleConsumer, MyriaShuffleProducer,
+                            MyriaHyperShuffleProducer)
 from raco.language import MyriaLeftDeepTreeAlgebra
 from raco.language import MyriaHyperCubeAlgebra
 from raco.algebra import LogicalAlgebra
@@ -308,11 +309,19 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         pp = self.logical_to_LDTreeAlgebra(lp)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
+        self.assertEquals(self.get_count(pp, Join), 2)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 4)
+        self.assertEquals(self.get_count(pp, NaryJoin), 0)
+        self.assertEquals(self.get_count(pp, MyriaHyperShuffleProducer), 0)
 
         lp = self.processor.get_logical_plan()
         hcp = self.logical_to_HCAlgebra(lp)
 
         self.assertEquals(self.get_count(hcp, CrossProduct), 0)
+        self.assertEquals(self.get_count(hcp, Join), 0)
+        self.assertEquals(self.get_count(hcp, MyriaShuffleProducer), 0)
+        self.assertEquals(self.get_count(hcp, NaryJoin), 1)
+        self.assertEquals(self.get_count(hcp, MyriaHyperShuffleProducer), 3)
 
         self.db.evaluate(pp)
 
