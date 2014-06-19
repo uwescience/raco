@@ -28,7 +28,7 @@ typedef unsigned uint64;
 #include <iostream>
 typedef int64_t int64;
 typedef uint64_t uint64;
- 
+
 #include <unordered_map>
 #include <vector>
 #endif
@@ -95,6 +95,8 @@ inline bool equals(struct relationInfo *left, uint64 leftrow, uint64 leftattribu
 
 StringIndex string_index;
 void init( ) {
+    printf("hi mom stdout\n");
+    fprintf(stderr, "hi mom stderr\n");
     string_index = build_string_index("sp2bench_1m.index");
 }
 
@@ -111,7 +113,7 @@ void query(struct relationInfo *resultInfo)
 
   getCounters(counters, currCounter);
   currCounter = currCounter + 1; // 1
-  
+
   uint64 resultcount = 0;
   struct relationInfo %(resultsym)s_val;
   struct relationInfo *%(resultsym)s = &%(resultsym)s_val;
@@ -122,7 +124,7 @@ void query(struct relationInfo *resultInfo)
   // -----------------------------------------------------------
   %(initialized)s
 
-  
+
  %(queryexec)s
 
 
