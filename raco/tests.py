@@ -279,7 +279,3 @@ class ExpressionTest(unittest.TestCase):
         ex = e.NumericLiteral(0xC0FFEE)
         ex.accept(v)
         self.assertEqual(v.stack.pop(), 0xC0FFEE)
-
-
-if __name__ == '__main__':
-    unittest.main()

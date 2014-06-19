@@ -43,6 +43,3 @@ class testUnionFind(unittest.TestCase):
         self.assertEqual(uf.get_or_insert(2), uf.get_or_insert(5))
         uf.union(2, 1)
         self.assertEqual(uf.get_or_insert(10), uf.get_or_insert(5))
-
-if __name__ == '__main__':
-    unittest.main()

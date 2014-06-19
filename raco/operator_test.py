@@ -89,7 +89,3 @@ class OperatorTest(unittest.TestCase):
             assert isinstance(x[0], float)
         self.assertEqual([x[0] for x in res],
                          [x[3] for x in TestQueryFunctions.emp_table])
-
-
-if __name__ == '__main__':
-    unittest.main()
