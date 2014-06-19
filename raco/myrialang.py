@@ -1,7 +1,7 @@
 import copy
 import itertools
 from collections import defaultdict, deque
-from operator import mul, add
+from operator import mul
 from abc import abstractmethod
 
 from raco import algebra, expression, rules
@@ -1524,7 +1524,7 @@ class GetCardinalities(rules.Rule):
             rel = expr.relation_key
             expr._cardinality = self.catalog.num_tuples(rel)
             return expr
-        expr._cardinality = algebra.default_cardinality
+        expr._cardinality = algebra.DEFAULT_CARDINALITY
         return expr
 
 # logical groups of catalog transparent rules

@@ -9,7 +9,6 @@ import math
 
 # BEGIN Code to generate variables names
 var_id = 0
-default_cardinality = 10000
 
 
 def reset():
@@ -22,6 +21,10 @@ def gensym():
     var_id += 1
     return "V%s" % var_id
 # END Code to generate variables names
+
+
+# Global constants
+DEFAULT_CARDINALITY = 10000
 
 
 class RecursionError(ValueError):
@@ -394,7 +397,7 @@ class NaryJoin(NaryOperator):
 
     def num_tuples(self):
         # TODO: use AGM bound (P10 in http://arxiv.org/pdf/1310.3314v2.pdf)
-        return default_cardinality
+        return DEFAULT_CARDINALITY
 
     def scheme(self):
         combined = reduce(operator.add, [c.scheme() for c in self.children()])
@@ -1181,7 +1184,7 @@ class Scan(ZeroaryOperator):
         """
         self.relation_key = relation_key
         self._scheme = _scheme
-        self._cardinality = 10000   # a place holder, will be updated
+        self._cardinality = DEFAULT_CARDINALITY  # placeholder, will be updated
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):

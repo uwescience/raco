@@ -1,4 +1,5 @@
 from abc import abstractmethod, ABCMeta
+from raco.algebra import DEFAULT_CARDINALITY
 from raco.relation_key import RelationKey
 
 
@@ -52,4 +53,4 @@ class FakeCatalog(Catalog):
     def num_tuples(self, rel_key):
         if rel_key in self.cached:
             return self.cached[rel_key]
-        return 10000
+        return DEFAULT_CARDINALITY
