@@ -873,10 +873,11 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         visited = set()
         toVisit = deque()
         toVisit.append(tuple([1 for _ in conditions]))
-        min_work_load = sum(child_sizes)
+        min_work_load = None
         while len(toVisit) > 0:
             dim_sizes = toVisit.pop()
-            if this.workload(dim_sizes, child_sizes, r_index) < min_work_load:
+            if ((this.workload(dim_sizes, child_sizes, r_index) <
+                    min_work_load) or (min_work_load is None)):
                 min_work_load = this.workload(
                     dim_sizes, child_sizes, r_index)
                 opt_dim_sizes = dim_sizes
