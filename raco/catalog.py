@@ -23,7 +23,7 @@ class ASCIIFile(FileRelation):
     pass
 
 
-class MyriaCatalog(object):
+class Catalog(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
@@ -35,7 +35,7 @@ class MyriaCatalog(object):
         """ Return number of tuples of rel_key """
 
 
-class FakeCatalog(MyriaCatalog):
+class FakeCatalog(Catalog):
     """ fake catalog, should only be used in test """
     def __init__(self, num_servers, child_sizes=None):
         self.num_servers = num_servers

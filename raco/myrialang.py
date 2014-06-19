@@ -5,7 +5,7 @@ from operator import mul, add
 from abc import abstractmethod
 
 from raco import algebra, expression, rules
-from raco.catalog import MyriaCatalog
+from raco.catalog import Catalog
 from raco.language import Language
 from raco.utility import emit
 from raco.relation_key import RelationKey
@@ -818,7 +818,7 @@ class ShuffleBeforeJoin(rules.Rule):
 
 class HCShuffleBeforeNaryJoin(rules.Rule):
     def __init__(self, catalog):
-        assert isinstance(catalog, MyriaCatalog)
+        assert isinstance(catalog, Catalog)
         self.catalog = catalog
 
     @staticmethod
@@ -1511,7 +1511,7 @@ class GetCardinalities(rules.Rule):
     """ get cardinalities information of Zeroary operators.
     """
     def __init__(self, catalog):
-        assert isinstance(catalog, MyriaCatalog)
+        assert isinstance(catalog, Catalog)
         self.catalog = catalog
 
     def fire(self, expr):
