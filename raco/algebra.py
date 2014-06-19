@@ -400,10 +400,9 @@ class NaryJoin(NaryOperator):
         combined = reduce(operator.add, [c.scheme() for c in self.children()])
         # do projection
         if self.output_columns:
-            ret = [combined[attr.get_position(combined)]
-                   for attr in self.output_columns]
-            return ret
-        return combined
+            combined = [combined[attr.get_position(combined)]
+                        for attr in self.output_columns]
+        return scheme.Scheme(combined)
 
     def copy(self, other):
         """deep copy"""
