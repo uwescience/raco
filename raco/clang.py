@@ -263,7 +263,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         state.addDeclarations([hash_declr])
 
         LOG.debug("aggregates: %s", self.aggregate_list)
-        LOG.debug("columns: %s", self.column_list)
+        LOG.debug("columns: %s", self.column_list())
         LOG.debug("groupings: %s", self.grouping_list)
         LOG.debug("groupby scheme: %s", self.scheme())
         LOG.debug("groupby scheme[0] type: %s", type(self.scheme()[0]))
@@ -272,7 +272,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
         # now that everything is aggregated, produce the tuples
         assert (not self.useMap) \
-            or isinstance(self.column_list[0],
+            or isinstance(self.column_list()[0],
                           expression.UnnamedAttributeRef), \
             "assumes first column is the key and second is aggregate result"
 
