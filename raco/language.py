@@ -21,16 +21,8 @@ class Language(object):
         return ""
 
     @staticmethod
-    def initialize(resultsym):
-        return ""
-
-    @staticmethod
     def body(compileResult):
         return compileResult
-
-    @staticmethod
-    def finalize(resultsym, body=""):
-        return ""
 
     @classmethod
     def compile_stringliteral(cls, value):

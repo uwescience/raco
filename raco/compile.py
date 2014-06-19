@@ -48,22 +48,19 @@ def compile(expr):
     assert isinstance(expr, algebra.Parallel), "expected Parallel toplevel only"  # noqa
     assert len(expr.children()) == 1, "expected single expression only"
     store_expr = expr.children()[0]
+    assert isinstance(store_expr, algebra.Store)
     assert len(store_expr.children()) == 1, "expected single expression only"  # noqa
 
     only_expr = store_expr.children()[0]
 
     lang = only_expr.language
-    # TODO: refactor lang to remove resultsym arguments?
-    init = lang.initialize(None)
 
-    # TODO cleanup this dispatch to be transparent
     if isinstance(only_expr, Pipelined):
-        body = lang.body(only_expr.compilePipeline(), None)
+        body = lang.body(only_expr.compilePipeline())
     else:
-        body = lang.body(only_expr.compile(None))
+        body = lang.body(expr)
 
-    final = lang.finalize(None)
-    exprcode.append(emit(init, body, final))
+    exprcode.append(emit(body))
     return emit(*exprcode)
 
 

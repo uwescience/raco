@@ -79,19 +79,12 @@ class CC(Language):
         return "%s = %s;" % (x, y)
 
     @staticmethod
-    def initialize(resultsym):
-        return ""
-
-    @staticmethod
-    def body(compileResult, resultsym):
+    def body(compileResult):
         queryexec = compileResult.getExecutionCode()
         initialized = compileResult.getInitCode()
         declarations = compileResult.getDeclCode()
+        resultsym = "__result__"
         return base_template % locals()
-
-    @staticmethod
-    def finalize(resultsym):
-        return ""
 
     @staticmethod
     def pipeline_wrap(ident, code, attrs):
