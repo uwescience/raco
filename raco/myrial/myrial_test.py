@@ -30,11 +30,11 @@ class MyrialTestCase(unittest.TestCase):
 
     def get_logical_plan(self, query):
         '''Get the logical plan for a MyriaL query'''
-        return self.get_plan(query, True)
+        return self.get_plan(query, logical=True)
 
-    def get_physical_plan(self, query):
+    def get_physical_plan(self, query, multiway_join=False):
         '''Get the physical plan for a MyriaL query'''
-        return self.get_plan(query, False)
+        return self.get_plan(query, logical=False, multiway_join=multiway_join)
 
     def execute_query(self, query, test_logical=False, skip_json=False,
                       output='OUTPUT'):
