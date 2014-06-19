@@ -1143,9 +1143,9 @@ class Exec(ZeroaryOperator):
         self.language = language
 
     def __eq__(self, other):
-        return self.__class__ == other.__class__ \
-               and self.command == other.command \
-               and self.language == other.language
+        return (self.__class__ == other.__class__
+                and self.command == other.command
+                and self.language == other.language)
 
     def copy(self, other):
         self.command = other.command

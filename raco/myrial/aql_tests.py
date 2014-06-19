@@ -5,13 +5,14 @@ from raco.algebra import *
 from collections import Counter
 from raco.scheme import Scheme
 
+
 class AqlTests(MyrialTestCase):
     def setUp(self):
         super(AqlTests, self).setUp()
         self.db.ingest("public:adhoc:employees", Counter, Scheme())
 
     def test_escaped_aql(self):
-        aql =  'SELECT * FROM TestArray'
+        aql = 'SELECT * FROM TestArray'
         query = "%%aql %s;" % aql
         plan = self.get_plan(query, logical=True)
         expected = Sequence([Exec(aql, "AQL")])
@@ -19,7 +20,7 @@ class AqlTests(MyrialTestCase):
         self.assertEquals(plan, expected)
 
     def test_escaped_aql_with_myrial(self):
-        aql =  'SELECT * FROM TestArray'
+        aql = 'SELECT * FROM TestArray'
         query = """
         %%aql %s;
         X = SCAN(public:adhoc:employees);
