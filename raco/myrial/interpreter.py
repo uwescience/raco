@@ -400,8 +400,10 @@ class StatementProcessor(object):
         # TODO: Get rid of the dummy label argument here.
         # Return first (only) plan; strip off dummy label.
         logical_plan = self.get_logical_plan()
-        target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog) if\
-            self.multiway_join else MyriaLeftDeepTreeAlgebra()
+        if self.multiway_join:
+            target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog)
+        else:
+            target_phys_algebra = MyriaLeftDeepTreeAlgebra()
         physical_plans = optimize([('root', logical_plan)],
                                   target=target_phys_algebra,
                                   source=LogicalAlgebra)

@@ -1515,7 +1515,7 @@ class MergeToNaryJoin(rules.Rule):
             return MergeToNaryJoin.merge_to_multiway_join(op)
 
 
-class GetCadinalities(rules.Rule):
+class GetCardinalities(rules.Rule):
     """ get cardinalities information of Zeroary operators.
     """
     def __init__(self, catalog=None):
@@ -1672,7 +1672,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
 
         # catalog aware hc shuffle rules, so put them here
         hyper_cube_shuffle_logic = [
-            GetCadinalities(self.catalog),
+            GetCardinalities(self.catalog),
             HCShuffleBeforeNaryJoin(self.catalog),
             OrderByBeforeNaryJoin(),
         ]

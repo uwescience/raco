@@ -26,7 +26,7 @@ class testNaryJoin(unittest.TestCase):
                     return i
             raise Exception("Cannot find attribute in join conditions")
 
-        # 1. trianglular join
+        # 1. triangular join
         triangle_join = testNaryJoin.get_phys_plan_root(
             "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64)
         # test root operator type
@@ -68,10 +68,10 @@ class testNaryJoin(unittest.TestCase):
             return tuple(ret)
 
         # 1. triangular join
-        trianglular_join = testNaryJoin.get_phys_plan_root(
+        triangular_join = testNaryJoin.get_phys_plan_root(
             "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64)
         shuffle_r, shuffle_s, shuffle_t = get_shuffle_producers(
-            trianglular_join)
+            triangular_join)
         # x in R and x in T are shuffled to the same dimension
         self.assertEqual(get_hc_dim(shuffle_r, 0), get_hc_dim(shuffle_t, 1))
         # y in R and y in S are shuffled to the same dimension
@@ -141,9 +141,9 @@ class testNaryJoin(unittest.TestCase):
             return HSClass.workload(dim_sizes, child_sizes, r_index)
 
         # test triangle join with equal input size
-        trianglular_join = testNaryJoin.get_phys_plan_root(
+        triangular_join = testNaryJoin.get_phys_plan_root(
             "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64)
-        self.assertEqual(get_dim_size(trianglular_join), (4, 4, 4))
+        self.assertEqual(get_dim_size(triangular_join), (4, 4, 4))
 
         # test rectange join with equal input size
         rect_join = testNaryJoin.get_phys_plan_root(

@@ -749,7 +749,7 @@ class Select(UnaryOperator):
                 and self.condition == other.condition)
 
     def num_tuples(self):
-        return self.input.num_tuples()
+        return int(self.input.num_tuples() * 0.5)
 
     def shortStr(self):
         if isinstance(self.condition, dict):
@@ -810,7 +810,8 @@ class GroupBy(UnaryOperator):
         UnaryOperator.__init__(self, input)
 
     def num_tuples(self):
-        # TODO: better estimation?
+        if not self.grouping_list:
+            return 1
         return self.input.num_tuples()
 
     def shortStr(self):
