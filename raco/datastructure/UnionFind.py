@@ -31,18 +31,7 @@ class UnionFind:
 
     def __getitem__(self, object):
         if object not in self.parents:
-            raise Exception("Cannot find {}!".format(object))
-        else:
-            return self.get_or_insert(object)
-
-    def get_or_insert(self, object):
-        """Find and return the name of the set containing the object."""
-
-        # check for previously unknown object
-        if object not in self.parents:
-            self.parents[object] = object
-            self.weights[object] = 1
-            return object
+            raise KeyError(object)
 
         # find path of objects leading to the root
         path = [object]
@@ -55,6 +44,17 @@ class UnionFind:
         for ancestor in path:
             self.parents[ancestor] = root
         return root
+
+    def get_or_insert(self, object):
+        """Find and return the name of the set containing the object."""
+
+        # check for previously unknown object
+        if object not in self.parents:
+            self.parents[object] = object
+            self.weights[object] = 1
+            return object
+
+        return self[object]
 
     def __iter__(self):
         """Iterate through all items ever found or unioned by this structure.
