@@ -1,6 +1,5 @@
 import unittest
 from testquery import checkquery
-from testquery import testdbname
 from testquery import ClangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate

@@ -60,13 +60,13 @@ class ClangRunner(PlatformRunner):
 
         # cpp -> exe
         exe_name = './%s.exe' % (name)
-        subprocess.check_call(['make', exe_name], env=envir)
+        subprocess.check_call(['make', exe_name], stderr=subprocess.STDOUT, env=envir)
 
         # run cpp
         testoutfn = '%s/%s.out' % (tmppath, name)
         try:
             with open(testoutfn, 'w') as outs:
-                subprocess.check_call([exe_name], stdout=outs, env=envir, shell=True)
+                subprocess.check_call([exe_name], stdout=outs, env=envir)
         except subprocess.CalledProcessError:
             print "see executable %s" % (os.path.abspath(exe_name))
             print subprocess.check_output(['ls', '-l', exe_name], env=envir)

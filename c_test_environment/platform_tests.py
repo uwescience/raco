@@ -1,8 +1,7 @@
 class PlatformTest(object):
 
-    # Currently running clang_tests in the hosted travis.ci environment fails
-    # to run the compiled C++ programs. Exit code -4 and no output on stderr/stdout.
-    # Run these tests separately with `python clang_tests.py` from `raco/`
+    # Run these tests manually with
+    #    `python c_test_environment/clang_tests.py` from `raco/`
     #
     # Currently Grappa tests are disabled unless invoked manually.
     def test_scan(self):
