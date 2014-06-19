@@ -633,7 +633,7 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
 class MyriaHyperShuffle(algebra.HyperCubeShuffle, MyriaOperator):
     """Represents a HyperShuffle shuffle operator"""
     def compileme(self, inputsym):
-        raise NotImplementedError('shouldn''t ever get here, should be turned into SP-SC pair')  # noqa
+        raise NotImplementedError('shouldn''t ever get here, should be turned into HCSP-HCSC pair')  # noqa
 
 
 class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
