@@ -5,6 +5,7 @@ from raco.utility import emit, emitlist, Printable
 from abc import ABCMeta, abstractmethod
 import copy
 import operator
+import math
 
 # BEGIN Code to generate variables names
 var_id = 0
@@ -471,7 +472,9 @@ class Difference(BinaryOperator):
         BinaryOperator.__init__(self, left, right)
 
     def num_tuples(self):
-        return abs(self.left.num_tuples() - self.right.num_tuples())
+        left_num = self.left.num_tuples()
+        right_num = self.right.num_tuples()
+        return left_num - math.floor(min(right_num, left_num * 0.5))
 
     def scheme(self):
         return self.left.scheme()
