@@ -5,12 +5,13 @@ import csv
 
 from raco import relation_key, types
 from raco.algebra import Store, StoreTemp
+from raco.catalog import Catalog
 from raco.expression import AND, EQ
 
 debug = False
 
 
-class FakeDatabase(object):
+class FakeDatabase(Catalog):
     """An in-memory implementation of relational algebra operators"""
 
     def __init__(self):
@@ -19,6 +20,12 @@ class FakeDatabase(object):
 
         # Map from relation names to bags; schema is tracked by the runtime.
         self.temp_tables = {}
+
+    def get_num_servers(self):
+        return 1
+
+    def num_tuples(self, rel_key):
+        return 10000
 
     def evaluate(self, op):
         '''Evaluate a relational algebra operation.
