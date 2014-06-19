@@ -1479,9 +1479,11 @@ class MergeToNaryJoin(rules.Rule):
             assert isinstance(op.left, algebra.ProjectingJoin)
             MergeToNaryJoin.collect_join_groups(op.left, conditions, children)
 
-    @staticmethod
-    def merge_to_multiway_join(op):
-        # if it is only binary join, return
+    def fire(self, op):
+        if not isinstance(op, algebra.ProjectingJoin):
+            return op
+
+        # if op is the only binary join, return
         if not isinstance(op.left, algebra.ProjectingJoin):
             return op
         # if it is not mergable, e.g. aggregation along the path, return
@@ -1503,12 +1505,6 @@ class MergeToNaryJoin(rules.Rule):
         # 3. reverse the children due to top-down tree traversal
         return algebra.NaryJoin(
             list(reversed(children)), ordered_conds, op.output_columns)
-
-    def fire(self, op):
-        if not isinstance(op, algebra.ProjectingJoin):
-            return op
-        else:
-            return MergeToNaryJoin.merge_to_multiway_join(op)
 
 
 class GetCardinalities(rules.Rule):
