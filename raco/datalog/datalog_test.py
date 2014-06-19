@@ -22,16 +22,17 @@ class DatalogTestCase(unittest.TestCase):
         dlog = RACompiler()
         dlog.fromDatalog(query)
 
+        assert myria_algebra in [MyriaLeftDeepTreeAlgebra,
+                                 MyriaHyperCubeAlgebra]
+
         if myria_algebra == MyriaLeftDeepTreeAlgebra:
             dlog.optimize(
                 target=MyriaLeftDeepTreeAlgebra(),
                 eliminate_common_subexpressions=False)
-        elif myria_algebra == MyriaHyperCubeAlgebra:
+        else:
             dlog.optimize(
                 target=MyriaHyperCubeAlgebra(FakeCatalog(64)),
                 eliminate_common_subexpressions=False)
-        else:
-            raise Exception("unkonw myria algebra type")
 
         # print dlog.physicalplan
 
