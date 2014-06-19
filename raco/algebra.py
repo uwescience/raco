@@ -317,6 +317,10 @@ class NaryOperator(Operator):
         else:
             self.args = args
 
+    def __eq__(self, other):
+        return (self.__class__ == other.__class__
+                and self.args == other.args)
+
     def add(self, op):
         """Add a child operator to the end of the child argument list."""
         self.args.append(op)
@@ -1125,7 +1129,7 @@ class DoWhile(NaryOperator):
         return None
 
 
-class Exec(ZeroaryOperator, CommonEqualityMixin):
+class Exec(ZeroaryOperator):
     """Execute an uninterpreted query on the given backend system."""
 
     def __init__(self, command=None, language=None):
@@ -1137,6 +1141,11 @@ class Exec(ZeroaryOperator, CommonEqualityMixin):
         """
         self.command = command
         self.language = language
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ \
+               and self.command == other.command \
+               and self.language == other.language
 
     def copy(self, other):
         self.command = other.command
