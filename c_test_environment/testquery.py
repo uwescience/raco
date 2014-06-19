@@ -70,7 +70,10 @@ class ClangRunner(PlatformRunner):
             except subprocess.CalledProcessError as e1:
                 # try again, this time collecting all output to print it
                 try:
-                    subprocess.check_call([exe_name], stderr=subprocess.STDOUT, env=envir)
+                    subprocess.check_call([exe_name],
+                                          stdout=subprocess.STDOUT,
+                                          stderr=subprocess.STDOUT,
+                                          env=envir)
                     raise e1  # just in case this doesn't fail again
                 except subprocess.CalledProcessError as e2:
                     print "see executable %s" % (os.path.abspath(exe_name))

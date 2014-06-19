@@ -1,14 +1,10 @@
-
-# skipping
-from nose.tools import nottest
-
-
 class PlatformTest(object):
 
-            # : excluding these tests from nosetests
     # Currently running clang_tests in the hosted travis.ci environment fails
     # to run the compiled C++ programs. Exit code -4 and no output on stderr/stdout.
-    # Run these tests separately with `python clang_tests.py` from the root of datalogcompiler/
+    # Run these tests separately with `python clang_tests.py` from `raco/`
+    #
+    # Currently Grappa tests are disabled unless invoked manually.
     def test_scan(self):
         self.check("A(s1) :- T1(s1)", "scan")
 
