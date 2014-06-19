@@ -26,8 +26,7 @@ class MyrialTestCase(unittest.TestCase):
         if logical:
             return self.processor.get_logical_plan()
         else:
-            self.processor.multiway_join = multiway_join
-            return self.processor.get_physical_plan()
+            return self.processor.get_physical_plan(multiway_join)
 
     def get_logical_plan(self, query):
         '''Get the logical plan for a MyriaL query'''

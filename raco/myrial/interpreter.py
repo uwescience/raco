@@ -291,8 +291,7 @@ class ExpressionProcessor(object):
 class StatementProcessor(object):
     '''Evaluate a list of statements'''
 
-    def __init__(self, catalog=None, use_dummy_schema=False,
-                 multiway_join=False):
+    def __init__(self, catalog=None, use_dummy_schema=False):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
@@ -300,7 +299,6 @@ class StatementProcessor(object):
         self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
 
         self.cfg = ControlFlowGraph()
-        self.multiway_join = multiway_join
 
     def evaluate(self, statements):
         '''Evaluate a list of statements'''
@@ -394,13 +392,13 @@ class StatementProcessor(object):
         """Return an operator representing the logical query plan."""
         return self.cfg.get_logical_plan()
 
-    def get_physical_plan(self):
+    def get_physical_plan(self, multiway_join=False):
         """Return an operator representing the physical query plan."""
 
         # TODO: Get rid of the dummy label argument here.
         # Return first (only) plan; strip off dummy label.
         logical_plan = self.get_logical_plan()
-        if self.multiway_join:
+        if multiway_join:
             target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog)
         else:
             target_phys_algebra = MyriaLeftDeepTreeAlgebra()
@@ -409,10 +407,9 @@ class StatementProcessor(object):
                                   source=LogicalAlgebra)
         return physical_plans[0][1]
 
-    def get_json(self):
+    def get_json(self, multiway_join=False):
         lp = self.get_logical_plan()
-        pps = optimize([('root', lp)], target=MyriaAlgebra(),
-                       source=LogicalAlgebra)
+        pps = self.get_physical_plan(multiway_join)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
         return compile_to_json(str(lp), pps[0][1], pps[0][1])
