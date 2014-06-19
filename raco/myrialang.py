@@ -300,7 +300,7 @@ def convertcondition(condition, left_len, combined_scheme):
 
 
 def convert_nary_conditions(conditions, schemes):
-    """Convert an nary join map from global column index to local"""
+    """Convert an NaryJoin map from global column index to local"""
     attr_map = {}   # map of global attribute to local column index
     count = 0
     for i, scheme in enumerate(schemes):
@@ -992,7 +992,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
 
 class OrderByBeforeNaryJoin(rules.Rule):
     def fire(self, expr):
-        # if not Nary join, who cares?
+        # if not NaryJoin, who cares?
         if not isinstance(expr, algebra.NaryJoin):
             return expr
         ordered_child = sum(
@@ -1440,19 +1440,18 @@ class RemoveTrivialSequences(rules.Rule):
 
 class MergeToNaryJoin(rules.Rule):
     """Merge consecutive binary join into a single multiway join
-       Note: this code assume that the binary joins form a left deep tree
-       before the merge
-    """
+    Note: this code assumes that the binary joins form a left deep tree
+    before the merge."""
     @staticmethod
     def mergable(op):
-        """ Check if an operator is mergable to Nary join.
-            An operator will be merged to Nary Join if its subtree contains
-            only join
+        """Recursively checks whether an operator is mergable to NaryJoin.
+        An operator will be merged to NaryJoin if its subtree contains
+        only joins.
         """
-        allowed_itermediate_types = (algebra.ProjectingJoin, algebra.Select)
+        allowed_intermediate_types = (algebra.ProjectingJoin, algebra.Select)
         if issubclass(type(op), algebra.ZeroaryOperator):
             return True
-        if not isinstance(op, allowed_itermediate_types):
+        if not isinstance(op, allowed_intermediate_types):
             return False
         elif issubclass(type(op), algebra.UnaryOperator):
             return MergeToNaryJoin.mergable(op.input)
