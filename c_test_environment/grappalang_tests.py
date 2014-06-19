@@ -5,6 +5,7 @@ from generate_test_relations import generate_default
 from generate_test_relations import need_generate
 from raco.language import GrappaAlgebra
 from platform_tests import PlatformTest
+from nose.plugins.skip import SkipTest
 
 import sys
 import os
@@ -13,6 +14,7 @@ from emitcode import emitCode
 from osutils import Chdir
 
 
+@SkipTest
 class GrappaTest(unittest.TestCase, PlatformTest):
     def check(self, query, name):
         with Chdir("c_test_environment") as d:
