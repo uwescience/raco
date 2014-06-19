@@ -17,7 +17,7 @@ def make_query(name, query, delim=','):
 
     template = """
     %(query)s
-    """ 
+    """
 
     outputname = "%s.sqlite.out" % (name)
 
@@ -77,7 +77,7 @@ class ClangRunner(PlatformRunner):
                     print subprocess.check_output(['ls', '-l', exe_name], env=envir)
                     print subprocess.check_output(['cat', '%s.cpp' % (name)], env=envir)
 
-                    raise Exception('(Process output below)\n'+e2.output+'\n(end process output)')
+                    raise Exception('(Process output below)\n{}(end process output)'.format(e2.output))
 
         return testoutfn
 
@@ -167,12 +167,12 @@ class SqliteRunner(PlatformRunner):
 
 
 def checkquery(name, testplatform, trustedplatform=SqliteRunner("testqueries"), tmppath="tmp"):  # noqa
-    
+
     """
     @param name: name of query
     @param tmppath: existing directory for temporary files
     """
- 
+
     osutils.mkdir_p(tmppath)
     abstmppath = os.path.abspath(tmppath)
 
