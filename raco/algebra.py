@@ -378,6 +378,12 @@ class NaryOperator(Operator):
 class NaryJoin(NaryOperator):
     """Logical Nary Join operator"""
     def __init__(self, children=None, conditions=None, output_columns=None):
+        # TODO: conditions is not actually an expression, it's a list of
+        # pairs of UnnamedAttributeRefs that represent equijoins. This is
+        # wrong -- it should be a single expression like in Join.
+        #
+        # Should be able to:
+        #    assert isinstance(condition, racoExpression).
         self.conditions = conditions
         self.output_columns = output_columns
         NaryOperator.__init__(self, children)
