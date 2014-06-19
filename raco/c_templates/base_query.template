@@ -95,7 +95,7 @@ inline bool equals(struct relationInfo *left, uint64 leftrow, uint64 leftattribu
 
 StringIndex string_index;
 void init( ) {
-    printf("hi mom stdout\n");
+    printf("hi mom stdout\n");fflush(stdout);
     fprintf(stderr, "hi mom stderr\n");
     string_index = build_string_index("sp2bench_1m.index");
 }
@@ -103,7 +103,8 @@ void init( ) {
 
 void query(struct relationInfo *resultInfo)
 {
-  printf("\nstarting Query\n");
+  printf("\nstarting Query stdout\n");fflush(stdout);
+  printf("\nstarting Query stderr\n");
 
   int numCounters = 7;
   int currCounter = 0;
@@ -143,13 +144,13 @@ int main(int argc, char **argv) {
 
   init();
 
-    printf("post-init stdout\n");
+    printf("post-init stdout\n");fflush(stdout);
     fprintf(stderr, "post-init stderr\n");
 
   // Execute the query
   query(&resultInfo);
 
-    printf("post-query stdout\n");
+    printf("post-query stdout\n");fflush(stdout);
     fprintf(stderr, "post-query stderr\n");
 
 #ifdef ZAPPA
@@ -157,7 +158,7 @@ int main(int argc, char **argv) {
 #endif
 //  free(resultInfo.relation);
 
-    printf("exiting stdout\n");
+    printf("exiting stdout\n");fflush(stdout);
     fprintf(stderr, "exiting stderr\n");
     exit(1);
 
