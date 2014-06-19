@@ -1575,7 +1575,7 @@ distributed_group_by = [
 ]
 
 # 8. Myriafy logical operators
-# replace logical operator with its corresponding Myra operators
+# replace logical operator with its corresponding Myria operators
 myriafy = [
     rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
     rules.OneToOne(algebra.Store, MyriaStore),
@@ -1631,7 +1631,7 @@ class MyriaAlgebra(object):
 
     @abstractmethod
     def opt_rules(self):
-        """ Specific myria algebra must instantiate this method. """
+        """Specific Myria algebra must instantiate this method."""
 
 
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
@@ -1650,11 +1650,11 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     ]
 
     def opt_rules(self):
-        return reduce(add, self.rule_grps_sequence, [])
+        return list(itertools.chain(*self.rule_grps_sequence))
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
-    """ Myria phyiscal algebra using hyper cube shuffle and LeapFrogJoin
+    """ Myria physical algebra using HyperCubeShuffle and LeapFrogJoin
     """
     def opt_rules(self):
         # this rule is hyper cube shuffle specific
@@ -1682,7 +1682,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             myriafy,
             break_communication
         ]
-        return reduce(add, rule_grps_sequence, [])
+        return list(itertools.chain(*rule_grps_sequence))
 
     def __init__(self, catalog=None):
         self.catalog = catalog
