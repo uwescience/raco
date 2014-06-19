@@ -1635,8 +1635,7 @@ class MyriaAlgebra(object):
 
 
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
-    """ Myria phyiscal algebra using left deep tree pipeline and 1-D shuffle
-    """
+    """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
     rule_grps_sequence = [
         remove_trivial_sequences,
         simple_group_by,
@@ -1654,8 +1653,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
-    """ Myria physical algebra using HyperCubeShuffle and LeapFrogJoin
-    """
+    """Myria physical algebra using HyperCubeShuffle and LeapFrogJoin"""
     def opt_rules(self):
         # this rule is hyper cube shuffle specific
         merge_to_nary_join = [
