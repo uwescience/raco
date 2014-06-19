@@ -98,7 +98,8 @@ class Parser(object):
         '''translation_unit : statement
                             | constant
                             | udf
-                            | apply'''
+                            | apply
+                            | aql'''
         p[0] = p[1]
 
     @staticmethod
@@ -188,6 +189,11 @@ class Parser(object):
         'unreserved_id : ID'
         Parser.check_for_reserved(p, p[1])
         p[0] = p[1]
+
+    @staticmethod
+    def p_aql(p):
+        'aql : AQL'
+        p[0] = ('AQL', p[1])
 
     @staticmethod
     def p_udf(p):

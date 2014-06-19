@@ -290,10 +290,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         STORE(U, OUTPUT);
         """
 
-        statements = self.parser.parse(query)
-        self.processor.evaluate(statements)
-
-        lp = self.processor.get_logical_plan()
+        lp = self.get_logical_plan(query)
         self.assertEquals(self.get_count(lp, CrossProduct), 2)
 
         pp = self.logical_to_physical(lp)
@@ -337,9 +334,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         T = SCAN(public:adhoc:X);
         STORE(T, OUTPUT, [$2, b]);
         """
-        statements = self.parser.parse(query)
-        self.processor.evaluate(statements)
-        lp = self.processor.get_logical_plan()
+        lp = self.get_logical_plan(query)
 
         self.assertEquals(self.get_count(lp, Shuffle), 1)
 

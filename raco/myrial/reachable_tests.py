@@ -82,11 +82,8 @@ class ReachableTest(myrial_test.MyrialTestCase):
 
             return any(plan.postorder(f))
 
-        statements = self.parser.parse(query)
-        self.processor.evaluate(statements)
-
-        lp = self.processor.get_logical_plan()
+        lp = self.get_logical_plan(query)
         self.assertTrue(plan_contains_cross(lp))
 
-        pp = self.processor.get_physical_plan()
+        pp = self.get_physical_plan(query)
         self.assertFalse(plan_contains_cross(pp))

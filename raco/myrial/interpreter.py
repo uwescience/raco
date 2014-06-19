@@ -388,6 +388,9 @@ class StatementProcessor(object):
         # loop
         self.cfg.add_edge(last_op_id, first_op_id)
 
+    def aql(self, query):
+        self.cfg.add_op(raco.algebra.Exec(query, "AQL"), None, set())
+
     def get_logical_plan(self):
         """Return an operator representing the logical query plan."""
         return self.cfg.get_logical_plan()
