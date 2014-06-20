@@ -13,8 +13,8 @@ class DatalogTestCase(unittest.TestCase):
     def setUp(self):
         self.db = raco.fakedb.FakeDatabase()
 
-    def execute_query(self, query, name="OUTPUT",
-                      algebra=MyriaLeftDeepTreeAlgebra):
+    def execute_query(self, query, test_logical=False, skip_json=False,
+                      output="OUTPUT", algebra=MyriaLeftDeepTreeAlgebra):
         """Run a test query against the fake database"""
 
         dlog = RACompiler()
@@ -23,25 +23,33 @@ class DatalogTestCase(unittest.TestCase):
         assert algebra in [MyriaLeftDeepTreeAlgebra,
                            MyriaHyperCubeAlgebra]
 
-        if algebra == MyriaLeftDeepTreeAlgebra:
-            dlog.optimize(
-                target=MyriaLeftDeepTreeAlgebra(),
-                eliminate_common_subexpressions=False)
+        if test_logical:
+            plan = dlog.logicalplan
         else:
-            dlog.optimize(
-                target=MyriaHyperCubeAlgebra(FakeCatalog(64)),
-                eliminate_common_subexpressions=False)
+            if algebra == MyriaLeftDeepTreeAlgebra:
+                dlog.optimize(
+                    target=MyriaLeftDeepTreeAlgebra(),
+                    eliminate_common_subexpressions=False)
+            else:
+                dlog.optimize(
+                    target=MyriaHyperCubeAlgebra(FakeCatalog(64)),
+                    eliminate_common_subexpressions=False)
+            plan = dlog.physicalplan
 
-        # test whether we can generate json without errors
-        json_string = json.dumps(compile_to_json(
-            query, dlog.logicalplan, dlog.physicalplan))
-        assert json_string
+            if not skip_json:
+                # test whether we can generate json without errors
+                json_string = json.dumps(compile_to_json(
+                    query, dlog.logicalplan, dlog.physicalplan))
+                assert json_string
 
-        self.db.evaluate(dlog.physicalplan)
-        return self.db.get_table(name)
+        self.db.evaluate(plan)
+        return self.db.get_table(output)
 
-    def check_result(self, query, expected, name="OUTPUT",
+    def check_result(self, query, expected, test_logical=False,
+                     skip_json=False, output="OUTPUT",
                      algebra=MyriaLeftDeepTreeAlgebra):
         """Execute a test query with an expected output"""
-        actual = self.execute_query(query, name=name, algebra=algebra)
+        actual = self.execute_query(query, test_logical=test_logical,
+                                    skip_json=skip_json, output=output,
+                                    algebra=algebra)
         self.assertEquals(actual, expected)
