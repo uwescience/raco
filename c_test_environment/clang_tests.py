@@ -1,6 +1,5 @@
 import unittest
 from testquery import checkquery
-from testquery import testdbname
 from testquery import ClangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
@@ -8,7 +7,6 @@ from raco.language import CCAlgebra
 from platform_tests import PlatformTest
 
 import sys
-import os
 sys.path.append('./examples')
 from emitcode import emitCode
 from osutils import Chdir
@@ -23,8 +21,8 @@ class ClangTest(unittest.TestCase, PlatformTest):
     def setUp(self):
         with Chdir("c_test_environment") as d:
           if need_generate():
-                generate_default()  
-        
+                generate_default()
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -403,14 +403,13 @@ class StatementProcessor(object):
             target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog)
         else:
             target_phys_algebra = MyriaLeftDeepTreeAlgebra()
-        physical_plans = optimize([('root', logical_plan)],
-                                  target=target_phys_algebra,
-                                  source=LogicalAlgebra)
-        return physical_plans[0][1]
+        return optimize(logical_plan,
+                        target=target_phys_algebra,
+                        source=LogicalAlgebra)
 
     def get_json(self, multiway_join=False):
         lp = self.get_logical_plan()
         pps = self.get_physical_plan(multiway_join)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
-        return compile_to_json(str(lp), pps[0][1], pps[0][1])
+        return compile_to_json(str(lp), pps, pps)

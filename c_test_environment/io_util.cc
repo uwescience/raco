@@ -106,6 +106,7 @@ int64 *relation;
 
 
 struct relationInfo * inhale(const char *path, struct relationInfo *relInfo) {
+  printf("\tinhaling %s\n", path);
 #ifdef ZAPPA
   double start = timer();
 #ifdef __MTA__

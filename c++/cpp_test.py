@@ -1,11 +1,8 @@
 from raco.datalog.grammar import parse
-from raco.scheme import Scheme
-from raco.catalog import ASCIIFile
-from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra#, ProtobufAlgebra
+from raco.language import CCAlgebra
 from raco.algebra import LogicalAlgebra
-from raco.compile import compile, optimize, common_subexpression_elimination, showids
+from raco.compile import optimize
 import scan_code_ver2 as sc
-import raco.boolean
 from generateDot import generateDot
 
 

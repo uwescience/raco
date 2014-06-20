@@ -7,10 +7,11 @@ expressions.
 '''
 import networkx as nx
 from raco import expression
-import raco.algebra
+import raco.algebra as algebra
 from raco import scheme
 import raco.catalog
-from raco import relation_key
+import raco.myrial.groupby
+from raco.relation_key import RelationKey
 import raco.types
 
 import logging
@@ -70,11 +71,11 @@ class Program(object):
             block = self.idbs.setdefault(rule.head.name, [])
             block.append(rule)
 
-        newplans = [(idb, self.compileIDB(idb))
-                    for (idb, rules) in self.idbs.items()
-                    if any([not self.intermediateRule(r) for r in rules])]
-
-        return newplans
+        return algebra.Parallel([algebra.Store(RelationKey(idb),
+                                               self.compileIDB(idb))
+                                 for (idb, rules) in self.idbs.items()
+                                 if any([not self.intermediateRule(r)
+                                         for r in rules])])
 
     def compileIDB(self, idb):
         """Compile an idb by name.  Uses the self.idbs data structure created
@@ -85,7 +86,7 @@ class Program(object):
         else:
             rules = self.idbs[idb]
             plans = [r.toRA(self) for r in rules]
-            ra = reduce(raco.algebra.Union, plans)
+            ra = reduce(algebra.Union, plans)
             self.compiledidbs[self] = ra
             return ra
 
@@ -123,13 +124,13 @@ class JoinSequence(object):
                   for t in self.terms]
 
         if not leaves:
-            return raco.algebra.EmptyRelation(scheme.Scheme())
+            return algebra.EmptyRelation(scheme.Scheme())
 
         leftmost = leaves[0]
         pairs = zip(self.conditions, leaves[1:])
 
         def makejoin(leftplan, (condition, right)):
-            return raco.algebra.Join(condition, leftplan, right)
+            return algebra.Join(condition, leftplan, right)
 
         return reduce(makejoin, pairs, leftmost)
 
@@ -290,8 +291,8 @@ class Rule(object):
         if program.compiling(self.head):
             # recursive rule
             if not self.fixpoint:
-                self.fixpoint = raco.algebra.Fixpoint()
-            state = raco.algebra.State(self.head.name, self.fixpoint)
+                self.fixpoint = algebra.Fixpoint()
+            state = algebra.State(self.head.name, self.fixpoint)
             return state
         else:
             self.compiling = True
@@ -386,14 +387,14 @@ class Rule(object):
                 LOG.debug("after add offset %s", predicate)
 
                 # create selections after each cycle
-                plan = raco.algebra.Select(predicate, plan)
+                plan = algebra.Select(predicate, plan)
 
             component_plans.append(plan)
 
         # link the components with a cross product
         plan = component_plans[0]
         for newplan in component_plans[1:]:
-            plan = raco.algebra.CrossProduct(plan, newplan)
+            plan = algebra.CrossProduct(plan, newplan)
 
         try:
             scheme = plan.scheme()
@@ -451,11 +452,11 @@ class Rule(object):
         # operator
         if self.isParallel():
             if isinstance(self.head.serverspec, Broadcast):
-                plan = raco.algebra.Broadcast(plan)
+                plan = algebra.Broadcast(plan)
             if isinstance(self.head.serverspec, PartitionBy):
                 positions = [findvar(v)
                              for v in self.head.serverspec.variables]
-                plan = raco.algebra.PartitionBy(positions, plan)
+                plan = algebra.PartitionBy(positions, plan)
 
         def toAttrRef(e):
             """
@@ -475,42 +476,21 @@ class Rule(object):
         # If any of the expressions in the head are aggregate expression,
         # construct a group by
         if any([expression.isaggregate(v) for v in self.head.valuerefs]):
-            # GroupBy expects grouping terms to precede aggregate terms;
-            # rearrange terms and then fixup with an Apply operator
-
-            groups = [(orig_pos, col)
-                      for orig_pos, col in enumerate(columnlist)
-                      if not expression.isaggregate(col)]
-            aggs = [(orig_pos, col)
-                    for orig_pos, col in enumerate(columnlist)
-                    if expression.isaggregate(col)]
-
-            group_cols = [col for _, col in groups]
-            agg_cols = [col for _, col in aggs]
-            groupby = raco.algebra.GroupBy(group_cols, agg_cols, plan)
-
-            mappings = [(None, expression.UnnamedAttributeRef(orig_pos))
-                        for orig_pos, col in groups + aggs]
-
-            LOG.debug("creating groupby: \
-                      group_cols=%s agg_cols=%s mappings=%s",
-                      group_cols, agg_cols, mappings)
-
-            plan = raco.algebra.Apply(mappings, groupby)
+            emit_clause = [(None, a_or_g) for a_or_g in columnlist]
+            return raco.myrial.groupby.groupby(plan, emit_clause, [])
         elif any([not isinstance(e, Var) for e in self.head.valuerefs]):
             # If complex expressions in head, then precede Project with Apply
             # NOTE: should Apply actually just append emitters to schema
             # instead of doing column select?
             # we decided probably not in
             # https://github.com/uwescience/raco/pull/209
-            plan = raco.algebra.Apply([(None, e) for e in columnlist], plan)
-            plan = raco.algebra.Project([
-                                        expression.UnnamedAttributeRef(i)
-                                        for i, _ in enumerate(columnlist)],
-                                        plan)
+            plan = algebra.Apply([(None, e) for e in columnlist], plan)
+            plan = algebra.Project([expression.UnnamedAttributeRef(i)
+                                    for i, _ in enumerate(columnlist)],
+                                   plan)
         else:
             # otherwise, just build a Project
-            plan = raco.algebra.Project(columnlist, plan)
+            plan = algebra.Project(columnlist, plan)
 
         # If we found a cycle, the "root" of the plan is the fixpoint operator
         if self.fixpoint:
@@ -766,7 +746,7 @@ class Term(object):
         # Not really satisfied with this.
         try:
             sch = plan.scheme()
-        except raco.algebra.RecursionError:
+        except algebra.RecursionError:
             sch = scheme.Scheme([make_attr(i, r, term.name)
                                  for i, r in enumerate(term.valuerefs)])
 
@@ -794,7 +774,7 @@ class Term(object):
                     for i, (new, old) in enumerate(pairs)]
 
         # Use an apply operator to implement the renaming
-        plan = raco.algebra.Apply(mappings, plan)
+        plan = algebra.Apply(mappings, plan)
 
         return plan
 
@@ -812,8 +792,8 @@ class Term(object):
         else:
             sch = scheme.Scheme([make_attr(i, r, self.name)
                                  for i, r in enumerate(self.valuerefs)])
-            rel_key = relation_key.RelationKey.from_string(self.name)
-            scan = raco.algebra.Scan(rel_key, sch)
+            rel_key = RelationKey.from_string(self.name)
+            scan = algebra.Scan(rel_key, sch)
             scan.trace("originalterm", "%s (position %s)" % (self, self.originalorder))  # noqa
 
         # collect conditions within the term itself, like A(X,3) or A(Y,Y)
@@ -826,7 +806,7 @@ class Term(object):
 
         if allconditions:
             conjunction = reduce(expression.AND, allconditions)
-            plan = raco.algebra.Select(conjunction, scan)
+            plan = algebra.Select(conjunction, scan)
         else:
             plan = scan
 

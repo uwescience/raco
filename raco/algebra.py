@@ -1308,13 +1308,15 @@ class Sequence(NaryOperator):
 class DoWhile(NaryOperator):
     def __init__(self, ops=None):
         """Repeatedly execute a sequence of plans until a termination
-           condition.
+        condition.
 
         :params ops: A list of operations to execute in serial.  By convention,
         the last operation is the termination condition.  The termination
         condition should map to a single row, single column relation.  The loop
         continues if its value is True.
         """
+        if ops is not None:
+            assert len(ops) >= 2, "DoWhile should have at least two children"
         NaryOperator.__init__(self, ops)
 
     def num_tuples(self):

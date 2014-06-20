@@ -8,7 +8,6 @@ from raco import algebra, expression, rules
 from raco.catalog import Catalog
 from raco.language import Language
 from raco.utility import emit
-from raco.relation_key import RelationKey
 from expression import (accessed_columns, to_unnamed_recursive,
                         UnnamedAttributeRef)
 from raco.expression.aggregate import DecomposableAggregate
@@ -178,17 +177,14 @@ class MyriaScan(algebra.Scan, MyriaOperator):
         return {
             "opType": "TableScan",
             "relationKey": relation_key_to_json(self.relation_key),
-            "temporary": False,
         }
 
 
 class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
     def compileme(self):
         return {
-            "opType": "TableScan",
-            "relationKey": relation_key_to_json(RelationKey.from_string(
-                "public:__TEMP__:" + self.name)),
-            "temporary": True,
+            "opType": "TempTableScan",
+            "table": self.name,
         }
 
 
@@ -259,7 +255,6 @@ class MyriaStore(algebra.Store, MyriaOperator):
             "opType": "DbInsert",
             "relationKey": relation_key_to_json(self.relation_key),
             "argOverwriteTable": True,
-            "argTemporary": False,
             "argChild": inputid,
         }
 
@@ -267,10 +262,8 @@ class MyriaStore(algebra.Store, MyriaOperator):
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
     def compileme(self, inputid):
         return {
-            "opType": "DbInsert",
-            "relationKey": relation_key_to_json(RelationKey.from_string(
-                "public:__TEMP__:" + self.name)),
-            "argTemporary": True,
+            "opType": "TempInsert",
+            "table": self.name,
             "argOverwriteTable": True,
             "argChild": inputid,
         }
@@ -792,28 +785,20 @@ class ShuffleBeforeJoin(rules.Rule):
                              expr.left.scheme() + expr.right.scheme())
 
         # Left shuffle
-        if isinstance(expr.left, algebra.Shuffle):
-            left_shuffle = expr.left
-        else:
-            left_cols = [expression.UnnamedAttributeRef(i)
-                         for i in left_cols]
-            left_shuffle = algebra.Shuffle(expr.left, left_cols)
+        left_cols = [expression.UnnamedAttributeRef(i)
+                     for i in left_cols]
+        left_shuffle = algebra.Shuffle(expr.left, left_cols)
         # Right shuffle
-        if isinstance(expr.right, algebra.Shuffle):
-            right_shuffle = expr.right
-        else:
-            right_cols = [expression.UnnamedAttributeRef(i)
-                          for i in right_cols]
-            right_shuffle = algebra.Shuffle(expr.right, right_cols)
+        right_cols = [expression.UnnamedAttributeRef(i)
+                      for i in right_cols]
+        right_shuffle = algebra.Shuffle(expr.right, right_cols)
 
         # Construct the object!
+        assert isinstance(expr, algebra.ProjectingJoin)
         if isinstance(expr, algebra.ProjectingJoin):
             return algebra.ProjectingJoin(expr.condition,
                                           left_shuffle, right_shuffle,
                                           expr.output_columns)
-        elif isinstance(expr, algebra.Join):
-            return algebra.Join(expr.condition, left_shuffle, right_shuffle)
-        raise NotImplementedError("How the heck did you get here?")
 
 
 class HCShuffleBeforeNaryJoin(rules.Rule):
@@ -1700,29 +1685,15 @@ class OpIdFactory(object):
         return lambda: self.alloc()
 
 
-def label_op_to_op(label, op):
-    """If needed, insert a Store above the op with the relation name label"""
-    if isinstance(op, (algebra.Store, algebra.StoreTemp)):
-        # Already a store, we're done
-        return op
-
-    if not label:
-        raise ValueError(
-            'label must be a non-empty string, {} {}'.format(label, op))
-
+def ensure_store_temp(label, op):
+    """Returns a StoreTemp that assigns the given operator to a temp relation
+    with the given name. Op must be a 'normal operator', i.e.,
+    not a Store/StoreTemp or a control-flow sub-plan operator."""
+    assert not isinstance(op, (algebra.Store, algebra.StoreTemp))
+    assert not isinstance(op, (algebra.Sequence, algebra.Parallel,
+                               algebra.DoWhile))
+    assert isinstance(label, basestring) and len(label) > 0
     return MyriaStoreTemp(input=op, name=label)
-
-
-def op_list_to_operator(physical_plan):
-    """Given a Datalog-style list (label, root_operator) of IDBs,
-    add a Store operator to name the output of that operator the
-    corresponding label. Gracefully handle the missing label or present Store
-    cases."""
-    if len(physical_plan) == 1:
-        (label, op) = physical_plan[0]
-        return label_op_to_op(label, op)
-
-    return algebra.Parallel(label_op_to_op(l, o) for (l, o) in physical_plan)
 
 
 def compile_fragment(frag_root):
@@ -1821,15 +1792,13 @@ def compile_plan(plan_op):
         condition = children[-1]
         if isinstance(condition, subplan_ops):
             raise ValueError('DoWhile condition cannot be a subplan op {cls}'.format(cls=condition.__class__))  # noqa
-        condition = label_op_to_op('__dowhile_{}_condition'.format(id(
+        condition = ensure_store_temp('__dowhile_{}_condition'.format(id(
             plan_op)), condition)
         plan_op.args = children[:-1] + [condition]
         body = [compile_plan(pl_op) for pl_op in plan_op.children()]
-        condition_lbl = RelationKey.from_string(
-            "public:__TEMP__:" + condition.name)
         return {"type": "DoWhile",
                 "body": body,
-                "condition": relation_key_to_json(condition_lbl)}
+                "condition": condition.name}
 
     raise NotImplementedError("compiling subplan op {}".format(type(plan_op)))
 
@@ -1839,24 +1808,17 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     submission to the Myria REST API server. The logical plan is converted to a
     string and passed along unchanged."""
 
+    # Store/StoreTemp is a reasonable physical plan... for now.
+    if isinstance(physical_plan, (algebra.Store, algebra.StoreTemp)):
+        physical_plan = algebra.Parallel([physical_plan])
+
+    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
+    assert isinstance(physical_plan, subplan_ops), \
+        'Physical plan must be a subplan operator, not {}'.format(type(physical_plan))  # noqa
+
     # raw_query must be a string
     if not isinstance(raw_query, basestring):
         raise ValueError("raw query must be a string")
-
-    # old-style plan with (name, root_op) pair. Turn it into a single operator.
-    # If the list has length > 1, it will be a Parallel. Otherwise it will
-    # just be the root operator.
-    if isinstance(physical_plan, list):
-        physical_plan = op_list_to_operator(physical_plan)
-
-    # At this point physical_plan better be a single operator
-    if not isinstance(physical_plan, algebra.Operator):
-        raise ValueError('Physical plan must be an operator')
-
-    # If the physical_plan is not a SubPlan operator, make it a Parallel
-    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
-    if not isinstance(physical_plan, subplan_ops):
-        physical_plan = algebra.Parallel([physical_plan])
 
     return {"rawDatalog": raw_query,
             "logicalRa": str(logical_plan),

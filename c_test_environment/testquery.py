@@ -17,7 +17,7 @@ def make_query(name, query, delim=','):
 
     template = """
     %(query)s
-    """ 
+    """
 
     outputname = "%s.sqlite.out" % (name)
 
@@ -57,27 +57,30 @@ class ClangRunner(PlatformRunner):
         """
 
         envir = os.environ.copy()
-
         # cpp -> exe
         exe_name = './%s.exe' % (name)
-        subprocess.check_call(['make', exe_name], env=envir)
+        try:
+            subprocess.check_output(['make', 'clean'],
+                                    stderr=subprocess.STDOUT,
+                                    env=envir)
+            subprocess.check_output(['make', exe_name],
+                                    stderr=subprocess.STDOUT,
+                                    env=envir)
+        except subprocess.CalledProcessError as e:
+            print 'make {exe} failed:'.format(exe=exe_name)
+            print e.output
+            raise
 
         # run cpp
         testoutfn = '%s/%s.out' % (tmppath, name)
-        with open(testoutfn, 'w') as outs:
-            try:
+        try:
+            with open(testoutfn, 'w') as outs:
                 subprocess.check_call([exe_name], stdout=outs, env=envir)
-            except subprocess.CalledProcessError as e1:
-                # try again, this time collecting all output to print it
-                try:
-                    subprocess.check_call([exe_name], stderr=subprocess.STDOUT, env=envir)
-                    raise e1  # just in case this doesn't fail again
-                except subprocess.CalledProcessError as e2:
-                    print "see executable %s" % (os.path.abspath(exe_name))
-                    print subprocess.check_output(['ls', '-l', exe_name], env=envir)
-                    print subprocess.check_output(['cat', '%s.cpp' % (name)], env=envir)
-
-                    raise Exception('(Process output below)\n'+e2.output+'\n(end process output)')
+        except subprocess.CalledProcessError:
+            print "see executable %s" % (os.path.abspath(exe_name))
+            print subprocess.check_output(['ls', '-l', exe_name], env=envir)
+            print subprocess.check_output(['cat', testoutfn], env=envir)
+            raise
 
         return testoutfn
 
@@ -167,12 +170,12 @@ class SqliteRunner(PlatformRunner):
 
 
 def checkquery(name, testplatform, trustedplatform=SqliteRunner("testqueries"), tmppath="tmp"):  # noqa
-    
+
     """
     @param name: name of query
     @param tmppath: existing directory for temporary files
     """
- 
+
     osutils.mkdir_p(tmppath)
     abstmppath = os.path.abspath(tmppath)
 

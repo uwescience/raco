@@ -79,19 +79,12 @@ class CC(Language):
         return "%s = %s;" % (x, y)
 
     @staticmethod
-    def initialize(resultsym):
-        return ""
-
-    @staticmethod
-    def body(compileResult, resultsym):
+    def body(compileResult):
         queryexec = compileResult.getExecutionCode()
         initialized = compileResult.getInitCode()
         declarations = compileResult.getDeclCode()
+        resultsym = "__result__"
         return base_template % locals()
-
-    @staticmethod
-    def finalize(resultsym):
-        return ""
 
     @staticmethod
     def pipeline_wrap(ident, code, attrs):
@@ -266,7 +259,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         state.addDeclarations([hash_declr])
 
         LOG.debug("aggregates: %s", self.aggregate_list)
-        LOG.debug("columns: %s", self.column_list)
+        LOG.debug("columns: %s", self.column_list())
         LOG.debug("groupings: %s", self.grouping_list)
         LOG.debug("groupby scheme: %s", self.scheme())
         LOG.debug("groupby scheme[0] type: %s", type(self.scheme()[0]))
@@ -275,7 +268,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
         # now that everything is aggregated, produce the tuples
         assert (not self.useMap) \
-            or isinstance(self.column_list[0],
+            or isinstance(self.column_list()[0],
                           expression.UnnamedAttributeRef), \
             "assumes first column is the key and second is aggregate result"
 

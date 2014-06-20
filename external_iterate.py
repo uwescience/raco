@@ -41,10 +41,10 @@ def evaluate(plan, connection=None, validate=False):
         if d[0].values()[0]:
             evaluate(plan, connection, validate)
 
-
     elif isinstance(plan, algebra.Sequence):
         for child in plan.children():
             evaluate(child, connection, validate)
+
     else:
         logical = str(plan)
         physical = plan

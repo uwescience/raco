@@ -28,13 +28,12 @@ typedef unsigned uint64;
 #include <iostream>
 typedef int64_t int64;
 typedef uint64_t uint64;
- 
+
 #include <unordered_map>
 #include <vector>
 #endif
 
 #include "io_util.h"
-#include "counters_util.h"
 #include "hash.h"
 #include "utils.h"
 #include "strings.h"
@@ -101,17 +100,10 @@ void init( ) {
 
 void query(struct relationInfo *resultInfo)
 {
-  printf("\nstarting Query\n");
-
-  int numCounters = 7;
-  int currCounter = 0;
-  int *counters = mallocCounterMemory(numCounters);
+  printf("\nstarting Query stdout\n");fflush(stdout);
 
   double start = timer();
 
-  getCounters(counters, currCounter);
-  currCounter = currCounter + 1; // 1
-  
   uint64 resultcount = 0;
   struct relationInfo %(resultsym)s_val;
   struct relationInfo *%(resultsym)s = &%(resultsym)s_val;
@@ -122,7 +114,7 @@ void query(struct relationInfo *resultInfo)
   // -----------------------------------------------------------
   %(initialized)s
 
-  
+
  %(queryexec)s
 
 
@@ -141,11 +133,18 @@ int main(int argc, char **argv) {
 
   init();
 
+    printf("post-init stdout\n");fflush(stdout);
+
   // Execute the query
   query(&resultInfo);
+
+    printf("post-query stdout\n");fflush(stdout);
 
 #ifdef ZAPPA
 //  printrelation(&resultInfo);
 #endif
 //  free(resultInfo.relation);
+
+    printf("exiting stdout\n");fflush(stdout);
+
 }

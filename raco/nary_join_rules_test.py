@@ -14,8 +14,12 @@ class testNaryJoin(unittest.TestCase):
         dlog.optimize(
             target=myrialang.MyriaHyperCubeAlgebra(
                 FakeCatalog(num_server, child_size)))
-        # from raco.myrialang import compile_to_json
-        return dlog.physicalplan[0][1]
+        ret = dlog.physicalplan
+        assert isinstance(ret, algebra.Parallel)
+        assert len(ret.children()) == 1
+        ret = ret.children()[0]
+        assert isinstance(ret, algebra.Store)
+        return ret.input
 
     def test_merge_to_nary_join(self):
         """ Test the rule merging binary join to nary join.

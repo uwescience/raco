@@ -67,10 +67,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
             algebra = MyriaLeftDeepTreeAlgebra()
         else:
             algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
-        physical_plans = optimize([('root', lp)],
-                                  target=algebra,
-                                  source=LogicalAlgebra)
-        return physical_plans[0][1]
+        return optimize(lp,
+                        target=algebra,
+                        source=LogicalAlgebra)
 
     @staticmethod
     def get_count(op, claz):
@@ -85,7 +84,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
     @staticmethod
     def get_num_select_conjuncs(op):
-        """Get the number of conjuntions within all select operations."""
+        """Get the number of conjunctions within all select operations."""
         def count(_op):
             if isinstance(_op, Select):
                 yield len(expression.extract_conjuncs(_op.condition))

@@ -5,6 +5,7 @@ from raco.myrialang import compile_to_json
 import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
+import raco.viz
 
 
 class MyrialTestCase(unittest.TestCase):
@@ -24,9 +25,16 @@ class MyrialTestCase(unittest.TestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         if logical:
-            return self.processor.get_logical_plan()
+            p = self.processor.get_logical_plan()
         else:
-            return self.processor.get_physical_plan(multiway_join)
+            p = self.processor.get_physical_plan(multiway_join)
+        # verify that we can stringify p
+        # TODO verify the string somehow?
+        assert str(p)
+        # verify that we can convert p to a dot
+        # TODO verify the dot somehow?
+        raco.viz.get_dot(p)
+        return p
 
     def get_logical_plan(self, query):
         '''Get the logical plan for a MyriaL query'''

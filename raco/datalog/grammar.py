@@ -162,7 +162,9 @@ def mkrule(x):
     running through wsgi"""
     return model.Rule(x)
 
-rule = (head + Group(body) + Optional(drop(";"))).setParseAction(mkrule)
+rule = (head + Group(body)
+        + Optional(drop(";")) + Optional(drop(".")))
+rule.setParseAction(mkrule)
 
 
 def mkprogram(x):
