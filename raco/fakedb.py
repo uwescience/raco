@@ -173,6 +173,13 @@ class FakeDatabase(Catalog):
         s = set(it)
         return iter(s)
 
+    def project(self, op):
+        if not op.columnlist:
+            return self.distinct(op)
+
+        return set(tuple(t[x.position] for x in op.columnlist)
+                   for t in self.evaluate(op.input))
+
     def limit(self, op):
         it = self.evaluate(op.input)
         return itertools.islice(it, op.count)
@@ -189,6 +196,9 @@ class FakeDatabase(Catalog):
         left_it = self.evaluate(op.left)
         right_it = self.evaluate(op.right)
         return itertools.chain(left_it, right_it)
+
+    def union(self, op):
+        return set(x for x in self.unionall(op))
 
     def difference(self, op):
         its = [self.evaluate(op.left), self.evaluate(op.right)]
