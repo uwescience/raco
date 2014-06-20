@@ -1,0 +1,6 @@
+-- Invariant: val = 2^exp
+x = [1 as val, 0 as exp];
+do
+  x = [from x emit val*2 as val, exp+1 as exp];
+while [from x emit exp < 5];
+store(x, powersOfTwo);
