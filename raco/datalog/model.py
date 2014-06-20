@@ -10,6 +10,7 @@ from raco import expression
 import raco.algebra as algebra
 from raco import scheme
 import raco.catalog
+import raco.myrial.groupby
 from raco.relation_key import RelationKey
 import raco.types
 
@@ -475,28 +476,8 @@ class Rule(object):
         # If any of the expressions in the head are aggregate expression,
         # construct a group by
         if any([expression.isaggregate(v) for v in self.head.valuerefs]):
-            # GroupBy expects grouping terms to precede aggregate terms;
-            # rearrange terms and then fixup with an Apply operator
-
-            groups = [(orig_pos, col)
-                      for orig_pos, col in enumerate(columnlist)
-                      if not expression.isaggregate(col)]
-            aggs = [(orig_pos, col)
-                    for orig_pos, col in enumerate(columnlist)
-                    if expression.isaggregate(col)]
-
-            group_cols = [col for _, col in groups]
-            agg_cols = [col for _, col in aggs]
-            groupby = algebra.GroupBy(group_cols, agg_cols, plan)
-
-            mappings = [(None, expression.UnnamedAttributeRef(orig_pos))
-                        for orig_pos, col in groups + aggs]
-
-            LOG.debug("creating groupby: \
-                      group_cols=%s agg_cols=%s mappings=%s",
-                      group_cols, agg_cols, mappings)
-
-            plan = algebra.Apply(mappings, groupby)
+            emit_clause = [(None, a_or_g) for a_or_g in columnlist]
+            return raco.myrial.groupby.groupby(plan, emit_clause, [])
         elif any([not isinstance(e, Var) for e in self.head.valuerefs]):
             # If complex expressions in head, then precede Project with Apply
             # NOTE: should Apply actually just append emitters to schema
