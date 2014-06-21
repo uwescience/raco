@@ -864,8 +864,11 @@ class OrderBy(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return "%s(%s, asc:%s)" % (
-            self.opname(), self.sort_columns, self.ascending)
+        ascend_string = ['+' if a else '-' for a in self.ascending]
+        sort_string = ','.join('{col}{asc}'.format(col=c, asc=a)
+                               for c, a in zip(self.sort_columns,
+                                               ascend_string))
+        return "%s(%s)" % (self.opname(), sort_string)
 
     def copy(self, other):
         """deep copy"""
