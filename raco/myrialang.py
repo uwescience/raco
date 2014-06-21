@@ -643,8 +643,13 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        hash_string = ','.join([str(x) for x in self.hashed_columns])
-        return "%s(h(%s))" % (self.opname(), hash_string)
+        dest_cells = ["*"] * len(self.hyper_cube_dimensions)
+        assert len(self.mapped_hc_dimensions) == len(self.hashed_columns)
+        for i, hashed_col in enumerate(self.hashed_columns):
+            dest_cells[self.mapped_hc_dimensions[i]] = "h(%s)" % str(
+                hashed_col)
+        hash_string = ",".join(dest_cells)
+        return "%s(%s)" % (self.opname(), hash_string)
 
     def compileme(self, inputsym):
         return {
