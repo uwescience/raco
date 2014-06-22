@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from raco.scheme import Scheme
 from raco.language import FederatedAlgebra
 from raco.algebra import *
