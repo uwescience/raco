@@ -2,7 +2,7 @@ import emitcode
 import raco.algebra as algebra
 import raco.rules as rules
 from raco.grappalang import GrappaSymmetricHashJoin, GrappaHashJoin
-from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
+from raco.language import CCAlgebra, GrappaAlgebra
 
 
 tr = "sp2bench_1m"

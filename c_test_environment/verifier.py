@@ -2,6 +2,8 @@ import re
 import sys
 
 def verify(testout, expected, ordered):
+    numpat = re.compile(r'(\d+)')
+    tuplepat = re.compile(r'Materialized')
     test = ({}, [])
     expect = ({}, [])
 
@@ -18,9 +20,10 @@ def verify(testout, expected, ordered):
 
     with open(testout, 'r') as file:
         for line in file.readlines():
-            if re.match(r'Materialized', line):
+            m = tuplepat.search(line)
+            if m:
                 tlist = []
-                for number in re.finditer(r'(\d+)', line):
+                for number in numpat.finditer(line, m.end()):
                     tlist.append(int(number.group(0)))
 
                 t = tuple(tlist)
@@ -29,7 +32,7 @@ def verify(testout, expected, ordered):
     with open(expected, 'r') as file:
         for line in file.readlines():
             tlist = []
-            for number in re.finditer(r'(\d+)', line):
+            for number in numpat.finditer(line):
                 tlist.append(int(number.group(0)))
 
             t = tuple(tlist)

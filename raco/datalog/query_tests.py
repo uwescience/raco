@@ -3,6 +3,7 @@ import collections
 import raco.scheme as scheme
 import raco.datalog.datalog_test as datalog_test
 from raco import types
+from raco.language import MyriaHyperCubeAlgebra
 
 
 class TestQueryFunctions(datalog_test.DatalogTestCase):
@@ -81,7 +82,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
                 department(dept_id, dept_name, c)
         """
 
-        self.check_result(query, expected)
+        self.check_result(query, expected, output='EmpDepts')
 
     def test_filter(self):
         query = """
@@ -91,7 +92,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         expected = collections.Counter(
             [(x[2],) for x in TestQueryFunctions.emp_table.elements()
              if x[3] > 25000])
-        self.check_result(query, expected)
+        self.check_result(query, expected, output='RichGuys')
 
     def test_count(self):
         query = """
@@ -104,7 +105,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
 
         ex = [(src, cnt) for src, cnt in counter.iteritems()]
         expected = collections.Counter(ex)
-        self.check_result(query, expected)
+        self.check_result(query, expected, output='OutDegree')
 
     def test_sum_reorder(self):
         query = """
@@ -113,7 +114,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         for emp in self.emp_table.elements():
             results[emp[1]] += emp[3]
         expected = collections.Counter([(y, x) for x, y in results.iteritems()])  # noqa
-        self.check_result(query, expected)
+        self.check_result(query, expected, output='SalaryByDept')
 
     def test_aggregate_no_groups(self):
         query = """
@@ -121,7 +122,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         """
         expected = collections.Counter([
             (len(self.edge_table),)])
-        self.check_result(query, expected)
+        self.check_result(query, expected, output='Total')
 
     def test_multiway_join_chained(self):
         query = """
@@ -131,7 +132,7 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         """
 
         expected = collections.Counter([(4,), (5,)])
-        self.check_result(query, expected)
+        self.check_result(query, expected, output='ThreeHop')
 
     def test_triangles(self):
         # TODO. Right now we have do this separately so that the x<y and y<z
@@ -143,11 +144,147 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         """
 
         expected = collections.Counter([(3, 5, 4), (10, 11, 12)])
-        self.check_result(query, expected)
+        self.check_result(query, expected, output='A')
 
     def test_multiway_join(self):
         query = """
         ThreeHop(z) :- Edge(1, x), Edge(x,y), Edge(y, z);
         """
         expected = collections.Counter([(4,), (5,)])
+        self.check_result(query, expected, output='ThreeHop')
+
+    def test_multiway_join_hyper_cube(self):
+        query = """
+        ThreeHop(z) :- Edge(1, x), Edge(x,y), Edge(y, z);
+        """
+        expected = collections.Counter([(4,), (5,)])
+        self.check_result(query, expected, output='ThreeHop',
+                          algebra=MyriaHyperCubeAlgebra)
+
+    def test_union(self):
+        query = """
+        OUTPUT(b) :- {emp}(a, b, c, d)
+        OUTPUT(b) :- {edge}(b, a)
+        """.format(emp=self.emp_key, edge=self.edge_key)
+        expected = collections.Counter(
+            set([(b,) for (a, b, c, d) in self.emp_table]
+                + [(b,) for (b, a) in self.edge_table])
+        )
+        self.check_result(query, expected, test_logical=True)
+
+    def test_filter_expression(self):
+        query = """
+        OUTPUT(a, b, c) :- {emp}(a, b, c, d), d >= 25000, d < 91000
+        """.format(emp=self.emp_key)
+        expected = collections.Counter(
+            [(a, b, c)
+             for (a, b, c, d) in self.emp_table
+             if (d >= 25000 and d < 91000)]
+        )
+        self.check_result(query, expected)
+
+    def test_attributes_forward(self):
+        """test that attributes are correct amid multiple conditions"""
+        query = """
+        OUTPUT(a) :- {edge}(a, b), {emp}(c, a, x, y), b=c
+        """.format(emp=self.emp_key, edge=self.edge_key)
+        expected = collections.Counter(
+            [(a,)
+             for (a, b) in self.edge_table
+             for (c, a2, x, y) in self.emp_table
+             if (a == a2 and b == c)]
+        )
+        self.check_result(query, expected)
+
+    def test_attributes_reverse(self):
+        """test that attributes are correct amid multiple conditions and when
+        the order of variables in the terms is the opposite of the explicit
+        condition"""
+        query = """
+        OUTPUT(a) :- {edge}(a, b), {emp}(c, a, x, y), c=b
+        """.format(emp=self.emp_key, edge=self.edge_key)
+        expected = collections.Counter(
+            [(a,)
+             for (a, b) in self.edge_table
+             for (c, a2, x, y) in self.emp_table
+             if (a == a2 and b == c)]
+        )
+        self.check_result(query, expected)
+
+    def test_apply_head(self):
+        query = """
+        OUTPUT(a/b) :- {emp}(a, b, c, d)
+        """.format(emp=self.emp_key)
+        expected = collections.Counter([
+            (a * 1.0 / b,) for (a, b, _, _) in self.emp_table
+        ])
+        self.check_result(query, expected)
+
+    def test_aggregate_head(self):
+        query = """
+        OUTPUT(SUM(a)) :- {emp}(a, b, c, d)
+        """.format(emp=self.emp_key)
+        expected = collections.Counter([
+            (sum(a for (a, _, _, _) in self.emp_table),)
+        ])
+        self.check_result(query, expected)
+
+    def test_twoaggregate_head(self):
+        query = """
+        OUTPUT(SUM(a), COUNT(b)) :- {emp}(a, b, c, d)
+        """.format(emp=self.emp_key)
+        expected = collections.Counter([
+            (sum(a for (a, _, _, _) in self.emp_table),
+             sum(1 for (_, b, _, _) in self.emp_table))
+        ])
+        self.check_result(query, expected)
+
+    def test_aggregate_head_group_self(self):
+        query = """
+        OUTPUT(SUM(a), b) :- {emp}(a, b, c, d)
+        """.format(emp=self.emp_key)
+        B = set(b for (_, b, _, _) in self.emp_table)
+        expected = collections.Counter([
+            (sum(a for (a, b, _, _) in self.emp_table
+                 if b == b2), b2)
+            for b2 in B
+        ])
+        self.check_result(query, expected)
+
+    def test_aggregate_head_group_swap(self):
+        query = """
+        OUTPUT(b,SUM(a)) :- {emp}(a, b, c, d)
+        """.format(emp=self.emp_key)
+        B = set(b for (_, b, _, _) in self.emp_table)
+        expected = collections.Counter([
+            (b2, sum(a for (a, b, _, _) in self.emp_table
+                     if b == b2))
+            for b2 in B
+        ])
+        self.check_result(query, expected)
+
+    def test_binop_aggregates(self):
+        query = """
+        OUTPUT(SUM(b)+SUM(a)) :- {emp}(a, b, c, d)
+        """.format(emp=self.emp_key)
+        expected = collections.Counter([
+            (sum(b for (a, b, _, _) in self.emp_table) +
+             sum(a for (a, b, _, _) in self.emp_table),)
+        ])
+        self.check_result(query, expected)
+
+    def test_aggregate_of_binop(self):
+        query = """
+        OUTPUT(SUM(b+a)) :- {emp}(a, b, c, d)
+        """.format(emp=self.emp_key)
+        expected = collections.Counter(
+            [(sum([(a + b) for (a, b, c, d) in self.emp_table]),)])
+        self.check_result(query, expected)
+
+    def test_literal_expr(self):
+        query = """
+        OUTPUT(z+1) :- Edge(z, y)
+        """
+        expected = collections.Counter([(z + 1,)
+                                        for (z, _) in self.edge_table])
         self.check_result(query, expected)

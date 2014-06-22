@@ -29,7 +29,7 @@ class SigmaClippingTest(myrial_test.MyrialTestCase):
     def run_it(self, query):
         points = [(i, x) for i, x in self.points_tuples if x < 28 and x > 22]
         expected = collections.Counter(points)
-        self.check_result(query, expected)
+        self.check_result(query, expected, output='sc_points_clipped')
 
     def test_v0(self):
         with open('examples/sigma-clipping-v0.myl') as fh:

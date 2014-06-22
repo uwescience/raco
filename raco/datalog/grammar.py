@@ -90,6 +90,7 @@ def checkval(xs):
 groundcondition = Group(literal + binop + literal)
 # groundcondition.setParseAction(checkval)
 
+# TODO: deeper expression trees
 condition = (valueref + binop + valueref)
 condition.setParseAction(parsebinop)
 
@@ -107,6 +108,11 @@ timeexpr.setParseAction(lambda xs: "".join([str(x) for x in xs]))
 timestep = drop("#") + (intNum | timeexpr | variable)
 timestep.setParseAction(lambda x: model.Timestep(x[0]))
 
+# expressions without aggregates
+# TODO more complete
+simpleArithExpression = (valueref + binop + valueref)
+simpleArithExpression.setParseAction(parsebinop)
+
 
 def mkagg(x):
     opstr, arg = x
@@ -115,10 +121,12 @@ def mkagg(x):
             return aggclass(arg)
     raise "Aggregate Function %s not found among %s" % (opstr, aggregate_functions)  # noqa
 
-aggregate = (Word(alphas) + drop("(") + variable + drop(")"))
+aggregate = (Word(alphas) + drop("(") + variable + drop(")")) | \
+            (Word(alphas) + drop("(") + simpleArithExpression + drop(")"))
 aggregate.setParseAction(mkagg)
 
 
+# expressions containing aggregates
 # TODO deeper instead of enumeration
 arithExpression = (aggregate + binop + aggregate) | \
                   (valueref + binop + valueref) | \
@@ -154,7 +162,9 @@ def mkrule(x):
     running through wsgi"""
     return model.Rule(x)
 
-rule = (head + Group(body) + Optional(drop(";"))).setParseAction(mkrule)
+rule = (head + Group(body)
+        + Optional(drop(";")) + Optional(drop(".")))
+rule.setParseAction(mkrule)
 
 
 def mkprogram(x):

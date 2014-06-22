@@ -1,4 +1,4 @@
-from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
+from raco.language import CCAlgebra, GrappaAlgebra
 from emitcode import emitCode
 
 import logging

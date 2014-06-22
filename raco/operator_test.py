@@ -2,7 +2,7 @@ import unittest
 import collections
 
 import raco.fakedb
-import raco.scheme as scheme
+from raco.relation_key import RelationKey
 from raco.algebra import *
 from raco.expression import *
 import raco.relation_key as relation_key
@@ -68,16 +68,18 @@ class OperatorTest(unittest.TestCase):
         sapply = StatefulApply([("avg", avgex)],
                                [("count", initex0, updateex0),
                                 ("sum", initex1, updateex1)], scan)
+
+        store = Store(RelationKey("OUTPUT"), sapply)
         result = list(self.db.evaluate(sapply))
 
         self.assertEqual(len(result), len(TestQueryFunctions.emp_table))
         self.assertEqual([x[0] for x in result][-1], 37857)
 
         # test whether we can generate json without errors
-        from myrialang import compile_to_json, MyriaAlgebra
+        from myrialang import compile_to_json, MyriaLeftDeepTreeAlgebra
         from compile import optimize
         import json
-        json_string = json.dumps(compile_to_json("", None, optimize([('root', sapply)], LogicalAlgebra, MyriaAlgebra)))  # noqa
+        json_string = json.dumps(compile_to_json("", None, optimize(store, MyriaLeftDeepTreeAlgebra(), LogicalAlgebra)))  # noqa
         assert json_string
 
     def test_cast_to_float(self):
