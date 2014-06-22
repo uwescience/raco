@@ -27,6 +27,7 @@ def optimize_by_rules(expr, rules):
 def optimize(expr, target, source, eliminate_common_subexpressions=False):
     """Fire the rule-based optimizer on an expression.  Fire all rules in the
     source algebra (logical) and the target algebra (physical)"""
+
     assert isinstance(expr, algebra.Operator)
 
     def opt(expr):
