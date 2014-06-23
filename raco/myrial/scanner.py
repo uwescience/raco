@@ -5,7 +5,7 @@ import ply.lex as lex
 import raco.myrial.exceptions
 
 keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
-            'ELSE', 'END', 'CONST', 'LOAD', 'DUMP']
+            'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CONNECT']
 
 types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN']
 
@@ -28,7 +28,7 @@ tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
           'TIMES', 'DIVIDE', 'IDIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ', 'NE',
           'NE2', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
           'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL', 'LBRACE',
-          'RBRACE'] + reserved
+          'RBRACE', 'PERCENT'] + reserved
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('
@@ -58,6 +58,7 @@ t_SEMI = r';'
 t_EQUALS = r'='
 t_COLON = r':'
 t_DOLLAR = r'\$'
+t_PERCENT = r'%'
 
 # Regular expressions for non-trivial tokens
 

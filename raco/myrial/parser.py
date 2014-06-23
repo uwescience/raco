@@ -229,6 +229,16 @@ class Parser(object):
         p[0] = None
 
     @staticmethod
+    def p_statement_connect(p):
+        'statement : CONNECT LPAREN external_lang COMMA STRING_LITERAL RPAREN'
+        p[0] = ('CONNECT', p[3], p[5])
+
+    @staticmethod
+    def p_external_lang(p):
+        'external_lang : PERCENT unreserved_id'
+        p[0] = p[2]
+
+    @staticmethod
     def p_statement_assign(p):
         'statement : unreserved_id EQUALS rvalue SEMI'
         p[0] = ('ASSIGN', p[1], p[3])
