@@ -79,19 +79,12 @@ class CC(Language):
         return "%s = %s;" % (x, y)
 
     @staticmethod
-    def initialize(resultsym):
-        return ""
-
-    @staticmethod
-    def body(compileResult, resultsym):
+    def body(compileResult):
         queryexec = compileResult.getExecutionCode()
         initialized = compileResult.getInitCode()
         declarations = compileResult.getDeclCode()
+        resultsym = "__result__"
         return base_template % locals()
-
-    @staticmethod
-    def finalize(resultsym):
-        return ""
 
     @staticmethod
     def pipeline_wrap(ident, code, attrs):
@@ -213,6 +206,9 @@ class MemoryScan(algebra.UnaryOperator, CCOperator):
         state.addPipeline(code)
         return None
 
+    def num_tuples(self):
+        raise NotImplementedError("{}.num_tuples()".format(op=self.opname()))
+
     def shortStr(self):
         return "%s" % (self.opname())
 
@@ -268,7 +264,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         state.addDeclarations([hash_declr])
 
         LOG.debug("aggregates: %s", self.aggregate_list)
-        LOG.debug("columns: %s", self.column_list)
+        LOG.debug("columns: %s", self.column_list())
         LOG.debug("groupings: %s", self.grouping_list)
         LOG.debug("groupby scheme: %s", self.scheme())
         LOG.debug("groupby scheme[0] type: %s", type(self.scheme()[0]))
@@ -277,7 +273,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
         # now that everything is aggregated, produce the tuples
         assert (not self.useMap) \
-            or isinstance(self.column_list[0],
+            or isinstance(self.column_list()[0],
                           expression.UnnamedAttributeRef), \
             "assumes first column is the key and second is aggregate result"
 
@@ -505,23 +501,25 @@ class CCAlgebra(object):
         CGroupBy,
         CHashJoin
     ]
-    rules = [
-        # rules.OneToOne(algebra.Join,TwoPassHashJoin),
-        # rules.removeProject(),
-        rules.CrossProduct2Join(),
-        rules.SimpleGroupBy(),
-        #    FilteringNestedLoopJoinRule(),
-        #    FilteringHashJoinChainRule(),
-        #    LeftDeepFilteringJoinChainRule(),
-        rules.OneToOne(algebra.Select, CSelect),
-        #   rules.OneToOne(algebra.Select,TwoPassSelect),
-        #  rules.OneToOne(algebra.Scan,MemoryScan),
-        MemoryScanOfFileScan(),
-        rules.OneToOne(algebra.Apply, CApply),
-        rules.OneToOne(algebra.Join, CHashJoin),
-        rules.OneToOne(algebra.GroupBy, CGroupBy),
-        rules.OneToOne(algebra.Project, CProject),
-        # TODO: obviously breaks semantics
-        rules.OneToOne(algebra.Union, CUnionAll)
-        #  rules.FreeMemory()
-    ]
+
+    def opt_rules(self):
+        return [
+            # rules.OneToOne(algebra.Join,TwoPassHashJoin),
+            # rules.removeProject(),
+            rules.CrossProduct2Join(),
+            rules.SimpleGroupBy(),
+            #    FilteringNestedLoopJoinRule(),
+            #    FilteringHashJoinChainRule(),
+            #    LeftDeepFilteringJoinChainRule(),
+            rules.OneToOne(algebra.Select, CSelect),
+            #   rules.OneToOne(algebra.Select,TwoPassSelect),
+            #  rules.OneToOne(algebra.Scan,MemoryScan),
+            MemoryScanOfFileScan(),
+            rules.OneToOne(algebra.Apply, CApply),
+            rules.OneToOne(algebra.Join, CHashJoin),
+            rules.OneToOne(algebra.GroupBy, CGroupBy),
+            rules.OneToOne(algebra.Project, CProject),
+            # TODO: obviously breaks semantics
+            rules.OneToOne(algebra.Union, CUnionAll)
+            #  rules.FreeMemory()
+        ]

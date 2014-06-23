@@ -227,15 +227,12 @@ class Pipelined(object):
       """Denotation for consuming a tuple"""
       return
 
-    def compilePipeline(self, resultsym, emitprint=True):
+    def compilePipeline(self, emitprint=True):
       self.__markAllParents__()
       self.parent = TestEmit(self.language, emitprint)
 
       state = CompileState(self.language)
       
-      # TODO bound
-      # TODO should be using resultsym?? for what here?
-
       state.addCode( self.language.comment("Compiled subplan for %s" % self) )
 
       self.produce(state)

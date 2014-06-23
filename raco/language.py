@@ -21,16 +21,8 @@ class Language(object):
         return ""
 
     @staticmethod
-    def initialize(resultsym):
-        return ""
-
-    @staticmethod
     def body(compileResult):
         return compileResult
-
-    @staticmethod
-    def finalize(resultsym, body=""):
-        return ""
 
     @classmethod
     def compile_stringliteral(cls, value):
@@ -189,5 +181,6 @@ class CompileExpressionVisitor(expression.ExpressionVisitor):
 from raco.pythonlang import PythonAlgebra
 from raco.pseudocodelang import PseudoCodeAlgebra
 from raco.clang import CCAlgebra
-from raco.myrialang import MyriaAlgebra
+from raco.myrialang import MyriaLeftDeepTreeAlgebra
+from raco.myrialang import MyriaHyperCubeAlgebra
 from raco.grappalang import GrappaAlgebra

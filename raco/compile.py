@@ -24,46 +24,43 @@ def optimize_by_rules(expr, rules):
     return expr
 
 
-def optimize_by_rules_breadth_first(expr, rules):
-    def optimizeto(expr):
-        return optimize_by_rules(expr, rules)  # TODO: why isn't this BF too?
-
-    for rule in rules:
-        newexpr = rule(expr)
-        expr = newexpr
-    expr = expr.apply(optimizeto)
-    return expr
-
-
-def optimize(exprs, target, source, eliminate_common_subexpressions=False):
-    """Fire the rule-based optimizer on a list of exprs.  Fire all rules in the
+def optimize(expr, target, source, eliminate_common_subexpressions=False):
+    """Fire the rule-based optimizer on an expression.  Fire all rules in the
     source algebra (logical) and the target algebra (physical)"""
+    assert isinstance(expr, algebra.Operator)
+
     def opt(expr):
-        so = optimize_by_rules(expr, source.rules)
-        newexpr = optimize_by_rules(so, target.rules)
+        so = optimize_by_rules(expr, source.opt_rules())
+        newexpr = optimize_by_rules(so, target.opt_rules())
         if eliminate_common_subexpressions:
             newexpr = common_subexpression_elimination(newexpr)
         return newexpr
-    return [(var, opt(exp)) for var, exp in exprs]
+    return opt(expr)
 
 
-def compile(exprs):
+def compile(expr):
     """Compile physical plan to linearized form for execution"""
     # TODO: Fix this
     algebra.reset()
     exprcode = []
-    for result, expr in exprs:
-        lang = expr.language
-        init = lang.initialize(result)
 
-        # TODO cleanup this dispatch to be transparent
-        if isinstance(expr, Pipelined):
-            body = lang.body(expr.compilePipeline(result), result)
-        else:
-            body = lang.body(expr.compile(result))
+    # TODO, actually use Parallel[Store...]]? Right now assumes it
+    assert isinstance(expr, algebra.Parallel), "expected Parallel toplevel only"  # noqa
+    assert len(expr.children()) == 1, "expected single expression only"
+    store_expr = expr.children()[0]
+    assert isinstance(store_expr, algebra.Store)
+    assert len(store_expr.children()) == 1, "expected single expression only"  # noqa
 
-        final = lang.finalize(result)
-        exprcode.append(emit(init, body, final))
+    only_expr = store_expr.children()[0]
+
+    lang = only_expr.language
+
+    if isinstance(only_expr, Pipelined):
+        body = lang.body(only_expr.compilePipeline())
+    else:
+        body = lang.body(expr)
+
+    exprcode.append(emit(body))
     return emit(*exprcode)
 
 
@@ -100,11 +97,3 @@ def common_subexpression_elimination(expr):
                 return witness
 
     return expr.apply(replace)
-
-
-def showids(expr):
-    """Traverse the plan and show the operator ids"""
-    def getid(node):
-        yield node, id(node)
-
-    return expr.preorder(getid)

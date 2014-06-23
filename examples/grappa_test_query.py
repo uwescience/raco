@@ -1,5 +1,5 @@
 from raco import RACompiler
-from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
+from raco.language import CCAlgebra, GrappaAlgebra
 from raco.algebra import LogicalAlgebra
 
 import logging

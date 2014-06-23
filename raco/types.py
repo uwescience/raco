@@ -42,3 +42,9 @@ reverse_python_type_map = {v: k for k, v in python_type_map.iteritems()}
 def map_type(s):
     """Convert an arbitrary type to an internal type."""
     return TYPE_MAP[s]
+
+
+def parse_string(s, _type):
+    """Convert from a string to an internal python representation."""
+    assert _type in reverse_python_type_map
+    return reverse_python_type_map[_type](s)

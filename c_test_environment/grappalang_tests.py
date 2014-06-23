@@ -5,6 +5,7 @@ from generate_test_relations import generate_default
 from generate_test_relations import need_generate
 from raco.language import GrappaAlgebra
 from platform_tests import PlatformTest
+from nose.plugins.skip import SkipTest
 
 import sys
 import os
@@ -15,11 +16,13 @@ from osutils import Chdir
 
 class GrappaTest(unittest.TestCase, PlatformTest):
     def check(self, query, name):
+        raise SkipTest(query)
         with Chdir("c_test_environment") as d:
             emitCode(query, 'grappa_%s' % name, GrappaAlgebra)
             checkquery(name, GrappalangRunner())
 
     def setUp(self):
+        raise SkipTest()
         with Chdir("c_test_environment") as d:
             targetpath = os.path.join(os.environ.copy()['GRAPPA_HOME'], 'build/Make+Release/applications/join')
             if need_generate(targetpath):

@@ -4,6 +4,8 @@ from raco.utility import emit, emitlist, Printable
 
 from abc import ABCMeta, abstractmethod
 import copy
+import operator
+import math
 
 # BEGIN Code to generate variables names
 var_id = 0
@@ -19,6 +21,10 @@ def gensym():
     var_id += 1
     return "V%s" % var_id
 # END Code to generate variables names
+
+
+# Global constants
+DEFAULT_CARDINALITY = 10000
 
 
 class RecursionError(ValueError):
@@ -41,6 +47,10 @@ class Operator(Printable):
         self._trace = []
 
     @abstractmethod
+    def apply(self, f):
+        """ apply function f to its children. """
+
+    @abstractmethod
     def children(self):
         """Return all the children of this operator."""
 
@@ -54,6 +64,10 @@ class Operator(Printable):
         for c in self.children():
             for x in c.walk():
                 yield x
+
+    @abstractmethod
+    def num_tuples(self):
+        """Return the expected number of tuples output by this operator."""
 
     def postorder(self, f):
         """Postorder traversal, applying a function to each operator.  The
@@ -173,6 +187,12 @@ class ZeroaryOperator(Operator):
 
     def __eq__(self, other):
         return self.__class__ == other.__class__
+
+    def __repr__(self):
+        return self.opname()
+
+    def num_tuples(self):
+        return self._cardinality
 
     def children(self):
         return []
@@ -349,18 +369,52 @@ class NaryOperator(Operator):
         self.args = [f(arg) for arg in self.args]
         return self
 
-    def compileme(self, *argsyms):
+    def __repr__(self):
+        return str(self)
+
+    def compileme(self, resultsym, argsyms):
         """Compile this operator with specified children and output symbol
         names"""
         raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
 
 class NaryJoin(NaryOperator):
+    """Logical Nary Join operator"""
+    def __init__(self, children=None, conditions=None, output_columns=None):
+        # TODO: conditions is not actually an expression, it's a list of
+        # pairs of UnnamedAttributeRefs that represent equijoins. This is
+        # wrong -- it should be a single expression like in Join.
+        #
+        # Should be able to:
+        #    assert isinstance(condition, racoExpression).
+        self.conditions = conditions
+        self.output_columns = output_columns
+        NaryOperator.__init__(self, children)
+
+    def __eq__(self, other):
+        return (NaryOperator.__eq__(self, other)
+                and self.conditions == other.conditions)
+
+    def num_tuples(self):
+        # TODO: use AGM bound (P10 in http://arxiv.org/pdf/1310.3314v2.pdf)
+        return DEFAULT_CARDINALITY
+
     def scheme(self):
-        sch = scheme.Scheme()
-        for arg in self.args:
-            sch = sch + arg.scheme()
-        return sch
+        combined = reduce(operator.add, [c.scheme() for c in self.children()])
+        # do projection
+        if self.output_columns:
+            combined = [combined[attr.get_position(combined)]
+                        for attr in self.output_columns]
+        return scheme.Scheme(combined)
+
+    def copy(self, other):
+        """deep copy"""
+        self.conditions = other.conditions
+        self.output_columns = other.output_columns
+        NaryOperator.copy(self, other)
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.conditions)
 
 
 """Logical Relational Algebra"""
@@ -370,6 +424,10 @@ class Union(BinaryOperator):
     """Set union."""
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
+
+    def num_tuples(self):
+        # a heuristic
+        return int((self.left.num_tuples() + self.right.num_tuples()) / 2)
 
     def scheme(self):
         """Same semantics as SQL: Assume first schema "wins" and throw an
@@ -384,6 +442,9 @@ class UnionAll(BinaryOperator):
     """Bag union."""
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
+
+    def num_tuples(self):
+        return self.left.num_tuples() + self.right.num_tuples()
 
     def copy(self, other):
         """deep copy"""
@@ -402,6 +463,9 @@ class Intersection(BinaryOperator):
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
 
+    def num_tuples(self):
+        return min(self.left.num_tuples(), self.right.num_tuples())
+
     def scheme(self):
         return self.left.scheme()
 
@@ -414,6 +478,11 @@ class Difference(BinaryOperator):
 
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
+
+    def num_tuples(self):
+        left_num = self.left.num_tuples()
+        right_num = self.right.num_tuples()
+        return left_num - math.floor(min(right_num, left_num * 0.5))
 
     def scheme(self):
         return self.left.scheme()
@@ -446,6 +515,9 @@ class CrossProduct(CompositeBinaryOperator):
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
 
+    def num_tuples(self):
+        return self.left.num_tuples() * self.right.num_tuples()
+
     def copy(self, other):
         """deep copy"""
         BinaryOperator.copy(self, other)
@@ -472,6 +544,10 @@ class Join(CompositeBinaryOperator):
     def __eq__(self, other):
         return (BinaryOperator.__eq__(self, other)
                 and self.condition == other.condition)
+
+    def num_tuples(self):
+        # this is black magic
+        return int(self.left.num_tuples() * self.right.num_tuples() / 10)
 
     def copy(self, other):
         """deep copy"""
@@ -543,6 +619,9 @@ class Apply(UnaryOperator):
         return (UnaryOperator.__eq__(self, other) and
                 self.emitters == other.emitters)
 
+    def num_tuples(self):
+        return input.num_tuples()
+
     def copy(self, other):
         """deep copy"""
         self.emitters = other.emitters
@@ -606,6 +685,9 @@ class StatefulApply(UnaryOperator):
                 self.updaters == other.updaters and
                 self.inits == other.inits)
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def copy(self, other):
         """deep copy"""
         self.emitters = other.emitters
@@ -633,6 +715,10 @@ class Distinct(UnaryOperator):
     def __init__(self, input=None):
         UnaryOperator.__init__(self, input)
 
+    def num_tuples(self):
+        # TODO: better heuristics?
+        return self.input.num_tuples()
+
     def scheme(self):
         """scheme of the result"""
         return self.input.scheme()
@@ -648,6 +734,9 @@ class Limit(UnaryOperator):
 
     def __eq__(self, other):
         return UnaryOperator.__eq__(self, other) and self.count == other.count
+
+    def num_tuples(self):
+        return self.count
 
     def copy(self, other):
         self.count = other.count
@@ -669,6 +758,9 @@ class Select(UnaryOperator):
     def __eq__(self, other):
         return (UnaryOperator.__eq__(self, other)
                 and self.condition == other.condition)
+
+    def num_tuples(self):
+        return int(self.input.num_tuples() * 0.5)
 
     def shortStr(self):
         if isinstance(self.condition, dict):
@@ -697,6 +789,9 @@ class Project(UnaryOperator):
         return (UnaryOperator.__eq__(self, other)
                 and self.columnlist == other.columnlist)
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         colstring = ",".join([str(x) for x in self.columnlist])
         return "%s(%s)" % (self.opname(), colstring)
@@ -723,8 +818,12 @@ class GroupBy(UnaryOperator):
     def __init__(self, grouping_list=None, aggregate_list=None, input=None):
         self.grouping_list = grouping_list or []
         self.aggregate_list = aggregate_list or []
-        self.column_list = self.grouping_list + self.aggregate_list
         UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        if not self.grouping_list:
+            return 1
+        return self.input.num_tuples()
 
     def shortStr(self):
         groupstring = ",".join([str(x) for x in self.grouping_list])
@@ -733,10 +832,12 @@ class GroupBy(UnaryOperator):
 
     def copy(self, other):
         """deep copy"""
-        self.column_list = other.column_list
         self.grouping_list = other.grouping_list
         self.aggregate_list = other.aggregate_list
         UnaryOperator.copy(self, other)
+
+    def column_list(self):
+        return self.grouping_list + self.aggregate_list
 
     def scheme(self):
         """scheme of the result."""
@@ -744,11 +845,39 @@ class GroupBy(UnaryOperator):
         # Note: user-provided column names are supplied by a subsequent Apply
         # invocation; see raco/myrial/groupby.py
         schema = scheme.Scheme()
-        for index, sexpr in enumerate(self.column_list):
+        for index, sexpr in enumerate(self.column_list()):
             name = resolve_attribute_name(None, in_scheme, sexpr, index)
             _type = sexpr.typeof(in_scheme, None)
             schema.addAttribute(name, _type)
         return schema
+
+
+class OrderBy(UnaryOperator):
+    """ Logical Sort operator
+    """
+    def __init__(self, input=None, sort_columns=None, ascending=None):
+        UnaryOperator.__init__(self, input)
+        self.sort_columns = sort_columns
+        self.ascending = ascending
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def shortStr(self):
+        ascend_string = ['+' if a else '-' for a in self.ascending]
+        sort_string = ','.join('{col}{asc}'.format(col=c, asc=a)
+                               for c, a in zip(self.sort_columns,
+                                               ascend_string))
+        return "%s(%s)" % (self.opname(), sort_string)
+
+    def copy(self, other):
+        """deep copy"""
+        self.sort_columns = other.sort_columns
+        self.ascending = other.ascending
+        UnaryOperator.copy(self, other)
+
+    def scheme(self):
+        return self.input.scheme()
 
 
 class ProjectingJoin(Join):
@@ -792,6 +921,9 @@ class Shuffle(UnaryOperator):
         UnaryOperator.__init__(self, child)
         self.columnlist = columnlist
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.columnlist)
 
@@ -800,11 +932,46 @@ class Shuffle(UnaryOperator):
         UnaryOperator.copy(self, other)
 
 
+class HyperCubeShuffle(UnaryOperator):
+    """HyperCube Shuffle for multiway join"""
+    def __init__(self, child=None, hashed_columns=None,
+                 mapped_hc_dims=None, hyper_cube_dims=None,
+                 cell_partition=None):
+        """ Keyword arguments:
+            child -- child operator.
+            hashed_columns -- list of columns to be hashed.
+            mapped_hc_dims --  mapped dimensions in HC of hashed columns.
+            hyper_cube_dims -- size of dimensions of hyper cube.
+            cell_partition -- partition of the HC cells for this shuffle.
+        """
+        UnaryOperator.__init__(self, child)
+        self.hashed_columns = hashed_columns
+        self.mapped_hc_dimensions = mapped_hc_dims
+        self.hyper_cube_dimensions = hyper_cube_dims
+        self.cell_partition = cell_partition
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.hashed_columns)
+
+    def copy(self, other):
+        self.hashed_columns = other.hashed_columns
+        self.mapped_hc_dimensions = other.mapped_hc_dimensions
+        self.hyper_cube_dimensions = other.hyper_cube_dimensions
+        self.cell_partition = other.cell_partition
+        UnaryOperator.copy(self, other)
+
+
 class Collect(UnaryOperator):
     """Send input to one server"""
     def __init__(self, child=None, server=None):
         UnaryOperator.__init__(self, child)
         self.server = server
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         return "%s(@%s)" % (self.opname(), self.server)
@@ -816,6 +983,9 @@ class Collect(UnaryOperator):
 
 class Broadcast(UnaryOperator):
     """Send input to all servers"""
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return self.opname()
 
@@ -829,6 +999,9 @@ class PartitionBy(UnaryOperator):
     def __eq__(self, other):
         return (UnaryOperator.__eq__(self, other)
                 and self.columnlist == other.columnlist)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         colstring = ",".join([str(x) for x in self.columnlist])
@@ -854,6 +1027,9 @@ class Fixpoint(Operator):
 
     def children(self):
         return [self.body]
+
+    def num_tuples(self):
+        raise NotImplementedError("Fixpoint is not implemented yet.")
 
     def __str__(self):
         return "%s[%s]" % (self.shortStr(), str(self.body))
@@ -904,6 +1080,9 @@ class Store(UnaryOperator):
         UnaryOperator.__init__(self, plan)
         self.relation_key = relation_key
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.relation_key)
 
@@ -912,11 +1091,24 @@ class Store(UnaryOperator):
         UnaryOperator.copy(self, other)
 
 
+class Dump(UnaryOperator):
+    """Echo input to standard out; only useful for standalone raco."""
+
+    def num_tuples(self):
+        raise NotImplementedError("num_tuples of Dump should be not called.")
+
+    def shortStr(self):
+        return "%s()" % self.opname()
+
+
 class EmptyRelation(ZeroaryOperator):
     """Relation with no tuples."""
 
     def __init__(self, _scheme=None):
         self._scheme = _scheme
+
+    def num_tuples(self):
+        return 0
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self._scheme)
@@ -939,6 +1131,9 @@ class SingletonRelation(ZeroaryOperator):
     def shortStr(self):
         return "SingletonRelation"
 
+    def num_tuples(self):
+        return 1
+
     def copy(self, other):
         """deep copy"""
         pass
@@ -946,6 +1141,39 @@ class SingletonRelation(ZeroaryOperator):
     def scheme(self):
         """scheme of the result."""
         return scheme.Scheme()
+
+
+class FileScan(ZeroaryOperator):
+    """Load table data from a file."""
+
+    def __init__(self, path=None, _scheme=None):
+        self.path = path
+        self._scheme = _scheme
+        ZeroaryOperator.__init__(self)
+
+    def __eq__(self, other):
+        return (ZeroaryOperator.__eq__(self, other)
+                and self.path == other.path
+                and self.scheme() == other.scheme())
+
+    def __hash__(self):
+        return ("%s-%s" % (self.opname(), self.path)).__hash__()
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.path)
+
+    def __repr__(self):
+        return str(self)
+
+    def copy(self, other):
+        """deep copy"""
+        self.path = other.path
+        self._scheme = other._scheme
+
+        ZeroaryOperator.copy(self, other)
+
+    def scheme(self):
+        return self._scheme
 
 
 class Scan(ZeroaryOperator):
@@ -959,6 +1187,7 @@ class Scan(ZeroaryOperator):
         """
         self.relation_key = relation_key
         self._scheme = _scheme
+        self._cardinality = DEFAULT_CARDINALITY  # placeholder, will be updated
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
@@ -983,6 +1212,7 @@ class Scan(ZeroaryOperator):
         """deep copy"""
         self.relation_key = other.relation_key
         self._scheme = other._scheme
+        self._cardinality = other._cardinality
 
         # TODO: need a cleaner and more general way of tracing information
         # through the compilation process for debugging purposes
@@ -1003,6 +1233,9 @@ class StoreTemp(UnaryOperator):
     def __init__(self, name=None, input=None):
         UnaryOperator.__init__(self, input)
         self.name = name
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         return 'StoreTemp(%s)' % self.name
@@ -1027,6 +1260,9 @@ class ScanTemp(ZeroaryOperator):
         return (ZeroaryOperator.__eq__(self, other) and self.name == other.name
                 and self._scheme == other._scheme)
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s(%s,%s)" % (self.opname(), self.name, str(self._scheme))
 
@@ -1043,6 +1279,10 @@ class Parallel(NaryOperator):
     """Execute a set of independent plans in parallel."""
     def __init__(self, ops=None):
         NaryOperator.__init__(self, ops)
+
+    def num_tuples(self):
+        raise NotImplementedError(
+            "num_tuples should not be called in Parallel")
 
     def shortStr(self):
         return self.opname()
@@ -1064,20 +1304,33 @@ class Sequence(NaryOperator):
         """Sequence does not return any tuples."""
         return None
 
+    def num_tuples(self):
+        raise NotImplementedError("cannot call num_tuples of Sequence.")
 
-class DoWhile(Sequence):
+
+class DoWhile(NaryOperator):
     def __init__(self, ops=None):
-        """Repeatedly execute a sequence of plans until a termination condtion.
+        """Repeatedly execute a sequence of plans until a termination
+        condition.
 
         :params ops: A list of operations to execute in serial.  By convention,
         the last operation is the termination condition.  The termination
         condition should map to a single row, single column relation.  The loop
         continues if its value is True.
         """
-        Sequence.__init__(self, ops)
+        if ops is not None:
+            assert len(ops) >= 2, "DoWhile should have at least two children"
+        NaryOperator.__init__(self, ops)
+
+    def num_tuples(self):
+        raise NotImplementedError("num_tuples should not be called in DoWhile")
 
     def shortStr(self):
         return self.opname()
+
+    def scheme(self):
+        """DoWhile does not return any tuples."""
+        return None
 
 
 def inline_operator(dest_op, var, target_op):
@@ -1102,4 +1355,7 @@ class LogicalAlgebra(object):
         Select,
         Scan
     ]
-    rules = []
+
+    @staticmethod
+    def opt_rules():
+        return []

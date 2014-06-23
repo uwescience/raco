@@ -21,7 +21,7 @@ TRILIBDEFS = -DTRILIBRARY
 	$(LINK) 
 
 clean:
-	rm *.o *.exe
+	rm -f *.o *.exe
 
 io_util.o : io_util.cc io_util.h
 	$(COMP) 
