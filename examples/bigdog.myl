@@ -1,0 +1,11 @@
+connect(%afl, "vega.cs.washington.edu:7777")
+
+%afl("b2 = filter(b1, val > 1000)");
+
+exportScidbToMyria("b2", public:adhoc:b2, val:double);
+
+X = scan(public:adhoc:x);
+B2 = scan(public:adhoc:b2);
+Y = [from X, B2 where X.y==B2.val emit X.*];
+
+store(Y, public:adhoc:output);
