@@ -3,7 +3,8 @@
 #CXX = clang++
 CXX=g++
 
-CFLAGS = -ggdb -std=c++11 #-O3 #-m64 -Wno-deprecated -fPIC
+CFLAGS =-ggdb -std=c++11
+#-O3 #-m64 -Wno-deprecated -fPIC
 LIBS = 
 INCL = 
 COMP = $(CXX) $(CFLAGS) -c $< $(INCL) 
