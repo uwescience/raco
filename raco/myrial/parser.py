@@ -230,8 +230,13 @@ class Parser(object):
 
     @staticmethod
     def p_statement_connect(p):
-        'statement : CONNECT LPAREN external_lang COMMA STRING_LITERAL RPAREN'
+        'statement : CONNECT LPAREN external_lang COMMA STRING_LITERAL RPAREN SEMI'  # noqa
         p[0] = ('CONNECT', p[3], p[5])
+
+    @staticmethod
+    def p_statement_exec(p):
+        'statement : external_lang LPAREN STRING_LITERAL RPAREN SEMI'
+        p[0] = ('EXEC', p[1], p[3])
 
     @staticmethod
     def p_external_lang(p):
