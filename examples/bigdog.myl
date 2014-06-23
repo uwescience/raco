@@ -2,7 +2,7 @@ connect(%afl, "vega.cs.washington.edu:7777");
 
 %afl("b2 = filter(b1, val > 1000)");
 
-exportScidbToMyria("b2", public:adhoc:b2, val:double);
+exportScidbToMyria("b2", public:adhoc:b2, val:float);
 
 X = scan(public:adhoc:x);
 B2 = scan(public:adhoc:b2);

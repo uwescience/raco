@@ -5,7 +5,8 @@ import ply.lex as lex
 import raco.myrial.exceptions
 
 keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
-            'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CONNECT']
+            'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CONNECT',
+            'EXPORTSCIDBTOMYRIA']
 
 types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN']
 
