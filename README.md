@@ -122,7 +122,8 @@ Available test tables are `{R,S,T}{1,2,3}` with that number of columns.
 
 1. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
 2. set GRAPPA_HOME to root of Grappa
-3. run tests:
+3. set RACO_HOME to root of raco
+4. run tests:
 ```bash
 python c_test_environment/grappalang_tests.py
 ```
