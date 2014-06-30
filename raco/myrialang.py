@@ -645,7 +645,8 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         mapping = {i: '*' for i in range(len(self.hyper_cube_dimensions))}
         mapping.update({h: 'h({col})'.format(col=i)
-                        for i, h in enumerate(self.mapped_hc_dimensions)})
+                        for i, h in zip(self.hashed_columns,
+                                        self.mapped_hc_dimensions)})
         hash_string = ','.join(s for m, s in sorted(mapping.items()))
         return "%s(%s)" % (self.opname(), hash_string)
 
