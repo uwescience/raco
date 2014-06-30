@@ -8,8 +8,8 @@ from raco import algebra, expression, rules
 from raco.catalog import Catalog
 from raco.language import Language
 from raco.utility import emit
-from expression import (accessed_columns, to_unnamed_recursive,
-                        UnnamedAttributeRef)
+from raco.expression import (accessed_columns, to_unnamed_recursive,
+                             UnnamedAttributeRef)
 from raco.expression.aggregate import DecomposableAggregate
 from raco.datastructure.UnionFind import UnionFind
 from raco import types

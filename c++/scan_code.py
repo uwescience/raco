@@ -1,5 +1,5 @@
 import raco.algebra as alg
-import raco.clang as clang
+import raco.language.clang as clang
 import raco.boolean as rbool
 
 
@@ -311,7 +311,7 @@ class cpp_code:
 
         #generate code for a join chain
         elif isinstance(n,alg.NaryOperator) :
-            if isinstance(n,clang.FilteringNLJoinChain) :
+            if isinstance(n, clang.FilteringNLJoinChain) :
                 for arg in n.args :
                     self.visit(arg)
                 self.generate_join_chain(n)

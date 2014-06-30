@@ -1,6 +1,5 @@
-from raco import expression
-
 from abc import ABCMeta, abstractmethod
+import raco.expression as expression
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -175,12 +174,3 @@ class CompileExpressionVisitor(expression.ExpressionVisitor):
     def visit_NEG(self, unaryexpr):
         inputexpr = self.stack.pop()
         self.stack.append(self.language.negative(inputexpr))
-
-
-# import everything from each language
-from raco.pythonlang import PythonAlgebra
-from raco.pseudocodelang import PseudoCodeAlgebra
-from raco.clang import CCAlgebra
-from raco.myrialang import MyriaLeftDeepTreeAlgebra
-from raco.myrialang import MyriaHyperCubeAlgebra
-from raco.grappalang import GrappaAlgebra

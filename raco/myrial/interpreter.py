@@ -7,9 +7,10 @@ import raco.algebra
 import raco.expression
 import raco.catalog
 import raco.scheme
-from raco.language import MyriaLeftDeepTreeAlgebra, MyriaHyperCubeAlgebra
+from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
+                                     MyriaHyperCubeAlgebra)
 from raco.algebra import LogicalAlgebra
-from raco.myrialang import compile_to_json
+from raco.language.myrialang import compile_to_json
 from raco.compile import optimize
 from raco import relation_key
 

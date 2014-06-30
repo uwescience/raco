@@ -5,16 +5,16 @@ import random
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
-from raco.myrialang import (MyriaShuffleConsumer, MyriaShuffleProducer,
-                            MyriaHyperShuffleProducer)
-from raco.language import MyriaLeftDeepTreeAlgebra
-from raco.language import MyriaHyperCubeAlgebra
+from raco.language.myrialang import (MyriaShuffleConsumer,
+                                     MyriaShuffleProducer,
+                                     MyriaHyperShuffleProducer)
+from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
+                                     MyriaHyperCubeAlgebra)
 from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
 from raco import relation_key
 from raco.catalog import FakeCatalog
 
-import raco.expression as expression
 import raco.scheme as scheme
 import raco.myrial.myrial_test as myrial_test
 from raco import types
