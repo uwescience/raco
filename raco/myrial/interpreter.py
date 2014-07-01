@@ -30,6 +30,10 @@ class NoSuchRelationException(Exception):
     pass
 
 
+class NoConnectionForLanguage(Exception):
+    pass
+
+
 def get_unnamed_ref(column_ref, scheme, offset=0):
     """Convert a string or int into an attribute ref on the new table"""  # noqa
     if isinstance(column_ref, int):
@@ -396,6 +400,15 @@ class StatementProcessor(object):
 
     def connect(self, lang, connstring):
         self.connection_table[lang.lower()] = connstring
+
+    def _exec_(self, lang, query):
+        llang = lang.lower()
+        if llang not in self.connection_table:
+            raise UnconnectedLanguageException(lang)
+        connstr = self.connection_table[llang]
+        op = raco.algebra.ExecScan(query, languagetag=llang,
+                                   connection=connstr, scheme=None)
+        self.cfg.add_op(op, None, set())
 
     def get_logical_plan(self):
         """Return an operator representing the logical query plan."""

@@ -236,7 +236,7 @@ class Parser(object):
     @staticmethod
     def p_statement_exec(p):
         'statement : external_lang LPAREN STRING_LITERAL RPAREN SEMI'
-        p[0] = ('EXEC', p[1], p[3])
+        p[0] = ('_EXEC_', p[1], p[3])
 
     @staticmethod
     def p_statement_export_to_myria(p):
