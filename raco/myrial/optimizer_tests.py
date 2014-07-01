@@ -5,11 +5,14 @@ import random
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
-from raco.myrialang import (MyriaShuffleConsumer, MyriaShuffleProducer)
-from raco.language import MyriaAlgebra
+from raco.myrialang import (MyriaShuffleConsumer, MyriaShuffleProducer,
+                            MyriaHyperShuffleProducer)
+from raco.language import MyriaLeftDeepTreeAlgebra
+from raco.language import MyriaHyperCubeAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
 from raco import relation_key
+from raco.catalog import FakeCatalog
 
 import raco.expression as expression
 import raco.scheme as scheme
@@ -59,11 +62,14 @@ class OptimizerTest(myrial_test.MyrialTestCase):
              for (s3, d3) in self.z_data.elements() if d1 == s2 and d2 == s3])
 
     @staticmethod
-    def logical_to_physical(lp):
-        physical_plans = optimize([('root', lp)],
-                                  target=MyriaAlgebra,
-                                  source=LogicalAlgebra)
-        return physical_plans[0][1]
+    def logical_to_physical(lp, hypercube=False):
+        if not hypercube:
+            algebra = MyriaLeftDeepTreeAlgebra()
+        else:
+            algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
+        return optimize(lp,
+                        target=algebra,
+                        source=LogicalAlgebra)
 
     @staticmethod
     def get_count(op, claz):
@@ -78,7 +84,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
     @staticmethod
     def get_num_select_conjuncs(op):
-        """Get the number of conjuntions within all select operations."""
+        """Get the number of conjunctions within all select operations."""
         def count(_op):
             if isinstance(_op, Select):
                 yield len(expression.extract_conjuncs(_op.condition))
@@ -280,7 +286,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
-    def test_multiway_join(self):
+    def test_multiway_join_left_deep(self):
 
         query = """
         T = SCAN(public:adhoc:Z);
@@ -290,19 +296,61 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         STORE(U, OUTPUT);
         """
 
-        statements = self.parser.parse(query)
-        self.processor.evaluate(statements)
-
-        lp = self.processor.get_logical_plan()
+        lp = self.get_logical_plan(query)
         self.assertEquals(self.get_count(lp, CrossProduct), 2)
+        self.assertEquals(self.get_count(lp, Join), 0)
 
         pp = self.logical_to_physical(lp)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
+        self.assertEquals(self.get_count(pp, Join), 2)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 4)
+        self.assertEquals(self.get_count(pp, NaryJoin), 0)
+        self.assertEquals(self.get_count(pp, MyriaHyperShuffleProducer), 0)
 
         self.db.evaluate(pp)
-
         result = self.db.get_table('OUTPUT')
         self.assertEquals(result, self.expected2)
+
+    def test_multiway_join_hyper_cube(self):
+
+        query = """
+        T = SCAN(public:adhoc:Z);
+        U = [FROM T AS T1, T AS T2, T AS T3
+             WHERE T1.dst==T2.src AND T2.dst==T3.src
+             EMIT T1.src AS x, T3.dst AS y];
+        STORE(U, OUTPUT);
+        """
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, CrossProduct), 2)
+        self.assertEquals(self.get_count(lp, Join), 0)
+
+        pp = self.logical_to_physical(lp, hypercube=True)
+        self.assertEquals(self.get_count(pp, CrossProduct), 0)
+        self.assertEquals(self.get_count(pp, Join), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+        self.assertEquals(self.get_count(pp, NaryJoin), 1)
+        self.assertEquals(self.get_count(pp, MyriaHyperShuffleProducer), 3)
+
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        self.assertEquals(result, self.expected2)
+
+    def test_naryjoin_merge(self):
+        query = """
+        T1 = scan(public:adhoc:Z);
+        T2 = [from T1 emit count(dst) as dst, src];
+        T3 = scan(public:adhoc:Z);
+        twohop = [from T1, T2, T3
+                  where T1.dst = T2.src and T2.dst = T3.src
+                  emit *];
+        store(twohop, anothertwohop);
+        """
+        statements = self.parser.parse(query)
+        self.processor.evaluate(statements)
+        lp = self.processor.get_logical_plan()
+        pp = self.logical_to_physical(lp, True)
+        self.assertEquals(self.get_count(pp, NaryJoin), 0)
 
     def test_right_deep_join(self):
         """Test pushing a selection into a right-deep join tree.
@@ -354,7 +402,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         """
 
         pp = self.get_physical_plan(query)
-        print str(pp)
         self.assertEquals(self.get_count(pp, Distinct), 1)
         for op in pp.walk():
             if isinstance(op, Distinct):
@@ -368,7 +415,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         """
 
         pp = self.get_physical_plan(query)
-        print str(pp)
         self.assertEquals(self.get_count(pp, Difference), 1)
         for op in pp.walk():
             if isinstance(op, Difference):
@@ -376,3 +422,22 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                 self.assertIsInstance(op.left.input, MyriaShuffleProducer)
                 self.assertIsInstance(op.right, MyriaShuffleConsumer)
                 self.assertIsInstance(op.right.input, MyriaShuffleProducer)
+
+    def test_bug_240_broken_remove_unused_columns_rule(self):
+        query = """
+        particles = empty(nowGroup:int, timestep:int, grp:int);
+
+        haloTable1 = [from particles as P
+                      emit P.nowGroup,
+                           (P.timestep+P.grp) as halo,
+                           count(*) as totalParticleCount];
+
+        haloTable2 = [from haloTable1 as H, particles as P
+                      where H.nowGroup = P.nowGroup
+                      emit *];
+        store(haloTable2, OutputTemp);
+        """
+
+        # This is it -- just test that we can get the physical plan and
+        # compile to JSON. See https://github.com/uwescience/raco/issues/240
+        pp = self.execute_query(query, output='OutputTemp')

@@ -1,17 +1,17 @@
-from collections import defaultdict
 import copy
 import itertools
+from collections import defaultdict, deque
+from operator import mul
+from abc import abstractmethod
 
-from raco import algebra
-from raco import rules
-from raco.scheme import Scheme
-from raco import expression
+from raco import algebra, expression, rules
+from raco.catalog import Catalog
 from raco.language import Language
 from raco.utility import emit
-from raco.relation_key import RelationKey
 from expression import (accessed_columns, to_unnamed_recursive,
                         UnnamedAttributeRef)
 from raco.expression.aggregate import DecomposableAggregate
+from raco.datastructure.UnionFind import UnionFind
 from raco import types
 
 
@@ -166,27 +166,25 @@ class MyriaOperator(object):
     language = MyriaLanguage
 
 
+def relation_key_to_json(relation_key):
+    return {"userName": relation_key.user,
+            "programName": relation_key.program,
+            "relationName": relation_key.relation}
+
+
 class MyriaScan(algebra.Scan, MyriaOperator):
     def compileme(self):
         return {
             "opType": "TableScan",
-            "relationKey": {
-                "userName": self.relation_key.user,
-                "programName": self.relation_key.program,
-                "relationName": self.relation_key.relation
-            }
+            "relationKey": relation_key_to_json(self.relation_key),
         }
 
 
 class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
     def compileme(self):
         return {
-            "opType": "TableScan",
-            "relationKey": {
-                "userName": 'public',
-                "programName": '__TEMP__',
-                "relationName": self.name
-            }
+            "opType": "TempTableScan",
+            "table": self.name,
         }
 
 
@@ -255,11 +253,7 @@ class MyriaStore(algebra.Store, MyriaOperator):
     def compileme(self, inputid):
         return {
             "opType": "DbInsert",
-            "relationKey": {
-                "userName": self.relation_key.user,
-                "programName": self.relation_key.program,
-                "relationName": self.relation_key.relation
-            },
+            "relationKey": relation_key_to_json(self.relation_key),
             "argOverwriteTable": True,
             "argChild": inputid,
         }
@@ -268,12 +262,8 @@ class MyriaStore(algebra.Store, MyriaOperator):
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
     def compileme(self, inputid):
         return {
-            "opType": "DbInsert",
-            "relationKey": {
-                "userName": 'public',
-                "programName": '__TEMP__',
-                "relationName": self.name
-            },
+            "opType": "TempInsert",
+            "table": self.name,
             "argOverwriteTable": True,
             "argChild": inputid,
         }
@@ -302,6 +292,23 @@ def convertcondition(condition, left_len, combined_scheme):
     raise NotImplementedError("Myria only supports EquiJoins, not %s" % condition)  # noqa
 
 
+def convert_nary_conditions(conditions, schemes):
+    """Convert an NaryJoin map from global column index to local"""
+    attr_map = {}   # map of global attribute to local column index
+    count = 0
+    for i, scheme in enumerate(schemes):
+        for j, attr in enumerate(scheme.ascolumnlist()):
+            attr_map[count] = [i, j]
+            count += 1
+    new_conditions = []   # arrays of [child_index, column_index]
+    for join_cond in conditions:
+        new_join_cond = []
+        for attr in join_cond:
+            new_join_cond.append(attr_map[attr.position])
+        new_conditions.append(new_join_cond)
+    return new_conditions
+
+
 class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
     def compileme(self, leftid, rightid):
         """Compile the operator to a sequence of json operators"""
@@ -315,7 +322,6 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
         if self.output_columns is None:
             self.output_columns = self.scheme().ascolumnlist()
         column_names = [name for (name, _) in self.scheme()]
-
         pos = [i.get_position(combined) for i in self.output_columns]
         allleft = [i for i in pos if i < left_len]
         allright = [i - left_len for i in pos if i >= left_len]
@@ -332,6 +338,42 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
         }
 
         return join
+
+
+class MyriaLeapFrogJoin(algebra.NaryJoin, MyriaOperator):
+
+    def compileme(self, *args):
+        def convert_join_cond(pos_to_rel_col, cond, scheme):
+            join_col_pos = [c.get_position(scheme) for c in cond]
+            return [pos_to_rel_col[p] for p in join_col_pos]
+        # map a output column to its origin
+        rel_of_pos = {}     # pos => [rel_idx, field_idx]
+        schemes = [c.scheme().ascolumnlist() for c in self.children()]
+        pos = 0
+        combined = []
+        for rel_idx, scheme in enumerate(schemes):
+            combined.extend(scheme)
+            for field_idx in xrange(len(scheme)):
+                rel_of_pos[pos] = [rel_idx, field_idx]
+                pos += 1
+        # build column names
+        if self.output_columns is None:
+            self.output_columns = self.scheme().ascolumnlist()
+        column_names = [name for (name, _) in self.scheme()]
+        # get rel_idx and field_idx of select columns
+        out_pos_list = [
+            i.get_position(combined) for i in list(self.output_columns)]
+        output_fields = [rel_of_pos[p] for p in out_pos_list]
+        join_fields = [
+            convert_join_cond(rel_of_pos, cond, combined)
+            for cond in self.conditions]
+        return {
+            "opType": "LeapFrogJoin",
+            "joinFieldMapping": join_fields,
+            "argColumnNames": column_names,
+            "outputFieldMapping": output_fields,
+            "argChildren": args
+        }
 
 
 class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
@@ -382,6 +424,17 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             ret["opType"] = "MultiGroupByAggregate"
             ret["argGroupFields"] = [field.position for field in group_fields]
         return ret
+
+
+class MyriaInMemoryOrderBy(algebra.OrderBy, MyriaOperator):
+
+    def compileme(self, inputsym):
+        return {
+            "opType": "InMemoryOrderBy",
+            "argChild": inputsym,
+            "argSortColumns": self.sort_columns,
+            "argAscending": self.ascending
+        }
 
 
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
@@ -447,6 +500,9 @@ class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s" % self.opname()
 
@@ -462,6 +518,9 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         return "%s" % self.opname()
@@ -483,6 +542,9 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         hash_string = ','.join([str(x) for x in self.hash_columns])
         return "%s(h(%s))" % (self.opname(), hash_string)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def compileme(self, inputid):
         if len(self.hash_columns) == 1:
@@ -509,6 +571,9 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s" % self.opname()
 
@@ -519,22 +584,15 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
-class BreakShuffle(rules.Rule):
-    def fire(self, expr):
-        if not isinstance(expr, MyriaShuffle):
-            return expr
-
-        producer = MyriaShuffleProducer(expr.input, expr.columnlist)
-        consumer = MyriaShuffleConsumer(producer)
-        return consumer
-
-
 class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria CollectProducer"""
 
     def __init__(self, input, server):
         algebra.UnaryOperator.__init__(self, input)
         self.server = server
+
+    def num_tuples(self):
+        return self.input.num_tuples()
 
     def shortStr(self):
         return "%s(@%s)" % (self.opname(), self.server)
@@ -552,6 +610,9 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
+    def num_tuples(self):
+        return self.input.num_tuples()
+
     def shortStr(self):
         return "%s" % self.opname()
 
@@ -560,6 +621,88 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
             'opType': 'CollectConsumer',
             'argOperatorId': inputid
         }
+
+
+class MyriaHyperShuffle(algebra.HyperCubeShuffle, MyriaOperator):
+    """Represents a HyperShuffle shuffle operator"""
+    def compileme(self, inputsym):
+        raise NotImplementedError('shouldn''t ever get here, should be turned into HCSP-HCSC pair')  # noqa
+
+
+class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
+    """A Myria HyperShuffleProducer"""
+    def __init__(self, input, hashed_columns,
+                 hyper_cube_dims, mapped_hc_dims, cell_partition):
+        algebra.UnaryOperator.__init__(self, input)
+        self.hashed_columns = hashed_columns
+        self.mapped_hc_dimensions = mapped_hc_dims
+        self.hyper_cube_dimensions = hyper_cube_dims
+        self.cell_partition = cell_partition
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def shortStr(self):
+        mapping = {i: '*' for i in range(len(self.hyper_cube_dimensions))}
+        mapping.update({h: 'h({col})'.format(col=i)
+                        for i, h in enumerate(self.mapped_hc_dimensions)})
+        hash_string = ','.join(s for m, s in sorted(mapping.items()))
+        return "%s(%s)" % (self.opname(), hash_string)
+
+    def compileme(self, inputsym):
+        return {
+            "opType": "HyperShuffleProducer",
+            "hashedColumns": list(self.hashed_columns),
+            "mappedHCDimensions": list(self.mapped_hc_dimensions),
+            "hyperCubeDimensions": list(self.hyper_cube_dimensions),
+            "cellPartition": self.cell_partition,
+            "argChild": inputsym
+        }
+
+
+class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
+    """A Myria HyperShuffleConsumer"""
+    def __init__(self, input):
+        algebra.UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def shortStr(self):
+        return "%s" % self.opname()
+
+    def compileme(self, inputsym):
+        return {
+            "opType": "HyperShuffleConsumer",
+            "argOperatorId": inputsym
+        }
+
+
+class BreakShuffle(rules.Rule):
+    def fire(self, expr):
+        if not isinstance(expr, MyriaShuffle):
+            return expr
+
+        producer = MyriaShuffleProducer(expr.input, expr.columnlist)
+        consumer = MyriaShuffleConsumer(producer)
+        return consumer
+
+
+class BreakHyperCubeShuffle(rules.Rule):
+    def fire(self, expr):
+        """
+        self.hashed_columns = hashed_columns
+        self.mapped_hc_dimensions = mapped_hc_dims
+        self.hyper_cube_dimensions = hyper_cube_dims
+        self.cell_partition = cell_partition
+        """
+        if not isinstance(expr, MyriaHyperShuffle):
+            return expr
+        producer = MyriaHyperShuffleProducer(
+            expr.input, expr.hashed_columns, expr.hyper_cube_dimensions,
+            expr.mapped_hc_dimensions, expr.cell_partition)
+        consumer = MyriaHyperShuffleConsumer(producer)
+        return consumer
 
 
 class BreakCollect(rules.Rule):
@@ -645,28 +788,222 @@ class ShuffleBeforeJoin(rules.Rule):
                              expr.left.scheme() + expr.right.scheme())
 
         # Left shuffle
-        if isinstance(expr.left, algebra.Shuffle):
-            left_shuffle = expr.left
-        else:
-            left_cols = [expression.UnnamedAttributeRef(i)
-                         for i in left_cols]
-            left_shuffle = algebra.Shuffle(expr.left, left_cols)
+        left_cols = [expression.UnnamedAttributeRef(i)
+                     for i in left_cols]
+        left_shuffle = algebra.Shuffle(expr.left, left_cols)
         # Right shuffle
-        if isinstance(expr.right, algebra.Shuffle):
-            right_shuffle = expr.right
-        else:
-            right_cols = [expression.UnnamedAttributeRef(i)
-                          for i in right_cols]
-            right_shuffle = algebra.Shuffle(expr.right, right_cols)
+        right_cols = [expression.UnnamedAttributeRef(i)
+                      for i in right_cols]
+        right_shuffle = algebra.Shuffle(expr.right, right_cols)
 
         # Construct the object!
+        assert isinstance(expr, algebra.ProjectingJoin)
         if isinstance(expr, algebra.ProjectingJoin):
             return algebra.ProjectingJoin(expr.condition,
                                           left_shuffle, right_shuffle,
                                           expr.output_columns)
-        elif isinstance(expr, algebra.Join):
-            return algebra.Join(expr.condition, left_shuffle, right_shuffle)
-        raise NotImplementedError("How the heck did you get here?")
+
+
+class HCShuffleBeforeNaryJoin(rules.Rule):
+    def __init__(self, catalog):
+        assert isinstance(catalog, Catalog)
+        self.catalog = catalog
+
+    @staticmethod
+    def reversed_index(child_schemes, conditions):
+        """Return the reversed index of join conditions. The reverse index
+           specify for each column on each relation, which hypercube dimension
+           it is mapped to, -1 means this columns is not in the hyper cube
+           (not joined).
+
+        Keyword arguments:
+        child_schemes -- schemes of children.
+        conditions -- join conditions.
+        """
+        # make it -1 first
+        r_index = [[-1] * len(scheme) for scheme in child_schemes]
+        for i, jf_list in enumerate(conditions):
+            for jf in jf_list:
+                r_index[jf[0]][jf[1]] = i
+        return r_index
+
+    @staticmethod
+    def workload(dim_sizes, child_sizes, r_index):
+        """Compute the workload given a hyper cube size assignment"""
+        load = 0.0
+        for i, size in enumerate(child_sizes):
+            # compute subcube sizes
+            scale = 1
+            for index in r_index[i]:
+                if index != -1:
+                    scale = scale * dim_sizes[index]
+            # add load per server by child i
+            load += float(child_sizes[i]) / float(scale)
+        return load
+
+    @staticmethod
+    def get_hyper_cube_dim_size(num_server, child_sizes,
+                                conditions, r_index):
+        """Find the optimal hyper cube dimension sizes using BFS.
+
+        Keyword arguments:
+        num_server -- number of servers, this sets upper bound of HC cells.
+        child_sizes -- cardinality of each child.
+        child_schemes -- schemes of children.
+        conditions -- join conditions.
+        r_index -- reversed index of join conditions.
+        """
+        # Helper function: compute the product.
+        def product(array):
+            return reduce(mul, array, 1)
+        # Use BFS to find the best possible assignment.
+        this = HCShuffleBeforeNaryJoin
+        visited = set()
+        toVisit = deque()
+        toVisit.append(tuple([1 for _ in conditions]))
+        min_work_load = None
+        while len(toVisit) > 0:
+            dim_sizes = toVisit.pop()
+            if ((this.workload(dim_sizes, child_sizes, r_index) <
+                    min_work_load) or (min_work_load is None)):
+                min_work_load = this.workload(
+                    dim_sizes, child_sizes, r_index)
+                opt_dim_sizes = dim_sizes
+            visited.add(dim_sizes)
+            for i, d in enumerate(dim_sizes):
+                new_dim_sizes = (dim_sizes[0:i] +
+                                 tuple([dim_sizes[i] + 1]) +
+                                 dim_sizes[i + 1:])
+                if (product(new_dim_sizes) <= num_server
+                        and new_dim_sizes not in visited):
+                    toVisit.append(new_dim_sizes)
+        return opt_dim_sizes, min_work_load
+
+    @staticmethod
+    def coord_to_worker_id(coordinate, dim_sizes):
+        """Convert coordinate of cell to worker id
+
+        Keyword arguments:
+        coordinate -- coordinate of hyper cube cell.
+        dim_sizes -- sizes of dimensons of hyper cube.
+        """
+        assert len(coordinate) == len(dim_sizes)
+        ret = 0
+        for k, v in enumerate(coordinate):
+            ret += v * reduce(mul, dim_sizes[k + 1:], 1)
+        return ret
+
+    @staticmethod
+    def get_cell_partition(dim_sizes, conditions,
+                           child_schemes, child_idx, hashed_columns):
+        """Generate the cell_partition for a specific child.
+
+        Keyword arguments:
+        dim_sizes -- size of each dimension of the hypercube.
+        conditions -- each element is an array of (child_idx, column).
+        child_schemes -- schemes of children.
+        child_idx -- index of this child.
+        hashed_columns -- hashed columns of this child.
+        """
+        assert len(dim_sizes) == len(conditions)
+        # make life a little bit easier
+        this = HCShuffleBeforeNaryJoin
+        # get reverse index
+        r_index = this.reversed_index(child_schemes, conditions)
+        # find which dims in hyper cube this relation is involved
+        hashed_dims = [r_index[child_idx][col] for col in hashed_columns]
+        assert -1 not in hashed_dims
+        # group by cell according to their projection on subcube voxel
+        cell_partition = defaultdict(list)
+        coor_ranges = [list(range(d)) for d in dim_sizes]
+        for coordinate in itertools.product(*coor_ranges):
+            # project a hypercube cell to a subcube voxel
+            voxel = [coordinate[dim] for dim in hashed_dims]
+            cell_partition[tuple(voxel)].append(
+                this.coord_to_worker_id(coordinate, dim_sizes))
+        return [wid for vox, wid in sorted(cell_partition.items())]
+
+    def fire(self, expr):
+        def add_hyper_shuffle():
+            """ Helper function: put a HyperCube shuffle before each child."""
+            # make calling static method easier
+            this = HCShuffleBeforeNaryJoin
+            # get child schemes
+            child_schemes = [op.scheme() for op in expr.children()]
+            # convert join conditions from expressions to 2d array
+            conditions = convert_nary_conditions(
+                expr.conditions, child_schemes)
+            # get number of servers from catalog
+            num_server = self.catalog.get_num_servers()
+            # get estimated cardinalities of children
+            child_sizes = [child.num_tuples() for child in expr.children()]
+            # get reversed index of join conditions
+            r_index = this.reversed_index(child_schemes, conditions)
+            # compute optimal dimension sizes
+            (dim_sizes, workload) = this.get_hyper_cube_dim_size(
+                num_server, child_sizes, conditions, r_index)
+            # specify HyperCube shuffle to each child
+            new_children = []
+            for child_idx, child in enumerate(expr.children()):
+                # (mapped hc dimension, column index)
+                hashed_fields = [(hc_dim, i)
+                                 for i, hc_dim
+                                 in enumerate(r_index[child_idx])
+                                 if hc_dim != -1]
+                mapped_dims, hashed_columns = zip(*sorted(hashed_fields))
+                # get cell partition for child i
+                cell_partition = this.get_cell_partition(
+                    dim_sizes, conditions, child_schemes,
+                    child_idx, hashed_columns)
+                # generate new children
+                new_children.append(
+                    algebra.HyperCubeShuffle(
+                        child, hashed_columns, mapped_dims,
+                        dim_sizes, cell_partition))
+            # replace the children
+            expr.args = new_children
+
+        # only apply to NaryJoin
+        if not isinstance(expr, algebra.NaryJoin):
+            return expr
+        # check if HC shuffle has been placed before
+        shuffled_child = [isinstance(op, algebra.HyperCubeShuffle)
+                          for op in list(expr.children())]
+        if all(shuffled_child):    # already shuffled
+            assert len(expr.children()) > 0
+            return expr
+        elif any(shuffled_child):
+            raise NotImplementedError("NaryJoin is partially shuffled?")
+        else:                      # add shuffle and order by
+            add_hyper_shuffle()
+            return expr
+
+
+class OrderByBeforeNaryJoin(rules.Rule):
+    def fire(self, expr):
+        # if not NaryJoin, who cares?
+        if not isinstance(expr, algebra.NaryJoin):
+            return expr
+        ordered_child = sum(
+            [1 for child in expr.children()
+             if isinstance(child, algebra.OrderBy)])
+
+        # already applied
+        if ordered_child == len(expr.children()):
+            return expr
+        elif ordered_child > 0:
+            raise Exception("children are partially ordered? ")
+
+        new_children = []
+        for child in expr.children():
+            # check: this rule must be applied after shuffle
+            assert isinstance(child, algebra.HyperCubeShuffle)
+            ascending = [True] * len(child.hashed_columns)
+            new_children.append(
+                algebra.OrderBy(
+                    child, child.hashed_columns, ascending))
+        expr.args = new_children
+        return expr
 
 
 class BroadcastBeforeCross(rules.Rule):
@@ -721,12 +1058,18 @@ class DistributedGroupBy(rules.Rule):
 
         local_aggs = []  # aggregates executed on each local machine
         merge_aggs = []  # aggregates executed after local aggs
-        agg_offsets = []  # map from logical index to local/merge index.
+        agg_offsets = defaultdict(list)  # map aggregate to local agg indices
 
-        for logical_agg in op.aggregate_list:
-            agg_offsets.append(len(local_aggs))
-            local_aggs.extend(logical_agg.get_local_aggregates())
-            merge_aggs.extend(logical_agg.get_merge_aggregates())
+        for (i, logical_agg) in enumerate(op.aggregate_list):
+            for local, merge in zip(logical_agg.get_local_aggregates(),
+                                    logical_agg.get_merge_aggregates()):
+                try:
+                    idx = local_aggs.index(local)
+                    agg_offsets[i].append(idx)
+                except ValueError:
+                    agg_offsets[i].append(len(local_aggs))
+                    local_aggs.append(local)
+                    merge_aggs.append(merge)
 
         assert len(merge_aggs) == len(local_aggs)
 
@@ -754,13 +1097,14 @@ class DistributedGroupBy(rules.Rule):
             fexpr = logical_agg.get_finalizer()
 
             # Start of merge aggregates for this logical aggregate
-            offset = num_grouping_terms + agg_offsets[pos]
+            offsets = [idx + num_grouping_terms for idx in agg_offsets[pos]]
 
             if fexpr is None:
-                return UnnamedAttributeRef(offset)
+                assert len(offsets) == 1
+                return UnnamedAttributeRef(offsets[0])
             else:
                 # Convert MergeAggregateOutput instances to absolute col refs
-                return expression.finalizer_expr_to_absolute(fexpr, offset)
+                return expression.finalizer_expr_to_absolute(fexpr, offsets)
 
         # pass through grouping terms
         gmappings = [(None, UnnamedAttributeRef(i))
@@ -1083,7 +1427,179 @@ class RemoveTrivialSequences(rules.Rule):
             return expr
 
 
+class MergeToNaryJoin(rules.Rule):
+    """Merge consecutive binary join into a single multiway join
+    Note: this code assumes that the binary joins form a left deep tree
+    before the merge."""
+    @staticmethod
+    def mergable(op):
+        """Recursively checks whether an operator is mergable to NaryJoin.
+        An operator will be merged to NaryJoin if its subtree contains
+        only joins.
+        """
+        allowed_intermediate_types = (algebra.ProjectingJoin, algebra.Select)
+        if issubclass(type(op), algebra.ZeroaryOperator):
+            return True
+        if not isinstance(op, allowed_intermediate_types):
+            return False
+        elif issubclass(type(op), algebra.UnaryOperator):
+            return MergeToNaryJoin.mergable(op.input)
+        elif issubclass(type(op), algebra.BinaryOperator):
+            return (MergeToNaryJoin.mergable(op.left) and
+                    MergeToNaryJoin.mergable(op.right))
+
+    @staticmethod
+    def collect_join_groups(op, conditions, children):
+        assert isinstance(op, algebra.ProjectingJoin)
+        assert (isinstance(op.right, algebra.Select)
+                or issubclass(type(op.right), algebra.ZeroaryOperator))
+        children.append(op.right)
+        conjuncs = expression.extract_conjuncs(op.condition)
+        for cond in conjuncs:
+            conditions.get_or_insert(cond.left)
+            conditions.get_or_insert(cond.right)
+            conditions.union(cond.left, cond.right)
+        scan_then_select = (isinstance(op.left, algebra.Select) and
+                            isinstance(op.left.input, algebra.ZeroaryOperator))
+        if (scan_then_select or
+                issubclass(type(op.left), algebra.ZeroaryOperator)):
+            children.append(op.left)
+        else:
+            assert isinstance(op.left, algebra.ProjectingJoin)
+            MergeToNaryJoin.collect_join_groups(op.left, conditions, children)
+
+    def fire(self, op):
+        if not isinstance(op, algebra.ProjectingJoin):
+            return op
+
+        # if op is the only binary join, return
+        if not isinstance(op.left, algebra.ProjectingJoin):
+            return op
+        # if it is not mergable, e.g. aggregation along the path, return
+        if not MergeToNaryJoin.mergable(op):
+            return op
+        # do the actual merge
+        # 1. collect join groups
+        join_groups = UnionFind()
+        children = []
+        MergeToNaryJoin.collect_join_groups(
+            op, join_groups, children)
+        # 2. extract join groups from the union find datastructure
+        join_conds = defaultdict(list)
+        for field, key in join_groups.parents.items():
+            join_conds[key].append(field)
+        conditions = [v for (k, v) in join_conds.items()]
+        # Note: a cost based join order optimization need to be implemented.
+        ordered_conds = sorted(conditions, key=lambda cond: min(cond))
+        # 3. reverse the children due to top-down tree traversal
+        return algebra.NaryJoin(
+            list(reversed(children)), ordered_conds, op.output_columns)
+
+
+class GetCardinalities(rules.Rule):
+    """ get cardinalities information of Zeroary operators.
+    """
+    def __init__(self, catalog):
+        assert isinstance(catalog, Catalog)
+        self.catalog = catalog
+
+    def fire(self, expr):
+        # if not Zeroary operator, who cares?
+        if not issubclass(type(expr), algebra.ZeroaryOperator):
+            return expr
+
+        if issubclass(type(expr), algebra.Scan):
+            rel = expr.relation_key
+            expr._cardinality = self.catalog.num_tuples(rel)
+            return expr
+        expr._cardinality = algebra.DEFAULT_CARDINALITY
+        return expr
+
+# logical groups of catalog transparent rules
+# 1. this must be applied first
+remove_trivial_sequences = [RemoveTrivialSequences()]
+
+# 2. simple group by
+simple_group_by = [rules.SimpleGroupBy()]
+
+# 3. push down selection
+push_select = [
+    SplitSelects(),
+    PushSelects(),
+    MergeSelects()
+]
+
+# 4. push projection
+push_project = [
+    rules.ProjectingJoin(),
+    rules.JoinToProjectingJoin()
+]
+
+# 5. push apply
+push_apply = [
+    # These really ought to be run until convergence.
+    # For now, run twice and finish with PushApply.
+    PushApply(),
+    RemoveUnusedColumns(),
+    PushApply(),
+    RemoveUnusedColumns(),
+    PushApply(),
+]
+
+# 6. shuffle logics, hyper_cube_shuffle_logic is only used in HCAlgebra
+left_deep_tree_shuffle_logic = [
+    ShuffleBeforeDistinct(),
+    ShuffleBeforeSetop(),
+    ShuffleBeforeJoin(),
+    BroadcastBeforeCross()
+]
+
+# 7. distributed groupby
+# this need to be put after shuffle logic
+distributed_group_by = [
+    # DistributedGroupBy may introduce a complex GroupBy,
+    # so we must run SimpleGroupBy after it. TODO no one likes this.
+    DistributedGroupBy(), rules.SimpleGroupBy(),
+    ProjectToDistinctColumnSelect()
+]
+
+# 8. Myriafy logical operators
+# replace logical operator with its corresponding Myria operators
+myriafy = [
+    rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
+    rules.OneToOne(algebra.Store, MyriaStore),
+    rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),
+    rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply),
+    rules.OneToOne(algebra.Apply, MyriaApply),
+    rules.OneToOne(algebra.Select, MyriaSelect),
+    rules.OneToOne(algebra.Distinct, MyriaDupElim),
+    rules.OneToOne(algebra.Shuffle, MyriaShuffle),
+    rules.OneToOne(algebra.HyperCubeShuffle, MyriaHyperShuffle),
+    rules.OneToOne(algebra.Collect, MyriaCollect),
+    rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin),
+    rules.OneToOne(algebra.NaryJoin, MyriaLeapFrogJoin),
+    rules.OneToOne(algebra.Scan, MyriaScan),
+    rules.OneToOne(algebra.ScanTemp, MyriaScanTemp),
+    rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
+    rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
+    rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
+    rules.OneToOne(algebra.Difference, MyriaDifference),
+    rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
+]
+
+# 9. break communication boundary
+# get producer/consumer pair
+break_communication = [
+    BreakHyperCubeShuffle(),
+    BreakShuffle(),
+    BreakCollect(),
+    BreakBroadcast(),
+]
+
+
 class MyriaAlgebra(object):
+    """ Myria algebra abstract class
+    """
     language = MyriaLanguage
 
     operators = [
@@ -1097,104 +1613,66 @@ class MyriaAlgebra(object):
         MyriaShuffleConsumer,
         MyriaCollectConsumer,
         MyriaBroadcastConsumer,
+        MyriaHyperShuffleConsumer,
         MyriaScan,
         MyriaScanTemp
     )
 
-    rules = [
-        RemoveTrivialSequences(),
+    @abstractmethod
+    def opt_rules(self):
+        """Specific Myria algebra must instantiate this method."""
 
-        rules.SimpleGroupBy(),
 
-        # These rules form a logical group; PushSelects assumes that
-        # AND clauses have been broken apart into multiple selections.
-        SplitSelects(),
-        PushSelects(),
-        MergeSelects(),
-
-        rules.ProjectingJoin(),
-        rules.JoinToProjectingJoin(),
-
-        # These really ought to be run until convergence.
-        # For now, run twice and finish with PushApply.
-        PushApply(),
-        RemoveUnusedColumns(),
-        PushApply(),
-        RemoveUnusedColumns(),
-        PushApply(),
-
-        ShuffleBeforeDistinct(),
-        ShuffleBeforeSetop(),
-        ShuffleBeforeJoin(),
-        BroadcastBeforeCross(),
-        # DistributedGroupBy may introduce a complex GroupBy, so we must run
-        # SimpleGroupBy after it. TODO no one likes this.
-        DistributedGroupBy(), rules.SimpleGroupBy(),
-
-        ProjectToDistinctColumnSelect(),
-        rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
-        rules.OneToOne(algebra.Store, MyriaStore),
-        rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),
-        rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply),
-        rules.OneToOne(algebra.Apply, MyriaApply),
-        rules.OneToOne(algebra.Select, MyriaSelect),
-        rules.OneToOne(algebra.GroupBy, MyriaGroupBy),
-        rules.OneToOne(algebra.Distinct, MyriaDupElim),
-        rules.OneToOne(algebra.Shuffle, MyriaShuffle),
-        rules.OneToOne(algebra.Collect, MyriaCollect),
-        rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin),
-        rules.OneToOne(algebra.Scan, MyriaScan),
-        rules.OneToOne(algebra.ScanTemp, MyriaScanTemp),
-        rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
-        rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
-        rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
-        rules.OneToOne(algebra.Difference, MyriaDifference),
-        BreakShuffle(),
-        BreakCollect(),
-        BreakBroadcast(),
+class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
+    """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
+    rule_grps_sequence = [
+        remove_trivial_sequences,
+        simple_group_by,
+        push_select,
+        push_project,
+        push_apply,
+        left_deep_tree_shuffle_logic,
+        distributed_group_by,
+        myriafy,
+        break_communication
     ]
 
-
-def apply_schema_recursive(operator, catalog):
-    """Given a catalog, which has a function get_scheme(relation_key) to map
-    a relation name to its scheme, update the schema for all scan operations
-    that scan relations in the map."""
-
-    # We found a scan, let's fill in its scheme
-    if isinstance(operator, (MyriaScan, MyriaScanTemp)):
-
-        if isinstance(operator, MyriaScan):
-            rel_key = operator.relation_key
-        else:
-            rel_key = RelationKey.from_string(operator.name)
-        rel_scheme = catalog.get_scheme(rel_key)
-
-        if rel_scheme:
-            # The Catalog has an entry for this relation
-            if len(operator.scheme()) != len(rel_scheme):
-                s = "scheme for %s (%d cols) does not match the catalog (%d cols)" % (rel_key, len(operator._scheme), len(rel_scheme))  # noqa
-                raise ValueError(s)
-            operator._scheme = rel_scheme
-        else:
-            # The specified relation is not in the Catalog; replace its
-            # scheme's types with LONG_TYPE
-            old_sch = operator.scheme()
-            new_sch = [(old_sch.getName(i), types.LONG_TYPE)
-                       for i in range(len(old_sch))]
-            operator._scheme = Scheme(new_sch)
-
-    # Recurse through all children
-    for child in operator.children():
-        apply_schema_recursive(child, catalog)
-
-    # Done
-    return
+    def opt_rules(self):
+        return list(itertools.chain(*self.rule_grps_sequence))
 
 
-class EmptyCatalog(object):
-    @staticmethod
-    def get_scheme(relation_name):
-        return None
+class MyriaHyperCubeAlgebra(MyriaAlgebra):
+    """Myria physical algebra using HyperCubeShuffle and LeapFrogJoin"""
+    def opt_rules(self):
+        # this rule is hyper cube shuffle specific
+        merge_to_nary_join = [
+            MergeToNaryJoin()
+        ]
+
+        # catalog aware hc shuffle rules, so put them here
+        hyper_cube_shuffle_logic = [
+            GetCardinalities(self.catalog),
+            HCShuffleBeforeNaryJoin(self.catalog),
+            OrderByBeforeNaryJoin(),
+        ]
+
+        rule_grps_sequence = [
+            remove_trivial_sequences,
+            simple_group_by,
+            push_select,
+            push_project,
+            merge_to_nary_join,
+            push_apply,
+            left_deep_tree_shuffle_logic,
+            distributed_group_by,
+            hyper_cube_shuffle_logic,
+            myriafy,
+            break_communication
+        ]
+        return list(itertools.chain(*rule_grps_sequence))
+
+    def __init__(self, catalog=None):
+        self.catalog = catalog
 
 
 class OpIdFactory(object):
@@ -1210,28 +1688,15 @@ class OpIdFactory(object):
         return lambda: self.alloc()
 
 
-def label_op_to_op(label, op):
-    """If needed, insert a Store above the op with the relation name label"""
-    if isinstance(op, (algebra.Store, algebra.StoreTemp)):
-        # Already a store, we're done
-        return op
-
-    if not label:
-        raise ValueError('label must be a non-empty string')
-
-    return MyriaStore(plan=op, relation_key=RelationKey.from_string(label))
-
-
-def op_list_to_operator(physical_plan):
-    """Given a Datalog-style list (label, root_operator) of IDBs,
-    add a Store operator to name the output of that operator the
-    corresponding label. Gracefully handle the missing label or present Store
-    cases."""
-    if len(physical_plan) == 1:
-        (label, op) = physical_plan[0]
-        return label_op_to_op(label, op)
-
-    return algebra.Parallel(label_op_to_op(l, o) for (l, o) in physical_plan)
+def ensure_store_temp(label, op):
+    """Returns a StoreTemp that assigns the given operator to a temp relation
+    with the given name. Op must be a 'normal operator', i.e.,
+    not a Store/StoreTemp or a control-flow sub-plan operator."""
+    assert not isinstance(op, (algebra.Store, algebra.StoreTemp))
+    assert not isinstance(op, (algebra.Sequence, algebra.Parallel,
+                               algebra.DoWhile))
+    assert isinstance(label, basestring) and len(label) > 0
+    return MyriaStoreTemp(input=op, name=label)
 
 
 def compile_fragment(frag_root):
@@ -1323,6 +1788,21 @@ def compile_plan(plan_op):
         plan_list = [compile_plan(pl_op) for pl_op in plan_op.children()]
         return {"type": "Sequence", "plans": plan_list}
 
+    elif isinstance(plan_op, algebra.DoWhile):
+        children = plan_op.children()
+        if len(children) < 2:
+            raise ValueError('DoWhile must have at >= 2 children: body and condition')  # noqa
+        condition = children[-1]
+        if isinstance(condition, subplan_ops):
+            raise ValueError('DoWhile condition cannot be a subplan op {cls}'.format(cls=condition.__class__))  # noqa
+        condition = ensure_store_temp('__dowhile_{}_condition'.format(id(
+            plan_op)), condition)
+        plan_op.args = children[:-1] + [condition]
+        body = [compile_plan(pl_op) for pl_op in plan_op.children()]
+        return {"type": "DoWhile",
+                "body": body,
+                "condition": condition.name}
+
     raise NotImplementedError("compiling subplan op {}".format(type(plan_op)))
 
 
@@ -1331,30 +1811,17 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     submission to the Myria REST API server. The logical plan is converted to a
     string and passed along unchanged."""
 
+    # Store/StoreTemp is a reasonable physical plan... for now.
+    if isinstance(physical_plan, (algebra.Store, algebra.StoreTemp)):
+        physical_plan = algebra.Parallel([physical_plan])
+
+    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
+    assert isinstance(physical_plan, subplan_ops), \
+        'Physical plan must be a subplan operator, not {}'.format(type(physical_plan))  # noqa
+
     # raw_query must be a string
     if not isinstance(raw_query, basestring):
         raise ValueError("raw query must be a string")
-
-    # old-style plan with (name, root_op) pair. Turn it into a single operator.
-    # If the list has length > 1, it will be a Parallel. Otherwise it will
-    # just be the root operator.
-    if isinstance(physical_plan, list):
-        physical_plan = op_list_to_operator(physical_plan)
-
-    # At this point physical_plan better be a single operator
-    if not isinstance(physical_plan, algebra.Operator):
-        raise ValueError('Physical plan must be an operator')
-
-    # If the physical_plan is not a SubPlan operator, make it a Parallel
-    subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
-    if not isinstance(physical_plan, subplan_ops):
-        physical_plan = algebra.Parallel([physical_plan])
-
-    # If no catalog was supplied, create the empty catalog
-    if catalog is None:
-        catalog = EmptyCatalog()
-    # Update the scheme of all scans
-    apply_schema_recursive(physical_plan, catalog)
 
     return {"rawDatalog": raw_query,
             "logicalRa": str(logical_plan),

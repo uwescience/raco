@@ -266,6 +266,11 @@ class Parser(object):
         p[0] = ('STORE', p[3], p[5], p[6])
 
     @staticmethod
+    def p_statement_dump(p):
+        'statement : DUMP LPAREN unreserved_id RPAREN SEMI'
+        p[0] = ('DUMP', p[3])
+
+    @staticmethod
     def p_optional_part_info(p):
         '''optional_part_info : COMMA LBRACKET column_ref_list RBRACKET
                               | empty'''
@@ -298,6 +303,11 @@ class Parser(object):
     def p_expression_scan(p):
         'expression : SCAN LPAREN relation_key RPAREN'
         p[0] = ('SCAN', p[3])
+
+    @staticmethod
+    def p_expression_load(p):
+        'expression :  LOAD LPAREN STRING_LITERAL COMMA column_def_list RPAREN'
+        p[0] = ('LOAD', p[3], scheme.Scheme(p[5]))
 
     @staticmethod
     def p_relation_key(p):

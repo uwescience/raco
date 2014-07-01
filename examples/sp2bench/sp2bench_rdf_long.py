@@ -1,6 +1,6 @@
 from emitcode import emitCode
 import raco.algebra as algebra
-from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
+from raco.language import CCAlgebra, GrappaAlgebra
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -114,7 +114,7 @@ if len(sys.argv) > 1:
     if sys.argv[1] ==  "grappa" or sys.argv[1] == "g":
         print "using grappa"
         alg = GrappaAlgebra
-        prefix="grappa_"
+        prefix="grappa"
 
 plan = None
 if len(sys.argv) > 2:

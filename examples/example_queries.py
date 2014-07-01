@@ -1,9 +1,7 @@
-from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
-import raco.algebra as algebra
+from raco.language import CCAlgebra, GrappaAlgebra
 from emitcode import emitCode
 import raco.rules as rules
 from raco.grappalang import GrappaShuffleHashJoin, GrappaSymmetricHashJoin, GrappaHashJoin
-from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
 
 import logging
 logging.basicConfig(level=logging.DEBUG)

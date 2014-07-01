@@ -7,7 +7,7 @@ import raco.algebra
 import raco.expression
 import raco.catalog
 import raco.scheme
-from raco.language import MyriaAlgebra
+from raco.language import MyriaLeftDeepTreeAlgebra, MyriaHyperCubeAlgebra
 from raco.algebra import LogicalAlgebra
 from raco.myrialang import compile_to_json
 from raco.compile import optimize
@@ -95,6 +95,9 @@ class ExpressionProcessor(object):
             scheme = raco.scheme.DummyScheme()
 
         return raco.algebra.Scan(rel_key, scheme)
+
+    def load(self, path, scheme):
+        return raco.algebra.FileScan(path, scheme)
 
     def table(self, emit_clause):
         """Emit a single-row table literal."""
@@ -288,10 +291,11 @@ class ExpressionProcessor(object):
 class StatementProcessor(object):
     '''Evaluate a list of statements'''
 
-    def __init__(self, catalog=None, use_dummy_schema=False):
+    def __init__(self, catalog, use_dummy_schema=False):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
+        assert isinstance(catalog, raco.catalog.Catalog)
         self.catalog = catalog
         self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
 
@@ -360,6 +364,13 @@ class StatementProcessor(object):
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, None, uses_set)
 
+    def dump(self, _id):
+        alias_expr = ("ALIAS", _id)
+        child_op = self.ep.evaluate(alias_expr)
+        op = raco.algebra.Dump(child_op)
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, None, uses_set)
+
     def dowhile(self, statement_list, termination_ex):
         first_op_id = self.cfg.next_op_id  # op ID of the top of the loop
 
@@ -382,21 +393,23 @@ class StatementProcessor(object):
         """Return an operator representing the logical query plan."""
         return self.cfg.get_logical_plan()
 
-    def get_physical_plan(self):
+    def get_physical_plan(self, multiway_join=False):
         """Return an operator representing the physical query plan."""
 
         # TODO: Get rid of the dummy label argument here.
         # Return first (only) plan; strip off dummy label.
         logical_plan = self.get_logical_plan()
-        physical_plans = optimize([('root', logical_plan)],
-                                  target=MyriaAlgebra,
-                                  source=LogicalAlgebra)
-        return physical_plans[0][1]
+        if multiway_join:
+            target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog)
+        else:
+            target_phys_algebra = MyriaLeftDeepTreeAlgebra()
+        return optimize(logical_plan,
+                        target=target_phys_algebra,
+                        source=LogicalAlgebra)
 
-    def get_json(self):
+    def get_json(self, multiway_join=False):
         lp = self.get_logical_plan()
-        pps = optimize([('root', lp)], target=MyriaAlgebra,
-                       source=LogicalAlgebra)
+        pps = self.get_physical_plan(multiway_join)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
-        return compile_to_json(str(lp), pps[0][1], pps)
+        return compile_to_json(str(lp), pps, pps)

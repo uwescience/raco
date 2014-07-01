@@ -18,8 +18,8 @@ Output languages include:
 * The Myria physical algebra.
 * A pseudocode algebra
 * A Python algebra
-* A C algebra
-* A Grappa algebra
+* A C++ algebra, C++ source code
+* A Grappa algebra, Grappa source code
 
 Users can of course author programs by directly instantiating one of the intermediate or output algebras as well as one of the source languages.
 
@@ -94,7 +94,17 @@ Sequence
 ### Visualize a Myria plan as a graph
 Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
-### Run the datalog->C++ tests
+# C++ and Grappa output
+There are also C++ and Grappa output for Raco.
+
+### Run the datalog -> C++ tests
+
+#### Requirements
+- C++11 compiler
+- sqlite3
+
+#### Run
+
 ```bash
 PYTHONPATH=examples python c_test_environment/clang_tests.py
 ```
@@ -108,10 +118,18 @@ cd examples
 
 Available test tables are `{R,S,T}{1,2,3}` with that number of columns.
 
+### Run the datalog -> Grappa tests
 
-### Compile a datalog query into Grappa, then run it
 1. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
 2. set GRAPPA_HOME to root of Grappa
+3. set RACO_HOME to root of raco
+4. run tests:
+```bash
+python c_test_environment/grappalang_tests.py
+```
+
+### Compile a datalog query into Grappa, then run it
+
 3. try queries:
 
 ```

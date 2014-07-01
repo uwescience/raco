@@ -6,7 +6,7 @@ newBad = empty(id:int, v:float);
 bounds = [from Points emit min(v) as lower, max(v) as upper];
 
 -- number of allowed standard deviations
-N = [2];
+const Nstd: 2;
 
 do
   -- Incrementally update aggs and stats
@@ -22,8 +22,8 @@ do
                 SQRT(1.0/(cnt*(cnt-1)) * (cnt * sumsq - _sum * _sum)) as std];
 
   -- Compute the new bounds
-  newBounds = [from stats emit mean - *N * std as lower,
-                               mean + *N * std as upper];
+  newBounds = [from stats emit mean - Nstd * std as lower,
+                               mean + Nstd * std as upper];
 
   newBad = [from Points, bounds, newBounds
             where (newBounds.upper < v
@@ -40,4 +40,4 @@ output = [from Points, bounds
           where Points.v > bounds.lower
                 and Points.v < bounds.upper
           emit Points.*];
-store(output, OUTPUT);
+store(output, sc_points_clipped);

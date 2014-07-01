@@ -1,0 +1,5 @@
+x = [0 as val, 1 as exp];
+do
+  x = [from x emit val+1 as val, 2*exp as exp];
+while [from x emit val < 5];
+-- with no store, this should be the empty program

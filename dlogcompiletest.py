@@ -1,10 +1,8 @@
 from raco import RACompiler
 from raco.scheme import Scheme
 from raco.catalog import ASCIIFile
-from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra#, ProtobufAlgebra
 from raco.language import MyriaAlgebra
-from raco.algebra import LogicalAlgebra
-from raco.compile import compile, optimize, common_subexpression_elimination, showids
+from raco.compile import compile
 
 # declare the schema for each relation
 sch = Scheme([("subject", int), ("predicate", int), ("object", int)])
@@ -118,7 +116,7 @@ dlog = RACompiler()
 dlog.fromDatalog(query)
 print dlog.logicalplan
 
-dlog.optimize(target=MyriaAlgebra, eliminate_common_subexpressions=False)
+dlog.optimize(target=MyriaAlgebra(), eliminate_common_subexpressions=False)
 
 code = dlog.compile()
 print code
