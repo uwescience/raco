@@ -56,9 +56,11 @@ def check_assignment_compatability(before, after):
 
 class ExpressionProcessor(object):
     """Convert syntactic expressions into relational algebra operations."""
-    def __init__(self, symbols, catalog, use_dummy_schema=False):
+    def __init__(self, symbols, catalog, connection_table,
+                 use_dummy_schema=False):
         self.symbols = symbols
         self.catalog = catalog
+        self.connection_table = connection_table
         self.use_dummy_schema = use_dummy_schema
 
         # Variables accesed by the current operation
@@ -295,6 +297,9 @@ class StatementProcessor(object):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
         self.symbols = {}
 
+        # Map from language tag to connection strings
+        self.connection_table = {}
+
         assert isinstance(catalog, raco.catalog.Catalog)
         self.catalog = catalog
         self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
@@ -388,6 +393,9 @@ class StatementProcessor(object):
         # Add a control flow edge from the loop condition to the top of the
         # loop
         self.cfg.add_edge(last_op_id, first_op_id)
+
+    def connect(self, lang, connstring):
+        self.connection_table[lang.lower()] = connstring
 
     def get_logical_plan(self):
         """Return an operator representing the logical query plan."""
