@@ -106,8 +106,10 @@ class GrappaLanguage(Language):
             auto end_%(ident)s = walltime();
             auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
             VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
-            VLOG(1) << "timestamp %(ident)s start " << std::setprecision(15) << start_%(ident)s;
-            VLOG(1) << "timestamp %(ident)s end " << std::setprecision(15) << end_%(ident)s;
+            VLOG(1) << "timestamp %(ident)s start " << std::setprecision(15)\
+             << start_%(ident)s;
+            VLOG(1) << "timestamp %(ident)s end " << std::setprecision(15)\
+             << end_%(ident)s;
             """)
             code = timing_template % locals()
 
@@ -1012,22 +1014,22 @@ class GrappaAlgebra(object):
 
     def opt_rules(self):
         return [
-        # rules.removeProject(),
-        rules.CrossProduct2Join(),
-        rules.SimpleGroupBy(),
-        # SwapJoinSides(),
-        rules.OneToOne(algebra.Select, GrappaSelect),
-        rules.OneToOne(algebra.Apply, GrappaApply),
-        # rules.OneToOne(algebra.Scan,MemoryScan),
-        MemoryScanOfFileScan(),
-        #  rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
-        rules.OneToOne(algebra.Join, self.join_type),
-        rules.OneToOne(algebra.Project, GrappaProject),
-        rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
-        # TODO: this Union obviously breaks semantics
-        rules.OneToOne(algebra.Union, GrappaUnionAll)
-        # rules.FreeMemory()
-    ]
+            # rules.removeProject(),
+            rules.CrossProduct2Join(),
+            rules.SimpleGroupBy(),
+            # SwapJoinSides(),
+            rules.OneToOne(algebra.Select, GrappaSelect),
+            rules.OneToOne(algebra.Apply, GrappaApply),
+            # rules.OneToOne(algebra.Scan,MemoryScan),
+            MemoryScanOfFileScan(),
+            # rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
+            rules.OneToOne(algebra.Join, self.join_type),
+            rules.OneToOne(algebra.Project, GrappaProject),
+            rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
+            # TODO: this Union obviously breaks semantics
+            rules.OneToOne(algebra.Union, GrappaUnionAll)
+            # rules.FreeMemory()
+        ]
 
     def set_join_type(self, joinclass):
         self.join_type = joinclass
