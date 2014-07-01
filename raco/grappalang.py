@@ -200,7 +200,11 @@ class GrappaOperator (Pipelined):
 from algebra import UnaryOperator
 
 
+# TODO: replace with ScanTemp functionality?
 class MemoryScan(algebra.UnaryOperator, GrappaOperator):
+    def num_tuples(self):
+        return 10000  # placeholder
+
     def produce(self, state):
         self.input.produce(state)
 
@@ -1001,7 +1005,11 @@ class GrappaAlgebra(object):
         GrappaGroupBy
     ]
 
-    rules = [
+    def __init__(self):
+        self.join_type = GrappaHashJoin
+
+    def opt_rules(self):
+        return [
         # rules.removeProject(),
         rules.CrossProduct2Join(),
         rules.SimpleGroupBy(),
@@ -1011,10 +1019,13 @@ class GrappaAlgebra(object):
         # rules.OneToOne(algebra.Scan,MemoryScan),
         MemoryScanOfFileScan(),
         #  rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
-        rules.OneToOne(algebra.Join, GrappaHashJoin),
+        rules.OneToOne(algebra.Join, self.join_type),
         rules.OneToOne(algebra.Project, GrappaProject),
         rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
         # TODO: this Union obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll)
         # rules.FreeMemory()
     ]
+
+    def set_join_type(self, joinclass):
+        self.join_type = joinclass

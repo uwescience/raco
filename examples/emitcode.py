@@ -16,17 +16,12 @@ def hack_plan(alg, plan):
     # plan hacking
     newRule = None
     if plan == "sym":
-        newRule = rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin)
+        alg.set_join_type(GrappaSymmetricHashJoin)
     elif plan == "shuf":
-        newRule = rules.OneToOne(algebra.Join, GrappaShuffleHashJoin)
+        alg.set_join_type(GrappaShuffleHashJoin)
     
-    if newRule:
-        for i in range(0, len(alg.rules)):
-            r = alg.rules[i]
-            if isinstance(r, rules.OneToOne) and r.opto == GrappaHashJoin:
-                alg.rules[i] = newRule
-
-def emitCode(query, name, alg, plan=""):
+def emitCode(query, name, algType, plan=""):
+    alg = algType()
     hack_plan(alg, plan)
 
     LOG.info("compiling %s: %s", name, query)
