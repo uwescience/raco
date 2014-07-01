@@ -5,7 +5,11 @@ CXX=g++
 
 CFLAGS =-ggdb -std=c++11
 #-O3 #-m64 -Wno-deprecated -fPIC
+
+ifneq ($(shell uname), Darwin)
 LIBS = -lrt
+endif
+
 INCL = 
 COMP = $(CXX) $(CFLAGS) -c $< $(INCL) 
 LINK = $(CXX) $(CFLAGS) -o $@ $^ $(LIBS)
