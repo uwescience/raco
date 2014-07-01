@@ -1,6 +1,6 @@
 from emitcode import emitCode
 import raco.algebra as algebra
-from raco.language import CCAlgebra, MyriaAlgebra, GrappaAlgebra
+from raco.language import CCAlgebra, GrappaAlgebra
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
