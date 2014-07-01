@@ -48,7 +48,9 @@ class SQLCatalog(Catalog):
         table = Table(name, self.metadata, *columns)
         table.create(self.engine)
         if tuples:
-            self.engine.execute(table.insert().values(tuples))
+            tuples = [{n: v for n, v in zip(schema.get_names(), tup)}
+                      for tup in tuples]
+            self.engine.execute(table.insert(), tuples)
 
     def _convert_expr(self, cols, expr, input_scheme):
         if isinstance(expr, expression.AttributeRef):
