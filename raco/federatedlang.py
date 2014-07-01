@@ -33,7 +33,7 @@ class RunMyria(Runner):
         return "RunMyria(%s, %s)" % (self.command, self.connection)
 
 
-dispatchmap = {"aql": RunAQL, "myria": RunMyria}
+dispatchmap = {"aql": RunAQL, "myria": RunMyria, "afl": RunAQL}
 
 
 class Dispatch(rules.Rule):
