@@ -53,7 +53,7 @@ class StagedTupleRef:
     self.__typename = None
 
   def getTupleTypename(self):
-    if self.__typename==None:
+    if self.__typename is None:
       fields = ""
       relsym = self.relsym
       for i in range(0, len(self.scheme)):

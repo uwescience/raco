@@ -10,7 +10,7 @@ from raco.language.myrialang import (MyriaShuffleConsumer,
                                      MyriaHyperShuffleProducer)
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
-from raco.algebra import LogicalAlgebra
+from raco.language.logical import LogicalAlgebra
 from raco.compile import optimize
 from raco import relation_key
 from raco.catalog import FakeCatalog

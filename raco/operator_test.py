@@ -3,6 +3,7 @@ import collections
 
 import raco.fakedb
 from raco.relation_key import RelationKey
+from raco.language.logical import LogicalAlgebra
 from raco.algebra import *
 from raco.expression import *
 import raco.relation_key as relation_key

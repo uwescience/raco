@@ -1,5 +1,5 @@
 from raco import RACompiler
-from raco.algebra import LogicalAlgebra
+from raco.language.logical import LogicalAlgebra
 from raco.compile import compile
 import raco.viz as viz
 
@@ -28,7 +28,7 @@ def emitCode(query, name, algebra):
     dlog.optimize(target=algebra, eliminate_common_subexpressions=False)
 
     LOG.info("physical: %s",dlog.physicalplan)
-    
+
     print dlog.physicalplan
     physical_dot = viz.operator_to_dot(dlog.physicalplan)
     with open("%s.physical.dot"%(name), 'w') as dwf:
@@ -38,7 +38,7 @@ def emitCode(query, name, algebra):
     code = ""
     code += comment("Query " + query)
     code += compile(dlog.physicalplan)
-    
+
     fname = name+'.cpp'
     with open(fname, 'w') as f:
         f.write(code)
