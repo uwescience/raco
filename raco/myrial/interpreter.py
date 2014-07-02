@@ -410,6 +410,10 @@ class StatementProcessor(object):
                                    connection=connstr, scheme=None)
         self.cfg.add_op(op, None, set())
 
+    def export_to_myria(self, array_name, relkey):
+        op = raco.algebra.ExportScidbToMyria(array_name, relkey)
+        self.cfg.add_op(op, None, set())
+
     def get_logical_plan(self):
         """Return an operator representing the logical query plan."""
         return self.cfg.get_logical_plan()
