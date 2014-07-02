@@ -10,11 +10,16 @@ class Federated(Language):
     pass
 
 
-class FederatedOperator(object):
+class FederatedOperator(algebra.ZeroaryOperator):
     language = Federated
 
+    def shortStr(self):
+        return repr(self)
 
-class Runner(FederatedOperator, algebra.ExecScan):
+    def scheme(self):
+        raise NotImplementedError()
+
+class Runner(FederatedOperator):
     def __init__(self, command, connection=None):
         self.command = command
         self.connection = connection
@@ -25,13 +30,11 @@ class RunAQL(Runner):
     def __repr__(self):
         return "RunAQL(%s, %s)" % (self.command, self.connection)
 
-
 class RunMyria(Runner):
     """Run a Myria query on the UW cluster"""
 
     def __repr__(self):
         return "RunMyria(%s, %s)" % (self.command, self.connection)
-
 
 dispatchmap = {"aql": RunAQL, "myria": RunMyria, "afl": RunAQL}
 
@@ -40,6 +43,8 @@ class Dispatch(rules.Rule):
     def fire(self, expr):
         if isinstance(expr, algebra.Sequence):
             return expr  # Retain top-level sequence operator
+        if isinstance(expr, algebra.ExportScidbToMyria):
+            return expr
         if isinstance(expr, algebra.ExecScan):
             # Some kind of custom code that we must pass through
             return dispatchmap[expr.languagetag](expr.command, expr.connection)

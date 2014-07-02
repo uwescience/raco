@@ -1,8 +1,8 @@
-connect(%afl, "vega.cs.washington.edu:7777");
+connect(%afl, "http://vega.cs.washington.edu:7777");
 
-%afl("store(sum(B3, data), B4)");
+%afl("store(sum(B1, data), B4)");
 
-exportScidbToMyria("b4", public:adhoc:b4, val:int);
+exportScidbToMyria("B4", public:adhoc:b4, val:int);
 
 X = scan(public:adhoc:sc_points);
 Y = [from X where X.v > 0 emit X.*];
