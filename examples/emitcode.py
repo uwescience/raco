@@ -1,9 +1,7 @@
 from raco import RACompiler
-from raco.algebra import LogicalAlgebra
-import raco.algebra as algebra
 from raco.compile import compile
-from raco.grappalang import GrappaShuffleHashJoin, GrappaSymmetricHashJoin, GrappaHashJoin
-import raco.rules as rules
+from raco.language.grappalang import (GrappaShuffleHashJoin,
+                                      GrappaSymmetricHashJoin)
 import raco.viz as viz
 
 import logging
@@ -19,7 +17,7 @@ def hack_plan(alg, plan):
         alg.set_join_type(GrappaSymmetricHashJoin)
     elif plan == "shuf":
         alg.set_join_type(GrappaShuffleHashJoin)
-    
+
 def emitCode(query, name, algType, plan=""):
     alg = algType()
     hack_plan(alg, plan)
@@ -42,7 +40,7 @@ def emitCode(query, name, algType, plan=""):
     dlog.optimize(target=alg, eliminate_common_subexpressions=False)
 
     LOG.info("physical: %s",dlog.physicalplan)
-    
+
     print dlog.physicalplan
     physical_dot = viz.operator_to_dot(dlog.physicalplan)
     with open("%s.physical.dot"%(name), 'w') as dwf:
@@ -52,7 +50,7 @@ def emitCode(query, name, algType, plan=""):
     code = ""
     code += comment("Query " + query)
     code += compile(dlog.physicalplan)
-    
+
     fname = name+'.cpp'
     with open(fname, 'w') as f:
         f.write(code)

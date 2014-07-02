@@ -3,7 +3,7 @@ from testquery import checkquery
 from testquery import ClangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
-from raco.language import CCAlgebra
+from raco.language.clang import CCAlgebra
 from platform_tests import PlatformTest
 
 import sys

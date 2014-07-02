@@ -1,8 +1,8 @@
-import myrialang
 from raco import RACompiler
 import unittest
 import algebra
 from raco.catalog import FakeCatalog
+from raco.language import myrialang
 
 
 class testNaryJoin(unittest.TestCase):

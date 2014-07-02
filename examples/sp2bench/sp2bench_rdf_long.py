@@ -1,6 +1,6 @@
 from emitcode import emitCode
-import raco.algebra as algebra
-from raco.language import CCAlgebra, GrappaAlgebra
+from raco.language.grappalang import GrappaAlgebra
+from raco.language.clang import CCAlgebra
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -49,7 +49,7 @@ queries['Q4'] = """A(name1, name2) :- %(tr)s(article1, 'http://www.w3.org/1999/0
 # TODO be sure DISTINCT
 
 
-# syntactically join with equality; 
+# syntactically join with equality;
 #queries['Q5a'] = """A(person, name) :- %(tr)s(article, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://localhost/vocabulary/bench/Article'),
 queries['Q5a'] = """A(person, name) :- %(tr)s(article, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://localhost/vocabulary/bench/Article'),
                             %(tr)s(article, 'http://purl.org/dc/elements/1.1/creator', person),
@@ -72,24 +72,24 @@ queries['Q5b'] = """A(person, name) :- %(tr)s(article, 'http://www.w3.org/1999/0
 # TODO: Q7 requires double negation
 
 
-#TODO: enable Q8, after dealing with HashJoin( $0 != $7 ) type of cases 
-#queries['Q8'] = """Erdoes(erdoes) :- %(tr)s(erdoes, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://xmlns.com/foaf/0.1/Person'), 
-_ = """Erdoes(erdoes) :- %(tr)s(erdoes, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://xmlns.com/foaf/0.1/Person'), 
-                          %(tr)s(erdoes, 'http://xmlns.com/foaf/0.1/name', "Paul Erdoes") 
+#TODO: enable Q8, after dealing with HashJoin( $0 != $7 ) type of cases
+#queries['Q8'] = """Erdoes(erdoes) :- %(tr)s(erdoes, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://xmlns.com/foaf/0.1/Person'),
+_ = """Erdoes(erdoes) :- %(tr)s(erdoes, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'http://xmlns.com/foaf/0.1/Person'),
+                          %(tr)s(erdoes, 'http://xmlns.com/foaf/0.1/name', "Paul Erdoes")
         A(name) :- Erdoes(erdoes),
                    %(tr)s(doc, 'http://purl.org/dc/elements/1.1/creator', erdoes),
                    %(tr)s(doc, 'http://purl.org/dc/elements/1.1/creator', author),
                    %(tr)s(doc2, 'http://purl.org/dc/elements/1.1/creator', author),
                    %(tr)s(doc2, 'http://purl.org/dc/elements/1.1/creator', author2),
                    %(tr)s(author2, 'http://xmlns.com/foaf/0.1/name', name),
-                   author != erdoes, 
-                   doc2 != doc, 
+                   author != erdoes,
+                   doc2 != doc,
                    author2 != erdoes,
                    author2 != author
-                     
+
          A(name) :- Erdoes(erdoes),
                     %(tr)s(doc, 'http://purl.org/dc/elements/1.1/creator', erdoes),
-                    %(tr)s(doc, 'http://purl.org/dc/elements/1.1/creator', author), 
+                    %(tr)s(doc, 'http://purl.org/dc/elements/1.1/creator', author),
                     %(tr)s(author, 'http://xmlns.com/foaf/0.1/name', name),
                     author != erdoes"""
 #TODO be sure DISTINCT
@@ -106,7 +106,7 @@ queries['Q10'] = """A(subj, pred) :- %(tr)s(subj, pred, 'http://localhost/person
 
 queries['Q11'] = """A(ee) :- %(tr)s(publication, 'http://www.w3.org/2000/01/rdf-schema#seeAlso', ee)"""
 #TODO order by, limit, offset
-    
+
 alg = CCAlgebra
 prefix=""
 import sys

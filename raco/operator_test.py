@@ -3,6 +3,7 @@ import collections
 
 import raco.fakedb
 from raco.relation_key import RelationKey
+from raco.language.logical import LogicalAlgebra
 from raco.algebra import *
 from raco.expression import *
 import raco.relation_key as relation_key
@@ -76,7 +77,8 @@ class OperatorTest(unittest.TestCase):
         self.assertEqual([x[0] for x in result][-1], 37857)
 
         # test whether we can generate json without errors
-        from myrialang import compile_to_json, MyriaLeftDeepTreeAlgebra
+        from raco.language.myrialang import (compile_to_json,
+                                             MyriaLeftDeepTreeAlgebra)
         from compile import optimize
         import json
         json_string = json.dumps(compile_to_json("", None, optimize(store, MyriaLeftDeepTreeAlgebra(), LogicalAlgebra)))  # noqa

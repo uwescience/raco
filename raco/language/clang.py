@@ -3,13 +3,12 @@
 
 from raco import algebra
 from raco import expression
-from raco.language import Language
+from raco.language import Language, clangcommon
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.clangcommon import StagedTupleRef
-from raco import clangcommon
+from raco.language.clangcommon import StagedTupleRef
 
-from algebra import gensym
+from raco.algebra import gensym
 
 import logging
 
@@ -174,7 +173,7 @@ class CCOperator(Pipelined):
         return CStagedTupleRef(sym, scheme)
 
 
-from algebra import UnaryOperator
+from raco.algebra import UnaryOperator
 
 
 class MemoryScan(algebra.UnaryOperator, CCOperator):
