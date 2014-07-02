@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from raco.myrialang import compile_to_json
+from raco.language.myrialang import compile_to_json
 import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser

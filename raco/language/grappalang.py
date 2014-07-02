@@ -7,11 +7,10 @@ from raco import expression
 from raco.language import Language
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.clangcommon import StagedTupleRef
-from raco.clangcommon import ct
-from raco import clangcommon
+from raco.language.clangcommon import StagedTupleRef, ct
+from raco.language import clangcommon
 
-from algebra import gensym
+from raco.algebra import gensym
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -193,7 +192,7 @@ class GrappaOperator (Pipelined):
         return GrappaStagedTupleRef(sym, scheme)
 
 
-from algebra import UnaryOperator
+from raco.algebra import UnaryOperator
 
 
 class MemoryScan(algebra.UnaryOperator, GrappaOperator):

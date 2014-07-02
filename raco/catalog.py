@@ -32,6 +32,10 @@ class Catalog(object):
         """ Return number of servers in myria deployment """
 
     @abstractmethod
+    def get_scheme(self, rel_key):
+        """ Return scheme of tuples of rel_key """
+
+    @abstractmethod
     def num_tuples(self, rel_key):
         """ Return number of tuples of rel_key """
 
@@ -54,3 +58,6 @@ class FakeCatalog(Catalog):
         if rel_key in self.cached:
             return self.cached[rel_key]
         return DEFAULT_CARDINALITY
+
+    def get_scheme(self, rel_key):
+        raise NotImplementedError()

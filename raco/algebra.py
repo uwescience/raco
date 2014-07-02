@@ -1347,15 +1347,3 @@ def inline_operator(dest_op, var, target_op):
             return node.apply(rewrite_node)
 
     return rewrite_node(dest_op)
-
-
-class LogicalAlgebra(object):
-    operators = [
-        Join,
-        Select,
-        Scan
-    ]
-
-    @staticmethod
-    def opt_rules():
-        return []

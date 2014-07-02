@@ -3,7 +3,7 @@ from testquery import checkquery
 from testquery import GrappalangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
-from raco.language import GrappaAlgebra
+from raco.language.grappalang import GrappaAlgebra
 from platform_tests import PlatformTest
 from nose.plugins.skip import SkipTest
 
