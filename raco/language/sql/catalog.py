@@ -1,3 +1,7 @@
+"""
+A RACO language to compile expressions to SQL.
+"""
+
 from sqlalchemy import (Column, Table, MetaData, Integer, String,
                         Float, create_engine, select, func)
 
