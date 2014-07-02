@@ -1,4 +1,4 @@
-connect(%afl, "http://vega.cs.washington.edu:7777");
+connect(%afl, "http://vega.cs.washington.edu:8080");
 
 %afl("store(sum(B1, data), B4)");
 
