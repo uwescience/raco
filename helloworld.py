@@ -111,7 +111,7 @@ print
 
 # generate code in the target language
 print "************ CODE *************"
-myria_json = compile_to_json(query, cached_logicalplan, dlog.physicalplan)
+myria_json = compile_to_json(query, cached_logicalplan, dlog.physicalplan, "datalog")
 print json_pretty_print(myria_json)
 print
 
