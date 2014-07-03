@@ -1511,7 +1511,7 @@ def compile_plan(plan_op):
     raise NotImplementedError("compiling subplan op {}".format(type(plan_op)))
 
 
-def compile_to_json(raw_query, logical_plan, physical_plan, 
+def compile_to_json(raw_query, logical_plan, physical_plan,
                     language="not specified"):
     """This function compiles a physical query plan to the JSON suitable for
     submission to the Myria REST API server. The logical plan is converted to a
