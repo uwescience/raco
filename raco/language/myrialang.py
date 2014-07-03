@@ -1528,6 +1528,6 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     if not isinstance(raw_query, basestring):
         raise ValueError("raw query must be a string")
 
-    return {"rawDatalog": raw_query,
+    return {"rawQuery": raw_query,
             "logicalRa": str(logical_plan),
             "plan": compile_plan(physical_plan)}
