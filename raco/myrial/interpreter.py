@@ -413,4 +413,4 @@ class StatementProcessor(object):
         pps = self.get_physical_plan(multiway_join)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
-        return compile_to_json(str(lp), pps, pps)
+        return compile_to_json(str(lp), pps, pps, "myrial")
