@@ -48,7 +48,7 @@ def evaluate(plan, connection=None, validate=False):
     else:
         logical = str(plan)
         physical = plan
-        phys = myrialang.compile_to_json(logical, logical, physical)
+        phys = myrialang.compile_to_json(logical, logical, physical, "myrial")
         if connection is not None:
             if validate:
                 print json.dumps(connection.validate_query(phys))

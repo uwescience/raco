@@ -1511,7 +1511,8 @@ def compile_plan(plan_op):
     raise NotImplementedError("compiling subplan op {}".format(type(plan_op)))
 
 
-def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
+def compile_to_json(raw_query, logical_plan, physical_plan,
+                    language="not specified"):
     """This function compiles a physical query plan to the JSON suitable for
     submission to the Myria REST API server. The logical plan is converted to a
     string and passed along unchanged."""
@@ -1528,6 +1529,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan, catalog=None):
     if not isinstance(raw_query, basestring):
         raise ValueError("raw query must be a string")
 
-    return {"rawDatalog": raw_query,
+    return {"rawQuery": raw_query,
             "logicalRa": str(logical_plan),
+            "language": language,
             "plan": compile_plan(physical_plan)}

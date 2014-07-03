@@ -40,7 +40,7 @@ class DatalogTestCase(unittest.TestCase):
             if not skip_json:
                 # test whether we can generate json without errors
                 json_string = json.dumps(compile_to_json(
-                    query, dlog.logicalplan, dlog.physicalplan))
+                    query, dlog.logicalplan, dlog.physicalplan, "datalog"))
                 assert json_string
 
         self.db.evaluate(plan)
