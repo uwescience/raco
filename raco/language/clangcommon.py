@@ -325,6 +325,7 @@ class CFileScan(algebra.Scan):
 
             # now that we have the type, format this in;
             state.setPipelineProperty('type', 'scan')
+            state.setPipelineProperty('source', self.__class__)
             state.addPipeline(fscode%{"result_type": tuple_type})
 
 

@@ -105,3 +105,11 @@ class PlatformTest(object):
     def test_join_of_aggregate_of_join(self):
         self.check("""A(SUM(a), c) :- R2(a,b), T2(b,c)
                       B(x, y) :- A(x, z), S2(z, y)""", "join_of_aggregate_of_join")
+
+    def test_common_index_allowed(self):
+        """introduced for #250"""
+        self.check("""A(a,b,c,d) :- T2(a,b), R2(a,c), R2(a,d)""", "common_index_allowed")
+    
+    def test_common_index_disallowed(self):
+        """introduced for #250"""
+        self.check("""A(a,b,c,d) :- T2(a,b), R2(a,c), R2(d,a)""", "common_index_disallowed")

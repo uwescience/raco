@@ -1,6 +1,7 @@
 from raco import RACompiler
-from raco.language.logical import LogicalAlgebra
 from raco.compile import compile
+from raco.language.grappalang import (GrappaShuffleHashJoin,
+                                      GrappaSymmetricHashJoin)
 import raco.viz as viz
 
 import logging
@@ -9,7 +10,18 @@ LOG = logging.getLogger(__name__)
 def comment(s):
   return "/*\n%s\n*/\n" % str(s)
 
-def emitCode(query, name, algebra):
+def hack_plan(alg, plan):
+    # plan hacking
+    newRule = None
+    if plan == "sym":
+        alg.set_join_type(GrappaSymmetricHashJoin)
+    elif plan == "shuf":
+        alg.set_join_type(GrappaShuffleHashJoin)
+
+def emitCode(query, name, algType, plan=""):
+    alg = algType()
+    hack_plan(alg, plan)
+
     LOG.info("compiling %s: %s", name, query)
 
     # Create a compiler object
@@ -25,7 +37,7 @@ def emitCode(query, name, algebra):
     with open("%s.logical.dot"%(name), 'w') as dwf:
         dwf.write(logical_dot)
 
-    dlog.optimize(target=algebra, eliminate_common_subexpressions=False)
+    dlog.optimize(target=alg, eliminate_common_subexpressions=False)
 
     LOG.info("physical: %s",dlog.physicalplan)
 
@@ -45,3 +57,4 @@ def emitCode(query, name, algebra):
 
     # returns name of code file
     return fname
+

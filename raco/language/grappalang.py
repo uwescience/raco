@@ -105,6 +105,10 @@ class GrappaLanguage(Language):
             auto end_%(ident)s = walltime();
             auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
             VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
+            VLOG(1) << "timestamp %(ident)s start " << std::setprecision(15)\
+             << start_%(ident)s;
+            VLOG(1) << "timestamp %(ident)s end " << std::setprecision(15)\
+             << end_%(ident)s;
             """)
             code = timing_template % locals()
 
@@ -147,9 +151,13 @@ class GrappaLanguage(Language):
     def compile_stringliteral(cls, st):
         sid = cls.newstringident()
         decl = """int64_t %s;""" % (sid)
-        init = """auto l_%(sid)s = string_index.string_lookup(%(st)s);
+        lookup_init = """auto l_%(sid)s = string_index.string_lookup(%(st)s);
                    on_all_cores([=] { %(sid)s = l_%(sid)s; });""" % locals()
-        return """(%s)""" % sid, [decl], [init]
+        build_init = """
+        string_index = build_string_index("sp2bench_1m.index.medium");
+        """
+
+        return """(%s)""" % sid, [decl], [build_init, lookup_init]
         # raise ValueError("String Literals not supported in
         # C language: %s" % s)
 
@@ -195,7 +203,11 @@ class GrappaOperator (Pipelined):
 from raco.algebra import UnaryOperator
 
 
+# TODO: replace with ScanTemp functionality?
 class MemoryScan(algebra.UnaryOperator, GrappaOperator):
+    def num_tuples(self):
+        return 10000  # placeholder
+
     def produce(self, state):
         self.input.produce(state)
 
@@ -242,6 +254,7 @@ class MemoryScan(algebra.UnaryOperator, GrappaOperator):
 
         code = memory_scan_template % locals()
         state.setPipelineProperty('type', 'in_memory')
+        state.setPipelineProperty('source', self.__class__)
         state.addPipeline(code)
         return None
 
@@ -271,18 +284,26 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         """)
 
     @classmethod
-    def __genHashName__(cls):
-        name = "dhash_%03d" % cls._i
+    def __genBaseName__(cls):
+        name = "%03d" % cls._i
         cls._i += 1
         return name
 
-    def __genSyncName__(cls):
-        name = "dh_sync_%03d" % cls._i
-        cls._i += 1
+    def __getHashName__(self):
+        name = "dhash_%s" % self.symBase
         return name
+
+    def __getSyncName__(self, side):
+        base = "dh_sync_%s" % self.symBase
+        if side == "left":
+            return base + "_L"
+        if side == "right":
+            return base + "_R"
+        assert False, "type error {left,right}"
 
     def produce(self, state):
         self.syncnames = []
+        self.symBase = self.__genBaseName__()
 
         if not isinstance(self.condition, expression.EQ):
             msg = "The C compiler can only handle equi-join conditions\
@@ -300,7 +321,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
       DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s %(hashname)s;
       """)
         # declaration of hash map
-        self._hashname = self.__genHashName__()
+        self._hashname = self.__getHashName__()
         hashname = self._hashname
         self.leftTypeRef = state.createUnresolvedSymbol()
         left_in_tuple_type = self.leftTypeRef.getPlaceholder()
@@ -355,10 +376,12 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         out_tuple_type = self.outTuple.getTupleTypename()
         out_tuple_name = self.outTuple.name
 
-        syncname = self.__genSyncName__()
-        state.setPipelineProperty('sync', syncname)
-        state.setPipelineProperty('syncdef', syncname)
-        self.syncnames.append(syncname)
+        syncname = self.__getSyncName__(src.childtag)
+        # only add such a sync if one doesn't exist yet
+        if not state.checkPipelineProperty('sync'):
+            state.setPipelineProperty('sync', syncname)
+            state.setPipelineProperty('syncdef', syncname)
+            self.syncnames.append(syncname)
 
         global_syncname = state.getPipelineProperty('global_syncname')
 
@@ -411,6 +434,201 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
             return code
 
         assert False, "src not equal to left or right"
+
+
+class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
+    _i = 0
+    wait_template = ct("""%(syncname)s.wait();
+        """)
+
+    @classmethod
+    def __genBaseName__(cls):
+        name = "%03d" % cls._i
+        cls._i += 1
+        return name
+
+    def __getHashName__(self):
+        name = "hashjoin_reducer_%s" % self.symBase
+        return name
+
+    def __getSyncName__(self, side):
+        base = "shj_sync_%s" % self.symBase
+        if side == "left":
+            return base + "_L"
+        if side == "right":
+            return base + "_R"
+        assert False, "type error {left,right}"
+
+    def produce(self, state):
+        self.syncnames = []
+        self.symBase = self.__genBaseName__()
+
+        self.right.childtag = "right"
+        self.rightTupleTypeRef = None  # may remain None if CSE succeeds
+        self.leftTupleTypeRef = None  # may remain None if CSE succeeds
+
+        # find the attribute that corresponds to the right child
+        self.rightCondIsRightAttr = \
+            self.condition.right.position >= len(self.left.scheme())
+        self.leftCondIsRightAttr = \
+            self.condition.left.position >= len(self.left.scheme())
+        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
+
+        # find right key position
+        if self.rightCondIsRightAttr:
+            self.right_keypos = self.condition.right.position \
+                - len(self.left.scheme())
+        else:
+            self.right_keypos = self.condition.left.position \
+                - len(self.left.scheme())
+
+        # find left key position
+        if self.rightCondIsRightAttr:
+            self.left_keypos = self.condition.left.position
+        else:
+            self.left_keypos = self.condition.right.position
+
+        # define output tuple
+        outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
+        out_tuple_type_def = outTuple.generateDefinition()
+        out_tuple_type = outTuple.getTupleTypename()
+        out_tuple_name = outTuple.name
+
+        # common index is defined by same right side and same key
+        # TODO: probably want also left side
+        hashtableInfo = state.lookupExpr((self.right, self.right_keypos))
+        if not hashtableInfo:
+            # if right child never bound then store hashtable symbol and
+            # call right child produce
+            self._hashname = self.__getHashName__()
+            LOG.debug("generate hashname %s for %s", self._hashname, self)
+
+            hashname = self._hashname
+
+            # declaration of hash map
+            self.rightTupleTypeRef = state.createUnresolvedSymbol()
+            self.leftTupleTypeRef = state.createUnresolvedSymbol()
+            self.outTupleTypeRef = state.createUnresolvedSymbol()
+            right_type = self.rightTupleTypeRef.getPlaceholder()
+            left_type = self.leftTupleTypeRef.getPlaceholder()
+
+            # TODO: really want this addInitializers to be addPreCode
+            # TODO: *for all pipelines that use this hashname*
+            init_template = ct("""
+            auto %(hashname)s_num_reducers = cores();
+            auto %(hashname)s = allocateJoinReducers\
+            <int64_t,%(left_type)s,%(right_type)s,%(out_tuple_type)s>
+                (%(hashname)s_num_reducers);
+            auto %(hashname)s_ctx = HashJoinContext<int64_t,%(left_type)s,
+                %(right_type)s,%(out_tuple_type)s>
+                (%(hashname)s, %(hashname)s_num_reducers);""")
+
+            state.addInitializers([init_template % locals()])
+            self.right.produce(state)
+
+            self.left.childtag = "left"
+            self.left.produce(state)
+
+            state.saveExpr((self.right, self.right_keypos),
+                           (self._hashname, right_type, left_type))
+
+            for sn in self.syncnames:
+                syncname = sn
+                state.addCode(self.wait_template % locals())
+        else:
+            # if found a common subexpression on right child then
+            # use the same hashtable
+            self._hashname, right_type, left_type = hashtableInfo
+            LOG.debug("reuse hash %s for %s", self._hashname, self)
+
+        # now that Relation is produced, produce its contents by iterating over
+        # the join result
+        iterate_template = ct("""MapReduce::forall_symmetric
+        <&%(pipeline_sync)s>
+        (%(hashname)s, &JoinReducer<int64_t,%(left_type)s,
+        %(right_type)s,%(out_tuple_type)s>::resultAccessor,
+            [=](%(out_tuple_type)s& %(out_tuple_name)s) {
+                 %(inner_code_compiled)s
+            });
+        """)
+
+        hashname = self._hashname
+
+        state.addDeclarations([out_tuple_type_def])
+
+        global_sync_decl_template = ct("""
+        GlobalCompletionEvent %(pipeline_sync)s;
+        """)
+
+        pipeline_sync = gensym()
+
+        state.addDeclarations([global_sync_decl_template % locals()])
+        state.setPipelineProperty('global_syncname', pipeline_sync)
+
+        # reduce is a single self contained pipeline.
+        # future hashjoin implementations may pipeline out of it
+        # by passing a continuation to reduceExecute
+        reduce_template = ct("""
+        %(hashname)s_ctx.reduceExecute();
+
+        """)
+        state.addPreCode(reduce_template % locals())
+
+        delete_template = ct("""
+            freeJoinReducers(%(hashname)s, %(hashname)s_num_reducers);""")
+        state.addPostCode(delete_template % locals())
+
+        inner_code_compiled = self.parent.consume(outTuple, self, state)
+
+        code = iterate_template % locals()
+        state.setPipelineProperty('type', 'in_memory')
+        state.setPipelineProperty('source', self.__class__)
+        state.addPipeline(code)
+
+    def consume(self, inputTuple, fromOp, state):
+        if fromOp.childtag == "right":
+            side = "Right"
+
+            keypos = self.right_keypos
+
+            self.rightTupleTypename = inputTuple.getTupleTypename()
+            if self.rightTupleTypeRef is not None:
+                state.resolveSymbol(self.rightTupleTypeRef,
+                                    self.rightTupleTypename)
+        elif fromOp.childtag == "left":
+            side = "Left"
+
+            keypos = self.left_keypos
+
+            self.leftTupleTypename = inputTuple.getTupleTypename()
+            if self.leftTupleTypeRef is not None:
+                state.resolveSymbol(self.leftTupleTypeRef,
+                                    self.leftTupleTypename)
+        else:
+            assert False, "src not equal to left or right"
+
+        hashname = self._hashname
+        keyname = inputTuple.name
+        keytype = inputTuple.getTupleTypename()
+
+        # intra-pipeline sync
+        global_syncname = state.getPipelineProperty('global_syncname')
+
+        # inter-pipeline sync
+        syncname = self.__getSyncName__(fromOp.childtag)
+        # only add such a sync if one doesn't exist yet
+        if not state.checkPipelineProperty('sync'):
+            state.setPipelineProperty('sync', syncname)
+            state.setPipelineProperty('syncdef', syncname)
+            self.syncnames.append(syncname)
+
+        mat_template = ct("""%(hashname)s_ctx.emitIntermediate%(side)s\
+                <&%(global_syncname)s>(\
+                %(keyname)s.get(%(keypos)s), %(keyname)s);""")
+
+        # materialization point
+        code = mat_template % locals()
+        return code
 
 
 class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
@@ -564,7 +782,22 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             self.condition.left.position >= len(self.left.scheme())
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
-        hashtableInfo = state.lookupExpr(self.right)
+        # right key position
+        if self.rightCondIsRightAttr:
+            self.right_keypos = self.condition.right.position \
+                - len(self.left.scheme())
+        else:
+            self.right_keypos = self.condition.left.position \
+                - len(self.left.scheme())
+
+        # left key position
+        if self.rightCondIsRightAttr:
+            self.left_keypos = self.condition.left.position
+        else:
+            self.left_keypos = self.condition.right.position
+
+        # common index is defined by same right side and same key
+        hashtableInfo = state.lookupExpr((self.right, self.right_keypos))
         if not hashtableInfo:
             # if right child never bound then store hashtable symbol and
             # call right child produce
@@ -583,7 +816,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             cores()*16*1024 );""")
             state.addInitializers([init_template % locals()])
             self.right.produce(state)
-            state.saveExpr(self.right,
+            state.saveExpr((self.right, self.right_keypos),
                            (self._hashname, self.rightTupleTypename))
             # TODO always safe here? I really want to call
             # TODO saveExpr before self.right.produce(),
@@ -607,12 +840,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
 
-            if self.rightCondIsRightAttr:
-                keypos = self.condition.right.position \
-                    - len(self.left.scheme())
-            else:
-                keypos = self.condition.left.position \
-                    - len(self.left.scheme())
+            keypos = self.right_keypos
 
             self.rightTupleTypename = t.getTupleTypename()
             if self.rightTupleTypeRef is not None:
@@ -645,10 +873,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
             pipeline_sync = state.getPipelineProperty('global_syncname')
 
-            if self.rightCondIsRightAttr:
-                keypos = self.condition.left.position
-            else:
-                keypos = self.condition.right.position
+            keypos = self.left_keypos
 
             right_tuple_name = gensym()
             right_tuple_type = self.rightTupleTypename
@@ -778,24 +1003,32 @@ class GrappaAlgebra(object):
         GrappaProject,
         GrappaUnionAll,
         GrappaSymmetricHashJoin,
+        GrappaShuffleHashJoin,
         GrappaHashJoin,
         GrappaGroupBy
     ]
 
-    rules = [
-        # rules.removeProject(),
-        rules.CrossProduct2Join(),
-        rules.SimpleGroupBy(),
-        # SwapJoinSides(),
-        rules.OneToOne(algebra.Select, GrappaSelect),
-        rules.OneToOne(algebra.Apply, GrappaApply),
-        # rules.OneToOne(algebra.Scan,MemoryScan),
-        MemoryScanOfFileScan(),
-        #  rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
-        rules.OneToOne(algebra.Join, GrappaHashJoin),
-        rules.OneToOne(algebra.Project, GrappaProject),
-        rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
-        # TODO: this Union obviously breaks semantics
-        rules.OneToOne(algebra.Union, GrappaUnionAll)
-        # rules.FreeMemory()
-    ]
+    def __init__(self):
+        self.join_type = GrappaHashJoin
+
+    def opt_rules(self):
+        return [
+            # rules.removeProject(),
+            rules.CrossProduct2Join(),
+            rules.SimpleGroupBy(),
+            # SwapJoinSides(),
+            rules.OneToOne(algebra.Select, GrappaSelect),
+            rules.OneToOne(algebra.Apply, GrappaApply),
+            # rules.OneToOne(algebra.Scan,MemoryScan),
+            MemoryScanOfFileScan(),
+            # rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
+            rules.OneToOne(algebra.Join, self.join_type),
+            rules.OneToOne(algebra.Project, GrappaProject),
+            rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
+            # TODO: this Union obviously breaks semantics
+            rules.OneToOne(algebra.Union, GrappaUnionAll)
+            # rules.FreeMemory()
+        ]
+
+    def set_join_type(self, joinclass):
+        self.join_type = joinclass

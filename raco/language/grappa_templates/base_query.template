@@ -8,11 +8,14 @@ using namespace Grappa;
 // stl
 #include <vector>
 #include <unordered_map>
+#include <iomanip>
 
 // query library
 #include "relation_io.hpp"
 #include "MatchesDHT.hpp"
 #include "DoubleDHT.hpp"
+#include "MapReduce.hpp"
+#include "HashJoin.hpp"
 #include "DHT_symmetric.hpp"
 #include "Aggregates.hpp"
 #include "utils.h"
@@ -35,7 +38,6 @@ DEFINE_uint64( nt, 30, "hack: number of tuples");
 
 StringIndex string_index;
 void init( ) {
-    string_index = build_string_index("sp2bench_1m.index");
 }
 
 void query() {

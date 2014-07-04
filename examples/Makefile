@@ -1,3 +1,4 @@
 
-%.ps: %.dot
-	dot -Tps $< -o $@
+%.png: %.dot
+	dot -Tpng $< -o $@
+

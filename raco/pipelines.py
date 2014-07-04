@@ -21,7 +21,7 @@ class TestEmit:
 
     code += "result.push_back(%s);\n" %(t.name)
     if self.emitprint:
-        code += self.language.log_unquoted("%s" % t.name, 1)
+        code += self.language.log_unquoted("%s" % t.name, 2)
 
     return code
 
@@ -64,10 +64,19 @@ class CompileState:
         self.current_pipeline_postcode = []
 
     def setPipelineProperty(self, key, value):
+        LOG.debug("set %s in %s" % (key, self.current_pipeline_properties))
         self.current_pipeline_properties[key] = value
 
     def getPipelineProperty(self, key):
+        LOG.debug("get %s from %s" % (key, self.current_pipeline_properties))
         return self.current_pipeline_properties[key]
+
+    def checkPipelineProperty(self, key):
+        """
+        Like getPipelineProperty but returns None if no property is found
+        """
+        LOG.debug("get(to check) %s from %s" % (key, self.current_pipeline_properties))
+        return self.current_pipeline_properties.get(key)
 
     def createUnresolvedSymbol(self):
         name = gensym()
@@ -94,6 +103,7 @@ class CompileState:
         self.initializers += i
 
     def addPipeline(self, p):
+        LOG.debug("output pipeline %s", self.current_pipeline_properties)
         pipeline_code = emitlist(self.current_pipeline_precode) +\
                         self.language.pipeline_wrap(self.pipeline_count, p, self.current_pipeline_properties) +\
                         emitlist(self.current_pipeline_postcode)
@@ -122,7 +132,19 @@ class CompileState:
         self.current_pipeline_postcode.append(c)
 
     def getInitCode(self):
-        code = emitlist(self.initializers)
+        # inits is a set
+        # If this ever becomes a bottleneck when declarations are strings,
+        # as in clang, then resort to at least symbol name deduping.
+        #TODO: better would be to mark elements of self.initializers as
+        #TODO: "do dedup" or "don't dedup"
+        s = set()
+        def f(x):
+            if x in s: return False
+            else:
+                s.add(x)
+                return True
+
+        code = emitlist(filter(f,self.initializers))
         return code % self.resolving_symbols
 
     def getDeclCode(self):
@@ -156,15 +178,18 @@ class CompileState:
 
         return resolved
 
-
     def lookupExpr(self, expr):
+
         if self.common_subexpression_elim:
-            return self.materialized.get(expr)
+            res = self.materialized.get(expr)
+            LOG.debug("lookup subexpression %s -> %s", expr, res)
+            return res
         else:
             # if CSE is turned off then always return None for expression matches
             return None
 
     def saveExpr(self, expr, sym):
+        LOG.debug("saving subexpression %s -> %s", expr, sym)
         self.materialized[expr] = sym
 
     def lookupTupleDef(self, sym):
@@ -212,6 +237,6 @@ class Pipelined(object):
 
       self.produce(state)
 
-      state.addCode( self.language.log("Evaluating subplan %s" % self) )
+      #state.addCode( self.language.log("Evaluating subplan %s" % self) )
 
       return state

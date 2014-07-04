@@ -124,9 +124,14 @@ class CC(Language):
     @classmethod
     def compile_stringliteral(cls, s):
         sid = cls.newstringident()
-        init = """auto %s = string_index.string_lookup(%s);""" % (sid, s)
-        return """(%s)""" % sid, [], [init]
-    # raise ValueError("String Literals not supported in C language: %s" % s)
+        lookup_init = """auto %s = string_index.string_lookup(%s);""" \
+                      % (sid, s)
+        build_init = """
+        string_index = build_string_index("sp2bench_1m.index");
+        """
+        return """(%s)""" % sid, [], [build_init, lookup_init]
+        # raise ValueError("String Literals not supported\
+        # in C language: %s" % s)
 
     @classmethod
     def negation(cls, input):
@@ -344,15 +349,30 @@ class CHashJoin(algebra.Join, CCOperator):
             self.condition.left.position >= len(self.left.scheme())
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
+        # find the attribute that corresponds to the right child
+        if self.rightCondIsRightAttr:
+            self.right_keypos = \
+                self.condition.right.position - len(self.left.scheme())
+        else:
+            self.right_keypos = \
+                self.condition.left.position - len(self.left.scheme())
+
+        # find the attribute that corresponds to the left child
+        if self.rightCondIsRightAttr:
+            self.left_keypos = self.condition.left.position
+        else:
+            self.left_keypos = self.condition.right.position
+
         self.right.childtag = "right"
-        hashsym = state.lookupExpr(self.right)
+        # common index is defined by same right side and same key
+        hashsym = state.lookupExpr((self.right, self.right_keypos))
 
         if not hashsym:
             # if right child never bound then store hashtable symbol and
             # call right child produce
             self._hashname = self.__genHashName__()
             LOG.debug("generate hashname %s for %s", self._hashname, self)
-            state.saveExpr(self.right, self._hashname)
+            state.saveExpr((self.right, self.right_keypos), self._hashname)
             self.right.produce(state)
         else:
             # if found a common subexpression on right child then
@@ -375,13 +395,7 @@ class CHashJoin(algebra.Join, CCOperator):
             hashname = self._hashname
             keyname = t.name
 
-            # find the attribute that corresponds to the right child
-            if self.rightCondIsRightAttr:
-                keypos = \
-                    self.condition.right.position - len(self.left.scheme())
-            else:
-                keypos = \
-                    self.condition.left.position - len(self.left.scheme())
+            keypos = self.right_keypos
 
             in_tuple_type = t.getTupleTypename()
 
@@ -407,10 +421,7 @@ class CHashJoin(algebra.Join, CCOperator):
             keyname = t.name
             keytype = t.getTupleTypename()
 
-            if self.rightCondIsRightAttr:
-                keypos = self.condition.left.position
-            else:
-                keypos = self.condition.right.position
+            keypos = self.left_keypos
 
             right_tuple_name = gensym()
 
