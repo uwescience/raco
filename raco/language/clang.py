@@ -117,7 +117,8 @@ class CC(Language):
         auto end_%(ident)s = walltime();
         auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
         std::cout << "pipeline group %(ident)s: " \
-                    << runtime_%(ident)s << " s" << std::endl;
+                    << runtime_%(ident)s \
+                    << " s" << std::endl;
         """)
 
         code = pipeline_template % locals()
