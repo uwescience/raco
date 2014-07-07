@@ -95,11 +95,14 @@ class CC(Language):
             %(inner_code)s
             auto end_%(ident)s = walltime();
             auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
-            std::cout << "pipeline %(ident)s: " << runtime_%(ident)s << " s" \
+            std::cout << "pipeline %(ident)s: " << runtime_%(ident)s \
+                        << " s" \
                         << std::endl;
-            std::cout << "timestamp %(ident)s start " << std::setprecision(15) \
+            std::cout << "timestamp %(ident)s start " \
+                        << std::setprecision(15) \
                         << start_%(ident)s << std::endl;
-            std::cout << "timestamp %(ident)s end " << std::setprecision(15) \
+            std::cout << "timestamp %(ident)s end " \
+                        << std::setprecision(15) \
                         << end_%(ident)s << std::endl;
             """)
             code = timing_template % locals()

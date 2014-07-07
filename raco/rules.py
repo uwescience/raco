@@ -203,7 +203,8 @@ class PushSelects(Rule):
 
     @staticmethod
     def is_column_equality_comparison(cond):
-        """Return a tuple of column indexes if the condition is an equality test.
+        """Return a tuple of column indexes if the condition is an equality
+        test.
         """
 
         if (isinstance(cond, expression.EQ) and
