@@ -110,8 +110,17 @@ class CC(Language):
         return code
 
     @staticmethod
-    def group_wrap(ident, code, attrs):
-        # TODO: timer, etc
+    def group_wrap(ident, grpcode, attrs):
+        pipeline_template = ct("""
+        auto start_%(ident)s = walltime();
+        %(grpcode)s
+        auto end_%(ident)s = walltime();
+        auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
+        std::cout << "pipeline group %(ident)s: " \
+                    << runtime_%(ident)s << " s" << std::endl;
+        """)
+
+        code = pipeline_template % locals()
         return code
 
     @staticmethod
