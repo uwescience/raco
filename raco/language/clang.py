@@ -6,7 +6,7 @@ from raco import expression
 from raco.language import Language, clangcommon
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.language.clangcommon import StagedTupleRef
+from raco.language.clangcommon import StagedTupleRef, ct
 
 from raco.algebra import gensym
 
@@ -87,7 +87,23 @@ class CC(Language):
 
     @staticmethod
     def pipeline_wrap(ident, code, attrs):
-        # TODO: timer, etc
+
+        # timing code
+        if True:
+            inner_code = code
+            timing_template = ct("""auto start_%(ident)s = walltime();
+            %(inner_code)s
+            auto end_%(ident)s = walltime();
+            auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
+            std::cout << "pipeline %(ident)s: " << runtime_%(ident)s << " s" \
+                        << std::endl;
+            std::cout << "timestamp %(ident)s start " << std::setprecision(15) \
+                        << start_%(ident)s << std::endl;
+            std::cout << "timestamp %(ident)s end " << std::setprecision(15) \
+                        << end_%(ident)s << std::endl;
+            """)
+            code = timing_template % locals()
+
         return code
 
     @staticmethod
