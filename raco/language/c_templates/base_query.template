@@ -24,6 +24,7 @@ typedef unsigned uint64;
 #else
 #include <sys/time.h>
 
+#include <iomanip>
 #include <cstdint>
 #include <iostream>
 typedef int64_t int64;
@@ -37,6 +38,7 @@ typedef uint64_t uint64;
 #include "hash.h"
 #include "utils.h"
 #include "strings.h"
+#include "timing.h"
 
 // ------------------------------------------------------------------
 
