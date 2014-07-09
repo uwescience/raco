@@ -441,3 +441,14 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # This is it -- just test that we can get the physical plan and
         # compile to JSON. See https://github.com/uwescience/raco/issues/240
         pp = self.execute_query(query, output='OutputTemp')
+
+    def test_rewrite_crossproduct_to_joins(self):
+        query = """
+        A = empty(x:int);
+        B = empty(y:int);
+        C = empty(x:int, y:int);
+        X = [FROM A, B, C WHERE A.x == C.x and B.y == C.y EMIT *];
+        store(X, X);
+        """
+        pp = self.get_physical_plan(query)
+        self.assertEquals(self.get_count(pp, CrossProduct), 0)
