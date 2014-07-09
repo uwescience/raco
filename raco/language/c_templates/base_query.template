@@ -27,6 +27,7 @@ typedef unsigned uint64;
 #include <iomanip>
 #include <cstdint>
 #include <iostream>
+#include <fstream>
 typedef int64_t int64;
 typedef uint64_t uint64;
 

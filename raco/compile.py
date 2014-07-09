@@ -53,10 +53,10 @@ def compile(expr):
 
     only_expr = store_expr.children()[0]
 
-    lang = only_expr.language
+    lang = store_expr.language
 
-    if isinstance(only_expr, Pipelined):
-        body = lang.body(only_expr.compilePipeline())
+    if isinstance(store_expr, Pipelined):
+        body = lang.body(store_expr.compilePipeline())
     else:
         body = lang.body(expr)
 

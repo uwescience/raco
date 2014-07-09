@@ -20,9 +20,11 @@ class TestEmit:
     state.addDeclarations([resdecl])
 
     code += "result.push_back(%s);\n" %(t.name)
-    if self.emitprint:
+    if self.emitprint == 'console':
         code += self.language.log_unquoted("%s" % t.name, 2)
-
+    elif self.emitprint == 'file':
+        filename = t.name + '.txt'
+        code += self.language.log_file("%s" % t.name, filename, 2)
     return code
 
 class ResolvingSymbol:
@@ -227,9 +229,10 @@ class Pipelined(object):
       """Denotation for consuming a tuple"""
       return
 
-    def compilePipeline(self, emitprint=True):
+    # emitprint: quiet, console, file
+    def compilePipeline(self):
       self.__markAllParents__()
-      self.parent = TestEmit(self.language, emitprint)
+      self.parent = TestEmit(self.language, emitprint='quiet')
 
       state = CompileState(self.language)
       
