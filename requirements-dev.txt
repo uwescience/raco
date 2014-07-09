@@ -1,5 +1,6 @@
 nose
 coverage
+sqlalchemy
 
 # Flake8: hardcode version plus dependency versions
 flake8 == 2.1.0
