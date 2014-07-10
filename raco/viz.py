@@ -1,5 +1,6 @@
 from raco import algebra
 
+
 def graph_to_dot(graph):
     """Graph is expected to be a dict of the form { 'nodes' : list(), 'edges' :
     list() }. This function returns a string that will be input to dot."""
@@ -57,7 +58,9 @@ def graph_to_web_dot(graph):
     }"""
 
     # Nodes:
-    nodes = ['"%s" [style="rounded, filled", color="white", shape=box, label="%s"] ;' % (id(n), n.shortStr().replace(r'"', r'\"'))
+    styles = 'style="rounded, filed", color="white", shape=box'
+    nodes = ['"%s" [%s, label="%s"];' %
+             (id(n), styles, n.shortStr().replace(r'"', r'\"'))
              for n in graph['nodes']]
     node_str = '\n      '.join(nodes)
 
@@ -73,10 +76,12 @@ def operator_to_dot(operator, graph=None):
     graph = operator.collectGraph(graph)
     return graph_to_dot(graph)
 
+
 def operator_to_web_dot(operator, graph=None):
     """Operator is expected to be an object of class raco.algebra.Operator"""
     graph = operator.collectGraph(graph)
     return graph_to_web_dot(graph)
+
 
 def plan_to_dot(label_op_list):
     """label_op_list is expected to be a list of [('Label', Operator)] pairs

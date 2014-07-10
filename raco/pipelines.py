@@ -232,7 +232,6 @@ class Pipelined(object):
     # emitprint: quiet, console, file
     def compilePipeline(self):
       self.__markAllParents__()
-      self.parent = TestEmit(self.language, emitprint='quiet')
 
       state = CompileState(self.language)
       

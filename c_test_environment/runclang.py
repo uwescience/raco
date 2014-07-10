@@ -8,7 +8,7 @@ import sys
 sys.path.append('./c_test_environment')
 from testquery import ClangRunner
 import osutils
-from osutils import Chdir
+
 
 def parse_options(args):
     parser = argparse.ArgumentParser()
@@ -24,15 +24,15 @@ def parse_options(args):
 
 def main(args):
     opt = parse_options(args)
-    osutils.mkdir_p("dataset")
-    abspath = os.path.abspath("dataset")
+    osutils.mkdir_p("logs")
+    abspath = os.path.abspath("logs")
     name = opt.file
     if opt.platform == 'grappa':
-        #TODO
+        # TODO
         pass
     else:
         runner = ClangRunner()
-        output = runner.run(name, abspath)
-    
+        runner.run(name, abspath)
+
 if __name__ == "__main__":
     main(sys.argv[1:])
