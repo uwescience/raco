@@ -136,10 +136,10 @@ class CC(Language):
 
     @staticmethod
     def log_file(code, filename, level=0):
-        r = """std::ofstream mfile;\n"""
-        r += """mfile.open("%s", std::ios::app);\n""" % filename
-        r += """mfile << %s << "\\n";\n """ % code
-        r += """mfile.close();""" 
+        r = """std::ofstream logfile;\n"""
+        r += """logfile.open("%s", std::ios::app);\n""" % filename
+        r += """logfile << %s << "\\n";\n """ % code
+        r += """logfile.close();""" 
         return r
 
     @staticmethod
@@ -509,23 +509,23 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
 
 
 class CStore(algebra.Store, CCOperator):
-    def __init__(self, emit_print):
-        self.emit_print = emit_print
+    def __init__(self, emit_print, relation_key, plan):
+       algebra.Store.__init__(self, relation_key, plan)
+       self.emit_print = emit_print
 
     def produce(self, state):
         self.input.produce(state)
 
     def consume(self, t, src, state):
         code = ""
-        
         resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
         state.addDeclarations([resdecl])
-        
+
         code += "result.push_back(%s);\n" %(t.name)
         if self.emit_print == 'console':
             code += self.language.log_unquoted("%s" % t.name, 2)
         elif self.emit_print == 'file':
-            filename = 'temp.txt'
+            filename = str(self.relation_key) + '.txt'
             code += self.language.log_file("%s" % t.name, filename, 2)
         return code
 
@@ -540,6 +540,20 @@ class MemoryScanOfFileScan(rules.Rule):
 
     def __str__(self):
         return "Scan => MemoryScan(FileScan)"
+
+
+class StoreTuple(rules.Rule):
+    """A rule to store tuples into emit_print"""
+    def __init__(self, emit_print):
+        self.emit_print = emit_print
+
+    def fire(self, expr):
+        if (isinstance(expr, algebra.Store)):
+            return CStore(self.emit_print, expr.relation_key, expr.input)
+        return expr
+
+    def __str__(self):
+        return "Store => CStore"
 
 
 class CCAlgebra(object):
@@ -560,8 +574,9 @@ class CCAlgebra(object):
         CStore
     ]
 
-    def __init__(self):
-        self.emit_print = 'file'
+    def __init__(self, emit_print='file'):
+        """ To store results into a file, onto console, or stays quiet """
+        self.emit_print = emit_print
 
     def opt_rules(self):
         return [
@@ -582,6 +597,6 @@ class CCAlgebra(object):
             rules.OneToOne(algebra.Project, CProject),
             # TODO: obviously breaks semantics
             rules.OneToOne(algebra.Union, CUnionAll),
-            rules.OneToOne(algebra.Store, CStore(self.emit_print))
+            StoreTuple(self.emit_print)
             #  rules.FreeMemory()
         ]
