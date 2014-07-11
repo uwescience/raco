@@ -522,9 +522,9 @@ class CStore(algebra.Store, CCOperator):
         state.addDeclarations([resdecl])
 
         code += "result.push_back(%s);\n" % (t.name)
-        if self.emit_print == 'console':
+        if self.emit_print in ['console', 'both']:
             code += self.language.log_unquoted("%s" % t.name, 2)
-        elif self.emit_print == 'file':
+        if self.emit_print in ['file', 'both']:
             filename = 'datasets/' + str(self.relation_key) + '.txt'
             code += self.language.log_file("%s" % t.name, filename, 2)
         return code
@@ -575,8 +575,9 @@ class CCAlgebra(object):
         CStore
     ]
 
-    def __init__(self, emit_print='console'):
-        """ To store results into a file, onto console, or stays quiet """
+    def __init__(self, emit_print='both'):
+        """ To store results into a file, onto console, both file and console,
+        or stays quiet """
         self.emit_print = emit_print
 
     def opt_rules(self):
