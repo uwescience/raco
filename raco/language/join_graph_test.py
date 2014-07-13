@@ -18,3 +18,12 @@ class JoinGraphTest(unittest.TestCase):
         self.assertEquals(jg.get_edges(2, 1), {"goodbye"})
         self.assertEquals(jg.get_edges(0, 1), set())
         self.assertEquals(jg.get_edges(1, 0), set())
+
+    def test_cross_product(self):
+        jg = JoinGraph(3)
+        jo = jg.choose_left_deep_join_order()
+        self.assertEquals(jo, [0, 1, 2])
+
+        for n1 in [0, 1, 2]:
+            for n2 in [0, 1, 2]:
+                self.assertEquals(jg.get_edges(n1, n2), set())
