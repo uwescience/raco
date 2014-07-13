@@ -15,15 +15,12 @@ class JoinGraph(object):
         self.graph = nx.MultiGraph()
         self.graph.add_nodes_from(range(num_nodes))
 
-    def add_edge(self, src_node, dst_node, src_col, dst_col):
+    def add_edge(self, src_node, dst_node, data):
         """Add an edge representing an equijoin to the join graph."""
         assert 0 <= src_node < len(self.graph)
         assert 0 <= dst_node < len(self.graph)
 
-        d = {src_node: src_col, dst_node: dst_col}
-        _min = min(src_node, dst_node)
-        _max = max(src_node, dst_node)
-        self.graph.add_edge(_min, _max, cond=(d[_min], d[_max]))
+        self.graph.add_edge(src_node, dst_node, data=data)
 
     def choose_left_deep_join_order(self):
         """Chose a left-deep join order.
@@ -54,3 +51,10 @@ class JoinGraph(object):
                     break
 
         return list(joined_nodes)
+
+    def get_edges(self, node1, node2):
+        """Return a set of edge data between the given nodes."""
+        if node2 in self.graph.neighbors(node1):
+            return {d['data'] for d in self.graph[node1][node2].itervalues()}
+        else:
+            return set()
