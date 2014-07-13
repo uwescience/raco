@@ -10,13 +10,29 @@ class JoinGraph(object):
     """
     def __init__(self, node_data=[]):
         """Initialize a join graph."""
-        assert len(node_data) >= 1
         self.graph = nx.MultiGraph()
         for i, data in enumerate(node_data):
             self.graph.add_node(i, data=data)
 
     def __len__(self):
         return len(self.graph)
+
+    @staticmethod
+    def merge(left, right):
+        """Merge two join graphs."""
+        graph = left.graph.copy()
+        left_len = len(left)
+
+        for n1, data_dict in right.graph.nodes_iter(data=True):
+            graph.add_node(n1 + left_len, data=data_dict['data'])
+
+        for n1, n2, data_dict in right.graph.edges_iter(data=True):
+            graph.add_edge(n1 + left_len, n2 + left_len,
+                           data=data_dict['data'])
+
+        jg = JoinGraph()
+        jg.graph = graph
+        return jg
 
     def add_edge(self, src_node, dst_node, data):
         """Add an edge representing an equijoin to the join graph."""

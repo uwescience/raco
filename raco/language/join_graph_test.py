@@ -37,3 +37,18 @@ class JoinGraphTest(unittest.TestCase):
 
         jo = jg.choose_left_deep_join_order()
         self.assertEquals(jo, [0, 1, 2])
+
+    def test_merge(self):
+        left = JoinGraph("ABC")
+        self.assertEquals(len(left), 3)
+        left.add_edge(0, 1, "AB edge")
+
+        right = JoinGraph("DEF")
+        self.assertEquals(len(left), 3)
+        right.add_edge(1, 2, "EF edge")
+
+        merged = JoinGraph.merge(left, right)
+        self.assertEquals(len(merged), 6)
+        self.assertEquals(merged.get_edges(0, 1), {"AB edge"})
+        self.assertEquals(merged.get_edges(5, 4), {"EF edge"})
+
