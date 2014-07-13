@@ -41,13 +41,13 @@ class JoinGraph(object):
             # Expand the join set to include all reachable nodes.
             while True:
                 new_nodes = set()
+                old_len = len(joined_nodes)
+
                 for n1 in joined_nodes:
-                    for n2 in self.graph.neighbors_iter(n1):
-                        if n2 not in joined_nodes:
-                            new_nodes.add(n2)
+                    new_nodes |= set(self.graph.neighbors_iter(n1))
                 joined_nodes |= new_nodes
 
-                if len(new_nodes) == 0:
+                if len(joined_nodes) == old_len:
                     break
 
         return list(joined_nodes)
