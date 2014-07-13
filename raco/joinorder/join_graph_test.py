@@ -1,5 +1,5 @@
 import unittest
-from raco.language.join_graph import JoinGraph
+from raco.joinorder.join_graph import JoinGraph
 
 
 class JoinGraphTest(unittest.TestCase):
