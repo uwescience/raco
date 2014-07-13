@@ -1,7 +1,7 @@
 from raco import algebra
 from raco import expression
 from expression import (accessed_columns, UnnamedAttributeRef,
-                        to_unnamed_recursive)
+                        to_unnamed_recursive, is_column_equality_comparison)
 
 from abc import ABCMeta, abstractmethod
 import copy
@@ -202,19 +202,6 @@ class PushSelects(Rule):
     """Push selections."""
 
     @staticmethod
-    def is_column_equality_comparison(cond):
-        """Return a tuple of column indexes if the condition is an equality
-        test.
-        """
-
-        if (isinstance(cond, expression.EQ) and
-                isinstance(cond.left, UnnamedAttributeRef) and
-                isinstance(cond.right, UnnamedAttributeRef)):
-            return cond.left.position, cond.right.position
-        else:
-            return None
-
-    @staticmethod
     def descend_tree(op, cond):
         """Recursively push a selection condition down a tree of operators.
 
@@ -247,7 +234,7 @@ class PushSelects(Rule):
             else:
                 # Selection includes both children; attempt to create an
                 # equijoin condition
-                cols = PushSelects.is_column_equality_comparison(cond)
+                cols = is_column_equality_comparison(cond)
                 if cols:
                     return op.add_equijoin_condition(cols[0], cols[1])
         elif isinstance(op, algebra.Apply):

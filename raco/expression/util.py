@@ -4,6 +4,7 @@ Utility functions for use in Raco expressions
 
 from .expression import (BinaryOperator, AttributeRef, NamedAttributeRef,
                          UnnamedAttributeRef, NamedStateAttributeRef)
+from .boolean import EQ
 from .aggregate import AggregateExpression
 
 import copy
@@ -165,3 +166,17 @@ def reindex_expr(expr, index_map):
                 or isinstance(ex, UnnamedAttributeRef))
         if isinstance(ex, UnnamedAttributeRef) and ex.position in index_map:
             ex.position = index_map[ex.position]
+
+
+def is_column_equality_comparison(cond):
+    """Return a tuple of column indexes if the condition is an equality test.
+
+    Otherwise, return None.
+    """
+
+    if (isinstance(cond, EQ) and
+            isinstance(cond.left, UnnamedAttributeRef) and
+            isinstance(cond.right, UnnamedAttributeRef)):
+        return cond.left.position, cond.right.position
+    else:
+        return None
