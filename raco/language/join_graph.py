@@ -15,6 +15,9 @@ class JoinGraph(object):
         for i, data in enumerate(node_data):
             self.graph.add_node(i, data=data)
 
+    def __len__(self):
+        return len(self.graph)
+
     def add_edge(self, src_node, dst_node, data):
         """Add an edge representing an equijoin to the join graph."""
         assert 0 <= src_node < len(self.graph)
