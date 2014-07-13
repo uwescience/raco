@@ -1,5 +1,4 @@
 import networkx as nx
-import bisect
 
 from raco.datastructure.ordered_set import OrderedSet
 
@@ -9,11 +8,12 @@ class JoinGraph(object):
 
     Nodes represent relations; edges represent equijoin conditions.
     """
-    def __init__(self, num_nodes):
+    def __init__(self, node_data=[]):
         """Initialize a join graph."""
-        assert num_nodes >= 2
+        assert len(node_data) >= 1
         self.graph = nx.MultiGraph()
-        self.graph.add_nodes_from(range(num_nodes))
+        for i, data in enumerate(node_data):
+            self.graph.add_node(i, data=data)
 
     def add_edge(self, src_node, dst_node, data):
         """Add an edge representing an equijoin to the join graph."""
