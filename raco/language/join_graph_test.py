@@ -29,14 +29,12 @@ class JoinGraphTest(unittest.TestCase):
                 self.assertEquals(jg.get_edge_data(n1, n2), set())
 
     def test_fully_connected(self):
-        jg = JoinGraph(range(3))
-        jg.add_edge(0, 2, "hello")
-        jg.add_edge(2, 0, "world")
-        jg.add_edge(2, 1, "goodbye")
-        jg.add_edge(0, 1, "oops")
+        jg = JoinGraph("ABCDEFGH")
+        for i in range(7):
+            jg.add_edge(i, i+1, "EDGE %d %d" % (i, i + 1))
 
         jo = jg.choose_left_deep_join_order()
-        self.assertEquals(jo, [0, 1, 2])
+        self.assertEquals(jo, range(8))
 
     def test_merge(self):
         left = JoinGraph("ABC")
