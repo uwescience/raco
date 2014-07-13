@@ -1,6 +1,7 @@
 from raco import expression
 from raco import scheme
 from raco.utility import emit, emitlist, Printable
+from raco.joinorder.join_graph import JoinGraph
 
 from abc import ABCMeta, abstractmethod
 import copy
@@ -418,6 +419,35 @@ class NaryJoin(NaryOperator):
 
 
 """Logical Relational Algebra"""
+
+
+class MultiwayJoin(NaryOperator):
+    """A logical multiway join operation.
+
+    TODO: de-duplicate with NaryJoin.
+    """
+    def __init__(self, children=None):
+        nodes = children
+        if nodes is None:
+            nodes = []
+        self.join_graph = JoinGraph(nodes)
+        NaryOperator.__init__(self, children)
+
+    def __eq__(self, other):
+        return (NaryOperator.__eq__(self, other)
+                and self.join_graph == other.join_graph)
+
+    def scheme(self):
+        combined = reduce(operator.add, [c.scheme() for c in self.children()])
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.join_graph)
+
+    @classmethod
+    def from_join_graph(cls, graph):
+        op = cls()
+        op.graph = graph
+        return op
 
 
 class Union(BinaryOperator):
