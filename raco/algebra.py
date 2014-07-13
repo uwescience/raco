@@ -427,11 +427,8 @@ class MultiwayJoin(NaryOperator):
     TODO: de-duplicate with NaryJoin.
     """
     def __init__(self, children=None):
-        nodes = children
-        if nodes is None:
-            nodes = []
-        self.join_graph = JoinGraph(nodes)
         NaryOperator.__init__(self, children)
+        self.join_graph = JoinGraph(self.args)
 
     def __eq__(self, other):
         return (NaryOperator.__eq__(self, other)
@@ -442,6 +439,65 @@ class MultiwayJoin(NaryOperator):
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.join_graph)
+
+    def push_select(self, expr, leaf_handler):
+        """Push a selection condition.
+
+        :param expr: The selection expression
+        :param leaf_handler: A function to invoke on an (operator, expr) that
+        resides entirely within a subtree of the join.
+        """
+
+        last_index = collections.OrderedDict()
+        idx = 0
+        for i, op in enumerate(self.args):
+            idx += len(op.scheme())
+            last_index[i] = idx
+
+        def get_relation_for_col(col):
+            for i in last_index:
+                if col < last_index:
+                    return i
+            raise ValueError("Column index out of bounds: %d" % col)
+
+        def all_equal(it):
+            return len(set(it)) == 1
+
+        def get_first_column_index(rel_index):
+            if rel_index == 0:
+                return 0
+            else:
+                return last_index[rel_index - 1]
+
+        accessed_cols = expression.accessed_columns(expr)
+        if len(accessed_cols) == 0:
+            return False
+
+        accessed_rels = [get_relation_for_col(x) for x in accessed_col]
+        assert len(accessed_rels) >= 1
+
+        if all_equal(accessed_rels):
+            rel_index = accessed_rels[0]
+            leaf_op = self.args[rel_index]
+            leaf_expr = expression.rebase_expr(
+                expr, get_first_column_index(rel_index))
+            self.args[rel_index] = leaf_handler(leaf_op, leaf_expr)
+            return True
+
+        cols = is_column_equality_comparison(cond)
+        if cols:
+            _min = min(*cols)
+            _max = max(*cols)
+            min_node = get_relation_for_col(_min)
+            max_node = get_relation_for_col(_max)
+            assert min_node != max_node
+
+            equijion_tuple = (_min - get_first_column_index(min_node),
+                              _max - get_first_column_index(max_node))
+            self.join_graph.add_edge(min_node, max_node, equijion_tuple)
+            return True
+        else:
+            return False
 
     @classmethod
     def from_join_graph(cls, graph):
