@@ -52,19 +52,19 @@ class JoinGraph(object):
         all_nodes = set(self.graph.nodes())
 
         while len(joined_nodes) < len(graph):
-            # Add an arbitrary node to the join set
-            for n in all_nodes - set(joined_nodes):
-                joined_nodes.add(n)
-                break
+            # Add the unjoined node with lowest index
+            unjoined_nodes = list(all_nodes - set(joined_nodes))
+            unjoined_nodes.sort()
+            joined_nodes.add(unjoined_nodes[0])
 
             # Expand the join set to include all reachable nodes.
             while True:
-                new_nodes = set()
+                new_nodes = []
                 old_len = len(joined_nodes)
 
                 for n1 in joined_nodes:
-                    new_nodes |= set(self.graph.neighbors_iter(n1))
-                joined_nodes |= new_nodes
+                    new_nodes.extend(self.graph.neighbors_iter(n1))                
+                joined_nodes |= sorted(new_nodes)
 
                 if len(joined_nodes) == old_len:
                     break
