@@ -71,7 +71,12 @@ class JoinGraph(object):
 
         return list(joined_nodes)
 
-    def get_edges(self, node1, node2):
+    def get_node_data(self, node):
+        """Get datum associated with a node index."""
+        assert 0 <= node < len(self.graph)
+        return self.graph.node[node]['data']
+
+    def get_edge_data(self, node1, node2):
         """Return a set of edge data between the given nodes."""
         if node2 in self.graph.neighbors(node1):
             return {d['data'] for d in self.graph[node1][node2].itervalues()}
