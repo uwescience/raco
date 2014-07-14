@@ -354,7 +354,7 @@ class UnnamedAttributeRef(AttributeRef):
 
     def __init__(self, position, debug_info=None):
         if debug_info is None:
-            debug_info = position
+            debug_info = "${}".format(position)
         self.debug_info = debug_info
         self.position = position
 
