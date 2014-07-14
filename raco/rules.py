@@ -456,3 +456,35 @@ class RemoveUnusedColumns(Rule):
 
     def __str__(self):
         return 'Remove unused columns'
+
+
+# logical groups of catalog transparent rules
+# 1. this must be applied first
+remove_trivial_sequences = [RemoveTrivialSequences()]
+
+# 2. simple group by
+simple_group_by = [SimpleGroupBy()]
+
+# 3. push down selection
+push_select = [
+    SplitSelects(),
+    PushSelects(),
+    MergeSelects()
+]
+
+# 4. push projection
+push_project = [
+    ProjectingJoin(),
+    JoinToProjectingJoin()
+]
+
+# 5. push apply
+push_apply = [
+    # These really ought to be run until convergence.
+    # For now, run twice and finish with PushApply.
+    PushApply(),
+    RemoveUnusedColumns(),
+    PushApply(),
+    RemoveUnusedColumns(),
+    PushApply(),
+    ]
