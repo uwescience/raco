@@ -7,6 +7,7 @@ from raco import expression
 from raco import catalog
 from raco.algebra import gensym
 from raco.expression import UnnamedAttributeRef
+from raco.expression import util
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -161,12 +162,14 @@ class CSelect(algebra.Select):
     }
     """
 
+    condition_as_unnamed = util.to_unnamed_recursive(self.condition, self.scheme())
+
     # tag the attributes with references
     # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
-    [_ for _ in self.condition.postorder(getTaggingFunc(t))]
+    [_ for _ in condition_as_unnamed.postorder(getTaggingFunc(t))]
 
     # compile the predicate into code
-    conditioncode, cond_decls, cond_inits = self.language.compile_expression(self.condition)
+    conditioncode, cond_decls, cond_inits = self.language.compile_expression(condition_as_unnamed)
     state.addInitializers(cond_inits)
     state.addDeclarations(cond_decls)
 
@@ -223,11 +226,13 @@ class CApply(algebra.Apply):
     for dst_fieldnum, src_label_expr in enumerate(self.emitters):
         src_label, src_expr = src_label_expr
 
+        src_expr_unnamed = util.to_unnamed_recursive(src_expr, self.scheme())
+
         # tag the attributes with references
         # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
-        [_ for _ in src_expr.postorder(getTaggingFunc(t))]
+        [_ for _ in src_expr_unnamed.postorder(getTaggingFunc(t))]
 
-        src_expr_compiled, expr_decls, expr_inits = self.language.compile_expression(src_expr)
+        src_expr_compiled, expr_decls, expr_inits = self.language.compile_expression(src_expr_unnamed)
         state.addInitializers(expr_inits)
         state.addDeclarations(expr_decls)
 
