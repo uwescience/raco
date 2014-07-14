@@ -45,7 +45,7 @@ def compile(expr):
     exprcode = []
 
     # TODO, actually use Parallel[Store...]]? Right now assumes it
-    assert isinstance(expr, algebra.Parallel), "expected Parallel toplevel only"  # noqa
+    assert isinstance(expr, algebra.Sequence) or isinstance(expr, algebra.Parallel), "expected Sequence or Parallel toplevel only"  # noqa
     assert len(expr.children()) == 1, "expected single expression only"
     store_expr = expr.children()[0]
     assert isinstance(store_expr, algebra.Store)
