@@ -1,3 +1,6 @@
 [submodule "SciDB-py"]
 	path = SciDB-py
 	url = https://github.com/Paradigm4/SciDB-py.git
+[submodule "myria-python"]
+	path = myria-python
+	url = git@github.com:uwescience/myria-python.git
