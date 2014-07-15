@@ -186,9 +186,6 @@ class ZeroaryOperator(Operator):
     def __repr__(self):
         return self.opname()
 
-    def num_tuples(self):
-        return self._cardinality
-
     def children(self):
         return []
 
@@ -963,7 +960,7 @@ class Fixpoint(Operator):
         return [self.body]
 
     def num_tuples(self):
-        raise NotImplementedError("Fixpoint is not implemented yet.")
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def __str__(self):
         return "%s[%s]" % (self.shortStr(), str(self.body))
@@ -1029,7 +1026,7 @@ class Dump(UnaryOperator):
     """Echo input to standard out; only useful for standalone raco."""
 
     def num_tuples(self):
-        raise NotImplementedError("num_tuples of Dump should be not called.")
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def shortStr(self):
         return "%s()" % self.opname()
@@ -1099,6 +1096,9 @@ class FileScan(ZeroaryOperator):
     def __repr__(self):
         return str(self)
 
+    def num_tuples(self):
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+
     def copy(self, other):
         """deep copy"""
         self.path = other.path
@@ -1138,6 +1138,9 @@ class Scan(ZeroaryOperator):
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.relation_key)
+
+    def num_tuples(self):
+        return self._cardinality
 
     def __repr__(self):
         return str(self)
@@ -1215,8 +1218,7 @@ class Parallel(NaryOperator):
         NaryOperator.__init__(self, ops)
 
     def num_tuples(self):
-        raise NotImplementedError(
-            "num_tuples should not be called in Parallel")
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def shortStr(self):
         return self.opname()
@@ -1239,7 +1241,7 @@ class Sequence(NaryOperator):
         return None
 
     def num_tuples(self):
-        raise NotImplementedError("cannot call num_tuples of Sequence.")
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
 
 class DoWhile(NaryOperator):
@@ -1257,7 +1259,7 @@ class DoWhile(NaryOperator):
         NaryOperator.__init__(self, ops)
 
     def num_tuples(self):
-        raise NotImplementedError("num_tuples should not be called in DoWhile")
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def shortStr(self):
         return self.opname()
