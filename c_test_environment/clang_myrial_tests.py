@@ -25,11 +25,11 @@ class ClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         fname = name+'.cpp'
 
         with Chdir("c_test_environment") as d:
+            os.remove("%s.cpp" % name)
             with open(fname, 'w') as f:
                 f.write(code)
 
             checkquery(name, ClangRunner())
-            #os.remove("%s.cpp" % name)
 
     def setUp(self):
         super(ClangTest, self).setUp()

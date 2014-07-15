@@ -16,9 +16,9 @@ import os
 class DatalogClangTest(unittest.TestCase, DatalogPlatformTest):
     def check(self, query, name):
         with Chdir("c_test_environment") as d:
+            os.remove("%s.cpp" % name)
             emitCode(query, name, CCAlgebra)
             checkquery(name, ClangRunner())
-            os.remove("%s.cpp" % name)
 
     def setUp(self):
         with Chdir("c_test_environment") as d:
