@@ -15,3 +15,5 @@ def run(logical_plan):
             print op.command
             sdb = connect(op.connection)
             sdb._execute_query(op.command)
+        elif isinstance(op, RunMyria):
+            print op.command
