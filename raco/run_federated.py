@@ -5,7 +5,7 @@ from raco.federatedlang import *
 
 from scidbpy import connect
 
-def run(logical_plan):
+def run(logical_plan, myria_conn):
     seq_op = optimize(logical_plan, target=FederatedAlgebra(),
                       source=LogicalAlgebra)
     assert isinstance(seq_op, Sequence)
@@ -17,3 +17,5 @@ def run(logical_plan):
             sdb._execute_query(op.command)
         elif isinstance(op, RunMyria):
             print op.command
+            qs = myria_conn.submit_query(op.command)
+            print qs
