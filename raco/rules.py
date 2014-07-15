@@ -458,6 +458,23 @@ class RemoveUnusedColumns(Rule):
         return 'Remove unused columns'
 
 
+class ProjectingJoinToProjectOfJoin(Rule):
+    """Turn ProjectingJoin to Project of a Join.
+    This is useful to take advantage of the column selection
+    optimizations and then remove ProjectingJoin for
+    backends that don't have one"""
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.ProjectingJoin):
+            return algebra.Apply([(None, x) for x in expr.output_columns],
+                                 algebra.Join(expr.condition, expr.left, expr.right))
+
+        return expr
+
+    def __str__(self):
+        return 'ProjectingJoin[$1] => Project[$1](Join)'
+
+
 # logical groups of catalog transparent rules
 # 1. this must be applied first
 remove_trivial_sequences = [RemoveTrivialSequences()]
