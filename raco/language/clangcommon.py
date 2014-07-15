@@ -226,7 +226,8 @@ class CApply(algebra.Apply):
     for dst_fieldnum, src_label_expr in enumerate(self.emitters):
         src_label, src_expr = src_label_expr
 
-        src_expr_unnamed = util.to_unnamed_recursive(src_expr, self.scheme())
+        # make sure to resolve attribute positions using input schema
+        src_expr_unnamed = util.to_unnamed_recursive(src_expr, self.input.scheme())
 
         # tag the attributes with references
         # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
