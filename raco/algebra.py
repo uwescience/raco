@@ -551,7 +551,7 @@ class Apply(UnaryOperator):
                 self.emitters == other.emitters)
 
     def num_tuples(self):
-        return input.num_tuples()
+        return self.input.num_tuples()
 
     def copy(self, other):
         """deep copy"""
@@ -1198,7 +1198,7 @@ class ScanTemp(ZeroaryOperator):
                 and self._scheme == other._scheme)
 
     def num_tuples(self):
-        return self.input.num_tuples()
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def shortStr(self):
         return "%s(%s,%s)" % (self.opname(), self.name, str(self._scheme))
