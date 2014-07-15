@@ -113,7 +113,13 @@ def main(args):
                 db = FakeDatabase()
                 db.evaluate(pp)
             elif opt.federated:
-                raco.run_federated.run(processor.get_logical_plan())
+                sys.path.append("./myria-python")
+                from myria.connection import MyriaConnection
+                arg_file = './myria_connection.py'
+                with open(arg_file) as fh:
+                    d = eval(fh.read())
+                    conn = MyriaConnection(**d)
+                raco.run_federated.run(processor.get_logical_plan(), conn)
             else:
                 print_pretty_plan(processor.get_physical_plan())
 
