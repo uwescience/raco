@@ -85,11 +85,6 @@ class pyHashJoin(algebra.Join, PythonOperator):
 class PythonAlgebra(object):
     language = Python
 
-    operators = [
-        pyHashJoin,
-        pySelect,
-        pyScan
-    ]
     rules = [
         raco.rules.removeProject(),
         raco.rules.OneToOne(algebra.Join, pyHashJoin),

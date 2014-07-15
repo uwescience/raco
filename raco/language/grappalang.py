@@ -995,19 +995,6 @@ class SwapJoinSides(rules.Rule):
 class GrappaAlgebra(object):
     language = GrappaLanguage
 
-    operators = [
-        # FileScan,
-        MemoryScan,
-        GrappaSelect,
-        GrappaApply,
-        GrappaProject,
-        GrappaUnionAll,
-        GrappaSymmetricHashJoin,
-        GrappaShuffleHashJoin,
-        GrappaHashJoin,
-        GrappaGroupBy
-    ]
-
     def __init__(self):
         self.join_type = GrappaHashJoin
 

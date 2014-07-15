@@ -516,20 +516,6 @@ class MemoryScanOfFileScan(rules.Rule):
 class CCAlgebra(object):
     language = CC
 
-    operators = [
-        # TwoPassHashJoin,
-        # FilteringNestedLoopJoin,
-        # TwoPassSelect,
-        # FileScan,
-        MemoryScan,
-        CSelect,
-        CUnionAll,
-        CApply,
-        CProject,
-        CGroupBy,
-        CHashJoin
-    ]
-
     def opt_rules(self):
         return [
             # rules.OneToOne(algebra.Join,TwoPassHashJoin),

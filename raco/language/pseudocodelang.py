@@ -129,11 +129,6 @@ class TwoPassHashJoin(algebra.Join, PseudoCodeOperator):
 class PseudoCodeAlgebra(object):
     language = PseudoCode
 
-    operators = [
-        TwoPassHashJoin,
-        TwoPassSelect,
-        FileScan
-    ]
     rules = [
         raco.rules.removeProject(),
         raco.rules.OneToOne(algebra.Join, TwoPassHashJoin),

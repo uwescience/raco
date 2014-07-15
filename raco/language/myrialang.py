@@ -1275,13 +1275,6 @@ class MyriaAlgebra(object):
     """
     language = MyriaLanguage
 
-    operators = [
-        MyriaSymmetricHashJoin,
-        MyriaSelect,
-        MyriaScan,
-        MyriaStore
-    ]
-
     fragment_leaves = (
         MyriaShuffleConsumer,
         MyriaCollectConsumer,
