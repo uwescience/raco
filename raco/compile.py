@@ -49,7 +49,7 @@ def compile(expr):
     assert len(expr.children()) == 1, "expected single expression only"
     store_expr = expr.children()[0]
     assert isinstance(store_expr, algebra.Store)
-    assert len(store_expr.children()) == 1, "expected single expression only"  # noqa
+    assert len(store_expr.children()) == 1, "expected single expression only"
 
     only_expr = store_expr.children()[0]
 
