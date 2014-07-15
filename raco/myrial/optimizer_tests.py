@@ -9,7 +9,8 @@ from raco.language.myrialang import (MyriaShuffleConsumer,
                                      MyriaShuffleProducer,
                                      MyriaHyperShuffleProducer)
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
-                                     MyriaHyperCubeAlgebra)
+                                     MyriaHyperCubeAlgebra,
+                                     MyriaHyperCubeLeftDeepTreeJoinAlgebra)
 from raco.language.logical import LogicalAlgebra
 from raco.compile import optimize
 from raco import relation_key
@@ -88,7 +89,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                 yield 0
         return sum(op.postorder(count))
 
-    def test_push_selects(self):
+    def push_selects(self):
         """Test pushing selections into and across cross-products."""
         lp = StoreTemp('OUTPUT',
                Select(expression.LTEQ(AttRef("e"), AttRef("f")),
@@ -109,7 +110,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected)
 
-    def test_collapse_applies(self):
+    def collapse_applies(self):
         """Test pushing applies together."""
         lp = StoreTemp('OUTPUT',
                Apply([(None, AttIndex(1)), ('w', expression.PLUS(AttIndex(0), AttIndex(0)))],       # noqa
@@ -133,7 +134,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
-    def test_select_count_star(self):
+    def select_count_star(self):
         """Test that we don't generate 0-length applies from a COUNT(*)."""
         lp = StoreTemp('OUTPUT',
                        GroupBy([], [expression.COUNTALL()],
@@ -154,7 +155,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
-    def test_projects_apply_join(self):
+    def projects_apply_join(self):
         """Test column selection both Apply into ProjectingJoin
         and ProjectingJoin into its input.
         """
@@ -186,7 +187,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
-    def test_push_selects_apply(self):
+    def push_selects_apply(self):
         """Test pushing selections through apply."""
         lp = StoreTemp('OUTPUT',
                Select(expression.LTEQ(AttRef("c"), AttRef("a")),
@@ -211,7 +212,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
-    def test_push_selects_groupby(self):
+    def push_selects_groupby(self):
         """Test pushing selections through groupby."""
         lp = StoreTemp('OUTPUT',
                Select(expression.LTEQ(AttRef("c"), AttRef("a")),
@@ -236,7 +237,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
-    def test_extract_join(self):
+    def extract_join(self):
         """Extract a join condition from the middle of complex select."""
         s = expression.AND(expression.LTEQ(AttRef("e"), AttRef("f")),
                            expression.AND(
@@ -260,7 +261,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected)
 
-    def test_multi_condition_join(self):
+    def multi_condition_join(self):
         s = expression.AND(expression.EQ(AttRef("c"), AttRef("d")),
                            expression.EQ(AttRef("a"), AttRef("f")))
 
@@ -282,7 +283,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
 
-    def test_multiway_join_left_deep(self):
+    def multiway_join_left_deep(self):
 
         query = """
         T = SCAN(public:adhoc:Z);
@@ -307,7 +308,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_table('OUTPUT')
         self.assertEquals(result, self.expected2)
 
-    def test_multiway_join_hyper_cube(self):
+    def multiway_join_hyper_cube(self):
 
         query = """
         T = SCAN(public:adhoc:Z);
@@ -333,7 +334,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_table('OUTPUT')
         self.assertEquals(result, self.expected2)
 
-    def test_naryjoin_merge(self):
+    def naryjoin_merge(self):
         query = """
         T1 = scan(public:adhoc:Z);
         T2 = [from T1 emit count(dst) as dst, src];
@@ -350,7 +351,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp, hc_algebra)
         self.assertEquals(self.get_count(pp, NaryJoin), 0)
 
-    def test_right_deep_join(self):
+    def right_deep_join(self):
         """Test pushing a selection into a right-deep join tree.
 
         Myrial doesn't emit these, so we need to cook up a plan by hand."""
@@ -376,7 +377,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, self.expected2)
 
-    def test_explicit_shuffle(self):
+    def explicit_shuffle(self):
         """Test of a user-directed partition operation."""
 
         query = """
@@ -393,7 +394,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
             if isinstance(op, Shuffle):
                 self.assertEquals(op.columnlist, [AttIndex(2), AttIndex(1)])
 
-    def test_shuffle_before_distinct(self):
+    def shuffle_before_distinct(self):
         query = """
         T = DISTINCT(SCAN(public:adhoc:Z));
         STORE(T, OUTPUT);
@@ -406,7 +407,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                 self.assertIsInstance(op.input, MyriaShuffleConsumer)
                 self.assertIsInstance(op.input.input, MyriaShuffleProducer)
 
-    def test_shuffle_before_difference(self):
+    def shuffle_before_difference(self):
         query = """
         T = DIFF(SCAN(public:adhoc:Z), SCAN(public:adhoc:Z));
         STORE(T, OUTPUT);
@@ -421,7 +422,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                 self.assertIsInstance(op.right, MyriaShuffleConsumer)
                 self.assertIsInstance(op.right.input, MyriaShuffleProducer)
 
-    def test_bug_240_broken_remove_unused_columns_rule(self):
+    def bug_240_broken_remove_unused_columns_rule(self):
         query = """
         particles = empty(nowGroup:int, timestep:int, grp:int);
 
@@ -439,3 +440,15 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # This is it -- just test that we can get the physical plan and
         # compile to JSON. See https://github.com/uwescience/raco/issues/240
         pp = self.execute_query(query, output='OutputTemp')
+
+    def test_hypercube_shuffle_and_left_deep_tree_local_join(self):
+        query = """
+        A = empty(x:int);
+        B = empty(y:int);
+        C = empty(x:int, y:int);
+        X = [FROM C, A, B WHERE A.x == C.x and B.y == C.y EMIT *];
+        store(X, X);
+        """
+        physical_algebra = MyriaHyperCubeLeftDeepTreeJoinAlgebra(
+            FakeCatalog(64))
+        pp = self.get_physical_plan(query, physical_algebra)

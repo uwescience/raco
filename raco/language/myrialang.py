@@ -1214,10 +1214,8 @@ class NaryJoinToLeftDeepTree(rules.Rule):
             for attr in attrs:
                 attr_grps[attr] = i
 
-        # 2. re-order join orders so that there is minimal cross product
+        # 2. split NaryJoin to binary joins
         
-        # 3. output binary joins
-
 
 class GetCardinalities(rules.Rule):
     """ get cardinalities information of Zeroary operators.
