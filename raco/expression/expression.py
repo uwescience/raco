@@ -623,7 +623,7 @@ class Case(Expression):
 import abc
 
 
-class ExpressionVisitor:
+class ExpressionVisitor(object):
     # TODO: make this more complete for kinds of expressions
 
     __metaclass__ = abc.ABCMeta
