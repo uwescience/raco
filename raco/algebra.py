@@ -1343,3 +1343,28 @@ def inline_operator(dest_op, var, target_op):
             return node.apply(rewrite_node)
 
     return rewrite_node(dest_op)
+
+
+class OperatorCompileVisitor(object):
+    """An abstract class used to walk over an expression tree and compile a
+    program"""
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def begin(self):
+        """Called at the start of a program"""
+
+    @abstractmethod
+    def end(self):
+        """Called at the end of a program"""
+
+    def visit(self, op):
+        """Visit an arbitrary operator"""
+        func = 'v_{}'.format(op.opname().lower())
+        method = getattr(self, func, None)
+        if method is None:
+            msg = ("visitor {vis} function {func} for operator {op}"
+                   .format(op=op.opname(), func=func, vis=type(self)))
+            raise NotImplementedError(msg)
+        method(op)
+        yield []
