@@ -513,19 +513,48 @@ class MemoryScanOfFileScan(rules.Rule):
         return expr
 
     def __str__(self):
-        return "Scan => MemoryScan(FileScan)"
+        return "Scan => MemoryScan[FileScan]"
+
+
+class BreakHashJoinConjunction(rules.Rule):
+    """A rewrite rule for turning HashJoin(a=c and b=d)
+    into select(b=d)[HashJoin(a=c)]"""
+
+    def fire(self, expr):
+        if isinstance(expr, CHashJoin) \
+                and isinstance(expr.condition.left, expression.EQ) \
+                and isinstance(expr.condition.right, expression.EQ):
+            return CSelect(expr.condition.right, CHashJoin(expr.condition.left, expr.left, expr.right))
+
+        return expr
+
+    def __str__(self):
+        return "CHashJoin(a=c and b=d) => CSelect(b=d)[CHashJoin(a=c)]"
 
 
 clangify = [
+    rules.ProjectingJoinToProjectOfJoin(),
+
     rules.OneToOne(algebra.Select, CSelect),
     MemoryScanOfFileScan(),
     rules.OneToOne(algebra.Apply, CApply),
     rules.OneToOne(algebra.Join, CHashJoin),
     rules.OneToOne(algebra.GroupBy, CGroupBy),
     rules.OneToOne(algebra.Project, CProject),
+    rules.OneToOne(algebra.UnionAll, CUnionAll),
     # TODO: obviously breaks semantics
-    rules.OneToOne(algebra.Union, CUnionAll)
+    rules.OneToOne(algebra.Union, CUnionAll),
+
+    BreakHashJoinConjunction()
 ]
+
+clang_push_select = [
+    rules.SplitSelects(),
+    rules.PushSelects(),
+    #We don't want to merge selects because it doesn't really help and it creates HashJoin(conjunction)
+    #MergeSelects()
+]
+
 
 class CCAlgebra(object):
     language = CC
@@ -561,7 +590,7 @@ class CCAlgebra(object):
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
             rules.simple_group_by,
-            rules.push_select,
+            clang_push_select,
             rules.push_project,
             rules.push_apply,
             clangify
