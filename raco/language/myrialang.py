@@ -129,38 +129,6 @@ def compile_mapping(expr, child_scheme, state_scheme):
 class MyriaLanguage(Language):
     reusescans = False
 
-    @classmethod
-    def new_relation_assignment(cls, rvar, val):
-        return emit(cls.relation_decl(rvar), cls.assignment(rvar, val))
-
-    @classmethod
-    def relation_decl(cls, rvar):
-        # no type declarations necessary
-        return ""
-
-    @staticmethod
-    def assignment(x, y):
-        return ""
-
-    @staticmethod
-    def comment(txt):
-        # comments not technically allowed in json
-        return ""
-
-    @classmethod
-    def boolean_combine(cls, args, operator="and"):
-        opstr = " %s " % operator
-        conjunc = opstr.join(["%s" % arg for arg in args])
-        return "(%s)" % conjunc
-
-    @staticmethod
-    def mklambda(body, var="t"):
-        return ("lambda %s: " % var) + body
-
-    @staticmethod
-    def compile_attribute(name):
-        return '%s' % name
-
 
 class MyriaOperator(object):
     language = MyriaLanguage
