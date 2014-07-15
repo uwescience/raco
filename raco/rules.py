@@ -467,7 +467,9 @@ class ProjectingJoinToProjectOfJoin(Rule):
     def fire(self, expr):
         if isinstance(expr, algebra.ProjectingJoin):
             return algebra.Apply([(None, x) for x in expr.output_columns],
-                                 algebra.Join(expr.condition, expr.left, expr.right))
+                                 algebra.Join(expr.condition,
+                                              expr.left,
+                                              expr.right))
 
         return expr
 
@@ -504,4 +506,4 @@ push_apply = [
     PushApply(),
     RemoveUnusedColumns(),
     PushApply(),
-    ]
+]
