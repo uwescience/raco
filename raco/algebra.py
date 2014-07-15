@@ -126,11 +126,6 @@ class Operator(Printable):
         """Return a list of trace messages"""
         return self._trace
 
-    def compiletrace(self):
-        """Return the trace as a list of strings"""
-        return "".join([self.language.comment("%s=%s" % (k, v))
-                        for k, v in self.gettrace()])
-
     def set_alias(self, alias):
         """Set a user-defined identifier for this operator.  Used in
         optimization and transformation of plans"""
@@ -197,20 +192,6 @@ class ZeroaryOperator(Operator):
     def children(self):
         return []
 
-    def compile(self, resultsym):
-        code = self.language.comment("Compiled subplan for %s" % self)
-        self.trace("symbol", resultsym)
-        if self.bound and self.language.reusescans:
-            code += self.language.new_relation_assignment(resultsym,
-                                                          self.bound)
-        else:
-            code += "%s" % (self.compileme(resultsym),)
-            # code += self.language.comment("Binding: %s" % resultsym)
-            self.bound = resultsym
-            code += self.compiletrace()
-        code += self.language.log("Evaluating subplan %s" % self)
-        return code
-
     def apply(self, f):
         """Apply a function to your children"""
         return self
@@ -235,22 +216,6 @@ class UnaryOperator(Operator):
 
     def children(self):
         return [self.input]
-
-    def compile(self, resultsym):
-        """Compile this operator to the language specified."""
-        # TODO: Why is the language not an argument?
-        code = self.language.comment("Compiled subplan for %s" % self)
-        if self.bound:
-            code += self.language.assignment(resultsym, self.bound)
-        else:
-            inputsym = gensym()
-            # compile the previous operator
-            prev = self.input.compile(inputsym)
-            # compile me
-            me = self.compileme(resultsym, inputsym)
-            code += emit(prev, me)
-        code += self.language.log("Evaluating subplan %s" % self)
-        return code
 
     def scheme(self):
         """Default scheme is the same as the input.  Usually overriden"""
@@ -290,22 +255,6 @@ class BinaryOperator(Operator):
     def children(self):
         return [self.left, self.right]
 
-    def compile(self, resultsym):
-        """Compile this plan.  Result sym is the variable name to use to hold
-        the result of this operator."""
-        code = self.language.comment("Compiled subplan for %s" % self)
-        code += self.language.log("Evaluating subplan %s" % self)
-        # TODO: Why is language not an argument?
-        if self.bound:
-            code += self.language.assignment(resultsym, self.bound)
-        else:
-            leftsym = gensym()
-            rightsym = gensym()
-            code += emit(self.left.compile(leftsym),
-                         self.right.compile(rightsym),
-                         self.compileme(resultsym, leftsym, rightsym))
-        return code
-
     def apply(self, f):
         """Apply a function to your children"""
         self.left = f(self.left)
@@ -340,21 +289,6 @@ class NaryOperator(Operator):
     def add(self, op):
         """Add a child operator to the end of the child argument list."""
         self.args.append(op)
-
-    def compile(self, resultsym):
-        """Compile this plan.  Result sym is the variable name to use to hold
-        the result of this operator."""
-        # TODO: Why is language not an argument?
-        code = self.language.comment("Compiled subplan for %s" % self)
-        code += self.language.log("Evaluating subplan %s" % self)
-        if self.bound:
-            code += self.language.assignment(resultsym, self.bound)
-        else:
-            argsyms = [gensym() for arg in self.args]
-            code += emitlist([arg.compile(sym)
-                              for arg, sym in zip(self.args, argsyms)]
-                             + [self.compileme(resultsym, argsyms)])
-        return code
 
     def children(self):
         return self.args
