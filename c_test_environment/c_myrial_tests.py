@@ -8,7 +8,7 @@ from testquery import ClangRunner
 from verifier import verify
 import raco.myrial.query_tests as query_tests
 
-
+@unittest.skip("Do not yet support strings in clang")
 class CMyrialTests(query_tests.TestQueryFunctions):
     _i = 0
 
