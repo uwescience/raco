@@ -524,7 +524,10 @@ class BreakHashJoinConjunction(rules.Rule):
         if isinstance(expr, CHashJoin) \
                 and isinstance(expr.condition.left, expression.EQ) \
                 and isinstance(expr.condition.right, expression.EQ):
-            return CSelect(expr.condition.right, CHashJoin(expr.condition.left, expr.left, expr.right))
+            return CSelect(expr.condition.right,
+                           CHashJoin(expr.condition.left,
+                                     expr.left,
+                                     expr.right))
 
         return expr
 
@@ -551,7 +554,8 @@ clangify = [
 clang_push_select = [
     rules.SplitSelects(),
     rules.PushSelects(),
-    #We don't want to merge selects because it doesn't really help and it creates HashJoin(conjunction)
+    #We don't want to merge selects because it doesn't really
+    #help and it (maybe) creates HashJoin(conjunction)
     #MergeSelects()
 ]
 
@@ -597,7 +601,4 @@ class CCAlgebra(object):
         ]
 
         return list(itertools.chain(*rule_grps_sequence))
-
-
-
 
