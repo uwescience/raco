@@ -11,3 +11,4 @@ raco.egg-info
 .noseids
 .idea/
 *.dot
+myria_connection.py
