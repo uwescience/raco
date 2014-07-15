@@ -51,10 +51,10 @@ class Expression(Printable):
 
     @abstractmethod
     def evaluate(self, _tuple, scheme, state=None):
-        '''Evaluate an expression in the context of a given tuple and schema.
+        """Evaluate an expression in the context of a given tuple and schema.
 
         This is used for unit tests written against the fake database.
-        '''
+        """
 
     def __copy__(self):
         raise RuntimeError("Shallow copy not supported for expressions")

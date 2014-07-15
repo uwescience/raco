@@ -16,12 +16,12 @@ class MyrialTestCase(unittest.TestCase):
         self.processor = interpreter.StatementProcessor(self.db)
 
     def parse(self, query):
-        '''Parse a query'''
+        """Parse a query"""
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
 
     def get_plan(self, query, logical=False, multiway_join=False):
-        '''Get the MyriaL query plan for a query'''
+        """Get the MyriaL query plan for a query"""
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         if logical:
@@ -37,16 +37,16 @@ class MyrialTestCase(unittest.TestCase):
         return p
 
     def get_logical_plan(self, query):
-        '''Get the logical plan for a MyriaL query'''
+        """Get the logical plan for a MyriaL query"""
         return self.get_plan(query, logical=True)
 
     def get_physical_plan(self, query, multiway_join=False):
-        '''Get the physical plan for a MyriaL query'''
+        """Get the physical plan for a MyriaL query"""
         return self.get_plan(query, logical=False, multiway_join=multiway_join)
 
     def execute_query(self, query, test_logical=False, skip_json=False,
                       output='OUTPUT'):
-        '''Run a test query against the fake database'''
+        """Run a test query against the fake database"""
         plan = self.get_plan(query, test_logical)
 
         if not test_logical and not skip_json:
@@ -62,7 +62,7 @@ class MyrialTestCase(unittest.TestCase):
 
     def check_result(self, query, expected, test_logical=False,
                      skip_json=False, output='OUTPUT', scheme=None):
-        '''Execute a test query with an expected output'''
+        """Execute a test query with an expected output"""
         actual = self.execute_query(query, test_logical, skip_json, output)
         self.assertEquals(actual, expected)
 
@@ -70,6 +70,6 @@ class MyrialTestCase(unittest.TestCase):
             self.assertEquals(self.db.get_scheme(output), scheme)
 
     def check_scheme(self, query, scheme):
-        '''Execute a test query with an expected output schema.'''
+        """Execute a test query with an expected output schema."""
         actual = self.execute_query(query)
         self.assertEquals(self.db.get_scheme('OUTPUT'), scheme)

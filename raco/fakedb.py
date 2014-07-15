@@ -28,20 +28,20 @@ class FakeDatabase(Catalog):
         return DEFAULT_CARDINALITY
 
     def evaluate(self, op):
-        '''Evaluate a relational algebra operation.
+        """Evaluate a relational algebra operation.
 
         For "query-type" operators, return a tuple iterator.
         For store queries, the return value is None.
-        '''
+        """
         method = getattr(self, op.opname().lower())
         return method(op)
 
     def evaluate_to_bag(self, op):
-        '''Return a bag (collections.Counter instance) for the operation'''
+        """Return a bag (collections.Counter instance) for the operation"""
         return collections.Counter(self.evaluate(op))
 
     def ingest(self, rel_key, contents, scheme):
-        '''Directly load raw data into the database'''
+        """Directly load raw data into the database"""
         if isinstance(rel_key, str):
             rel_key = relation_key.RelationKey.from_string(rel_key)
         assert isinstance(rel_key, relation_key.RelationKey)

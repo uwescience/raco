@@ -198,30 +198,30 @@ class CompileState:
     def saveTupleDef(self, sym, tupledef):
         self.tupledefs[sym] = tupledef
 
-  
+
 class Pipelined(object):
-    '''
+    """
     Trait to provide the compilePipeline method
     for calling into pipeline style compilation.
-    '''
-  
+    """
+
     __metaclass__ = abc.ABCMeta
 
     def __markAllParents__(self):
       root = self
-      
+
       def markChildParent(op):
         for c in op.children():
           c.parent = op
         return []
-          
+
       [_ for _ in root.postorder(markChildParent)]
 
     @abc.abstractmethod
     def produce(self, state):
       """Denotation for producing a tuple"""
       return
-    
+
     @abc.abstractmethod
     def consume(self, inputTuple, fromOp, state):
       """Denotation for consuming a tuple"""
@@ -232,7 +232,7 @@ class Pipelined(object):
       self.parent = TestEmit(self.language, emitprint)
 
       state = CompileState(self.language)
-      
+
       state.addCode( self.language.comment("Compiled subplan for %s" % self) )
 
       self.produce(state)
