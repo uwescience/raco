@@ -62,11 +62,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
              for (s3, d3) in self.z_data.elements() if d1 == s2 and d2 == s3])
 
     @staticmethod
-    def logical_to_physical(lp, hypercube=False):
-        if not hypercube:
-            algebra = MyriaLeftDeepTreeAlgebra()
-        else:
-            algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
+    def logical_to_physical(lp, algebra=MyriaLeftDeepTreeAlgebra()):
         return optimize(lp,
                         target=algebra,
                         source=LogicalAlgebra)
@@ -325,7 +321,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, CrossProduct), 2)
         self.assertEquals(self.get_count(lp, Join), 0)
 
-        pp = self.logical_to_physical(lp, hypercube=True)
+        hc_algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
+        pp = self.logical_to_physical(lp, hc_algebra)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
         self.assertEquals(self.get_count(pp, Join), 0)
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
@@ -349,7 +346,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         lp = self.processor.get_logical_plan()
-        pp = self.logical_to_physical(lp, True)
+        hc_algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
+        pp = self.logical_to_physical(lp, hc_algebra)
         self.assertEquals(self.get_count(pp, NaryJoin), 0)
 
     def test_right_deep_join(self):

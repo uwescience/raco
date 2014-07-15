@@ -1201,6 +1201,24 @@ class MergeToNaryJoin(rules.Rule):
             list(reversed(children)), ordered_conds, op.output_columns)
 
 
+class NaryJoinToLeftDeepTree(rules.Rule):
+    """replace NaryJoin with left deep tree of binary joins"""
+    def fire(self, op):
+        # if op is not NaryJoin, who cares?
+        if not isinstance(op, algebra.NaryJoin):
+            return op
+        # convert NaryJoin to binary joins
+        # 1. get equivalent classes of joined attributes
+        attr_grps = {}
+        for i, attrs in enumerate(op.conditions):
+            for attr in attrs:
+                attr_grps[attr] = i
+
+        # 2. re-order join orders so that there is minimal cross product
+        
+        # 3. output binary joins
+
+
 class GetCardinalities(rules.Rule):
     """ get cardinalities information of Zeroary operators.
     """
@@ -1378,6 +1396,83 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
 
     def __init__(self, catalog=None):
         self.catalog = catalog
+
+
+class MyriaHyperCubeLeftDeepTreeJoinAlgebra(MyriaAlgebra):
+    """Myria physical algebra using HyperCube shuffle and pipelined joins"""
+    def opt_rules(self):
+        merge_to_nary_join = [
+            MergeToNaryJoin()
+        ]
+
+        local_left_deep_tree_join = [
+            GetCardinalities(self.catalog),
+            HCShuffleBeforeNaryJoin(self.catalog),
+            NaryJoinToLeftDeepTree()
+        ]
+
+        rule_grps_sequence = [
+            remove_trivial_sequences,
+            simple_group_by,
+            push_select,
+            push_project,
+            merge_to_nary_join,
+            push_apply,
+            left_deep_tree_shuffle_logic,
+            distributed_group_by,
+            local_left_deep_tree_join,
+            myriafy,
+            break_communication
+        ]
+        return list(itertools.chain(*rule_grps_sequence))
+
+    def __init__(self, catalog=None):
+        self.catalog = catalog
+
+
+class MyriaRegularShuffleLeapFrogAlgebra(MyriaAlgebra):
+    """Myria phyiscal algebra with regular shuffle and LeapFrogJoin"""
+    rules_grps_sequence = [
+        remove_trivial_sequences,
+        simple_group_by,
+        push_select,
+        push_project,
+        push_apply,
+        left_deep_tree_shuffle_logic,
+        distributed_group_by,
+        myriafy,
+        break_communication
+    ]
+
+
+class MyriaBroadcastLeftDeepTreeJoinAlgebra(MyriaAlgebra):
+    """Myria phyiscal algebra with broadcast and left deep tree join """
+    rules_grps_sequence = [
+        remove_trivial_sequences,
+        simple_group_by,
+        push_select,
+        push_project,
+        push_apply,
+        left_deep_tree_shuffle_logic,
+        distributed_group_by,
+        myriafy,
+        break_communication
+    ]
+
+
+class MyriaBroadCastLeapFrogJoinAlgebra(MyriaAlgebra):
+    """Myria phyiscal algebra with broadcast and left deep tree join """
+    rules_grps_sequence = [
+        remove_trivial_sequences,
+        simple_group_by,
+        push_select,
+        push_project,
+        push_apply,
+        left_deep_tree_shuffle_logic,
+        distributed_group_by,
+        myriafy,
+        break_communication
+    ]
 
 
 class OpIdFactory(object):
