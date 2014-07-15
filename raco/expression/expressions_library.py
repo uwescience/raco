@@ -1,6 +1,6 @@
-'''
+"""
 A library of expressions that can be composed of existing expressions.
-'''
+"""
 
 from .udf import Function
 import raco.expression

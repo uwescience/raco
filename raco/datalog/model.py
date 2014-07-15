@@ -1,10 +1,10 @@
-'''
+"""
 
 classes for representing and manipulating Datalog programs.
 
 In particular, they can be compiled to (iterative) relational algebra
 expressions.
-'''
+"""
 import networkx as nx
 from raco import expression
 import raco.algebra as algebra
