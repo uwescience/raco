@@ -575,7 +575,7 @@ class CCAlgebra(object):
         CStore
     ]
 
-    def __init__(self, emit_print='both'):
+    def __init__(self, emit_print='console'):
         """ To store results into a file, onto console, both file and console,
         or stays quiet """
         self.emit_print = emit_print
@@ -601,4 +601,6 @@ class CCAlgebra(object):
             rules.OneToOne(algebra.Union, CUnionAll),
             StoreTuple(self.emit_print)
             #  rules.FreeMemory()
+
+
         ]
