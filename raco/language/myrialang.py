@@ -1197,8 +1197,10 @@ class MergeToNaryJoin(rules.Rule):
         # Note: a cost based join order optimization need to be implemented.
         ordered_conds = sorted(conditions, key=lambda cond: cond[0])
         # 3. reverse the children due to top-down tree traversal
-        return algebra.NaryJoin(
+        naryJoin = algebra.NaryJoin(
             list(reversed(children)), ordered_conds, op.output_columns)
+        naryJoin.left_deep_tree_join = op
+        return naryJoin
 
 
 class NaryJoinToLeftDeepTree(rules.Rule):
@@ -1207,15 +1209,25 @@ class NaryJoinToLeftDeepTree(rules.Rule):
         # if op is not NaryJoin, who cares?
         if not isinstance(op, algebra.NaryJoin):
             return op
-        # convert NaryJoin to binary joins
-        # 1. get equivalent classes of joined attributes
-        attr_grps = {}
-        for i, attrs in enumerate(op.conditions):
-            for attr in attrs:
-                attr_grps[attr] = i
+        # recover binary joins locally
+        newop = op.left_deep_tree_join
 
-        # 2. split NaryJoin to binary joins
-        
+        # replace the input relations with HyperCubeShuffle
+        def replace_child(join, children):
+            assert children
+            assert isinstance(newop, algebra.ProjectingJoin)
+            child = children.pop()
+            join.right = child
+            if len(children) == 1:
+                join.left = children[0]
+            else:
+                replace_child(join.left, children)
+
+        # replace from right to left
+        new_children = list(op.children())
+        replace_child(newop, new_children)
+        return newop
+
 
 class GetCardinalities(rules.Rule):
     """ get cardinalities information of Zeroary operators.
@@ -1403,9 +1415,12 @@ class MyriaHyperCubeLeftDeepTreeJoinAlgebra(MyriaAlgebra):
             MergeToNaryJoin()
         ]
 
-        local_left_deep_tree_join = [
+        hyper_cube_shuffle_logic = [
             GetCardinalities(self.catalog),
-            HCShuffleBeforeNaryJoin(self.catalog),
+            HCShuffleBeforeNaryJoin(self.catalog)
+        ]
+
+        left_deep_tree_locally = [
             NaryJoinToLeftDeepTree()
         ]
 
@@ -1418,7 +1433,8 @@ class MyriaHyperCubeLeftDeepTreeJoinAlgebra(MyriaAlgebra):
             push_apply,
             left_deep_tree_shuffle_logic,
             distributed_group_by,
-            local_left_deep_tree_join,
+            hyper_cube_shuffle_logic,
+            left_deep_tree_locally,
             myriafy,
             break_communication
         ]
