@@ -25,7 +25,7 @@ class ClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         fname = name+'.cpp'
 
         with Chdir("c_test_environment") as d:
-            os.remove("%s.cpp" % name)
+            os.remove("%s.cpp" % name) if os.path.exists("%s.cpp" % name) else None
             with open(fname, 'w') as f:
                 f.write(code)
 
