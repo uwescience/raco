@@ -146,6 +146,18 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
 
 class MyriaLPlatformTests(object):
 
+    def myrial_from_sql(self, tables, name):
+        code = ""
+        for t in tables:
+           code += "%s = SCAN(%s);" % (t, self.tables[t])
+
+        with open("c_test_environment/testqueries/%s.sql" % name) as f:
+            code += "out = %s" % f.read()
+
+        code += "STORE(out, OUTPUT);"
+
+        return code
+
     def check_sub_tables(self, query, name):
         self.check(query % self.tables, name)
 
@@ -288,14 +300,24 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "apply")
 
-   # def test_apply_and_self_join(self):
-   #     self.check("""A(x,z) :- T3(x,y,z), y < 4
-   # B(x,t) :- A(x,z), A(z,t)""", "apply_and_self_join")
+    def test_apply_and_self_join(self):
+        q = self.myrial_from_sql(['T3'], "apply_and_self_join")
+        self.check(q, "apply_and_self_join")
 
-   # def test_union_apply_and_self_join(self):
-   #     self.check("""A(x,y) :- T2(x,y), R1(x), y < 4
-   #         A(x,y) :- R2(x,y), T1(x)
-   # B(x,z,t) :- A(x,z), A(z,t)""", "union_apply_and_self_join")
+    def test_union_apply_and_self_join(self):
+        self.check_sub_tables("""
+        T2 = SCAN(%(T2)s);
+        R1 = SCAN(%(R1)s);
+        R2 = SCAN(%(R2)s);
+        T1 = SCAN(%(T1)s);
+        Aj1 = JOIN(T2, a, R1, a);
+        A1 = [FROM Aj1 WHERE $1 < 4 EMIT $0 as x, $1 as y];
+        Aj2 = JOIN(R2, a, T1, a);
+        A2 = [FROM Aj2 EMIT $0 as x, $1 as y];
+        AU = UNIONALL(A1, A2);
+        B = JOIN(AU, $1, AU, $0);
+        out = [FROM B EMIT $0 as x, $1 as y, $3 as t];
+        STORE(out, OUTPUT);""", "union_apply_and_self_join")
 
    # def test_union_of_join(self):
    #     self.check("""A(s1,s2) :- T2(s1,s2)
@@ -314,14 +336,17 @@ class MyriaLPlatformTests(object):
    # def test_join_swap_indexing(self):
    #     self.check("""A(a,h,y) :- T3(a,b,c), R3(x, y, z), S3(g,h,j), z=c, j=x""", "join_swap_indexing")
 
-   # def test_head_scalar_op(self):
-   #     self.check("""A(a+b) :- R2(a,b)""", "head_scalar_op")
+    def test_head_scalar_op(self):
+        q = self.myrial_from_sql(["R2"], "head_scalar_op")
+        self.check(q, "head_scalar_op")
 
-   # def test_aggregate_sum(self):
-   #     self.check("""A(SUM(a)) :- R1(a)""", "aggregate_sum")
+    def test_aggregate_sum(self):
+        q = self.myrial_from_sql(["R1"], "aggregate_sum")
+        self.check(q, "aggregate_sum")
 
-   # def test_aggregate_count(self):
-   #     self.check("""A(COUNT(a)) :- R1(a)""", "aggregate_count")
+    def test_aggregate_count(self):
+        q = self.myrial_from_sql(["R1"], "aggregate_count")
+        self.check(q, "aggregate_count")
 
    # def test_aggregate_count_group_one(self):
    #     self.check("""A(b, COUNT(a)) :- R2(a,b)""", "aggregate_count_group_one")
