@@ -102,7 +102,8 @@ class GrappalangRunner(PlatformRunner):
 
         envir = os.environ.copy()
 
-        # cpp -> exe
+        # cpp -> exe 
+        # TODO: may need to force configure: try touch on a CMakelists file, which seems to tell cmake to reconfigure 
         subprocess.check_call(['cp', '%s.cpp' % gname, envir['GRAPPA_HOME']+'/applications/join'], env=envir)
         with Chdir(envir['GRAPPA_HOME']) as grappa_dir:
 

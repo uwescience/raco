@@ -4,7 +4,7 @@ from testquery import GrappalangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
 from raco.language.grappalang import GrappaAlgebra
-from platform_tests import PlatformTest
+from platform_tests import DatalogPlatformTest
 from nose.plugins.skip import SkipTest
 
 import sys
@@ -14,7 +14,7 @@ from emitcode import emitCode
 from osutils import Chdir
 
 
-class GrappaTest(unittest.TestCase, PlatformTest):
+class DatalogGrappaTest(unittest.TestCase, DatalogPlatformTest):
     def check(self, query, name):
         raise SkipTest(query)
         with Chdir("c_test_environment") as d:

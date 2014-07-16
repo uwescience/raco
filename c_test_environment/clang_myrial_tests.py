@@ -4,25 +4,37 @@ from testquery import ClangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
 from raco.language.clang import CCAlgebra
-from platform_tests import DatalogPlatformTest
+from platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
+from raco.compile import compile
 
 import sys
 sys.path.append('./examples')
-from emitcode import emitCode
 from osutils import Chdir
 import os
 
 
-class DatalogClangTest(unittest.TestCase, DatalogPlatformTest):
+class ClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
     def check(self, query, name):
+        plan = self.get_physical_plan(query, CCAlgebra())
+        print plan
+
+        # generate code in the target language
+        code = ""
+        code += compile(plan)
+
+        fname = name+'.cpp'
+
         with Chdir("c_test_environment") as d:
             os.remove("%s.cpp" % name) if os.path.exists("%s.cpp" % name) else None
-            emitCode(query, name, CCAlgebra)
+            with open(fname, 'w') as f:
+                f.write(code)
+
             checkquery(name, ClangRunner())
 
     def setUp(self):
+        super(ClangTest, self).setUp()
         with Chdir("c_test_environment") as d:
-          if need_generate():
+            if need_generate():
                 generate_default()
 
 

@@ -14,6 +14,7 @@ import logging
 
 LOG = logging.getLogger(__name__)
 
+import itertools
 import os.path
 
 
@@ -191,6 +192,7 @@ class CC(Language):
 
     @classmethod
     def compile_attribute(cls, expr):
+        print expr
         if isinstance(expr, expression.NamedAttributeRef):
             raise TypeError(
                 "Error compiling attribute reference %s. \
@@ -379,6 +381,7 @@ class CHashJoin(algebra.Join, CCOperator):
             a single attribute: %s" % self.condition
             raise ValueError(msg)
 
+        print self
         # find the attribute that corresponds to the right child
         self.rightCondIsRightAttr = \
             self.condition.right.position >= len(self.left.scheme())
@@ -540,7 +543,51 @@ class MemoryScanOfFileScan(rules.Rule):
         return expr
 
     def __str__(self):
-        return "Scan => MemoryScan(FileScan)"
+        return "Scan => MemoryScan[FileScan]"
+
+
+class BreakHashJoinConjunction(rules.Rule):
+    """A rewrite rule for turning HashJoin(a=c and b=d)
+    into select(b=d)[HashJoin(a=c)]"""
+
+    def fire(self, expr):
+        if isinstance(expr, CHashJoin) \
+                and isinstance(expr.condition.left, expression.EQ) \
+                and isinstance(expr.condition.right, expression.EQ):
+            return CSelect(expr.condition.right,
+                           CHashJoin(expr.condition.left,
+                                     expr.left,
+                                     expr.right))
+
+        return expr
+
+    def __str__(self):
+        return "CHashJoin(a=c and b=d) => CSelect(b=d)[CHashJoin(a=c)]"
+
+
+clangify = [
+    rules.ProjectingJoinToProjectOfJoin(),
+
+    rules.OneToOne(algebra.Select, CSelect),
+    MemoryScanOfFileScan(),
+    rules.OneToOne(algebra.Apply, CApply),
+    rules.OneToOne(algebra.Join, CHashJoin),
+    rules.OneToOne(algebra.GroupBy, CGroupBy),
+    rules.OneToOne(algebra.Project, CProject),
+    rules.OneToOne(algebra.UnionAll, CUnionAll),
+    # TODO: obviously breaks semantics
+    rules.OneToOne(algebra.Union, CUnionAll),
+
+    BreakHashJoinConjunction()
+]
+
+clang_push_select = [
+    rules.SplitSelects(),
+    rules.PushSelects(),
+    # We don't want to merge selects because it doesn't really
+    # help and it (maybe) creates HashJoin(conjunction)
+    # MergeSelects()
+]
 
 
 class StoreTuple(rules.Rule):
@@ -561,10 +608,6 @@ class CCAlgebra(object):
     language = CC
 
     operators = [
-        # TwoPassHashJoin,
-        # FilteringNestedLoopJoin,
-        # TwoPassSelect,
-        # FileScan,
         MemoryScan,
         CSelect,
         CUnionAll,
@@ -581,17 +624,12 @@ class CCAlgebra(object):
         self.emit_print = emit_print
 
     def opt_rules(self):
-        return [
-            # rules.OneToOne(algebra.Join,TwoPassHashJoin),
-            # rules.removeProject(),
+        # Sequence that works for datalog
+        # TODO: replace with below
+        datalog_rules = [
             rules.CrossProduct2Join(),
             rules.SimpleGroupBy(),
-            #    FilteringNestedLoopJoinRule(),
-            #    FilteringHashJoinChainRule(),
-            #    LeftDeepFilteringJoinChainRule(),
             rules.OneToOne(algebra.Select, CSelect),
-            #   rules.OneToOne(algebra.Select,TwoPassSelect),
-            #  rules.OneToOne(algebra.Scan,MemoryScan),
             MemoryScanOfFileScan(),
             rules.OneToOne(algebra.Apply, CApply),
             rules.OneToOne(algebra.Join, CHashJoin),
@@ -602,3 +640,15 @@ class CCAlgebra(object):
             StoreTuple(self.emit_print)
             #  rules.FreeMemory()
         ]
+
+        # sequence that works for myrial
+        rule_grps_sequence = [
+            rules.remove_trivial_sequences,
+            rules.simple_group_by,
+            clang_push_select,
+            rules.push_project,
+            rules.push_apply,
+            clangify
+        ]
+
+        return list(itertools.chain(*rule_grps_sequence))
