@@ -1193,9 +1193,9 @@ class MergeToNaryJoin(rules.Rule):
         join_conds = defaultdict(list)
         for field, key in join_groups.parents.items():
             join_conds[key].append(field)
-        conditions = [v for (k, v) in join_conds.items()]
+        conditions = [sorted(v) for (k, v) in join_conds.items()]
         # Note: a cost based join order optimization need to be implemented.
-        ordered_conds = sorted(conditions, key=lambda cond: min(cond))
+        ordered_conds = sorted(conditions, key=lambda cond: cond[0])
         # 3. reverse the children due to top-down tree traversal
         return algebra.NaryJoin(
             list(reversed(children)), ordered_conds, op.output_columns)
