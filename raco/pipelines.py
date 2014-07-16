@@ -8,25 +8,6 @@ from algebra import gensym
 import logging
 LOG = logging.getLogger(__name__)
 
-# for testing output of queries
-class TestEmit:
-  def __init__(self, lang, emitprint):
-    self.language = lang
-    self.emitprint = emitprint
-  def consume(self,t,src,state):
-    code = ""
-
-    resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-    state.addDeclarations([resdecl])
-
-    code += "result.push_back(%s);\n" %(t.name)
-    if self.emitprint == 'console':
-        code += self.language.log_unquoted("%s" % t.name, 2)
-    elif self.emitprint == 'file':
-        filename = t.name + '.txt'
-        code += self.language.log_file("%s" % t.name, filename, 2)
-    return code
-
 class ResolvingSymbol:
     def __init__(self, name):
         self._name = name

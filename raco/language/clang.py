@@ -510,7 +510,7 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
 
 class CStore(algebra.Store, CCOperator):
     def __init__(self, emit_print, relation_key, plan):
-        algebra.Store.__init__(self, relation_key, plan)
+        super(CStore, self).__init__(relation_key, plan)
         self.emit_print = emit_print
 
     def produce(self, state):

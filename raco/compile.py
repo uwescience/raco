@@ -51,8 +51,6 @@ def compile(expr):
     assert isinstance(store_expr, algebra.Store)
     assert len(store_expr.children()) == 1, "expected single expression only"  # noqa
 
-    only_expr = store_expr.children()[0]
-
     lang = store_expr.language
 
     if isinstance(store_expr, Pipelined):

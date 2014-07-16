@@ -31,8 +31,14 @@ def main(args):
         # TODO
         pass
     else:
-        runner = ClangRunner()
-        runner.run(name, abspath)
+        try:
+            runner = ClangRunner()
+            runner.run(name, abspath)
+        except subprocess.CalledProcessError as e:
+            print 'clang runner for %s failed' %(name)
+            print e.output
+            raise
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
