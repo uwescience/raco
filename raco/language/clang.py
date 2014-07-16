@@ -554,9 +554,9 @@ clangify = [
 clang_push_select = [
     rules.SplitSelects(),
     rules.PushSelects(),
-    #We don't want to merge selects because it doesn't really
-    #help and it (maybe) creates HashJoin(conjunction)
-    #MergeSelects()
+    # We don't want to merge selects because it doesn't really
+    # help and it (maybe) creates HashJoin(conjunction)
+    # MergeSelects()
 ]
 
 
@@ -601,4 +601,3 @@ class CCAlgebra(object):
         ]
 
         return list(itertools.chain(*rule_grps_sequence))
-
