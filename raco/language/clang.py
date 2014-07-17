@@ -543,13 +543,13 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan(FileScan)"
 
 
-class StoreTuple(rules.Rule):
+class StoreToCStore(rules.Rule):
     """A rule to store tuples into emit_print"""
     def __init__(self, emit_print):
         self.emit_print = emit_print
 
     def fire(self, expr):
-        if (isinstance(expr, algebra.Store)):
+        if isinstance(expr, algebra.Store):
             return CStore(self.emit_print, expr.relation_key, expr.input)
         return expr
 
@@ -599,7 +599,7 @@ class CCAlgebra(object):
             rules.OneToOne(algebra.Project, CProject),
             # TODO: obviously breaks semantics
             rules.OneToOne(algebra.Union, CUnionAll),
-            StoreTuple(self.emit_print)
+            StoreToCStore(self.emit_print)
             #  rules.FreeMemory()
 
 
