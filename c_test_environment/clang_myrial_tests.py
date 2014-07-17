@@ -12,11 +12,15 @@ sys.path.append('./examples')
 from osutils import Chdir
 import os
 
+import raco.viz as viz
 
-class ClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
+
+class MyriaLClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
     def check(self, query, name):
         plan = self.get_physical_plan(query, CCAlgebra())
-        print plan
+        physical_dot = viz.operator_to_dot(plan)
+        with open("%s.physical.dot"%(name), 'w') as dwf:
+            dwf.write(physical_dot)
 
         # generate code in the target language
         code = ""
@@ -32,7 +36,7 @@ class ClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             checkquery(name, ClangRunner())
 
     def setUp(self):
-        super(ClangTest, self).setUp()
+        super(MyriaLClangTest, self).setUp()
         with Chdir("c_test_environment") as d:
             if need_generate():
                 generate_default()
