@@ -820,14 +820,8 @@ class ShuffleBeforeJoin(rules.Rule):
                                           expr.output_columns)
 
 
-class HCShuffleBeforeNaryJoin(rules.Rule):
-    def __init__(self, catalog):
-        assert isinstance(catalog, Catalog)
-        self.catalog = catalog
-
-    @staticmethod
-    def reversed_index(child_schemes, conditions):
-        """Return the reversed index of join conditions. The reverse index
+def reversed_index(child_schemes, conditions):
+        """Return the reversed index of Nary conditions. The reverse index
            specify for each column on each relation, which hypercube dimension
            it is mapped to, -1 means this columns is not in the hyper cube
            (not joined).
@@ -842,6 +836,12 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
             for jf in jf_list:
                 r_index[jf[0]][jf[1]] = i
         return r_index
+
+
+class HCShuffleBeforeNaryJoin(rules.Rule):
+    def __init__(self, catalog):
+        assert isinstance(catalog, Catalog)
+        self.catalog = catalog
 
     @staticmethod
     def workload(dim_sizes, child_sizes, r_index):
@@ -925,7 +925,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         # make life a little bit easier
         this = HCShuffleBeforeNaryJoin
         # get reverse index
-        r_index = this.reversed_index(child_schemes, conditions)
+        r_index = reversed_index(child_schemes, conditions)
         # find which dims in hyper cube this relation is involved
         hashed_dims = [r_index[child_idx][col] for col in hashed_columns]
         assert -1 not in hashed_dims
@@ -954,7 +954,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
             # get estimated cardinalities of children
             child_sizes = [child.num_tuples() for child in expr.children()]
             # get reversed index of join conditions
-            r_index = this.reversed_index(child_schemes, conditions)
+            r_index = reversed_index(child_schemes, conditions)
             # compute optimal dimension sizes
             (dim_sizes, workload) = this.get_hyper_cube_dim_size(
                 num_server, child_sizes, conditions, r_index)
