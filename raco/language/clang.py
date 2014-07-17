@@ -184,7 +184,6 @@ class CC(Language):
 
     @classmethod
     def compile_attribute(cls, expr):
-        print expr
         if isinstance(expr, expression.NamedAttributeRef):
             raise TypeError(
                 "Error compiling attribute reference %s. \
@@ -304,8 +303,9 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         # now that everything is aggregated, produce the tuples
         assert (not self.useMap) \
             or isinstance(self.column_list()[0],
-                          expression.UnnamedAttributeRef), \
-            "assumes first column is the key and second is aggregate result"
+                          expression.AttributeRef), \
+            "assumes first column is the key and " \
+            "second is aggregate result: %s" % (self.column_list()[0])
 
         if self.useMap:
             produce_template = """for (auto it=%(hashname)s.begin(); \
@@ -347,7 +347,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
         # make key from grouped attributes
         if self.useMap:
-            keypos = self.grouping_list[0].get_position(self.scheme())
+            keypos = self.grouping_list[0].get_position(self.input.scheme())
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())
@@ -373,7 +373,6 @@ class CHashJoin(algebra.Join, CCOperator):
             a single attribute: %s" % self.condition
             raise ValueError(msg)
 
-        print self
         # find the attribute that corresponds to the right child
         self.rightCondIsRightAttr = \
             self.condition.right.position >= len(self.left.scheme())
@@ -556,7 +555,7 @@ clang_push_select = [
     rules.PushSelects(),
     # We don't want to merge selects because it doesn't really
     # help and it (maybe) creates HashJoin(conjunction)
-    # MergeSelects()
+    #rules.MergeSelects()
 ]
 
 
