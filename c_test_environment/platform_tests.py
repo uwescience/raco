@@ -319,22 +319,41 @@ class MyriaLPlatformTests(object):
         out = [FROM B EMIT $0 as x, $1 as y, $3 as t];
         STORE(out, OUTPUT);""", "union_apply_and_self_join")
 
-   # def test_union_of_join(self):
-   #     self.check("""A(s1,s2) :- T2(s1,s2)
-   # A(s1,s2) :- R2(s1,s3), T2(s3,s2)""", "union_of_join")
+    def test_union_of_join(self):
+        self.check_sub_tables("""
+        T2 = SCAN(%(T2)s);
+        R2 = SCAN(%(R2)s);
+        A1 = [FROM T2 EMIT a, b];
+        A2 = JOIN(R2, b, T2, a);
+        A2b = [FROM A2 EMIT $0, $3];
+        out = UNIONALL(A1, A2b);
+        STORE(out, OUTPUT);""",
+                              "union_of_join")
 
-   # def test_union_then_join(self):
-   #     self.check("""A(s1,s2) :- T2(s1,s2)
-   # A(s1,s2) :- R2(s1,s2)
-   # B(s1) :- A(s1,s2), S1(s1)""", "union_then_join")
+    def test_union_then_join(self):
+        self.check_sub_tables("""
+        T2 = SCAN(%(T2)s);
+        R2 = SCAN(%(R2)s);
+        S1 = SCAN(%(S1)s);
+        A = UNIONALL(T2, R2);
+        B = JOIN(A, $0, S1, $0);
+        out = [FROM B EMIT $0];
+        STORE(out, OUTPUT);
+        """, "union_then_join")
 
-   # def test_join_of_two_unions(self):
-   #     self.check("""A(s1,s2) :- T2(s1,s2)
-   # A(s1,s2) :- R2(s1,s2)
-   # B(s1) :- A(s1,s2), A(s1,s3)""", "join_of_two_unions")
+    def test_join_of_two_unions(self):
+        self.check_sub_tables("""
+        T2 = SCAN(%(T2)s);
+        R2 = SCAN(%(R2)s);
+        A = UNIONALL(T2, R2);
+        B = JOIN(A, $0, A, $0);
+        out = [FROM B EMIT $0];
+        STORE(out, OUTPUT);
+        """, "join_of_two_unions")
 
-   # def test_join_swap_indexing(self):
-   #     self.check("""A(a,h,y) :- T3(a,b,c), R3(x, y, z), S3(g,h,j), z=c, j=x""", "join_swap_indexing")
+    def test_join_swap_indexing(self):
+        q = self.myrial_from_sql(["T3", "S3", "R3"], "join_swap_indexing")
+        self.check(q, "join_swap_indexing")
 
     def test_head_scalar_op(self):
         q = self.myrial_from_sql(["R2"], "head_scalar_op")
@@ -348,26 +367,47 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(["R1"], "aggregate_count")
         self.check(q, "aggregate_count")
 
-   # def test_aggregate_count_group_one(self):
-   #     self.check("""A(b, COUNT(a)) :- R2(a,b)""", "aggregate_count_group_one")
+    def test_aggregate_count_group_one(self):
+        self.check_sub_tables("""
+        R2 = SCAN(%(R2)s);
+        out = [FROM R2 EMIT b, COUNT(a)];
+        STORE(out, OUTPUT);
+        """, "aggregate_count_group_one")
 
-   # def test_aggregate_count_group_one_notgroup_one(self):
-   #     self.check("""A(b, COUNT(a)) :- R3(a,b,c)""", "aggregate_count_group_one_notgroup_one")
+    def test_aggregate_count_group_one_notgroup_one(self):
+        self.check_sub_tables("""
+        R3 = SCAN(%(R3)s);
+        out = [FROM R3 EMIT b, COUNT(a)];
+        STORE(out, OUTPUT);
+        """, "aggregate_count_group_one_notgroup_one")
 
-   # def test_aggregate_count_group_one_notgroup_filtered_one(self):
-   #     self.check("""A(b, COUNT(a)) :- R3(a,b,c), c<5""", "aggregate_count_group_one_notgroup_filtered_one")
+    def test_aggregate_count_group_one_notgroup_filtered_one(self):
+        self.check_sub_tables("""
+        R3 = SCAN(%(R3)s);
+        out = [FROM R3 WHERE R3.c < 5 EMIT b, COUNT(a)];
+        STORE(out, OUTPUT);
+        """, "aggregate_count_group_one_notgroup_filtered_one")
 
-   # def test_aggregate_of_binop(self):
-   #     self.check("""A(SUM(a+b)) :- R2(a,b)""", "aggregate_of_binop")
+    def test_aggregate_of_binop(self):
+        q = self.myrial_from_sql(["R2"], "aggregate_of_binop")
+        self.check(q, "aggregate_of_binop")
 
-   # def test_join_of_aggregate_of_join(self):
-   #     self.check("""A(SUM(a), c) :- R2(a,b), T2(b,c)
-   #                   B(x, y) :- A(x, z), S2(z, y)""", "join_of_aggregate_of_join")
+    def test_join_of_aggregate_of_join(self):
+        self.check_sub_tables("""
+        T2 = SCAN(%(T2)s);
+        R2 = SCAN(%(R2)s);
+        S2 = SCAN(%(S2)s);
+        Ap = JOIN(R2, b, T2, a);
+        A = [FROM Ap EMIT SUM($0), $3];
+        B = JOIN(A, $1, S2, a);
+        out = [FROM B EMIT $0, $3];
+        STORE(out, OUTPUT);
+        """, "join_of_aggregate_of_join")
 
-   # def test_common_index_allowed(self):
-   #     """introduced for #250"""
-   #     self.check("""A(a,b,c,d) :- T2(a,b), R2(a,c), R2(a,d)""", "common_index_allowed")
+    def test_common_index_allowed(self):
+        q = self.myrial_from_sql(["R2", "T2"], "common_index_allowed")
+        self.check(q, "common_index_allowed")
 
-   # def test_common_index_disallowed(self):
-   #     """introduced for #250"""
-   #     self.check("""A(a,b,c,d) :- T2(a,b), R2(a,c), R2(d,a)""", "common_index_disallowed")
+    def test_common_index_disallowed(self):
+        q = self.myrial_from_sql(["R2", "T2"], "common_index_disallowed")
+        self.check(q, "common_index_disallowed")
