@@ -5,6 +5,7 @@
 import argparse
 import os
 import sys
+import subprocess
 sys.path.append('./c_test_environment')
 from testquery import ClangRunner
 import osutils
