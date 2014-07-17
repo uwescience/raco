@@ -12,7 +12,8 @@ from raco.language.myrialang import (MyriaShuffleConsumer,
                                      MyriaSymmetricHashJoin)
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra,
-                                     MyriaHyperCubeLeftDeepTreeJoinAlgebra)
+                                     MyriaHyperCubeLeftDeepTreeJoinAlgebra,
+                                     MyriaRegularShuffleLeapFrogAlgebra)
 from raco.language.logical import LogicalAlgebra
 from raco.compile import optimize
 from raco import relation_key
@@ -444,7 +445,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.execute_query(query, output='OutputTemp')
 
     def test_hypercube_shuffle_and_left_deep_tree_local_join(self):
-
         query = """
         T = SCAN(public:adhoc:Z);
         U = [FROM T AS T1, T AS T2, T AS T3
@@ -459,6 +459,23 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp, physical_algebra)
         self.assertEquals(self.get_count(pp, MyriaLeapFrogJoin), 0)
         self.assertEquals(self.get_count(pp, MyriaSymmetricHashJoin), 2)
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        self.assertEquals(result, self.expected2)
+
+    def test_regular_shuffle_and_leapfrog_join(self):
+        query = """
+        T = SCAN(public:adhoc:Z);
+        U = [FROM T AS T1, T AS T2, T AS T3
+             WHERE T1.dst==T2.src AND T2.dst==T3.src
+             EMIT T1.src AS x, T3.dst AS y];
+        STORE(U, OUTPUT);
+        """
+        lp = self.get_logical_plan(query)
+        physical_algebra = MyriaRegularShuffleLeapFrogAlgebra()
+        pp = self.logical_to_physical(lp, physical_algebra)
+        self.assertEquals(self.get_count(pp, MyriaLeapFrogJoin), 2)
+        self.assertEquals(self.get_count(pp, MyriaSymmetricHashJoin), 0)
         self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
         self.assertEquals(result, self.expected2)

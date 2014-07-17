@@ -309,6 +309,21 @@ def convert_nary_conditions(conditions, schemes):
     return new_conditions
 
 
+def convert_join_condition_to_nary_conditions(condition,
+                                              left_len,
+                                              combined_scheme):
+    """Convert an equijoin condition to array style NaryJoin condition."""
+    if isinstance(condition, expression.AND):
+        cond1 = convert_join_condition_to_nary_conditions(
+            condition.left, left_len, combined_scheme)
+        cond2 = convert_join_condition_to_nary_conditions(
+            condition.right, left_len, combined_scheme)
+        return cond1 + cond2
+
+    if isinstance(condition, expression.EQ):
+        return [[condition.left, condition.right]]
+
+
 class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
     def compileme(self, leftid, rightid):
         """Compile the operator to a sequence of json operators"""
@@ -1007,6 +1022,37 @@ class OrderByBeforeNaryJoin(rules.Rule):
         return expr
 
 
+class ReplaceProjectingJoinWithLeapFrog(rules.Rule):
+    """ Only used in MyriaRegularShuffleLeapFrogAlgebra. """
+    def fire(self, expr):
+        # If not ProjectingJoin, who cares?
+        if not isinstance(expr, algebra.ProjectingJoin):
+            return expr
+
+        # Convert join condition to LeapFrog style
+        left_len = len(expr.left.scheme())
+        combined = expr.left.scheme() + expr.right.scheme()
+        conditions = convert_join_condition_to_nary_conditions(
+            expr.condition, left_len, combined)
+        # Get sort order
+        left_sort_order, right_sort_order = [], []
+        for cond in conditions:
+            scond = sorted(cond)
+            left_sort_order.append(scond[0].position)
+            assert scond[1].position >= left_len
+            right_sort_order.append(scond[1].position - left_len)
+        # Replace ProjectingJoin with LeapFrog
+            left_ascending = [True] * len(left_sort_order)
+            left_child = algebra.OrderBy(
+                expr.left, left_sort_order, left_ascending)
+            right_ascending = [True] * len(right_sort_order)
+            right_child = algebra.OrderBy(
+                expr.right, right_sort_order, right_ascending)
+            new_expr = MyriaLeapFrogJoin(
+                [left_child, right_child], conditions, expr.output_columns)
+        return new_expr
+
+
 class BroadcastBeforeCross(rules.Rule):
     def fire(self, expr):
         # If not a CrossProduct, who cares?
@@ -1446,17 +1492,24 @@ class MyriaHyperCubeLeftDeepTreeJoinAlgebra(MyriaAlgebra):
 
 class MyriaRegularShuffleLeapFrogAlgebra(MyriaAlgebra):
     """Myria phyiscal algebra with regular shuffle and LeapFrogJoin"""
-    rules_grps_sequence = [
-        remove_trivial_sequences,
-        simple_group_by,
-        push_select,
-        push_project,
-        push_apply,
-        left_deep_tree_shuffle_logic,
-        distributed_group_by,
-        myriafy,
-        break_communication
-    ]
+    def opt_rules(self):
+        projecting_join_to_leapfrog = [
+            ReplaceProjectingJoinWithLeapFrog()
+        ]
+
+        rule_grps_sequence = [
+            remove_trivial_sequences,
+            simple_group_by,
+            push_select,
+            push_project,
+            push_apply,
+            left_deep_tree_shuffle_logic,
+            distributed_group_by,
+            projecting_join_to_leapfrog,
+            myriafy,
+            break_communication
+        ]
+        return list(itertools.chain(*rule_grps_sequence))
 
 
 class MyriaBroadcastLeftDeepTreeJoinAlgebra(MyriaAlgebra):
