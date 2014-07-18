@@ -1011,13 +1011,33 @@ class OrderByBeforeNaryJoin(rules.Rule):
             raise Exception("children are partially ordered? ")
 
         new_children = []
-        for child in expr.children():
-            # check: this rule must be applied after shuffle
-            assert isinstance(child, algebra.HyperCubeShuffle)
-            ascending = [True] * len(child.hashed_columns)
+        for i, child in enumerate(expr.children()):
+            ascending = [True] * len(expr.child_hashed_columns[i])
             new_children.append(
                 algebra.OrderBy(
-                    child, child.hashed_columns, ascending))
+                    child, expr.child_hashed_columns[i], ascending))
+        expr.args = new_children
+        return expr
+
+
+class BroadcastBeforeNaryJoin(rules.Rule):
+    """ Used in MyriaBroadCastLeapFrogJoinAlgebra """
+    def fire(self, expr):
+        # If not NaryJoin, who cares?
+        if not isinstance(expr, algebra.NaryJoin):
+            return expr
+
+        # Get estimated cardinalities of children
+        child_sizes = [
+            (i, child.num_tuples()) for i, child in enumerate(expr.children())]
+        unbroadcast_child_idx, size = max(child_sizes, key=lambda x: x[1])
+        # Broadcast unless it is the largest child
+        new_children = []
+        for i, child in enumerate(expr.children()):
+            if i != unbroadcast_child_idx:
+                new_children.append(algebra.Broadcast(child))
+            else:
+                new_children.append(child)
         expr.args = new_children
         return expr
 
@@ -1246,6 +1266,24 @@ class MergeToNaryJoin(rules.Rule):
         naryJoin = algebra.NaryJoin(
             list(reversed(children)), ordered_conds, op.output_columns)
         naryJoin.left_deep_tree_join = op
+        # 4. compute hash_columns of children
+        child_hashed_columns = []
+        # get child schemes
+        child_schemes = [op.scheme() for op in naryJoin.children()]
+        # convert join conditions from expressions to 2d array
+        conditions = convert_nary_conditions(
+            naryJoin.conditions, child_schemes)
+        # get reversed index of join conditions
+        r_index = reversed_index(child_schemes, conditions)
+        for child_idx, child in enumerate(naryJoin.children()):
+            # (mapped hc dimension, column index)
+            hashed_fields = [(hc_dim, i)
+                             for i, hc_dim
+                             in enumerate(r_index[child_idx])
+                             if hc_dim != -1]
+            mapped_dims, hashed_columns = zip(*sorted(hashed_fields))
+            child_hashed_columns.append(hashed_columns)
+        naryJoin.child_hashed_columns = child_hashed_columns
         return naryJoin
 
 
@@ -1514,32 +1552,53 @@ class MyriaRegularShuffleLeapFrogAlgebra(MyriaAlgebra):
 
 class MyriaBroadcastLeftDeepTreeJoinAlgebra(MyriaAlgebra):
     """Myria phyiscal algebra with broadcast and left deep tree join """
-    rules_grps_sequence = [
-        remove_trivial_sequences,
-        simple_group_by,
-        push_select,
-        push_project,
-        push_apply,
-        left_deep_tree_shuffle_logic,
-        distributed_group_by,
-        myriafy,
-        break_communication
-    ]
+    def opt_rules(self):
+        rule_grps_sequence = [
+            remove_trivial_sequences,
+            simple_group_by,
+            push_select,
+            push_project,
+            push_apply,
+            left_deep_tree_shuffle_logic,
+            distributed_group_by,
+            myriafy,
+            break_communication
+        ]
+        return list(itertools.chain(*rule_grps_sequence))
 
 
 class MyriaBroadCastLeapFrogJoinAlgebra(MyriaAlgebra):
     """Myria phyiscal algebra with broadcast and left deep tree join """
-    rules_grps_sequence = [
-        remove_trivial_sequences,
-        simple_group_by,
-        push_select,
-        push_project,
-        push_apply,
-        left_deep_tree_shuffle_logic,
-        distributed_group_by,
-        myriafy,
-        break_communication
-    ]
+    def opt_rules(self):
+        merge_to_nary_join = [
+            MergeToNaryJoin()
+        ]
+
+        # Catalog aware broadcast rules:
+        #  keep the largest relation where it is
+        hyper_cube_shuffle_logic = [
+            GetCardinalities(self.catalog),
+            BroadcastBeforeNaryJoin(),
+            OrderByBeforeNaryJoin(),
+        ]
+
+        rule_grps_sequence = [
+            remove_trivial_sequences,
+            simple_group_by,
+            push_select,
+            push_project,
+            merge_to_nary_join,
+            push_apply,
+            left_deep_tree_shuffle_logic,
+            distributed_group_by,
+            hyper_cube_shuffle_logic,
+            myriafy,
+            break_communication
+        ]
+        return list(itertools.chain(*rule_grps_sequence))
+
+    def __init__(self, catalog=None):
+        self.catalog = catalog
 
 
 class OpIdFactory(object):
