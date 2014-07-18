@@ -1553,18 +1553,40 @@ class MyriaRegularShuffleLeapFrogAlgebra(MyriaAlgebra):
 class MyriaBroadcastLeftDeepTreeJoinAlgebra(MyriaAlgebra):
     """Myria phyiscal algebra with broadcast and left deep tree join """
     def opt_rules(self):
+        merge_to_nary_join = [
+            MergeToNaryJoin()
+        ]
+
+        # Catalog aware broadcast rules:
+        #  keep the largest relation where it is
+        broadcast_logic = [
+            GetCardinalities(self.catalog),
+            BroadcastBeforeNaryJoin(),
+            OrderByBeforeNaryJoin(),
+        ]
+
+        left_deep_tree_locally = [
+            NaryJoinToLeftDeepTree()
+        ]
+
         rule_grps_sequence = [
             remove_trivial_sequences,
             simple_group_by,
             push_select,
             push_project,
+            merge_to_nary_join,
             push_apply,
             left_deep_tree_shuffle_logic,
             distributed_group_by,
+            broadcast_logic,
+            left_deep_tree_locally,
             myriafy,
             break_communication
         ]
         return list(itertools.chain(*rule_grps_sequence))
+
+    def __init__(self, catalog=None):
+        self.catalog = catalog
 
 
 class MyriaBroadCastLeapFrogJoinAlgebra(MyriaAlgebra):
@@ -1576,7 +1598,7 @@ class MyriaBroadCastLeapFrogJoinAlgebra(MyriaAlgebra):
 
         # Catalog aware broadcast rules:
         #  keep the largest relation where it is
-        hyper_cube_shuffle_logic = [
+        broadcast_logic = [
             GetCardinalities(self.catalog),
             BroadcastBeforeNaryJoin(),
             OrderByBeforeNaryJoin(),
@@ -1591,7 +1613,7 @@ class MyriaBroadCastLeapFrogJoinAlgebra(MyriaAlgebra):
             push_apply,
             left_deep_tree_shuffle_logic,
             distributed_group_by,
-            hyper_cube_shuffle_logic,
+            broadcast_logic,
             myriafy,
             break_communication
         ]
