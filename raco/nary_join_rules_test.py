@@ -140,7 +140,7 @@ class testNaryJoin(unittest.TestCase):
             conditions = myrialang.convert_nary_conditions(
                 expr.conditions, child_schemes)
             HSClass = myrialang.HCShuffleBeforeNaryJoin
-            r_index = HSClass.reversed_index(child_schemes, conditions)
+            r_index = myrialang.reversed_index(child_schemes, conditions)
             child_sizes = [len(cs) for cs in child_schemes]
             return HSClass.workload(dim_sizes, child_sizes, r_index)
 
