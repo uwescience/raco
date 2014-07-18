@@ -51,7 +51,6 @@ def graph_to_web_dot(graph):
         label="Fragment 0";
         node [style=filled, color=white];
         %s
-
       }
 
       %s

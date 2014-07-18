@@ -136,12 +136,8 @@ class CC(Language):
       """ % code
 
     @staticmethod
-    def log_file(code, filename, level=0):
-        r = """std::ofstream logfile;\n"""
-        r += """logfile.open("%s", std::ios::app);\n""" % filename
-        r += """logfile << %s << "\\n";\n """ % code
-        r += """logfile.close();"""
-        return r
+    def log_file(code, level=0):
+        return """logfile << %s << "\\n";\n """ % code
 
     @staticmethod
     def comment(txt):
@@ -513,7 +509,7 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
 
 class CStore(algebra.Store, CCOperator):
     def __init__(self, emit_print, relation_key, plan):
-        algebra.Store.__init__(self, relation_key, plan)
+        super(CStore, self).__init__(relation_key, plan)
         self.emit_print = emit_print
 
     def produce(self, state):
@@ -523,13 +519,17 @@ class CStore(algebra.Store, CCOperator):
         code = ""
         resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
         state.addDeclarations([resdecl])
-
         code += "result.push_back(%s);\n" % (t.name)
+
         if self.emit_print in ['console', 'both']:
             code += self.language.log_unquoted("%s" % t.name, 2)
         if self.emit_print in ['file', 'both']:
+            state.addPreCode('std::ofstream logfile;\n')
             filename = 'datasets/' + str(self.relation_key) + '.txt'
-            code += self.language.log_file("%s" % t.name, filename, 2)
+            openfile = 'logfile.open("%s", std::ios::app);\n' % filename
+            state.addPreCode(openfile)
+            code += self.language.log_file("%s" % t.name, 2)
+            state.addPostCode('logfile.close();')
         return code
 
 
@@ -590,13 +590,13 @@ clang_push_select = [
 ]
 
 
-class StoreTuple(rules.Rule):
+class StoreToCStore(rules.Rule):
     """A rule to store tuples into emit_print"""
     def __init__(self, emit_print):
         self.emit_print = emit_print
 
     def fire(self, expr):
-        if (isinstance(expr, algebra.Store)):
+        if isinstance(expr, algebra.Store):
             return CStore(self.emit_print, expr.relation_key, expr.input)
         return expr
 
@@ -618,7 +618,7 @@ class CCAlgebra(object):
         CStore
     ]
 
-    def __init__(self, emit_print='both'):
+    def __init__(self, emit_print='console'):
         """ To store results into a file, onto console, both file and console,
         or stays quiet """
         self.emit_print = emit_print
@@ -637,8 +637,10 @@ class CCAlgebra(object):
             rules.OneToOne(algebra.Project, CProject),
             # TODO: obviously breaks semantics
             rules.OneToOne(algebra.Union, CUnionAll),
-            StoreTuple(self.emit_print)
+            StoreToCStore(self.emit_print)
             #  rules.FreeMemory()
+
+
         ]
 
         # sequence that works for myrial
