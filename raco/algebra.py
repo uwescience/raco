@@ -36,7 +36,7 @@ class SchemaError(Exception):
 
 
 class Operator(Printable):
-    """Operator base classs"""
+    """Operator base class"""
     __metaclass__ = ABCMeta
 
     def __init__(self):
@@ -1114,7 +1114,7 @@ class Scan(ZeroaryOperator):
     """Logical Scan operator."""
 
     def __init__(self, relation_key=None, _scheme=None):
-        """Initalize a scan operator.
+        """Initialize a scan operator.
 
         relation_key is a string of the form "user:program:relation"
         scheme is the schema of the relation.
