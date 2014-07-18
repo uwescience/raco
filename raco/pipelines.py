@@ -8,23 +8,6 @@ from algebra import gensym
 import logging
 LOG = logging.getLogger(__name__)
 
-# for testing output of queries
-class TestEmit:
-  def __init__(self, lang, emitprint):
-    self.language = lang
-    self.emitprint = emitprint
-  def consume(self,t,src,state):
-    code = ""
-
-    resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-    state.addDeclarations([resdecl])
-
-    code += "result.push_back(%s);\n" %(t.name)
-    if self.emitprint:
-        code += self.language.log_unquoted("%s" % t.name, 2)
-
-    return code
-
 class ResolvingSymbol:
     def __init__(self, name):
         self._name = name
@@ -227,9 +210,9 @@ class Pipelined(object):
       """Denotation for consuming a tuple"""
       return
 
-    def compilePipeline(self, emitprint=True):
+    # emitprint: quiet, console, file
+    def compilePipeline(self):
       self.__markAllParents__()
-      self.parent = TestEmit(self.language, emitprint)
 
       state = CompileState(self.language)
       
