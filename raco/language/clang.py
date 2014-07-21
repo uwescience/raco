@@ -627,19 +627,19 @@ class CCAlgebra(object):
     def opt_rules(self):
         # Sequence that works for datalog
         # TODO: replace with below
-    #  #  datalog_rules = [
-       #     rules.CrossProduct2Join(),
-       #     rules.SimpleGroupBy(),
-       #     rules.OneToOne(algebra.Select, CSelect),
-       #     MemoryScanOfFileScan(),
-       #     rules.OneToOne(algebra.Apply, CApply),
-       #     rules.OneToOne(algebra.Join, CHashJoin),
-       #     rules.OneToOne(algebra.GroupBy, CGroupBy),
-       #     rules.OneToOne(algebra.Project, CProject),
-       #     # TODO: obviously breaks semantics
-       #     rules.OneToOne(algebra.Union, CUnionAll),
-       #     #  rules.FreeMemory()
-       # ]
+        # datalog_rules = [
+        # rules.CrossProduct2Join(),
+        # rules.SimpleGroupBy(),
+        # rules.OneToOne(algebra.Select, CSelect),
+        # MemoryScanOfFileScan(),
+        # rules.OneToOne(algebra.Apply, CApply),
+        # rules.OneToOne(algebra.Join, CHashJoin),
+        # rules.OneToOne(algebra.GroupBy, CGroupBy),
+        # rules.OneToOne(algebra.Project, CProject),
+        # TODO: obviously breaks semantics
+        # rules.OneToOne(algebra.Union, CUnionAll),
+        # rules.FreeMemory()
+        # ]
 
         # sequence that works for myrial
         rule_grps_sequence = [
