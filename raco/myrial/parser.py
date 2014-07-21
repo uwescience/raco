@@ -239,9 +239,9 @@ class Parser(object):
         p[0] = ('_EXEC_', p[1], p[3])
 
     @staticmethod
-    def p_statement_export_to_myria(p):
-        'statement : EXPORTSCIDBTOMYRIA LPAREN STRING_LITERAL COMMA relation_key COMMA column_def_list RPAREN SEMI'  # noqa
-        p[0] = ('EXPORT_TO_MYRIA', p[3], p[5])
+    def p_statement_export_to_scidb(p):
+        'statement : EXPORTMYRIATOSCIDB LPAREN relation_key COMMA STRING_LITERAL RPAREN SEMI'  # noqa
+        p[0] = ('EXPORT_TO_SCIDB', p[3], p[5])
 
     @staticmethod
     def p_external_lang(p):
