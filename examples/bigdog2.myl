@@ -1,10 +1,10 @@
 connect(%afl, "http://vega.cs.washington.edu:8080");
 
-%afl("store(sum(B1, data), B4)");
+order = scan(public:adhoc:poe_order);
+med = scan(public:adhoc:poe_med);
 
-exportScidbToMyria("B4", public:adhoc:b4, val:int);
+treatments = [from order, med where order.poe_id=med.poe_id
+              emit subject_id, drug_name];
+store(treatments, mimic_output);
 
-X = scan(public:adhoc:sc_points);
-Y = [from X where X.v > 0 emit X.*];
-
-store(Y, public:adhoc:output);
+%afl("store(subarray(waveform_signal_table, 325553800041, 1, 325553800041, 100), B23)");
