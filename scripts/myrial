@@ -78,6 +78,7 @@ class FakeCatalog(raco.catalog.Catalog):
     def num_tuples(self, rel_key):
         return algebra.DEFAULT_CARDINALITY
 
+
 def main(args):
     opt = parse_options(args)
 
@@ -100,6 +101,24 @@ def main(args):
 
         if opt.parse:
             print statement_list
+        elif opt.federated:
+            sys.path.append("./myria-python")
+            sys.path.append("./SciDB-py")
+            from myria_catalog import MyriaCatalog
+            from myria.connection import MyriaConnection
+            import scidbpy
+
+            arg_file = './myria_connection.py'
+            with open(arg_file) as fh:
+                d = eval(fh.read())
+                conn = MyriaConnection(**d)
+                catalog = MyriaCatalog(conn)
+
+            processor = interpreter.StatementProcessor(catalog)
+            processor.evaluate(statement_list)
+            res = raco.run_federated.run(processor.get_logical_plan(), conn,
+                                         scidbpy)
+            print res
         else:
             processor.evaluate(statement_list)
             if opt.logical:
@@ -112,14 +131,6 @@ def main(args):
                 pp = processor.get_physical_plan()
                 db = FakeDatabase()
                 db.evaluate(pp)
-            elif opt.federated:
-                sys.path.append("./myria-python")
-                from myria.connection import MyriaConnection
-                arg_file = './myria_connection.py'
-                with open(arg_file) as fh:
-                    d = eval(fh.read())
-                    conn = MyriaConnection(**d)
-                raco.run_federated.run(processor.get_logical_plan(), conn)
             else:
                 print_pretty_plan(processor.get_physical_plan())
 
