@@ -410,8 +410,11 @@ class StatementProcessor(object):
                                    connection=connstr, scheme=None)
         self.cfg.add_op(op, None, set())
 
-    def export_to_myria(self, array_name, relkey):
-        op = raco.algebra.ExportScidbToMyria(array_name, relkey)
+    def export_to_scidb(self, relkey, array_name):
+        if 'afl' not in self.connection_table:
+            raise UnconnectedLanguageException('afl')
+        op = raco.algebra.ExportMyriaToScidb(
+            relkey, array_name, self.connection_table['afl'])
         self.cfg.add_op(op, None, set())
 
     def get_logical_plan(self):

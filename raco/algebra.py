@@ -941,21 +941,24 @@ class ExecScan(ZeroaryOperator):
         return self.scheme
 
 
-class ExportScidbToMyria(ZeroaryOperator):
-    def __init__(self, scdib_array_name, myria_relkey):
+class ExportMyriaToScidb(ZeroaryOperator):
+    def __init__(self, scdib_array_name, myria_relkey, conn):
         self.scdib_array_name = scdib_array_name
         self.myria_relkey = myria_relkey
+        self.connection = conn
 
     def shortStr(self):
-        return "ExportToMyria(%s, %s)" % (self.scdib_array_name,
+        return "ExportToScidb(%s, %s)" % (self.scdib_array_name,
                                           self.myria_relkey)
 
     def copy(self, other):
         self.scidb_array_name = other.scidb_array_name
         self.myria_relkey = other.myria_relkey
+        self.connection = other.connection
 
     def scheme(self):
         raise NotImplementedError()
+
 
 class Shuffle(UnaryOperator):
     """Send the input to the specified servers"""
