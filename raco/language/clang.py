@@ -526,7 +526,7 @@ class CStore(algebra.Store, CCOperator):
         if self.emit_print in ['file', 'both']:
             state.addPreCode('std::ofstream logfile;\n')
             filename = 'datasets/' + str(self.relation_key) + '.txt'
-            openfile = 'logfile.open("%s", std::ios::app);\n' % filename
+            openfile = 'logfile.open("%s");\n' % filename
             state.addPreCode(openfile)
             code += self.language.log_file("%s" % t.name, 2)
             state.addPostCode('logfile.close();')
