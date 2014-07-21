@@ -564,31 +564,6 @@ class BreakHashJoinConjunction(rules.Rule):
         return "CHashJoin(a=c and b=d) => CSelect(b=d)[CHashJoin(a=c)]"
 
 
-clangify = [
-    rules.ProjectingJoinToProjectOfJoin(),
-
-    rules.OneToOne(algebra.Select, CSelect),
-    MemoryScanOfFileScan(),
-    rules.OneToOne(algebra.Apply, CApply),
-    rules.OneToOne(algebra.Join, CHashJoin),
-    rules.OneToOne(algebra.GroupBy, CGroupBy),
-    rules.OneToOne(algebra.Project, CProject),
-    rules.OneToOne(algebra.UnionAll, CUnionAll),
-    # TODO: obviously breaks semantics
-    rules.OneToOne(algebra.Union, CUnionAll),
-
-    BreakHashJoinConjunction()
-]
-
-clang_push_select = [
-    rules.SplitSelects(),
-    rules.PushSelects(),
-    # We don't want to merge selects because it doesn't really
-    # help and it (maybe) creates HashJoin(conjunction)
-    # rules.MergeSelects()
-]
-
-
 class StoreToCStore(rules.Rule):
     """A rule to store tuples into emit_print"""
     def __init__(self, emit_print):
@@ -601,6 +576,33 @@ class StoreToCStore(rules.Rule):
 
     def __str__(self):
         return "Store => CStore"
+
+
+def clangify(emit_print):
+    return [
+        rules.ProjectingJoinToProjectOfJoin(),
+
+        rules.OneToOne(algebra.Select, CSelect),
+        MemoryScanOfFileScan(),
+        rules.OneToOne(algebra.Apply, CApply),
+        rules.OneToOne(algebra.Join, CHashJoin),
+        rules.OneToOne(algebra.GroupBy, CGroupBy),
+        rules.OneToOne(algebra.Project, CProject),
+        rules.OneToOne(algebra.UnionAll, CUnionAll),
+        # TODO: obviously breaks semantics
+        rules.OneToOne(algebra.Union, CUnionAll),
+        StoreToCStore(emit_print),
+
+        BreakHashJoinConjunction()
+    ]
+
+clang_push_select = [
+    rules.SplitSelects(),
+    rules.PushSelects(),
+    # We don't want to merge selects because it doesn't really
+    # help and it (maybe) creates HashJoin(conjunction)
+    # rules.MergeSelects()
+]
 
 
 class CCAlgebra(object):
@@ -625,22 +627,19 @@ class CCAlgebra(object):
     def opt_rules(self):
         # Sequence that works for datalog
         # TODO: replace with below
-        datalog_rules = [
-            rules.CrossProduct2Join(),
-            rules.SimpleGroupBy(),
-            rules.OneToOne(algebra.Select, CSelect),
-            MemoryScanOfFileScan(),
-            rules.OneToOne(algebra.Apply, CApply),
-            rules.OneToOne(algebra.Join, CHashJoin),
-            rules.OneToOne(algebra.GroupBy, CGroupBy),
-            rules.OneToOne(algebra.Project, CProject),
-            # TODO: obviously breaks semantics
-            rules.OneToOne(algebra.Union, CUnionAll),
-            StoreToCStore(self.emit_print)
-            #  rules.FreeMemory()
-
-
-        ]
+    #  #  datalog_rules = [
+       #     rules.CrossProduct2Join(),
+       #     rules.SimpleGroupBy(),
+       #     rules.OneToOne(algebra.Select, CSelect),
+       #     MemoryScanOfFileScan(),
+       #     rules.OneToOne(algebra.Apply, CApply),
+       #     rules.OneToOne(algebra.Join, CHashJoin),
+       #     rules.OneToOne(algebra.GroupBy, CGroupBy),
+       #     rules.OneToOne(algebra.Project, CProject),
+       #     # TODO: obviously breaks semantics
+       #     rules.OneToOne(algebra.Union, CUnionAll),
+       #     #  rules.FreeMemory()
+       # ]
 
         # sequence that works for myrial
         rule_grps_sequence = [
@@ -649,7 +648,7 @@ class CCAlgebra(object):
             clang_push_select,
             rules.push_project,
             rules.push_apply,
-            clangify
+            clangify(self.emit_print)
         ]
 
         return list(itertools.chain(*rule_grps_sequence))
