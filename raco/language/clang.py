@@ -546,20 +546,6 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan[FileScan]"
 
 
-class StoreToCStore(rules.Rule):
-    """A rule to store tuples into emit_print"""
-    def __init__(self, emit_print):
-        self.emit_print = emit_print
-
-    def fire(self, expr):
-        if isinstance(expr, algebra.Store):
-            return CStore(self.emit_print, expr.relation_key, expr.input)
-        return expr
-
-    def __str__(self):
-        return "Store => CStore"
-
-
 class BreakHashJoinConjunction(rules.Rule):
     """A rewrite rule for turning HashJoin(a=c and b=d)
     into select(b=d)[HashJoin(a=c)]"""
@@ -579,21 +565,35 @@ class BreakHashJoinConjunction(rules.Rule):
         return "CHashJoin(a=c and b=d) => CSelect(b=d)[CHashJoin(a=c)]"
 
 
-clangify = [
-    rules.ProjectingJoinToProjectOfJoin(),
+class StoreToCStore(rules.Rule):
+    """A rule to store tuples into emit_print"""
+    def __init__(self, emit_print):
+        self.emit_print = emit_print
 
-    rules.OneToOne(algebra.Select, CSelect),
-    MemoryScanOfFileScan(),
-    rules.OneToOne(algebra.Apply, CApply),
-    rules.OneToOne(algebra.Join, CHashJoin),
-    rules.OneToOne(algebra.GroupBy, CGroupBy),
-    rules.OneToOne(algebra.Project, CProject),
-    rules.OneToOne(algebra.UnionAll, CUnionAll),
-    # TODO: obviously breaks semantics
-    rules.OneToOne(algebra.Union, CUnionAll),
+    def fire(self, expr):
+        if isinstance(expr, algebra.Store):
+            return CStore(self.emit_print, expr.relation_key, expr.input)
+        return expr
 
-    BreakHashJoinConjunction()
-]
+    def __str__(self):
+        return "Store => CStore"
+
+
+def clangify(emit_print):
+    return [
+        rules.ProjectingJoinToProjectOfJoin(),
+        rules.OneToOne(algebra.Select, CSelect),
+        MemoryScanOfFileScan(),
+        rules.OneToOne(algebra.Apply, CApply),
+        rules.OneToOne(algebra.Join, CHashJoin),
+        rules.OneToOne(algebra.GroupBy, CGroupBy),
+        rules.OneToOne(algebra.Project, CProject),
+        rules.OneToOne(algebra.UnionAll, CUnionAll),
+        # TODO: obviously breaks semantics
+        rules.OneToOne(algebra.Union, CUnionAll),
+        StoreToCStore(emit_print),
+        BreakHashJoinConjunction()
+    ]
 
 clang_push_select = [
     rules.SplitSelects(),
@@ -641,10 +641,6 @@ class CCAlgebra(object):
             #  rules.FreeMemory()
         ]
 
-        clang_store = [
-            StoreToCStore(self.emit_print)
-        ]
-
         # sequence that works for myrial
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
@@ -652,8 +648,7 @@ class CCAlgebra(object):
             clang_push_select,
             rules.push_project,
             rules.push_apply,
-            clangify,
-            clang_store
+            clangify(self.emit_print)
         ]
 
         return list(itertools.chain(*rule_grps_sequence))
