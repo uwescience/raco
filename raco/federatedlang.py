@@ -43,7 +43,7 @@ class Dispatch(rules.Rule):
     def fire(self, expr):
         if isinstance(expr, algebra.Sequence):
             return expr  # Retain top-level sequence operator
-        if isinstance(expr, algebra.ExportScidbToMyria):
+        if isinstance(expr, algebra.ExportMyriaToScidb):
             return expr
         if isinstance(expr, algebra.ExecScan):
             # Some kind of custom code that we must pass through
