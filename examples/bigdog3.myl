@@ -1,0 +1,13 @@
+connect(%afl, "http://vega.cs.washington.edu:8080");
+
+order = scan(public:adhoc:poe_order);
+med = scan(public:adhoc:poe_med);
+
+X = distinct([from order, med
+              where order.poe_id=med.poe_id
+                    and drug_name="Metoprolol"
+              emit subject_id]);
+store(X, mimic_output);
+
+exportMyriaToSciDB(mimic_output, "K1");
+%afl("store(filter(K1, subject_id > 100), K2)");
