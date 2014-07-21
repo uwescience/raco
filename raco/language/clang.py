@@ -546,6 +546,20 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan[FileScan]"
 
 
+class StoreToCStore(rules.Rule):
+    """A rule to store tuples into emit_print"""
+    def __init__(self, emit_print):
+        self.emit_print = emit_print
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.Store):
+            return CStore(self.emit_print, expr.relation_key, expr.input)
+        return expr
+
+    def __str__(self):
+        return "Store => CStore"
+
+
 class BreakHashJoinConjunction(rules.Rule):
     """A rewrite rule for turning HashJoin(a=c and b=d)
     into select(b=d)[HashJoin(a=c)]"""
@@ -590,20 +604,6 @@ clang_push_select = [
 ]
 
 
-class StoreToCStore(rules.Rule):
-    """A rule to store tuples into emit_print"""
-    def __init__(self, emit_print):
-        self.emit_print = emit_print
-
-    def fire(self, expr):
-        if isinstance(expr, algebra.Store):
-            return CStore(self.emit_print, expr.relation_key, expr.input)
-        return expr
-
-    def __str__(self):
-        return "Store => CStore"
-
-
 class CCAlgebra(object):
     language = CC
 
@@ -639,8 +639,10 @@ class CCAlgebra(object):
             rules.OneToOne(algebra.Union, CUnionAll),
             StoreToCStore(self.emit_print)
             #  rules.FreeMemory()
+        ]
 
-
+        clang_store = [
+            StoreToCStore(self.emit_print)
         ]
 
         # sequence that works for myrial
@@ -650,7 +652,8 @@ class CCAlgebra(object):
             clang_push_select,
             rules.push_project,
             rules.push_apply,
-            clangify
+            clangify,
+            clang_store
         ]
 
         return list(itertools.chain(*rule_grps_sequence))
