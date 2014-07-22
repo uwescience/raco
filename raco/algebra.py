@@ -948,8 +948,8 @@ class ExportMyriaToScidb(ZeroaryOperator):
         self.connection = conn
 
     def shortStr(self):
-        return "ExportToScidb(%s, %s)" % (self.scdib_array_name,
-                                          self.myria_relkey)
+        return "ExportToScidb(%s, %s)" % (self.myria_relkey,
+                                          self.scidb_array_name)
 
     def copy(self, other):
         self.scidb_array_name = other.scidb_array_name
