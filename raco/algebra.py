@@ -942,8 +942,8 @@ class ExecScan(ZeroaryOperator):
 
 
 class ExportMyriaToScidb(ZeroaryOperator):
-    def __init__(self, scdib_array_name, myria_relkey, conn):
-        self.scdib_array_name = scdib_array_name
+    def __init__(self, myria_relkey, scidb_array_name, conn):
+        self.scidb_array_name = scidb_array_name
         self.myria_relkey = myria_relkey
         self.connection = conn
 

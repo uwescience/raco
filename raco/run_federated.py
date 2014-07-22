@@ -3,6 +3,7 @@ from raco.language import FederatedAlgebra
 from raco.algebra import LogicalAlgebra, Sequence, ExportMyriaToScidb
 from raco.federatedlang import *
 
+import numpy as np
 import time
 
 def wait_for_completion(conn, query_id, repeats=10):
@@ -31,10 +32,19 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
             _id = res['queryId']
             outs.append(wait_for_completion(myria_conn, _id))
         elif isinstance(op, ExportMyriaToScidb):
-            pass
-            # Fetch result schema
-            # Fetch result
+            sdb = scidb_conn_factory.connect(op.connection)
+
+            relk = op.myria_relkey
+            key = {'userName': relk.user, 'programName': relk.program,
+                   'relationName': relk.relation}
+            dataset = myria_conn.download_dataset(key)
+             #  XXX non-sensical behavior for multi-column relations
+            vals = [v for row in dataset for v in row.values()]
+            A = np.array(vals)
+
             # Store as scidb array
+            Asdb = sdb.from_array(A)
+            Asdb.rename(op.scidb_array_name, persistent=True)
 
     if len(outs) > 0:
         return outs[-1]  # XXX This is strange

@@ -9,5 +9,5 @@ X = distinct([from order, med
               emit subject_id]);
 store(X, mimic_output);
 
-exportMyriaToSciDB(mimic_output, "K1");
-%afl("store(filter(K1, subject_id > 100), K2)");
+exportMyriaToSciDB(mimic_output, "K111");
+%afl("store(filter(K1, f0 > 100), K222)");
