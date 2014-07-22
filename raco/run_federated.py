@@ -32,17 +32,21 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
             _id = res['queryId']
             outs.append(wait_for_completion(myria_conn, _id))
         elif isinstance(op, ExportMyriaToScidb):
-            sdb = scidb_conn_factory.connect(op.connection)
-
+            # Download Myria data -- assumes query has completed
             relk = op.myria_relkey
             key = {'userName': relk.user, 'programName': relk.program,
                    'relationName': relk.relation}
             dataset = myria_conn.download_dataset(key)
-             #  XXX non-sensical behavior for multi-column relations
+
+            # Unpack data into a 1-dimensional array
+            # XXX non-sensical behavior for multi-column relations
             vals = [v for row in dataset for v in row.values()]
             A = np.array(vals)
 
             # Store as scidb array
+            sdb = scidb_conn_factory.connect(op.connection)
+            if op.scidb_array_name in sdb.list_arrays():
+                sdb.query("remove(%s)" % op.scidb_array_name)
             Asdb = sdb.from_array(A)
             Asdb.rename(op.scidb_array_name, persistent=True)
 
