@@ -23,6 +23,8 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
     assert isinstance(seq_op, Sequence)
 
     outs = []
+    async = all([True for x in seq_op.args if isinstance(x, RunMyria)])
+
     for op in seq_op.args:
         if isinstance(op, RunAQL):
             sdb = scidb_conn_factory.connect(op.connection)
@@ -30,7 +32,10 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
         elif isinstance(op, RunMyria):
             res = myria_conn.submit_query(op.command)
             _id = res['queryId']
-            outs.append(wait_for_completion(myria_conn, _id))
+            if not async:
+                outs.append(wait_for_completion(myria_conn, _id))
+            else:
+                outs.append(res)
         elif isinstance(op, ExportMyriaToScidb):
             # Download Myria data -- assumes query has completed
             relk = op.myria_relkey
