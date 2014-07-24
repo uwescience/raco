@@ -1260,8 +1260,9 @@ class MergeToNaryJoin(rules.Rule):
             op, join_groups, children)
         # 2. extract join groups from the union find datastructure
         join_conds = defaultdict(list)
-        for field, key in join_groups.parents.items():
-            join_conds[key].append(field)
+        for field, parent in join_groups.parents.items():
+            root = join_groups[field]
+            join_conds[root].append(field)
         conditions = [sorted(v) for (k, v) in join_conds.items()]
         # Note: a cost based join order optimization need to be implemented.
         ordered_conds = sorted(conditions, key=lambda cond: cond[0])
