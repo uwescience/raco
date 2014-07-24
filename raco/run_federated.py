@@ -3,6 +3,7 @@ from raco.language import FederatedAlgebra
 from raco.algebra import LogicalAlgebra, Sequence, ExportMyriaToScidb
 from raco.federatedlang import *
 
+import logging
 import numpy as np
 import time
 
@@ -23,7 +24,7 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
     assert isinstance(seq_op, Sequence)
 
     outs = []
-    async = all([True for x in seq_op.args if isinstance(x, RunMyria)])
+    pure_myria_query = all([isinstance(x, RunMyria) for x in seq_op.args])
 
     for op in seq_op.args:
         if isinstance(op, RunAQL):
@@ -32,10 +33,10 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
         elif isinstance(op, RunMyria):
             res = myria_conn.submit_query(op.command)
             _id = res['queryId']
-            if not async:
+            if not pure_myria_query:
                 outs.append(wait_for_completion(myria_conn, _id))
             else:
-                outs.append(res)
+                return res
         elif isinstance(op, ExportMyriaToScidb):
             # Download Myria data -- assumes query has completed
             relk = op.myria_relkey
