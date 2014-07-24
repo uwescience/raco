@@ -63,5 +63,7 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
             Asdb = sdb.from_array(A)
             Asdb.rename(op.scidb_array_name, persistent=True)
 
+    logging.info("Returning from federated query")
+
     if len(outs) > 0:
         return outs[-1]  # XXX This is strange
