@@ -543,6 +543,10 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         hash_string = ','.join([str(x) for x in self.hash_columns])
         return "%s(h(%s))" % (self.opname(), hash_string)
 
+    def __repr__(self):
+        return "{op}({inp!r}, {hc!r})".format(op=self.opname(), inp=self.input,
+                                              hc=self.hash_columns)
+
     def num_tuples(self):
         return self.input.num_tuples()
 
@@ -602,6 +606,11 @@ class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
             "opType": "CollectProducer",
             "argChild": inputid,
         }
+
+    def __repr__(self):
+        return "{op}({inp!r}, {svr!r})".format(op=self.opname(),
+                                               inp=self.input,
+                                               svr=self.server)
 
 
 class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
