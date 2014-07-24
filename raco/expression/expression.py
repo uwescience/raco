@@ -350,14 +350,19 @@ class NamedAttributeRef(AttributeRef):
 
 class UnnamedAttributeRef(AttributeRef):
 
-    def __init__(self, position):
+    def __init__(self, position, debug_info=None):
+        if debug_info is None:
+            debug_info = "${}".format(position)
+        self.debug_info = debug_info
         self.position = position
 
     def __str__(self):
-        return "$%s" % (self.position)
+        return "%s" % (self.debug_info)
 
     def __repr__(self):
-        return "{op}({pos!r})".format(op=self.opname(), pos=self.position)
+        return "{op}({pos!r}, {dbg!r})".format(op=self.opname(),
+                                               pos=self.position,
+                                               dbg=self.debug_info)
 
     def __eq__(self, other):
         return (other.__class__ == self.__class__
