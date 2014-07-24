@@ -1249,6 +1249,7 @@ push_apply = [
     rules.PushApply(),
     rules.RemoveUnusedColumns(),
     rules.PushApply(),
+    rules.RemoveNoOpApply(),
 ]
 
 # 6. shuffle logics, hyper_cube_shuffle_logic is only used in HCAlgebra
