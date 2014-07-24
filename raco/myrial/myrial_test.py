@@ -1,19 +1,12 @@
 import json
 import unittest
 
-# Not really unused -- for eval in the repr test
-from raco.expression import *
-from raco.algebra import *
-from raco.relation_key import *
-from raco.scheme import *
-from raco.language.myrialang import *
-# Not really unused -- for eval in the repr test
-
 from raco.language.myrialang import compile_to_json
 import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.viz
+from raco.replace_with_repr import replace_with_repr
 
 
 class MyrialTestCase(unittest.TestCase):
@@ -43,12 +36,7 @@ class MyrialTestCase(unittest.TestCase):
         # TODO verify the dot somehow?
         raco.viz.get_dot(p)
         # Test repr
-        try:
-            p = eval(repr(p))
-        except (AttributeError, TypeError):
-            print 'Error with repr {r}'.format(r=repr(p))
-            raise
-        return p
+        return replace_with_repr(p)
 
     def get_logical_plan(self, query):
         '''Get the logical plan for a MyriaL query'''
