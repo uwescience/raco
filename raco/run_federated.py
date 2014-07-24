@@ -26,11 +26,16 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
     outs = []
     pure_myria_query = all([isinstance(x, RunMyria) for x in seq_op.args])
 
+    logging.info("Running federated query: pure_myra=%s" % pure_myria_query)
+
     for op in seq_op.args:
         if isinstance(op, RunAQL):
+            logging.info("Running scidb query: %s" % op.command)
             sdb = scidb_conn_factory.connect(op.connection)
             sdb._execute_query(op.command)
         elif isinstance(op, RunMyria):
+            logging.info("Running myria query...")
+
             res = myria_conn.submit_query(op.command)
             _id = res['queryId']
             if not pure_myria_query:
@@ -38,6 +43,8 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
             else:
                 return res
         elif isinstance(op, ExportMyriaToScidb):
+            logging.info("Export to scidb...")
+
             # Download Myria data -- assumes query has completed
             relk = op.myria_relkey
             key = {'userName': relk.user, 'programName': relk.program,
