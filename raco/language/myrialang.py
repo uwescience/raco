@@ -961,6 +961,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
             # compute optimal dimension sizes
             (dim_sizes, workload) = this.get_hyper_cube_dim_size(
                 num_server, child_sizes, conditions, r_index)
+            # dim_sizes = [8, 8, 1, 1]
             # specify HyperCube shuffle to each child
             new_children = []
             for child_idx, child in enumerate(expr.children()):
@@ -1245,7 +1246,6 @@ class MergeToNaryJoin(rules.Rule):
     def fire(self, op):
         if not isinstance(op, algebra.ProjectingJoin):
             return op
-
         # if op is the only binary join, return
         if not isinstance(op.left, algebra.ProjectingJoin):
             return op
@@ -1565,8 +1565,7 @@ class MyriaBroadcastLeftDeepTreeJoinAlgebra(MyriaAlgebra):
         #  keep the largest relation where it is
         broadcast_logic = [
             GetCardinalities(self.catalog),
-            BroadcastBeforeNaryJoin(),
-            OrderByBeforeNaryJoin(),
+            BroadcastBeforeNaryJoin()
         ]
 
         left_deep_tree_locally = [
