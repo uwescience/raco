@@ -163,7 +163,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         and ProjectingJoin into its input.
         """
         lp = StoreTemp('OUTPUT',
-               Apply([(None, AttIndex(1))],       # noqa
+               Apply([(None, AttIndex(1))],
                  ProjectingJoin(expression.EQ(AttIndex(0), AttIndex(3)),
                    Scan(self.x_key, self.x_scheme),
                    Scan(self.x_key, self.x_scheme),
@@ -174,7 +174,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                           len(lp.input.input.scheme()))
 
         pp = self.logical_to_physical(lp)
-        proj_join = pp.input.input
+        proj_join = pp.input
         self.assertTrue(isinstance(proj_join, ProjectingJoin))
         self.assertEquals(1, len(proj_join.scheme()))
         self.assertEquals(2, len(proj_join.left.scheme()))
@@ -239,6 +239,36 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
+
+    def test_noop_apply_removed(self):
+        lp = StoreTemp('OUTPUT',
+               Apply([(None, AttIndex(1))],
+                 ProjectingJoin(expression.EQ(AttIndex(0), AttIndex(3)),
+                   Scan(self.x_key, self.x_scheme),
+                   Scan(self.x_key, self.x_scheme),
+                   [AttIndex(i) for i in xrange(2 * len(self.x_scheme))])))  # noqa
+
+        self.assertTrue(isinstance(lp.input, Apply))
+        lp_scheme = lp.scheme()
+
+        pp = self.logical_to_physical(lp)
+        self.assertFalse(isinstance(pp.input, Apply))
+        self.assertEquals(lp_scheme, pp.scheme())
+
+    def test_not_noop_apply_not_removed(self):
+        lp = StoreTemp('OUTPUT',
+               Apply([('hi', AttIndex(1))],
+                 ProjectingJoin(expression.EQ(AttIndex(0), AttIndex(3)),
+                   Scan(self.x_key, self.x_scheme),
+                   Scan(self.x_key, self.x_scheme),
+                   [AttIndex(i) for i in xrange(2 * len(self.x_scheme))])))  # noqa
+
+        self.assertTrue(isinstance(lp.input, Apply))
+        lp_scheme = lp.scheme()
+
+        pp = self.logical_to_physical(lp)
+        self.assertTrue(isinstance(pp.input, Apply))
+        self.assertEquals(lp_scheme, pp.scheme())
 
     def test_extract_join(self):
         """Extract a join condition from the middle of complex select."""
