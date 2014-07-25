@@ -121,6 +121,9 @@ class Scheme(object):
         """Pretty print the scheme"""
         return str(self.attributes)
 
+    def __repr__(self):
+        return "Scheme({att!r})".format(att=self.attributes)
+
     def __len__(self):
         """Return the number of attributes in the scheme"""
         return len(self.attributes)

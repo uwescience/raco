@@ -116,7 +116,7 @@ class ZeroaryOperator(Expression):
         return "%s" % self.opstr()
 
     def __repr__(self):
-        return self.__str__()
+        return "{op}()".format(op=self.opname())
 
     def apply(self, f):
         pass
@@ -140,7 +140,7 @@ class UnaryOperator(Expression):
         return "%s%s" % (self.opstr(), self.input)
 
     def __repr__(self):
-        return self.__str__()
+        return "{op}({inp!r})".format(op=self.opname(), inp=self.input)
 
     def postorder(self, f):
         for x in self.input.postorder(f):
@@ -181,7 +181,8 @@ class BinaryOperator(Expression):
         return "(%s %s %s)" % (self.left, self.opstr(), self.right)
 
     def __repr__(self):
-        return self.__str__()
+        return "{op}({l!r}, {r!r})".format(op=self.opname(), l=self.left,
+                                           r=self.right)
 
     def postorder(self, f):
         for x in self.left.postorder(f):
@@ -241,9 +242,6 @@ class NaryOperator(Expression):
         return "(%s %s)" % \
             (self.opstr(), " ".join([str(i) for i in self.operands]))
 
-    def __repr__(self):
-        return self.__str__()
-
     def postorder(self, f):
         for op in self.operands:
             for x in op.postorder(f):
@@ -283,9 +281,6 @@ class Literal(ZeroaryOperator):
     def vars():
         return []
 
-    def __repr__(self):
-        return str(self.value)
-
     def __str__(self):
         return str(self.value)
 
@@ -297,6 +292,9 @@ class Literal(ZeroaryOperator):
 
     def apply(self, f):
         pass
+
+    def __repr__(self):
+        return "{op}({val!r})".format(op=self.opname(), val=self.value)
 
 
 class StringLiteral(Literal):
@@ -334,11 +332,11 @@ class NamedAttributeRef(AttributeRef):
     def __init__(self, attributename):
         self.name = attributename
 
-    def __repr__(self):
-        return "%s" % (self.name)
-
     def __str__(self):
         return "%s" % (self.name)
+
+    def __repr__(self):
+        return "{op}({att!r})".format(op=self.opname(), att=self.name)
 
     def __hash__(self):
         return hash(self.name)
@@ -358,11 +356,13 @@ class UnnamedAttributeRef(AttributeRef):
         self.debug_info = debug_info
         self.position = position
 
-    def __repr__(self):
+    def __str__(self):
         return "%s" % (self.debug_info)
 
-    def __str__(self):
-        return repr(self)
+    def __repr__(self):
+        return "{op}({pos!r}, {dbg!r})".format(op=self.opname(),
+                                               pos=self.position,
+                                               dbg=self.debug_info)
 
     def __eq__(self, other):
         return (other.__class__ == self.__class__
@@ -398,11 +398,11 @@ class UnnamedStateAttributeRef(StateRef):
     def __init__(self, position):
         self.position = position
 
-    def __repr__(self):
-        return "$%s" % (self.position)
-
     def __str__(self):
         return "$%s" % (self.position)
+
+    def __repr__(self):
+        return "{op}({pos!r})".format(op=self.opname(), pos=self.position)
 
     def evaluate(self, _tuple, scheme, state):
         return state.values[self.position]
@@ -417,11 +417,11 @@ class NamedStateAttributeRef(StateRef):
     def __init__(self, attributename):
         self.name = attributename
 
-    def __repr__(self):
-        return "%s" % (self.name)
-
     def __str__(self):
         return "%s" % (self.name)
+
+    def __repr__(self):
+        return "{op}({att!r})".format(op=self.opname(), att=self.name)
 
     def evaluate(self, _tuple, scheme, state):
         return state.values[self.get_position(scheme, state.scheme)]
@@ -501,6 +501,10 @@ class CAST(UnaryOperator):
 
     def __str__(self):
         return "%s(%s, %s)" % (self.opstr(), self._type, self.input)
+
+    def __repr__(self):
+        return "{op}({t!r}, {inp!r})".format(op=self.opname(), t=self._type,
+                                             inp=self.input)
 
     def evaluate(self, _tuple, scheme, state=None):
         pytype = types.reverse_python_type_map[self.typeof(None, None)]
@@ -611,7 +615,9 @@ class Case(Expression):
         return "CASE(%s ELSE %s)" % (' '.join(when_strs), self.else_expr)
 
     def __repr__(self):
-        return self.__str__()
+        return "{op}({wt!r}, {els!r})".format(op=self.opname(),
+                                              wt=self.when_tuples,
+                                              els=self.else_expr)
 
     def typeof(self, scheme, state_scheme):
         all_exprs = [res_expr for test_expr, res_expr in self.when_tuples]

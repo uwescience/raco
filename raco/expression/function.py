@@ -11,10 +11,17 @@ class UnaryFunction(UnaryOperator):
     def __str__(self):
         return "%s(%s)" % (self.__class__.__name__, self.input)
 
+    def __repr__(self):
+        return "{op}({inp!r})".format(op=self.opname(), inp=self.input)
+
 
 class BinaryFunction(BinaryOperator):
     def __str__(self):
         return "%s(%s, %s)" % (self.__class__.__name__, self.left, self.right)
+
+    def __repr__(self):
+        return "{op}({l!r}, {r!r})".format(op=self.opname(), l=self.left,
+                                           r=self.right)
 
 
 class NaryFunction(NaryOperator):
@@ -23,10 +30,16 @@ class NaryFunction(NaryOperator):
             (self.__class__.__name__,
              ",".join([str(op) for op in self.operands]))
 
+    def __repr__(self):
+        return "{op}({ch!r})".format(op=self.opname(), ch=self.operands)
+
 
 class WORKERID(ZeroaryOperator):
     def __str__(self):
         return "%s" % self.__class__.__name__
+
+    def __repr__(self):
+        return "{op}()".format(op=self.opname())
 
     def evaluate(self, _tuple, scheme, state=None):
         return 0
