@@ -137,6 +137,10 @@ class CC(Language):
 
     @staticmethod
     def log_file(code, level=0):
+        return """logfile << "%s" << "\\n";\n """ % code
+
+    @staticmethod
+    def log_file_unquoted(code, level=0):
         return """logfile << %s << "\\n";\n """ % code
 
     @staticmethod
@@ -520,16 +524,26 @@ class CStore(algebra.Store, CCOperator):
         resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
         state.addDeclarations([resdecl])
         code += "result.push_back(%s);\n" % (t.name)
-
         if self.emit_print in ['console', 'both']:
             code += self.language.log_unquoted("%s" % t.name, 2)
         if self.emit_print in ['file', 'both']:
             state.addPreCode('std::ofstream logfile;\n')
-            filename = 'datasets/' + str(self.relation_key) + '.txt'
-            openfile = 'logfile.open("%s");\n' % filename
-            state.addPreCode(openfile)
-            code += self.language.log_file("%s" % t.name, 2)
+            tuplefile = 'datasets/' + str(self.relation_key) + '.txt'
+            schemafile = self.write_schema(t.scheme)
+            opentuple = 'logfile.open("%s");\n' % tuplefile
+            state.addPreCode(schemafile)
+            state.addPreCode(opentuple)
+            code += self.language.log_file_unquoted("%s" % t.name, 2)
             state.addPostCode('logfile.close();')
+        return code
+
+    def write_schema(self, scheme):
+        schemafile = 'schema/' + str(self.relation_key)
+        code = 'logfile.open("%s");\n' % schemafile
+        names = [x.encode('UTF8') for x in scheme.get_names()]
+        code += self.language.log_file("%s" % names, 2)
+        code += self.language.log_file("%s" % scheme.get_types(), 2)
+        code += 'logfile.close();'
         return code
 
 

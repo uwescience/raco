@@ -36,7 +36,7 @@ def main(args):
             runner = ClangRunner()
             runner.run(name, abspath)
         except subprocess.CalledProcessError as e:
-            print 'clang runner for %s failed' %(name)
+            print 'clang runner for %s failed' % (name)
             print e.output
             raise
 
