@@ -17,7 +17,8 @@ def check_output_and_print_stderr(args):
 
 
 class StyleTest(unittest.TestCase):
-    "run flake8 with the right arguments and ensure all files pass"
+    """run flake8 with the right arguments and ensure all files pass"""
+
     def test_style(self):
         "run flake8 with the right arguments and ensure all files pass"
         check_output_and_print_stderr(['flake8', '--ignore=F', 'raco'])
