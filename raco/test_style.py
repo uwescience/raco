@@ -6,7 +6,9 @@ import unittest
 
 def check_output_and_print_stderr(args):
     """Run the specified command. If it does not exit cleanly, print the stderr
-    of the command to stderr"""
+    of the command to stdout. Note that stderr prints are displayed as tests
+    run, whereas stdout prints show up next to the failed test. We want the
+    latter."""
     try:
         subprocess.check_output(args, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
