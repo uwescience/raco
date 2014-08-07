@@ -22,5 +22,7 @@ class StyleTest(unittest.TestCase):
 
     def test_pylint(self):
         "run pylint -E to catch obvious errors"
+        # TODO fix this. Most related to "flexible" use of types in
+        #      Grappa, C, and Pipelines.
         raise SkipTest()
         check_output_and_print_stderr(['pylint', '-E', 'raco'])
