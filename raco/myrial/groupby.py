@@ -43,7 +43,7 @@ class NestedAggregateException(Exception):
     pass
 
 
-class InvalidAttributeRefException(Exception):
+class NonGroupedAccessException(Exception):
     """Attempting to access a non-grouping term in an aggregate expression"""
     pass
 
@@ -73,7 +73,7 @@ def __hoist_aggregates(sexpr, agg_state, group_mappings, input_scheme):
             # after the GroupBy
             input_pos = sexpr.get_position(input_scheme)
             if input_pos not in group_mappings:
-                raise InvalidAttributeRefException(str(sexpr))
+                raise NonGroupedAccessException(str(sexpr))
             output_pos = group_mappings[input_pos]
             return raco.expression.UnnamedAttributeRef(output_pos)
 

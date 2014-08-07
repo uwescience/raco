@@ -1,7 +1,9 @@
 from raco import RACompiler
 from raco.compile import compile
+
 from raco.language.grappalang import GrappaSymmetricHashJoin
 from raco.language.grappalang import GrappaShuffleHashJoin
+
 import raco.viz as viz
 
 import logging

@@ -6,6 +6,7 @@ import raco.fakedb
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.viz
+from raco.replace_with_repr import replace_with_repr
 
 
 class MyrialTestCase(unittest.TestCase):
@@ -34,7 +35,8 @@ class MyrialTestCase(unittest.TestCase):
         # verify that we can convert p to a dot
         # TODO verify the dot somehow?
         raco.viz.get_dot(p)
-        return p
+        # Test repr
+        return replace_with_repr(p)
 
     def get_logical_plan(self, query):
         """Get the logical plan for a MyriaL query"""

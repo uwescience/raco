@@ -16,7 +16,7 @@ class RelationKey(object):
         assert self.relation and isinstance(self.relation, basestring)
 
     def __repr__(self):
-        return 'RelationKey(%s,%s,%s)' % (self.user, self.program,
+        return 'RelationKey(%r,%r,%r)' % (self.user, self.program,
                                           self.relation)
 
     def __str__(self):

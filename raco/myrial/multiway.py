@@ -15,6 +15,7 @@ def rewrite_refs(sexpr, from_args, base_offsets):
             op = from_args[sexpr.relational_expression]
             scheme = op.scheme()
 
+            debug_info = None
             if not sexpr.field:
                 offset = 0
             elif isinstance(sexpr.field, int):
@@ -22,10 +23,12 @@ def rewrite_refs(sexpr, from_args, base_offsets):
                     raise ColumnIndexOutOfBounds(str(sexpr))
                 offset = sexpr.field
             else:
+                assert isinstance(sexpr.field, basestring)
                 offset = scheme.getPosition(sexpr.field)
+                debug_info = sexpr.field
 
             offset += base_offsets[sexpr.relational_expression]
-            return expression.UnnamedAttributeRef(offset)
+            return expression.UnnamedAttributeRef(offset, debug_info)
 
     def recursive_eval(sexpr):
         """Rewrite a node and all its descendents"""

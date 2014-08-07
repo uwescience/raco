@@ -1,6 +1,6 @@
 from raco import expression
 from raco import scheme
-from raco.utility import emit, emitlist, Printable
+from raco.utility import emit, emitlist, Printable, str_list, str_list_inner
 
 from abc import ABCMeta, abstractmethod
 import copy
@@ -103,9 +103,8 @@ class Operator(Printable):
         return self.__class__ == other.__class__
 
     def __str__(self):
-        child_str = ', '.join([str(c) for c in self.children()])
-        if len(child_str) > 0:
-            return "%s[%s]" % (self.shortStr(), child_str)
+        if len(self.children()) > 0:
+            return "%s%s" % (self.shortStr(), str_list(self.children()))
         return self.shortStr()
 
     def __hash__(self):
@@ -183,9 +182,6 @@ class ZeroaryOperator(Operator):
     def __eq__(self, other):
         return self.__class__ == other.__class__
 
-    def __repr__(self):
-        return self.opname()
-
     def children(self):
         return []
 
@@ -200,6 +196,9 @@ class ZeroaryOperator(Operator):
     def compileme(self, resultsym):
         """Compile this operator, storing its result in resultsym"""
         raise NotImplementedError("{op}.compileme".format(op=type(self)))
+
+    def __repr__(self):
+        return "{op}()".format(op=self.opname())
 
 
 class UnaryOperator(Operator):
@@ -223,9 +222,6 @@ class UnaryOperator(Operator):
         self.input = f(self.input)
         return self
 
-    def __repr__(self):
-        return str(self)
-
     def copy(self, other):
         """deep copy"""
         self.input = other.input
@@ -235,6 +231,9 @@ class UnaryOperator(Operator):
         """Compile this operator with specified input and output symbol
         names"""
         raise NotImplementedError("{op}.compileme".format(op=type(self)))
+
+    def __repr__(self):
+        return "{op}({inp!r})".format(op=self.opname(), inp=self.input)
 
 
 class BinaryOperator(Operator):
@@ -258,9 +257,6 @@ class BinaryOperator(Operator):
         self.right = f(self.right)
         return self
 
-    def __repr__(self):
-        return str(self)
-
     def copy(self, other):
         """deep copy"""
         self.left = other.left
@@ -271,6 +267,10 @@ class BinaryOperator(Operator):
         """Compile this operator with specified left, right, and output symbol
         names"""
         raise NotImplementedError("{op}.compileme".format(op=type(self)))
+
+    def __repr__(self):
+        return "{op}({l!r}, {r!r})".format(op=self.opname(), l=self.left,
+                                           r=self.right)
 
 
 class NaryOperator(Operator):
@@ -300,13 +300,13 @@ class NaryOperator(Operator):
         self.args = [f(arg) for arg in self.args]
         return self
 
-    def __repr__(self):
-        return str(self)
-
     def compileme(self, resultsym, argsyms):
         """Compile this operator with specified children and output symbol
         names"""
         raise NotImplementedError("{op}.compileme".format(op=type(self)))
+
+    def __repr__(self):
+        return "{op}({ch!r})".format(op=self.opname(), ch=self.args)
 
 
 class NaryJoin(NaryOperator):
@@ -345,7 +345,7 @@ class NaryJoin(NaryOperator):
         NaryOperator.copy(self, other)
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), self.conditions)
+        return "%s(%s)" % (self.opname(), str_list_inner(self.conditions))
 
 
 """Logical Relational Algebra"""
@@ -497,6 +497,12 @@ class Join(CompositeBinaryOperator):
         self.condition = expression.AND(self.condition, condition)
         return self
 
+    def __repr__(self):
+        return "{op}({cond!r}, {l!r}, {r!r})".format(op=self.opname(),
+                                                     cond=self.condition,
+                                                     l=self.left,
+                                                     r=self.right)
+
 
 def resolve_attribute_name(user_name, scheme, sexpr, index):
     """Resolve an attribute/column into a name.
@@ -570,6 +576,11 @@ class Apply(UnaryOperator):
                           for name, ex in self.emitters])
         return "%s(%s)" % (self.opname(), estrs)
 
+    def __repr__(self):
+        return "{op}({emt!r}, {inp!r})".format(op=self.opname(),
+                                               emt=self.emitters,
+                                               inp=self.input)
+
 
 class StatefulApply(UnaryOperator):
     inits = None
@@ -615,6 +626,15 @@ class StatefulApply(UnaryOperator):
                 self.emitters == other.emitters and
                 self.updaters == other.updaters and
                 self.inits == other.inits)
+
+    def __repr__(self):
+        # the next line is because of the refactoring that we do in __init__
+        state_mods = [(a, b, d)
+                      for ((a, b), (c, d)) in zip(self.inits, self.updaters)]
+        return "{op}({emt!r}, {sm!r}, {inp!r})".format(op=self.opname(),
+                                                       emt=self.emitters,
+                                                       sm=state_mods,
+                                                       inp=self.input)
 
     def num_tuples(self):
         return self.input.num_tuples()
@@ -666,6 +686,11 @@ class Limit(UnaryOperator):
     def __eq__(self, other):
         return UnaryOperator.__eq__(self, other) and self.count == other.count
 
+    def __repr__(self):
+        return "{op}({cnt!r}, {inp!r})".format(op=self.opname(),
+                                               cnt=self.count,
+                                               inp=self.input)
+
     def num_tuples(self):
         return self.count
 
@@ -700,6 +725,11 @@ class Select(UnaryOperator):
             cond = self.condition
         return "%s(%s)" % (self.opname(), cond)
 
+    def __repr__(self):
+        return "{op}({cond!r}, {inp!r})".format(op=self.opname(),
+                                                cond=self.condition,
+                                                inp=self.input)
+
     def copy(self, other):
         """deep copy"""
         self.condition = other.condition
@@ -724,11 +754,12 @@ class Project(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        colstring = ",".join([str(x) for x in self.columnlist])
-        return "%s(%s)" % (self.opname(), colstring)
+        return "%s(%s)" % (self.opname(), str_list_inner(self.columnlist))
 
     def __repr__(self):
-        return "%s" % self
+        return "{op}({col!r}, {inp!r})".format(op=self.opname(),
+                                               col=self.columnlist,
+                                               inp=self.input)
 
     def copy(self, other):
         """deep copy"""
@@ -757,9 +788,15 @@ class GroupBy(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        groupstring = ",".join([str(x) for x in self.grouping_list])
-        aggstr = ",".join([str(x) for x in self.aggregate_list])
-        return "%s(%s; %s)" % (self.opname(), groupstring, aggstr)
+        return "%s(%s; %s)" % (self.opname(),
+                               str_list_inner(self.grouping_list),
+                               str_list_inner(self.aggregate_list))
+
+    def __repr__(self):
+        return "{op}({gl!r}, {al!r}, {inp!r})".format(op=self.opname(),
+                                                      gl=self.grouping_list,
+                                                      al=self.aggregate_list,
+                                                      inp=self.input)
 
     def copy(self, other):
         """deep copy"""
@@ -826,7 +863,12 @@ class ProjectingJoin(Join):
         if self.output_columns is None:
             return Join.shortStr(self)
         return "%s(%s; %s)" % (self.opname(), self.condition,
-                               self.output_columns)
+                               str_list_inner(self.output_columns))
+
+    def __repr__(self):
+        return "{op}({cond!r}, {l!r}, {r!r}, {oc!r})"\
+            .format(op=self.opname(), cond=self.condition,
+                    l=self.left, r=self.right, oc=self.output_columns)
 
     def copy(self, other):
         """deep copy"""
@@ -856,7 +898,7 @@ class Shuffle(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), self.columnlist)
+        return "%s(%s)" % (self.opname(), str_list_inner(self.columnlist))
 
     def copy(self, other):
         self.columnlist = other.columnlist
@@ -885,7 +927,7 @@ class HyperCubeShuffle(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), self.hashed_columns)
+        return "%s(%s)" % (self.opname(), str_list_inner(self.hashed_columns))
 
     def copy(self, other):
         self.hashed_columns = other.hashed_columns
@@ -935,11 +977,7 @@ class PartitionBy(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        colstring = ",".join([str(x) for x in self.columnlist])
-        return "%s(%s)" % (self.opname(), colstring)
-
-    def __repr__(self):
-        return str(self)
+        return "%s(%s)" % (self.opname(), str_list_inner(self.columnlist))
 
     def copy(self, other):
         """deep copy"""
@@ -963,10 +1001,7 @@ class Fixpoint(Operator):
         raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def __str__(self):
-        return "%s[%s]" % (self.shortStr(), str(self.body))
-
-    def __repr__(self):
-        return str(self)
+        return "%s[%s]" % (self.shortStr(), self.body)
 
     def shortStr(self):
         return """Fixpoint"""
@@ -1017,6 +1052,11 @@ class Store(UnaryOperator):
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.relation_key)
 
+    def __repr__(self):
+        return "{op}({rk!r}, {pl!r})".format(op=self.opname(),
+                                             rk=self.relation_key,
+                                             pl=self.input)
+
     def copy(self, other):
         self.relation_key = other.relation_key
         UnaryOperator.copy(self, other)
@@ -1043,6 +1083,9 @@ class EmptyRelation(ZeroaryOperator):
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self._scheme)
+
+    def __repr__(self):
+        return "{op}({sch!r})".format(op=self.opname(), sch=self._scheme)
 
     def copy(self, other):
         """deep copy"""
@@ -1094,7 +1137,9 @@ class FileScan(ZeroaryOperator):
         return "%s(%s)" % (self.opname(), self.path)
 
     def __repr__(self):
-        return str(self)
+        return "{op}({path!r}, {sch!r})".format(op=self.opname(),
+                                                path=self.path,
+                                                sch=self._scheme)
 
     def num_tuples(self):
         raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
@@ -1143,7 +1188,9 @@ class Scan(ZeroaryOperator):
         return self._cardinality
 
     def __repr__(self):
-        return str(self)
+        return "{op}({rk!r}, {sch!r})".format(op=self.opname(),
+                                              rk=self.relation_key,
+                                              sch=self._scheme)
 
     def copy(self, other):
         """deep copy"""
@@ -1184,6 +1231,11 @@ class StoreTemp(UnaryOperator):
     def __eq__(self, other):
         return UnaryOperator.__eq__(self, other) and self.name == other.name
 
+    def __repr__(self):
+        return "{op}({name!r}, {inp!r})".format(op=self.opname(),
+                                                name=self.name,
+                                                inp=self.input)
+
 
 class ScanTemp(ZeroaryOperator):
     """Read the contents of a temporary relation."""
@@ -1210,6 +1262,11 @@ class ScanTemp(ZeroaryOperator):
 
     def scheme(self):
         return self._scheme
+
+    def __repr__(self):
+        return "{op}({name!r}, {sch!r})".format(op=self.opname(),
+                                                name=self.name,
+                                                sch=self._scheme)
 
 
 class Parallel(NaryOperator):
@@ -1239,6 +1296,9 @@ class Sequence(NaryOperator):
     def scheme(self):
         """Sequence does not return any tuples."""
         return None
+
+    def __repr__(self):
+        return "{op}({ops!r})".format(op=self.opname(), ops=self.args)
 
     def num_tuples(self):
         raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
