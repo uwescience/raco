@@ -14,7 +14,7 @@ class DummyScheme(object):
 
 
 class Scheme(object):
-    '''Add an attribute to the scheme.'''
+    """Add an attribute to the scheme."""
     salt = "1"
 
     def __init__(self, attributes=None):

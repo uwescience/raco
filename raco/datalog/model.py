@@ -1,14 +1,14 @@
-'''
+"""
 
 classes for representing and manipulating Datalog programs.
 
 In particular, they can be compiled to (iterative) relational algebra
 expressions.
-'''
+"""
 import networkx as nx
 from raco import expression
 import raco.algebra as algebra
-from raco import scheme
+from raco.scheme import Scheme
 import raco.catalog
 import raco.myrial.groupby
 from raco.relation_key import RelationKey
@@ -124,7 +124,7 @@ class JoinSequence(object):
                   for t in self.terms]
 
         if not leaves:
-            return algebra.EmptyRelation(scheme.Scheme())
+            return algebra.EmptyRelation(Scheme())
 
         leftmost = leaves[0]
         pairs = zip(self.conditions, leaves[1:])
@@ -399,7 +399,7 @@ class Rule(object):
         try:
             scheme = plan.scheme()
         except AttributeError:
-            scheme = scheme.Scheme([make_attr(i, r, self.head.name) for i, r in enumerate(self.head.valuerefs)])  # noqa
+            scheme = Scheme([make_attr(i, r, self.head.name) for i, r in enumerate(self.head.valuerefs)])  # noqa
 
         # Helper function for the next two steps (TODO: move this to a method?)
         def findvar(variable):
@@ -747,8 +747,8 @@ class Term(object):
         try:
             sch = plan.scheme()
         except algebra.RecursionError:
-            sch = scheme.Scheme([make_attr(i, r, term.name)
-                                 for i, r in enumerate(term.valuerefs)])
+            sch = Scheme([make_attr(i, r, term.name)
+                          for i, r in enumerate(term.valuerefs)])
 
         oldscheme = [name for (name, _) in sch]
         termscheme = [expr for expr in term.valuerefs]
@@ -790,8 +790,8 @@ class Term(object):
             plan = program.compileIDB(self.name)
             scan = self.renameIDB(plan)
         else:
-            sch = scheme.Scheme([make_attr(i, r, self.name)
-                                 for i, r in enumerate(self.valuerefs)])
+            sch = Scheme([make_attr(i, r, self.name)
+                          for i, r in enumerate(self.valuerefs)])
             rel_key = RelationKey.from_string(self.name)
             scan = algebra.Scan(rel_key, sch)
             scan.trace("originalterm", "%s (position %s)" % (self, self.originalorder))  # noqa

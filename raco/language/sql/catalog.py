@@ -159,6 +159,9 @@ class SQLCatalog(Catalog):
 
         raise NotImplementedError("convert {op} to sql".format(op=type(plan)))
 
+    def _get_nary_sql(self, plan):
+        raise NotImplementedError("convert {op} to sql".format(op=type(plan)))
+
     def get_sql(self, plan):
         if isinstance(plan, algebra.ZeroaryOperator):
             return self._get_zeroary_sql(plan)
