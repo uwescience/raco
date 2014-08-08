@@ -32,7 +32,10 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
         if isinstance(op, RunAQL):
             logging.info("Running scidb query: %s" % op.command)
             sdb = scidb_conn_factory.connect(op.connection)
-            sdb._execute_query(op.command)
+            try:
+                sdb._execute_query(op.command)
+            except Exception as ex:
+                logging.info("SciDB query failure: " + str(ex))
         elif isinstance(op, RunMyria):
             logging.info("Running myria query...")
 
