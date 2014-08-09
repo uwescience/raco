@@ -46,7 +46,7 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
             else:
                 return res
         elif isinstance(op, ExportMyriaToScidb):
-            logging.info("Export to scidb...")
+            logging.info("Exporting to scidb...")
 
             # Download Myria data -- assumes query has completed
             relk = op.myria_relkey
@@ -54,17 +54,22 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
                    'relationName': relk.relation}
             dataset = myria_conn.download_dataset(key)
 
-            # Unpack data into a 1-dimensional array
-            # XXX non-sensical behavior for multi-column relations
+            logging.info("Finished myria download; starting scidb upload")
+
+            # Unpack first result
             vals = [v for row in dataset for v in row.values()]
-            A = np.array(vals)
+            val0 = vals[0]
 
             # Store as scidb array
             sdb = scidb_conn_factory.connect(op.connection)
-            if op.scidb_array_name in sdb.list_arrays():
+            try:
                 sdb.query("remove(%s)" % op.scidb_array_name)
-            Asdb = sdb.from_array(A)
-            Asdb.rename(op.scidb_array_name, persistent=True)
+            except:
+                pass
+
+            sdb.query("store(build(<RecordName:int64>[i=0:0,1,0], %d), %s)" % (
+                val0, op.scidb_array_name))
+
 
     logging.info("Returning from federated query")
 
