@@ -411,3 +411,15 @@ class MyriaLPlatformTests(object):
     def test_common_index_disallowed(self):
         q = self.myrial_from_sql(["R2", "T2"], "common_index_disallowed")
         self.check(q, "common_index_disallowed")
+
+    def test_matrix_mult(self):
+        self.check_sub_tables("""
+        T = scan(%(T2)s);
+        T1 = T;
+        T2 = T;
+        MM = [from T1, T2 
+              where T1.$1 = T2.$0
+              emit T1.$0 as src, T2.$1 as dst, count(T1.$0)];
+        STORE(MM, OUTPUT);
+        """, "matrix_mult")
+
