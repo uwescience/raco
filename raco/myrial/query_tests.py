@@ -911,7 +911,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.groupby.InvalidAttributeRefException):  # noqa
+        with self.assertRaises(raco.myrial.groupby.NonGroupedAccessException):  # noqa
             self.check_result(query, None)
 
     def test_nested_aggregates_are_illegal(self):
