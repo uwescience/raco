@@ -105,7 +105,13 @@ class GrappalangRunner(PlatformRunner):
         # cpp -> exe
         subprocess.check_call(['cp', '%s.cpp' % gname, envir['GRAPPA_HOME']+'/applications/join'], env=envir)
         with Chdir(envir['GRAPPA_HOME']) as grappa_dir:
-
+          subprocess.check_call(['./configure',
+                                 '--gen=Make',
+                                 '--mode=Release',
+                                 '--c=/sampa/share/gcc-4.8.2/rtf/bin/gcc',
+                                 '--third-party=' +
+                                 '/sampa/share/grappa-third-party/gcc-4.8.2'],
+                                env=envir)
           # make at base in case the cpp file is new;
           # i.e. cmake must generate the target
           with Chdir('build/Make+Release') as makedir:
