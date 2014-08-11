@@ -1,6 +1,7 @@
 #pragma once
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 
 #include <iostream>
@@ -19,6 +20,16 @@ void insert(std::unordered_map<K, std::vector<T>* >& hash, T tuple, uint64_t pos
   }
 }
 
+struct pairhash {
+  template <typename T, typename U>
+    std::size_t operator()(const std::pair<T, U> &x) const {
+      auto ha = std::hash<T>()(x.first);
+      auto hb = std::hash<U>()(x.second);
+      // h(a) * (2^32 + 1) + h(b)
+      return (ha << 32) + ha + hb;
+    }
+};
+
 template <typename T, typename K, typename V>
 void SUM_insert(std::unordered_map<K, V >& hash, T tuple, uint64_t keypos, uint64_t valpos) {
   auto key = tuple.get(keypos);
@@ -28,12 +39,32 @@ void SUM_insert(std::unordered_map<K, V >& hash, T tuple, uint64_t keypos, uint6
   slot += val;
 }
 
+template <typename T, typename K1, typename K2, typename V>
+void SUM_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, T tuple, uint64_t key1pos, uint64_t key2pos, uint64_t valpos) {
+  auto key1 = tuple.get(key1pos);
+  auto key2 = tuple.get(key2pos);
+  auto val = tuple.get(valpos);
+  // NOTE: this method is only valid for 0 identity functions
+  auto& slot = hash[std::pair<K1,K2>(key1, key2)];
+  slot += val;
+}
+
 template <typename T, typename K, typename V>
 void COUNT_insert(std::unordered_map<K, V>& hash, T tuple, uint64_t keypos, uint64_t valpos) {
   auto key = tuple.get(keypos);
   auto val = tuple.get(valpos);
   // NOTE: this method is only valid for 0 identity functions
   auto& slot = hash[key];
+  slot += 1;
+}
+
+template <typename T, typename K1, typename K2, typename V>
+void COUNT_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, T tuple, uint64_t key1pos, uint64_t key2pos, uint64_t valpos) {
+  auto key1 = tuple.get(key1pos);
+  auto key2 = tuple.get(key2pos);
+  auto val = tuple.get(valpos);
+  // NOTE: this method is only valid for 0 identity functions
+  auto& slot = hash[std::pair<K1,K2>(key1, key2)];
   slot += 1;
 }
 
@@ -60,6 +91,26 @@ void MAX_insert(std::unordered_map<K, V >& hash, T tuple, uint64_t keypos, uint6
   auto val = tuple.get(valpos);
   // NOTE: this method is only valid for 0 identity functions
   auto& slot = hash[key];
+  slot = MAX(slot, val);
+}
+
+template <typename T, typename K1, typename K2, typename V>
+void MIN_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, T tuple, uint64_t key1pos, uint64_t key2pos, uint64_t valpos) {
+  auto key1 = tuple.get(key1pos);
+  auto key2 = tuple.get(key2pos);
+  auto val = tuple.get(valpos);
+  // NOTE: this method is only valid for 0 identity functions
+  auto& slot = hash[std::pair<K1,K2>(key1,key2)];
+  slot = MIN(slot, val);
+}
+
+template <typename T, typename K1, typename K2, typename V>
+void MAX_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, T tuple, uint64_t key1pos, uint64_t key2pos, uint64_t valpos) {
+  auto key1 = tuple.get(key1pos);
+  auto key2 = tuple.get(key2pos);
+  auto val = tuple.get(valpos);
+  // NOTE: this method is only valid for 0 identity functions
+  auto& slot = hash[std::pair<K1,K2>(key1,key2)];
   slot = MAX(slot, val);
 }
 
