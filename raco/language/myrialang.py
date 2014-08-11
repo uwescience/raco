@@ -350,36 +350,44 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         """Maps an AggregateExpression to a Myria string constant representing
         the corresponding aggregate operation."""
         if isinstance(agg_expr, expression.MAX):
-            return "AGG_OP_MAX"
+            return "MAX"
         elif isinstance(agg_expr, expression.MIN):
-            return "AGG_OP_MIN"
+            return "MIN"
         elif isinstance(agg_expr, expression.COUNT):
-            return "AGG_OP_COUNT"
+            return "COUNT"
         elif isinstance(agg_expr, expression.COUNTALL):
-            return "AGG_OP_COUNT"  # XXX Wrong in the presence of nulls
+            return "COUNT"  # XXX Wrong in the presence of nulls
         elif isinstance(agg_expr, expression.SUM):
-            return "AGG_OP_SUM"
+            return "SUM"
+        elif isinstance(agg_expr, expression.AVG):
+            return "AVG"
+        elif isinstance(agg_expr, expression.STDEV):
+            return "STDEV"
+        raise NotImplementedError("MyriaGroupBy.agg_mapping({})".format(
+            type(agg_expr)))
+
+    @staticmethod
+    def compile_aggregator(agg, child_scheme):
+        if isinstance(agg, expression.AggregateExpression):
+            if isinstance(agg, expression.COUNTALL):
+                # XXX Wrong in the presence of nulls
+                column = 0
+            else:
+                column = expression.toUnnamed(agg.input, child_scheme).position
+            return {"type": "SingleColumn",
+                    "aggOps": [MyriaGroupBy.agg_mapping(agg)],
+                    "column": column}
 
     def compileme(self, inputid):
         child_scheme = self.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme)
                         for ref in self.grouping_list]
 
-        agg_fields = []
-        for expr in self.aggregate_list:
-            if isinstance(expr, expression.COUNTALL):
-                # XXX Wrong in the presence of nulls
-                agg_fields.append(UnnamedAttributeRef(0))
-            else:
-                agg_fields.append(expression.toUnnamed(
-                    expr.input, child_scheme))
-
-        agg_types = [[MyriaGroupBy.agg_mapping(agg_expr)]
-                     for agg_expr in self.aggregate_list]
+        aggregators = [MyriaGroupBy.compile_aggregator(agg_expr, child_scheme)
+                       for agg_expr in self.aggregate_list]
         ret = {
             "argChild": inputid,
-            "argAggFields": [agg_field.position for agg_field in agg_fields],
-            "argAggOperators": agg_types,
+            "aggregators": aggregators,
         }
 
         num_fields = len(self.grouping_list)
