@@ -267,9 +267,9 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         return name
 
     def produce(self, state):
-        assert len(self.grouping_list) <= 1, \
+        assert len(self.grouping_list) <= 2, \
             "%s does not currently support groupings of \
-            more than 1 attribute" % self.__class__.__name__
+            more than 2 attributes" % self.__class__.__name__
         assert len(self.aggregate_list) == 1, \
             """%s currently only supports aggregates of 1 attribute
             (aggregate_list=%s)""" \
@@ -283,9 +283,14 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         self.useMap = len(self.grouping_list) > 0
 
         if self.useMap:
-            declr_template = """std::unordered_map<int64_t, int64_t> \
-            %(hashname)s;
-      """
+            if len(self.grouping_list) == 1:
+                declr_template = """std::unordered_map<int64_t, int64_t> \
+                %(hashname)s;
+          """
+            elif len(self.grouping_list) == 2:
+                declr_template = """std::unordered_map<std::pair<int64_t, int64_t>, int64_t, pairhash> \
+                %(hashname)s;
+                """
         else:
             declr_template = """int64_t %(hashname)s;
             """
@@ -312,13 +317,22 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             "second is aggregate result: %s" % (self.column_list()[0])
 
         if self.useMap:
-            produce_template = """for (auto it=%(hashname)s.begin(); \
-            it!=%(hashname)s.end(); it++) {
-            %(output_tuple_type)s %(output_tuple_name)s(\
-            {it->first, it->second});
-            %(inner_code)s
-            }
-            """
+            if len(self.grouping_list) == 1:
+                produce_template = """for (auto it=%(hashname)s.begin(); \
+                it!=%(hashname)s.end(); it++) {
+                %(output_tuple_type)s %(output_tuple_name)s(\
+                {it->first, it->second});
+                %(inner_code)s
+                }
+                """
+            elif len(self.grouping_list) == 2:
+                produce_template = """for (auto it=%(hashname)s.begin(); \
+                it!=%(hashname)s.end(); it++) {
+                %(output_tuple_type)s %(output_tuple_name)s(\
+                {it->first.first, it->first.second, it->second});
+                %(inner_code)s
+                }
+                """
         else:
             produce_template = """{
             %(output_tuple_type)s %(output_tuple_name)s({ %(hashname)s });
@@ -338,9 +352,14 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
     def consume(self, inputTuple, fromOp, state):
         if self.useMap:
-            materialize_template = """%(op)s_insert(%(hashname)s, \
-            %(tuple_name)s, %(keypos)s, %(valpos)s);
-      """
+            if len(self.grouping_list) == 1:
+                materialize_template = """%(op)s_insert(%(hashname)s, \
+                %(tuple_name)s, %(key1pos)s, %(valpos)s);
+                """
+            elif len(self.grouping_list) == 2:
+                materialize_template = """%(op)s_insert(%(hashname)s, \
+                %(tuple_name)s, %(key1pos)s, %(key2pos)s, %(valpos)s);
+                """
         else:
             materialize_template = """%(op)s_insert(%(hashname)s, \
             %(tuple_name)s, %(valpos)s);
@@ -351,7 +370,10 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
         # make key from grouped attributes
         if self.useMap:
-            keypos = self.grouping_list[0].get_position(self.input.scheme())
+            key1pos = self.grouping_list[0].get_position(self.input.scheme())
+
+            if len(self.grouping_list) == 2:
+                key2pos = self.grouping_list[1].get_position(self.input.scheme())
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())
