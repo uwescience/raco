@@ -630,17 +630,6 @@ clang_push_select = [
 class CCAlgebra(object):
     language = CC
 
-    operators = [
-        MemoryScan,
-        CSelect,
-        CUnionAll,
-        CApply,
-        CProject,
-        CGroupBy,
-        CHashJoin,
-        CStore
-    ]
-
     def __init__(self, emit_print='console'):
         """ To store results into a file, onto console, both file and console,
         or stays quiet """

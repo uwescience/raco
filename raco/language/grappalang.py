@@ -1032,21 +1032,23 @@ class SwapJoinSides(rules.Rule):
             return expr
 
 
+class GrappaStore(algebra.Store, GrappaOperator):
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        code = ""
+        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
+        state.addDeclarations([resdecl])
+        code += "result.push_back(%s);\n" % (t.name)
+
+        code += self.language.log_unquoted("%s" % t.name, 2)
+
+        return code
+
+
 class GrappaAlgebra(object):
     language = GrappaLanguage
-
-    operators = [
-        # FileScan,
-        MemoryScan,
-        GrappaSelect,
-        GrappaApply,
-        GrappaProject,
-        GrappaUnionAll,
-        GrappaSymmetricHashJoin,
-        GrappaShuffleHashJoin,
-        GrappaHashJoin,
-        GrappaGroupBy,
-    ]
 
     def __init__(self):
         self.join_type = GrappaHashJoin
@@ -1066,7 +1068,8 @@ class GrappaAlgebra(object):
             rules.OneToOne(algebra.Project, GrappaProject),
             rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
             # TODO: this Union obviously breaks semantics
-            rules.OneToOne(algebra.Union, GrappaUnionAll)
+            rules.OneToOne(algebra.Union, GrappaUnionAll),
+            rules.OneToOne(algebra.Store, GrappaStore)
             # rules.FreeMemory()
         ]
 

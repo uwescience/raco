@@ -53,7 +53,7 @@ def compile(expr):
         store_expr = expr
 
     assert isinstance(store_expr, algebra.Store)
-    assert len(store_expr.children()) == 1, "expected single expression only"  # noqa
+    assert len(store_expr.children()) == 1, "expected single expression only"
 
     lang = store_expr.language
 

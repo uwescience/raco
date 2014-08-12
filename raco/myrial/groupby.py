@@ -39,12 +39,12 @@ import raco.expression
 
 
 class NestedAggregateException(Exception):
-    '''Nested aggregate functions are not allowed'''
+    """Nested aggregate functions are not allowed"""
     pass
 
 
 class NonGroupedAccessException(Exception):
-    '''Attempting to access a non-grouping term in an aggregate expression'''
+    """Attempting to access a non-grouping term in an aggregate expression"""
     pass
 
 
