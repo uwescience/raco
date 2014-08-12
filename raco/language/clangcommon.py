@@ -376,3 +376,43 @@ class CFileScan(algebra.Scan):
         """
         return ZeroaryOperator.__eq__(self, other) and \
                self.relation_key == other.relation_key
+
+
+# Rules
+from raco import rules
+
+
+class BreakHashJoinConjunction(rules.Rule):
+    """A rewrite rule for turning HashJoin(a=c and b=d)
+    into select(b=d)[HashJoin(a=c)]"""
+
+    def __init__(self, select_clazz, join_clazz):
+        self.select_clazz = select_clazz
+        self.join_clazz = join_clazz
+
+    def fire(self, expr):
+        if isinstance(expr, self.join_clazz) \
+                and isinstance(expr.condition.left, expression.EQ) \
+                and isinstance(expr.condition.right, expression.EQ):
+            return self.select_clazz(expr.condition.right,
+                                     self.join_clazz(expr.condition.left,
+                                                     expr.left,
+                                                     expr.right))
+
+        return expr
+
+    def __str__(self):
+        return "%s(a=c and b=d) => %s(b=d)[%s(a=c)]" \
+               % (self.join_clazz.__name__,
+                  self.select_clazz.__name__,
+                  self.join_clazz.__name__)
+
+
+clang_push_select = [
+    rules.SplitSelects(),
+    rules.PushSelects(),
+    # We don't want to merge selects because it doesn't really
+    # help and it (maybe) creates HashJoin(conjunction)
+    # rules.MergeSelects()
+]
+

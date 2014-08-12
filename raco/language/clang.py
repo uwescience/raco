@@ -567,25 +567,6 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan[FileScan]"
 
 
-class BreakHashJoinConjunction(rules.Rule):
-    """A rewrite rule for turning HashJoin(a=c and b=d)
-    into select(b=d)[HashJoin(a=c)]"""
-
-    def fire(self, expr):
-        if isinstance(expr, CHashJoin) \
-                and isinstance(expr.condition.left, expression.EQ) \
-                and isinstance(expr.condition.right, expression.EQ):
-            return CSelect(expr.condition.right,
-                           CHashJoin(expr.condition.left,
-                                     expr.left,
-                                     expr.right))
-
-        return expr
-
-    def __str__(self):
-        return "CHashJoin(a=c and b=d) => CSelect(b=d)[CHashJoin(a=c)]"
-
-
 class StoreToCStore(rules.Rule):
     """A rule to store tuples into emit_print"""
     def __init__(self, emit_print):
@@ -615,16 +596,8 @@ def clangify(emit_print):
         rules.OneToOne(algebra.Union, CUnionAll),
         StoreToCStore(emit_print),
 
-        BreakHashJoinConjunction()
+        clangcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
     ]
-
-clang_push_select = [
-    rules.SplitSelects(),
-    rules.PushSelects(),
-    # We don't want to merge selects because it doesn't really
-    # help and it (maybe) creates HashJoin(conjunction)
-    # rules.MergeSelects()
-]
 
 
 class CCAlgebra(object):
@@ -656,7 +629,7 @@ class CCAlgebra(object):
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
             rules.simple_group_by,
-            clang_push_select,
+            clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
             clangify(self.emit_print)
