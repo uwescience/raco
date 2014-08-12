@@ -136,6 +136,10 @@ class CC(Language):
 
     @staticmethod
     def log_file(code, level=0):
+        return """logfile << "%s" << "\\n";\n """ % code
+
+    @staticmethod
+    def log_file_unquoted(code, level=0):
         return """logfile << %s << "\\n";\n """ % code
 
     @staticmethod
@@ -522,11 +526,22 @@ class CStore(algebra.Store, CCOperator):
             code += self.language.log_unquoted("%s" % t.name, 2)
         if self.emit_print in ['file', 'both']:
             state.addPreCode('std::ofstream logfile;\n')
-            filename = 'datasets/' + str(self.relation_key)
-            openfile = 'logfile.open("%s", std::ios::app);\n' % filename
-            state.addPreCode(openfile)
-            code += self.language.log_file("%s" % t.name, 2)
+            tuplefile = 'datasets/' + str(self.relation_key).replace(":", "_")
+            opentuple = 'logfile.open("%s");\n' % tuplefile
+            schemafile = self.write_schema(t.scheme)
+            state.addPreCode(schemafile)
+            state.addPreCode(opentuple)
+            code += self.language.log_file_unquoted("%s" % t.name, 2)
             state.addPostCode('logfile.close();')
+        return code
+
+    def write_schema(self, scheme):
+        schemafile = 'schema/' + str(self.relation_key).replace(":", "_")
+        code = 'logfile.open("%s");\n' % schemafile
+        names = [x.encode('UTF8') for x in scheme.get_names()]
+        code += self.language.log_file("%s" % names, 2)
+        code += self.language.log_file("%s" % scheme.get_types(), 2)
+        code += 'logfile.close();'
         return code
 
 
