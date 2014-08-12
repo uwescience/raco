@@ -16,6 +16,7 @@ import logging
 LOG = logging.getLogger(__name__)
 
 import os.path
+import itertools
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "grappa_templates")
@@ -1047,6 +1048,24 @@ class GrappaStore(algebra.Store, GrappaOperator):
         return code
 
 
+def grappify(join_type):
+    return [
+        rules.ProjectingJoinToProjectOfJoin(),
+
+        rules.OneToOne(algebra.Select, GrappaSelect),
+        MemoryScanOfFileScan(),
+        rules.OneToOne(algebra.Apply, GrappaApply),
+        rules.OneToOne(algebra.Join, join_type),
+        rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
+        rules.OneToOne(algebra.Project, GrappaProject),
+        rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
+        # TODO: obviously breaks semantics
+        rules.OneToOne(algebra.Union, GrappaUnionAll),
+        rules.OneToOne(algebra.Store, GrappaStore),
+
+        clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
+    ]
+
 class GrappaAlgebra(object):
     language = GrappaLanguage
 
@@ -1054,24 +1073,36 @@ class GrappaAlgebra(object):
         self.join_type = GrappaHashJoin
 
     def opt_rules(self):
-        return [
-            # rules.removeProject(),
-            rules.CrossProduct2Join(),
-            rules.SimpleGroupBy(),
-            # SwapJoinSides(),
-            rules.OneToOne(algebra.Select, GrappaSelect),
-            rules.OneToOne(algebra.Apply, GrappaApply),
-            # rules.OneToOne(algebra.Scan,MemoryScan),
-            MemoryScanOfFileScan(),
-            # rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
-            rules.OneToOne(algebra.Join, self.join_type),
-            rules.OneToOne(algebra.Project, GrappaProject),
-            rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
-            # TODO: this Union obviously breaks semantics
-            rules.OneToOne(algebra.Union, GrappaUnionAll),
-            rules.OneToOne(algebra.Store, GrappaStore)
-            # rules.FreeMemory()
+        # datalog_rules = [
+        #     # rules.removeProject(),
+        #     rules.CrossProduct2Join(),
+        #     rules.SimpleGroupBy(),
+        #     # SwapJoinSides(),
+        #     rules.OneToOne(algebra.Select, GrappaSelect),
+        #     rules.OneToOne(algebra.Apply, GrappaApply),
+        #     # rules.OneToOne(algebra.Scan,MemoryScan),
+        #     MemoryScanOfFileScan(),
+        #     # rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
+        #     rules.OneToOne(algebra.Join, self.join_type),
+        #     rules.OneToOne(algebra.Project, GrappaProject),
+        #     rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
+        #     # TODO: this Union obviously breaks semantics
+        #     rules.OneToOne(algebra.Union, GrappaUnionAll),
+        #     rules.OneToOne(algebra.Store, GrappaStore)
+        #     # rules.FreeMemory()
+        # ]
+
+        # sequence that works for myrial
+        rule_grps_sequence = [
+            rules.remove_trivial_sequences,
+            rules.simple_group_by,
+            clangcommon.clang_push_select,
+            rules.push_project,
+            rules.push_apply,
+            grappify(self.join_type)
         ]
+
+        return list(itertools.chain(*rule_grps_sequence))
 
     def set_join_type(self, joinclass):
         self.join_type = joinclass
