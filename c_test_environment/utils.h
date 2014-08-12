@@ -30,3 +30,14 @@ D transpose(S s) {
   }
   return d;
 }
+
+struct pairhash {
+  template <typename T, typename U>
+    std::size_t operator()(const std::pair<T, U> &x) const {
+      auto ha = std::hash<T>()(x.first);
+      auto hb = std::hash<U>()(x.second);
+      // h(a) * (2^32 + 1) + h(b)
+      return (ha << 32) + ha + hb;
+    }
+};
+

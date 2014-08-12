@@ -5,6 +5,7 @@
 
 
 #include <iostream>
+#include "utils.h"
 
 template <typename T, typename K>
 void insert(std::unordered_map<K, std::vector<T>* >& hash, T tuple, uint64_t pos) {
@@ -19,16 +20,6 @@ void insert(std::unordered_map<K, std::vector<T>* >& hash, T tuple, uint64_t pos
     hash[key] = newvec;
   }
 }
-
-struct pairhash {
-  template <typename T, typename U>
-    std::size_t operator()(const std::pair<T, U> &x) const {
-      auto ha = std::hash<T>()(x.first);
-      auto hb = std::hash<U>()(x.second);
-      // h(a) * (2^32 + 1) + h(b)
-      return (ha << 32) + ha + hb;
-    }
-};
 
 template <typename T, typename K, typename V>
 void SUM_insert(std::unordered_map<K, V >& hash, T tuple, uint64_t keypos, uint64_t valpos) {
