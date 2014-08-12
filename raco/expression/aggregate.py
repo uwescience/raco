@@ -142,11 +142,7 @@ class SUM(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
 
-        sum = 0
-        for t in inputs:
-            if t is not None:
-                sum += t
-        return sum
+        return sum(x for x in inputs if x is not None)
 
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
@@ -159,12 +155,12 @@ class AVG(UnaryFunction, DecomposableAggregate):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         filtered = (x for x in inputs if x is not None)
 
-        sum = 0
+        sum_ = 0
         count = 0
         for t in filtered:
-            sum += t
+            sum_ += t
             count += 1
-        return sum / count
+        return sum_ / count
 
     def get_local_aggregates(self):
         return [SUM(self.input), COUNT(self.input)]
@@ -189,14 +185,14 @@ class STDEV(UnaryFunction, DecomposableAggregate):
         filtered = [x for x in inputs if x is not None]
 
         n = len(filtered)
-        if (n < 2):
+        if n < 2:
             return 0.0
 
         mean = float(sum(filtered)) / n
 
         std = 0.0
         for a in filtered:
-            std = std + (a - mean) ** 2
+            std += (a - mean) ** 2
         std = math.sqrt(std / n)
         return std
 
