@@ -73,6 +73,16 @@ class GrappaLanguage(Language):
         return """%(log_str)s << %(code)s;\n""" % locals()
 
     @staticmethod
+    def log_file(code, level=3):
+        log_str = "VLOG(%s)" % (level)
+        return """%(log_str)s << "%(code)s" << "\\n";\n """ % locals()
+
+    @staticmethod
+    def log_file_unquoted(code, level=4):
+        log_str = "VLOG(%s)" % (level)
+        return """%(log_str)s << %(code)s << "\\n";\n """ % locals()
+
+    @staticmethod
     def group_wrap(ident, grpcode, attrs):
         pipeline_template = ct("""
         Grappa::Metrics::reset();
@@ -993,6 +1003,10 @@ class SwapJoinSides(rules.Rule):
 
 
 class GrappaStore(algebra.Store, GrappaOperator):
+    def __init__(self, emit_print, relation_key, plan):
+        super(GrappaStore, self).__init__(relation_key, plan)
+        self.emit_print = emit_print
+
     def produce(self, state):
         self.input.produce(state)
 
@@ -1002,9 +1016,41 @@ class GrappaStore(algebra.Store, GrappaOperator):
         state.addDeclarations([resdecl])
         code += "result.push_back(%s);\n" % (t.name)
 
-        code += self.language.log_unquoted("%s" % t.name, 2)
-
+        """         if self.emit_print in ['console', 'both']:
+            code += self.language.log_unquoted("%s" % t.name, 2)
+        if self.emit_print in ['file', 'both']:
+            state.addPreCode('std::ofstream logfile;\n')
+            tuplefile = 'datasets/' + str(self.relation_key).replace(":", "_")
+            opentuple = 'logfile.open("%s");\n' % tuplefile
+            schemafile = self.write_schema(t.scheme)
+            state.addPreCode(schemafile)
+            state.addPreCode(opentuple)
+            code += self.language.log_file_unquoted("%s" % t.name, 2)
+            state.addPostCode('logfile.close();') """
         return code
+
+    def write_schema(self, scheme):
+        schemafile = 'schema/' + str(self.relation_key).replace(":", "_")
+        code = 'logfile.open("%s");\n' % schemafile
+        names = [x.encode('UTF8') for x in scheme.get_names()]
+        code += self.language.log_file("%s" % names, 2)
+        code += self.language.log_file("%s" % scheme.get_types(), 2)
+        code += 'logfile.close();'
+        return code
+
+
+class StoreToGrappaStore(rules.Rule):
+    """A rule to store tuples into emit_print"""
+    def __init__(self, emit_print):
+        self.emit_print = emit_print
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.Store):
+            return GrappaStore(self.emit_print, expr.relation_key, expr.input)
+        return expr
+
+    def __str__(self):
+        return "Store => GrapaStore"
 
 
 class GrappaAlgebra(object):
@@ -1024,8 +1070,9 @@ class GrappaAlgebra(object):
         GrappaStore
     ]
 
-    def __init__(self):
+    def __init__(self, emit_print='console'):
         self.join_type = GrappaHashJoin
+        self.emit_print = emit_print
 
     def opt_rules(self):
         return [
@@ -1043,7 +1090,7 @@ class GrappaAlgebra(object):
             rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
             # TODO: this Union obviously breaks semantics
             rules.OneToOne(algebra.Union, GrappaUnionAll),
-            rules.OneToOne(algebra.Store, GrappaStore)
+            StoreToGrappaStore(self.emit_print)
             # rules.FreeMemory()
         ]
 
