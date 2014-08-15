@@ -11,14 +11,7 @@ import math
 
 class AggregateExpression(Expression):
     def evaluate(self, _tuple, scheme, state=None):
-        """Stub evaluate function for aggregate expressions.
-
-        Aggregate functions do not evaluate individual tuples; rather they
-        operate on collections of tuples in the evaluate_aggregate function.
-        We return a dummy string so that all tuples containing this aggregate
-        hash to the same value.
-        """
-        return self.opname()
+        raise NotImplementedError("{expr}.evaluate".format(expr=type(self)))
 
     @abstractmethod
     def evaluate_aggregate(self, tuple_iterator, scheme):
