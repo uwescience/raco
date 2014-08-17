@@ -355,8 +355,6 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             return "MIN"
         elif isinstance(agg_expr, expression.COUNT):
             return "COUNT"
-        elif isinstance(agg_expr, expression.COUNTALL):
-            return "COUNT"  # XXX Wrong in the presence of nulls
         elif isinstance(agg_expr, expression.SUM):
             return "SUM"
         elif isinstance(agg_expr, expression.AVG):
@@ -370,10 +368,9 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
     def compile_aggregator(agg, child_scheme):
         if isinstance(agg, expression.AggregateExpression):
             if isinstance(agg, expression.COUNTALL):
-                # XXX Wrong in the presence of nulls
-                column = 0
-            else:
-                column = expression.toUnnamed(agg.input, child_scheme).position
+                return {"type": "CountAll"}
+
+            column = expression.toUnnamed(agg.input, child_scheme).position
             return {"type": "SingleColumn",
                     "aggOps": [MyriaGroupBy.agg_mapping(agg)],
                     "column": column}
