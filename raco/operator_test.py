@@ -102,7 +102,7 @@ class OperatorTest(unittest.TestCase):
                                              MyriaLeftDeepTreeAlgebra)
         from compile import optimize
         import json
-        json_string = json.dumps(compile_to_json("", None, optimize(store, MyriaLeftDeepTreeAlgebra(), LogicalAlgebra)))  # noqa
+        json_string = json.dumps(compile_to_json("", None, optimize(store, MyriaLeftDeepTreeAlgebra(), LogicalAlgebra())))  # noqa
         assert json_string
 
     def test_cast_to_float(self):

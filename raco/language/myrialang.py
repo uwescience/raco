@@ -1,15 +1,11 @@
-import copy
 import itertools
 from collections import defaultdict, deque
 from operator import mul
-from abc import abstractmethod
 
 from raco import algebra, expression, rules
 from raco.catalog import Catalog
-from raco.language import Language
-from raco.utility import emit
-from raco.expression import (accessed_columns, to_unnamed_recursive,
-                             UnnamedAttributeRef)
+from raco.language import Language, Algebra
+from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import DecomposableAggregate
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
@@ -1280,9 +1276,8 @@ break_communication = [
 ]
 
 
-class MyriaAlgebra(object):
-    """ Myria algebra abstract class
-    """
+class MyriaAlgebra(Algebra):
+    """ Myria algebra abstract class"""
     language = MyriaLanguage
 
     fragment_leaves = (
@@ -1293,10 +1288,6 @@ class MyriaAlgebra(object):
         MyriaScan,
         MyriaScanTemp
     )
-
-    @abstractmethod
-    def opt_rules(self):
-        """Specific Myria algebra must instantiate this method."""
 
 
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
@@ -1313,13 +1304,13 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
         break_communication
     ]
 
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         return list(itertools.chain(*self.rule_grps_sequence))
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
     """Myria physical algebra using HyperCubeShuffle and LeapFrogJoin"""
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         # this rule is hyper cube shuffle specific
         merge_to_nary_join = [
             MergeToNaryJoin()

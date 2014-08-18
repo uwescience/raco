@@ -1,4 +1,5 @@
 from raco import algebra
+import raco.language as language
 from pipelines import Pipelined
 from raco.utility import emit
 
@@ -28,6 +29,8 @@ def optimize(expr, target, source, **kwargs):
     """Fire the rule-based optimizer on an expression.  Fire all rules in the
     source algebra (logical) and the target algebra (physical)"""
     assert isinstance(expr, algebra.Operator)
+    assert isinstance(target, language.Algebra), type(target)
+    assert isinstance(source, language.Algebra), type(source)
 
     so = optimize_by_rules(expr, source.opt_rules())
     return optimize_by_rules(so, target.opt_rules())

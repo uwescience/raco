@@ -1,6 +1,6 @@
 from raco import algebra
 import raco.rules
-from raco.language import Language
+from raco.language import Language, Algebra
 
 
 class Python(Language):
@@ -82,7 +82,7 @@ class pyHashJoin(algebra.Join, PythonOperator):
         return code
 
 
-class PythonAlgebra(object):
+class PythonAlgebra(Algebra):
     language = Python
 
     rules = [
@@ -91,3 +91,7 @@ class PythonAlgebra(object):
         raco.rules.OneToOne(algebra.Select, pySelect),
         raco.rules.OneToOne(algebra.Scan, pyScan)
     ]
+
+    @classmethod
+    def opt_rules(**kwargs):
+        return PythonAlgebra.rules

@@ -27,6 +27,6 @@ class RACompiler(object):
         self.physicalplan = optimize(
             self.logicalplan,
             target=self.target,
-            source=LogicalAlgebra,
+            source=LogicalAlgebra(),
             **kwargs
         )

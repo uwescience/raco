@@ -401,7 +401,7 @@ class StatementProcessor(object):
 
         return optimize(logical_plan,
                         target=target_phys_algebra,
-                        source=LogicalAlgebra)
+                        source=LogicalAlgebra())
 
     def get_physical_plan(self, multiway_join=False):
         """Return an operator representing the physical query plan."""

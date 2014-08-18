@@ -3,7 +3,7 @@
 
 from raco import algebra
 from raco import expression
-from raco.language import Language, clangcommon
+from raco.language import Language, clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, ct
@@ -636,7 +636,7 @@ clang_push_select = [
 ]
 
 
-class CCAlgebra(object):
+class CCAlgebra(Algebra):
     language = CC
 
     def __init__(self, emit_print=EMIT_CONSOLE):

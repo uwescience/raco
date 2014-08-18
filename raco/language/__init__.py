@@ -5,6 +5,14 @@ import logging
 LOG = logging.getLogger(__name__)
 
 
+class Algebra(object):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def opt_rules(self, **kwargs):
+        raise NotImplementedError("{op}.opt_rules()".format(op=type(self)))
+
+
 class Language(object):
     __metaclass__ = ABCMeta
 

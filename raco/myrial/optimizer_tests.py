@@ -69,7 +69,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
             algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
         return optimize(lp,
                         target=algebra,
-                        source=LogicalAlgebra)
+                        source=LogicalAlgebra())
 
     @staticmethod
     def get_count(op, claz):
