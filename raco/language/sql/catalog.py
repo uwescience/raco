@@ -3,7 +3,7 @@ A RACO language to compile expressions to SQL.
 """
 
 from sqlalchemy import (Column, Table, MetaData, Integer, String,
-                        Float, create_engine, select, func)
+                        Float, Boolean, DateTime, create_engine, select, func)
 
 import raco.algebra as algebra
 from raco.catalog import Catalog
@@ -14,14 +14,18 @@ import raco.types as types
 
 type_to_raco = {Integer: types.LONG_TYPE,
                 String: types.STRING_TYPE,
-                Float: types.FLOAT_TYPE}
+                Float: types.FLOAT_TYPE,
+                Boolean: types.BOOLEAN_TYPE,
+                DateTime: types.DATETIME_TYPE}
 
 
 raco_to_type = {types.LONG_TYPE: Integer,
                 types.INT_TYPE: Integer,
                 types.STRING_TYPE: String,
                 types.FLOAT_TYPE: Float,
-                types.DOUBLE_TYPE: Float}
+                types.DOUBLE_TYPE: Float,
+                types.BOOLEAN_TYPE: Boolean,
+                types.DATETIME_TYPE: DateTime}
 
 
 class SQLCatalog(Catalog):
@@ -69,8 +73,6 @@ class SQLCatalog(Catalog):
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_attribute_ref(self, cols, expr, input_scheme):
-        print cols
-        print expr
         if isinstance(expr, expression.UnnamedAttributeRef):
             return cols[expr.position]
 
@@ -112,6 +114,8 @@ class SQLCatalog(Catalog):
 
     def _get_zeroary_sql(self, plan):
         if isinstance(plan, algebra.Scan):
+            if str(plan.relation_key) not in self.metadata.tables:
+                self.add_table(str(plan.relation_key), plan.scheme())
             return self.metadata.tables[str(plan.relation_key)].select()
         raise NotImplementedError("convert {op} to sql".format(op=type(plan)))
 
