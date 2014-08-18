@@ -28,9 +28,9 @@ class DatalogTestCase(unittest.TestCase):
             plan = dlog.logicalplan
         else:
             if algebra == MyriaLeftDeepTreeAlgebra:
-                dlog.optimize(target=MyriaLeftDeepTreeAlgebra())
+                dlog.optimize(MyriaLeftDeepTreeAlgebra())
             else:
-                dlog.optimize(target=MyriaHyperCubeAlgebra(FakeCatalog(64)))
+                dlog.optimize(MyriaHyperCubeAlgebra(FakeCatalog(64)))
             plan = dlog.physicalplan
 
             if not skip_json:

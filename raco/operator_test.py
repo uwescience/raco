@@ -3,7 +3,6 @@ import collections
 
 import raco.fakedb
 from raco.relation_key import RelationKey
-from raco.language.logical import LogicalAlgebra
 from raco.algebra import *
 from raco.expression import *
 import raco.relation_key as relation_key
@@ -102,7 +101,7 @@ class OperatorTest(unittest.TestCase):
                                              MyriaLeftDeepTreeAlgebra)
         from compile import optimize
         import json
-        json_string = json.dumps(compile_to_json("", None, optimize(store, MyriaLeftDeepTreeAlgebra(), LogicalAlgebra())))  # noqa
+        json_string = json.dumps(compile_to_json("", None, optimize(store, MyriaLeftDeepTreeAlgebra())))  # noqa
         assert json_string
 
     def test_cast_to_float(self):

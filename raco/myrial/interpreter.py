@@ -7,7 +7,6 @@ import raco.algebra
 import raco.expression
 import raco.catalog
 import raco.scheme
-from raco.language.logical import LogicalAlgebra, OptLogicalAlgebra
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
 from raco.language.myrialang import compile_to_json
@@ -399,9 +398,7 @@ class StatementProcessor(object):
     def get_physical_plan_for(self, target_phys_algebra):
         logical_plan = self.get_logical_plan()
 
-        return optimize(logical_plan,
-                        target=target_phys_algebra,
-                        source=LogicalAlgebra())
+        return optimize(logical_plan, target=target_phys_algebra)
 
     def get_physical_plan(self, multiway_join=False):
         """Return an operator representing the physical query plan."""

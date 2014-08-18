@@ -10,7 +10,6 @@ from raco.language.myrialang import (MyriaShuffleConsumer,
                                      MyriaHyperShuffleProducer)
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
-from raco.language.logical import LogicalAlgebra
 from raco.compile import optimize
 from raco import relation_key
 from raco.catalog import FakeCatalog
@@ -67,9 +66,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
             algebra = MyriaLeftDeepTreeAlgebra()
         else:
             algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
-        return optimize(lp,
-                        target=algebra,
-                        source=LogicalAlgebra())
+        return optimize(lp, algebra)
 
     @staticmethod
     def get_count(op, claz):
