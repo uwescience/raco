@@ -425,4 +425,5 @@ class FakeDatabase(Catalog):
         return self.difference(op)
 
     def myriaqueryscan(self, op):
+        # TODO this should somehow test the SQL itself!
         return self.evaluate(op.replaces)
