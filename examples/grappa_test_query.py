@@ -20,7 +20,7 @@ def testEmit(query, name):
     #print dlog.parsed
     LOG.info("logical: %s",dlog.logicalplan)
 
-    dlog.optimize(target=GrappaAlgebra, eliminate_common_subexpressions=False)
+    dlog.optimize(target=GrappaAlgebra)
 
     LOG.info("physical: %s",dlog.physicalplan[0][1])
 
@@ -28,7 +28,7 @@ def testEmit(query, name):
     code = ""
     code += comment("Query " + query)
     code += dlog.compile()
-    
+
     with open(name+'.cpp', 'w') as f:
         f.write(code)
 
