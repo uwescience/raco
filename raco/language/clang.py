@@ -136,7 +136,7 @@ class CC(Language):
 
     @staticmethod
     def log_file(code, level=0):
-        return """logfile << "%s" << " ";\n """ % code
+        return """logfile << "%s" << "\\n";\n """ % code
 
     @staticmethod
     def log_file_unquoted(code, level=0):
@@ -543,6 +543,7 @@ class CStore(algebra.Store, CCOperator):
         code = 'logfile.open("%s");\n' % schemafile
         names = [x.encode('UTF8') for x in scheme.get_names()]
         code += self.language.log_file("%s" % names, 2)
+        code += self.language.log_file(" ", 2)
         code += self.language.log_file("%s" % scheme.get_types(), 2)
         code += 'logfile.close();'
         return code
