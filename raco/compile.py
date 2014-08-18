@@ -30,10 +30,7 @@ def optimize(expr, target, source, **kwargs):
     assert isinstance(expr, algebra.Operator)
 
     so = optimize_by_rules(expr, source.opt_rules())
-    newexpr = optimize_by_rules(so, target.opt_rules())
-    if kwargs.get('eliminate_common_subexpressions', False):
-        newexpr = common_subexpression_elimination(newexpr)
-    return newexpr
+    return optimize_by_rules(so, target.opt_rules())
 
 
 def compile(expr):
@@ -61,38 +58,3 @@ def compile(expr):
 
     exprcode.append(emit(body))
     return emit(*exprcode)
-
-
-def search(expr, tofind):
-    """yield a sequence of subexpressions equal to tofind"""
-    def match(node):
-        if node == tofind:
-            yield node
-    for x in expr.preorder(match):
-        yield x
-
-
-def common_subexpression_elimination(expr):
-    """remove redundant subexpressions"""
-    def id(expr):
-        yield expr
-    eqclasses = []
-    allfound = []
-    for x in expr.preorder(id):
-        if x not in allfound:
-            found = [x for x in search(expr, x)]
-            eqclasses.append((x, found))
-            allfound += found
-
-    def replace(expr):
-        for witness, ec in eqclasses:
-            if expr in ec:
-                expr.apply(replace)
-                # record the fact that we eliminated the redundant branches
-                if witness != expr:
-                    # witness.trace("replaces", expr)
-                    for k, v in expr.gettrace():
-                        witness.trace(k, v)
-                return witness
-
-    return expr.apply(replace)
