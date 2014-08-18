@@ -710,30 +710,30 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
     def __init__(self, sql, scheme, replaces,
                  num_tuples=algebra.DEFAULT_CARDINALITY,):
         self.sql = str(sql)
-        self.scheme_ = scheme
+        self._scheme = scheme
         self.replaces = replaces
-        self.num_tuples = num_tuples
+        self._num_tuples = num_tuples
 
     def __repr__(self):
         return ("{op}({sql!r}, {sch!r}, {rep!r}, {nt!r})"
                 .format(op=self.opname(), sql=self.sql,
-                        sch=self.scheme_, rep=self.replaces,
-                        nt=self.num_tuples))
+                        sch=self._scheme, rep=self.replaces,
+                        nt=self._num_tuples))
 
     def num_tuples(self):
-        return self.num_tuples
+        return self._num_tuples
 
     def shortStr(self):
         return "MyriaQueryScan({sql})".format(sql=self.sql)
 
     def scheme(self):
-        return self.scheme_
+        return self._scheme
 
     def compileme(self):
         return {
             "opType": "QueryScan",
             "sql": self.sql,
-            "schema": scheme_to_schema(self.scheme_)
+            "schema": scheme_to_schema(self._scheme)
         }
 
 
