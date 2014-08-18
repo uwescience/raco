@@ -2,12 +2,6 @@ import raco.rules as rules
 from raco.language import Algebra
 
 
-class LogicalAlgebra(Algebra):
-    @staticmethod
-    def opt_rules(**kwargs):
-        return []
-
-
 class OptLogicalAlgebra(Algebra):
     @staticmethod
     def opt_rules(**kwargs):

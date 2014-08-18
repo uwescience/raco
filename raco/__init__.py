@@ -1,6 +1,4 @@
 from raco.datalog.grammar import parse
-from raco.language.myrialang import MyriaLeftDeepTreeAlgebra
-from raco.language.logical import LogicalAlgebra
 from raco.compile import optimize
 
 import logging
