@@ -4,6 +4,7 @@ from operator import mul
 
 from raco import algebra, expression, rules
 from raco.catalog import Catalog
+from raco.compile import optimize_by_rules
 from raco.language import Language, Algebra
 from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import (rebase_local_aggregate_output,
@@ -704,6 +705,38 @@ class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
+class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
+    """A Myria Query Scan"""
+    def __init__(self, sql, scheme, replaces,
+                 num_tuples=algebra.DEFAULT_CARDINALITY,):
+        self.sql = str(sql)
+        self.scheme_ = scheme
+        self.replaces = replaces
+        self.num_tuples = num_tuples
+
+    def __repr__(self):
+        return ("{op}({sql!r}, {sch!r}, {rep!r}, {nt!r})"
+                .format(op=self.opname(), sql=self.sql,
+                        sch=self.scheme_, rep=self.replaces,
+                        nt=self.num_tuples))
+
+    def num_tuples(self):
+        return self.num_tuples
+
+    def shortStr(self):
+        return "MyriaQueryScan({sql})".format(sql=self.sql)
+
+    def scheme(self):
+        return self.scheme_
+
+    def compileme(self):
+        return {
+            "opType": "QueryScan",
+            "sql": self.sql,
+            "schema": scheme_to_schema(self.scheme_)
+        }
+
+
 class BreakShuffle(rules.Rule):
     def fire(self, expr):
         if not isinstance(expr, MyriaShuffle):
@@ -1193,6 +1226,26 @@ class AddAppendTemp(rules.Rule):
         return op
 
 
+class PushIntoSQL(rules.Rule):
+    def fire(self, expr):
+        if isinstance(expr, (algebra.Scan, algebra.ScanTemp)):
+            return expr
+        from raco.language.sql.catalog import SQLCatalog
+        from sqlalchemy.dialects import postgresql
+        import sys
+        cat = SQLCatalog()
+        try:
+            sql_plan = cat.get_sql(expr)
+            sql_string = sql_plan.compile(dialect=postgresql.dialect())
+            sql_string.visit_bindparam = sql_string.render_literal_bindparam
+            return MyriaQueryScan(sql=sql_string.process(sql_plan),
+                                  scheme=expr.scheme(),
+                                  num_tuples=expr.num_tuples(),
+                                  replaces=expr)
+        except NotImplementedError:
+            return expr
+
+
 class MergeToNaryJoin(rules.Rule):
     """Merge consecutive binary join into a single multiway join
     Note: this code assumes that the binary joins form a left deep tree
@@ -1351,28 +1404,35 @@ class MyriaAlgebra(Algebra):
 
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
-    rule_grps_sequence = [
-        rules.remove_trivial_sequences,
-        [
-            rules.SimpleGroupBy(),
-            rules.CountToCountall(),  # TODO revisit when we have NULL support.
-            rules.ProjectToDistinctColumnSelect(),
-            rules.DistinctToGroupBy(),
-            rules.DedupGroupBy(),
-        ],
-        rules.push_select,
-        rules.push_project,
-        rules.push_apply,
-        left_deep_tree_shuffle_logic,
-        distributed_group_by,
-        [rules.PushApply()],
-        myriafy,
-        [AddAppendTemp()],
-        break_communication
-    ]
-
     def opt_rules(self, **kwargs):
-        return list(itertools.chain(*self.rule_grps_sequence))
+        opt_grps_sequence = [
+            rules.remove_trivial_sequences,
+            [
+                rules.SimpleGroupBy(),
+                rules.CountToCountall(),  # TODO revisit when we have NULLs
+                rules.ProjectToDistinctColumnSelect(),
+                rules.DistinctToGroupBy(),
+                rules.DedupGroupBy(),
+            ],
+            rules.push_select,
+            rules.push_project,
+            rules.push_apply,
+            left_deep_tree_shuffle_logic,
+            distributed_group_by,
+            [rules.PushApply()],
+        ]
+
+        if kwargs.get('push_sql', False):
+            opt_grps_sequence.append([PushIntoSQL()])
+
+        compile_grps_sequence = [
+            myriafy,
+            [AddAppendTemp()],
+            break_communication
+        ]
+
+        rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
+        return list(itertools.chain(*rule_grps_sequence))
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
@@ -1390,7 +1450,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             OrderByBeforeNaryJoin(),
         ]
 
-        rule_grps_sequence = [
+        opt_grps_sequence = [
             rules.remove_trivial_sequences,
             [
                 rules.SimpleGroupBy(),
@@ -1405,10 +1465,18 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             rules.push_apply,
             left_deep_tree_shuffle_logic,
             distributed_group_by,
-            hyper_cube_shuffle_logic,
+            hyper_cube_shuffle_logic
+        ]
+
+        if kwargs.get('push_sql', False):
+            opt_grps_sequence.append([PushIntoSQL()])
+
+        compile_grps_sequence = [
             myriafy,
+            [AddAppendTemp()],
             break_communication
         ]
+        rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
         return list(itertools.chain(*rule_grps_sequence))
 
     def __init__(self, catalog=None):
