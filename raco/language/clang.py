@@ -643,7 +643,7 @@ class CCAlgebra(Algebra):
         """ To store results into a file or onto console """
         self.emit_print = emit_print
 
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         # Sequence that works for datalog
         # TODO: replace with below
         # datalog_rules = [

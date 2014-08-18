@@ -1035,7 +1035,7 @@ class GrappaAlgebra(Algebra):
     def __init__(self):
         self.join_type = GrappaHashJoin
 
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         return [
             # rules.removeProject(),
             rules.CrossProduct2Join(),
