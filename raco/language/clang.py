@@ -140,7 +140,7 @@ class CC(Language):
 
     @staticmethod
     def log_file_unquoted(code, level=0):
-        return """logfile << %s << "\\n";\n """ % code
+        return """logfile << %s << " ";\n """ % code
 
     @staticmethod
     def comment(txt):
@@ -531,10 +531,10 @@ class CStore(algebra.Store, CCOperator):
             schemafile = self.write_schema(t.scheme)
             state.addPreCode(schemafile)
             state.addPreCode(opentuple)
-            code += "for (int i = 0; i < "%s".numFields(); i++) {"
-            code += self.language.log_file_unquoted("%s.get(i)" % t.name, 2) 
+            code += "for (int i = 0; i < %s.numFields(); i++) {" % (t.name)
+            code += self.language.log_file_unquoted("%s.get(i)" % t.name, 2)
             code += "}\n"
-            code += self.language.log_file_unquoted("\n", 2)
+            code += self.language.log_file(" ", 2)
             state.addPostCode('logfile.close();')
         return code
 
