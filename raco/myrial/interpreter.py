@@ -7,7 +7,6 @@ import raco.algebra
 import raco.expression
 import raco.catalog
 import raco.scheme
-from raco.language.logical import LogicalAlgebra, OptLogicalAlgebra
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
 from raco.language.myrialang import compile_to_json
@@ -404,9 +403,7 @@ class StatementProcessor(object):
             target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog)
         else:
             target_phys_algebra = MyriaLeftDeepTreeAlgebra()
-        return optimize(logical_plan,
-                        target=target_phys_algebra,
-                        source=LogicalAlgebra())
+        return optimize(logical_plan, target_phys_algebra)
 
     def get_json(self, multiway_join=False):
         lp = self.get_logical_plan()
