@@ -4,7 +4,7 @@
 
 from raco import algebra
 from raco import expression
-from raco.language import Language
+from raco.language import Language, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, ct
@@ -1007,7 +1007,7 @@ class GrappaStore(algebra.Store, GrappaOperator):
         return code
 
 
-class GrappaAlgebra(object):
+class GrappaAlgebra(Algebra):
     language = GrappaLanguage
 
     def __init__(self):
