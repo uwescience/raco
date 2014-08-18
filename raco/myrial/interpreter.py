@@ -406,7 +406,7 @@ class StatementProcessor(object):
             target_phys_algebra = MyriaLeftDeepTreeAlgebra()
         return optimize(logical_plan,
                         target=target_phys_algebra,
-                        source=LogicalAlgebra)
+                        source=LogicalAlgebra())
 
     def get_json(self, multiway_join=False):
         lp = self.get_logical_plan()
