@@ -24,18 +24,16 @@ def optimize_by_rules(expr, rules):
     return expr
 
 
-def optimize(expr, target, source, eliminate_common_subexpressions=False):
+def optimize(expr, target, source, **kwargs):
     """Fire the rule-based optimizer on an expression.  Fire all rules in the
     source algebra (logical) and the target algebra (physical)"""
     assert isinstance(expr, algebra.Operator)
 
-    def opt(expr):
-        so = optimize_by_rules(expr, source.opt_rules())
-        newexpr = optimize_by_rules(so, target.opt_rules())
-        if eliminate_common_subexpressions:
-            newexpr = common_subexpression_elimination(newexpr)
-        return newexpr
-    return opt(expr)
+    so = optimize_by_rules(expr, source.opt_rules())
+    newexpr = optimize_by_rules(so, target.opt_rules())
+    if kwargs.get('eliminate_common_subexpressions', False):
+        newexpr = common_subexpression_elimination(newexpr)
+    return newexpr
 
 
 def compile(expr):
