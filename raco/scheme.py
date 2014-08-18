@@ -26,9 +26,8 @@ class Scheme(object):
             self.addAttribute(n, t)
 
     def addAttribute(self, name, _type):
-        if _type not in raco.types.ALL_TYPES:
-            print 'Invalid type name: %s' % str(_type)
-            assert False
+        assert _type in raco.types.ALL_TYPES, \
+            'Invalid type name: %s' % str(_type)
         _type = raco.types.map_type(_type)
 
         if name in self.asdict:
