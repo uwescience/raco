@@ -383,3 +383,6 @@ class FakeDatabase(Catalog):
 
     def myriadifference(self, op):
         return self.difference(op)
+
+    def myriaqueryscan(self, op):
+        return self.evaluate(op.replaces)
