@@ -87,6 +87,8 @@ class SQLCatalog(Catalog):
     def _convert_zeroary_expr(self, cols, expr, input_scheme):
         if isinstance(expr, expression.COUNTALL):
             return func.count(cols[0])
+        if isinstance(expr, expression.Literal):
+            return expr.value
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_unary_expr(self, cols, expr, input_scheme):
