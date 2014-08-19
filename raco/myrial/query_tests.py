@@ -1788,7 +1788,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         ex = collections.Counter((str(d),) for (i, d, n, s) in self.emp_table)
-        ex_scheme = scheme.Scheme([('foo', 'STRING_TYPE')])
+        ex_scheme = scheme.Scheme([('foo', types.STRING_TYPE)])
         self.check_result(query, ex)
 
     def test_float_cast(self):

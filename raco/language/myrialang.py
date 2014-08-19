@@ -29,7 +29,7 @@ def compile_expr(op, child_scheme, state_scheme):
     if isinstance(op, expression.NumericLiteral):
         if type(op.value) == int:
             if (2 ** 31) - 1 >= op.value >= -2 ** 31:
-                myria_type = 'INT_TYPE'
+                myria_type = types.INT_TYPE
             else:
                 myria_type = types.LONG_TYPE
         elif type(op.value) == float:
@@ -46,7 +46,7 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type': 'CONSTANT',
             'value': str(op.value),
-            'valueType': 'STRING_TYPE'
+            'valueType': types.STRING_TYPE
         }
     elif isinstance(op, expression.StateRef):
         return {
