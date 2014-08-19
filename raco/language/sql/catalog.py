@@ -30,13 +30,11 @@ raco_to_type = {types.LONG_TYPE: Integer,
 
 class SQLCatalog(Catalog):
     def __init__(self, engine=None):
-        if not engine:
-            self.engine = create_engine('sqlite:///:memory:', echo=True)
-        else:
-            self.engine = engine
+        self.engine = engine
         self.metadata = MetaData()
 
-    def get_num_servers(self):
+    @staticmethod
+    def get_num_servers():
         """ Return number of servers in myria deployment """
         return 1
 
@@ -50,10 +48,14 @@ class SQLCatalog(Catalog):
         return scheme.Scheme((c.name, type_to_raco[type(c.type)])
                              for c in table.columns)
 
-    def add_table(self, name, schema, tuples=None):
+    def add_table(self, name, schema):
         columns = [Column(n, raco_to_type[t](), nullable=False)
                    for n, t in schema.attributes]
-        table = Table(name, self.metadata, *columns)
+        # Adds the table to the metadata
+        Table(name, self.metadata, *columns)
+
+    def add_tuples(self, name, schema, tuples=None):
+        table = self.metadata.tables[name]
         table.create(self.engine)
         if tuples:
             tuples = [{n: v for n, v in zip(schema.get_names(), tup)}
