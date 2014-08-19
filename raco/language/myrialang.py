@@ -15,11 +15,11 @@ def scheme_to_schema(s):
     if s:
         names, descrs = zip(*s.asdict.items())
         names = ["%s" % n for n in names]
-        types = [r[1] for r in descrs]
+        types_ = [r[1] for r in descrs]
     else:
         names = []
-        types = []
-    return {"columnTypes": types, "columnNames": names}
+        types_ = []
+    return {"columnTypes": types_, "columnNames": names}
 
 
 def compile_expr(op, child_scheme, state_scheme):
