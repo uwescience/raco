@@ -1,29 +1,30 @@
-import copy
 import itertools
+import logging
 from collections import defaultdict, deque
 from operator import mul
-from abc import abstractmethod
+from sqlalchemy.dialects import postgresql
 
 from raco import algebra, expression, rules
 from raco.catalog import Catalog
-from raco.language import Language
-from raco.utility import emit
-from raco.expression import (accessed_columns, to_unnamed_recursive,
-                             UnnamedAttributeRef)
+from raco.language import Language, Algebra
+from raco.language.sql.catalog import SQLCatalog
+from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import DecomposableAggregate
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
+
+LOGGER = logging.getLogger(__name__)
 
 
 def scheme_to_schema(s):
     if s:
         names, descrs = zip(*s.asdict.items())
         names = ["%s" % n for n in names]
-        types = [r[1] for r in descrs]
+        types_ = [r[1] for r in descrs]
     else:
         names = []
-        types = []
-    return {"columnTypes": types, "columnNames": names}
+        types_ = []
+    return {"columnTypes": types_, "columnNames": names}
 
 
 def compile_expr(op, child_scheme, state_scheme):
@@ -33,7 +34,7 @@ def compile_expr(op, child_scheme, state_scheme):
     if isinstance(op, expression.NumericLiteral):
         if type(op.value) == int:
             if (2 ** 31) - 1 >= op.value >= -2 ** 31:
-                myria_type = 'INT_TYPE'
+                myria_type = types.INT_TYPE
             else:
                 myria_type = types.LONG_TYPE
         elif type(op.value) == float:
@@ -50,7 +51,7 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type': 'CONSTANT',
             'value': str(op.value),
-            'valueType': 'STRING_TYPE'
+            'valueType': types.STRING_TYPE
         }
     elif isinstance(op, expression.StateRef):
         return {
@@ -664,6 +665,38 @@ class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
+class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
+    """A Myria Query Scan"""
+    def __init__(self, sql, scheme, replaces,
+                 num_tuples=algebra.DEFAULT_CARDINALITY,):
+        self.sql = str(sql)
+        self._scheme = scheme
+        self.replaces = replaces
+        self._num_tuples = num_tuples
+
+    def __repr__(self):
+        return ("{op}({sql!r}, {sch!r}, {rep!r}, {nt!r})"
+                .format(op=self.opname(), sql=self.sql,
+                        sch=self._scheme, rep=self.replaces,
+                        nt=self._num_tuples))
+
+    def num_tuples(self):
+        return self._num_tuples
+
+    def shortStr(self):
+        return "MyriaQueryScan({sql!r})".format(sql=self.sql)
+
+    def scheme(self):
+        return self._scheme
+
+    def compileme(self):
+        return {
+            "opType": "QueryScan",
+            "sql": self.sql,
+            "schema": scheme_to_schema(self._scheme)
+        }
+
+
 class BreakShuffle(rules.Rule):
     def fire(self, expr):
         if not isinstance(expr, MyriaShuffle):
@@ -1117,6 +1150,28 @@ class ProjectToDistinctColumnSelect(rules.Rule):
         return colSelect
 
 
+class PushIntoSQL(rules.Rule):
+    def __init__(self, dialect=None):
+        self.dialect = dialect or postgresql.dialect()
+
+    def fire(self, expr):
+        if isinstance(expr, (algebra.Scan, algebra.ScanTemp)):
+            return expr
+        cat = SQLCatalog()
+        try:
+            sql_plan = cat.get_sql(expr)
+            sql_string = sql_plan.compile(dialect=self.dialect)
+            sql_string.visit_bindparam = sql_string.render_literal_bindparam
+            return MyriaQueryScan(sql=sql_string.process(sql_plan),
+                                  scheme=expr.scheme(),
+                                  num_tuples=expr.num_tuples(),
+                                  replaces=expr)
+        except NotImplementedError, e:
+            LOGGER.warn("Error converting {plan}: {e}"
+                        .format(plan=expr, e=e))
+            return expr
+
+
 class MergeToNaryJoin(rules.Rule):
     """Merge consecutive binary join into a single multiway join
     Note: this code assumes that the binary joins form a left deep tree
@@ -1288,9 +1343,8 @@ break_communication = [
 ]
 
 
-class MyriaAlgebra(object):
-    """ Myria algebra abstract class
-    """
+class MyriaAlgebra(Algebra):
+    """ Myria algebra abstract class"""
     language = MyriaLanguage
 
     fragment_leaves = (
@@ -1302,32 +1356,36 @@ class MyriaAlgebra(object):
         MyriaScanTemp
     )
 
-    @abstractmethod
-    def opt_rules(self):
-        """Specific Myria algebra must instantiate this method."""
-
 
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
-    rule_grps_sequence = [
-        remove_trivial_sequences,
-        simple_group_by,
-        push_select,
-        push_project,
-        push_apply,
-        left_deep_tree_shuffle_logic,
-        distributed_group_by,
-        myriafy,
-        break_communication
-    ]
+    def opt_rules(self, **kwargs):
+        opt_grps_sequence = [
+            remove_trivial_sequences,
+            simple_group_by,
+            push_select,
+            push_project,
+            push_apply,
+            left_deep_tree_shuffle_logic,
+            distributed_group_by
+        ]
 
-    def opt_rules(self):
-        return list(itertools.chain(*self.rule_grps_sequence))
+        if kwargs.get('push_sql', False):
+            opt_grps_sequence.append([
+                PushIntoSQL(dialect=kwargs.get('dialect'))])
+
+        compile_grps_sequence = [
+            myriafy,
+            break_communication
+        ]
+
+        rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
+        return list(itertools.chain(*rule_grps_sequence))
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
     """Myria physical algebra using HyperCubeShuffle and LeapFrogJoin"""
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         # this rule is hyper cube shuffle specific
         merge_to_nary_join = [
             MergeToNaryJoin()
@@ -1340,7 +1398,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             OrderByBeforeNaryJoin(),
         ]
 
-        rule_grps_sequence = [
+        opt_grps_sequence = [
             remove_trivial_sequences,
             simple_group_by,
             push_select,
@@ -1349,10 +1407,17 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             push_apply,
             left_deep_tree_shuffle_logic,
             distributed_group_by,
-            hyper_cube_shuffle_logic,
+            hyper_cube_shuffle_logic
+        ]
+
+        if kwargs.get('push_sql', False):
+            opt_grps_sequence.append([PushIntoSQL()])
+
+        compile_grps_sequence = [
             myriafy,
             break_communication
         ]
+        rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
         return list(itertools.chain(*rule_grps_sequence))
 
     def __init__(self, catalog=None):

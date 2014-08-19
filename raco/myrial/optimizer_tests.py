@@ -7,10 +7,10 @@ from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.language.myrialang import (MyriaShuffleConsumer,
                                      MyriaShuffleProducer,
-                                     MyriaHyperShuffleProducer)
+                                     MyriaHyperShuffleProducer,
+                                     MyriaQueryScan)
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
-from raco.language.logical import LogicalAlgebra
 from raco.compile import optimize
 from raco import relation_key
 from raco.catalog import FakeCatalog
@@ -67,9 +67,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
             algebra = MyriaLeftDeepTreeAlgebra()
         else:
             algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
-        return optimize(lp,
-                        target=algebra,
-                        source=LogicalAlgebra)
+        return optimize(lp, algebra)
 
     @staticmethod
     def get_count(op, claz):
@@ -471,3 +469,43 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # This is it -- just test that we can get the physical plan and
         # compile to JSON. See https://github.com/uwescience/raco/issues/240
         pp = self.execute_query(query, output='OutputTemp')
+
+    def test_push_work_into_sql(self):
+        """Test generation of MyriaQueryScan operator for query with
+        projects"""
+        query = """
+        r3 = scan({x});
+        intermediate = select a, c from r3;
+        store(intermediate, OUTPUT);
+        """.format(x=self.x_key)
+
+        pp = self.get_physical_plan(query, push_sql=True)
+        self.assertEquals(self.get_count(pp, Operator), 2)
+        self.assertTrue(isinstance(pp.input, MyriaQueryScan))
+
+        expected = collections.Counter([(a, c) for (a, b, c) in self.x_data])
+
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        self.assertEquals(result, expected)
+
+    def test_push_work_into_sql_2(self):
+        """Test generation of MyriaQueryScan operator for query with projects
+        and a filter"""
+        query = """
+        r3 = scan({x});
+        intermediate = select a, c from r3 where b < 5;
+        store(intermediate, OUTPUT);
+        """.format(x=self.x_key)
+
+        pp = self.get_physical_plan(query, push_sql=True)
+        self.assertEquals(self.get_count(pp, Operator), 2)
+        self.assertTrue(isinstance(pp.input, MyriaQueryScan))
+
+        expected = collections.Counter([(a, c)
+                                        for (a, b, c) in self.x_data
+                                        if b < 5])
+
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        self.assertEquals(result, expected)
