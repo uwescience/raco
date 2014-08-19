@@ -6,10 +6,9 @@ from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.expression import StateVar
 
-from raco.language.myrialang import (MyriaShuffleConsumer,
-                                     MyriaShuffleProducer,
-                                     MyriaHyperShuffleProducer,
-                                     MyriaBroadcastConsumer)
+from raco.language.myrialang import (
+    MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
+    MyriaBroadcastConsumer, MyriaQueryScan)
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -718,3 +717,21 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, AppendTemp), 0)
 
         self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
+
+    def test_push_work_into_sql(self):
+        """Test generation of MyriaQueryScan operator for query with project"""
+        query = """
+        r3 = scan({x});
+        intermediate = select a, c from r3;
+        store(intermediate, OUTPUT);
+        """.format(x=self.x_key)
+
+        pp = self.get_physical_plan(query, push_sql=True)
+        self.assertEquals(self.get_count(pp, Operator), 2)
+        self.assertTrue(isinstance(pp.input, MyriaQueryScan))
+
+        expected = collections.Counter([(a, c) for (a, b, c) in self.x_data])
+
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        self.assertEquals(result, expected)
