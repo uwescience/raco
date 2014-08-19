@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Compile a Myrial program into a physical plan."""
+"""Compile a MyriaL program into a physical plan."""
 
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
@@ -16,6 +16,7 @@ import argparse
 import os
 import json
 import sys
+
 
 def print_pretty_plan(plan, indent=0):
     if isinstance(plan, algebra.DoWhile):
@@ -36,26 +37,29 @@ def print_pretty_plan(plan, indent=0):
     else:
         print '%s%s' % (' ' * indent, plan)
 
+
 def parse_options(args):
-    parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group()
+    arg_parser = argparse.ArgumentParser()
+    group = arg_parser.add_mutually_exclusive_group()
     group.add_argument('-p', dest='parse',
-                        help="Generate AST (parse tree)", action='store_true')
+                       help="Generate AST (parse tree)", action='store_true')
     group.add_argument('-l', dest='logical',
-                        help="Generate logical plan", action='store_true')
+                       help="Generate logical plan", action='store_true')
     group.add_argument('-d', dest='dot',
                        help="Generate dot output for logical plan",
                        action='store_true')
     group.add_argument('-j', dest='json',
-                        help="Encode plan as JSON", action='store_true')
+                       help="Encode plan as JSON", action='store_true')
     group.add_argument('-r', dest='repr',
-                        help="Encode plan as Python repr", action='store_true')
+                       help="Encode plan as Python repr", action='store_true')
     group.add_argument('-f', dest='standalone', action='store_true',
                        help='Execute the program in standalone mode')
-    parser.add_argument('file', help='File containing Myrial source program')
+    arg_parser.add_argument('file',
+                            help='File containing MyriaL source program')
 
-    ns = parser.parse_args(args)
+    ns = arg_parser.parse_args(args)
     return ns
+
 
 class FakeCatalog(raco.catalog.Catalog):
     def __init__(self, catalog):
@@ -76,6 +80,7 @@ class FakeCatalog(raco.catalog.Catalog):
     def num_tuples(self, rel_key):
         return algebra.DEFAULT_CARDINALITY
 
+
 def main(args):
     opt = parse_options(args)
 
@@ -93,7 +98,7 @@ def main(args):
         try:
             statement_list = _parser.parse(fh.read())
         except MyrialCompileException as ex:
-            print 'Myrial parse error: %s' % ex
+            print 'MyriaL parse error: %s' % ex
             return 1
 
         if opt.parse:
