@@ -4,7 +4,6 @@ from operator import mul
 
 from raco import algebra, expression, rules
 from raco.catalog import Catalog
-from raco.compile import optimize_by_rules
 from raco.language import Language, Algebra
 from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import (rebase_local_aggregate_output,
