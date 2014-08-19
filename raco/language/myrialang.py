@@ -1,4 +1,5 @@
 import itertools
+import logging
 from collections import defaultdict, deque
 from operator import mul
 from sqlalchemy.dialects import postgresql
@@ -11,6 +12,8 @@ from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import DecomposableAggregate
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
+
+LOG = logging.getLogger(__name__)
 
 
 def scheme_to_schema(s):
@@ -1163,7 +1166,9 @@ class PushIntoSQL(rules.Rule):
                                   scheme=expr.scheme(),
                                   num_tuples=expr.num_tuples(),
                                   replaces=expr)
-        except NotImplementedError:
+        except NotImplementedError, e:
+            LOG.warn("Error converting {plan}: {e}"
+                     .format(plan=expr, e=e))
             return expr
 
 
