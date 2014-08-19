@@ -1015,27 +1015,6 @@ class GrappaStore(algebra.Store, GrappaOperator):
         resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
         state.addDeclarations([resdecl])
         code += "result.push_back(%s);\n" % (t.name)
-
-        """         if self.emit_print in ['console', 'both']:
-            code += self.language.log_unquoted("%s" % t.name, 2)
-        if self.emit_print in ['file', 'both']:
-            state.addPreCode('std::ofstream logfile;\n')
-            tuplefile = 'datasets/' + str(self.relation_key).replace(":", "_")
-            opentuple = 'logfile.open("%s");\n' % tuplefile
-            schemafile = self.write_schema(t.scheme)
-            state.addPreCode(schemafile)
-            state.addPreCode(opentuple)
-            code += self.language.log_file_unquoted("%s" % t.name, 2)
-            state.addPostCode('logfile.close();') """
-        return code
-
-    def write_schema(self, scheme):
-        schemafile = 'schema/' + str(self.relation_key).replace(":", "_")
-        code = 'logfile.open("%s");\n' % schemafile
-        names = [x.encode('UTF8') for x in scheme.get_names()]
-        code += self.language.log_file("%s" % names, 2)
-        code += self.language.log_file("%s" % scheme.get_types(), 2)
-        code += 'logfile.close();'
         return code
 
 
