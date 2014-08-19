@@ -719,7 +719,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
 
     def test_push_work_into_sql(self):
-        """Test generation of MyriaQueryScan operator for query with project"""
+        """Test generation of MyriaQueryScan operator for query with
+        projects"""
         query = """
         r3 = scan({x});
         intermediate = select a, c from r3;

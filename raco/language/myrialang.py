@@ -15,7 +15,7 @@ from raco.expression.statevar import *
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
 
-LOG = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 def scheme_to_schema(s):
@@ -1247,8 +1247,8 @@ class PushIntoSQL(rules.Rule):
                                   num_tuples=expr.num_tuples(),
                                   replaces=expr)
         except NotImplementedError, e:
-            LOG.warn("Error converting {plan}: {e}"
-                     .format(plan=expr, e=e))
+            LOGGER.warn("Error converting {plan}: {e}"
+                        .format(plan=expr, e=e))
             return expr
 
 
