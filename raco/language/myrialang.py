@@ -1,10 +1,12 @@
 import itertools
 from collections import defaultdict, deque
 from operator import mul
+from sqlalchemy.dialects import postgresql
 
 from raco import algebra, expression, rules
 from raco.catalog import Catalog
 from raco.language import Language, Algebra
+from raco.language.sql.catalog import SQLCatalog
 from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import (rebase_local_aggregate_output,
                                        rebase_finalizer)
@@ -723,7 +725,7 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
         return self._num_tuples
 
     def shortStr(self):
-        return "MyriaQueryScan({sql})".format(sql=self.sql)
+        return "MyriaQueryScan({sql!r})".format(sql=self.sql)
 
     def scheme(self):
         return self._scheme
@@ -1226,16 +1228,16 @@ class AddAppendTemp(rules.Rule):
 
 
 class PushIntoSQL(rules.Rule):
+    def __init__(self, dialect=None):
+        self.dialect = dialect or postgresql.dialect()
+
     def fire(self, expr):
         if isinstance(expr, (algebra.Scan, algebra.ScanTemp)):
             return expr
-        from raco.language.sql.catalog import SQLCatalog
-        from sqlalchemy.dialects import postgresql
-        import sys
         cat = SQLCatalog()
         try:
             sql_plan = cat.get_sql(expr)
-            sql_string = sql_plan.compile(dialect=postgresql.dialect())
+            sql_string = sql_plan.compile(dialect=self.dialect)
             sql_string.visit_bindparam = sql_string.render_literal_bindparam
             return MyriaQueryScan(sql=sql_string.process(sql_plan),
                                   scheme=expr.scheme(),
@@ -1422,7 +1424,8 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
         ]
 
         if kwargs.get('push_sql', False):
-            opt_grps_sequence.append([PushIntoSQL()])
+            opt_grps_sequence.append([
+                PushIntoSQL(dialect=kwargs.get('dialect'))])
 
         compile_grps_sequence = [
             myriafy,
