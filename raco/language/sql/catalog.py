@@ -73,7 +73,11 @@ class SQLCatalog(Catalog):
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_attribute_ref(self, cols, expr, input_scheme):
+        if isinstance(expr, expression.NamedAttributeRef):
+            expr = expression.toUnnamed(expr, input_scheme)
+
         if isinstance(expr, expression.UnnamedAttributeRef):
+            # Not an elif since the first may actually turn into a UARef
             return cols[expr.position]
 
         raise NotImplementedError("expression {} to sql".format(type(expr)))
