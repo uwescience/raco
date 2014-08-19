@@ -471,7 +471,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.execute_query(query, output='OutputTemp')
 
     def test_push_work_into_sql(self):
-        """Test generation of MyriaQueryScan operator for query with projects"""
+        """Test generation of MyriaQueryScan operator for query with
+        projects"""
         query = """
         r3 = scan({x});
         intermediate = select a, c from r3;
