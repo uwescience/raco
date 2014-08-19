@@ -393,21 +393,19 @@ class StatementProcessor(object):
         """Return an operator representing the logical query plan."""
         return self.cfg.get_logical_plan()
 
-    def get_physical_plan(self, multiway_join=False):
+    def get_physical_plan(self, multiway_join=False, **kwargs):
         """Return an operator representing the physical query plan."""
 
-        # TODO: Get rid of the dummy label argument here.
-        # Return first (only) plan; strip off dummy label.
         logical_plan = self.get_logical_plan()
         if multiway_join:
             target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog)
         else:
             target_phys_algebra = MyriaLeftDeepTreeAlgebra()
-        return optimize(logical_plan, target_phys_algebra)
+        return optimize(logical_plan, target_phys_algebra, **kwargs)
 
-    def get_json(self, multiway_join=False):
+    def get_json(self, multiway_join=False, **kwargs):
         lp = self.get_logical_plan()
-        pps = self.get_physical_plan(multiway_join)
+        pps = self.get_physical_plan(multiway_join, **kwargs)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
         return compile_to_json(str(lp), pps, pps, "myrial")
