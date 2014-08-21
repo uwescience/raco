@@ -16,13 +16,13 @@ from osutils import Chdir
 
 class GrappaTest(unittest.TestCase, PlatformTest):
     def check(self, query, name):
-#        raise SkipTest(query)
+        raise SkipTest(query)
         with Chdir("c_test_environment") as d:
             emitCode(query, 'grappa_%s' % name, GrappaAlgebra)
             checkquery(name, GrappalangRunner())
 
     def setUp(self):
-#        raise SkipTest()
+        raise SkipTest()
         with Chdir("c_test_environment") as d:
             targetpath = os.path.join(os.environ.copy()['GRAPPA_HOME'], 'build/Make+Release/applications/join')
             if need_generate(targetpath):
