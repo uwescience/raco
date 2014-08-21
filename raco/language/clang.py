@@ -526,15 +526,18 @@ class CStore(algebra.Store, CCOperator):
             code += self.language.log_unquoted("%s" % t.name, 2)
         elif self.emit_print == 'file':
             state.addPreCode('std::ofstream logfile;\n')
-            resultfile = 'datasets/' + str(self.relation_key).replace(":", "_")
+            resultfile = str(self.relation_key).replace(":", "_")
             opentuple = 'logfile.open("%s");\n' % resultfile
             schemafile = self.write_schema(self.scheme())
             state.addPreCode(schemafile)
             state.addPreCode(opentuple)
-            code += "for (int i = 0; i < %s.numFields(); i++) {\n" % (t.name)
-            code += self.language.log_file_unquoted("%s.get(i)" % t.name)
+            code += "int logi = 0;\n"
+            code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
+                    % (t.name)
+            code += self.language.log_file_unquoted("%s.get(logi)" % t.name)
             code += "}\n "
-            code += self.language.log_file(" ")
+            code += "logfile << %s.get(logi);\n" % (t.name)
+            code += "logfile << '\\n';"
             state.addPostCode('logfile.close();')
         return code
 
