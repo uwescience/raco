@@ -1003,10 +1003,6 @@ class SwapJoinSides(rules.Rule):
 
 
 class GrappaStore(algebra.Store, GrappaOperator):
-    def __init__(self, emit_print, relation_key, plan):
-        super(GrappaStore, self).__init__(relation_key, plan)
-        self.emit_print = emit_print
-
     def produce(self, state):
         self.input.produce(state)
 
@@ -1015,21 +1011,14 @@ class GrappaStore(algebra.Store, GrappaOperator):
         resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
         state.addDeclarations([resdecl])
         code += "result.push_back(%s);\n" % (t.name)
+        filename = (str(self.relation_key).replace(":", "_"))
+        resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % (filename)
+        names = [x.encode('UTF8') for x in self.scheme().get_names()]
+        schemefile = 'writeSchema("%s", "%s", "%s");' % \
+                     (names, self.scheme().get_types(), filename)
+        state.addPostCode(resultfile)
+        state.addPostCode(schemefile)
         return code
-
-
-class StoreToGrappaStore(rules.Rule):
-    """A rule to store tuples into emit_print"""
-    def __init__(self, emit_print):
-        self.emit_print = emit_print
-
-    def fire(self, expr):
-        if isinstance(expr, algebra.Store):
-            return GrappaStore(self.emit_print, expr.relation_key, expr.input)
-        return expr
-
-    def __str__(self):
-        return "Store => GrapaStore"
 
 
 class GrappaAlgebra(object):
@@ -1049,9 +1038,8 @@ class GrappaAlgebra(object):
         GrappaStore
     ]
 
-    def __init__(self, emit_print='console'):
+    def __init__(self):
         self.join_type = GrappaHashJoin
-        self.emit_print = emit_print
 
     def opt_rules(self):
         return [
@@ -1069,7 +1057,7 @@ class GrappaAlgebra(object):
             rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
             # TODO: this Union obviously breaks semantics
             rules.OneToOne(algebra.Union, GrappaUnionAll),
-            StoreToGrappaStore(self.emit_print)
+            rules.OneToOne(algebra.Store, GrappaStore),
             # rules.FreeMemory()
         ]
 
