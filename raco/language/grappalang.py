@@ -73,16 +73,6 @@ class GrappaLanguage(Language):
         return """%(log_str)s << %(code)s;\n""" % locals()
 
     @staticmethod
-    def log_file(code, level=3):
-        log_str = "VLOG(%s)" % (level)
-        return """%(log_str)s << "%(code)s" << "\\n";\n """ % locals()
-
-    @staticmethod
-    def log_file_unquoted(code, level=4):
-        log_str = "VLOG(%s)" % (level)
-        return """%(log_str)s << %(code)s << "\\n";\n """ % locals()
-
-    @staticmethod
     def group_wrap(ident, grpcode, attrs):
         pipeline_template = ct("""
         Grappa::Metrics::reset();
@@ -1043,7 +1033,7 @@ class GrappaAlgebra(object):
             rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
             # TODO: this Union obviously breaks semantics
             rules.OneToOne(algebra.Union, GrappaUnionAll),
-            rules.OneToOne(algebra.Store, GrappaStore),
+            rules.OneToOne(algebra.Store, GrappaStore)
             # rules.FreeMemory()
         ]
 
