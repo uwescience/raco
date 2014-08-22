@@ -290,7 +290,7 @@ class ExpressionProcessor(object):
 
 
 class StatementProcessor(object):
-    '''Evaluate a list of statements'''
+    """Evaluate a list of statements"""
 
     def __init__(self, catalog, use_dummy_schema=False):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
@@ -303,7 +303,7 @@ class StatementProcessor(object):
         self.cfg = ControlFlowGraph()
 
     def evaluate(self, statements):
-        '''Evaluate a list of statements'''
+        """Evaluate a list of statements"""
         for statement in statements:
             # Switch on the first tuple entry
             method = getattr(self, statement[0].lower())
@@ -347,7 +347,7 @@ class StatementProcessor(object):
         self.symbols[_id] = raco.algebra.ScanTemp(_id, child_op.scheme())
 
     def assign(self, _id, expr):
-        '''Map a variable to the value of an expression.'''
+        """Map a variable to the value of an expression."""
         self.__do_assignment(_id, expr)
 
     def store(self, _id, rel_key, how_partitioned):

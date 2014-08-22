@@ -330,8 +330,6 @@ class PushApply(Rule):
       - merges consecutive Apply operations into one Apply, possibly dropping
         some of the produced columns along the way.
       - makes ProjectingJoin only produce columns that are later read.
-        TODO: drop the Apply if the column-selection pushed into the
-        ProjectingJoin is everything the Apply was doing. See note below.
     """
 
     def fire(self, op):
@@ -373,9 +371,6 @@ class PushApply(Rule):
             child.output_columns = [child.output_columns[i] for i in accessed]
             for e in emits:
                 expression.reindex_expr(e, index_map)
-            # TODO(dhalperi) we may not need the Apply if all it did was rename
-            # and/or select certain columns. Figure out these cases and omit
-            # the Apply
             return algebra.Apply(emitters=zip(names, emits),
                                  input=child)
 
@@ -475,6 +470,38 @@ class ProjectingJoinToProjectOfJoin(Rule):
 
     def __str__(self):
         return 'ProjectingJoin[$1] => Project[$1](Join)'
+
+
+class RemoveNoOpApply(Rule):
+    """Remove Apply operators that have no effect."""
+
+    def fire(self, op):
+        if not isinstance(op, algebra.Apply):
+            return op
+
+        # At least one emit expression is not just copying a column
+        if not all(isinstance(e[1], expression.AttributeRef)
+                   for e in op.emitters):
+            return op
+
+        child = op.input
+        child_scheme = child.scheme()
+
+        # Schemes are different, this Apply does something
+        if child_scheme != op.scheme():
+            return op
+
+        emitters = [expression.toUnnamed(e[1], child_scheme)
+                    for e in op.emitters]
+        # Schemes are the same (including names), and this Apply keeps all
+        # columns in the same order. This Apply does nothing.
+        if all(e.position == i for (i, e) in enumerate(emitters)):
+            return child
+
+        return op
+
+    def __str__(self):
+        return 'Remove no-op apply'
 
 
 # logical groups of catalog transparent rules

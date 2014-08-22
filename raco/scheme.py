@@ -14,7 +14,7 @@ class DummyScheme(object):
 
 
 class Scheme(object):
-    '''Add an attribute to the scheme.'''
+    """Add an attribute to the scheme."""
     salt = "1"
 
     def __init__(self, attributes=None):
@@ -58,6 +58,9 @@ class Scheme(object):
 
     def __eq__(self, other):
         return self.attributes == other.attributes
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def getPosition(self, name):
         return self.asdict[name][0]
@@ -117,6 +120,9 @@ class Scheme(object):
     def __str__(self):
         """Pretty print the scheme"""
         return str(self.attributes)
+
+    def __repr__(self):
+        return "Scheme({att!r})".format(att=self.attributes)
 
     def __len__(self):
         """Return the number of attributes in the scheme"""

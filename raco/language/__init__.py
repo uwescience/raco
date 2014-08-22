@@ -50,32 +50,6 @@ class Language(object):
         return cls.expression_combine(args, operator="or")
 
     @classmethod
-    def unnamed(cls, condition, sch):
-        LOG.debug("unnamed %s %s %s", cls, condition, sch)
-        """
-    Replace column names with positions
-    """
-        if isinstance(condition, expression.BinaryBooleanOperator):
-            condition.left = Language.unnamed(condition.left, sch)
-            condition.right = Language.unnamed(condition.right, sch)
-            result = condition
-
-        elif isinstance(condition, expression.UnaryBooleanOperator):
-            condition.input = Language.unnamed(condition.input, sch)
-            result = condition
-
-        elif isinstance(condition, expression.NamedAttributeRef):
-            pos = sch.getPosition(condition.name)
-            result = expression.UnnamedAttributeRef(pos)
-        elif isinstance(condition, expression.UnnamedAttributeRef):
-            result = condition
-        else:
-            # do nothing; it's a literal or something custom
-            result = condition
-
-        return result
-
-    @classmethod
     def compile_expression(cls, expr):
         compilevisitor = CompileExpressionVisitor(cls)
         expr.accept(compilevisitor)
