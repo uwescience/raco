@@ -1205,6 +1205,7 @@ class GetCardinalities(rules.Rule):
         expr._cardinality = algebra.DEFAULT_CARDINALITY
         return expr
 
+
 # 6. shuffle logics, hyper_cube_shuffle_logic is only used in HCAlgebra
 left_deep_tree_shuffle_logic = [
     ShuffleBeforeDistinct(),

@@ -394,13 +394,6 @@ class StatementProcessor(object):
         """Return an operator representing the logical query plan."""
         return self.cfg.get_logical_plan()
 
-    def get_physical_plan_for(self, target_phys_algebra):
-        logical_plan = self.get_logical_plan()
-
-        return optimize(logical_plan,
-                        target=target_phys_algebra,
-                        source=LogicalAlgebra)
-
     def get_physical_plan(self, multiway_join=False):
         """Return an operator representing the physical query plan."""
 
@@ -412,7 +405,9 @@ class StatementProcessor(object):
         else:
             target_phys_algebra = MyriaLeftDeepTreeAlgebra()
 
-        return self.get_physical_plan_for(target_phys_algebra)
+        return optimize(logical_plan,
+                        target=target_phys_algebra,
+                        source=LogicalAlgebra)
 
     def get_json(self, multiway_join=False):
         lp = self.get_logical_plan()

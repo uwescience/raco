@@ -3,7 +3,6 @@ import unittest
 
 from raco.language.myrialang import compile_to_json
 import raco.fakedb
-from raco.language.myrialang import MyriaLeftDeepTreeAlgebra
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.viz
@@ -31,7 +30,7 @@ class MyrialTestCase(unittest.TestCase):
         if logical:
             p = self.processor.get_logical_plan()
         else:
-            p = self.processor.get_physical_plan_for(target_alg)
+            p = self.processor.get_physical_plan(multiway_join)
         # verify that we can stringify p
         # TODO verify the string somehow?
         assert str(p)
