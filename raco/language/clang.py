@@ -581,21 +581,6 @@ class StoreToCStore(rules.Rule):
 class CCAlgebra(object):
     language = CC
 
-    operators = [
-        # TwoPassHashJoin,
-        # FilteringNestedLoopJoin,
-        # TwoPassSelect,
-        # FileScan,
-        MemoryScan,
-        CSelect,
-        CUnionAll,
-        CApply,
-        CProject,
-        CGroupBy,
-        CHashJoin,
-        CStore
-    ]
-
     def __init__(self, emit_print='console'):
         """ To store results into a file or onto console """
         self.emit_print = emit_print

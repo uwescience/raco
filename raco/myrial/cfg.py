@@ -16,7 +16,7 @@ LOG = logging.getLogger(__name__)
 
 
 def find_gt(a, x):
-    '''Find smallest value strictly greater than x'''
+    """Find smallest value strictly greater than x"""
     i = bisect.bisect(a, x)
     if i != len(a):
         return a[i]
@@ -24,7 +24,7 @@ def find_gt(a, x):
 
 
 def find_lt(a, x):
-    '''Find largest value strictly less than x'''
+    """Find largest value strictly less than x"""
     i = bisect.bisect(a, x)
     if i - 1 > 0:
         return a[i - 1]

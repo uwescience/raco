@@ -86,8 +86,8 @@ class Parser(object):
     # is a function, apply definition, or statement.
     @staticmethod
     def p_translation_unit_list(p):
-        '''translation_unit_list : translation_unit_list translation_unit
-                                 | translation_unit'''
+        """translation_unit_list : translation_unit_list translation_unit
+                                 | translation_unit"""
         if len(p) == 3:
             p[0] = p[1] + [p[2]]
         else:
@@ -95,10 +95,10 @@ class Parser(object):
 
     @staticmethod
     def p_translation_unit(p):
-        '''translation_unit : statement
+        """translation_unit : statement
                             | constant
                             | udf
-                            | apply'''
+                            | apply"""
         p[0] = p[1]
 
     @staticmethod
@@ -191,26 +191,26 @@ class Parser(object):
 
     @staticmethod
     def p_udf(p):
-        '''udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON sexpr SEMI'''  # noqa
+        """udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON sexpr SEMI"""  # noqa
         Parser.add_udf(p, p[2], p[4], p[7])
         p[0] = None
 
     @staticmethod
     def p_constant(p):
-        '''constant : CONST unreserved_id COLON sexpr SEMI'''
+        """constant : CONST unreserved_id COLON sexpr SEMI"""
         Parser.add_udf(p, p[2], [], p[4])
         p[0] = None
 
     @staticmethod
     def p_optional_arg_list(p):
-        '''optional_arg_list : function_arg_list
-                             | empty'''
+        """optional_arg_list : function_arg_list
+                             | empty"""
         p[0] = p[1] or []
 
     @staticmethod
     def p_function_arg_list(p):
-        '''function_arg_list : function_arg_list COMMA unreserved_id
-                             | unreserved_id'''
+        """function_arg_list : function_arg_list COMMA unreserved_id
+                             | unreserved_id"""
         if len(p) == 4:
             p[0] = p[1] + [p[3]]
         else:
@@ -248,8 +248,8 @@ class Parser(object):
 
     @staticmethod
     def p_statement_list(p):
-        '''statement_list : statement_list statement
-                          | statement'''
+        """statement_list : statement_list statement
+                          | statement"""
         if len(p) == 3:
             p[0] = p[1] + [p[2]]
         else:
@@ -272,8 +272,8 @@ class Parser(object):
 
     @staticmethod
     def p_optional_part_info(p):
-        '''optional_part_info : COMMA LBRACKET column_ref_list RBRACKET
-                              | empty'''
+        """optional_part_info : COMMA LBRACKET column_ref_list RBRACKET
+                              | empty"""
         if len(p) > 2:
             p[0] = p[3]
         else:
@@ -311,16 +311,16 @@ class Parser(object):
 
     @staticmethod
     def p_relation_key(p):
-        '''relation_key : string_arg
+        """relation_key : string_arg
                         | string_arg COLON string_arg
-                        | string_arg COLON string_arg COLON string_arg'''
+                        | string_arg COLON string_arg COLON string_arg"""
         p[0] = relation_key.RelationKey.from_string(''.join(p[1:]))
 
     # Note: column list cannot be empty
     @staticmethod
     def p_column_def_list(p):
-        '''column_def_list : column_def_list COMMA column_def
-                           | column_def'''
+        """column_def_list : column_def_list COMMA column_def
+                           | column_def"""
         if len(p) == 4:
             cols = p[1] + [p[3]]
         else:
@@ -334,16 +334,16 @@ class Parser(object):
 
     @staticmethod
     def p_type_name(p):
-        '''type_name : STRING
+        """type_name : STRING
                      | INT
                      | BOOLEAN
-                     | FLOAT'''
+                     | FLOAT"""
         p[0] = myrial_type_map[p[1]]
 
     @staticmethod
     def p_string_arg(p):
-        '''string_arg : unreserved_id
-                      | STRING_LITERAL'''
+        """string_arg : unreserved_id
+                      | STRING_LITERAL"""
         p[0] = p[1]
 
     @staticmethod
@@ -354,8 +354,8 @@ class Parser(object):
 
     @staticmethod
     def p_from_arg_list(p):
-        '''from_arg_list : from_arg_list COMMA from_arg
-                         | from_arg'''
+        """from_arg_list : from_arg_list COMMA from_arg
+                         | from_arg"""
         if len(p) == 4:
             p[0] = p[1] + [p[3]]
         else:
@@ -363,8 +363,8 @@ class Parser(object):
 
     @staticmethod
     def p_from_arg(p):
-        '''from_arg : expression optional_as unreserved_id
-                    | unreserved_id'''
+        """from_arg : expression optional_as unreserved_id
+                    | unreserved_id"""
         expr = None
         if len(p) == 4:
             expr = p[1]
@@ -375,14 +375,14 @@ class Parser(object):
 
     @staticmethod
     def p_optional_as(p):
-        '''optional_as : AS
-                       | empty'''
+        """optional_as : AS
+                       | empty"""
         p[0] = None
 
     @staticmethod
     def p_opt_where_clause(p):
-        '''opt_where_clause : WHERE sexpr
-                            | empty'''
+        """opt_where_clause : WHERE sexpr
+                            | empty"""
         if len(p) == 3:
             p[0] = p[2]
         else:
@@ -390,8 +390,8 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_list(p):
-        '''emit_arg_list : emit_arg_list COMMA emit_arg
-                         | emit_arg'''
+        """emit_arg_list : emit_arg_list COMMA emit_arg
+                         | emit_arg"""
         if len(p) == 4:
             p[0] = p[1] + (p[3],)
         else:
@@ -399,8 +399,8 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_singleton(p):
-        '''emit_arg : sexpr AS unreserved_id
-                    | sexpr'''
+        """emit_arg : sexpr AS unreserved_id
+                    | sexpr"""
         if len(p) == 4:
             name = p[3]
             sexpr = p[1]
@@ -412,12 +412,12 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_table_wildcard(p):
-        '''emit_arg : unreserved_id DOT TIMES'''
+        """emit_arg : unreserved_id DOT TIMES"""
         p[0] = emitarg.TableWildcardEmitArg(p[1])
 
     @staticmethod
     def p_emit_arg_full_wildcard(p):
-        '''emit_arg : TIMES'''
+        """emit_arg : TIMES"""
         p[0] = emitarg.FullWildcardEmitArg()
 
     @staticmethod
@@ -433,15 +433,15 @@ class Parser(object):
 
     @staticmethod
     def p_opt_distinct(p):
-        '''opt_distinct : DISTINCT
-                        | empty'''
+        """opt_distinct : DISTINCT
+                        | empty"""
         # p[1] is either 'DISTINCT' or None. Use Python truthiness
         p[0] = bool(p[1])
 
     @staticmethod
     def p_opt_limit(p):
-        '''opt_limit : LIMIT INTEGER_LITERAL
-                     | empty'''
+        """opt_limit : LIMIT INTEGER_LITERAL
+                     | empty"""
         if len(p) == 3:
             p[0] = p[2]
         else:
@@ -469,14 +469,14 @@ class Parser(object):
 
     @staticmethod
     def p_setop(p):
-        '''setop : INTERSECT
+        """setop : INTERSECT
                  | DIFF
-                 | UNIONALL'''
+                 | UNIONALL"""
         p[0] = p[1]
 
     @staticmethod
     def p_expression_unionall_inline(p):
-        '''expression : expression PLUS expression'''
+        """expression : expression PLUS expression"""
         p[0] = ('UNIONALL', p[1], p[3])
 
     @staticmethod
@@ -505,8 +505,8 @@ class Parser(object):
     # as arguments to join.
     @staticmethod
     def p_column_ref_list(p):
-        '''column_ref_list : column_ref_list COMMA column_ref
-                           | column_ref'''
+        """column_ref_list : column_ref_list COMMA column_ref
+                           | column_ref"""
         if len(p) == 4:
             p[0] = p[1] + [p[3]]
         else:
@@ -577,12 +577,12 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_worker_id(p):
-        '''sexpr : WORKER_ID LPAREN RPAREN'''
+        """sexpr : WORKER_ID LPAREN RPAREN"""
         p[0] = sexpr.WORKERID()
 
     @staticmethod
     def p_sexpr_binop(p):
-        '''sexpr : sexpr PLUS sexpr
+        """sexpr : sexpr PLUS sexpr
                    | sexpr MINUS sexpr
                    | sexpr TIMES sexpr
                    | sexpr DIVIDE sexpr
@@ -596,7 +596,7 @@ class Parser(object):
                    | sexpr EQ sexpr
                    | sexpr EQUALS sexpr
                    | sexpr AND sexpr
-                   | sexpr OR sexpr'''
+                   | sexpr OR sexpr"""
         p[0] = binops[p[2]](p[1], p[3])
 
     @staticmethod
@@ -662,8 +662,8 @@ class Parser(object):
 
     @staticmethod
     def p_function_param_list(p):
-        '''function_param_list : function_param_list COMMA sexpr
-                               | sexpr'''
+        """function_param_list : function_param_list COMMA sexpr
+                               | sexpr"""
         if len(p) == 4:
             p[0] = p[1] + [p[3]]
         else:
@@ -684,13 +684,13 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_cast(p):
-        '''sexpr : type_name LPAREN sexpr RPAREN'''
+        """sexpr : type_name LPAREN sexpr RPAREN"""
         p[0] = sexpr.CAST(p[1], p[3])
 
     @staticmethod
     def p_count_arg(p):
-        '''count_arg : TIMES
-                     | sexpr'''
+        """count_arg : TIMES
+                     | sexpr"""
         p[0] = p[1]
 
     @staticmethod
@@ -705,9 +705,9 @@ class Parser(object):
 
     @staticmethod
     def p_when_expr_list(p):
-        '''when_expr_list : when_expr_list when_expr
+        """when_expr_list : when_expr_list when_expr
                           | when_expr
-        '''
+        """
         if len(p) == 3:
             p[0] = p[1] + [p[2]]
         else:
@@ -720,8 +720,8 @@ class Parser(object):
 
     @staticmethod
     def p_optional_column_ref(p):
-        '''optional_column_ref : DOT column_ref
-                               | empty'''
+        """optional_column_ref : DOT column_ref
+                               | empty"""
         if len(p) == 3:
             p[0] = p[2]
         else:

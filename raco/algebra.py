@@ -36,7 +36,7 @@ class SchemaError(Exception):
 
 
 class Operator(Printable):
-    """Operator base classs"""
+    """Operator base class"""
     __metaclass__ = ABCMeta
 
     def __init__(self):
@@ -125,11 +125,6 @@ class Operator(Printable):
         """Return a list of trace messages"""
         return self._trace
 
-    def compiletrace(self):
-        """Return the trace as a list of strings"""
-        return "".join([self.language.comment("%s=%s" % (k, v))
-                        for k, v in self.gettrace()])
-
     def set_alias(self, alias):
         """Set a user-defined identifier for this operator.  Used in
         optimization and transformation of plans"""
@@ -187,25 +182,8 @@ class ZeroaryOperator(Operator):
     def __eq__(self, other):
         return self.__class__ == other.__class__
 
-    def num_tuples(self):
-        return self._cardinality
-
     def children(self):
         return []
-
-    def compile(self, resultsym):
-        code = self.language.comment("Compiled subplan for %s" % self)
-        self.trace("symbol", resultsym)
-        if self.bound and self.language.reusescans:
-            code += self.language.new_relation_assignment(resultsym,
-                                                          self.bound)
-        else:
-            code += "%s" % (self.compileme(resultsym),)
-            # code += self.language.comment("Binding: %s" % resultsym)
-            self.bound = resultsym
-            code += self.compiletrace()
-        code += self.language.log("Evaluating subplan %s" % self)
-        return code
 
     def apply(self, f):
         """Apply a function to your children"""
@@ -234,22 +212,6 @@ class UnaryOperator(Operator):
 
     def children(self):
         return [self.input]
-
-    def compile(self, resultsym):
-        """Compile this operator to the language specified."""
-        # TODO: Why is the language not an argument?
-        code = self.language.comment("Compiled subplan for %s" % self)
-        if self.bound:
-            code += self.language.assignment(resultsym, self.bound)
-        else:
-            inputsym = gensym()
-            # compile the previous operator
-            prev = self.input.compile(inputsym)
-            # compile me
-            me = self.compileme(resultsym, inputsym)
-            code += emit(prev, me)
-        code += self.language.log("Evaluating subplan %s" % self)
-        return code
 
     def scheme(self):
         """Default scheme is the same as the input.  Usually overriden"""
@@ -289,22 +251,6 @@ class BinaryOperator(Operator):
     def children(self):
         return [self.left, self.right]
 
-    def compile(self, resultsym):
-        """Compile this plan.  Result sym is the variable name to use to hold
-        the result of this operator."""
-        code = self.language.comment("Compiled subplan for %s" % self)
-        code += self.language.log("Evaluating subplan %s" % self)
-        # TODO: Why is language not an argument?
-        if self.bound:
-            code += self.language.assignment(resultsym, self.bound)
-        else:
-            leftsym = gensym()
-            rightsym = gensym()
-            code += emit(self.left.compile(leftsym),
-                         self.right.compile(rightsym),
-                         self.compileme(resultsym, leftsym, rightsym))
-        return code
-
     def apply(self, f):
         """Apply a function to your children"""
         self.left = f(self.left)
@@ -340,21 +286,6 @@ class NaryOperator(Operator):
     def add(self, op):
         """Add a child operator to the end of the child argument list."""
         self.args.append(op)
-
-    def compile(self, resultsym):
-        """Compile this plan.  Result sym is the variable name to use to hold
-        the result of this operator."""
-        # TODO: Why is language not an argument?
-        code = self.language.comment("Compiled subplan for %s" % self)
-        code += self.language.log("Evaluating subplan %s" % self)
-        if self.bound:
-            code += self.language.assignment(resultsym, self.bound)
-        else:
-            argsyms = [gensym() for arg in self.args]
-            code += emitlist([arg.compile(sym)
-                              for arg, sym in zip(self.args, argsyms)]
-                             + [self.compileme(resultsym, argsyms)])
-        return code
 
     def children(self):
         return self.args
@@ -626,7 +557,7 @@ class Apply(UnaryOperator):
                 self.emitters == other.emitters)
 
     def num_tuples(self):
-        return input.num_tuples()
+        return self.input.num_tuples()
 
     def copy(self, other):
         """deep copy"""
@@ -1067,7 +998,7 @@ class Fixpoint(Operator):
         return [self.body]
 
     def num_tuples(self):
-        raise NotImplementedError("Fixpoint is not implemented yet.")
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def __str__(self):
         return "%s[%s]" % (self.shortStr(), self.body)
@@ -1135,7 +1066,7 @@ class Dump(UnaryOperator):
     """Echo input to standard out; only useful for standalone raco."""
 
     def num_tuples(self):
-        raise NotImplementedError("num_tuples of Dump should be not called.")
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def shortStr(self):
         return "%s()" % self.opname()
@@ -1210,6 +1141,9 @@ class FileScan(ZeroaryOperator):
                                                 path=self.path,
                                                 sch=self._scheme)
 
+    def num_tuples(self):
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+
     def copy(self, other):
         """deep copy"""
         self.path = other.path
@@ -1225,7 +1159,7 @@ class Scan(ZeroaryOperator):
     """Logical Scan operator."""
 
     def __init__(self, relation_key=None, _scheme=None):
-        """Initalize a scan operator.
+        """Initialize a scan operator.
 
         relation_key is a string of the form "user:program:relation"
         scheme is the schema of the relation.
@@ -1249,6 +1183,9 @@ class Scan(ZeroaryOperator):
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.relation_key)
+
+    def num_tuples(self):
+        return self._cardinality
 
     def __repr__(self):
         return "{op}({rk!r}, {sch!r})".format(op=self.opname(),
@@ -1313,7 +1250,7 @@ class ScanTemp(ZeroaryOperator):
                 and self._scheme == other._scheme)
 
     def num_tuples(self):
-        return self.input.num_tuples()
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def shortStr(self):
         return "%s(%s,%s)" % (self.opname(), self.name, str(self._scheme))
@@ -1338,8 +1275,7 @@ class Parallel(NaryOperator):
         NaryOperator.__init__(self, ops)
 
     def num_tuples(self):
-        raise NotImplementedError(
-            "num_tuples should not be called in Parallel")
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def shortStr(self):
         return self.opname()
@@ -1365,7 +1301,7 @@ class Sequence(NaryOperator):
         return "{op}({ops!r})".format(op=self.opname(), ops=self.args)
 
     def num_tuples(self):
-        raise NotImplementedError("cannot call num_tuples of Sequence.")
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
 
 class DoWhile(NaryOperator):
@@ -1383,7 +1319,7 @@ class DoWhile(NaryOperator):
         NaryOperator.__init__(self, ops)
 
     def num_tuples(self):
-        raise NotImplementedError("num_tuples should not be called in DoWhile")
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
     def shortStr(self):
         return self.opname()
