@@ -535,5 +535,3 @@ push_apply = [
     PushApply(),
     RemoveNoOpApply(),
 ]
-
-
