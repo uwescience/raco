@@ -1205,37 +1205,6 @@ class GetCardinalities(rules.Rule):
         expr._cardinality = algebra.DEFAULT_CARDINALITY
         return expr
 
-# logical groups of catalog transparent rules
-# 1. this must be applied first
-remove_trivial_sequences = [rules.RemoveTrivialSequences()]
-
-# 2. simple group by
-simple_group_by = [rules.SimpleGroupBy()]
-
-# 3. push down selection
-push_select = [
-    rules.SplitSelects(),
-    rules.PushSelects(),
-    rules.MergeSelects()
-]
-
-# 4. push projection
-push_project = [
-    rules.ProjectingJoin(),
-    rules.JoinToProjectingJoin()
-]
-
-# 5. push apply
-push_apply = [
-    # These really ought to be run until convergence.
-    # For now, run twice and finish with PushApply.
-    rules.PushApply(),
-    rules.RemoveUnusedColumns(),
-    rules.PushApply(),
-    rules.RemoveUnusedColumns(),
-    rules.PushApply(),
-    rules.RemoveNoOpApply(),
-]
 
 # 6. shuffle logics, hyper_cube_shuffle_logic is only used in HCAlgebra
 left_deep_tree_shuffle_logic = [
@@ -1310,11 +1279,11 @@ class MyriaAlgebra(object):
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
     rule_grps_sequence = [
-        remove_trivial_sequences,
-        simple_group_by,
-        push_select,
-        push_project,
-        push_apply,
+        rules.remove_trivial_sequences,
+        rules.simple_group_by,
+        rules.push_select,
+        rules.push_project,
+        rules.push_apply,
         left_deep_tree_shuffle_logic,
         distributed_group_by,
         myriafy,
@@ -1341,12 +1310,12 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
         ]
 
         rule_grps_sequence = [
-            remove_trivial_sequences,
-            simple_group_by,
-            push_select,
-            push_project,
+            rules.remove_trivial_sequences,
+            rules.simple_group_by,
+            rules.push_select,
+            rules.push_project,
             merge_to_nary_join,
-            push_apply,
+            rules.push_apply,
             left_deep_tree_shuffle_logic,
             distributed_group_by,
             hyper_cube_shuffle_logic,
