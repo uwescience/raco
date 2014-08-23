@@ -7,7 +7,8 @@ from raco.language.myrialang import *
 from raco.language.clang import *
 from raco.language.grappalang import *
 
-# NOTES: relying on import * for eval is error prone due to namespace collisions
+# NOTES: relying on import * for eval is error prone due
+#        to namespace collisions
 # NOTES: what to do if a operator has two constructors?
 
 
