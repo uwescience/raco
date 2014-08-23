@@ -48,6 +48,8 @@ def parse_options(args):
                        action='store_true')
     group.add_argument('-j', dest='json',
                         help="Encode plan as JSON", action='store_true')
+    group.add_argument('-r', dest='repr',
+                        help="Encode plan as Python repr", action='store_true')
     group.add_argument('-f', dest='standalone', action='store_true',
                        help='Execute the program in standalone mode')
     parser.add_argument('file', help='File containing Myrial source program')
@@ -108,6 +110,9 @@ def main(args):
                 pp = processor.get_physical_plan()
                 db = FakeDatabase()
                 db.evaluate(pp)
+            elif opt.repr:
+                pp = processor.get_physical_plan()
+                print repr(pp)
             else:
                 print_pretty_plan(processor.get_physical_plan())
 
