@@ -42,7 +42,7 @@ class OperatorTest(unittest.TestCase):
 
         initex = NumericLiteral(-1)
         iterex = NamedStateAttributeRef("count")
-        updateex = PLUS(NamedStateAttributeRef("count"),
+        updateex = PLUS(UnnamedStateAttributeRef(0),
                         NumericLiteral(1))
 
         sapply = StatefulApply([("count", iterex)],
