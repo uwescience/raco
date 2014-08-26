@@ -161,26 +161,28 @@ public class FlinkQuery {{
         output_cols = [toUnnamed(ref, scheme).position
                        for ref in join.output_columns]
         for (i, c) in enumerate(output_cols):
-            if i < any(output_cols[:c]):
+            if c < any(output_cols[:i]):
                 raise NotImplementedError("ProjectingJoin with unordered cols")
 
         left_cols = [i for i in output_cols if i < left_len]
         right_cols = [i - left_len for i in output_cols if i >= left_len]
 
-        if len(left_cols) == 0 or len(right_cols) == 0:
-            raise NotImplementedError("Flink issue with semijoin: {}"
-                                      .format(join.shortStr()))
+        lc = ','.join(str(c) for c in left_cols)
+        if left_cols:
+            project_clause = ".projectFirst({lc})".format(lc=lc)
+        else:
+            project_clause = ""
 
-        project_clause = (".projectFirst({lc}).projectSecond({rc})"
-                          .format(lc=','.join(str(c) for c in left_cols),
-                                  rc=','.join(str(c) for c in right_cols)))
+        rc = ','.join(str(c) for c in right_cols)
+        if right_cols:
+            project_clause = ("{pc}.projectSecond({rc})"
+                              .format(pc=project_clause, rc=rc))
 
         # Actually output the operator
         self._add_line("{ts} {newop} = {left}.joinWithHuge({right}){where}{proj}{dt};"  # noqa
                        .format(ts=type_signature(scheme), newop=name,
                                left=left_name, right=right_name,
-                               where=where_clause,
-                               proj=project_clause,
+                               where=where_clause, proj=project_clause,
                                dt=dot_types(scheme)))
 
     def end(self):
