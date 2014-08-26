@@ -146,14 +146,8 @@ class SUM(UnaryFunction, DecomposableAggregate):
 class AVG(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
-        filtered = (x for x in inputs if x is not None)
-
-        sum_ = 0
-        count = 0
-        for t in filtered:
-            sum_ += t
-            count += 1
-        return sum_ / count
+        filtered = list(x for x in inputs if x is not None)
+        return sum(filtered) / len(filtered)
 
     def get_local_aggregates(self):
         return [SUM(self.input), COUNT(self.input)]
