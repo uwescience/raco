@@ -1358,6 +1358,10 @@ class OperatorCompileVisitor(object):
     def end(self):
         """Called at the end of a program"""
 
+    @abstractmethod
+    def every(self):
+        """Called before visiting every operator"""
+
     def visit(self, op):
         """Visit an arbitrary operator"""
         func = 'v_{}'.format(op.opname().lower())
@@ -1366,5 +1370,6 @@ class OperatorCompileVisitor(object):
             msg = ("visitor {vis} function {func} for operator {op}"
                    .format(op=op.opname(), func=func, vis=type(self)))
             raise NotImplementedError(msg)
+        self.every(op)
         method(op)
         yield []

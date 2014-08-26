@@ -97,9 +97,18 @@ public class FlinkQuery {{
                                             line=line)
                        for line in lines]
 
+    def _print_op(self, op):
+        child_str = ','.join(self.operator_names[str(c)]
+                             for c in op.children())
+        if child_str:
+            child_str = '[{cs}]'.format(cs=child_str)
+        self._add_line('// {op}{cs}'.format(op=op.shortStr(), cs=child_str))
+
+    def every(self, op):
+        self._print_op(op)
+
     def v_scan(self, scan):
         name = scan.relation_key.relation
-        self._add_line('// {op}'.format(op=str(scan)))
         if self._load_dataset(name, scan.scheme()):
             self.operator_names[str(scan)] = name
         else:
@@ -108,7 +117,6 @@ public class FlinkQuery {{
     def v_store(self, store):
         name = store.relation_key.relation
         in_name = self.operator_names[str(store.input)]
-        self._add_line('// {op}'.format(op=store.shortStr()))
         self._add_line('{inp}.writeAsCsv("{base}/{out}");'
                        .format(inp=in_name,
                                base='file:///tmp/flink',
@@ -122,7 +130,6 @@ public class FlinkQuery {{
         in_name = self.operator_names[str(apply.input)]
         name = self.alloc_operator_name(apply)
         self.operator_names[str(apply)] = name
-        self._add_line("// {op}".format(op=apply.shortStr()))
         self._add_line("{ts} {newop} = {inp}.project({cols}){dt};"
                        .format(ts=type_signature(scheme), newop=name,
                                inp=in_name, cols=cols_str,
@@ -169,7 +176,6 @@ public class FlinkQuery {{
                                   rc=','.join(str(c) for c in right_cols)))
 
         # Actually output the operator
-        self._add_line("// {op}".format(op=join.shortStr()))
         self._add_line("{ts} {newop} = {left}.joinWithHuge({right}){where}{proj}{dt};"  # noqa
                        .format(ts=type_signature(scheme), newop=name,
                                left=left_name, right=right_name,
