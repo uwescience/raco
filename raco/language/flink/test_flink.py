@@ -78,7 +78,9 @@ class FlinkTestCase(unittest.TestCase):
         emp = scan({emp});
         emp1 = scan({emp});
         j = [from emp, emp1
-             where emp1.$2 = "Magdalena Balazinska" and emp1.$0 = emp.$1
+             where (emp1.$2 = "Magdalena Balazinska"
+                    or emp1.salary < 25000)
+               and emp1.$0 = emp.$0
              emit emp1.*];
         store(j, OUTPUT);
         """.format(emp=self.emp_key)

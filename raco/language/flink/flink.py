@@ -7,6 +7,7 @@ import raco.algebra as algebra
 from raco.expression import AttributeRef, toUnnamed
 from raco.language.myrialang import convertcondition
 import raco.types as types
+from .flink_expression import FlinkExpressionCompiler
 
 raco_to_type = {types.LONG_TYPE: "Long",
                 types.INT_TYPE: "Integer",
@@ -18,7 +19,11 @@ raco_to_type = {types.LONG_TYPE: "Long",
 def type_signature(scheme):
     n = len(scheme)
     t = [raco_to_type[t] for t in scheme.get_types()]
-    return "DataSet<Tuple{N}<{TYPES}>>".format(N=n, TYPES=','.join(t))
+    return "Tuple{N}<{TYPES}>".format(N=n, TYPES=','.join(t))
+
+
+def dataset_signature(scheme):
+    return "DataSet<ts>".format(ts=type_signature(scheme))
 
 
 def dot_types(scheme):
@@ -68,7 +73,7 @@ class Flink(algebra.OperatorCompileVisitor):
         if dataset in self.dataset_lines:
             return False
         method = """
-  private static {ts} load_{ds}(ExecutionEnvironment env) {{
+  private static DataSet<{ts}> load_{ds}(ExecutionEnvironment env) {{
     return env.readCsvFile("{base}/{ds}"){dt};
   }}""".format(ts=type_signature(scheme), ds=dataset,
                base='file:///tmp/flink', dt=dot_types(scheme))
@@ -81,6 +86,7 @@ class Flink(algebra.OperatorCompileVisitor):
         preamble = """
 import org.apache.flink.api.java.*;
 import org.apache.flink.api.java.tuple.*;
+import org.apache.flink.api.common.functions.*;
 
 // Original query:
 {query}
@@ -125,7 +131,7 @@ public class FlinkQuery {{
             dt = dot_types(scheme)
         else:
             dt = ""
-        self._add_line("{ts} {name} = {code}{dt};"
+        self._add_line("DataSet<{ts}> {name} = {code}{dt};"
                        .format(ts=type_sig, name=name, code=op_code, dt=dt))
 
     def every(self, op):
@@ -145,6 +151,25 @@ public class FlinkQuery {{
                        .format(inp=in_name,
                                base='file:///tmp/flink',
                                out=name))
+
+    def v_select(self, select):
+        child = select.input
+        child_sch = child.scheme()
+        child_sig = type_signature(child_sch)
+
+        cond = FlinkExpressionCompiler(child_sch).visit(select.condition)
+
+        ff = """
+FilterFunction<{cs}>() {{
+    @Override
+    public boolean filter({cs} t) {{
+        return {cond};
+    }}
+}}""".format(cs=child_sig, cond=cond).strip()
+
+        child_str = self.operator_names[str(select.input)]
+        op_code = "{child}.filter(new {ff})".format(child=child_str, ff=ff)
+        self._add_op_code(select, op_code, add_dot_types=False)
 
     def visit_column_select(self, apply):
         scheme = apply.scheme()
