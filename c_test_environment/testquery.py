@@ -3,7 +3,7 @@ import subprocess
 import sys
 import sqlite3
 import csv
-from verifier import verify
+from verifier import verify, verify_store
 import osutils
 
 def testdbname():
@@ -191,6 +191,24 @@ def checkquery(name, testplatform, trustedplatform=SqliteRunner("testqueries"), 
 
     print "test: %s" % (name)
     verify(testoutfn, expectedfn, False)
+
+
+def checkstore(name, testplatform, trustedplatform=SqliteRunner("testqueries"), tmppath="tmp"):  # noqa
+
+    """
+    @param name: name of query
+    @param tmppath: existing directory for temporary files
+    """
+
+    osutils.mkdir_p(tmppath)
+    abstmppath = os.path.abspath(tmppath)
+    testplatform.run(name, abstmppath)
+    trustedplatform.run(name, abstmppath)
+    testoutfn = name
+    expectedfn = "%s/%s.sqlite.csv" %(abstmppath, name)
+
+    print "test: %s" % (name)
+    verify_store(testoutfn, expectedfn, False)
 
 
 import argparse

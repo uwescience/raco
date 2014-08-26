@@ -1,9 +1,10 @@
 class DatalogPlatformTest(object):
 
     # Run these tests manually with
-    #    `python c_test_environment/clang_tests.py` from `raco/`
+    #    `python c_test_environment/clang_datalog_tests.py` from `raco/`
     #
     # Currently Grappa tests are disabled unless invoked manually.
+
     def test_scan(self):
         self.check("A(s1) :- T1(s1)", "scan")
 
@@ -114,6 +115,17 @@ class DatalogPlatformTest(object):
         """introduced for #250"""
         self.check("""A(a,b,c,d) :- T2(a,b), R2(a,c), R2(d,a)""", "common_index_disallowed")
 
+    def test_file_store(self):
+        self.check_file("""store(a,b) :- R2(a,b)""", "store")
+
+    def test_file_fewer_col_store(self):
+        self.check_file("""few_col_store(a) :- R2(a,3)""", "few_col_store")
+
+    def test_file_more_col_store(self):
+        self.check_file("""more_col_store(a,b,c) :- R2(a,b), S2(b,c), T2(c,a)""", "more_col_store")
+
+    def test_file_no_tuple_store(self):
+        self.check_file("""zero_store(a) :- R2(a,11)""", "zero_store")
 
 import raco.scheme as scheme
 import raco.types as types
