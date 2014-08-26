@@ -351,13 +351,13 @@ class NamedAttributeRef(AttributeRef):
 class UnnamedAttributeRef(AttributeRef):
 
     def __init__(self, position, debug_info=None):
-        if debug_info is None:
-            debug_info = "${}".format(position)
         self.debug_info = debug_info
         self.position = position
 
     def __str__(self):
-        return "%s" % (self.debug_info)
+        if not self.debug_info:
+            return "{pos}".format(pos=self.position)
+        return "{dbg}".format(dbg=self.debug_info)
 
     def __repr__(self):
         return "{op}({pos!r}, {dbg!r})".format(op=self.opname(),
@@ -383,6 +383,7 @@ class UnnamedAttributeRef(AttributeRef):
 
 
 class StateRef(Expression):
+    __metaclass__ = ABCMeta
 
     @abstractmethod
     def get_position(self, scheme, state_scheme):
@@ -403,6 +404,9 @@ class UnnamedStateAttributeRef(StateRef):
 
     def __repr__(self):
         return "{op}({pos!r})".format(op=self.opname(), pos=self.position)
+
+    def get_position(self, scheme, state_scheme):
+        return self.position
 
     def evaluate(self, _tuple, scheme, state):
         return state.values[self.position]
