@@ -76,20 +76,21 @@ class Flink(algebra.OperatorCompileVisitor):
         return True
 
     def begin(self):
-        comments = '\n'.join('// {line}'.format(line=line)
-                             for line in dedent(self.query).strip().split('\n'))  # noqa
+        query = '\n'.join('//   {line}'.format(line=line)
+                          for line in dedent(self.query).strip().split('\n'))
         preamble = """
 import org.apache.flink.api.java.*;
 import org.apache.flink.api.java.tuple.*;
 
-{comments}
+// Original query:
+{query}
 
 public class FlinkQuery {{
 
   public static void main(String[] args) throws Exception {{
 
     final ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
-""".format(comments=comments)  # noqa
+""".format(query=query).strip()  # noqa
         self.lines.append(preamble)
         self.indent = 2
 
@@ -108,6 +109,7 @@ public class FlinkQuery {{
                              for c in op.children())
         if child_str:
             child_str = '[{cs}]'.format(cs=child_str)
+        self._add_line('')
         self._add_line('// {op}{cs}'.format(op=op.shortStr(), cs=child_str))
 
     def _add_op_code(self, op, op_code, add_dot_types=True):
