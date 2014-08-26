@@ -21,4 +21,5 @@ class OptLogicalAlgebra(object):
                 rules.RemoveUnusedColumns(),
                 rules.PushApply(),
                 rules.RemoveUnusedColumns(),
-                rules.PushApply()]
+                rules.PushApply(),
+                rules.RemoveNoOpApply()]
