@@ -38,7 +38,7 @@ class Expression(Printable):
         :param scheme: The schema of the relation corresponding to this
         expression
         :param state_scheme: The schema of the state corresponding to this
-        expression; this is None except for teh StatefulApply operator.
+        expression; this is None except for the StatefulApply operator.
         :return: A string from among types.type_names.
         """
 
