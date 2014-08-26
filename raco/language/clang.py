@@ -544,7 +544,7 @@ class CStore(algebra.Store, CCOperator):
         return code
 
     def write_schema(self, scheme):
-        schemafile = 'schema/' + str(self.relation_key).replace(":", "_")
+        schemafile = 'schema/' + str(self.relation_key).split(":")[2]
         code = 'logfile.open("%s");\n' % schemafile
         names = [x.encode('UTF8') for x in scheme.get_names()]
         code += self.language.log_file("%s" % names)
