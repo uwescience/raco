@@ -979,7 +979,7 @@ class GrappaStore(algebra.Store, GrappaOperator):
         resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
         state.addDeclarations([resdecl])
         code += "result.push_back(%s);\n" % (t.name)
-        filename = (str(self.relation_key).split(":")[2]
+        filename = (str(self.relation_key).split(":")[2])
         names = [x.encode('UTF8') for x in self.scheme().get_names()]
         schemefile = 'writeSchema("%s", "%s", "%s");' % \
                      (names, self.scheme().get_types(), filename)
