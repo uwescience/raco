@@ -5,10 +5,12 @@ import raco.types
 
 
 def java_escape_str(s):
+    # TODO this is not complete at all
     s = re.sub('[\\\\]', "\\\\", s)  # fix backslash
     s = re.sub('[\"]', '\\"', s)     # fix quote
     s = re.sub('[\n]', '\\n', s)     # fix newline
     return s
+
 
 class FlinkExpressionCompiler(raco.expression.ExpressionVisitor):
     """Visit an expression, compile an equivalent Java string"""
