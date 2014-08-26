@@ -57,7 +57,7 @@ class StratosphereTestCase(unittest.TestCase):
         query = """
         emp = scan({emp});
         emp1 = scan({emp});
-        j = [from emp, emp1 where emp1.$0 = emp.$1 emit emp.*];
+        j = [from emp, emp1 where emp1.$0 = emp.$1 emit emp.*, emp1.$2];
         store(j, OUTPUT);
         """.format(emp=self.emp_key)
         # Just ensure that it compiles

@@ -64,14 +64,14 @@ class Stratosphere(algebra.OperatorCompileVisitor):
                base='file:///tmp/stratosphere', dt=dot_types(scheme))
         self.dataset_lines[dataset] = method
         self.lines.append('{ind}{ts} {ds} = load{ds}(env);'
-                          .format(ind='  '*self.indent,
+                          .format(ind='  ' * self.indent,
                                   ts=type_signature(scheme),
                                   ds=dataset))
         return True
 
     def begin(self):
         comments = '\n'.join('// {line}'.format(line=line)
-                             for line in dedent(self.query).strip().split('\n'))
+                             for line in dedent(self.query).strip().split('\n'))  # noqa
         preamble = """
 import eu.stratosphere.api.java.*;
 import eu.stratosphere.api.java.tuple.*;
@@ -158,7 +158,11 @@ public class StratosphereQuery {{
                 raise NotImplementedError("ProjectingJoin with unordered cols")
 
         left_cols = [i for i in output_cols if i < left_len]
-        right_cols = [i for i in output_cols if i >= left_len]
+        right_cols = [i - left_len for i in output_cols if i >= left_len]
+
+        if len(left_cols) == 0 or len(right_cols) == 0:
+            raise NotImplementedError("Stratosphere issue with semijoin: {}"
+                                      .format(join.shortStr()))
 
         project_clause = (".projectFirst({lc}).projectSecond({rc})"
                           .format(lc=','.join(str(c) for c in left_cols),
@@ -166,7 +170,7 @@ public class StratosphereQuery {{
 
         # Actually output the operator
         self._add_line("// {op}".format(op=join.shortStr()))
-        self._add_line("{ts} {newop} = {left}.joinWithHuge({right}){where}{proj}{dt};"
+        self._add_line("{ts} {newop} = {left}.joinWithHuge({right}){where}{proj}{dt};"  # noqa
                        .format(ts=type_signature(scheme), newop=name,
                                left=left_name, right=right_name,
                                where=where_clause,
