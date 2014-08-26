@@ -101,7 +101,10 @@ public class FlinkQuery {{
         self.indent = 2
 
     def _add_line(self, line):
-        self.lines.append('{ind}{line}'.format(ind='  ' * self.indent,
+        indent = '  ' * self.indent
+        # handle the case where line actually has newlines in it
+        line = line.replace('\n', '\n' + indent)
+        self.lines.append('{ind}{line}'.format(ind=indent,
                                                line=line))
 
     def _add_lines(self, lines):
