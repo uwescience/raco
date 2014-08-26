@@ -25,16 +25,16 @@ def dot_types(scheme):
     return ".types({})".format(','.join(t))
 
 
-def compile_to_stratosphere(raw_query, plan):
-    strat = Stratosphere(raw_query)
-    strat.begin()
-    list(plan.postorder(strat.visit))
-    strat.end()
-    return strat.get()
+def compile_to_flink(raw_query, plan):
+    flink = Flink(raw_query)
+    flink.begin()
+    list(plan.postorder(flink.visit))
+    flink.end()
+    return flink.get()
 
 
-class Stratosphere(algebra.OperatorCompileVisitor):
-    """Produces Stratosphere Java programs"""
+class Flink(algebra.OperatorCompileVisitor):
+    """Produces Flink Java programs"""
     def __init__(self, query):
         self.lines = []
         assert isinstance(query, (str, unicode))
@@ -61,7 +61,7 @@ class Stratosphere(algebra.OperatorCompileVisitor):
   private static {ts} load{ds}(ExecutionEnvironment env) {{
     return env.readCsvFile("{base}/{ds}"){dt};
   }}""".format(ts=type_signature(scheme), ds=dataset,
-               base='file:///tmp/stratosphere', dt=dot_types(scheme))
+               base='file:///tmp/flink', dt=dot_types(scheme))
         self.dataset_lines[dataset] = method
         self.lines.append('{ind}{ts} {ds} = load{ds}(env);'
                           .format(ind='  ' * self.indent,
@@ -73,12 +73,12 @@ class Stratosphere(algebra.OperatorCompileVisitor):
         comments = '\n'.join('// {line}'.format(line=line)
                              for line in dedent(self.query).strip().split('\n'))  # noqa
         preamble = """
-import eu.stratosphere.api.java.*;
-import eu.stratosphere.api.java.tuple.*;
+import org.apache.flink.api.java.*;
+import org.apache.flink.api.java.tuple.*;
 
 {comments}
 
-public class StratosphereQuery {{
+public class FlinkQuery {{
 
   public static void main(String[] args) throws Exception {{
 
@@ -111,7 +111,7 @@ public class StratosphereQuery {{
         self._add_line('// {op}'.format(op=store.shortStr()))
         self._add_line('{inp}.writeAsCsv("{base}/{out}");'
                        .format(inp=in_name,
-                               base='file:///tmp/stratosphere',
+                               base='file:///tmp/flink',
                                out=name))
 
     def visit_column_select(self, apply):
@@ -161,7 +161,7 @@ public class StratosphereQuery {{
         right_cols = [i - left_len for i in output_cols if i >= left_len]
 
         if len(left_cols) == 0 or len(right_cols) == 0:
-            raise NotImplementedError("Stratosphere issue with semijoin: {}"
+            raise NotImplementedError("Flink issue with semijoin: {}"
                                       .format(join.shortStr()))
 
         project_clause = (".projectFirst({lc}).projectSecond({rc})"

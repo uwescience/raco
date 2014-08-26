@@ -7,10 +7,10 @@ import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme as scheme
 import raco.types as types
-from .stratosphere import compile_to_stratosphere
+from .flink import compile_to_flink
 
 
-class StratosphereTestCase(unittest.TestCase):
+class FlinkTestCase(unittest.TestCase):
     """A base for testing the compilation of RACO programs to SQL queries"""
 
     emp_table = [
@@ -43,7 +43,7 @@ class StratosphereTestCase(unittest.TestCase):
         self.processor.evaluate(statements)
         p = self.processor.get_logical_plan()
         p = optimize_by_rules(p, OptLogicalAlgebra.opt_rules())
-        return compile_to_stratosphere(query, p)
+        return compile_to_flink(query, p)
 
     def test_simple_scan(self):
         query = """
