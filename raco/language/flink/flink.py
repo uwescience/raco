@@ -1,5 +1,6 @@
 from collections import Counter
 import os
+import re
 from textwrap import dedent
 
 import raco.algebra as algebra
@@ -46,6 +47,9 @@ class Flink(algebra.OperatorCompileVisitor):
         self.data_dir = "data"
 
     def alloc_operator_name(self, op):
+        if isinstance(op, algebra.Scan):
+            return op.relation_key.relation
+
         opname = op.opname()
         self.optype_names[opname] += 1
         return '{}{}'.format(opname, self.optype_names[opname])
@@ -53,20 +57,22 @@ class Flink(algebra.OperatorCompileVisitor):
     def dataset_path(self, dataset):
         return os.path.join(self.data_dir, dataset)
 
+    @staticmethod
+    def dataset_name(dataset):
+        # replace all illegal chars
+        return re.sub('[^0-9a-zA-Z_]', '_', dataset)
+
     def _load_dataset(self, dataset, scheme):
-        assert isinstance(dataset, basestring)
+        assert isinstance(dataset, basestring) and len(dataset) > 0
+        dataset = Flink.dataset_name(dataset)
         if dataset in self.dataset_lines:
             return False
         method = """
-  private static {ts} load{ds}(ExecutionEnvironment env) {{
+  private static {ts} load_{ds}(ExecutionEnvironment env) {{
     return env.readCsvFile("{base}/{ds}"){dt};
   }}""".format(ts=type_signature(scheme), ds=dataset,
                base='file:///tmp/flink', dt=dot_types(scheme))
         self.dataset_lines[dataset] = method
-        self.lines.append('{ind}{ts} {ds} = load{ds}(env);'
-                          .format(ind='  ' * self.indent,
-                                  ts=type_signature(scheme),
-                                  ds=dataset))
         return True
 
     def begin(self):
@@ -97,22 +103,38 @@ public class FlinkQuery {{
                                             line=line)
                        for line in lines]
 
-    def _print_op(self, op):
+    def _add_op_comment(self, op):
         child_str = ','.join(self.operator_names[str(c)]
                              for c in op.children())
         if child_str:
             child_str = '[{cs}]'.format(cs=child_str)
         self._add_line('// {op}{cs}'.format(op=op.shortStr(), cs=child_str))
 
+    def _add_op_code(self, op, op_code, add_dot_types=True):
+        op_str = str(op)
+        if op_str in self.operator_names:
+            self._add_line('// skipped -- already computed')
+            return
+        name = self.alloc_operator_name(op)
+        self.operator_names[op_str] = name
+        scheme = op.scheme()
+        type_sig = type_signature(scheme)
+        if add_dot_types:
+            dt = dot_types(scheme)
+        else:
+            dt = ""
+        self._add_line("{ts} {name} = {code}{dt};"
+                       .format(ts=type_sig, name=name, code=op_code, dt=dt))
+
     def every(self, op):
-        self._print_op(op)
+        self._add_op_comment(op)
 
     def v_scan(self, scan):
         name = scan.relation_key.relation
-        if self._load_dataset(name, scan.scheme()):
-            self.operator_names[str(scan)] = name
-        else:
-            self._add_line('// skipped -- already loaded')
+        self._load_dataset(name, scan.scheme())
+        self._add_op_code(scan,
+                          "load_{ds}(env)".format(ds=Flink.dataset_name(name)),
+                          add_dot_types=False)
 
     def v_store(self, store):
         name = store.relation_key.relation
@@ -128,12 +150,8 @@ public class FlinkQuery {{
                 for ref in apply.emitters]
         cols_str = ','.join(cols)
         in_name = self.operator_names[str(apply.input)]
-        name = self.alloc_operator_name(apply)
-        self.operator_names[str(apply)] = name
-        self._add_line("{ts} {newop} = {inp}.project({cols}){dt};"
-                       .format(ts=type_signature(scheme), newop=name,
-                               inp=in_name, cols=cols_str,
-                               dt=dot_types(scheme)))
+        self._add_op_code(apply, "{inp}.project({cols})"
+                          .format(inp=in_name, cols=cols_str))
 
     def v_apply(self, apply):
         # For now, only handle column selection
@@ -145,10 +163,6 @@ public class FlinkQuery {{
 
     def v_projectingjoin(self, join):
         scheme = join.scheme()
-        left_name = self.operator_names[str(join.left)]
-        right_name = self.operator_names[str(join.right)]
-        name = self.alloc_operator_name(join)
-        self.operator_names[str(join)] = name
 
         # First we need the condition
         left_len = len(join.left.scheme())
@@ -178,12 +192,11 @@ public class FlinkQuery {{
             project_clause = ("{pc}.projectSecond({rc})"
                               .format(pc=project_clause, rc=rc))
 
-        # Actually output the operator
-        self._add_line("{ts} {newop} = {left}.joinWithHuge({right}){where}{proj}{dt};"  # noqa
-                       .format(ts=type_signature(scheme), newop=name,
-                               left=left_name, right=right_name,
-                               where=where_clause, proj=project_clause,
-                               dt=dot_types(scheme)))
+        op_code = ("{left}.joinWithHuge({right}){where}{proj}"
+                   .format(left=self.operator_names[str(join.left)],
+                           right=self.operator_names[str(join.right)],
+                           where=where_clause, proj=project_clause))
+        self._add_op_code(join, op_code)
 
     def end(self):
         # Should be at the end of main
