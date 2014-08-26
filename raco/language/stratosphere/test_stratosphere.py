@@ -50,4 +50,15 @@ class StratosphereTestCase(unittest.TestCase):
         emp = scan({emp});
         store(emp, OUTPUT);
         """.format(emp=self.emp_key)
-        raise NotImplementedError(self.compile_query(query))
+        # Just ensure that it compiles
+        self.compile_query(query)
+
+    def test_join(self):
+        query = """
+        emp = scan({emp});
+        emp1 = scan({emp});
+        j = [from emp, emp1 where emp1.$0 = emp.$1 emit emp.*];
+        store(j, OUTPUT);
+        """.format(emp=self.emp_key)
+        # Just ensure that it compiles
+        self.compile_query(query)

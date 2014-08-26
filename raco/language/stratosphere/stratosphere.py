@@ -1,7 +1,10 @@
 from collections import Counter
 import os
+from textwrap import dedent
 
 import raco.algebra as algebra
+from raco.expression import AttributeRef, toUnnamed
+from raco.language.myrialang import convertcondition
 import raco.types as types
 
 raco_to_type = {types.LONG_TYPE: "Long",
@@ -53,21 +56,22 @@ class Stratosphere(algebra.OperatorCompileVisitor):
     def _load_dataset(self, dataset, scheme):
         assert isinstance(dataset, basestring)
         if dataset in self.dataset_lines:
-            return
+            return False
         method = """
   private static {ts} load{ds}(ExecutionEnvironment env) {{
     return env.readCsvFile("{base}/{ds}"){dt};
   }}""".format(ts=type_signature(scheme), ds=dataset,
                base='file:///tmp/stratosphere', dt=dot_types(scheme))
         self.dataset_lines[dataset] = method
-        self.lines.append('{ind}{ts} {ds} = load{ds}(env);' 
+        self.lines.append('{ind}{ts} {ds} = load{ds}(env);'
                           .format(ind='  '*self.indent,
                                   ts=type_signature(scheme),
                                   ds=dataset))
+        return True
 
     def begin(self):
         comments = '\n'.join('// {line}'.format(line=line)
-                             for line in self.query.strip().split('\n'))
+                             for line in dedent(self.query).strip().split('\n'))
         preamble = """
 import eu.stratosphere.api.java.*;
 import eu.stratosphere.api.java.tuple.*;
@@ -96,25 +100,78 @@ public class StratosphereQuery {{
     def v_scan(self, scan):
         name = scan.relation_key.relation
         self._add_line('// {op}'.format(op=str(scan)))
-        self._load_dataset(name, scan.scheme())
-        self.operator_names[str(scan)] = name
+        if self._load_dataset(name, scan.scheme()):
+            self.operator_names[str(scan)] = name
+        else:
+            self._add_line('// skipped -- already loaded')
 
     def v_store(self, store):
         name = store.relation_key.relation
         in_name = self.operator_names[str(store.input)]
-        self._add_line('// {op}'.format(op=str(store)))
+        self._add_line('// {op}'.format(op=store.shortStr()))
         self._add_line('{inp}.writeAsCsv("{base}/{out}");'
                        .format(inp=in_name,
                                base='file:///tmp/stratosphere',
                                out=name))
 
-    def v_unionall(self, store):
-        name = store.relation_key.relation
-        in_name = self.operator_names[str(store.input)]
-        self._add_line('// {op}'.format(op=str(store)))
-        self._add_line('{inp}.writeAsCsv("{base}/{out}");'
-                       .format(inp=in_name,
-                               base='file:///tmp/stratosphere', out=name))
+    def visit_column_select(self, apply):
+        scheme = apply.scheme()
+        cols = [str(toUnnamed(ref[1], scheme).position)
+                for ref in apply.emitters]
+        cols_str = ','.join(cols)
+        in_name = self.operator_names[str(apply.input)]
+        name = self.alloc_operator_name(apply)
+        self.operator_names[str(apply)] = name
+        self._add_line("// {op}".format(op=apply.shortStr()))
+        self._add_line("{ts} {newop} = {inp}.project({cols}){dt};"
+                       .format(ts=type_signature(scheme), newop=name,
+                               inp=in_name, cols=cols_str,
+                               dt=dot_types(scheme)))
+
+    def v_apply(self, apply):
+        # For now, only handle column selection
+        if all(isinstance(e[1], AttributeRef) for e in apply.emitters):
+            self.visit_column_select(apply)
+            return
+
+        raise NotImplementedError('v_apply of {}'.format(apply))
+
+    def v_projectingjoin(self, join):
+        scheme = join.scheme()
+        left_name = self.operator_names[str(join.left)]
+        right_name = self.operator_names[str(join.right)]
+        name = self.alloc_operator_name(join)
+        self.operator_names[str(join)] = name
+
+        # First we need the condition
+        left_len = len(join.left.scheme())
+        condition = convertcondition(join.condition, left_len, scheme)
+        where_clause = (".where({lc}).equalTo({rc})"
+                        .format(lc=','.join(str(c) for c in condition[0]),
+                                rc=','.join(str(c) for c in condition[1])))
+
+        # Now we need the project clause
+        output_cols = [toUnnamed(ref, scheme).position
+                       for ref in join.output_columns]
+        for (i, c) in enumerate(output_cols):
+            if i < any(output_cols[:c]):
+                raise NotImplementedError("ProjectingJoin with unordered cols")
+
+        left_cols = [i for i in output_cols if i < left_len]
+        right_cols = [i for i in output_cols if i >= left_len]
+
+        project_clause = (".projectFirst({lc}).projectSecond({rc})"
+                          .format(lc=','.join(str(c) for c in left_cols),
+                                  rc=','.join(str(c) for c in right_cols)))
+
+        # Actually output the operator
+        self._add_line("// {op}".format(op=join.shortStr()))
+        self._add_line("{ts} {newop} = {left}.joinWithHuge({right}){where}{proj}{dt};"
+                       .format(ts=type_signature(scheme), newop=name,
+                               left=left_name, right=right_name,
+                               where=where_clause,
+                               proj=project_clause,
+                               dt=dot_types(scheme)))
 
     def end(self):
         # Should be at the end of main
