@@ -182,12 +182,7 @@ class STDEV(UnaryFunction, DecomposableAggregate):
             return 0.0
 
         mean = float(sum(filtered)) / n
-
-        std = 0.0
-        for a in filtered:
-            std += (a - mean) ** 2
-        std = math.sqrt(std / n)
-        return std
+        return math.sqrt(sum((a - mean) ** 2 for a in filtered) / n)
 
     def get_local_aggregates(self):
         return [SUM(self.input), SUM(TIMES(self.input, self.input)),
