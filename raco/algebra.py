@@ -1359,7 +1359,7 @@ class OperatorCompileVisitor(object):
         """Called at the end of a program"""
 
     @abstractmethod
-    def every(self):
+    def every(self, op):
         """Called before visiting every operator"""
 
     def visit(self, op):
