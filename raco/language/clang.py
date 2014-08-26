@@ -528,7 +528,7 @@ class CStore(algebra.Store, CCOperator):
             code += self.language.log_unquoted("%s" % t.name, 2)
         elif self.emit_print == 'file':
             state.addPreCode('std::ofstream logfile;\n')
-            resultfile = str(self.relation_key).replace(":", "_")
+            resultfile = str(self.relation_key).split(":")[2]
             opentuple = 'logfile.open("%s");\n' % resultfile
             schemafile = self.write_schema(self.scheme())
             state.addPreCode(schemafile)
