@@ -63,7 +63,7 @@ class FlinkTestCase(unittest.TestCase):
         # Just ensure that it compiles
         self.compile_query(query)
 
-    def test_semijoin(self):
+    def test_semi_join(self):
         query = """
         emp = scan({emp});
         emp1 = scan({emp});
