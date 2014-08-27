@@ -681,10 +681,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              x[0] > 3])
         self.check_result(query, expected)
 
-    def __aggregate_expected_result(self, apply_func):
+    def __aggregate_expected_result(self, apply_func, grouping_col=1, agg_col=3):
         result_dict = collections.defaultdict(list)
         for t in self.emp_table.elements():
-            result_dict[t[1]].append(t[3])
+            result_dict[t[grouping_col]].append(t[agg_col])
 
         tuples = [(key, apply_func(values)) for key, values in
                   result_dict.iteritems()]
@@ -1327,6 +1327,30 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = collections.Counter(
             [(max(t[0], t[1],),)
              for t in self.emp_table])
+        self.check_result(query, expected)
+
+    def test_second_max_uda(self):
+        """UDA to compute the second largest element in a collection."""
+        query = """
+        uda SecondMax(val) {
+            [0 as _max, 0 as second_max];
+            [case when val > _max then val else _max end,
+             case when val > _max then _max when val > second_max then val
+             else second_max end],
+             second_max
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SecondMax(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        def agg_func(x):
+            if len(x) < 2:
+                return 0
+            else:
+                return sorted(x)[1]
+
+        expected = self.__aggregate_expected_result(agg_func)
         self.check_result(query, expected)
 
     def test_running_mean_sapply(self):
