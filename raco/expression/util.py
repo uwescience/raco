@@ -68,7 +68,8 @@ def binary_ops():
 
 def isaggregate(expr):
     # AAA
-    return any(expr.postorder(lambda x: isinstance(x, BuiltinAggregateExpression)))
+    return any(expr.postorder(
+        lambda x: isinstance(x, BuiltinAggregateExpression)))
 
 
 def udf_undefined_vars(expr, vars):
