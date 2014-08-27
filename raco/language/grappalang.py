@@ -981,11 +981,11 @@ class GrappaStore(algebra.Store, GrappaOperator):
         code += "result.push_back(%s);\n" % (t.name)
         filename = (str(self.relation_key).split(":")[2])
         names = [x.encode('UTF8') for x in self.scheme().get_names()]
-        schemefile = 'writeSchema("%s", "%s", "%s");' % \
+        schemefile = 'writeSchema("%s", "%s", "%s");\n' % \
                      (names, self.scheme().get_types(), filename)
         state.addPreCode(schemefile)
         resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % (filename)
-        state.current_pipeline_postcode.addPostCode(resultfile)
+        state.addPipelineFlushCode(resultfile)
 
         return code
 
