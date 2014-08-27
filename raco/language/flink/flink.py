@@ -196,11 +196,37 @@ FilterFunction<{cs}>() {{
 
     def v_apply(self, op):
         # For now, only handle column selection
-        if all(isinstance(e[1], AttributeRef) for e in op.emitters):
+        emitters = [e[1] for e in op.emitters]
+        if all(isinstance(e, AttributeRef) for e in emitters):
             self.visit_column_select(op)
             return
 
-        raise NotImplementedError('v_apply of {}'.format(op))
+        scheme = op.scheme()
+        child = op.input
+        child_str = self.operator_names[str(child)]
+        child_sch = child.scheme()
+        child_sig = type_signature(child_sch)
+        op_sig = type_signature(scheme)
+
+        fields = [FlinkExpressionCompiler(child_sch).visit(e)
+                  for e in emitters]
+
+        lines = ["out.f{i} = {f};".format(i=i, f=f, t=raco_to_type[t])
+                 for i, (t, f) in enumerate(zip(scheme.get_types(), fields))]
+
+        mf = """
+MapFunction<{cs}, {os}>() {{
+    private {os} out = new {os}();
+
+    @Override
+    public {os} map({cs} t) {{
+        {lines}
+        return out;
+    }}
+}}""".format(cs=child_sig, os=op_sig, lines='\n        '.join(lines)).strip()
+
+        op_code = "{child}.map(new {mf})".format(child=child_str, mf=mf)
+        self._add_op_code(op, op_code, add_dot_types=False)
 
     def v_groupby(self, op):
         child_scheme = op.input.scheme()
