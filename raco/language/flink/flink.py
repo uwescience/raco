@@ -195,24 +195,27 @@ FilterFunction<{cs}>() {{
                           .format(inp=in_name, cols=cols_str))
 
     def v_apply(self, op):
-        # For now, only handle column selection
         emitters = [e[1] for e in op.emitters]
+
+        # Special-case column selection
         if all(isinstance(e, AttributeRef) for e in emitters):
             self.visit_column_select(op)
             return
 
+        # Else, do the full compilation of the Apply
         scheme = op.scheme()
+        op_sig = type_signature(scheme)
+
         child = op.input
         child_str = self.operator_names[str(child)]
         child_sch = child.scheme()
         child_sig = type_signature(child_sch)
-        op_sig = type_signature(scheme)
 
         fields = [FlinkExpressionCompiler(child_sch).visit(e)
                   for e in emitters]
 
-        lines = ["out.f{i} = {f};".format(i=i, f=f, t=raco_to_type[t])
-                 for i, (t, f) in enumerate(zip(scheme.get_types(), fields))]
+        lines = ["out.f{i} = {f};".format(i=i, f=f)
+                 for i, f in enumerate(fields)]
 
         mf = """
 MapFunction<{cs}, {os}>() {{
