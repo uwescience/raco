@@ -780,6 +780,13 @@ class GroupBy(UnaryOperator):
     def __init__(self, grouping_list=None, aggregate_list=None, input=None):
         self.grouping_list = grouping_list or []
         self.aggregate_list = aggregate_list or []
+        self.inits = [] # XXX fill this in
+        self.updaters = [] # XXX fill this in
+
+        self.state_scheme = scheme.Scheme()
+        for (name, expr) in self.inits:
+            self.state_scheme.addAttribute(name, expr.typeof(None, None))
+
         UnaryOperator.__init__(self, input)
 
     def num_tuples(self):
@@ -802,6 +809,10 @@ class GroupBy(UnaryOperator):
         """deep copy"""
         self.grouping_list = other.grouping_list
         self.aggregate_list = other.aggregate_list
+        self.updaters = other.updaters
+        self.inits = other.inits
+        self.state_scheme = other.state_scheme
+
         UnaryOperator.copy(self, other)
 
     def column_list(self):
