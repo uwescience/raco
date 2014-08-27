@@ -37,6 +37,32 @@ void COUNT_insert(std::unordered_map<K, V>& hash, T tuple, uint64_t keypos, uint
   slot += 1;
 }
 
+static uint64_t MIN(uint64_t a, uint64_t b) {
+  return (a<b) ? a : b;
+}
+
+static uint64_t MAX(uint64_t a, uint64_t b) {
+  return (a>b) ? a : b;
+}
+
+template <typename T, typename K, typename V>
+void MIN_insert(std::unordered_map<K, V >& hash, T tuple, uint64_t keypos, uint64_t valpos) {
+  auto key = tuple.get(keypos);
+  auto val = tuple.get(valpos);
+  // NOTE: this method is only valid for 0 identity functions
+  auto& slot = hash[key];
+  slot = MIN(slot, val);
+}
+
+template <typename T, typename K, typename V>
+void MAX_insert(std::unordered_map<K, V >& hash, T tuple, uint64_t keypos, uint64_t valpos) {
+  auto key = tuple.get(keypos);
+  auto val = tuple.get(valpos);
+  // NOTE: this method is only valid for 0 identity functions
+  auto& slot = hash[key];
+  slot = MAX(slot, val);
+}
+
 // one key
 template <typename T, typename V>
 void SUM_insert(V& var, T tuple, uint64_t valpos) {
@@ -48,6 +74,20 @@ void SUM_insert(V& var, T tuple, uint64_t valpos) {
 template <typename T, typename V>
 void COUNT_insert(V& var, T tuple, uint64_t valpos) {
   var += 1;
+}
+
+// one key
+template <typename T, typename V>
+void MIN_insert(V& var, T tuple, uint64_t valpos) {
+  auto val = tuple.get(valpos);
+  var = MIN(var, val);
+}
+
+// one key
+template <typename T, typename V>
+void MAX_insert(V& var, T tuple, uint64_t valpos) {
+  auto val = tuple.get(valpos);
+  var = MAX(var, val);
 }
 
 template <typename T, typename K>

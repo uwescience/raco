@@ -7,14 +7,14 @@ import os
 import sys
 import subprocess
 sys.path.append('./c_test_environment')
-from testquery import ClangRunner
+from testquery import ClangRunner, GrappalangRunner
 import osutils
 
 
 def parse_options(args):
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('platform', metavar='P', type=str, nargs=1,
+    parser.add_argument('platform', metavar='P', type=str,
                         help='Type of platform to use: clang or grappa')
 
     parser.add_argument('file', help='File containing platform source program')
@@ -29,14 +29,14 @@ def main(args):
     abspath = os.path.abspath("logs")
     name = opt.file
     if opt.platform == 'grappa':
-        # TODO
-        pass
-    else:
+        runner = GrappalangRunner()
+        runner.run(name, abspath)
+    elif opt.platform == 'clang':
         try:
             runner = ClangRunner()
             runner.run(name, abspath)
         except subprocess.CalledProcessError as e:
-            print 'clang runner for %s failed' %(name)
+            print 'clang runner for %s failed' % (name)
             print e.output
             raise
 
