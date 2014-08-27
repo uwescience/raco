@@ -4,8 +4,7 @@ import re
 from textwrap import dedent
 
 import raco.algebra as algebra
-from raco.expression import (AttributeRef, toUnnamed, AggregateExpression,
-                             COUNTALL, COUNT, SUM)
+from raco.expression import (AttributeRef, MAX, MIN, SUM)
 from raco.language.myrialang import convertcondition
 import raco.types as types
 from .flink_expression import FlinkExpressionCompiler, java_escape_str
@@ -245,14 +244,10 @@ MapFunction<{cs}, {os}>() {{
         if cols:
             group_by += ".groupBy({cols})".format(cols=','.join(cols))
 
-        def supported_agg(agg):
-            return (isinstance(agg, AggregateExpression)
-                    and not isinstance(agg, (COUNTALL, COUNT, SUM)))
-
-        bad_aggs = [a for a in aggs if not supported_agg(a)]
+        bad_aggs = [a for a in aggs if not isinstance(a, (MAX, MIN, SUM))]
         if bad_aggs:
-            raise NotImplementedError("Flink groupBy does not support: {}"
-                                      .format(bad_aggs))
+            raise NotImplementedError(
+                "Flink GroupBy does not support: {}".format(bad_aggs))
 
         a, aggs = aggs[0], aggs[1:]
         group_by += (".aggregate(Aggregations.{agg}, {idx})"
@@ -276,8 +271,7 @@ MapFunction<{cs}, {os}>() {{
                                 rc=','.join(str(c) for c in condition[1])))
 
         # Now we need the project clause
-        output_cols = [toUnnamed(ref, scheme).position
-                       for ref in op.output_columns]
+        output_cols = [ref.get_position(scheme) for ref in op.output_columns]
         for (i, c) in enumerate(output_cols):
             if c < any(output_cols[:i]):
                 raise NotImplementedError("ProjectingJoin with unordered cols")
