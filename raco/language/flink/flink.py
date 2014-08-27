@@ -273,7 +273,7 @@ MapFunction<{cs}, {os}>() {{
         # Now we need the project clause
         output_cols = [ref.get_position(scheme) for ref in op.output_columns]
         for (i, c) in enumerate(output_cols):
-            if c < any(output_cols[:i]):
+            if any(c < x for x in output_cols[:i]):
                 raise NotImplementedError("ProjectingJoin with unordered cols")
 
         left_cols = [i for i in output_cols if i < left_len]
