@@ -472,11 +472,10 @@ class RemoveNoOpApply(Rule):
         if child_scheme != op.scheme():
             return op
 
-        emitters = [expression.toUnnamed(e[1], child_scheme)
-                    for e in op.emitters]
+        emit_pos = [e[1].get_position(child_scheme) for e in op.emitters]
         # Schemes are the same (including names), and this Apply keeps all
         # columns in the same order. This Apply does nothing.
-        if all(e.position == i for (i, e) in enumerate(emitters)):
+        if all(pos == i for (i, pos) in enumerate(emit_pos)):
             return child
 
         return op
