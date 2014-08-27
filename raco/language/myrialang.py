@@ -347,8 +347,8 @@ class MyriaLeapFrogJoin(algebra.NaryJoin, MyriaOperator):
 class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
     @staticmethod
     def agg_mapping(agg_expr):
-        """Maps an AggregateExpression to a Myria string constant representing
-        the corresponding aggregate operation."""
+        """Maps a BuiltinAggregateExpression to a Myria string constant
+        representing the corresponding aggregate operation."""
         if isinstance(agg_expr, expression.MAX):
             return "MAX"
         elif isinstance(agg_expr, expression.MIN):
@@ -366,7 +366,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
 
     @staticmethod
     def compile_aggregator(agg, child_scheme):
-        if isinstance(agg, expression.AggregateExpression):
+        if isinstance(agg, expression.BuiltinAggregateExpression):
             if isinstance(agg, expression.COUNTALL):
                 return {"type": "CountAll"}
 
@@ -374,6 +374,8 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             return {"type": "SingleColumn",
                     "aggOps": [MyriaGroupBy.agg_mapping(agg)],
                     "column": column}
+        else:
+            assert False  # XXX Handle non-builtin aggregates
 
     def compileme(self, inputid):
         child_scheme = self.input.scheme()

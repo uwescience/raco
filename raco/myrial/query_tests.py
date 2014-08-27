@@ -681,7 +681,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              x[0] > 3])
         self.check_result(query, expected)
 
-    def __aggregate_expected_result(self, apply_func, grouping_col=1, agg_col=3):
+    def __aggregate_expected_result(self, apply_func, grouping_col=1,
+                                    agg_col=3):
         result_dict = collections.defaultdict(list)
         for t in self.emp_table.elements():
             result_dict[t[grouping_col]].append(t[agg_col])

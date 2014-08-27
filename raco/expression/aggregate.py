@@ -9,7 +9,7 @@ from abc import abstractmethod
 import math
 
 
-class AggregateExpression(Expression):
+class BuiltinAggregateExpression(Expression):
     def evaluate(self, _tuple, scheme, state=None):
         raise NotImplementedError("{expr}.evaluate".format(expr=type(self)))
 
@@ -48,7 +48,7 @@ def finalizer_expr_to_absolute(expr, offsets):
     return convert(expr)
 
 
-class DecomposableAggregate(AggregateExpression):
+class DecomposableAggregate(BuiltinAggregateExpression):
     """An aggregate expression that yields a distributed execution plan.
 
     Execution of a decomposable aggregate proceeds in three phases:

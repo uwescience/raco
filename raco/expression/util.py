@@ -4,7 +4,7 @@ Utility functions for use in Raco expressions
 
 from .expression import (BinaryOperator, AttributeRef, NamedAttributeRef,
                          UnnamedAttributeRef, NamedStateAttributeRef)
-from .aggregate import AggregateExpression
+from .aggregate import BuiltinAggregateExpression
 
 import copy
 import inspect
@@ -51,7 +51,7 @@ def aggregate_functions():
     """Return all the classes that can be used to construct an aggregate expression"""  # noqa
     allclasses = all_classes()
     opclasses = [opclass for opclass in allclasses
-                 if issubclass(opclass, AggregateExpression)
+                 if issubclass(opclass, BuiltinAggregateExpression)
                  and not inspect.isabstract(opclass)]
 
     return opclasses
@@ -67,7 +67,8 @@ def binary_ops():
 
 
 def isaggregate(expr):
-    return any(expr.postorder(lambda x: isinstance(x, AggregateExpression)))
+    # AAA
+    return any(expr.postorder(lambda x: isinstance(x, BuiltinAggregateExpression)))
 
 
 def udf_undefined_vars(expr, vars):

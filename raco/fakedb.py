@@ -6,7 +6,7 @@ import csv
 from raco import relation_key, types
 from raco.algebra import StoreTemp, DEFAULT_CARDINALITY
 from raco.catalog import Catalog
-from raco.expression import AND, EQ, AggregateExpression
+from raco.expression import AND, EQ, BuiltinAggregateExpression
 
 debug = False
 
@@ -14,12 +14,14 @@ debug = False
 class State(object):
     def __init__(self, op_scheme, state_scheme, init_exprs):
         self.scheme = state_scheme
-        self.values = [x.evaluate(None, op_scheme, None) for (_, x) in init_exprs]
+        self.values = [x.evaluate(None, op_scheme, None)
+                       for (_, x) in init_exprs]
 
     def update(self, tpl, op_scheme, update_exprs):
         new_vals = [expr.evaluate(tpl, op_scheme, self)
                     for (_, expr) in update_exprs]
         self.values = new_vals
+
 
 class FakeDatabase(Catalog):
     """An in-memory implementation of relational algebra operators"""
@@ -250,7 +252,7 @@ class FakeDatabase(Catalog):
 
             agg_fields = []
             for expr in op.aggregate_list:
-                if isinstance(expr, AggregateExpression):
+                if isinstance(expr, BuiltinAggregateExpression):
                     # Old-style aggregate: pass all tuples to the eval func
                     agg_fields.append(
                         expr.evaluate_aggregate(tuples, input_scheme))

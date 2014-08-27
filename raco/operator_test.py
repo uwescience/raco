@@ -52,7 +52,8 @@ class OperatorTest(unittest.TestCase):
         self.assertEqual([x[0] for x in result], range(7))
 
     def test_times_equal_uda(self):
-        input_op = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
+        input_op = Scan(TestQueryFunctions.emp_key,
+                        TestQueryFunctions.emp_schema)
 
         init_ex = NumericLiteral(1)
         update_ex = TIMES(NamedStateAttributeRef("value"),
