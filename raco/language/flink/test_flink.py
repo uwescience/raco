@@ -106,6 +106,16 @@ class FlinkTestCase(unittest.TestCase):
         """.format(emp=self.emp_key)
         self.compile_query(query)
 
+    def test_join_reorder(self):
+        query = """
+        emp = scan({emp});
+        emp1 = scan({emp});
+        j = [from emp, emp1 where emp1.$0 = emp.$1
+             emit emp.$3, emp.$1, emp1.$2];
+        store(j, OUTPUT);
+        """.format(emp=self.emp_key)
+        self.compile_query(query)
+
     def test_semi_join(self):
         query = """
         emp = scan({emp});
