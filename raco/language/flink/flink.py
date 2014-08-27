@@ -9,7 +9,7 @@ from raco.expression import (AttributeRef, toUnnamed, AggregateExpression,
 from raco.language.logical import OptLogicalAlgebra
 from raco.language.myrialang import convertcondition
 import raco.types as types
-from .flink_expression import FlinkExpressionCompiler
+from .flink_expression import FlinkExpressionCompiler, java_escape_str
 from .flink_rules import FlinkGroupBy
 
 raco_to_type = {types.LONG_TYPE: "Long",
@@ -179,7 +179,13 @@ FilterFunction<{cs}>() {{
     public boolean filter({cs} t) {{
         return {cond};
     }}
-}}""".format(cs=child_sig, cond=cond).strip()
+
+    @Override
+    public String toString() {{
+        return "{op_str}";
+    }}
+}}""".format(cs=child_sig, cond=cond,
+             op_str=java_escape_str(op.shortStr())).strip()
 
         child_str = self.operator_names[str(op.input)]
         op_code = "{child}.filter(new {ff})".format(child=child_str, ff=ff)
@@ -226,7 +232,13 @@ MapFunction<{cs}, {os}>() {{
         {lines}
         return out;
     }}
-}}""".format(cs=child_sig, os=op_sig, lines='\n        '.join(lines)).strip()
+
+    @Override
+    public String toString() {{
+        return "{op_str}";
+    }}
+}}""".format(cs=child_sig, os=op_sig, lines='\n        '.join(lines),
+             op_str=java_escape_str(op.shortStr())).strip()
 
         op_code = "{child}.map(new {mf})".format(child=child_str, mf=mf)
         self._add_op_code(op, op_code, add_dot_types=False)
