@@ -9,7 +9,11 @@ from abc import abstractmethod
 import math
 
 
-class BuiltinAggregateExpression(Expression):
+class AggregateExpression(Expression):
+    pass
+
+
+class BuiltinAggregateExpression(AggregateExpression):
     def evaluate(self, _tuple, scheme, state=None):
         raise NotImplementedError("{expr}.evaluate".format(expr=type(self)))
 
@@ -17,6 +21,25 @@ class BuiltinAggregateExpression(Expression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         """Evaluate an aggregate over a bag of tuples"""
 
+
+class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
+    """A user-defined aggregate.
+
+    A UDA wraps a sub-expression that is responsible for emitting a
+    value for each tuple group.
+    """
+    def __init__(self, sub_expression):
+        self.sub_expression = sub_expression
+
+    def evaluate(self, _tuple, scheme, state=None):
+        """Evaluate the UDA sub-expression.
+
+        Note that the sub-expression should only reference the state argument.
+        """
+        return self.sub_expression.evaluate(None, None, state)
+
+    def typeof(self, scheme, state_scheme):
+        return self.sub_expression.typeof(scheme, state_scheme)
 
 class LocalAggregateOutput(object):
     """Dummy placeholder to refer to the output of a local aggregate."""

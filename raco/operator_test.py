@@ -58,7 +58,7 @@ class OperatorTest(unittest.TestCase):
         init_ex = NumericLiteral(1)
         update_ex = TIMES(NamedStateAttributeRef("value"),
                           NamedAttributeRef("salary"))
-        emit_ex = NamedStateAttributeRef("value")
+        emit_ex = UdaAggregateExpression(NamedStateAttributeRef("value"))
 
         statemods = [("value", init_ex, update_ex)]
         gb = GroupBy([UnnamedAttributeRef(1)], [emit_ex], input_op, statemods)
