@@ -10,6 +10,7 @@ from raco.language.logical import OptLogicalAlgebra
 from raco.language.myrialang import convertcondition
 import raco.types as types
 from .flink_expression import FlinkExpressionCompiler
+from .flink_rules import FlinkGroupBy
 
 raco_to_type = {types.LONG_TYPE: "Long",
                 types.INT_TYPE: "Integer",
@@ -45,7 +46,7 @@ class FlinkAlgebra(object):
     @staticmethod
     def opt_rules():
         logical_rules = OptLogicalAlgebra.opt_rules()
-        return logical_rules
+        return logical_rules + [FlinkGroupBy()]
 
 
 class Flink(algebra.OperatorCompileVisitor):
