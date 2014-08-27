@@ -1,56 +1,60 @@
-from collections import Counter
 import raco.algebra as algebra
 from raco.expression import (AttributeRef, UnnamedAttributeRef,
-                             NumericLiteral, StringLiteral,
-                             AggregateExpression, COUNTALL, COUNT, AVG, STDEV)
+                             NumericLiteral, COUNTALL, COUNT, SUM, MIN, MAX)
 import raco.rules as rules
-import raco.types as types
+
+
+class FlinkAlgebra(object):
+    @staticmethod
+    def opt_rules():
+        pre_rules = [rules.RemoveTrivialSequences(),
+                     rules.SimpleGroupBy(),
+                     rules.SplitSelects(),
+                     rules.PushSelects(),
+                     rules.MergeSelects(),
+                     rules.ProjectingJoin(),
+                     rules.JoinToProjectingJoin()]
+        flink_rules = [FlinkGroupBy()]
+        post_rules = [rules.PushApply(),
+                      rules.RemoveUnusedColumns(),
+                      rules.PushApply(),
+                      rules.RemoveUnusedColumns(),
+                      rules.PushApply(),
+                      rules.RemoveNoOpApply()]
+        return pre_rules + flink_rules + post_rules
 
 
 class FlinkGroupBy(rules.Rule):
-    """Flink aggregates are required to not change the signature of the input.
-    Thus, we must create a stub schema in preparation of an aggregate."""
+    """Flink aggregates are required to not change the signature of the input
+    or the order of the columns. Thus we prepend an apply that makes this
+    happen."""
 
     def fire(self, op):
         if not isinstance(op, algebra.GroupBy):
             return op
 
-        scheme = op.scheme()
-        child_scheme = op.input.scheme()
-        op_types = scheme.get_types()
-        child_types = child_scheme.get_types()
-        if op_types == child_types:
-            # GroupBy does not change scheme, so we're fine
-            return op
+        if (not all(isinstance(e, AttributeRef) for e in op.grouping_list)
+            or not all(isinstance(a.input, AttributeRef)
+                       for a in op.aggregate_list)):
+            raise NotImplementedError("FlinkGroupBy expects a simple groupby")
 
-        op_count = Counter(op_types)
-        child_count = Counter(child_types)
-        if not all(op_count[k] >= child_count[k]
-                   for k in op_count.keys() + child_count.keys()):
-            # Child scheme is not a subset of op's, no way to do this as yet
-            raise NotImplementedError(
-                "Fundamentally incompatible schemas: {} and {}"
-                .format(scheme, child_scheme)
-            )
+        emit_exprs = [g for g in op.grouping_list]
+        op.grouping_list = [UnnamedAttributeRef(i)
+                            for i in range(len(emit_exprs))]
 
-        if all(op_types[i] == child_types[i] for i in range(len(child_types))):
-            # We just need to append some made up data
-            refs = [UnnamedAttributeRef(i) for i in range(len(child_types))]
-            for t in op_types[len(child_types):]:
-                if t == types.STRING_TYPE:
-                    refs.append(StringLiteral("blah"))
-                elif t == types.LONG_TYPE:
-                    refs.append(NumericLiteral(1))
-                elif t == types.DOUBLE_TYPE:
-                    refs.append(NumericLiteral(1.0))
-                else:
-                    raise NotImplementedError("handling type {t} in groupby"
-                                              .format(t=t))
-            type_adjust_apply = algebra.Apply(
-                emitters=[(None, r) for r in refs],
-                input=op.input)
-            op.input = type_adjust_apply
-            assert op_types == type_adjust_apply.scheme().get_types()
-            return op
+        for i, a in enumerate(op.aggregate_list):
+            pos = len(emit_exprs)
+            if isinstance(a, (COUNT, COUNTALL)):
+                emit_exprs.append(NumericLiteral(1))
+                op.aggregate_list[i] = SUM(UnnamedAttributeRef(pos))
+            elif isinstance(a, (MAX, MIN)):
+                emit_exprs.append(a.input)
+                a.input = UnnamedAttributeRef(pos)
+            else:
+                raise NotImplementedError(
+                    "Flink GroupBy with aggregate {a}".format(a=a))
 
-        raise NotImplementedError("{} {}".format(op, op.input))
+        apply = algebra.Apply(emitters=[(None, e) for e in emit_exprs],
+                              input=op.input)
+        op.input = apply
+        return op

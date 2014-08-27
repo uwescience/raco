@@ -6,11 +6,9 @@ from textwrap import dedent
 import raco.algebra as algebra
 from raco.expression import (AttributeRef, toUnnamed, AggregateExpression,
                              COUNTALL, COUNT, SUM)
-from raco.language.logical import OptLogicalAlgebra
 from raco.language.myrialang import convertcondition
 import raco.types as types
 from .flink_expression import FlinkExpressionCompiler, java_escape_str
-from .flink_rules import FlinkGroupBy
 
 raco_to_type = {types.LONG_TYPE: "Long",
                 types.INT_TYPE: "Integer",
@@ -40,13 +38,6 @@ def compile_to_flink(raw_query, plan):
     list(plan.postorder(flink.visit))
     flink.end()
     return flink.get()
-
-
-class FlinkAlgebra(object):
-    @staticmethod
-    def opt_rules():
-        logical_rules = OptLogicalAlgebra.opt_rules()
-        return logical_rules + [FlinkGroupBy()]
 
 
 class Flink(algebra.OperatorCompileVisitor):
@@ -192,9 +183,8 @@ FilterFunction<{cs}>() {{
         self._add_op_code(op, op_code, add_dot_types=False)
 
     def visit_column_select(self, op):
-        scheme = op.scheme()
-        cols = [str(toUnnamed(ref[1], scheme).position)
-                for ref in op.emitters]
+        child_scheme = op.input.scheme()
+        cols = [str(ref[1].get_position(child_scheme)) for ref in op.emitters]
         cols_str = ','.join(cols)
         in_name = self.operator_names[str(op.input)]
         self._add_op_code(op, "{inp}.project({cols})"

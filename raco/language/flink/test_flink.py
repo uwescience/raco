@@ -6,12 +6,12 @@ import unittest
 
 from raco.compile import optimize_by_rules
 import raco.fakedb
-from raco.language.logical import OptLogicalAlgebra
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme as scheme
 import raco.types as types
-from .flink import compile_to_flink, FlinkAlgebra
+from .flink import compile_to_flink
+from .flink_rules import FlinkAlgebra
 
 
 class FlinkTestCase(unittest.TestCase):
@@ -70,6 +70,7 @@ class FlinkTestCase(unittest.TestCase):
                    "-cp", "{flink}/lib/flink-core-0.6-incubating.jar:{flink}/lib/flink-java-0.6-incubating.jar".format(flink=flink_path),  # noqa
                    fname]
             self.check_output_and_print_stderr(cmd, query_str)
+            return query_str
         else:
             raise SkipTest()
 
@@ -77,6 +78,22 @@ class FlinkTestCase(unittest.TestCase):
         query = """
         emp = scan({emp});
         store(emp, OUTPUT);
+        """.format(emp=self.emp_key)
+        self.compile_query(query)
+
+    def test_project(self):
+        query = """
+        emp = scan({emp});
+        e1 = [from emp emit $3, $2];
+        store(e1, OUTPUT);
+        """.format(emp=self.emp_key)
+        self.compile_query(query)
+
+    def test_simple_map(self):
+        query = """
+        emp = scan({emp});
+        e1 = [from emp emit $3, "hi", $2];
+        store(e1, OUTPUT);
         """.format(emp=self.emp_key)
         self.compile_query(query)
 
