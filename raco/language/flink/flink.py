@@ -174,7 +174,7 @@ FilterFunction<{cs}>() {{
         child_str = self.operator_names[str(op.input)]
         op_code = ('{child}.filter(new {ff}).name("{op_str}")'
                    .format(child=child_str, ff=ff,
-                           op_str=java_escape_str(op.shortStr())))
+                           op_str=java_escape_str(str(op.condition))))
         self._add_op_code(op, op_code, add_dot_types=False)
 
     def visit_column_select(self, op):
