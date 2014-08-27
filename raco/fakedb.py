@@ -11,6 +11,12 @@ from raco.expression import AND, EQ
 debug = False
 
 
+class State(object):
+    def __init__(self, scheme, values):
+        self.scheme = scheme
+        self.values = values
+
+
 class FakeDatabase(Catalog):
     """An in-memory implementation of relational algebra operators"""
 
@@ -123,18 +129,19 @@ class FakeDatabase(Catalog):
         child_it = self.evaluate(op.input)
         scheme = op.input.scheme()
 
-        State = collections.namedtuple('State', ['scheme', 'values'])
         state = State(op.state_scheme, [expr.evaluate(None, scheme, None)
                       for (_, expr) in op.inits])
 
         def make_tuple(input_tuple, state):
-            for i, new_state in enumerate(
-                    [colexpr.evaluate(input_tuple, scheme, state)
-                     for (_, colexpr) in op.updaters]):
-                state.values[i] = new_state
-            ls = [colexpr.evaluate(input_tuple, scheme, state)
-                  for (_, colexpr) in op.emitters]
-            return tuple(ls)
+            # Update state variables
+            new_vals = [expr.evaluate(input_tuple, scheme, state)
+                        for (_, expr) in op.updaters]
+            state.values = new_vals
+
+            # Extract a result for each emit expression
+            return tuple([colexpr.evaluate(input_tuple, scheme, state)
+                          for (_, colexpr) in op.emitters])
+
         return (make_tuple(t, state) for t in child_it)
 
     def join(self, op):
