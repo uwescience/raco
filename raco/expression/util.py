@@ -67,7 +67,7 @@ def binary_ops():
 
 
 def isaggregate(expr):
-    # AAA
+    """Return true if the expression contains an aggregate function."""
     return any(expr.postorder(
         lambda x: isinstance(x, BuiltinAggregateExpression)))
 
