@@ -1,5 +1,5 @@
 import unittest
-from testquery import checkquery
+from testquery import checkquery, checkstore
 from testquery import ClangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
@@ -19,6 +19,12 @@ class DatalogClangTest(unittest.TestCase, DatalogPlatformTest):
             os.remove("%s.cpp" % name) if os.path.exists("%s.cpp" % name) else None
             emitCode(query, name, CCAlgebra)
             checkquery(name, ClangRunner())
+
+    def check_file(self, query, name):
+        with Chdir("c_test_environment") as d:
+            os.remove("%s.cpp" % name) if os.path.exists("%s.cpp" % name) else None
+            emitCode(query, name, CCAlgebra, emit_print='file')
+            checkstore(name, ClangRunner())
 
     def setUp(self):
         with Chdir("c_test_environment") as d:
