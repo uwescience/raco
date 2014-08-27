@@ -6,6 +6,7 @@ from textwrap import dedent
 import raco.algebra as algebra
 from raco.expression import (AttributeRef, toUnnamed, AggregateExpression,
                              COUNTALL, COUNT, SUM)
+from raco.language.logical import OptLogicalAlgebra
 from raco.language.myrialang import convertcondition
 import raco.types as types
 from .flink_expression import FlinkExpressionCompiler
@@ -38,6 +39,13 @@ def compile_to_flink(raw_query, plan):
     list(plan.postorder(flink.visit))
     flink.end()
     return flink.get()
+
+
+class FlinkAlgebra(object):
+    @staticmethod
+    def opt_rules():
+        logical_rules = OptLogicalAlgebra.opt_rules()
+        return logical_rules
 
 
 class Flink(algebra.OperatorCompileVisitor):

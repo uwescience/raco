@@ -11,7 +11,7 @@ import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme as scheme
 import raco.types as types
-from .flink import compile_to_flink
+from .flink import compile_to_flink, FlinkAlgebra
 
 
 class FlinkTestCase(unittest.TestCase):
@@ -58,7 +58,7 @@ class FlinkTestCase(unittest.TestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         p = self.processor.get_logical_plan()
-        p = optimize_by_rules(p, OptLogicalAlgebra.opt_rules())
+        p = optimize_by_rules(p, FlinkAlgebra.opt_rules())
         query_str = compile_to_flink(query, p)
 
         flink_path = os.environ.get('FLINK_PATH')
