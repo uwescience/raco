@@ -4,7 +4,8 @@ import re
 from textwrap import dedent
 
 import raco.algebra as algebra
-from raco.expression import AttributeRef, toUnnamed
+from raco.expression import (AttributeRef, toUnnamed, AggregateExpression,
+                             COUNTALL, COUNT, SUM)
 from raco.language.myrialang import convertcondition
 import raco.types as types
 from .flink_expression import FlinkExpressionCompiler
@@ -84,9 +85,10 @@ class Flink(algebra.OperatorCompileVisitor):
         query = '\n'.join('//   {line}'.format(line=line)
                           for line in dedent(self.query).strip().split('\n'))
         preamble = """
-import org.apache.flink.api.java.*;
-import org.apache.flink.api.java.tuple.*;
 import org.apache.flink.api.common.functions.*;
+import org.apache.flink.api.java.*;
+import org.apache.flink.api.java.aggregation.*;
+import org.apache.flink.api.java.tuple.*;
 
 // Original query:
 {query}
@@ -140,27 +142,27 @@ public class FlinkQuery {{
     def every(self, op):
         self._add_op_comment(op)
 
-    def v_scan(self, scan):
-        name = scan.relation_key.relation
-        self._load_dataset(name, scan.scheme())
-        self._add_op_code(scan,
+    def v_scan(self, op):
+        name = op.relation_key.relation
+        self._load_dataset(name, op.scheme())
+        self._add_op_code(op,
                           "load_{ds}(env)".format(ds=Flink.dataset_name(name)),
                           add_dot_types=False)
 
-    def v_store(self, store):
-        name = store.relation_key.relation
-        in_name = self.operator_names[str(store.input)]
+    def v_store(self, op):
+        name = op.relation_key.relation
+        in_name = self.operator_names[str(op.input)]
         self._add_line('{inp}.writeAsCsv("{base}/{out}");'
                        .format(inp=in_name,
                                base='file:///tmp/flink',
                                out=name))
 
-    def v_select(self, select):
-        child = select.input
+    def v_select(self, op):
+        child = op.input
         child_sch = child.scheme()
         child_sig = type_signature(child_sch)
 
-        cond = FlinkExpressionCompiler(child_sch).visit(select.condition)
+        cond = FlinkExpressionCompiler(child_sch).visit(op.condition)
 
         ff = """
 FilterFunction<{cs}>() {{
@@ -170,40 +172,72 @@ FilterFunction<{cs}>() {{
     }}
 }}""".format(cs=child_sig, cond=cond).strip()
 
-        child_str = self.operator_names[str(select.input)]
+        child_str = self.operator_names[str(op.input)]
         op_code = "{child}.filter(new {ff})".format(child=child_str, ff=ff)
-        self._add_op_code(select, op_code, add_dot_types=False)
+        self._add_op_code(op, op_code, add_dot_types=False)
 
-    def visit_column_select(self, apply):
-        scheme = apply.scheme()
+    def visit_column_select(self, op):
+        scheme = op.scheme()
         cols = [str(toUnnamed(ref[1], scheme).position)
-                for ref in apply.emitters]
+                for ref in op.emitters]
         cols_str = ','.join(cols)
-        in_name = self.operator_names[str(apply.input)]
-        self._add_op_code(apply, "{inp}.project({cols})"
+        in_name = self.operator_names[str(op.input)]
+        self._add_op_code(op, "{inp}.project({cols})"
                           .format(inp=in_name, cols=cols_str))
 
-    def v_apply(self, apply):
+    def v_apply(self, op):
         # For now, only handle column selection
-        if all(isinstance(e[1], AttributeRef) for e in apply.emitters):
-            self.visit_column_select(apply)
+        if all(isinstance(e[1], AttributeRef) for e in op.emitters):
+            self.visit_column_select(op)
             return
 
-        raise NotImplementedError('v_apply of {}'.format(apply))
+        raise NotImplementedError('v_apply of {}'.format(op))
 
-    def v_projectingjoin(self, join):
-        scheme = join.scheme()
+    def v_groupby(self, op):
+        child_scheme = op.input.scheme()
+        grps = op.grouping_list
+        aggs = op.aggregate_list
+        group_by = self.operator_names[str(op.input)]
+
+        if not all(isinstance(e, AttributeRef) for e in grps):
+            raise NotImplementedError("Flink can group by columns only")
+        cols = [str(e.get_position(child_scheme)) for e in grps]
+        if cols:
+            group_by += ".groupBy({cols})".format(cols=','.join(cols))
+
+        def supported_agg(agg):
+            return (isinstance(agg, AggregateExpression)
+                    and not isinstance(agg, (COUNTALL, COUNT, SUM)))
+
+        bad_aggs = [a for a in aggs if not supported_agg(a)]
+        if bad_aggs:
+            raise NotImplementedError("Flink groupBy does not support: {}"
+                                      .format(bad_aggs))
+
+        a, aggs = aggs[0], aggs[1:]
+        group_by += (".aggregate(Aggregations.{agg}, {idx})"
+                     .format(agg=a.opname(),
+                             idx=a.input.get_position(child_scheme)))
+        for a in aggs:
+            group_by += (".and(Aggregations.{agg}, {idx})"
+                         .format(agg=a.opname(),
+                                 idx=a.input.get_position(child_scheme)))
+
+        self._add_op_code(op, group_by, add_dot_types=False)
+
+    def v_projectingjoin(self, op):
+        scheme = op.scheme()
 
         # First we need the condition
-        left_len = len(join.left.scheme())
-        condition = convertcondition(join.condition, left_len, scheme)
+        left_len = len(op.left.scheme())
+        condition = convertcondition(op.condition, left_len, scheme)
         where_clause = (".where({lc}).equalTo({rc})"
                         .format(lc=','.join(str(c) for c in condition[0]),
                                 rc=','.join(str(c) for c in condition[1])))
 
         # Now we need the project clause
         output_cols = [toUnnamed(ref, scheme).position
-                       for ref in join.output_columns]
+                       for ref in op.output_columns]
         for (i, c) in enumerate(output_cols):
             if c < any(output_cols[:i]):
                 raise NotImplementedError("ProjectingJoin with unordered cols")
@@ -223,10 +257,10 @@ FilterFunction<{cs}>() {{
                               .format(pc=project_clause, rc=rc))
 
         op_code = ("{left}.joinWithHuge({right}){where}{proj}"
-                   .format(left=self.operator_names[str(join.left)],
-                           right=self.operator_names[str(join.right)],
+                   .format(left=self.operator_names[str(op.left)],
+                           right=self.operator_names[str(op.right)],
                            where=where_clause, proj=project_clause))
-        self._add_op_code(join, op_code)
+        self._add_op_code(op, op_code)
 
     def end(self):
         # Should be at the end of main
