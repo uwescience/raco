@@ -4,7 +4,7 @@ Utility functions for use in Raco expressions
 
 from .expression import (BinaryOperator, AttributeRef, NamedAttributeRef,
                          UnnamedAttributeRef, NamedStateAttributeRef)
-from .aggregate import BuiltinAggregateExpression
+from .aggregate import BuiltinAggregateExpression, AggregateExpression
 
 import copy
 import inspect
@@ -69,7 +69,7 @@ def binary_ops():
 def isaggregate(expr):
     """Return true if the expression contains an aggregate function."""
     return any(expr.postorder(
-        lambda x: isinstance(x, BuiltinAggregateExpression)))
+        lambda x: isinstance(x, AggregateExpression)))
 
 
 def udf_undefined_vars(expr, vars):

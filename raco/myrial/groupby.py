@@ -50,8 +50,7 @@ class NonGroupedAccessException(Exception):
 
 def __aggregate_count(sexpr):
     def count(sexpr):
-        # AAA
-        if isinstance(sexpr, raco.expression.BuiltinAggregateExpression):
+        if isinstance(sexpr, raco.expression.AggregateExpression):
             return 1
         return 0
     return sum(sexpr.postorder(count))
@@ -78,8 +77,7 @@ def __hoist_aggregates(sexpr, agg_state, group_mappings, input_scheme):
             output_pos = group_mappings[input_pos]
             return raco.expression.UnnamedAttributeRef(output_pos)
 
-        # AAA
-        if not isinstance(sexpr, raco.expression.BuiltinAggregateExpression):
+        if not isinstance(sexpr, raco.expression.AggregateExpression):
             return sexpr
 
         if sexpr in agg_state.aggregates:
