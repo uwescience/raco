@@ -12,10 +12,14 @@ debug = False
 
 
 class State(object):
-    def __init__(self, scheme, values):
-        self.scheme = scheme
-        self.values = values
+    def __init__(self, op_scheme, state_scheme, init_exprs):
+        self.scheme = state_scheme
+        self.values = [x.evaluate(None, op_scheme, None) for (_, x) in init_exprs]
 
+    def update(self, tpl, op_scheme, update_exprs):
+        new_vals = [expr.evaluate(tpl, op_scheme, self)
+                    for (_, expr) in update_exprs]
+        self.values = new_vals
 
 class FakeDatabase(Catalog):
     """An in-memory implementation of relational algebra operators"""
@@ -129,14 +133,11 @@ class FakeDatabase(Catalog):
         child_it = self.evaluate(op.input)
         scheme = op.input.scheme()
 
-        state = State(op.state_scheme, [expr.evaluate(None, scheme, None)
-                      for (_, expr) in op.inits])
+        state = State(scheme, op.state_scheme, op.inits)
 
         def make_tuple(input_tuple, state):
             # Update state variables
-            new_vals = [expr.evaluate(input_tuple, scheme, state)
-                        for (_, expr) in op.updaters]
-            state.values = new_vals
+            state.update(input_tuple, scheme, op.updaters)
 
             # Extract a result for each emit expression
             return tuple([colexpr.evaluate(input_tuple, scheme, state)
@@ -239,6 +240,7 @@ class FakeDatabase(Catalog):
 
         # resolve aggregate functions
         for key, tuples in results.iteritems():
+
             agg_fields = [agg_expr.evaluate_aggregate(
                 tuples, op.input.scheme()) for agg_expr in op.aggregate_list]
             yield(key + tuple(agg_fields))
