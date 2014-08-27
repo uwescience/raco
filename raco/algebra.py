@@ -777,15 +777,22 @@ class Project(UnaryOperator):
 class GroupBy(UnaryOperator):
     """Logical GroupBy operator"""
 
-    def __init__(self, grouping_list=None, aggregate_list=None, input=None):
+    def __init__(self, grouping_list=None, aggregate_list=None, input=None,
+                 state_modifiers=None):
         self.grouping_list = grouping_list or []
         self.aggregate_list = aggregate_list or []
-        self.inits = [] # XXX fill this in
-        self.updaters = [] # XXX fill this in
 
-        self.state_scheme = scheme.Scheme()
-        for (name, expr) in self.inits:
-            self.state_scheme.addAttribute(name, expr.typeof(None, None))
+        if state_modifiers is not None:
+            self.inits = [(x[0], x[1]) for x in state_modifiers]
+            self.updaters = [(x[0], x[2]) for x in state_modifiers]
+
+            self.state_scheme = scheme.Scheme()
+            for name, expr in self.inits:
+                self.state_scheme.addAttribute(name, expr.typeof(None, None))
+        else:
+            self.inits = []
+            self.updaters = []
+            self.state_scheme = scheme.Scheme()
 
         UnaryOperator.__init__(self, input)
 

@@ -51,6 +51,26 @@ class OperatorTest(unittest.TestCase):
         self.assertEqual(len(result), len(TestQueryFunctions.emp_table))
         self.assertEqual([x[0] for x in result], range(7))
 
+    def test_times_equal_uda(self):
+        input_op = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
+
+        init_ex = NumericLiteral(1)
+        update_ex = TIMES(NamedStateAttributeRef("value"),
+                          NamedAttributeRef("salary"))
+        emit_ex = NamedStateAttributeRef("value")
+
+        statemods = [("value", init_ex, update_ex)]
+        gb = GroupBy([UnnamedAttributeRef(1)], [emit_ex], input_op, statemods)
+        result = self.db.evaluate_to_bag(gb)
+
+        d = collections.defaultdict(lambda: 1)
+        for tpl in TestQueryFunctions.emp_table:
+            d[tpl[1]] *= tpl[3]
+        expected = collections.Counter(
+            [(key, val) for key, val in d.iteritems()])
+
+        self.assertEquals(result, expected)
+
     def test_running_mean_stateful_apply(self):
         """Calculate the mean using stateful apply"""
         scan = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
