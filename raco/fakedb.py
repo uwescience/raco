@@ -6,7 +6,7 @@ import csv
 from raco import relation_key, types
 from raco.algebra import StoreTemp, DEFAULT_CARDINALITY
 from raco.catalog import Catalog
-from raco.expression import AND, EQ
+from raco.expression import AND, EQ, AggregateExpression
 
 debug = False
 
@@ -220,9 +220,10 @@ class FakeDatabase(Catalog):
 
     def groupby(self, op):
         child_it = self.evaluate(op.input)
+        input_scheme = op.input.scheme()
 
         def process_grouping_columns(_tuple):
-            ls = [sexpr.evaluate(_tuple, op.input.scheme()) for
+            ls = [sexpr.evaluate(_tuple, input_scheme) for
                   sexpr in op.grouping_list]
             return tuple(ls)
 
@@ -240,9 +241,23 @@ class FakeDatabase(Catalog):
 
         # resolve aggregate functions
         for key, tuples in results.iteritems():
+            state = State(input_scheme, op.state_scheme, op.inits)
+            for tpl in tuples:
+                state.update(tpl, input_scheme, op.updaters)
 
-            agg_fields = [agg_expr.evaluate_aggregate(
-                tuples, op.input.scheme()) for agg_expr in op.aggregate_list]
+            # For now, built-in aggregates are handled differently than UDA
+            # aggregates.  TODO: clean this up!
+
+            agg_fields = []
+            for expr in op.aggregate_list:
+                if isinstance(expr, AggregateExpression):
+                    # Old-style aggregate: pass all tuples to the eval func
+                    agg_fields.append(
+                        expr.evaluate_aggregate(tuples, input_scheme))
+                else:
+                    # UDA-style aggregate: evaluate a nornal expression that
+                    # can reference only the state tuple
+                    agg_fields.append(expr.evaluate(None, None, state))
             yield(key + tuple(agg_fields))
 
     def sequence(self, op):
