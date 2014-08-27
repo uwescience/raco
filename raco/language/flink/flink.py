@@ -7,7 +7,7 @@ import raco.algebra as algebra
 from raco.expression import (AttributeRef, MAX, MIN, SUM)
 from raco.language.myrialang import convertcondition
 import raco.types as types
-from .flink_expression import FlinkExpressionCompiler, java_escape_str
+from .flink_expression import FlinkExpressionCompiler
 
 raco_to_type = {types.LONG_TYPE: "Long",
                 types.INT_TYPE: "Integer",
@@ -169,13 +169,7 @@ FilterFunction<{cs}>() {{
     public boolean filter({cs} t) {{
         return {cond};
     }}
-
-    @Override
-    public String toString() {{
-        return "{op_str}";
-    }}
-}}""".format(cs=child_sig, cond=cond,
-             op_str=java_escape_str(op.shortStr())).strip()
+}}""".format(cs=child_sig, cond=cond).strip()
 
         child_str = self.operator_names[str(op.input)]
         op_code = "{child}.filter(new {ff})".format(child=child_str, ff=ff)
@@ -221,13 +215,7 @@ MapFunction<{cs}, {os}>() {{
         {lines}
         return out;
     }}
-
-    @Override
-    public String toString() {{
-        return "{op_str}";
-    }}
-}}""".format(cs=child_sig, os=op_sig, lines='\n        '.join(lines),
-             op_str=java_escape_str(op.shortStr())).strip()
+}}""".format(cs=child_sig, os=op_sig, lines='\n        '.join(lines)).strip()
 
         op_code = "{child}.map(new {mf})".format(child=child_str, mf=mf)
         self._add_op_code(op, op_code, add_dot_types=False)
