@@ -1,3 +1,7 @@
+from nose.plugins.skip import SkipTest
+import os
+import subprocess
+import sys
 import unittest
 
 from raco.compile import optimize_by_rules
@@ -38,19 +42,42 @@ class FlinkTestCase(unittest.TestCase):
         self.parser = parser.Parser()
         self.processor = interpreter.StatementProcessor(self.db)
 
+    def check_output_and_print_stderr(self, args, java_program):
+        """Run the specified command. If it does not exit cleanly, print the
+        stderr of the command to stdout. Note that stderr prints are displayed
+        as tests run, whereas stdout prints show up next to the failed test. We
+        want the latter."""
+        try:
+            subprocess.check_output(args, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            print java_program
+            print e.output
+            self.fail()
+
     def compile_query(self, query):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         p = self.processor.get_logical_plan()
         p = optimize_by_rules(p, OptLogicalAlgebra.opt_rules())
-        return compile_to_flink(query, p)
+        query_str = compile_to_flink(query, p)
+
+        flink_path = os.environ.get('FLINK_PATH')
+        if flink_path is not None:
+            fname = os.path.join(flink_path, "FlinkQuery.java")
+            with open(fname, "w") as outfile:
+                outfile.write(query_str)
+            cmd = ["javac",
+                   "-cp", "{flink}/lib/flink-core-0.6-incubating.jar:{flink}/lib/flink-java-0.6-incubating.jar".format(flink=flink_path),  # noqa
+                   fname]
+            self.check_output_and_print_stderr(cmd, query_str)
+        else:
+            raise SkipTest()
 
     def test_simple_scan(self):
         query = """
         emp = scan({emp});
         store(emp, OUTPUT);
         """.format(emp=self.emp_key)
-        # Just ensure that it compiles
         self.compile_query(query)
 
     def test_join(self):
@@ -60,7 +87,6 @@ class FlinkTestCase(unittest.TestCase):
         j = [from emp, emp1 where emp1.$0 = emp.$1 emit emp.*, emp1.$2];
         store(j, OUTPUT);
         """.format(emp=self.emp_key)
-        # Just ensure that it compiles
         self.compile_query(query)
 
     def test_semi_join(self):
@@ -70,7 +96,6 @@ class FlinkTestCase(unittest.TestCase):
         j = [from emp, emp1 where emp1.$0 = emp.$1 emit emp1.*];
         store(j, OUTPUT);
         """.format(emp=self.emp_key)
-        # Just ensure that it compiles
         self.compile_query(query)
 
     def test_filter_condition(self):
@@ -84,5 +109,40 @@ class FlinkTestCase(unittest.TestCase):
              emit emp1.*];
         store(j, OUTPUT);
         """.format(emp=self.emp_key)
-        # Just ensure that it compiles
+        self.compile_query(query)
+
+    def test_aggregate(self):
+        query = """
+        emp = scan({emp});
+        ans = [from emp
+               emit max(salary)];
+        store(ans, OUTPUT);
+        """.format(emp=self.emp_key)
+        self.compile_query(query)
+
+    def test_group_by_agg_long(self):
+        query = """
+        emp = scan({emp});
+        ans = [from emp
+               emit dept_id, max(salary)];
+        store(ans, OUTPUT);
+        """.format(emp=self.emp_key)
+        self.compile_query(query)
+
+    def test_group_by_agg_string(self):
+        query = """
+        emp = scan({emp});
+        ans = [from emp
+               emit salary, max(name)];
+        store(ans, OUTPUT);
+        """.format(emp=self.emp_key)
+        self.compile_query(query)
+
+    def test_group_by_multi_agg(self):
+        query = """
+        emp = scan({emp});
+        ans = [from emp
+               emit max(salary), min(salary)];
+        store(ans, OUTPUT);
+        """.format(emp=self.emp_key)
         self.compile_query(query)
