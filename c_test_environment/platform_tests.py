@@ -1,4 +1,17 @@
+from abc import ABCMeta, abstractmethod
+import unittest
+
+
 class DatalogPlatformTest(object):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def check(self, query):
+        raise NotImplementedError("{t}.check()".format(t=type(self)))
+
+    @abstractmethod
+    def check_file(self, query, name):
+        raise NotImplementedError("{t}.check_file()".format(t=type(self)))
 
     # Run these tests manually with
     #    `python c_test_environment/clang_datalog_tests.py` from `raco/`
@@ -110,7 +123,7 @@ class DatalogPlatformTest(object):
     def test_common_index_allowed(self):
         """introduced for #250"""
         self.check("""A(a,b,c,d) :- T2(a,b), R2(a,c), R2(a,d)""", "common_index_allowed")
-    
+
     def test_common_index_disallowed(self):
         """introduced for #250"""
         self.check("""A(a,b,c,d) :- T2(a,b), R2(a,c), R2(d,a)""", "common_index_disallowed")
