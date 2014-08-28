@@ -775,7 +775,17 @@ class Project(UnaryOperator):
 
 
 class GroupBy(UnaryOperator):
-    """Logical GroupBy operator"""
+    """Logical GroupBy operator
+
+    :param grouping_list: A list of expressions in a "group by" clause
+    :param aggregate_list: A list of aggregate expressions (e.g., MIN, MAX)
+    :param input: The input operator
+    :param state_modifiers: A list of state variables associated with
+    user-defined aggregates.  Contains tuples of the form:
+        (state_name, expression, expression)
+    where the two expressions are the initializer expression and the
+    updater expression.
+    """
 
     def __init__(self, grouping_list=None, aggregate_list=None, input=None,
                  state_modifiers=None):
