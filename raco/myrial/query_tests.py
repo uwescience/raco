@@ -1383,6 +1383,35 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(results), skip_json=True)
 
+    def test_multiple_uda(self):
+        query = """
+        uda MyMax1(val) {
+            [0 as _max];
+            [case when val > _max then val else _max end];
+             _max;
+        };
+        uda MyMax2(val) {
+            [0 as _max];
+            [case when val > _max then val else _max end];
+             _max;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MyMax1(salary), MyMax2(id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            max_salary = max(t[3] for t in tpls)
+            max_id = max(t[0] for t in tpls)
+            results.append((k, max_salary, max_id))
+
+        self.check_result(query, collections.Counter(results), skip_json=True)
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {
