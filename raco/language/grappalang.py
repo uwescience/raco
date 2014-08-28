@@ -1011,6 +1011,28 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
         return """Relation<%(tuple_type)s> %(resultsym)s;"""
 
 
+class GrappaStore(algebra.Store, GrappaOperator):
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        code = ""
+        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
+        state.addDeclarations([resdecl])
+        code += "result.push_back(%s);\n" % (t.name)
+        filename = (str(self.relation_key).split(":")[2])
+        names = [x.encode('UTF8') for x in self.scheme().get_names()]
+        schemefile = 'writeSchema("%s", "%s", "%s");\n' % \
+                     (names, self.scheme().get_types(), filename)
+        state.addPreCode(schemefile)
+        resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % (filename)
+        state.addPipelineFlushCode(resultfile)
+
+        code += self.language.log_unquoted("%s" % t.name, 2)
+
+        return code
+
+
 class MemoryScanOfFileScan(rules.Rule):
     """A rewrite rule for making a scan into materialization
      in memory then memory scan"""
@@ -1034,20 +1056,6 @@ class SwapJoinSides(rules.Rule):
             return expr
 
 
-class GrappaStore(algebra.Store, GrappaOperator):
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
-        code = ""
-        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-        state.addDeclarations([resdecl])
-        code += "result.push_back(%s);\n" % (t.name)
-
-        code += self.language.log_unquoted("%s" % t.name, 2)
-
-        return code
-
 
 def grappify(join_type):
     return [
@@ -1066,6 +1074,7 @@ def grappify(join_type):
 
         clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
     ]
+
 
 class GrappaAlgebra(object):
     language = GrappaLanguage

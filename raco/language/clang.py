@@ -137,7 +137,11 @@ class CC(Language):
 
     @staticmethod
     def log_file(code, level=0):
-        return """logfile << %s << "\\n";\n """ % code
+        return """logfile << "%s" << "\\n";\n """ % code
+
+    @staticmethod
+    def log_file_unquoted(code, level=0):
+        return """logfile << %s << " ";\n """ % code
 
     @staticmethod
     def comment(txt):
@@ -542,15 +546,32 @@ class CStore(algebra.Store, CCOperator):
         state.addDeclarations([resdecl])
         code += "result.push_back(%s);\n" % (t.name)
 
-        if self.emit_print in ['console', 'both']:
+        if self.emit_print == 'console':
             code += self.language.log_unquoted("%s" % t.name, 2)
-        if self.emit_print in ['file', 'both']:
+        elif self.emit_print == 'file':
             state.addPreCode('std::ofstream logfile;\n')
-            filename = 'datasets/' + str(self.relation_key) + '.txt'
-            openfile = 'logfile.open("%s", std::ios::app);\n' % filename
-            state.addPreCode(openfile)
-            code += self.language.log_file("%s" % t.name, 2)
+            resultfile = str(self.relation_key).split(":")[2]
+            opentuple = 'logfile.open("%s");\n' % resultfile
+            schemafile = self.write_schema(self.scheme())
+            state.addPreCode(schemafile)
+            state.addPreCode(opentuple)
+            code += "int logi = 0;\n"
+            code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
+                    % (t.name)
+            code += self.language.log_file_unquoted("%s.get(logi)" % t.name)
+            code += "}\n "
+            code += "logfile << %s.get(logi);\n" % (t.name)
+            code += "logfile << '\\n';"
             state.addPostCode('logfile.close();')
+        return code
+
+    def write_schema(self, scheme):
+        schemafile = 'schema/' + str(self.relation_key).split(":")[2]
+        code = 'logfile.open("%s");\n' % schemafile
+        names = [x.encode('UTF8') for x in scheme.get_names()]
+        code += self.language.log_file("%s" % names)
+        code += self.language.log_file("%s" % scheme.get_types())
+        code += 'logfile.close();'
         return code
 
     def __repr__(self):
@@ -610,8 +631,7 @@ class CCAlgebra(object):
     language = CC
 
     def __init__(self, emit_print='console'):
-        """ To store results into a file, onto console, both file and console,
-        or stays quiet """
+        """ To store results into a file or onto console """
         self.emit_print = emit_print
 
     def opt_rules(self):
