@@ -664,7 +664,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 """)
             elif len(self.grouping_list) == 2:
                 declr_template = ct("""typedef DHT_symmetric<std::pair<int64_t,int64_t>, \
-                                  int64_t, pairhash> \
+                                  int64_t, pair_hash> \
                                    DHT_pair_int64;
                 """)
 
