@@ -12,7 +12,7 @@ from raco.algebra import gensym
 
 import logging
 
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
 import itertools
 import os.path
@@ -183,7 +183,7 @@ class CC(Language):
         conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
         decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
         inits = reduce(lambda sofar, x: sofar + x, [d for _, _, d in args])
-        LOG.debug("conjunc: %s", conjunc)
+        _LOG.debug("conjunc: %s", conjunc)
         return "( %s )" % conjunc, decls, inits
 
     @classmethod
@@ -210,7 +210,7 @@ class CCOperator(Pipelined):
 from raco.algebra import UnaryOperator
 
 
-class MemoryScan(algebra.UnaryOperator, CCOperator):
+class CMemoryScan(algebra.UnaryOperator, CCOperator):
     def produce(self, state):
         self.input.produce(state)
 
@@ -301,11 +301,11 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         hash_declr = declr_template % locals()
         state.addDeclarations([hash_declr])
 
-        LOG.debug("aggregates: %s", self.aggregate_list)
-        LOG.debug("columns: %s", self.column_list())
-        LOG.debug("groupings: %s", self.grouping_list)
-        LOG.debug("groupby scheme: %s", self.scheme())
-        LOG.debug("groupby scheme[0] type: %s", type(self.scheme()[0]))
+        _LOG.debug("aggregates: %s", self.aggregate_list)
+        _LOG.debug("columns: %s", self.column_list())
+        _LOG.debug("groupings: %s", self.grouping_list)
+        _LOG.debug("groupby scheme: %s", self.scheme())
+        _LOG.debug("groupby scheme[0] type: %s", type(self.scheme()[0]))
 
         self.input.produce(state)
 
@@ -428,14 +428,14 @@ class CHashJoin(algebra.Join, CCOperator):
             # if right child never bound then store hashtable symbol and
             # call right child produce
             self._hashname = self.__genHashName__()
-            LOG.debug("generate hashname %s for %s", self._hashname, self)
+            _LOG.debug("generate hashname %s for %s", self._hashname, self)
             state.saveExpr((self.right, self.right_keypos), self._hashname)
             self.right.produce(state)
         else:
             # if found a common subexpression on right child then
             # use the same hashtable
             self._hashname = hashsym
-            LOG.debug("reuse hash %s for %s", self._hashname, self)
+            _LOG.debug("reuse hash %s for %s", self._hashname, self)
 
         self.left.childtag = "left"
         self.left.produce(state)
@@ -553,6 +553,12 @@ class CStore(algebra.Store, CCOperator):
             state.addPostCode('logfile.close();')
         return code
 
+    def __repr__(self):
+        return "{op}({ep!r}, {rk!r}, {pl!r})".format(op=self.opname(),
+                                                     ep=self.emit_print,
+                                                     rk=self.relation_key,
+                                                     pl=self.input)
+
 
 class MemoryScanOfFileScan(rules.Rule):
     """A rewrite rule for making a scan into
@@ -560,7 +566,7 @@ class MemoryScanOfFileScan(rules.Rule):
 
     def fire(self, expr):
         if isinstance(expr, algebra.Scan) and not isinstance(expr, CFileScan):
-            return MemoryScan(CFileScan(expr.relation_key, expr.scheme()))
+            return CMemoryScan(CFileScan(expr.relation_key, expr.scheme()))
         return expr
 
     def __str__(self):
