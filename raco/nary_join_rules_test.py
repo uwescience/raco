@@ -11,9 +11,8 @@ class testNaryJoin(unittest.TestCase):
     def get_phys_plan_root(query, num_server, child_size=None):
         dlog = RACompiler()
         dlog.fromDatalog(query)
-        dlog.optimize(
-            target=myrialang.MyriaHyperCubeAlgebra(
-                FakeCatalog(num_server, child_size)))
+        dlog.optimize(myrialang.MyriaHyperCubeAlgebra(
+            FakeCatalog(num_server, child_size)))
         ret = dlog.physicalplan
         assert isinstance(ret, algebra.Parallel)
         assert len(ret.children()) == 1

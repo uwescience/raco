@@ -1,6 +1,5 @@
 from raco.datalog.grammar import parse
 from raco.language import CCAlgebra
-from raco.algebra import LogicalAlgebra
 from raco.compile import optimize
 import scan_code_ver2 as sc
 from generateDot import generateDot
@@ -45,7 +44,7 @@ if __name__ == "__main__":
   generateDot(ra,headname+'.dot')
   print "ra:", ra, "\n"
 
-  physicalplan = optimize(ra, target=CCAlgebra, source=LogicalAlgebra)
+  physicalplan = optimize(ra, CCAlgebra)
 
   LOG.info("physical: %s",physicalplan[0])
   LOG.info('args=%s',physicalplan[0][1].args)

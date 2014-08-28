@@ -21,14 +21,14 @@ class MyrialTestCase(unittest.TestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
 
-    def get_plan(self, query, logical=False, multiway_join=False):
+    def get_plan(self, query, logical=False, multiway_join=False, **kwargs):
         """Get the MyriaL query plan for a query"""
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         if logical:
             p = self.processor.get_logical_plan()
         else:
-            p = self.processor.get_physical_plan(multiway_join)
+            p = self.processor.get_physical_plan(multiway_join, **kwargs)
         # verify that we can stringify p
         # TODO verify the string somehow?
         assert str(p)
@@ -42,9 +42,10 @@ class MyrialTestCase(unittest.TestCase):
         """Get the logical plan for a MyriaL query"""
         return self.get_plan(query, logical=True)
 
-    def get_physical_plan(self, query, multiway_join=False):
+    def get_physical_plan(self, query, multiway_join=False, **kwargs):
         """Get the physical plan for a MyriaL query"""
-        return self.get_plan(query, logical=False, multiway_join=multiway_join)
+        return self.get_plan(query, logical=False, multiway_join=multiway_join,
+                             **kwargs)
 
     def execute_query(self, query, test_logical=False, skip_json=False,
                       output='OUTPUT'):
