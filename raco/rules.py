@@ -363,8 +363,18 @@ class PushApply(Rule):
         elif isinstance(child, algebra.ProjectingJoin):
             in_scheme = child.scheme()
             names, emits = zip(*op.emitters)
-            emits = [to_unnamed_recursive(e, in_scheme)
-                     for e in emits]
+            emits = [to_unnamed_recursive(e, in_scheme) for e in emits]
+
+            # If this apply is only AttributeRefs and the columns already
+            # have the correct names, we can push it into the ProjectingJoin
+            if (all(isinstance(e, expression.AttributeRef) for e in emits) and
+                len(set(emits)) == len(emits) and
+                all((n is None) or (n == in_scheme.getName(e.position))
+                    for n, e in zip(names, emits))):
+                child.output_columns = [child.output_columns[e.position]
+                                        for e in emits]
+                return child
+
             accessed = sorted(set(itertools.chain(*(accessed_columns(e)
                                                     for e in emits))))
             index_map = {a: i for (i, a) in enumerate(accessed)}
