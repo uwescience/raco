@@ -817,10 +817,13 @@ class GroupBy(UnaryOperator):
                                str_list_inner(self.aggregate_list))
 
     def __repr__(self):
-        return "{op}({gl!r}, {al!r}, {inp!r})".format(op=self.opname(),
-                                                      gl=self.grouping_list,
-                                                      al=self.aggregate_list,
-                                                      inp=self.input)
+        # the next line is because of the refactoring that we do in __init__
+        state_mods = [(a, b, d)
+                      for ((a, b), (c, d)) in zip(self.inits, self.updaters)]
+
+        return "{op}({gl!r}, {al!r}, {inp!r}, {sm!r})".format(
+            op=self.opname(), gl=self.grouping_list, al=self.aggregate_list,
+            inp=self.input, sm=state_mods)
 
     def copy(self, other):
         """deep copy"""
