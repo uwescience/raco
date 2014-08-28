@@ -1379,7 +1379,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             max_id = max(t[0] for t in tpls)
             min_id = min(t[0] for t in tpls)
             results.append((k, float(max_salary) / min_salary +
-                float(max_id) / min_id))
+                            float(max_id) / min_id))
 
         self.check_result(query, collections.Counter(results), skip_json=True)
 
