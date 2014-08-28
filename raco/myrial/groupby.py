@@ -102,7 +102,7 @@ def __hoist_aggregates(sexpr, agg_state, group_mappings, input_scheme):
     return recursive_eval(sexpr)
 
 
-def groupby(op, emit_clause, extra_grouping_columns):
+def groupby(op, emit_clause, extra_grouping_columns, statemods=None):
     """Process groupby/aggregation expressions."""
 
     assert emit_clause
@@ -160,5 +160,5 @@ def groupby(op, emit_clause, extra_grouping_columns):
                         for c in extra_grouping_columns])
 
     agg_terms = agg_state.aggregates.keys()
-    op1 = raco.algebra.GroupBy(group_terms, agg_terms, op)
+    op1 = raco.algebra.GroupBy(group_terms, agg_terms, op, statemods)
     return raco.algebra.Apply(emitters=output_mappings, input=op1)

@@ -212,7 +212,8 @@ class ExpressionProcessor(object):
                      for name, init, update in statemods]
 
         if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
-            return groupby.groupby(op, emit_args, implicit_group_by_cols)
+            return groupby.groupby(op, emit_args, implicit_group_by_cols,
+                                   statemods)
         else:
             if statemods:
                 return raco.algebra.StatefulApply(emit_args, statemods, op)
