@@ -1337,8 +1337,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [0 as _max, 0 as second_max];
             [case when val > _max then val else _max end,
              case when val > _max then _max when val > second_max then val
-             else second_max end],
-             second_max
+             else second_max end];
+             second_max;
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, SecondMax(salary)];

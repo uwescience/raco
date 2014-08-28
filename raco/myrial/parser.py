@@ -9,7 +9,7 @@ import raco.scheme as scheme
 import raco.types
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
-from raco.expression.udf import Function, Apply
+from raco.expression.udf import Function, Apply, UDA
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
