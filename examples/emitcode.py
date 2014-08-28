@@ -9,8 +9,10 @@ import raco.viz as viz
 import logging
 LOG = logging.getLogger(__name__)
 
+
 def comment(s):
-  return "/*\n%s\n*/\n" % str(s)
+    return "/*\n%s\n*/\n" % str(s)
+
 
 def hack_plan(alg, plan):
     # plan hacking
@@ -20,11 +22,12 @@ def hack_plan(alg, plan):
     elif plan == "shuf":
         alg.set_join_type(GrappaShuffleHashJoin)
 
+
 def emitCode(query, name, algType, plan="", emit_print=""):
     if emit_print:
-      alg = algType(emit_print)
+        alg = algType(emit_print)
     else:
-      alg = algType()
+        alg = algType()
 
     hack_plan(alg, plan)
 
