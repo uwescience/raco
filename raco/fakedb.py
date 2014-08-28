@@ -23,6 +23,9 @@ class State(object):
                     for (_, expr) in update_exprs]
         self.values = new_vals
 
+    def __str__(self):
+        return 'State(%s)' % self.values
+
 
 class FakeDatabase(Catalog):
     """An in-memory implementation of relational algebra operators"""
