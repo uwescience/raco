@@ -1034,7 +1034,12 @@ class DistributedGroupBy(rules.Rule):
         decomposable_aggs = [agg for agg in op.aggregate_list if
                              isinstance(agg, DecomposableAggregate)]
 
-        # All built-in aggregates are now decomposable
+        # Bail early if we have non-deocomposable aggregates
+        if len(decomposable_aggs) < len(op.aggregate_list):
+            out_op = MyriaGroupBy()
+            out_op.copy(op)
+            return out_op
+
         assert len(decomposable_aggs) == len(op.aggregate_list)
 
         # Each logical aggregate generates one or more local aggregates:
