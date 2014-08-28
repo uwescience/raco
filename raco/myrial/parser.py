@@ -648,7 +648,7 @@ class Parser(object):
 
         if isinstance(func, Function):
             return sexpr.resolve_function(func.sexpr, dict(zip(func.args, args)))  # noqa
-        elif isinstance(func, Apply):
+        elif isinstance(func, (Apply, UDA)):
             state_vars = func.statemods.keys()
 
             # Mangle state variable names to allow multiple invocations to
@@ -665,7 +665,15 @@ class Parser(object):
                     dict(zip(func.args, args)))  # noqa
                 Parser.statemods.append((mangled[sm_name],
                     init_expr, update_expr))  # noqa
-            return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
+            ex = sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
+
+            # If the function is a UDA, wrap the output expression so
+            # downstream users can distinguish stateful apply from
+            # aggregate expressions.
+            if isinstance(func, UDA):
+                return sexpr.UdaAggregateExpression(ex)
+            else:
+                return ex
         else:
             assert False
 
