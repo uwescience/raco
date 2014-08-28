@@ -407,8 +407,9 @@ class RemoveUnusedColumns(Rule):
 
             agg = [accessed_columns(a) for a in agg_list]
             sm = [accessed_columns(a) for a in up_list]
-            pos = [g.position for g in grp_list]
-            accessed = sorted(set(itertools.chain(*(sm + agg + [pos]))))
+            pos = [{g.position} for g in grp_list]
+
+            accessed = sorted(set(itertools.chain(*(sm + agg + pos))))
             if not accessed:
                 # Bug #207: COUNTALL() does not access any columns. So if the
                 # query is just a COUNT(*), we would generate an empty Apply.
