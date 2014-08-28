@@ -1352,7 +1352,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                 return sorted(x, reverse=True)[1]
 
         expected = self.__aggregate_expected_result(agg_func)
-        self.check_result(query, expected, skip_json=True, test_logical=True)
+        self.check_result(query, expected, skip_json=True)
 
     def test_running_mean_sapply(self):
         query = """

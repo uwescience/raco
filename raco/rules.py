@@ -402,14 +402,16 @@ class RemoveUnusedColumns(Rule):
                         for g in op.grouping_list]
             agg_list = [to_unnamed_recursive(a, child_scheme)
                         for a in op.aggregate_list]
+
+            up_names = [name for name, ex in op.updaters]
             up_list = [to_unnamed_recursive(ex, child_scheme)
                        for name, ex in op.updaters]
 
             agg = [accessed_columns(a) for a in agg_list]
-            sm = [accessed_columns(a) for a in up_list]
+            up = [accessed_columns(a) for a in up_list]
             pos = [{g.position} for g in grp_list]
 
-            accessed = sorted(set(itertools.chain(*(sm + agg + pos))))
+            accessed = sorted(set(itertools.chain(*(up + agg + pos))))
             if not accessed:
                 # Bug #207: COUNTALL() does not access any columns. So if the
                 # query is just a COUNT(*), we would generate an empty Apply.
@@ -423,7 +425,8 @@ class RemoveUnusedColumns(Rule):
                     expression.reindex_expr(agg_expr, index_map)
                 op.grouping_list = grp_list
                 op.aggregate_list = agg_list
-                op.updaters = up_list
+                op.updaters = [(name, ex) for name, ex in
+                               zip(up_names, up_list)]
                 op.input = new_apply
                 return op
         elif isinstance(op, algebra.ProjectingJoin):
