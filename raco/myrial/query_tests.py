@@ -1349,10 +1349,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             if len(x) < 2:
                 return 0
             else:
-                return sorted(x)[1]
+                return sorted(x, reverse=True)[1]
 
         expected = self.__aggregate_expected_result(agg_func)
-        self.check_result(query, expected, skip_json=True)
+        self.check_result(query, expected, skip_json=True, test_logical=True)
 
     def test_running_mean_sapply(self):
         query = """
