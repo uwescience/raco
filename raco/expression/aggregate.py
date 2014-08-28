@@ -44,6 +44,13 @@ class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
     def __repr__(self):
         return "{op}({se!r})".format(op=self.opname(), se=self.sub_expression)
 
+    def __str__(self):
+        return repr(self)
+
+    def __eq__(self, other):
+        return (self.__class__ == other.__class__ and
+                self.sub_expression == other.sub_expression)
+
 
 class LocalAggregateOutput(object):
     """Dummy placeholder to refer to the output of a local aggregate."""
