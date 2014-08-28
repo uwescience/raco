@@ -1,7 +1,7 @@
+from collections import Counter
 from nose.plugins.skip import SkipTest
 import os
 import subprocess
-import sys
 import unittest
 
 from raco.compile import optimize_by_rules
@@ -17,7 +17,7 @@ from .flink_rules import FlinkAlgebra
 class FlinkTestCase(unittest.TestCase):
     """A base for testing the compilation of RACO programs to SQL queries"""
 
-    emp_table = [
+    emp_table = Counter([
         # id dept_id name salary
         (1, 2, "Bill Howe", 25000),
         (2, 1, "Dan Halperin", 90000),
@@ -25,7 +25,7 @@ class FlinkTestCase(unittest.TestCase):
         (4, 2, "Shumo Chu", 5000),
         (5, 1, "Victor Almeida", 25000),
         (6, 3, "Dan Suciu", 90000),
-        (7, 1, "Magdalena Balazinska", 25000)]
+        (7, 1, "Magdalena Balazinska", 25000)])
 
     emp_schema = scheme.Scheme([("id", types.INT_TYPE),
                                 ("dept_id", types.INT_TYPE),
@@ -39,6 +39,10 @@ class FlinkTestCase(unittest.TestCase):
         self.db.ingest(self.emp_key,
                        self.emp_table,
                        self.emp_schema)
+        self.parse_db = raco.fakedb.FakeDatabase()
+        self.parse_db.ingest(self.emp_key,
+                             self.emp_table,
+                             self.emp_schema)
         self.parser = parser.Parser()
         self.processor = interpreter.StatementProcessor(self.db)
 
@@ -54,11 +58,16 @@ class FlinkTestCase(unittest.TestCase):
             print e.output
             self.fail()
 
-    def compile_query(self, query):
+    def compile_query(self, query, output='OUTPUT'):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         p = self.processor.get_logical_plan()
+        self.parse_db.evaluate(p)
+        parser_ans = self.parse_db.get_table(output)
         p = optimize_by_rules(p, FlinkAlgebra.opt_rules())
+        self.db.evaluate(p)
+        self.assertEquals(parser_ans, self.db.get_table(output))
+
         query_str = compile_to_flink(query, p)
 
         flink_path = os.environ.get('FLINK_PATH')
@@ -101,7 +110,7 @@ class FlinkTestCase(unittest.TestCase):
         query = """
         emp = scan({emp});
         emp1 = scan({emp});
-        j = [from emp, emp1 where emp1.$0 = emp.$1 emit emp.*, emp1.$2];
+        j = [from emp, emp1 where emp1.$0 = emp.$0 emit emp.*, emp1.$2];
         store(j, OUTPUT);
         """.format(emp=self.emp_key)
         self.compile_query(query)
@@ -110,17 +119,17 @@ class FlinkTestCase(unittest.TestCase):
         query = """
         emp = scan({emp});
         emp1 = scan({emp});
-        j = [from emp, emp1 where emp1.$0 = emp.$1
+        j = [from emp, emp1 where emp1.$0 = emp.$0
              emit emp.$3, emp.$1, emp1.$2];
         store(j, OUTPUT);
         """.format(emp=self.emp_key)
-        self.compile_query(query)
+        raise NotImplementedError(self.compile_query(query))
 
     def test_semi_join(self):
         query = """
         emp = scan({emp});
         emp1 = scan({emp});
-        j = [from emp, emp1 where emp1.$0 = emp.$1 emit emp1.*];
+        j = [from emp, emp1 where emp1.$0 = emp.$0 emit emp1.*];
         store(j, OUTPUT);
         """.format(emp=self.emp_key)
         self.compile_query(query)
