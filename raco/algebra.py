@@ -843,7 +843,7 @@ class GroupBy(UnaryOperator):
         schema = scheme.Scheme()
         for index, sexpr in enumerate(self.column_list()):
             name = resolve_attribute_name(None, in_scheme, sexpr, index)
-            _type = sexpr.typeof(in_scheme, None)
+            _type = sexpr.typeof(in_scheme, self.state_scheme)
             schema.addAttribute(name, _type)
         return schema
 
