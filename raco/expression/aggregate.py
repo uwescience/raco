@@ -11,14 +11,7 @@ import math
 
 class AggregateExpression(Expression):
     def evaluate(self, _tuple, scheme, state=None):
-        """Stub evaluate function for aggregate expressions.
-
-        Aggregate functions do not evaluate individual tuples; rather they
-        operate on collections of tuples in the evaluate_aggregate function.
-        We return a dummy string so that all tuples containing this aggregate
-        hash to the same value.
-        """
-        return self.opname()
+        raise NotImplementedError("{expr}.evaluate".format(expr=type(self)))
 
     @abstractmethod
     def evaluate_aggregate(self, tuple_iterator, scheme):
@@ -142,11 +135,7 @@ class SUM(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
 
-        sum = 0
-        for t in inputs:
-            if t is not None:
-                sum += t
-        return sum
+        return sum(x for x in inputs if x is not None)
 
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
@@ -157,14 +146,8 @@ class SUM(UnaryFunction, DecomposableAggregate):
 class AVG(UnaryFunction, DecomposableAggregate):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
-        filtered = (x for x in inputs if x is not None)
-
-        sum = 0
-        count = 0
-        for t in filtered:
-            sum += t
-            count += 1
-        return sum / count
+        filtered = list(x for x in inputs if x is not None)
+        return sum(filtered) / len(filtered)
 
     def get_local_aggregates(self):
         return [SUM(self.input), COUNT(self.input)]
@@ -189,16 +172,11 @@ class STDEV(UnaryFunction, DecomposableAggregate):
         filtered = [x for x in inputs if x is not None]
 
         n = len(filtered)
-        if (n < 2):
+        if n < 2:
             return 0.0
 
         mean = float(sum(filtered)) / n
-
-        std = 0.0
-        for a in filtered:
-            std = std + (a - mean) ** 2
-        std = math.sqrt(std / n)
-        return std
+        return math.sqrt(sum((a - mean) ** 2 for a in filtered) / n)
 
     def get_local_aggregates(self):
         return [SUM(self.input), SUM(TIMES(self.input, self.input)),
