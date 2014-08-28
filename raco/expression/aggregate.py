@@ -41,6 +41,9 @@ class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
     def typeof(self, scheme, state_scheme):
         return self.sub_expression.typeof(scheme, state_scheme)
 
+    def __repr__(self):
+        return "{op}({se!r})".format(op=self.opname(), se=self.sub_expression)
+
 
 class LocalAggregateOutput(object):
     """Dummy placeholder to refer to the output of a local aggregate."""
