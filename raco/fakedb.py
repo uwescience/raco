@@ -14,11 +14,12 @@ debug = False
 class State(object):
     def __init__(self, op_scheme, state_scheme, init_exprs):
         self.scheme = state_scheme
+        self.op_scheme = op_scheme
         self.values = [x.evaluate(None, op_scheme, None)
                        for (_, x) in init_exprs]
 
-    def update(self, tpl, op_scheme, update_exprs):
-        new_vals = [expr.evaluate(tpl, op_scheme, self)
+    def update(self, tpl, update_exprs):
+        new_vals = [expr.evaluate(tpl, self.op_scheme, self)
                     for (_, expr) in update_exprs]
         self.values = new_vals
 
@@ -139,7 +140,7 @@ class FakeDatabase(Catalog):
 
         def make_tuple(input_tuple, state):
             # Update state variables
-            state.update(input_tuple, scheme, op.updaters)
+            state.update(input_tuple, op.updaters)
 
             # Extract a result for each emit expression
             return tuple([colexpr.evaluate(input_tuple, scheme, state)
@@ -245,7 +246,7 @@ class FakeDatabase(Catalog):
         for key, tuples in results.iteritems():
             state = State(input_scheme, op.state_scheme, op.inits)
             for tpl in tuples:
-                state.update(tpl, input_scheme, op.updaters)
+                state.update(tpl, op.updaters)
 
             # For now, built-in aggregates are handled differently than UDA
             # aggregates.  TODO: clean this up!
