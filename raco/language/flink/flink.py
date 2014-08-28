@@ -182,8 +182,8 @@ FilterFunction<{cs}>() {{
         cols = [str(ref[1].get_position(child_scheme)) for ref in op.emitters]
         cols_str = ','.join(cols)
         in_name = self.operator_names[str(op.input)]
-        self._add_op_code(op, "{inp}.project({cols})"
-                          .format(inp=in_name, cols=cols_str))
+        self._add_op_code(
+            op, "{inp}.project({cols})".format(inp=in_name, cols=cols_str))
 
     def v_apply(self, op):
         emitters = [e[1] for e in op.emitters]
@@ -266,7 +266,9 @@ MapFunction<{cs}, {os}>() {{
         output_cols = [ref.get_position(scheme) for ref in op.output_columns]
         for (i, c) in enumerate(output_cols):
             if any(c < x for x in output_cols[:i]):
-                raise NotImplementedError("ProjectingJoin with unordered cols")
+                raise NotImplementedError(
+                    "ProjectingJoin with unordered cols: {}"
+                    .format(output_cols))
 
         left_cols = [i for i in output_cols if i < left_len]
         right_cols = [i - left_len for i in output_cols if i >= left_len]
