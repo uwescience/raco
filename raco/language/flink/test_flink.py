@@ -62,9 +62,14 @@ class FlinkTestCase(unittest.TestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         p = self.processor.get_logical_plan()
+
+        # Evaluate the plan given and save the result
         self.parse_db.evaluate(p)
         parser_ans = self.parse_db.get_table(output)
+
         p = optimize_by_rules(p, FlinkAlgebra.opt_rules())
+
+        # Evaluate the optimized plan and compare the result
         self.db.evaluate(p)
         self.assertEquals(parser_ans, self.db.get_table(output))
 
@@ -119,11 +124,11 @@ class FlinkTestCase(unittest.TestCase):
         query = """
         emp = scan({emp});
         emp1 = scan({emp});
-        j = [from emp, emp1 where emp1.$0 = emp.$0
-             emit emp.$3, emp.$1, emp1.$2];
+        j = [from emp, emp1 where emp1.id = emp.id
+             emit emp.salary, emp.dept_id, emp1.name];
         store(j, OUTPUT);
         """.format(emp=self.emp_key)
-        raise NotImplementedError(self.compile_query(query))
+        self.compile_query(query)
 
     def test_semi_join(self):
         query = """
