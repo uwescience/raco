@@ -147,6 +147,11 @@ class FakeDatabase(Catalog):
         # Return tuples that match on the join conditions
         return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
 
+    def projectingjoin(self, op):
+        # standard join, projecting the output columns
+        return (tuple(t[x.position] for x in op.output_columns)
+                for t in self.join(op))
+
     def naryjoin(self, op):
         def eval_conditions(conditions, tpl):
             """Turns the weird NaryJoin condition set into a proper
@@ -312,9 +317,7 @@ class FakeDatabase(Catalog):
         return self.scantemp(op)
 
     def myriasymmetrichashjoin(self, op):
-        # standard join, projecting the output columns
-        return (tuple(t[x.position] for x in op.output_columns)
-                for t in self.join(op))
+        return self.projectingjoin(op)
 
     def myrialeapfrogjoin(self, op):
         # standard naryjoin, projecting the output columns
