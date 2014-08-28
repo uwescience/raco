@@ -1363,8 +1363,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              _max / _min;
         };
 
-        out = [FROM SCAN(%s) AS X EMIT dept_id,
-               MaxDivMin(id) + MaxDivMin(salary)];
+        out = [FROM SCAN(%s) AS X EMIT
+               MaxDivMin(id) + dept_id + MaxDivMin(salary), dept_id];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -1378,8 +1378,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             min_salary = min(t[3] for t in tpls)
             max_id = max(t[0] for t in tpls)
             min_id = min(t[0] for t in tpls)
-            results.append((k, float(max_salary) / min_salary +
-                            float(max_id) / min_id))
+            results.append((k + float(max_salary) / min_salary +
+                            float(max_id) / min_id, k))
 
         self.check_result(query, collections.Counter(results), skip_json=True)
 
