@@ -28,7 +28,7 @@ class DatalogClangTest(unittest.TestCase, DatalogPlatformTest):
 
     def setUp(self):
         with Chdir("c_test_environment") as d:
-          if need_generate():
+            if need_generate():
                 generate_default()
 
 
