@@ -7,6 +7,7 @@ from raco import expression
 from raco import catalog
 from raco.algebra import gensym
 from raco.expression import UnnamedAttributeRef
+from raco.expression import util
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -161,12 +162,14 @@ class CSelect(algebra.Select):
     }
     """
 
+    condition_as_unnamed = util.to_unnamed_recursive(self.condition, self.scheme())
+
     # tag the attributes with references
     # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
-    [_ for _ in self.condition.postorder(getTaggingFunc(t))]
+    [_ for _ in condition_as_unnamed.postorder(getTaggingFunc(t))]
 
     # compile the predicate into code
-    conditioncode, cond_decls, cond_inits = self.language.compile_expression(self.condition)
+    conditioncode, cond_decls, cond_inits = self.language.compile_expression(condition_as_unnamed)
     state.addInitializers(cond_inits)
     state.addDeclarations(cond_decls)
 
@@ -223,11 +226,14 @@ class CApply(algebra.Apply):
     for dst_fieldnum, src_label_expr in enumerate(self.emitters):
         src_label, src_expr = src_label_expr
 
+        # make sure to resolve attribute positions using input schema
+        src_expr_unnamed = util.to_unnamed_recursive(src_expr, self.input.scheme())
+
         # tag the attributes with references
         # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
-        [_ for _ in src_expr.postorder(getTaggingFunc(t))]
+        [_ for _ in src_expr_unnamed.postorder(getTaggingFunc(t))]
 
-        src_expr_compiled, expr_decls, expr_inits = self.language.compile_expression(src_expr)
+        src_expr_compiled, expr_decls, expr_inits = self.language.compile_expression(src_expr_unnamed)
         state.addInitializers(expr_inits)
         state.addDeclarations(expr_decls)
 
@@ -370,3 +376,43 @@ class CFileScan(algebra.Scan):
         """
         return ZeroaryOperator.__eq__(self, other) and \
                self.relation_key == other.relation_key
+
+
+# Rules
+from raco import rules
+
+
+class BreakHashJoinConjunction(rules.Rule):
+    """A rewrite rule for turning HashJoin(a=c and b=d)
+    into select(b=d)[HashJoin(a=c)]"""
+
+    def __init__(self, select_clazz, join_clazz):
+        self.select_clazz = select_clazz
+        self.join_clazz = join_clazz
+
+    def fire(self, expr):
+        if isinstance(expr, self.join_clazz) \
+                and isinstance(expr.condition.left, expression.EQ) \
+                and isinstance(expr.condition.right, expression.EQ):
+            return self.select_clazz(expr.condition.right,
+                                     self.join_clazz(expr.condition.left,
+                                                     expr.left,
+                                                     expr.right))
+
+        return expr
+
+    def __str__(self):
+        return "%s(a=c and b=d) => %s(b=d)[%s(a=c)]" \
+               % (self.join_clazz.__name__,
+                  self.select_clazz.__name__,
+                  self.join_clazz.__name__)
+
+
+clang_push_select = [
+    rules.SplitSelects(),
+    rules.PushSelects(),
+    # We don't want to merge selects because it doesn't really
+    # help and it (maybe) creates HashJoin(conjunction)
+    # rules.MergeSelects()
+]
+

@@ -12,8 +12,9 @@ from raco.algebra import gensym
 
 import logging
 
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
+import itertools
 import os.path
 
 
@@ -182,7 +183,7 @@ class CC(Language):
         conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
         decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
         inits = reduce(lambda sofar, x: sofar + x, [d for _, _, d in args])
-        LOG.debug("conjunc: %s", conjunc)
+        _LOG.debug("conjunc: %s", conjunc)
         return "( %s )" % conjunc, decls, inits
 
     @classmethod
@@ -209,7 +210,7 @@ class CCOperator(Pipelined):
 from raco.algebra import UnaryOperator
 
 
-class MemoryScan(algebra.UnaryOperator, CCOperator):
+class CMemoryScan(algebra.UnaryOperator, CCOperator):
     def produce(self, state):
         self.input.produce(state)
 
@@ -266,9 +267,9 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         return name
 
     def produce(self, state):
-        assert len(self.grouping_list) <= 1, \
+        assert len(self.grouping_list) <= 2, \
             "%s does not currently support groupings of \
-            more than 1 attribute" % self.__class__.__name__
+            more than 2 attributes" % self.__class__.__name__
         assert len(self.aggregate_list) == 1, \
             """%s currently only supports aggregates of 1 attribute
             (aggregate_list=%s)""" \
@@ -282,9 +283,14 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         self.useMap = len(self.grouping_list) > 0
 
         if self.useMap:
-            declr_template = """std::unordered_map<int64_t, int64_t> \
-            %(hashname)s;
-      """
+            if len(self.grouping_list) == 1:
+                declr_template = """std::unordered_map<int64_t, int64_t> \
+                %(hashname)s;
+          """
+            elif len(self.grouping_list) == 2:
+                declr_template = """std::unordered_map<std::pair<int64_t, int64_t>, int64_t, pairhash> \
+                %(hashname)s;
+                """
         else:
             declr_template = """int64_t %(hashname)s;
             """
@@ -295,28 +301,38 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         hash_declr = declr_template % locals()
         state.addDeclarations([hash_declr])
 
-        LOG.debug("aggregates: %s", self.aggregate_list)
-        LOG.debug("columns: %s", self.column_list())
-        LOG.debug("groupings: %s", self.grouping_list)
-        LOG.debug("groupby scheme: %s", self.scheme())
-        LOG.debug("groupby scheme[0] type: %s", type(self.scheme()[0]))
+        _LOG.debug("aggregates: %s", self.aggregate_list)
+        _LOG.debug("columns: %s", self.column_list())
+        _LOG.debug("groupings: %s", self.grouping_list)
+        _LOG.debug("groupby scheme: %s", self.scheme())
+        _LOG.debug("groupby scheme[0] type: %s", type(self.scheme()[0]))
 
         self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
         assert (not self.useMap) \
             or isinstance(self.column_list()[0],
-                          expression.UnnamedAttributeRef), \
-            "assumes first column is the key and second is aggregate result"
+                          expression.AttributeRef), \
+            "assumes first column is the key and " \
+            "second is aggregate result: %s" % (self.column_list()[0])
 
         if self.useMap:
-            produce_template = """for (auto it=%(hashname)s.begin(); \
-            it!=%(hashname)s.end(); it++) {
-            %(output_tuple_type)s %(output_tuple_name)s(\
-            {it->first, it->second});
-            %(inner_code)s
-            }
-            """
+            if len(self.grouping_list) == 1:
+                produce_template = """for (auto it=%(hashname)s.begin(); \
+                it!=%(hashname)s.end(); it++) {
+                %(output_tuple_type)s %(output_tuple_name)s(\
+                {it->first, it->second});
+                %(inner_code)s
+                }
+                """
+            elif len(self.grouping_list) == 2:
+                produce_template = """for (auto it=%(hashname)s.begin(); \
+                it!=%(hashname)s.end(); it++) {
+                %(output_tuple_type)s %(output_tuple_name)s(\
+                {it->first.first, it->first.second, it->second});
+                %(inner_code)s
+                }
+                """
         else:
             produce_template = """{
             %(output_tuple_type)s %(output_tuple_name)s({ %(hashname)s });
@@ -336,9 +352,14 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
     def consume(self, inputTuple, fromOp, state):
         if self.useMap:
-            materialize_template = """%(op)s_insert(%(hashname)s, \
-            %(tuple_name)s, %(keypos)s, %(valpos)s);
-      """
+            if len(self.grouping_list) == 1:
+                materialize_template = """%(op)s_insert(%(hashname)s, \
+                %(tuple_name)s, %(key1pos)s, %(valpos)s);
+                """
+            elif len(self.grouping_list) == 2:
+                materialize_template = """%(op)s_insert(%(hashname)s, \
+                %(tuple_name)s, %(key1pos)s, %(key2pos)s, %(valpos)s);
+                """
         else:
             materialize_template = """%(op)s_insert(%(hashname)s, \
             %(tuple_name)s, %(valpos)s);
@@ -349,7 +370,10 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
         # make key from grouped attributes
         if self.useMap:
-            keypos = self.grouping_list[0].get_position(self.scheme())
+            key1pos = self.grouping_list[0].get_position(self.input.scheme())
+
+            if len(self.grouping_list) == 2:
+                key2pos = self.grouping_list[1].get_position(self.input.scheme())
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())
@@ -404,14 +428,14 @@ class CHashJoin(algebra.Join, CCOperator):
             # if right child never bound then store hashtable symbol and
             # call right child produce
             self._hashname = self.__genHashName__()
-            LOG.debug("generate hashname %s for %s", self._hashname, self)
+            _LOG.debug("generate hashname %s for %s", self._hashname, self)
             state.saveExpr((self.right, self.right_keypos), self._hashname)
             self.right.produce(state)
         else:
             # if found a common subexpression on right child then
             # use the same hashtable
             self._hashname = hashsym
-            LOG.debug("reuse hash %s for %s", self._hashname, self)
+            _LOG.debug("reuse hash %s for %s", self._hashname, self)
 
         self.left.childtag = "left"
         self.left.produce(state)
@@ -529,6 +553,12 @@ class CStore(algebra.Store, CCOperator):
             state.addPostCode('logfile.close();')
         return code
 
+    def __repr__(self):
+        return "{op}({ep!r}, {rk!r}, {pl!r})".format(op=self.opname(),
+                                                     ep=self.emit_print,
+                                                     rk=self.relation_key,
+                                                     pl=self.input)
+
 
 class MemoryScanOfFileScan(rules.Rule):
     """A rewrite rule for making a scan into
@@ -536,11 +566,11 @@ class MemoryScanOfFileScan(rules.Rule):
 
     def fire(self, expr):
         if isinstance(expr, algebra.Scan) and not isinstance(expr, CFileScan):
-            return MemoryScan(CFileScan(expr.relation_key, expr.scheme()))
+            return CMemoryScan(CFileScan(expr.relation_key, expr.scheme()))
         return expr
 
     def __str__(self):
-        return "Scan => MemoryScan(FileScan)"
+        return "Scan => MemoryScan[FileScan]"
 
 
 class StoreToCStore(rules.Rule):
@@ -557,6 +587,25 @@ class StoreToCStore(rules.Rule):
         return "Store => CStore"
 
 
+def clangify(emit_print):
+    return [
+        rules.ProjectingJoinToProjectOfJoin(),
+
+        rules.OneToOne(algebra.Select, CSelect),
+        MemoryScanOfFileScan(),
+        rules.OneToOne(algebra.Apply, CApply),
+        rules.OneToOne(algebra.Join, CHashJoin),
+        rules.OneToOne(algebra.GroupBy, CGroupBy),
+        rules.OneToOne(algebra.Project, CProject),
+        rules.OneToOne(algebra.UnionAll, CUnionAll),
+        # TODO: obviously breaks semantics
+        rules.OneToOne(algebra.Union, CUnionAll),
+        StoreToCStore(emit_print),
+
+        clangcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
+    ]
+
+
 class CCAlgebra(object):
     language = CC
 
@@ -566,26 +615,30 @@ class CCAlgebra(object):
         self.emit_print = emit_print
 
     def opt_rules(self):
-        return [
-            # rules.OneToOne(algebra.Join,TwoPassHashJoin),
-            # rules.removeProject(),
-            rules.CrossProduct2Join(),
-            rules.SimpleGroupBy(),
-            #    FilteringNestedLoopJoinRule(),
-            #    FilteringHashJoinChainRule(),
-            #    LeftDeepFilteringJoinChainRule(),
-            rules.OneToOne(algebra.Select, CSelect),
-            #   rules.OneToOne(algebra.Select,TwoPassSelect),
-            #  rules.OneToOne(algebra.Scan,MemoryScan),
-            MemoryScanOfFileScan(),
-            rules.OneToOne(algebra.Apply, CApply),
-            rules.OneToOne(algebra.Join, CHashJoin),
-            rules.OneToOne(algebra.GroupBy, CGroupBy),
-            rules.OneToOne(algebra.Project, CProject),
-            # TODO: obviously breaks semantics
-            rules.OneToOne(algebra.Union, CUnionAll),
-            StoreToCStore(self.emit_print)
-            #  rules.FreeMemory()
+        # Sequence that works for datalog
+        # TODO: replace with below
+        # datalog_rules = [
+        # rules.CrossProduct2Join(),
+        # rules.SimpleGroupBy(),
+        # rules.OneToOne(algebra.Select, CSelect),
+        # MemoryScanOfFileScan(),
+        # rules.OneToOne(algebra.Apply, CApply),
+        # rules.OneToOne(algebra.Join, CHashJoin),
+        # rules.OneToOne(algebra.GroupBy, CGroupBy),
+        # rules.OneToOne(algebra.Project, CProject),
+        # TODO: obviously breaks semantics
+        # rules.OneToOne(algebra.Union, CUnionAll),
+        # rules.FreeMemory()
+        # ]
 
-
+        # sequence that works for myrial
+        rule_grps_sequence = [
+            rules.remove_trivial_sequences,
+            rules.simple_group_by,
+            clangcommon.clang_push_select,
+            rules.push_project,
+            rules.push_apply,
+            clangify(self.emit_print)
         ]
+
+        return list(itertools.chain(*rule_grps_sequence))
