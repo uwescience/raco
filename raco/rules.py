@@ -123,11 +123,11 @@ class SimpleGroupBy(Rule):
             if isinstance(agg, expression.COUNTALL):
                 return True
             elif isinstance(agg, expression.UdaAggregateExpression):
-                return True  #  XXX dhalperi: is this correct?
+                return True  # XXX dhalperi: is this correct?
             elif isinstance(agg, expression.UnaryOperator) and \
-                 isinstance(agg, expression.BuiltinAggregateExpression) and \
-                 isinstance(agg.input, expression.AttributeRef):
-                 return True
+                isinstance(agg, expression.BuiltinAggregateExpression) and \
+                isinstance(agg.input, expression.AttributeRef):  # noqa
+                return True
             return False
 
         complex_agg_exprs = [agg for agg in expr.aggregate_list
