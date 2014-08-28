@@ -120,10 +120,15 @@ class SimpleGroupBy(Rule):
         # A simple aggregate expression is an aggregate whose input is an
         # AttributeRef
         def is_simple_agg_expr(agg):
-            return (isinstance(agg, expression.COUNTALL) or
-                    (isinstance(agg, expression.UnaryOperator) and
-                     isinstance(agg, expression.AggregateExpression) and
-                     isinstance(agg.input, expression.AttributeRef)))
+            if isinstance(agg, expression.COUNTALL):
+                return True
+            elif isinstance(agg, expression.UdaAggregateExpression):
+                return True  #  XXX dhalperi: is this correct?
+            elif isinstance(agg, expression.UnaryOperator) and \
+                 isinstance(agg, expression.BuiltinAggregateExpression) and \
+                 isinstance(agg.input, expression.AttributeRef):
+                 return True
+            return False
 
         complex_agg_exprs = [agg for agg in expr.aggregate_list
                              if not is_simple_agg_expr(agg)]
