@@ -1354,6 +1354,35 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         expected = self.__aggregate_expected_result(agg_func)
         self.check_result(query, expected, skip_json=True)
 
+    def test_multi_invocation_uda(self):
+        query = """
+        uda MaxDivMin(val) {
+            [9999999 as _min, 0 as _max];
+            [case when val < _min then val else _min end,
+             case when val > _max then val else _max end];
+             _max / _min;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id,
+               MaxDivMin(id) + MaxDivMin(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            max_salary = max(t[3] for t in tpls)
+            min_salary = min(t[3] for t in tpls)
+            max_id = max(t[0] for t in tpls)
+            min_id = min(t[0] for t in tpls)
+            results.append((k, float(max_salary) / min_salary +
+                float(max_id) / min_id))
+
+        self.check_result(query, collections.Counter(results), skip_json=True)
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {
