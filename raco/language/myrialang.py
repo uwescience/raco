@@ -1038,7 +1038,7 @@ class DistributedGroupBy(rules.Rule):
         if len(decomposable_aggs) < len(op.aggregate_list):
             out_op = MyriaGroupBy()
             out_op.copy(op)
-            return out_op
+            return DistributedGroupBy.do_transfer(out_op)
 
         assert len(decomposable_aggs) == len(op.aggregate_list)
 
