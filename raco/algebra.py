@@ -6,6 +6,7 @@ from abc import ABCMeta, abstractmethod
 import copy
 import operator
 import math
+import collections
 
 # BEGIN Code to generate variables names
 var_id = 0
@@ -582,6 +583,11 @@ class Apply(UnaryOperator):
                                                inp=self.input)
 
 
+# This type represents a state variable, as used by StatefulApply and UDAs
+StateVar = collections.namedtuple(
+    'StateVar', ['name', 'init_expr', 'update_expr'])
+
+
 class StatefulApply(UnaryOperator):
     inits = None
     updaters = None
@@ -597,17 +603,14 @@ class StatefulApply(UnaryOperator):
                 column_name can be None, in which case the system will infer a
                 name based on the expression
             :type emitters: list of tuples
-        :param state_modifiers: expressions used to initialize and update the
-        state. Contains tuples of the form:
-                (state_name, raco.expression.Expression, Expression)
-                where the two expressions are the initializer expression
-                and the updater expression
-        :type state_modifiers: list of tuples
+        :param state_modifiers: State variables maintained by the StatefulApply
+        operator.
+        :type state_modifiers: list of StateVar tuples
         """
 
         if state_modifiers is not None:
-            self.inits = [(x[0], x[1]) for x in state_modifiers]
-            self.updaters = [(x[0], x[2]) for x in state_modifiers]
+            self.inits = [(x.name, x.init_expr) for x in state_modifiers]
+            self.updaters = [(x.name, x.update_expr) for x in state_modifiers]
 
             self.state_scheme = scheme.Scheme()
             for (name, expr) in self.inits:
@@ -629,7 +632,7 @@ class StatefulApply(UnaryOperator):
 
     def __repr__(self):
         # the next line is because of the refactoring that we do in __init__
-        state_mods = [(a, b, d)
+        state_mods = [StateVar(a, b, d)
                       for ((a, b), (c, d)) in zip(self.inits, self.updaters)]
         return "{op}({emt!r}, {sm!r}, {inp!r})".format(op=self.opname(),
                                                        emt=self.emitters,
@@ -781,10 +784,7 @@ class GroupBy(UnaryOperator):
     :param aggregate_list: A list of aggregate expressions (e.g., MIN, MAX)
     :param input: The input operator
     :param state_modifiers: A list of state variables associated with
-    user-defined aggregates.  Contains tuples of the form:
-        (state_name, expression, expression)
-    where the two expressions are the initializer expression and the
-    updater expression.
+    user-defined aggregates.  Contains StateVar tuples of the form.
     """
 
     def __init__(self, grouping_list=None, aggregate_list=None, input=None,

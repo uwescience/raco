@@ -46,7 +46,7 @@ class OperatorTest(unittest.TestCase):
                         NumericLiteral(1))
 
         sapply = StatefulApply([("count", iterex)],
-                               [("count", initex, updateex)], scan)
+                               [StateVar("count", initex, updateex)], scan)
         result = collections.Counter(self.db.evaluate(sapply))
         self.assertEqual(len(result), len(TestQueryFunctions.emp_table))
         self.assertEqual([x[0] for x in result], range(7))
@@ -60,7 +60,7 @@ class OperatorTest(unittest.TestCase):
                           NamedAttributeRef("salary"))
         emit_ex = UdaAggregateExpression(NamedStateAttributeRef("value"))
 
-        statemods = [("value", init_ex, update_ex)]
+        statemods = [StateVar("value", init_ex, update_ex)]
         gb = GroupBy([UnnamedAttributeRef(1)], [emit_ex], input_op, statemods)
         result = self.db.evaluate_to_bag(gb)
 
@@ -88,8 +88,8 @@ class OperatorTest(unittest.TestCase):
                         NamedStateAttributeRef("count"))
 
         sapply = StatefulApply([("avg", avgex)],
-                               [("count", initex0, updateex0),
-                                ("sum", initex1, updateex1)], scan)
+                               [StateVar("count", initex0, updateex0),
+                                StateVar("sum", initex1, updateex1)], scan)
 
         store = Store(RelationKey("OUTPUT"), sapply)
         result = list(self.db.evaluate(sapply))
