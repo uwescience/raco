@@ -367,13 +367,14 @@ class PushApply(Rule):
 
             # If this apply is only AttributeRefs and the columns already
             # have the correct names, we can push it into the ProjectingJoin
-            if (all(isinstance(e, expression.AttributeRef) for e in emits) and
-                len(set(emits)) == len(emits) and
-                all((n is None) or (n == in_scheme.getName(e.position))
-                    for n, e in zip(names, emits))):
-                child.output_columns = [child.output_columns[e.position]
-                                        for e in emits]
-                return child
+            if (all(isinstance(e, expression.AttributeRef) for e in emits)
+                    and len(set(emits)) == len(emits)):
+                new_cols = [child.output_columns[e.position] for e in emits]
+                new_pj = algebra.ProjectingJoin(
+                    condition=child.condition, left=child.left,
+                    right=child.right, output_columns=new_cols)
+                if new_pj.scheme() == op.scheme():
+                    return new_pj
 
             accessed = sorted(set(itertools.chain(*(accessed_columns(e)
                                                     for e in emits))))

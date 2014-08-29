@@ -93,3 +93,34 @@ class OperatorTest(unittest.TestCase):
             assert isinstance(x[0], float)
         self.assertEqual([x[0] for x in res],
                          [x[3] for x in TestQueryFunctions.emp_table])
+
+    def test_projecting_join_scheme(self):
+        emp = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
+        emp1 = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
+        pj = ProjectingJoin(condition=BooleanLiteral(True),
+                            left=emp, right=emp1)
+        names = ([n for n in emp.scheme().get_names()]
+                 + ["{n}1".format(n=n) for n in emp.scheme().get_names()])
+        self.assertEquals(names, pj.scheme().get_names())
+
+    def test_projecting_join_scheme_no_dups_alternate(self):
+        emp = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
+        emp1 = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
+        num_cols = len(emp.scheme())
+        # alternate which copy of emp we keep a col from
+        refs = [UnnamedAttributeRef(i + (i % 2) * num_cols)
+                for i in range(num_cols)]
+        pj = ProjectingJoin(condition=BooleanLiteral(True),
+                            left=emp, right=emp1, output_columns=refs)
+        self.assertEquals(emp.scheme().get_names(), pj.scheme().get_names())
+
+    def test_projecting_join_scheme_no_dups_only_keep_right(self):
+        emp = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
+        emp1 = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)
+        num_cols = len(emp.scheme())
+        # keep only the right child's columns
+        refs = [UnnamedAttributeRef(i + num_cols)
+                for i in range(num_cols)]
+        pj = ProjectingJoin(condition=BooleanLiteral(True),
+                            left=emp, right=emp1, output_columns=refs)
+        self.assertEquals(emp.scheme().get_names(), pj.scheme().get_names())

@@ -879,9 +879,19 @@ class ProjectingJoin(Join):
         """Return the scheme of the result."""
         if self.output_columns is None:
             return Join.scheme(self)
+
+        def get_col(pos, left_sch, right_sch):
+            if pos < len(left_sch):
+                return left_sch.getName(pos), left_sch.getType(pos)
+            else:
+                pos -= len(left_sch)
+                assert pos < len(right_sch)
+                return right_sch.getName(pos), right_sch.getType(pos)
+
         combined = self.left.scheme() + self.right.scheme()
-        return scheme.Scheme([combined[p.get_position(combined)]
-                             for p in self.output_columns])
+        return scheme.Scheme([get_col(p.get_position(combined),
+                              self.left.scheme(), self.right.scheme())
+                              for p in self.output_columns])
 
     def add_equijoin_condition(self, col0, col1):
         # projects are pushed after selections
