@@ -3,6 +3,7 @@ Functions (unary and binary) for use in Raco.
 """
 
 import math
+import md5
 
 from .expression import *
 
