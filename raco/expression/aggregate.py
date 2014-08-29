@@ -25,31 +25,31 @@ class BuiltinAggregateExpression(AggregateExpression):
 class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
     """A user-defined aggregate.
 
-    A UDA wraps a sub-expression that is responsible for emitting a
+    A UDA wraps an emit expression that is responsible for emitting a
     value for each tuple group.
     """
-    def __init__(self, sub_expression):
-        self.sub_expression = sub_expression
+    def __init__(self, emitter):
+        self.emitter = emitter
 
     def evaluate(self, _tuple, scheme, state=None):
         """Evaluate the UDA sub-expression.
 
-        Note that the sub-expression should only reference the state argument.
+        Note that the emitter should only reference the state argument.
         """
-        return self.sub_expression.evaluate(None, None, state)
+        return self.emitter.evaluate(None, None, state)
 
     def typeof(self, scheme, state_scheme):
-        return self.sub_expression.typeof(scheme, state_scheme)
+        return self.emitter.typeof(None, state_scheme)
 
     def __repr__(self):
-        return "{op}({se!r})".format(op=self.opname(), se=self.sub_expression)
+        return "{op}({se!r})".format(op=self.opname(), se=self.emitter)
 
     def __str__(self):
-        return repr(self)
+        return 'UDA(%s)' % self.emitter
 
     def __eq__(self, other):
         return (self.__class__ == other.__class__ and
-                self.sub_expression == other.sub_expression)
+                self.emitter == other.emitter)
 
 
 class LocalAggregateOutput(object):
