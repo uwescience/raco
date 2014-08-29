@@ -1435,6 +1435,84 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(results), skip_json=True)
 
+    def test_uda_with_subsequent_project_0(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
+        out = [from inter emit $0];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k, max(t[3] + t[0] for t in tpls)))
+        results = [(t[0],) for t in results]
+
+        self.check_result(query, collections.Counter(results), skip_json=True)
+
+    def test_uda_with_subsequent_project_1(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
+        out = [from inter emit $1];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k, max(t[3] + t[0] for t in tpls)))
+        results = [(t[1],) for t in results]
+
+        self.check_result(query, collections.Counter(results), skip_json=True)
+
+    def test_uda_with_subsequent_project_2(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)
+                                       , max2(dept_id, id)];
+        out = [from inter emit $1];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k,
+                            max(t[3] + t[0] for t in tpls),
+                            max(t[1] + t[0] for t in tpls)))
+        results = [(t[1],) for t in results]
+
+        self.check_result(query, collections.Counter(results), skip_json=True)
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {
