@@ -103,6 +103,17 @@ class TAN(UnaryDoubleFunction):
         return math.tan(self.input.evaluate(_tuple, scheme, state))
 
 
+class MD5(UnaryFunction):
+    def typeof(self, scheme, state_scheme):
+        return types.LONG_TYPE
+
+    def evaluate(self, _tuple, scheme, state=None):
+        """Preserve 64 bits of the md5 hash function."""
+        m = md5.new()
+        m.update(str(self.input.evaluate(_tuple, scheme, state)))
+        return int(m.hexdigest(), 16) >> 64
+
+
 class POW(BinaryFunction):
     literals = ['POW']
 
