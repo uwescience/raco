@@ -1031,16 +1031,13 @@ class DistributedGroupBy(rules.Rule):
             return op
 
         num_grouping_terms = len(op.grouping_list)
-        decomposable_aggs = [agg for agg in op.aggregate_list if
-                             isinstance(agg, DecomposableAggregate)]
 
         # Bail early if we have any non-decomposable aggregates
-        if len(decomposable_aggs) < len(op.aggregate_list):
+        if not all(isinstance(agg, DecomposableAggregate)
+                   for agg in op.aggregate_list):
             out_op = MyriaGroupBy()
             out_op.copy(op)
             return out_op
-
-        assert len(decomposable_aggs) == len(op.aggregate_list)
 
         # Each logical aggregate generates one or more local aggregates:
         # e.g., average requires a SUM and a COUNT.  In turn, these local
