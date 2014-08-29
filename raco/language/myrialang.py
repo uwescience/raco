@@ -396,7 +396,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             updates = [compile_mapping(e, child_scheme, self.state_scheme)
                        for e in self.updaters]
             emitters = [compile_mapping(("uda{i}".format(i=i),
-                                         e.sub_expression),
+                                         e.emitter),
                                         None, self.state_scheme)
                         for i, e in enumerate(udas)]
             aggregators.append({
