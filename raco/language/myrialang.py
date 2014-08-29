@@ -1056,7 +1056,7 @@ class DistributedGroupBy(rules.Rule):
         decomposable_aggs = [agg for agg in op.aggregate_list if
                              isinstance(agg, DecomposableAggregate)]
 
-        # Bail early if we have non-deocomposable aggregates
+        # Bail early if we have non-decomposable aggregates
         if len(decomposable_aggs) < len(op.aggregate_list):
             out_op = MyriaGroupBy()
             out_op.copy(op)
