@@ -365,25 +365,47 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             type(agg_expr)))
 
     @staticmethod
-    def compile_aggregator(agg, child_scheme):
-        if isinstance(agg, expression.BuiltinAggregateExpression):
-            if isinstance(agg, expression.COUNTALL):
-                return {"type": "CountAll"}
+    def compile_builtin_agg(agg, child_scheme):
+        assert isinstance(agg, expression.BuiltinAggregateExpression)
+        if isinstance(agg, expression.COUNTALL):
+            return {"type": "CountAll"}
 
-            column = expression.toUnnamed(agg.input, child_scheme).position
-            return {"type": "SingleColumn",
-                    "aggOps": [MyriaGroupBy.agg_mapping(agg)],
-                    "column": column}
-        else:
-            assert False  # XXX Handle non-builtin aggregates
+        column = expression.toUnnamed(agg.input, child_scheme).position
+        return {"type": "SingleColumn",
+                "aggOps": [MyriaGroupBy.agg_mapping(agg)],
+                "column": column}
 
     def compileme(self, inputid):
         child_scheme = self.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme)
                         for ref in self.grouping_list]
 
-        aggregators = [MyriaGroupBy.compile_aggregator(agg_expr, child_scheme)
-                       for agg_expr in self.aggregate_list]
+        built_ins = [agg_expr for agg_expr in self.aggregate_list
+                     if isinstance(agg_expr,
+                                   expression.BuiltinAggregateExpression)]
+
+        aggregators = [MyriaGroupBy.compile_builtin_agg(agg_expr, child_scheme)
+                       for agg_expr in built_ins]
+
+        udas = [agg_expr for agg_expr in self.aggregate_list
+                if isinstance(agg_expr, expression.UdaAggregateExpression)]
+        assert len(udas) + len(built_ins) == len(self.aggregate_list)
+
+        if udas:
+            inits = [compile_mapping(e, None, None) for e in self.inits]
+            updates = [compile_mapping(e, child_scheme, self.state_scheme)
+                       for e in self.updaters]
+            emitters = [compile_mapping(("uda{i}".format(i=i),
+                                         e.sub_expression),
+                                        None, self.state_scheme)
+                        for i, e in enumerate(udas)]
+            aggregators.append({
+                "type": "UserDefined",
+                "initializers": inits,
+                "updaters": updates,
+                "emitters": emitters
+            })
+
         ret = {
             "argChild": inputid,
             "aggregators": aggregators,
