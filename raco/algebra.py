@@ -783,8 +783,8 @@ class GroupBy(UnaryOperator):
     :param grouping_list: A list of expressions in a "group by" clause
     :param aggregate_list: A list of aggregate expressions (e.g., MIN, MAX)
     :param input: The input operator
-    :param state_modifiers: A list of state variables associated with
-    user-defined aggregates.  Contains StateVar tuples of the form.
+    :param state_modifiers: A list of StateVar tuples associated with the
+    user-defined aggregates.
     """
 
     def __init__(self, grouping_list=None, aggregate_list=None, input=None,
@@ -793,8 +793,8 @@ class GroupBy(UnaryOperator):
         self.aggregate_list = aggregate_list or []
 
         if state_modifiers is not None:
-            self.inits = [(x[0], x[1]) for x in state_modifiers]
-            self.updaters = [(x[0], x[2]) for x in state_modifiers]
+            self.inits = [(x.name, x.init_expr) for x in state_modifiers]
+            self.updaters = [(x.name, x.update_expr) for x in state_modifiers]
 
             self.state_scheme = scheme.Scheme()
             for name, expr in self.inits:
@@ -818,7 +818,7 @@ class GroupBy(UnaryOperator):
 
     def __repr__(self):
         # the next line is because of the refactoring that we do in __init__
-        state_mods = [(a, b, d)
+        state_mods = [StateVar(a, b, d)
                       for ((a, b), (c, d)) in zip(self.inits, self.updaters)]
 
         return "{op}({gl!r}, {al!r}, {inp!r}, {sm!r})".format(
