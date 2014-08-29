@@ -13,6 +13,7 @@ from raco.expression.udf import Function, Apply, UDA
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
+from raco.algebra import StateVar
 
 
 class JoinColumnCountMismatchException(Exception):
@@ -663,8 +664,8 @@ class Parser(object):
                 # Convert argument references into appropriate expressions
                 update_expr = sexpr.resolve_function(update_expr,
                     dict(zip(func.args, args)))  # noqa
-                Parser.statemods.append((mangled[sm_name],
-                    init_expr, update_expr))  # noqa
+                Parser.statemods.append(StateVar(
+                    mangled[sm_name], init_expr, update_expr))
             ex = sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
 
             # If the function is a UDA, wrap the output expression so
