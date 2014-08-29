@@ -137,6 +137,7 @@ class GrappalangRunner(PlatformRunner):
                                        '--nnode=2',
                                        '--',
                                        '%s.exe' % gname,
+                                       'relations=/shared/'
                                        '--vmodule=%s=2' % gname  # result out
                                        ],
                                         stderr=outf,
