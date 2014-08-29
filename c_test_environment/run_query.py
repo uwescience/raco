@@ -29,8 +29,13 @@ def main(args):
     abspath = os.path.abspath("logs")
     name = opt.file
     if opt.platform == 'grappa':
-        runner = GrappalangRunner()
-        runner.run(name, abspath)
+        try:
+            runner = GrappalangRunner()
+            runner.run(name, abspath)
+        except subprocess.CalledProcessError as e:
+            print 'grappa runner for %s failed' % (name)
+            print e.output
+            raise
     elif opt.platform == 'clang':
         try:
             runner = ClangRunner()
