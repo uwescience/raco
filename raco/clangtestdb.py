@@ -6,8 +6,10 @@ import csv
 
 
 class ClangTestDatabase(Catalog):
-    """Interface for table metadata and ingest 
-    for raco.clang query processor"""
+    """
+    Interface for table metadata and ingest
+    for raco.clang query processor
+    """
 
     def __init__(self):
         # Map from relation keys to tuples of (Bag, scheme.Scheme)
