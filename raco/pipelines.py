@@ -214,7 +214,6 @@ class Pipelined(object):
       """Denotation for consuming a tuple"""
       return
 
-    # emitprint: quiet, console, file
     def compilePipeline(self):
       self.__markAllParents__()
 

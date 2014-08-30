@@ -17,6 +17,9 @@ _LOG = logging.getLogger(__name__)
 import itertools
 import os.path
 
+EMIT_CONSOLE = 'console'
+EMIT_FILE = 'file'
+
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "c_templates")
@@ -524,9 +527,9 @@ class CStore(algebra.Store, CCOperator):
         state.addDeclarations([resdecl])
         code += "result.push_back(%s);\n" % (t.name)
 
-        if self.emit_print == 'console':
+        if self.emit_print == EMIT_CONSOLE:
             code += self.language.log_unquoted("%s" % t.name, 2)
-        elif self.emit_print == 'file':
+        elif self.emit_print == EMIT_FILE:
             state.addPreCode('std::ofstream logfile;\n')
             resultfile = str(self.relation_key).split(":")[2]
             opentuple = 'logfile.open("%s");\n' % resultfile
@@ -635,7 +638,7 @@ clang_push_select = [
 class CCAlgebra(object):
     language = CC
 
-    def __init__(self, emit_print='console'):
+    def __init__(self, emit_print=EMIT_CONSOLE):
         """ To store results into a file or onto console """
         self.emit_print = emit_print
 
