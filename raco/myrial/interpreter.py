@@ -13,6 +13,7 @@ from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
 from raco.language.myrialang import compile_to_json
 from raco.compile import optimize
 from raco import relation_key
+from raco.algebra import StateVar
 
 import collections
 import copy
@@ -208,11 +209,12 @@ class ExpressionProcessor(object):
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
                      for (name, sexpr) in emit_args]
 
-        statemods = [(name, init, multiway.rewrite_refs(update, from_args, info))  # noqa
+        statemods = [StateVar(name, init, multiway.rewrite_refs(update, from_args, info))  # noqa
                      for name, init, update in statemods]
 
         if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
-            return groupby.groupby(op, emit_args, implicit_group_by_cols)
+            return groupby.groupby(op, emit_args, implicit_group_by_cols,
+                                   statemods)
         else:
             if statemods:
                 return raco.algebra.StatefulApply(emit_args, statemods, op)
