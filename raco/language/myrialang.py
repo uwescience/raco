@@ -35,7 +35,8 @@ def compile_expr(op, child_scheme, state_scheme):
         elif type(op.value) == float:
             myria_type = types.DOUBLE_TYPE
         else:
-            raise NotImplementedError("Compiling NumericLiteral %s of type %s" % (op, type(op.value)))  # noqa
+            raise NotImplementedError("Compiling NumericLiteral {} of type {}"
+                                      .format(op, type(op.value)))
 
         return {
             'type': 'CONSTANT',
@@ -47,6 +48,12 @@ def compile_expr(op, child_scheme, state_scheme):
             'type': 'CONSTANT',
             'value': str(op.value),
             'valueType': types.STRING_TYPE
+        }
+    elif isinstance(op, expression.BooleanLiteral):
+        return {
+            'type': 'CONSTANT',
+            'value': bool(op.value),
+            'valueType': 'BOOLEAN_TYPE'
         }
     elif isinstance(op, expression.StateRef):
         return {
