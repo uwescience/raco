@@ -10,12 +10,46 @@ import math
 
 
 class AggregateExpression(Expression):
+    pass
+
+
+class BuiltinAggregateExpression(AggregateExpression):
     def evaluate(self, _tuple, scheme, state=None):
         raise NotImplementedError("{expr}.evaluate".format(expr=type(self)))
 
     @abstractmethod
     def evaluate_aggregate(self, tuple_iterator, scheme):
         """Evaluate an aggregate over a bag of tuples"""
+
+
+class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
+    """A user-defined aggregate.
+
+    A UDA wraps an emit expression that is responsible for emitting a
+    value for each tuple group.
+    """
+    def __init__(self, emitter):
+        self.emitter = emitter
+
+    def evaluate(self, _tuple, scheme, state=None):
+        """Evaluate the UDA sub-expression.
+
+        Note that the emitter should only reference the state argument.
+        """
+        return self.emitter.evaluate(None, None, state)
+
+    def typeof(self, scheme, state_scheme):
+        return self.emitter.typeof(None, state_scheme)
+
+    def __repr__(self):
+        return "{op}({se!r})".format(op=self.opname(), se=self.emitter)
+
+    def __str__(self):
+        return 'UDA(%s)' % self.emitter
+
+    def __eq__(self, other):
+        return (self.__class__ == other.__class__ and
+                self.emitter == other.emitter)
 
 
 class LocalAggregateOutput(object):
@@ -48,7 +82,7 @@ def finalizer_expr_to_absolute(expr, offsets):
     return convert(expr)
 
 
-class DecomposableAggregate(AggregateExpression):
+class DecomposableAggregate(BuiltinAggregateExpression):
     """An aggregate expression that yields a distributed execution plan.
 
     Execution of a decomposable aggregate proceeds in three phases:

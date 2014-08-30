@@ -649,7 +649,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             "%s currently only supports aggregates of 1 attribute"\
             % self.__class__.__name__
         for agg_term in self.aggregate_list:
-            assert isinstance(agg_term, expression.AggregateExpression), \
+            assert isinstance(agg_term,
+                              expression.BuiltinAggregateExpression), \
                 """%s only supports simple aggregate expressions.
                 A rule should create Apply[GroupBy]""" \
                 % self.__class__.__name__

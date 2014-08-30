@@ -123,10 +123,10 @@ class GrappalangRunner(PlatformRunner):
             print os.getcwd()
             print subprocess.check_call(['make', '-j', '%s.exe' % gname], env=envir)
 
-            """subprocess.check_call(['../../bin/distcc_make',
-                                   '-j24',
-                                   '%s.exe' % gname,
-                                   ], env=envir)"""
+            # subprocess.check_call(['../../bin/distcc_make',
+            #                        '-j24',
+            #                        '%s.exe' % gname,
+            #                        ], env=envir)
 
 
             # run the application

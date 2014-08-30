@@ -11,10 +11,11 @@ from raco.replace_with_repr import replace_with_repr
 
 
 class MyrialTestCase(unittest.TestCase):
+    def create_db(self):
+        return raco.fakedb.FakeDatabase()
 
     def setUp(self):
-        if not hasattr(self, 'db'):
-            self.db = raco.fakedb.FakeDatabase()
+        self.db = self.create_db()
 
         self.parser = parser.Parser()
         self.processor = interpreter.StatementProcessor(self.db)

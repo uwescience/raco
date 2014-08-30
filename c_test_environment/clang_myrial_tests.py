@@ -23,13 +23,12 @@ class MyriaLClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             dwf.write(physical_dot)
 
         # generate code in the target language
-        code = ""
-        code += compile(plan)
-
-        fname = name+'.cpp'
+        code = compile(plan)
 
         with Chdir("c_test_environment") as d:
-            os.remove("%s.cpp" % name) if os.path.exists("%s.cpp" % name) else None
+            fname = "{name}.cpp".format(name=name)
+            if os.path.exists(fname):
+                os.remove(fname)
             with open(fname, 'w') as f:
                 f.write(code)
 
