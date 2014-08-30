@@ -681,10 +681,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              x[0] > 3])
         self.check_result(query, expected)
 
-    def __aggregate_expected_result(self, apply_func):
+    def __aggregate_expected_result(self, apply_func, grouping_col=1,
+                                    agg_col=3):
         result_dict = collections.defaultdict(list)
         for t in self.emp_table.elements():
-            result_dict[t[1]].append(t[3])
+            result_dict[t[grouping_col]].append(t[agg_col])
 
         tuples = [(key, apply_func(values)) for key, values in
                   result_dict.iteritems()]
@@ -1328,6 +1329,189 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [(max(t[0], t[1],),)
              for t in self.emp_table])
         self.check_result(query, expected)
+
+    def test_second_max_uda(self):
+        """UDA to compute the second largest element in a collection."""
+        query = """
+        uda SecondMax(val) {
+            [0 as _max, 0 as second_max];
+            [case when val > _max then val else _max end,
+             case when val > _max then _max when val > second_max then val
+             else second_max end];
+             second_max;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SecondMax(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        def agg_func(x):
+            if len(x) < 2:
+                return 0
+            else:
+                return sorted(x, reverse=True)[1]
+
+        expected = self.__aggregate_expected_result(agg_func)
+        self.check_result(query, expected)
+
+    def test_multi_invocation_uda(self):
+        query = """
+        uda MaxDivMin(val) {
+            [9999999 as _min, 0 as _max];
+            [case when val < _min then val else _min end,
+             case when val > _max then val else _max end];
+             _max / _min;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT
+               MaxDivMin(id) + dept_id + MaxDivMin(salary), dept_id];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            max_salary = max(t[3] for t in tpls)
+            min_salary = min(t[3] for t in tpls)
+            max_id = max(t[0] for t in tpls)
+            min_id = min(t[0] for t in tpls)
+            results.append((k + float(max_salary) / min_salary +
+                            float(max_id) / min_id, k))
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_multiple_uda(self):
+        query = """
+        uda MyMax1(val) {
+            [0 as _max];
+            [case when val > _max then val else _max end];
+             _max;
+        };
+        uda MyMax2(val) {
+            [0 as _max];
+            [case when val > _max then val else _max end];
+             _max;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MyMax1(salary), MyMax2(id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            max_salary = max(t[3] for t in tpls)
+            max_id = max(t[0] for t in tpls)
+            results.append((k, max_salary, max_id))
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_uda_with_udf(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k, max(t[3] + t[0] for t in tpls)))
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_uda_with_subsequent_project_0(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
+        out = [from inter emit $0];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k, max(t[3] + t[0] for t in tpls)))
+        results = [(t[0],) for t in results]
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_uda_with_subsequent_project_1(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
+        out = [from inter emit $1];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k, max(t[3] + t[0] for t in tpls)))
+        results = [(t[1],) for t in results]
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_uda_with_subsequent_project_2(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)
+                                       , max2(dept_id, id)];
+        out = [from inter emit $1];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k,
+                            max(t[3] + t[0] for t in tpls),
+                            max(t[1] + t[0] for t in tpls)))
+        results = [(t[1],) for t in results]
+
+        self.check_result(query, collections.Counter(results))
 
     def test_running_mean_sapply(self):
         query = """

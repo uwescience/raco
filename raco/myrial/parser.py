@@ -9,10 +9,11 @@ import raco.scheme as scheme
 import raco.types
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
-from raco.expression.udf import Function, Apply
+from raco.expression.udf import Function, Apply, UDA
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
+from raco.algebra import StateVar
 
 
 class JoinColumnCountMismatchException(Exception):
@@ -98,7 +99,8 @@ class Parser(object):
         """translation_unit : statement
                             | constant
                             | udf
-                            | apply"""
+                            | apply
+                            | uda"""
         p[0] = p[1]
 
     @staticmethod
@@ -141,7 +143,7 @@ class Parser(object):
         return "{name}__{mid}".format(name=name, mid=Parser.mangle_id)
 
     @staticmethod
-    def add_apply(p, name, args, inits, updates, finalizer):
+    def add_apply(p, name, args, inits, updates, finalizer, is_aggregate):
         """Register a stateful apply function.
 
         TODO: de-duplicate logic from add_udf.
@@ -181,7 +183,11 @@ class Parser(object):
             Parser.check_for_undefined(p, name, update_expr, allvars)
         Parser.check_for_undefined(p, name, finalizer, statemods.keys())
 
-        Parser.udf_functions[name] = Apply(args, statemods, finalizer)
+        if is_aggregate:
+            f = UDA(args, statemods, finalizer)
+        else:
+            f = Apply(args, statemods, finalizer)
+        Parser.udf_functions[name] = f
 
     @staticmethod
     def p_unreserved_id(p):
@@ -217,15 +223,29 @@ class Parser(object):
             p[0] = [p[1]]
 
     @staticmethod
-    def p_apply(p):
-        'apply : APPLY unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
+    def p_uda(p):
+        'uda : UDA unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
         table_literal SEMI table_literal SEMI sexpr SEMI RBRACE SEMI'
+
         name = p[2]
         args = p[4]
         inits = p[7]
         updates = p[9]
         finalizer = p[11]
-        Parser.add_apply(p, name, args, inits, updates, finalizer)
+        Parser.add_apply(p, name, args, inits, updates, finalizer, True)
+        p[0] = None
+
+    @staticmethod
+    def p_apply(p):
+        'apply : APPLY unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
+        table_literal SEMI table_literal SEMI sexpr SEMI RBRACE SEMI'
+
+        name = p[2]
+        args = p[4]
+        inits = p[7]
+        updates = p[9]
+        finalizer = p[11]
+        Parser.add_apply(p, name, args, inits, updates, finalizer, False)
         p[0] = None
 
     @staticmethod
@@ -629,7 +649,7 @@ class Parser(object):
 
         if isinstance(func, Function):
             return sexpr.resolve_function(func.sexpr, dict(zip(func.args, args)))  # noqa
-        elif isinstance(func, Apply):
+        elif isinstance(func, (Apply, UDA)):
             state_vars = func.statemods.keys()
 
             # Mangle state variable names to allow multiple invocations to
@@ -644,9 +664,17 @@ class Parser(object):
                 # Convert argument references into appropriate expressions
                 update_expr = sexpr.resolve_function(update_expr,
                     dict(zip(func.args, args)))  # noqa
-                Parser.statemods.append((mangled[sm_name],
-                    init_expr, update_expr))  # noqa
-            return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
+                Parser.statemods.append(StateVar(
+                    mangled[sm_name], init_expr, update_expr))
+            ex = sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
+
+            # If the function is a UDA, wrap the output expression so
+            # downstream users can distinguish stateful apply from
+            # aggregate expressions.
+            if isinstance(func, UDA):
+                return sexpr.UdaAggregateExpression(ex)
+            else:
+                return ex
         else:
             assert False
 
