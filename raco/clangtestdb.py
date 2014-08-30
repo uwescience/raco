@@ -6,7 +6,7 @@ import csv
 
 
 class ClangTestDatabase(Catalog):
-    """An in-memory implementation of relational algebra operators"""
+    """Interface for table metadata and ingest for raco.clang query processor"""
 
     def __init__(self):
         # Map from relation keys to tuples of (Bag, scheme.Scheme)
