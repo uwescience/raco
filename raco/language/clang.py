@@ -282,7 +282,8 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             (aggregate_list=%s)""" \
             % (self.__class__.__name__, self.aggregate_list)
         for agg_term in self.aggregate_list:
-            assert isinstance(agg_term, expression.BuiltinAggregateExpression), \
+            assert isinstance(agg_term,
+                              expression.BuiltinAggregateExpression), \
                 """%s only supports simple aggregate expressions.
                 A rule should create Apply[GroupBy]""" \
                 % self.__class__.__name__
