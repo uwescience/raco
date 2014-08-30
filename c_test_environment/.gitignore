@@ -25,3 +25,4 @@ edges
 log*.rb
 *.cpp.*
 test.txt
+*store

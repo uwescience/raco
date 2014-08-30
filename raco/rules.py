@@ -478,6 +478,25 @@ class RemoveUnusedColumns(Rule):
         return 'Remove unused columns'
 
 
+class ProjectingJoinToProjectOfJoin(Rule):
+    """Turn ProjectingJoin to Project of a Join.
+    This is useful to take advantage of the column selection
+    optimizations and then remove ProjectingJoin for
+    backends that don't have one"""
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.ProjectingJoin):
+            return algebra.Apply([(None, x) for x in expr.output_columns],
+                                 algebra.Join(expr.condition,
+                                              expr.left,
+                                              expr.right))
+
+        return expr
+
+    def __str__(self):
+        return 'ProjectingJoin[$1] => Project[$1](Join)'
+
+
 class RemoveNoOpApply(Rule):
     """Remove Apply operators that have no effect."""
 
@@ -508,3 +527,36 @@ class RemoveNoOpApply(Rule):
 
     def __str__(self):
         return 'Remove no-op apply'
+
+
+# logical groups of catalog transparent rules
+# 1. this must be applied first
+remove_trivial_sequences = [RemoveTrivialSequences()]
+
+# 2. simple group by
+simple_group_by = [SimpleGroupBy()]
+
+# 3. push down selection
+push_select = [
+    SplitSelects(),
+    PushSelects(),
+    MergeSelects()
+]
+
+# 4. push projection
+push_project = [
+    ProjectingJoin(),
+    JoinToProjectingJoin()
+]
+
+# 5. push apply
+push_apply = [
+    # These really ought to be run until convergence.
+    # For now, run twice and finish with PushApply.
+    PushApply(),
+    RemoveUnusedColumns(),
+    PushApply(),
+    RemoveUnusedColumns(),
+    PushApply(),
+    RemoveNoOpApply(),
+]

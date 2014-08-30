@@ -28,6 +28,7 @@ class CompileState:
         self.declarations_later = []
         self.pipelines = []
         self.scan_pipelines = []
+        self.flush_pipelines = []
         self.initializers = []
         self.pipeline_count = 0
 
@@ -114,6 +115,9 @@ class CompileState:
     def addPostCode(self, c):
         self.current_pipeline_postcode.append(c)
 
+    def addPipelineFlushCode(self, c):
+        self.flush_pipelines.append(c)
+
     def getInitCode(self):
         # inits is a set
         # If this ever becomes a bottleneck when declarations are strings,
@@ -150,11 +154,11 @@ class CompileState:
         # list -> string
         scan_linearized = emitlist(self.scan_pipelines)
         mem_linearized = emitlist(self.pipelines)
-
+        flush_linearized = emitlist(self.flush_pipelines)
         scan_linearized_wrapped = self.language.group_wrap(gensym(), scan_linearized, {'type': 'scan'})
         mem_linearized_wrapped = self.language.group_wrap(gensym(), mem_linearized, {'type': 'in_memory'})
 
-        linearized = scan_linearized_wrapped + mem_linearized_wrapped
+        linearized = scan_linearized_wrapped + mem_linearized_wrapped + flush_linearized
 
         # substitute all lazily resolved symbols
         resolved = linearized % self.resolving_symbols
@@ -210,7 +214,6 @@ class Pipelined(object):
       """Denotation for consuming a tuple"""
       return
 
-    # emitprint: quiet, console, file
     def compilePipeline(self):
       self.__markAllParents__()
 

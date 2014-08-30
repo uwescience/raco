@@ -13,7 +13,7 @@ from raco.language import clangcommon
 from raco.algebra import gensym
 
 import logging
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
 import os.path
 
@@ -177,7 +177,7 @@ class GrappaLanguage(Language):
         conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
         decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
         inits = reduce(lambda sofar, x: sofar + x, [d for _, _, d in args])
-        LOG.debug("conjunc: %s", conjunc)
+        _LOG.debug("conjunc: %s", conjunc)
         return "( %s )" % conjunc, decls, inits
 
     @classmethod
@@ -204,7 +204,7 @@ from raco.algebra import UnaryOperator
 
 
 # TODO: replace with ScanTemp functionality?
-class MemoryScan(algebra.UnaryOperator, GrappaOperator):
+class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
     def num_tuples(self):
         return 10000  # placeholder
 
@@ -501,7 +501,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
             # if right child never bound then store hashtable symbol and
             # call right child produce
             self._hashname = self.__getHashName__()
-            LOG.debug("generate hashname %s for %s", self._hashname, self)
+            _LOG.debug("generate hashname %s for %s", self._hashname, self)
 
             hashname = self._hashname
 
@@ -539,7 +539,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
             # if found a common subexpression on right child then
             # use the same hashtable
             self._hashname, right_type, left_type = hashtableInfo
-            LOG.debug("reuse hash %s for %s", self._hashname, self)
+            _LOG.debug("reuse hash %s for %s", self._hashname, self)
 
         # now that Relation is produced, produce its contents by iterating over
         # the join result
@@ -648,7 +648,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             "%s currently only supports aggregates of 1 attribute"\
             % self.__class__.__name__
         for agg_term in self.aggregate_list:
-            assert isinstance(agg_term, expression.BuiltinAggregateExpression), \
+            assert isinstance(agg_term,
+                              expression.BuiltinAggregateExpression), \
                 """%s only supports simple aggregate expressions.
                 A rule should create Apply[GroupBy]""" \
                 % self.__class__.__name__
@@ -661,7 +662,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         """)
 
         self._hashname = self.__genHashName__()
-        LOG.debug("generate hashname %s for %s", self._hashname, self)
+        _LOG.debug("generate hashname %s for %s", self._hashname, self)
 
         hashname = self._hashname
 
@@ -802,7 +803,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             # if right child never bound then store hashtable symbol and
             # call right child produce
             self._hashname = self.__genHashName__()
-            LOG.debug("generate hashname %s for %s", self._hashname, self)
+            _LOG.debug("generate hashname %s for %s", self._hashname, self)
 
             hashname = self._hashname
 
@@ -825,7 +826,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             # if found a common subexpression on right child then
             # use the same hashtable
             self._hashname, self.rightTupleTypename = hashtableInfo
-            LOG.debug("reuse hash %s for %s", self._hashname, self)
+            _LOG.debug("reuse hash %s for %s", self._hashname, self)
 
         self.left.childtag = "left"
         self.left.produce(state)
@@ -962,12 +963,32 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
         return self.ascii_scan_template
 
     def __get_binary_scan_template__(self):
-        LOG.warn("binary not currently supported\
+        _LOG.warn("binary not currently supported\
          for GrappaLanguage, emitting ascii")
         return self.ascii_scan_template
 
     def __get_relation_decl_template__(self):
         return """Relation<%(tuple_type)s> %(resultsym)s;"""
+
+
+class GrappaStore(algebra.Store, GrappaOperator):
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        code = ""
+        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
+        state.addDeclarations([resdecl])
+        code += "result.push_back(%s);\n" % (t.name)
+        filename = (str(self.relation_key).split(":")[2])
+        names = [x.encode('UTF8') for x in self.scheme().get_names()]
+        schemefile = 'writeSchema("%s", "%s", "%s");\n' % \
+                     (names, self.scheme().get_types(), filename)
+        state.addPreCode(schemefile)
+        resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % (filename)
+        state.addPipelineFlushCode(resultfile)
+
+        return code
 
 
 class MemoryScanOfFileScan(rules.Rule):
@@ -976,7 +997,8 @@ class MemoryScanOfFileScan(rules.Rule):
     def fire(self, expr):
         if isinstance(expr, algebra.Scan) \
                 and not isinstance(expr, GrappaFileScan):
-            return MemoryScan(GrappaFileScan(expr.relation_key, expr.scheme()))
+            return GrappaMemoryScan(GrappaFileScan(expr.relation_key,
+                                                   expr.scheme()))
         return expr
 
     def __str__(self):
@@ -990,21 +1012,6 @@ class SwapJoinSides(rules.Rule):
             return algebra.Join(expr.condition, expr.right, expr.left)
         else:
             return expr
-
-
-class GrappaStore(algebra.Store, GrappaOperator):
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
-        code = ""
-        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-        state.addDeclarations([resdecl])
-        code += "result.push_back(%s);\n" % (t.name)
-
-        code += self.language.log_unquoted("%s" % t.name, 2)
-
-        return code
 
 
 class GrappaAlgebra(object):
