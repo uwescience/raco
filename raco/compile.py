@@ -45,7 +45,7 @@ def compile(expr):
     exprcode = []
 
     # TODO, actually use Parallel[Store...]]? Right now assumes it
-    if (isinstance(expr, algebra.Sequence, algebra.Parallel)):
+    if isinstance(expr, algebra.Sequence, algebra.Parallel):
         assert len(expr.children()) == 1, "expected single expression only"
         store_expr = expr.children()[0]
     else:
