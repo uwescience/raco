@@ -177,12 +177,12 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
 class MyriaLPlatformTests(object):
 
     def myrial_from_sql(self, tables, name):
-        code = ["{t} = SCAN({tab});".format(t=t, tab=self.tables[t]) for t in tables]
+        code = ["{t} = scan({tab});".format(t=t, tab=self.tables[t]) for t in tables]
 
         with open("c_test_environment/testqueries/%s.sql" % name) as f:
             code.append("out = %s" % f.read())
 
-        code.append("STORE(out, OUTPUT);")
+        code.append("store(out, OUTPUT);")
 
         return '\n'.join(code)
 
