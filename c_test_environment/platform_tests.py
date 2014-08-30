@@ -146,6 +146,7 @@ import raco.myrial.myrial_test as myrial_test
 
 
 class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
+    __metaclass__ = ABCMeta
 
     def setUp(self):
         super(MyriaLPlatformTestHarness, self).setUp()
@@ -167,6 +168,10 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
                     self.db.ingest(fullname, [], scheme.Scheme(two))
                 else:
                     self.db.ingest(fullname, [], scheme.Scheme(three))
+
+    @abstractmethod
+    def check(self, query, name):
+        pass
 
 
 class MyriaLPlatformTests(object):
