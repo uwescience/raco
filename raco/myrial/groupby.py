@@ -102,15 +102,7 @@ def __hoist_aggregates(sexpr, agg_state, group_mappings, input_scheme):
     return recursive_eval(sexpr)
 
 
-def sexpr_contains_aggregate(sexpr):
-    """Return True if a scalar expression contains 1 or more aggregates"""
-    def is_aggregate(sexpr):
-        return isinstance(sexpr, raco.expression.AggregateExpression)
-
-    return any(sexpr.postorder(is_aggregate))
-
-
-def groupby(op, emit_clause, extra_grouping_columns):
+def groupby(op, emit_clause, extra_grouping_columns, statemods=None):
     """Process groupby/aggregation expressions."""
 
     assert emit_clause
@@ -124,7 +116,7 @@ def groupby(op, emit_clause, extra_grouping_columns):
     num_group_terms = 0
 
     for name, sexpr in emit_clause:
-        if not sexpr_contains_aggregate(sexpr):
+        if not raco.expression.isaggregate(sexpr):
             if isinstance(sexpr, raco.expression.AttributeRef):
                 group_mappings[sexpr.get_position(scheme)] = num_group_terms
             num_group_terms += 1
@@ -153,7 +145,7 @@ def groupby(op, emit_clause, extra_grouping_columns):
     group_terms = []
 
     for name, sexpr in emit_clause:
-        if sexpr_contains_aggregate(sexpr):
+        if raco.expression.isaggregate(sexpr):
             output_mappings.append(
                 (name, __hoist_aggregates(sexpr, agg_state, group_mappings,
                                           scheme)))
@@ -168,5 +160,5 @@ def groupby(op, emit_clause, extra_grouping_columns):
                         for c in extra_grouping_columns])
 
     agg_terms = agg_state.aggregates.keys()
-    op1 = raco.algebra.GroupBy(group_terms, agg_terms, op)
+    op1 = raco.algebra.GroupBy(group_terms, agg_terms, op, statemods)
     return raco.algebra.Apply(emitters=output_mappings, input=op1)

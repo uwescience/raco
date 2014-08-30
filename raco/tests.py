@@ -12,7 +12,7 @@ class ExpressionTest(unittest.TestCase):
                        e.ABS(e.NamedAttributeRef("salary")))
 
         def isAggregate(expr):
-            return isinstance(expr, e.AggregateExpression)
+            return isinstance(expr, e.BuiltinAggregateExpression)
 
         def classname(expr):
             return expr.__class__.__name__

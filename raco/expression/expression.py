@@ -306,6 +306,10 @@ class NumericLiteral(Literal):
     pass
 
 
+class BooleanLiteral(Literal):
+    pass
+
+
 class AttributeRef(Expression):
 
     def evaluate(self, _tuple, scheme, state=None):

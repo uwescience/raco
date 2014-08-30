@@ -120,10 +120,15 @@ class SimpleGroupBy(Rule):
         # A simple aggregate expression is an aggregate whose input is an
         # AttributeRef
         def is_simple_agg_expr(agg):
-            return (isinstance(agg, expression.COUNTALL) or
-                    (isinstance(agg, expression.UnaryOperator) and
-                     isinstance(agg, expression.AggregateExpression) and
-                     isinstance(agg.input, expression.AttributeRef)))
+            if isinstance(agg, expression.COUNTALL):
+                return True
+            elif isinstance(agg, expression.UdaAggregateExpression):
+                return True
+            elif (isinstance(agg, expression.UnaryOperator) and
+                  isinstance(agg, expression.BuiltinAggregateExpression) and
+                  isinstance(agg.input, expression.AttributeRef)):
+                return True
+            return False
 
         complex_agg_exprs = [agg for agg in expr.aggregate_list
                              if not is_simple_agg_expr(agg)]
@@ -367,13 +372,14 @@ class PushApply(Rule):
 
             # If this apply is only AttributeRefs and the columns already
             # have the correct names, we can push it into the ProjectingJoin
-            if (all(isinstance(e, expression.AttributeRef) for e in emits) and
-                len(set(emits)) == len(emits) and
-                all((n is None) or (n == in_scheme.getName(e.position))
-                    for n, e in zip(names, emits))):
-                child.output_columns = [child.output_columns[e.position]
-                                        for e in emits]
-                return child
+            if (all(isinstance(e, expression.AttributeRef) for e in emits)
+                    and len(set(emits)) == len(emits)):
+                new_cols = [child.output_columns[e.position] for e in emits]
+                new_pj = algebra.ProjectingJoin(
+                    condition=child.condition, left=child.left,
+                    right=child.right, output_columns=new_cols)
+                if new_pj.scheme() == op.scheme():
+                    return new_pj
 
             accessed = sorted(set(itertools.chain(*(accessed_columns(e)
                                                     for e in emits))))
@@ -407,9 +413,16 @@ class RemoveUnusedColumns(Rule):
                         for g in op.grouping_list]
             agg_list = [to_unnamed_recursive(a, child_scheme)
                         for a in op.aggregate_list]
+
+            up_names = [name for name, ex in op.updaters]
+            up_list = [to_unnamed_recursive(ex, child_scheme)
+                       for name, ex in op.updaters]
+
             agg = [accessed_columns(a) for a in agg_list]
-            pos = [g.position for g in grp_list]
-            accessed = sorted(set(itertools.chain(*(agg + [pos]))))
+            up = [accessed_columns(a) for a in up_list]
+            pos = [{g.position} for g in grp_list]
+
+            accessed = sorted(set(itertools.chain(*(up + agg + pos))))
             if not accessed:
                 # Bug #207: COUNTALL() does not access any columns. So if the
                 # query is just a COUNT(*), we would generate an empty Apply.
@@ -419,10 +432,12 @@ class RemoveUnusedColumns(Rule):
                 emitters = [(None, UnnamedAttributeRef(i)) for i in accessed]
                 new_apply = algebra.Apply(emitters, child)
                 index_map = {a: i for (i, a) in enumerate(accessed)}
-                for agg_expr in itertools.chain(grp_list, agg_list):
+                for agg_expr in itertools.chain(grp_list, agg_list, up_list):
                     expression.reindex_expr(agg_expr, index_map)
                 op.grouping_list = grp_list
                 op.aggregate_list = agg_list
+                op.updaters = [(name, ex) for name, ex in
+                               zip(up_names, up_list)]
                 op.input = new_apply
                 return op
         elif isinstance(op, algebra.ProjectingJoin):
