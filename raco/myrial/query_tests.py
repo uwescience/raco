@@ -1,6 +1,7 @@
 
 import collections
 import math
+import md5
 
 import raco.algebra
 import raco.fakedb
@@ -1054,6 +1055,21 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         expected = collections.Counter(
             [(a, math.tan(b)) for a, b in self.numbers_table.elements()])
+        self.check_result(query, expected)
+
+    def test_md5(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT id, md5(name)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        def md5_as_long(x):
+            m = md5.new()
+            m.update(x)
+            return int(m.hexdigest(), 16) >> 64
+
+        expected = collections.Counter(
+            [(x[0], md5_as_long(x[2])) for x in self.emp_table.elements()])
         self.check_result(query, expected)
 
     def test_pow(self):
