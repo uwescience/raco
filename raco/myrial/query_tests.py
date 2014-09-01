@@ -555,6 +555,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         result = self.execute_query(query, skip_json=True)
         self.assertEquals(len(result), 3)
 
+    def test_table_literal_boolean(self):
+        query = """
+        X = [truE as MyTrue, FaLse as MyFalse];
+        Y = [FROM scan(%s) as E, X where X.MyTrue emit *];
+        STORE(Y, OUTPUT);
+        """ % self.emp_key
+
+        res = [x + (True, False) for x in self.emp_table]
+        self.check_result(query, collections.Counter(res))
+
     def test_table_literal_scalar_expression(self):
         query = """
         X = [FROM ["Andrew", (50 * (500 + 500)) AS salary] Z EMIT salary];
