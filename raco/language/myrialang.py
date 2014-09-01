@@ -1,15 +1,11 @@
-import copy
 import itertools
 from collections import defaultdict, deque
 from operator import mul
-from abc import abstractmethod
 
 from raco import algebra, expression, rules
 from raco.catalog import Catalog
-from raco.language import Language
-from raco.utility import emit
-from raco.expression import (accessed_columns, to_unnamed_recursive,
-                             UnnamedAttributeRef)
+from raco.language import Language, Algebra
+from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import DecomposableAggregate
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
@@ -19,11 +15,11 @@ def scheme_to_schema(s):
     if s:
         names, descrs = zip(*s.asdict.items())
         names = ["%s" % n for n in names]
-        types = [r[1] for r in descrs]
+        types_ = [r[1] for r in descrs]
     else:
         names = []
-        types = []
-    return {"columnTypes": types, "columnNames": names}
+        types_ = []
+    return {"columnTypes": types_, "columnNames": names}
 
 
 def compile_expr(op, child_scheme, state_scheme):
@@ -33,7 +29,7 @@ def compile_expr(op, child_scheme, state_scheme):
     if isinstance(op, expression.NumericLiteral):
         if type(op.value) == int:
             if (2 ** 31) - 1 >= op.value >= -2 ** 31:
-                myria_type = 'INT_TYPE'
+                myria_type = types.INT_TYPE
             else:
                 myria_type = types.LONG_TYPE
         elif type(op.value) == float:
@@ -50,7 +46,7 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type': 'CONSTANT',
             'value': str(op.value),
-            'valueType': 'STRING_TYPE'
+            'valueType': types.STRING_TYPE
         }
     elif isinstance(op, expression.StateRef):
         return {
@@ -1280,9 +1276,8 @@ break_communication = [
 ]
 
 
-class MyriaAlgebra(object):
-    """ Myria algebra abstract class
-    """
+class MyriaAlgebra(Algebra):
+    """ Myria algebra abstract class"""
     language = MyriaLanguage
 
     fragment_leaves = (
@@ -1293,10 +1288,6 @@ class MyriaAlgebra(object):
         MyriaScan,
         MyriaScanTemp
     )
-
-    @abstractmethod
-    def opt_rules(self):
-        """Specific Myria algebra must instantiate this method."""
 
 
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
@@ -1313,13 +1304,13 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
         break_communication
     ]
 
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         return list(itertools.chain(*self.rule_grps_sequence))
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
     """Myria physical algebra using HyperCubeShuffle and LeapFrogJoin"""
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         # this rule is hyper cube shuffle specific
         merge_to_nary_join = [
             MergeToNaryJoin()

@@ -5,7 +5,9 @@ Functions (unary and binary) for use in Raco.
 import math
 import md5
 
-from .expression import *
+from .expression import (ZeroaryOperator, UnaryOperator, BinaryOperator,
+                         NaryOperator, types, check_is_numeric, check_type,
+                         TypeSafetyViolation)
 
 
 class UnaryFunction(UnaryOperator):

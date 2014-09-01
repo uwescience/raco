@@ -17,7 +17,7 @@ import raco.viz as viz
 
 class MyriaLClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
     def check(self, query, name):
-        plan = self.get_physical_plan(query, CCAlgebra())
+        plan = self.get_physical_plan(query, target_alg=CCAlgebra())
         physical_dot = viz.operator_to_dot(plan)
         with open("%s.physical.dot"%(name), 'w') as dwf:
             dwf.write(physical_dot)
