@@ -15,7 +15,8 @@ def parse_options(args):
     parser = argparse.ArgumentParser()
 
     parser.add_argument('platform', metavar='P', type=str,
-                        help='Type of platform to use: clang or grappa', choices=['grappa', 'clang'])
+                        help='Type of platform to use: clang or grappa',
+                        choices=['grappa', 'clang'])
 
     parser.add_argument('file', help='File containing platform source program')
 
@@ -23,6 +24,7 @@ def parse_options(args):
     return ns
 
 
+# runs file on a platform and information is stored in logs directory
 def main(args):
     opt = parse_options(args)
     osutils.mkdir_p("logs")
