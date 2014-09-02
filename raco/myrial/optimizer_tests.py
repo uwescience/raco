@@ -7,7 +7,8 @@ from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.language.myrialang import (MyriaShuffleConsumer,
                                      MyriaShuffleProducer,
-                                     MyriaHyperShuffleProducer)
+                                     MyriaHyperShuffleProducer,
+                                     MyriaBroadcastConsumer)
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -468,3 +469,70 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # This is it -- just test that we can get the physical plan and
         # compile to JSON. See https://github.com/uwescience/raco/issues/240
         pp = self.execute_query(query, output='OutputTemp')
+
+    def test_broadcast_cardinality_right(self):
+        # x and y have the same cardinality, z is smaller
+        query = """
+        x = scan({x});
+        y = scan({y});
+        z = scan({z});
+        out = [from x, z emit *];
+        store(out, OUTPUT);
+        """.format(x=self.x_key, y=self.y_key, z=self.z_key)
+
+        pp = self.get_physical_plan(query)
+        counter = 0
+        for op in pp.walk():
+            if isinstance(op, CrossProduct):
+                counter += 1
+                self.assertIsInstance(op.right, MyriaBroadcastConsumer)
+        self.assertEquals(counter, 1)
+
+    def test_broadcast_cardinality_left(self):
+        # x and y have the same cardinality, z is smaller
+        query = """
+        x = scan({x});
+        y = scan({y});
+        z = scan({z});
+        out = [from z, y emit *];
+        store(out, OUTPUT);
+        """.format(x=self.x_key, y=self.y_key, z=self.z_key)
+
+        pp = self.get_physical_plan(query)
+        counter = 0
+        for op in pp.walk():
+            if isinstance(op, CrossProduct):
+                counter += 1
+                self.assertIsInstance(op.left, MyriaBroadcastConsumer)
+        self.assertEquals(counter, 1)
+
+    def test_broadcast_cardinality_with_agg(self):
+        # x and y have the same cardinality, z is smaller
+        query = """
+        x = scan({x});
+        y = countall(scan({y}));
+        z = scan({z});
+        out = [from y, z emit *];
+        store(out, OUTPUT);
+        """.format(x=self.x_key, y=self.y_key, z=self.z_key)
+
+        pp = self.get_physical_plan(query)
+        counter = 0
+        for op in pp.walk():
+            if isinstance(op, CrossProduct):
+                counter += 1
+                self.assertIsInstance(op.left, MyriaBroadcastConsumer)
+        self.assertEquals(counter, 1)
+
+    def test_relation_cardinality(self):
+        lp = CrossProduct(Scan(self.x_key, self.x_scheme),
+                          Scan(self.x_key, self.x_scheme))
+        self.assertEquals(len(list(self.x_data.elements())) ** 2,
+                          lp.num_tuples())
+
+    def test_relation_physical_cardinality(self):
+        lp = Store('OUTPUT', CrossProduct(Scan(self.x_key, self.x_scheme),
+                                          Scan(self.x_key, self.x_scheme)))
+        pp = self.logical_to_physical(lp)
+        self.assertEquals(len(list(self.x_data.elements())) ** 2,
+                          pp.num_tuples())
