@@ -103,7 +103,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, CrossProduct), 1)
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, Join))
+        self.assertIsInstance(pp.input, Join)
         self.assertEquals(self.get_count(pp, Select), 2)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
 
@@ -123,7 +123,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, Apply), 4)
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, Apply))
+        self.assertIsInstance(pp.input, Apply)
         self.assertEquals(self.get_count(pp, Apply), 1)
 
         expected = collections.Counter(
@@ -144,10 +144,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, GroupBy), 1)
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, GroupBy))
+        self.assertIsInstance(pp.input, GroupBy)
         # GroupBy.CollectProducer.CollectConsumer.GroupBy.Apply
         apply = pp.input.input.input.input.input
-        self.assertTrue(isinstance(apply, Apply))
+        self.assertIsInstance(apply, Apply)
         self.assertEquals(self.get_count(pp, Apply), 1)
         self.assertEquals(len(apply.scheme()), 1)
 
@@ -167,13 +167,13 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                    Scan(self.x_key, self.x_scheme),
                    [AttIndex(i) for i in xrange(2 * len(self.x_scheme))])))  # noqa
 
-        self.assertTrue(isinstance(lp.input.input, ProjectingJoin))
+        self.assertIsInstance(lp.input.input, ProjectingJoin)
         self.assertEquals(2 * len(self.x_scheme),
                           len(lp.input.input.scheme()))
 
         pp = self.logical_to_physical(lp)
         proj_join = pp.input
-        self.assertTrue(isinstance(proj_join, ProjectingJoin))
+        self.assertIsInstance(proj_join, ProjectingJoin)
         self.assertEquals(1, len(proj_join.scheme()))
         self.assertEquals(2, len(proj_join.left.scheme()))
         self.assertEquals(1, len(proj_join.right.scheme()))
@@ -203,10 +203,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_count(lp, Select), 2)
         self.assertEquals(self.get_count(lp, Scan), 1)
-        self.assertTrue(isinstance(lp.input, Select))
+        self.assertIsInstance(lp.input, Select)
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, Apply))
+        self.assertIsInstance(pp.input, Apply)
         self.assertEquals(self.get_count(pp, Select), 1)
 
         self.db.evaluate(pp)
@@ -228,10 +228,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_count(lp, Select), 2)
         self.assertEquals(self.get_count(lp, Scan), 1)
-        self.assertTrue(isinstance(lp.input, Select))
+        self.assertIsInstance(lp.input, Select)
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, GroupBy))
+        self.assertIsInstance(pp.input, GroupBy)
         self.assertEquals(self.get_count(pp, Select), 1)
 
         self.db.evaluate(pp)
@@ -246,11 +246,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                    Scan(self.x_key, self.x_scheme),
                    [AttIndex(i) for i in xrange(2 * len(self.x_scheme))])))  # noqa
 
-        self.assertTrue(isinstance(lp.input, Apply))
+        self.assertIsInstance(lp.input, Apply)
         lp_scheme = lp.scheme()
 
         pp = self.logical_to_physical(lp)
-        self.assertFalse(isinstance(pp.input, Apply))
+        self.assertNotIsInstance(pp.input, Apply)
         self.assertEquals(lp_scheme, pp.scheme())
 
     def test_not_noop_apply_not_removed(self):
@@ -261,11 +261,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                    Scan(self.x_key, self.x_scheme),
                    [AttIndex(i) for i in xrange(2 * len(self.x_scheme))])))  # noqa
 
-        self.assertTrue(isinstance(lp.input, Apply))
+        self.assertIsInstance(lp.input, Apply)
         lp_scheme = lp.scheme()
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, Apply))
+        self.assertIsInstance(pp.input, Apply)
         self.assertEquals(lp_scheme, pp.scheme())
 
     def test_extract_join(self):
@@ -284,7 +284,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp)
 
         # non-equijoin conditions should get pushed separately below the join
-        self.assertTrue(isinstance(pp.input, Join))
+        self.assertIsInstance(pp.input, Join)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
         self.assertEquals(self.get_count(pp, Select), 2)
 
