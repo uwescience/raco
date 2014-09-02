@@ -2,6 +2,7 @@
 import collections
 import math
 import md5
+from nose.tools import nottest
 
 import raco.algebra
 import raco.fakedb
@@ -1536,6 +1537,32 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                             max(t[3] + t[0] for t in tpls),
                             max(t[1] + t[0] for t in tpls)))
         results = [(t[1],) for t in results]
+
+        self.check_result(query, collections.Counter(results))
+
+    @nottest
+    def test_uda_multiple_emitters(self):
+        query = """
+        uda SumCountMean(x) :
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+          [_sum, _count, _sum/_count];
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary)
+               as [_sum, _count, _mean]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            _sum = sum(tpls)
+            _count = len(tpls)
+            _avg = float(_sum) / _count
+            results.append((k, _sum, _count, _avg))
 
         self.check_result(query, collections.Counter(results))
 
