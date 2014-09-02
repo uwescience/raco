@@ -525,14 +525,24 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(counter, 1)
 
     def test_relation_cardinality(self):
-        lp = CrossProduct(Scan(self.x_key, self.x_scheme),
-                          Scan(self.x_key, self.x_scheme))
+        query = """
+        x = scan({x});
+        out = [from x as x1, x as x2 emit *];
+        store(out, OUTPUT);
+        """.format(x=self.x_key)
+        lp = self.get_logical_plan(query)
+        self.assertIsInstance(lp, Sequence)
+        self.assertEquals(1, len(lp.children()))
         self.assertEquals(len(list(self.x_data.elements())) ** 2,
-                          lp.num_tuples())
+                          lp.children()[0].num_tuples())
 
     def test_relation_physical_cardinality(self):
-        lp = Store('OUTPUT', CrossProduct(Scan(self.x_key, self.x_scheme),
-                                          Scan(self.x_key, self.x_scheme)))
-        pp = self.logical_to_physical(lp)
+        query = """
+        x = scan({x});
+        out = [from x as x1, x as x2 emit *];
+        store(out, OUTPUT);
+        """.format(x=self.x_key)
+
+        pp = self.get_physical_plan(query)
         self.assertEquals(len(list(self.x_data.elements())) ** 2,
                           pp.num_tuples())
