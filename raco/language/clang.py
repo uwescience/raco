@@ -377,7 +377,8 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             key1pos = self.grouping_list[0].get_position(self.input.scheme())
 
             if len(self.grouping_list) == 2:
-                key2pos = self.grouping_list[1].get_position(self.input.scheme())
+                key2pos = self.grouping_list[1].get_position(
+                    self.input.scheme())
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())
