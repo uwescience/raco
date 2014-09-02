@@ -15,7 +15,7 @@ def parse_options(args):
     parser = argparse.ArgumentParser()
 
     parser.add_argument('platform', metavar='P', type=str,
-                        help='Type of platform to use: clang or grappa')
+                        help='Type of platform to use: clang or grappa', choices=['grappa', 'clang'])
 
     parser.add_argument('file', help='File containing platform source program')
 

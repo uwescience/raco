@@ -347,8 +347,8 @@ class MyriaLeapFrogJoin(algebra.NaryJoin, MyriaOperator):
 class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
     @staticmethod
     def agg_mapping(agg_expr):
-        """Maps an AggregateExpression to a Myria string constant representing
-        the corresponding aggregate operation."""
+        """Maps a BuiltinAggregateExpression to a Myria string constant
+        representing the corresponding aggregate operation."""
         if isinstance(agg_expr, expression.MAX):
             return "MAX"
         elif isinstance(agg_expr, expression.MIN):
@@ -365,23 +365,47 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             type(agg_expr)))
 
     @staticmethod
-    def compile_aggregator(agg, child_scheme):
-        if isinstance(agg, expression.AggregateExpression):
-            if isinstance(agg, expression.COUNTALL):
-                return {"type": "CountAll"}
+    def compile_builtin_agg(agg, child_scheme):
+        assert isinstance(agg, expression.BuiltinAggregateExpression)
+        if isinstance(agg, expression.COUNTALL):
+            return {"type": "CountAll"}
 
-            column = expression.toUnnamed(agg.input, child_scheme).position
-            return {"type": "SingleColumn",
-                    "aggOps": [MyriaGroupBy.agg_mapping(agg)],
-                    "column": column}
+        column = expression.toUnnamed(agg.input, child_scheme).position
+        return {"type": "SingleColumn",
+                "aggOps": [MyriaGroupBy.agg_mapping(agg)],
+                "column": column}
 
     def compileme(self, inputid):
         child_scheme = self.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme)
                         for ref in self.grouping_list]
 
-        aggregators = [MyriaGroupBy.compile_aggregator(agg_expr, child_scheme)
-                       for agg_expr in self.aggregate_list]
+        built_ins = [agg_expr for agg_expr in self.aggregate_list
+                     if isinstance(agg_expr,
+                                   expression.BuiltinAggregateExpression)]
+
+        aggregators = [MyriaGroupBy.compile_builtin_agg(agg_expr, child_scheme)
+                       for agg_expr in built_ins]
+
+        udas = [agg_expr for agg_expr in self.aggregate_list
+                if isinstance(agg_expr, expression.UdaAggregateExpression)]
+        assert len(udas) + len(built_ins) == len(self.aggregate_list)
+
+        if udas:
+            inits = [compile_mapping(e, None, None) for e in self.inits]
+            updates = [compile_mapping(e, child_scheme, self.state_scheme)
+                       for e in self.updaters]
+            emitters = [compile_mapping(("uda{i}".format(i=i),
+                                         e.emitter),
+                                        None, self.state_scheme)
+                        for i, e in enumerate(udas)]
+            aggregators.append({
+                "type": "UserDefined",
+                "initializers": inits,
+                "updaters": updates,
+                "emitters": emitters
+            })
+
         ret = {
             "argChild": inputid,
             "aggregators": aggregators,
@@ -1029,11 +1053,13 @@ class DistributedGroupBy(rules.Rule):
             return op
 
         num_grouping_terms = len(op.grouping_list)
-        decomposable_aggs = [agg for agg in op.aggregate_list if
-                             isinstance(agg, DecomposableAggregate)]
 
-        # All built-in aggregates are now decomposable
-        assert len(decomposable_aggs) == len(op.aggregate_list)
+        # Bail early if we have any non-decomposable aggregates
+        if not all(isinstance(agg, DecomposableAggregate)
+                   for agg in op.aggregate_list):
+            out_op = MyriaGroupBy()
+            out_op.copy(op)
+            return DistributedGroupBy.do_transfer(out_op)
 
         # Each logical aggregate generates one or more local aggregates:
         # e.g., average requires a SUM and a COUNT.  In turn, these local

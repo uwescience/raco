@@ -146,6 +146,7 @@ import raco.myrial.myrial_test as myrial_test
 
 
 class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
+    __metaclass__ = ABCMeta
 
     def setUp(self):
         super(MyriaLPlatformTestHarness, self).setUp()
@@ -168,20 +169,22 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
                 else:
                     self.db.ingest(fullname, [], scheme.Scheme(three))
 
+    @abstractmethod
+    def check(self, query, name):
+        pass
+
 
 class MyriaLPlatformTests(object):
 
     def myrial_from_sql(self, tables, name):
-        code = ""
-        for t in tables:
-           code += "%s = SCAN(%s);" % (t, self.tables[t])
+        code = ["{t} = scan({tab});".format(t=t, tab=self.tables[t]) for t in tables]
 
         with open("c_test_environment/testqueries/%s.sql" % name) as f:
-            code += "out = %s" % f.read()
+            code.append("out = %s" % f.read())
 
-        code += "STORE(out, OUTPUT);"
+        code.append("store(out, OUTPUT);")
 
-        return code
+        return '\n'.join(code)
 
     def check_sub_tables(self, query, name):
         self.check(query % self.tables, name)

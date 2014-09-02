@@ -3,7 +3,7 @@ from testquery import checkquery, checkstore
 from testquery import ClangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
-from raco.language.clang import CCAlgebra
+import raco.language.clang as clang
 from platform_tests import DatalogPlatformTest
 
 import sys
@@ -17,13 +17,13 @@ class DatalogClangTest(unittest.TestCase, DatalogPlatformTest):
     def check(self, query, name):
         with Chdir("c_test_environment") as d:
             os.remove("%s.cpp" % name) if os.path.exists("%s.cpp" % name) else None
-            emitCode(query, name, CCAlgebra)
+            emitCode(query, name, clang.CCAlgebra)
             checkquery(name, ClangRunner())
 
     def check_file(self, query, name):
         with Chdir("c_test_environment") as d:
             os.remove("%s.cpp" % name) if os.path.exists("%s.cpp" % name) else None
-            emitCode(query, name, CCAlgebra, emit_print='file')
+            emitCode(query, name, clang.CCAlgebra, emit_print=clang.EMIT_FILE)
             checkstore(name, ClangRunner())
 
     def setUp(self):

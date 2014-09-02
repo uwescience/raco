@@ -23,7 +23,7 @@ def hack_plan(alg, plan):
         alg.set_join_type(GrappaShuffleHashJoin)
 
 
-def emitCode(query, name, algType, plan="", emit_print=None):
+def emitCode(query, name, algType, plan=None, emit_print=None):
     if emit_print is not None:
         alg = algType(emit_print)
     else:
