@@ -1612,6 +1612,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(results))
 
+    def test_uda_multiple_emitters_non_simple(self):
+        """Test that we raise an Exception if a tuple-valued UDA doesn't appear
+        by itself in an emit expression."""
+        query = """
+        uda SumCountMean(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+          [_sum, _count, _sum/_count];
+        };
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary) + 5];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalAggregateException):
+            self.check_result(query, None)
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {

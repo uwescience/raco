@@ -499,6 +499,8 @@ class Parser(object):
             # TODO: Handle user-provided name lists
             p[0] = emitarg.NaryEmitArg(None, sx.emitters, Parser.statemods)
         else:
+            if contains_tuple_expression(sx):
+                raise IllegalAggregateException(p.lineno(0))
             p[0] = emitarg.SingletonEmitArg(name, sx, Parser.statemods)
         Parser.statemods = []
 
