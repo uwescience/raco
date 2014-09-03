@@ -33,7 +33,7 @@ class testNaryJoin(unittest.TestCase):
         triangle_join = testNaryJoin.get_phys_plan_root(
             "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64)
         # test root operator type
-        self.assertTrue(isinstance(triangle_join, algebra.NaryJoin))
+        self.assertIsInstance(triangle_join, algebra.NaryJoin)
         # test arity of join conditions
         self.assertEqual(len(triangle_join.conditions), 3)
         # test join conditions
@@ -48,7 +48,7 @@ class testNaryJoin(unittest.TestCase):
         star_join = testNaryJoin.get_phys_plan_root(
             "A(x,y,z,p):-R(x,y),S(x,z),T(x,p)", 64)
         # test root operator type
-        self.assertTrue(isinstance(star_join, algebra.NaryJoin))
+        self.assertIsInstance(star_join, algebra.NaryJoin)
         # test arity of join conditions
         self.assertEqual(len(star_join.conditions), 1)
         # test join conditions

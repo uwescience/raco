@@ -1947,7 +1947,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """.format(rel=self.emp_key)
 
         physical_plan = self.get_physical_plan(query)
-        self.assertTrue(isinstance(physical_plan, raco.algebra.Sequence))
+        self.assertIsInstance(physical_plan, raco.algebra.Sequence)
         self.check_result(query, self.emp_table, output='OUTPUT')
         self.check_result(query, self.emp_table, output='OUTPUT2')
 
