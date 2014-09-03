@@ -545,3 +545,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.get_physical_plan(query)
         self.assertEquals(sum(self.x_data.values()) ** 2,
                           pp.num_tuples())
+
+    def test_catalog_cardinality(self):
+        self.assertEquals(sum(self.x_data.values()),
+                          self.db.num_tuples(self.x_key))
+        self.assertEquals(sum(self.y_data.values()),
+                          self.db.num_tuples(self.y_key))
+        self.assertEquals(sum(self.z_data.values()),
+                          self.db.num_tuples(self.z_key))
