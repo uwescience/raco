@@ -3,7 +3,7 @@ import copy
 import unittest
 
 
-class testUnionFind(unittest.TestCase):
+class TestUnionFind(unittest.TestCase):
 
     uf = UnionFind()
     uf.get_or_insert(1)
@@ -31,9 +31,9 @@ class testUnionFind(unittest.TestCase):
 
     def test_get_error(self):
         with self.assertRaises(Exception):
-            self.uf[52]
+            _ = self.uf[52]
         with self.assertRaises(Exception):
-            self.uf[30]
+            _ = self.uf[30]
 
     def test_union(self):
         uf = copy.deepcopy(self.uf)
