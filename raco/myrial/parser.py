@@ -149,7 +149,7 @@ class Parser(object):
         :param name: The name of the function
         :param args: A list of function argument names (strings)
         :param inits: A list of SingletonEmitArg that describe init logic
-        :param updates: A list of SingletonEmitArg that describe update logic
+        :param updates: A list of Expression that describe update logic
         :param emitter: An Expression that returns the final result
         :param is_aggregate: True if the state_func is a UDA
 
@@ -167,8 +167,7 @@ class Parser(object):
         for init, update in zip(inits, updates):
             if not isinstance(init, emitarg.SingletonEmitArg):
                 raise IllegalWildcardException(name, p.lineno(0))
-            if not isinstance(update, emitarg.SingletonEmitArg):
-                raise IllegalWildcardException(name, p.lineno(0))
+            assert isinstance(update, sexpr.Expression)
 
             # check for duplicate variable definitions
             sm_name = init.column_name
@@ -177,7 +176,7 @@ class Parser(object):
             if sm_name in statemods or sm_name in args:
                 raise DuplicateVariableException(name, p.lineno(0))
 
-            statemods[sm_name] = (init.sexpr, update.sexpr)
+            statemods[sm_name] = (init.sexpr, update)
 
         # Check for undefined variables:
         #  - Init expressions cannot reference any variables.
@@ -232,26 +231,26 @@ class Parser(object):
     @staticmethod
     def p_uda(p):
         'uda : UDA unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI table_literal SEMI sexpr SEMI RBRACE SEMI'
+        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr SEMI RBRACE SEMI'  # noqa
 
         name = p[2]
         args = p[4]
         inits = p[7]
-        updates = p[9]
-        finalizer = p[11]
+        updates = p[10]
+        finalizer = p[13]
         Parser.add_state_func(p, name, args, inits, updates, finalizer, True)
         p[0] = None
 
     @staticmethod
     def p_apply(p):
         'apply : APPLY unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI table_literal SEMI sexpr SEMI RBRACE SEMI'
+        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr SEMI RBRACE SEMI'  # noqa
 
         name = p[2]
         args = p[4]
         inits = p[7]
-        updates = p[9]
-        finalizer = p[11]
+        updates = p[10]
+        finalizer = p[13]
         Parser.add_state_func(p, name, args, inits, updates, finalizer, False)
         p[0] = None
 
@@ -310,6 +309,15 @@ class Parser(object):
     def p_expression_id(p):
         'expression : unreserved_id'
         p[0] = ('ALIAS', p[1])
+
+    @staticmethod
+    def p_sexpr_list(p):
+        """sexpr_list : sexpr_list COMMA sexpr
+                      | sexpr"""
+        if len(p) == 4:
+            p[0] = p[1] + (p[3],)
+        else:
+            p[0] = (p[1],)
 
     @staticmethod
     def p_expression_table_literal(p):

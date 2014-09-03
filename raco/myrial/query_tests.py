@@ -1384,7 +1384,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(IllegalWildcardException):
+        with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
 
     def test_second_max_uda(self):
@@ -1600,7 +1600,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         APPLY RunningMean(value) {
             [0 AS _count, 0 AS _sum];
-            [_count + 1 AS _count, _sum + value AS _sum];
+            [_count + 1, _sum + value];
             _sum / _count;
         };
         out = [FROM SCAN(%s) AS X EMIT id, RunningMean(X.salary)];
@@ -1621,7 +1621,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         APPLY RunningSum(x) {
             [0 AS _sum];
-            [_sum + x AS _sum];
+            [_sum + x];
             _sum;
         };
         out = [FROM SCAN(%s) AS X
