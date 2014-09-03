@@ -16,15 +16,19 @@ def real_str(obj, skip_out=False):
     inside of containers. If skip_out is True, the container bounds will not
     be displayed. E.g. real_str([1, 2]) == "[1,2]" but
     real_str([1, 2], skip_out=True) == "1,2"."""
-    if isinstance(obj, collections.Container):
+
+    # Hack around basestrings being containers
+    if (not isinstance(obj, basestring)
+            and isinstance(obj, collections.Container)):
+
         if isinstance(obj, collections.Sequence):
             inner = ','.join(real_str(e) for e in obj)
             if skip_out:
                 return inner
             return '[{inn}]'.format(inn=inner)
         elif isinstance(obj, collections.Mapping):
-            inner = ','.join('{a}: {b}'.format(a=real_str(a), b=real_str(b))
-                             for a, b in obj.elements())
+            inner = ','.join('{a}:{b}'.format(a=real_str(a), b=real_str(b))
+                             for a, b in obj.items())
             if skip_out:
                 return inner
             return '{{{inn}}}'.format(inn=inner)
