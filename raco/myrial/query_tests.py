@@ -1588,16 +1588,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(results))
 
-    @nottest
     def test_uda_multiple_emitters(self):
         query = """
-        uda SumCountMean(x) :
+        uda SumCountMean(x) {
           [0 as _sum, 0 as _count];
           [_sum + x, _count + 1];
           [_sum, _count, _sum/_count];
-
-        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary)
-               as [_sum, _count, _mean]];
+        };
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary)];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -1607,7 +1605,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         results = []
         for k, tpls in d.iteritems():
-            _sum = sum(tpls)
+            _sum = sum(x[3] for x in tpls)
             _count = len(tpls)
             _avg = float(_sum) / _count
             results.append((k, _sum, _count, _avg))

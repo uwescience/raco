@@ -489,17 +489,17 @@ class Parser(object):
                     | sexpr"""
         if len(p) == 4:
             name = p[3]
-            sexpr = p[1]
+            sx = p[1]
         else:
             name = None
-            sexpr = p[1]
+            sx = p[1]
 
-        if isinstance(sexpr, TupleExpression):
-            sexpr.check_for_nested(p.lineno(0))
+        if isinstance(sx, TupleExpression):
+            sx.check_for_nested(p.lineno(0))
             # TODO: Handle user-provided name lists
-            p[0] = emitarg.NaryEmitArg(None, sexpr.emitters, Parser.statemods)
+            p[0] = emitarg.NaryEmitArg(None, sx.emitters, Parser.statemods)
         else:
-            p[0] = emitarg.SingletonEmitArg(name, sexpr, Parser.statemods)
+            p[0] = emitarg.SingletonEmitArg(name, sx, Parser.statemods)
         Parser.statemods = []
 
     @staticmethod
@@ -747,11 +747,15 @@ class Parser(object):
                     mangled[sm_name], init_expr, update_expr))
             ex = sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
 
-            # If the function is a UDA, wrap the output expression so
+            # If the function is a UDA, wrap the output expression(s) so
             # downstream users can distinguish stateful apply from
             # aggregate expressions.
             if isinstance(func, UDA):
-                return sexpr.UdaAggregateExpression(ex)
+                if isinstance(ex, TupleExpression):
+                    return TupleExpression([sexpr.UdaAggregateExpression(x)
+                                            for x in ex.emitters])
+                else:
+                    return sexpr.UdaAggregateExpression(ex)
             else:
                 return ex
         else:

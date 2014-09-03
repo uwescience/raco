@@ -107,7 +107,7 @@ class NaryEmitArg(EmitArg):
             names = [None] * len(self.sexprs)
 
         return [(get_column_name(n, x, symbols), x)
-                for n, x in zip(self.sexprs, names)]
+                for n, x in zip(names, self.sexprs)]
 
     def get_statemods(self):
         return self.statemods
