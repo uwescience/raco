@@ -1023,8 +1023,15 @@ class BroadcastBeforeCross(rules.Rule):
                 isinstance(expr.right, algebra.Broadcast)):
             return expr
 
-        # By default, broadcast the right child
-        expr.right = algebra.Broadcast(expr.right)
+        try:
+            # By default, broadcast the smaller child
+            if expr.left.num_tuples() < expr.right.num_tuples():
+                expr.left = algebra.Broadcast(expr.left)
+            else:
+                expr.right = algebra.Broadcast(expr.right)
+        except NotImplementedError, e:
+            # If cardinalities unknown, broadcast the right child
+            expr.right = algebra.Broadcast(expr.right)
 
         return expr
 

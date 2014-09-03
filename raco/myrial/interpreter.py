@@ -95,7 +95,8 @@ class ExpressionProcessor(object):
             # Create a dummy schema suitable for emitting plans
             scheme = raco.scheme.DummyScheme()
 
-        return raco.algebra.Scan(rel_key, scheme)
+        return raco.algebra.Scan(rel_key, scheme,
+                                 self.catalog.num_tuples(rel_key))
 
     def load(self, path, scheme):
         return raco.algebra.FileScan(path, scheme)

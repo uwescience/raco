@@ -1199,7 +1199,7 @@ class FileScan(ZeroaryOperator):
 class Scan(ZeroaryOperator):
     """Logical Scan operator."""
 
-    def __init__(self, relation_key=None, _scheme=None):
+    def __init__(self, relation_key=None, _scheme=None, cardinality=None):
         """Initialize a scan operator.
 
         relation_key is a string of the form "user:program:relation"
@@ -1207,7 +1207,10 @@ class Scan(ZeroaryOperator):
         """
         self.relation_key = relation_key
         self._scheme = _scheme
-        self._cardinality = DEFAULT_CARDINALITY  # placeholder, will be updated
+        if cardinality is not None:
+            self._cardinality = cardinality
+        else:
+            self._cardinality = DEFAULT_CARDINALITY
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
@@ -1229,9 +1232,9 @@ class Scan(ZeroaryOperator):
         return self._cardinality
 
     def __repr__(self):
-        return "{op}({rk!r}, {sch!r})".format(op=self.opname(),
-                                              rk=self.relation_key,
-                                              sch=self._scheme)
+        return "{op}({rk!r}, {sch!r}, {card!r})".format(
+            op=self.opname(), rk=self.relation_key, sch=self._scheme,
+            card=self._cardinality)
 
     def copy(self, other):
         """deep copy"""
