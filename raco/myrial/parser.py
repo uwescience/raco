@@ -54,6 +54,27 @@ myrial_type_map = {
 }
 
 
+class TupleExpression(object):
+    """Represents an instance of a tuple-valued Expression
+
+    This class is a pseudo-expression that corresonds to a UDA or stateful apply
+    with multiple return values.  Myria doesn't support tuples as a first-class
+    data type.  Instead, instances of TupleExpression are converted into multiple
+    scalar expression instances.
+    """
+    def __init__(self, emitters):
+        self.emitters = emitters
+
+    def walk(self):
+        yield self
+        for emitter in self.emitters:
+            for x in emitter.walk():
+                yield x
+
+    def apply(self, f):
+        self.emitters = [f(e) for e in self.emitters]
+
+
 class Parser(object):
     # mapping from function name to Function tuple
     udf_functions = {}
