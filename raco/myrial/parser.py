@@ -143,14 +143,14 @@ class Parser(object):
         return "{name}__{mid}".format(name=name, mid=Parser.mangle_id)
 
     @staticmethod
-    def add_state_func(p, name, args, inits, updates, finalizer, is_aggregate):
+    def add_state_func(p, name, args, inits, updates, emitter, is_aggregate):
         """Register a stateful apply or UDA.
 
         :param name: The name of the function
         :param args: A list of function argument names (strings)
         :param inits: A list of SingletonEmitArg that describe init logic
         :param updates: A list of SingletonEmitArg that describe update logic
-        :param finalizer: An Expression that returns the final result
+        :param emitter: An Expression that returns the final result
         :param is_aggregate: True if the state_func is a UDA
 
         TODO: de-duplicate logic from add_udf.
@@ -183,17 +183,17 @@ class Parser(object):
         #  - Init expressions cannot reference any variables.
         #  - Update expression can reference function arguments and state
         #    variables.
-        #  - The finalizer expression can reference state variables.
+        #  - The emitter expression can reference state variables.
         allvars = statemods.keys() + args
         for init_expr, update_expr in statemods.itervalues():
             Parser.check_for_undefined(p, name, init_expr, [])
             Parser.check_for_undefined(p, name, update_expr, allvars)
-        Parser.check_for_undefined(p, name, finalizer, statemods.keys())
+        Parser.check_for_undefined(p, name, emitter, statemods.keys())
 
         if is_aggregate:
-            f = UDA(args, statemods, finalizer)
+            f = UDA(args, statemods, emitter)
         else:
-            f = Apply(args, statemods, finalizer)
+            f = Apply(args, statemods, emitter)
         Parser.udf_functions[name] = f
 
     @staticmethod
