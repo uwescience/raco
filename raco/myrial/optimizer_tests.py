@@ -532,7 +532,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         lp = self.get_logical_plan(query)
         self.assertIsInstance(lp, Sequence)
         self.assertEquals(1, len(lp.children()))
-        self.assertEquals(len(list(self.x_data.elements())) ** 2,
+        self.assertEquals(sum(self.x_data.values()) ** 2,
                           lp.children()[0].num_tuples())
 
     def test_relation_physical_cardinality(self):
@@ -543,5 +543,5 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         """.format(x=self.x_key)
 
         pp = self.get_physical_plan(query)
-        self.assertEquals(len(list(self.x_data.elements())) ** 2,
+        self.assertEquals(sum(self.x_data.values()) ** 2,
                           pp.num_tuples())
