@@ -1588,7 +1588,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(results))
 
-
     def __run_multiple_emitter_test(self, include_column_names):
 
         if include_column_names:
@@ -1632,6 +1631,21 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             ('_COLUMN4_', types.LONG_TYPE)])
 
         self.assertEquals(scheme_actual, scheme_expected)
+
+    def test_uda_bad_column_name_length(self):
+        query = """
+        uda Fubar(x, y, z) {
+          [0 as Q];
+          [Q + 1];
+          [1,2,3];
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Fubar(1, salary, id) AS [A, B, C, D]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalColumnNamesException):
+            self.check_result(query, None)
 
     def test_uda_multiple_emitters_non_simple(self):
         """Test that we raise an Exception if a tuple-valued UDA doesn't appear

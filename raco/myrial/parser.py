@@ -512,7 +512,7 @@ class Parser(object):
             # If names were provided, the length must equal the number
             # of emitters
             if names is not None and len(sx.emitters) != len(names):
-                raise InvalidColumnNameException(p.lineno(0))
+                raise IllegalColumnNamesException(p.lineno(0))
 
             # Verify that there are no nested TupleExpressions
             sx.check_for_nested(p.lineno(0))
