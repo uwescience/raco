@@ -656,7 +656,9 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 % self.__class__.__name__
 
         self.useKey = len(self.grouping_list) > 0
+        _LOG.debug("groupby uses keys? %s" % self.useKey)
 
+        declr_template = None
         if self.useKey:
             if len(self.grouping_list) == 1:
                 declr_template = ct("""typedef DHT_symmetric<int64_t, \
@@ -675,17 +677,24 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         hashname = self._hashname
 
-        hashdeclr = declr_template % locals()
-        state.addDeclarationsUnresolved([hashdeclr])
+        if declr_template is not None:
+            hashdeclr = declr_template % locals()
+            state.addDeclarationsUnresolved([hashdeclr])
 
-        if len(self.grouping_list) == 1:
-            init_template = ct("""auto %(hashname)s = \
-            DHT_int64::create_DHT_symmetric( );""")
-        elif len(self.grouping_list) == 2:
-            init_template = ct("""auto %(hashname)s = \
-            DHT_pair_int64::create_DHT_symmetric( );""")
+        if self.useKey:
+            if len(self.grouping_list) == 1:
+                init_template = ct("""auto %(hashname)s = \
+                DHT_int64::create_DHT_symmetric( );""")
+            elif len(self.grouping_list) == 2:
+                init_template = ct("""auto %(hashname)s = \
+                DHT_pair_int64::create_DHT_symmetric( );""")
+
+        else:
+            init_template = ct("""auto %(hashname)s = counter::create();
+-           """)
 
         state.addInitializers([init_template % locals()])
+
         self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
@@ -719,15 +728,22 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                     });
                     """)
         else:
-            mapping_var_name = gensym()
-            produce_template = ct("""%(hashname)s->\
-            forall_entries<&%(pipeline_sync)s>\
-            ([=](std::pair<const int64_t,int64_t>& %(mapping_var_name)s) {
-                %(output_tuple_type)s %(output_tuple_name)s(\
-                {%(mapping_var_name)s.second});
-                %(inner_code)s
-                });
-                """)
+            op = self.aggregate_list[0].__class__.__name__
+            # translations for Grappa::reduce predefined ops
+            coll_op = {'COUNT': 'COLL_ADD',
+                       'SUM': 'COLL_ADD',
+                       'MAX': 'COLL_MAX',
+                       'MIN': 'COLL_MIN'}[op]
+            produce_template = ct("""auto %(output_tuple_name)s_tmp = reduce<int64_t, \
+            counter, \
+            %(coll_op)s, \
+            &get_count>\
+            (%(hashname)s);
+
+            %(output_tuple_type)s %(output_tuple_name)s;
+            %(output_tuple_name)s.set(0, %(output_tuple_name)s_tmp);
+            %(inner_code)s
+            """)
 
         pipeline_sync_decl_template = ct("""
         GlobalCompletionEvent %(pipeline_sync)s;
@@ -773,10 +789,9 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 key2pos = self.grouping_list[1].get_position(self.scheme())
         else:
             # TODO: use optimization for few keys
-            materialize_template = ct("""%(hashname)s->update\
-                                      <&%(pipeline_sync)s, int64_t, \
-                                      &Aggregates::%(op)s<int64_t,int64_t>,0>(\
-                                      0,\
+            # right now it uses key=0
+            materialize_template = ct("""%(hashname)s->count = \
+            Aggregates::%(op)s<int64_t, int64_t>(%(hashname)s->count, \
                                       %(tuple_name)s.get(%(valpos)s));
             """)
 

@@ -34,6 +34,20 @@ using namespace Grappa;
 
 DEFINE_uint64( nt, 30, "hack: number of tuples"); 
 
+struct counter {
+  int64_t count;
+  static GlobalAddress<counter> create() {
+    auto res = symmetric_global_alloc<counter>();
+    on_all_cores([res] {
+        res->count = 0;
+        });           
+    return res;
+  }
+} GRAPPA_BLOCK_ALIGNED;
+int64_t get_count(GlobalAddress<counter> p) { 
+  return p->count;                           
+}
+
 %(declarations)s
 
 StringIndex string_index;
