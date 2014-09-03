@@ -451,3 +451,13 @@ class MyriaLPlatformTests(object):
         STORE(MM, OUTPUT);
         """, "matrix_mult")
 
+    def test_join_switch(self):
+        self.check_sub_tables("""
+        R3 = SCAN(%(R3)s);
+        S3 = SCAN(%(S3)s);
+        T3 = SCAN(%(T3)s);
+        J1 = JOIN(R3, $2, S3, $1);
+        J2 = JOIN(J1, $3, T3, $0);
+        P = [FROM J2 EMIT $0, $8];
+        STORE(P, OUTPUT);
+        """, "join_switch")
