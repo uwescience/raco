@@ -113,31 +113,23 @@ class GrappalangRunner(PlatformRunner):
             print os.getcwd()
             subprocess.check_call(['make', '-j'], env=envir)
 
-            """subprocess.check_call(['bin/distcc_make',
-                                   '-j24'
-                                   ], env=envir)
-                                   """
-
           with Chdir('build/Make+Release/applications/join') as appdir:
             # build the grappa application
             print os.getcwd()
-            print subprocess.check_call(['make', '-j', '%s.exe' % gname], env=envir)
-
-            # subprocess.check_call(['../../bin/distcc_make',
-            #                        '-j24',
-            #                        '%s.exe' % gname,
-            #                        ], env=envir)
-
+            print subprocess.check_call(['make', '-j', '%s.exe' % gname],
+                                        env=envir)
 
             # run the application
             testoutfn = "%s/%s.out" % (tmppath, gname)
             with open(testoutfn, 'w') as outf:
                 subprocess.check_call(['../../bin/grappa_srun',
                                        '--ppn=4',
-                                       '--nnode=2',
+                                       '--nnode=8',
                                        '--',
                                        '%s.exe' % gname,
-                                       '--vmodule=%s=2' % gname  # result out
+                                       'relations=/shared',
+                                       'load_balance=none',
+                                       '--vmodule=%s=1' % gname  # result out
                                        ],
                                         stderr=outf,
                                         stdout=outf,
