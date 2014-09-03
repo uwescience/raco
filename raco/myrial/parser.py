@@ -146,6 +146,13 @@ class Parser(object):
     def add_state_func(p, name, args, inits, updates, finalizer, is_aggregate):
         """Register a stateful apply or UDA.
 
+        :param name: The name of the function
+        :param args: A list of function argument names (strings)
+        :param inits: A list of SingletonEmitArg that describe init logic
+        :param updates: A list of SingletonEmitArg that describe update logic
+        :param finalizer: An Expression that returns the final result
+        :param is_aggregate: True if the state_func is a UDA
+
         TODO: de-duplicate logic from add_udf.
         """
         if name in Parser.udf_functions:
