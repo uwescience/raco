@@ -1595,7 +1595,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
           [_sum + x, _count + 1];
           [_sum, _count, _sum/_count];
         };
-        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary)];
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary), dept_id+3];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -1608,7 +1608,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             _sum = sum(x[3] for x in tpls)
             _count = len(tpls)
             _avg = float(_sum) / _count
-            results.append((k, _sum, _count, _avg))
+            results.append((k, _sum, _count, _avg, k + 3))
 
         self.check_result(query, collections.Counter(results))
 
