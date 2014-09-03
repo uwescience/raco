@@ -229,29 +229,38 @@ class Parser(object):
             p[0] = [p[1]]
 
     @staticmethod
+    def p_sexpr_or_sexpr_list(p):
+        """sexpr_or_sexpr_list : sexpr_list
+                               | sexpr"""
+        if isinstance(p[1], sexpr.Expression):
+            p[0] = (p[1],)
+        else:
+            p[0] = p[1]
+
+    @staticmethod
     def p_uda(p):
         'uda : UDA unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr SEMI RBRACE SEMI'  # noqa
+        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr_or_sexpr_list SEMI RBRACE SEMI'  # noqa
 
         name = p[2]
         args = p[4]
         inits = p[7]
         updates = p[10]
-        finalizer = p[13]
-        Parser.add_state_func(p, name, args, inits, updates, finalizer, True)
+        emits = p[13]
+        Parser.add_state_func(p, name, args, inits, updates, emits[0], True)
         p[0] = None
 
     @staticmethod
     def p_apply(p):
         'apply : APPLY unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr SEMI RBRACE SEMI'  # noqa
+        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr_or_sexpr_list SEMI RBRACE SEMI'  # noqa
 
         name = p[2]
         args = p[4]
         inits = p[7]
         updates = p[10]
-        finalizer = p[13]
-        Parser.add_state_func(p, name, args, inits, updates, finalizer, False)
+        emits = p[13]
+        Parser.add_state_func(p, name, args, inits, updates, emits[0], False)
         p[0] = None
 
     @staticmethod
