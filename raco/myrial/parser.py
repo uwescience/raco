@@ -65,7 +65,7 @@ def contains_tuple_expression(ex):
 class TupleExpression(object):
     """Represents an instance of a tuple-valued Expression
 
-    This class is a pseudo-expression that corresonds to a UDA or stateful
+    This class is a pseudo-expression that corresponds to a UDA or stateful
     apply with multiple return values.  Myria doesn't support tuples as a
     first-class data type.  Instead, instances of TupleExpression are converted
     into multiple scalar expression instances.
@@ -105,7 +105,7 @@ class Parser(object):
         self.tokens = scanner.tokens
 
         # Precedence among scalar expression operators in ascending order; this
-        # is necessary to disambiguate the grammer.  Operator precedence is
+        # is necessary to disambiguate the grammar.  Operator precedence is
         # identical to Python:
         # http://docs.python.org/2/reference/expressions.html#comparisons
 
@@ -119,7 +119,7 @@ class Parser(object):
             ('right', 'UMINUS'),    # Unary minus
         )
 
-    # A myrial program consists of 1 or more "translation units", each of which
+    # A MyriaL program consists of 1 or more "translation units", each of which
     # is a function, apply definition, or statement.
     @staticmethod
     def p_translation_unit_list(p):
