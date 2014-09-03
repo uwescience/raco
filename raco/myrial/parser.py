@@ -143,8 +143,8 @@ class Parser(object):
         return "{name}__{mid}".format(name=name, mid=Parser.mangle_id)
 
     @staticmethod
-    def add_apply(p, name, args, inits, updates, finalizer, is_aggregate):
-        """Register a stateful apply function.
+    def add_state_func(p, name, args, inits, updates, finalizer, is_aggregate):
+        """Register a stateful apply or UDA.
 
         TODO: de-duplicate logic from add_udf.
         """
@@ -232,7 +232,7 @@ class Parser(object):
         inits = p[7]
         updates = p[9]
         finalizer = p[11]
-        Parser.add_apply(p, name, args, inits, updates, finalizer, True)
+        Parser.add_state_func(p, name, args, inits, updates, finalizer, True)
         p[0] = None
 
     @staticmethod
@@ -245,7 +245,7 @@ class Parser(object):
         inits = p[7]
         updates = p[9]
         finalizer = p[11]
-        Parser.add_apply(p, name, args, inits, updates, finalizer, False)
+        Parser.add_state_func(p, name, args, inits, updates, finalizer, False)
         p[0] = None
 
     @staticmethod
