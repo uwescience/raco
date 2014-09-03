@@ -247,6 +247,15 @@ class Parser(object):
         p[0] = p[1]
 
     @staticmethod
+    def p_unreserved_id_list(p):
+        """unreserved_id_list : unreserved_id_list COMMA unreserved_id
+                              | unreserved_id"""
+        if len(p) == 4:
+            p[0] = p[1] + [p[3]]
+        else:
+            p[0] = [p[1]]
+
+    @staticmethod
     def p_udf(p):
         """udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON sexpr SEMI"""  # noqa
         Parser.add_udf(p, p[2], p[4], p[7])
@@ -488,22 +497,40 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_singleton(p):
-        """emit_arg : sexpr AS unreserved_id
+        """emit_arg : sexpr AS LBRACKET unreserved_id_list RBRACKET
+                    | sexpr AS unreserved_id
                     | sexpr"""
+
+        sx = p[1]
+        names = None
+        if len(p) == 6:
+            names = p[4]
         if len(p) == 4:
-            name = p[3]
-            sx = p[1]
-        else:
-            name = None
-            sx = p[1]
+            names = [p[3]]
 
         if isinstance(sx, TupleExpression):
+            # If names were provided, the length must equal the number
+            # of emitters
+            if names is not None and len(sx.emitters) != len(names):
+                raise InvalidColumnNameException(p.lineno(0))
+
+            # Verify that there are no nested TupleExpressions
             sx.check_for_nested(p.lineno(0))
+
             # TODO: Handle user-provided name lists
-            p[0] = emitarg.NaryEmitArg(None, sx.emitters, Parser.statemods)
+            p[0] = emitarg.NaryEmitArg(names, sx.emitters, Parser.statemods)
         else:
+            # Verify that the expression does not contain a nested
+            # TupleExpression
             if contains_tuple_expression(sx):
                 raise IllegalAggregateException(p.lineno(0))
+
+            if names is None:
+                name = None
+            elif len(names) != 1:
+                raise InvalidColumnNameException(p.lineno(0))
+            else:
+                name = names[0]
             p[0] = emitarg.SingletonEmitArg(name, sx, Parser.statemods)
         Parser.statemods = []
 
