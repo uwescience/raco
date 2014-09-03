@@ -709,8 +709,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             elif len(self.grouping_list) == 2:
                 produce_template = ct("""%(hashname)s->\
                 forall_entries<&%(pipeline_sync)s>\
-                ([=](std::pair<const std::pair<int64_t,int64_t>,int64_t>& %(
-                mapping_var_name)s) {
+                ([=](std::pair<const std::pair<int64_t,int64_t>,int64_t>& %(mapping_var_name)s) {
                     %(output_tuple_type)s %(output_tuple_name)s(\
                     {%(mapping_var_name)s.first.first,\
                     %(mapping_var_name)s.first.second,\
