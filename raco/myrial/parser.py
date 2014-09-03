@@ -61,13 +61,14 @@ def contains_tuple_expression(ex):
             return True
     return False
 
+
 class TupleExpression(object):
     """Represents an instance of a tuple-valued Expression
 
-    This class is a pseudo-expression that corresonds to a UDA or stateful apply
-    with multiple return values.  Myria doesn't support tuples as a first-class
-    data type.  Instead, instances of TupleExpression are converted into multiple
-    scalar expression instances.
+    This class is a pseudo-expression that corresonds to a UDA or stateful
+    apply with multiple return values.  Myria doesn't support tuples as a
+    first-class data type.  Instead, instances of TupleExpression are converted
+    into multiple scalar expression instances.
     """
     def __init__(self, emitters):
         self.emitters = emitters

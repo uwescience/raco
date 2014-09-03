@@ -1601,7 +1601,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
           [_sum + x, _count + 1];
           [_sum, _count, _sum/_count];
         };
-        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary) %s, dept_id+3];
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary) %s,
+               dept_id+3];
         STORE(out, OUTPUT);
         """ % (self.emp_key, names)
 
@@ -1640,7 +1641,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
           [1,2,3];
         };
 
-        out = [FROM SCAN(%s) AS X EMIT dept_id, Fubar(1, salary, id) AS [A, B, C, D]];
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Fubar(1, salary, id)
+               AS [A, B, C, D]];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
