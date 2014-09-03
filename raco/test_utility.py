@@ -31,8 +31,7 @@ class TestUtility(unittest.TestCase):
         self.assertIn(real_str({1, 2}), ["{1,2}", "{2,1}"])
         self.assertIn(real_str({1, 2}, skip_out=True), ["1,2", "2,1"])
 
-    def test_real_str_nested_list(self):
-        # Python has no built-in ordered set, so we do not know the item order
+    def test_real_str_nested_collections(self):
         self.assertEqual(real_str([[1, 2], {3: 4}, []]),
                          "[[1,2],{3:4},[]]")
         self.assertEqual(real_str([[1, 2], {3: 4}, []], skip_out=True),
