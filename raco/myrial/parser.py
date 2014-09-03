@@ -272,12 +272,12 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_or_sexpr_list(p):
-        """sexpr_or_sexpr_list : sexpr_list
+        """sexpr_or_sexpr_list : LBRACKET sexpr_list RBRACKET
                                | sexpr"""
-        if isinstance(p[1], sexpr.Expression):
-            p[0] = (p[1],)
+        if len(p) == 4:
+            p[0] = p[2]
         else:
-            p[0] = p[1]
+            p[0] = (p[1],)
 
     @staticmethod
     def p_uda(p):

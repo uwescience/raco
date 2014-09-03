@@ -1387,6 +1387,24 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
 
+    def test_uda_unary_emit_arg_list(self):
+        query = """
+        uda MyAvg(val) {
+            [0 as _sum, 0 as _count];
+            [_sum + val, _count + 1];
+            [_sum / _count];
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MyAvg(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        def agg_func(x):
+            return float(sum(x)) / len(x)
+
+        expected = self.__aggregate_expected_result(agg_func)
+        self.check_result(query, expected)
+
     def test_second_max_uda(self):
         """UDA to compute the second largest element in a collection."""
         query = """
