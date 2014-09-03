@@ -1588,16 +1588,23 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(results))
 
-    def test_uda_multiple_emitters(self):
+
+    def __run_multiple_emitter_test(self, include_column_names):
+
+        if include_column_names:
+            names = " AS [mysum, mycount, myavg]"
+        else:
+            names = ""
+
         query = """
         uda SumCountMean(x) {
           [0 as _sum, 0 as _count];
           [_sum + x, _count + 1];
           [_sum, _count, _sum/_count];
         };
-        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary), dept_id+3];
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary) %s, dept_id+3];
         STORE(out, OUTPUT);
-        """ % self.emp_key
+        """ % (self.emp_key, names)
 
         d = collections.defaultdict(list)
         for t in self.emp_table.elements():
@@ -1611,6 +1618,20 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             results.append((k, _sum, _count, _avg, k + 3))
 
         self.check_result(query, collections.Counter(results))
+
+    def test_uda_multiple_emitters_default_names(self):
+        self.__run_multiple_emitter_test(False)
+
+    def test_uda_multiple_emitters_provided_names(self):
+        self.__run_multiple_emitter_test(True)
+
+        scheme_actual = self.db.get_scheme('OUTPUT')
+        scheme_expected = scheme.Scheme([
+            ('dept_id', types.LONG_TYPE), ('mysum', types.LONG_TYPE),
+            ('mycount', types.LONG_TYPE), ('myavg', types.FLOAT_TYPE),
+            ('_COLUMN4_', types.LONG_TYPE)])
+
+        self.assertEquals(scheme_actual, scheme_expected)
 
     def test_uda_multiple_emitters_non_simple(self):
         """Test that we raise an Exception if a tuple-valued UDA doesn't appear
