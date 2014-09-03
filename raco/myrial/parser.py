@@ -54,6 +54,13 @@ myrial_type_map = {
 }
 
 
+def contains_tuple_expression(ex):
+    """Return True if an Expression contains a TupleExpression"""
+    for sx in ex.walk():
+        if isinstance(sx, TupleExpression):
+            return True
+    return False
+
 class TupleExpression(object):
     """Represents an instance of a tuple-valued Expression
 
@@ -73,6 +80,13 @@ class TupleExpression(object):
 
     def apply(self, f):
         self.emitters = [f(e) for e in self.emitters]
+
+    def check_for_nested(self, lineno):
+        """Raise an exception if a sub-expression contains a TupleExpression"""
+
+        for ex in self.emitters:
+            if contains_tuple_expression(ex):
+                raise NestedTupleExpressionException(lineno)
 
 
 class Parser(object):
@@ -481,7 +495,7 @@ class Parser(object):
             sexpr = p[1]
 
         if isinstance(sexpr, TupleExpression):
-            sexpr.check_for_nested()
+            sexpr.check_for_nested(p.lineno(0))
             # TODO: Handle user-provided name lists
             p[0] = emitarg.NaryEmitArg(None, sexpr.emitters, Parser.statemods)
         else:

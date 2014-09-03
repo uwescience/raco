@@ -118,6 +118,14 @@ class IllegalWildcardException(MyrialCompileException):
             self.funcname, self.lineno)
 
 
+class NestedTupleExpressionException(MyrialCompileException):
+    def __init__(self, lineno):
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Illegal use of tuple expression on line %d" % self.lineno
+
+
 class ColumnIndexOutOfBounds(Exception):
     pass
 
