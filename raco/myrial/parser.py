@@ -479,7 +479,13 @@ class Parser(object):
         else:
             name = None
             sexpr = p[1]
-        p[0] = emitarg.SingletonEmitArg(name, sexpr, Parser.statemods)
+
+        if isinstance(sexpr, TupleExpression):
+            sexpr.check_for_nested()
+            # TODO: Handle user-provided name lists
+            p[0] = emitarg.NaryEmitArg(None, sexpr.emitters, Parser.statemods)
+        else:
+            p[0] = emitarg.SingletonEmitArg(name, sexpr, Parser.statemods)
         Parser.statemods = []
 
     @staticmethod
