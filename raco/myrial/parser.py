@@ -164,14 +164,14 @@ class Parser(object):
         return "{name}__{mid}".format(name=name, mid=Parser.mangle_id)
 
     @staticmethod
-    def add_state_func(p, name, args, inits, updates, emitter, is_aggregate):
+    def add_state_func(p, name, args, inits, updates, emitters, is_aggregate):
         """Register a stateful apply or UDA.
 
         :param name: The name of the function
         :param args: A list of function argument names (strings)
         :param inits: A list of SingletonEmitArg that describe init logic
         :param updates: A list of Expression that describe update logic
-        :param emitter: An Expression that returns the final result
+        :param emitters: An Expression list that returns the final results
         :param is_aggregate: True if the state_func is a UDA
 
         TODO: de-duplicate logic from add_udf.
@@ -203,17 +203,24 @@ class Parser(object):
         #  - Init expressions cannot reference any variables.
         #  - Update expression can reference function arguments and state
         #    variables.
-        #  - The emitter expression can reference state variables.
+        #  - The emitter expressions can reference state variables.
         allvars = statemods.keys() + args
         for init_expr, update_expr in statemods.itervalues():
             Parser.check_for_undefined(p, name, init_expr, [])
             Parser.check_for_undefined(p, name, update_expr, allvars)
-        Parser.check_for_undefined(p, name, emitter, statemods.keys())
+
+        for e in emitters:
+            Parser.check_for_undefined(p, name, e, statemods.keys())
+
+        if len(emitters) == 1:
+            emit_op = emitters[0]
+        else:
+            emit_op = TupleExpression(emitters)
 
         if is_aggregate:
-            f = UDA(args, statemods, emitter)
+            f = UDA(args, statemods, emit_op)
         else:
-            f = Apply(args, statemods, emitter)
+            f = Apply(args, statemods, emit_op)
         Parser.udf_functions[name] = f
 
     @staticmethod
@@ -268,7 +275,7 @@ class Parser(object):
         inits = p[7]
         updates = p[10]
         emits = p[13]
-        Parser.add_state_func(p, name, args, inits, updates, emits[0], True)
+        Parser.add_state_func(p, name, args, inits, updates, emits, True)
         p[0] = None
 
     @staticmethod
@@ -281,7 +288,7 @@ class Parser(object):
         inits = p[7]
         updates = p[10]
         emits = p[13]
-        Parser.add_state_func(p, name, args, inits, updates, emits[0], False)
+        Parser.add_state_func(p, name, args, inits, updates, emits, False)
         p[0] = None
 
     @staticmethod
