@@ -1357,6 +1357,36 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              for t in self.emp_table])
         self.check_result(query, expected)
 
+    def test_uda_illegal_init(self):
+        query = """
+        uda Foo(x,y) {
+            [0 as A, *];
+            [A + x, A + y];
+             A;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Foo(salary, id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalWildcardException):
+            self.check_result(query, None)
+
+    def test_uda_illegal_update(self):
+        query = """
+        uda Foo(x,y) {
+            [0 as A, 1 as B];
+            [A + x + y, *];
+             A + B;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Foo(salary, id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalWildcardException):
+            self.check_result(query, None)
+
     def test_second_max_uda(self):
         """UDA to compute the second largest element in a collection."""
         query = """
