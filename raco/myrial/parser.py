@@ -9,7 +9,7 @@ import raco.scheme as scheme
 import raco.types
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
-from raco.expression.udf import Function, Apply, UDA
+from raco.expression.udf import Function, StatefulFunc
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
@@ -226,16 +226,19 @@ class Parser(object):
         for e in emitters:
             Parser.check_for_undefined(p, name, e, statemods.keys())
 
+        # If the function is a UDA, wrap the output expression(s) so
+        # downstream users can distinguish stateful apply from
+        # aggregate expressions.
+        if is_aggregate:
+            emitters = [sexpr.UdaAggregateExpression(e) for e in emitters]
+
+        assert len(emitters) > 0
         if len(emitters) == 1:
             emit_op = emitters[0]
         else:
             emit_op = TupleExpression(emitters)
 
-        if is_aggregate:
-            f = UDA(args, statemods, emit_op)
-        else:
-            f = Apply(args, statemods, emit_op)
-        Parser.udf_functions[name] = f
+        Parser.udf_functions[name] = StatefulFunc(args, statemods, emit_op)
 
     @staticmethod
     def p_unreserved_id(p):
@@ -730,7 +733,7 @@ class Parser(object):
 
         if isinstance(func, Function):
             return sexpr.resolve_function(func.sexpr, dict(zip(func.args, args)))  # noqa
-        elif isinstance(func, (Apply, UDA)):
+        elif isinstance(func, StatefulFunc):
             state_vars = func.statemods.keys()
 
             # Mangle state variable names to allow multiple invocations to
@@ -747,19 +750,7 @@ class Parser(object):
                     dict(zip(func.args, args)))  # noqa
                 Parser.statemods.append(StateVar(
                     mangled[sm_name], init_expr, update_expr))
-            ex = sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
-
-            # If the function is a UDA, wrap the output expression(s) so
-            # downstream users can distinguish stateful apply from
-            # aggregate expressions.
-            if isinstance(func, UDA):
-                if isinstance(ex, TupleExpression):
-                    return TupleExpression([sexpr.UdaAggregateExpression(x)
-                                            for x in ex.emitters])
-                else:
-                    return sexpr.UdaAggregateExpression(ex)
-            else:
-                return ex
+            return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
         else:
             assert False
 
