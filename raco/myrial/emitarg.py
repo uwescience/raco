@@ -1,5 +1,5 @@
 
-import raco.expression as sexpr
+from raco.expression import Unbox, UnnamedAttributeRef, NamedAttributeRef
 from raco.myrial.exceptions import ColumnIndexOutOfBounds
 
 
@@ -52,6 +52,25 @@ def resolve_unbox(sx, symbols):
         return scheme.getName(sx.field)
 
 
+def get_column_name(name, sx, symbols):
+    """Create a  column name; generate a name if none was provided.
+
+    :param name: The name supplied by the user, or None if no name provided.
+    :param sx: The Expression that defines the output
+    :param symbols: A mapping from relation name to Operator instances
+    """
+
+    if name:
+        return name
+
+    if isinstance(sx, NamedAttributeRef):
+        return sx.name
+    elif isinstance(sx, UnnamedAttributeRef):
+        return resolve_attribute_index(sx.position, symbols)
+    elif isinstance(sx, Unbox):
+        return resolve_unbox(sx, symbols)
+
+
 class SingletonEmitArg(EmitArg):
     """An emit arg that defines a single column.
 
@@ -63,16 +82,32 @@ class SingletonEmitArg(EmitArg):
         self.statemods = statemods
 
     def expand(self, symbols):
-        colname = self.column_name
-        # Try to concoct a column name for simple attribute references.
-        if colname is None:
-            if isinstance(self.sexpr, sexpr.NamedAttributeRef):
-                colname = self.sexpr.name
-            elif isinstance(self.sexpr, sexpr.UnnamedAttributeRef):
-                colname = resolve_attribute_index(self.sexpr.position, symbols)
-            elif isinstance(self.sexpr, sexpr.Unbox):
-                colname = resolve_unbox(self.sexpr, symbols)
-        return [(colname, self.sexpr)]
+        x = self.sexpr
+        n = self.column_name
+        return [(get_column_name(n, x, symbols), x)]
+
+    def get_statemods(self):
+        return self.statemods
+
+
+class NaryEmitArg(EmitArg):
+    """An emit arg that defines one or more columns."""
+
+    def __init__(self, column_names, sexprs, statemods):
+        assert column_names is None or len(column_names) == len(sexprs)
+        assert len(sexprs) >= 1
+
+        self.column_names = column_names
+        self.sexprs = sexprs
+        self.statemods = statemods
+
+    def expand(self, symbols):
+        names = self.column_names
+        if not names:
+            names = [None] * len(self.sexprs)
+
+        return [(get_column_name(n, x, symbols), x)
+                for n, x in zip(self.sexprs, names)]
 
     def get_statemods(self):
         return self.statemods
@@ -86,7 +121,7 @@ def expand_relation(relation_name, symbols):
     scheme = op.scheme()
 
     colnames = [x[0] for x in iter(scheme)]
-    return [(colname, sexpr.Unbox(relation_name, colname))
+    return [(colname, Unbox(relation_name, colname))
             for colname in colnames]
 
 
