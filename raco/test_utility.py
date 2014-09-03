@@ -17,10 +17,6 @@ class TestUtility(unittest.TestCase):
         self.assertEqual(real_str([1, 2]), "[1,2]")
         self.assertEqual(real_str([1, 2], skip_out=True), "1,2")
 
-    def test_real_str_list(self):
-        self.assertEqual(real_str([1, 2]), "[1,2]")
-        self.assertEqual(real_str([1, 2], skip_out=True), "1,2")
-
     def test_real_str_dict(self):
         d = OrderedDict([(1, 2), (3, 4)])
         self.assertEqual(real_str(d), "{1:2,3:4}")
