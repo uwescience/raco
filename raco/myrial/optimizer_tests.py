@@ -1,5 +1,4 @@
 
-import collections
 import random
 
 from raco.algebra import *
