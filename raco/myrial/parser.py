@@ -67,7 +67,7 @@ def check_no_tuple_expression(ex, lineno):
         raise NestedTupleExpressionException(lineno)
 
 
-class TupleExpression(object):
+class TupleExpression(sexpr.Expression):
     """Represents an instance of a tuple-valued Expression
 
     This class is a pseudo-expression that corresponds to a UDA or stateful
@@ -92,6 +92,16 @@ class TupleExpression(object):
 
         for ex in self.emitters:
             check_no_tuple_expression(ex, lineno)
+
+    def get_children(self):
+        return emitters
+
+    def typeof(self, scheme, state_scheme):
+        """Type checks are not applied to TupleExpressions."""
+        raise NotImplementedError()
+
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError()
 
 
 class Parser(object):
