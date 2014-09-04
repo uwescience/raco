@@ -25,15 +25,14 @@ class MyrialTestCase(unittest.TestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
 
-    def get_plan(self, query, logical=False,
-                 target_alg=MyriaLeftDeepTreeAlgebra()):
-        '''Get the MyriaL query plan for a query'''
+    def get_plan(self, query, **kwargs):
+        """Get the MyriaL query plan for a query"""
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
-        if logical:
+        if kwargs.get('logical', False):
             p = self.processor.get_logical_plan()
         else:
-            p = self.processor.get_physical_plan_for(target_alg)
+            p = self.processor.get_physical_plan(**kwargs)
         # verify that we can stringify p
         # TODO verify the string somehow?
         assert str(p)
@@ -47,14 +46,15 @@ class MyrialTestCase(unittest.TestCase):
         """Get the logical plan for a MyriaL query"""
         return self.get_plan(query, logical=True)
 
-    def get_physical_plan(self, query, target_alg=MyriaLeftDeepTreeAlgebra()):
-        '''Get the physical plan for a MyriaL query'''
-        return self.get_plan(query, logical=False, target_alg=target_alg)
+    def get_physical_plan(self, query, **kwargs):
+        """Get the physical plan for a MyriaL query"""
+        kwargs['logical'] = False
+        return self.get_plan(query, **kwargs)
 
     def execute_query(self, query, test_logical=False, skip_json=False,
                       output='OUTPUT'):
         """Run a test query against the fake database"""
-        plan = self.get_plan(query, test_logical)
+        plan = self.get_plan(query, logical=test_logical)
 
         if not test_logical and not skip_json:
             # Test that JSON compilation runs without error

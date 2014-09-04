@@ -3,8 +3,11 @@ Functions (unary and binary) for use in Raco.
 """
 
 import math
+import md5
 
-from .expression import *
+from .expression import (ZeroaryOperator, UnaryOperator, BinaryOperator,
+                         NaryOperator, types, check_is_numeric, check_type,
+                         TypeSafetyViolation)
 
 
 class UnaryFunction(UnaryOperator):
@@ -101,6 +104,17 @@ class SQRT(UnaryDoubleFunction):
 class TAN(UnaryDoubleFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.tan(self.input.evaluate(_tuple, scheme, state))
+
+
+class MD5(UnaryFunction):
+    def typeof(self, scheme, state_scheme):
+        return types.LONG_TYPE
+
+    def evaluate(self, _tuple, scheme, state=None):
+        """Preserve 64 bits of the md5 hash function."""
+        m = md5.new()
+        m.update(str(self.input.evaluate(_tuple, scheme, state)))
+        return int(m.hexdigest(), 16) >> 64
 
 
 class POW(BinaryFunction):

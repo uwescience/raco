@@ -3,7 +3,7 @@
 
 from raco import algebra
 from raco import expression
-from raco.language import Language, clangcommon
+from raco.language import Language, clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, ct
@@ -597,14 +597,14 @@ def clangify(emit_print):
     ]
 
 
-class CCAlgebra(object):
+class CCAlgebra(Algebra):
     language = CC
 
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         """ To store results into a file or onto console """
         self.emit_print = emit_print
 
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         # Sequence that works for datalog
         # TODO: replace with below
         # datalog_rules = [

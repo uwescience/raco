@@ -4,7 +4,7 @@
 
 from raco import algebra
 from raco import expression
-from raco.language import Language
+from raco.language import Language, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, ct
@@ -1088,14 +1088,29 @@ def grappify(join_type, emit_print):
     ]
 
 
-class GrappaAlgebra(object):
+class GrappaStore(algebra.Store, GrappaOperator):
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        code = ""
+        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
+        state.addDeclarations([resdecl])
+        code += "result.push_back(%s);\n" % (t.name)
+
+        code += self.language.log_unquoted("%s" % t.name, 2)
+
+        return code
+
+
+class GrappaAlgebra(Algebra):
     language = GrappaLanguage
 
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         self.join_type = GrappaHashJoin
         self.emit_print = emit_print
 
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         # datalog_rules = [
         #     # rules.removeProject(),
         #     rules.CrossProduct2Join(),
