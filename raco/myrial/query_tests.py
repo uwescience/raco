@@ -1784,7 +1784,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(NestedTupleExpressionException):
             self.check_result(query, None)
 
-    def test_uda_multiple_emitters_non_simple(self):
+    def test_uda_multiple_emitters_nested(self):
         """Test that we raise an Exception if a tuple-valued UDA doesn't appear
         by itself in an emit expression."""
         query = """
@@ -1797,7 +1797,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(IllegalAggregateException):
+        with self.assertRaises(NestedTupleExpressionException):
             self.check_result(query, None)
 
     def test_running_mean_sapply(self):

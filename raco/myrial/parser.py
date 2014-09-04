@@ -550,10 +550,9 @@ class Parser(object):
 
             p[0] = emitarg.NaryEmitArg(names, sx.emitters, Parser.statemods)
         else:
-            # Verify that the expression does not contain a nested
-            # TupleExpression
-            if contains_tuple_expression(sx):
-                raise IllegalAggregateException(p.lineno(0))
+            # The emit argument shouldn't contain nested any TupleExpressions
+            check_no_tuple_expression(sx, p.lineno(0))
+            # The emit arguments shouldn't contain nested aggregates
             sexpr.check_no_nested_aggregate(sx, p.lineno(0))
 
             if names is None:

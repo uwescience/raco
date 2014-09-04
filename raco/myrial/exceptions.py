@@ -126,14 +126,6 @@ class NestedTupleExpressionException(MyrialCompileException):
         return "Illegal use of tuple expression on line %d" % self.lineno
 
 
-class IllegalAggregateException(MyrialCompileException):
-    def __init__(self, lineno):
-        self.lineno = lineno
-
-    def __str__(self):
-        return "Invalid aggregate expression on line %d" % self.lineno
-
-
 class IllegalColumnNamesException(MyrialCompileException):
     def __init__(self, lineno):
         self.lineno = lineno
