@@ -578,20 +578,6 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan[FileScan]"
 
 
-class StoreToCStore(rules.Rule):
-    """A rule to store tuples into emit_print"""
-    def __init__(self, emit_print):
-        self.emit_print = emit_print
-
-    def fire(self, expr):
-        if isinstance(expr, algebra.Store):
-            return CStore(self.emit_print, expr.relation_key, expr.input)
-        return expr
-
-    def __str__(self):
-        return "Store => CStore"
-
-
 def clangify(emit_print):
     return [
         rules.ProjectingJoinToProjectOfJoin(),
@@ -605,7 +591,7 @@ def clangify(emit_print):
         rules.OneToOne(algebra.UnionAll, CUnionAll),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
-        StoreToCStore(emit_print),
+        clangcommon.StoreToBaseCStore(emit_print, CStore),
 
         clangcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
     ]
@@ -614,7 +600,7 @@ def clangify(emit_print):
 class CCAlgebra(object):
     language = CC
 
-    def __init__(self, emit_print=EMIT_CONSOLE):
+    def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         """ To store results into a file or onto console """
         self.emit_print = emit_print
 

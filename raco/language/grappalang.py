@@ -1059,6 +1059,7 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan(FileScan)"
 
 
+# FIXME: this is broken because it does not update the indexes
 class SwapJoinSides(rules.Rule):
     # swaps the inputs to a join
     def fire(self, expr):
@@ -1068,8 +1069,7 @@ class SwapJoinSides(rules.Rule):
             return expr
 
 
-
-def grappify(join_type):
+def grappify(join_type, emit_print):
     return [
         rules.ProjectingJoinToProjectOfJoin(),
 
@@ -1082,7 +1082,7 @@ def grappify(join_type):
         rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll),
-        rules.OneToOne(algebra.Store, GrappaStore),
+        clangcommon.StoreToBaseCStore(emit_print, GrappaStore),
 
         clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
     ]
@@ -1091,8 +1091,9 @@ def grappify(join_type):
 class GrappaAlgebra(object):
     language = GrappaLanguage
 
-    def __init__(self):
+    def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         self.join_type = GrappaHashJoin
+        self.emit_print = emit_print
 
     def opt_rules(self):
         # datalog_rules = [
@@ -1121,7 +1122,7 @@ class GrappaAlgebra(object):
             clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
-            grappify(self.join_type)
+            grappify(self.join_type, self.emit_print)
         ]
 
         return list(itertools.chain(*rule_grps_sequence))
