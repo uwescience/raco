@@ -4,6 +4,7 @@
 
 from raco import algebra
 from raco import expression
+from raco.expression import aggregate
 from raco.language import Language, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
@@ -798,6 +799,10 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         hashname = self._hashname
         tuple_name = inputTuple.name
         pipeline_sync = state.getPipelineProperty("global_syncname")
+
+        assert not isinstance(self.aggregate_list[0], aggregate.COUNTALL),\
+                              """grappalang does not currently support COUNT(*),
+                               use COUNT(<attr>)"""
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())

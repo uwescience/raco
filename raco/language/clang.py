@@ -3,6 +3,7 @@
 
 from raco import algebra
 from raco import expression
+from raco.expression import aggregate
 from raco.language import Language, clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
@@ -379,6 +380,10 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
             if len(self.grouping_list) == 2:
                 key2pos = self.grouping_list[1].get_position(self.input.scheme())
+
+        assert not isinstance(self.aggregate_list[0], aggregate.COUNTALL),\
+                              """clang does not currently support COUNT(*),
+                               use COUNT(<attr>)"""
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())

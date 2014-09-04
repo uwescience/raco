@@ -456,7 +456,7 @@ class StoreToBaseCStore(rules.Rule):
     """A rule to store tuples into emit_print"""
     def __init__(self, emit_print, subclass):
         self.emit_print = emit_print
-        assert issubclass(subclass, BaseCStore)
+        assert issubclass(subclass, BaseCStore), "%s is not a subclass of %s" % (subclass, BaseCStore)
         self.subclass = subclass
 
     def fire(self, expr):
