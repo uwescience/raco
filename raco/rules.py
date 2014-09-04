@@ -94,6 +94,20 @@ class JoinToProjectingJoin(Rule):
         return "Join => ProjectingJoin"
 
 
+def is_simple_agg_expr(agg):
+    """A simple aggregate expression is an aggregate whose input is an
+    AttributeRef."""
+    if isinstance(agg, expression.COUNTALL):
+        return True
+    elif isinstance(agg, expression.UdaAggregateExpression):
+        return True
+    elif (isinstance(agg, expression.UnaryOperator) and
+          isinstance(agg, expression.BuiltinAggregateExpression) and
+          isinstance(agg.input, expression.AttributeRef)):
+        return True
+    return False
+
+
 class SimpleGroupBy(Rule):
     # A "Simple" GroupBy is one that has only AttributeRefs as its grouping
     # fields, and only AggregateExpression(AttributeRef) as its aggregate
@@ -116,19 +130,6 @@ class SimpleGroupBy(Rule):
         complex_grp_exprs = [(i, grp)
                              for (i, grp) in enumerate(expr.grouping_list)
                              if not is_simple_grp_expr(grp)]
-
-        # A simple aggregate expression is an aggregate whose input is an
-        # AttributeRef
-        def is_simple_agg_expr(agg):
-            if isinstance(agg, expression.COUNTALL):
-                return True
-            elif isinstance(agg, expression.UdaAggregateExpression):
-                return True
-            elif (isinstance(agg, expression.UnaryOperator) and
-                  isinstance(agg, expression.BuiltinAggregateExpression) and
-                  isinstance(agg.input, expression.AttributeRef)):
-                return True
-            return False
 
         complex_agg_exprs = [agg for agg in expr.aggregate_list
                              if not is_simple_agg_expr(agg)]
@@ -164,6 +165,30 @@ class SimpleGroupBy(Rule):
         # are mutating the objects it contains when we modify grp_expr or
         # agg_expr in the above for loops.
         return expr
+
+
+class CountToCountall(Rule):
+    """Since Raco does not support NULLs at the moment, it is safe to always
+    map COUNT to COUNTALL."""
+    # TODO fix when we have NULL support.
+    def fire(self, expr):
+        if not isinstance(expr, algebra.GroupBy):
+            return expr
+
+        assert all(is_simple_agg_expr(agg) for agg in expr.aggregate_list)
+
+        counts = [i for (i, agg) in enumerate(expr.aggregate_list)
+                  if isinstance(agg, expression.COUNT)]
+        if not counts:
+            return expr
+
+        for i in counts:
+            expr.aggregate_list[i] = expression.COUNTALL()
+
+        return expr
+
+    def __str__(self):
+        return "Count(x) => Countall()"
 
 
 class RemoveTrivialSequences(Rule):
