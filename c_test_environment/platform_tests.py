@@ -449,14 +449,25 @@ class MyriaLPlatformTests(object):
               emit T1.$0 as src, T2.$1 as dst, count(T1.$0)];
         STORE(MM, OUTPUT);
         """, "matrix_mult")
+    
+    def test_one_join_switch(self):
+    #TODO: make this turn on join swapping
+        self.check_sub_tables("""
+        R3 = SCAN(%(R3)s);
+        S3 = SCAN(%(S3)s);
+        J1 = JOIN(R3, $2, S3, $1);
+        P = [FROM J1 WHERE $0=1 and $3=2 EMIT $0, $5];
+        STORE(P, OUTPUT);
+        """, "one_join_switch")
 
-    def test_join_switch(self):
+    def test_two_join_switch(self):
+    #TODO: make this turn on join swapping
         self.check_sub_tables("""
         R3 = SCAN(%(R3)s);
         S3 = SCAN(%(S3)s);
         T3 = SCAN(%(T3)s);
         J1 = JOIN(R3, $2, S3, $1);
         J2 = JOIN(J1, $3, T3, $0);
-        P = [FROM J2 EMIT $0, $8];
+        P = [FROM J2 WHERE $0>1 and $3>2 and $6>3 EMIT $0, $8];
         STORE(P, OUTPUT);
-        """, "join_switch")
+        """, "two_join_switch")
