@@ -1311,6 +1311,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
         rules.push_apply,
         left_deep_tree_shuffle_logic,
         distributed_group_by,
+        [rules.PushApply()],
         myriafy,
         break_communication
     ]
