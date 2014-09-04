@@ -452,3 +452,17 @@ class BaseCStore(algebra.Store):
                                                      pl=self.input)
 
 
+class StoreToBaseCStore(rules.Rule):
+    """A rule to store tuples into emit_print"""
+    def __init__(self, emit_print, subclass):
+        self.emit_print = emit_print
+        assert issubclass(subclass, BaseCStore)
+        self.subclass = subclass
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.Store):
+            return self.subclass(self.emit_print, expr.relation_key, expr.input)
+        return expr
+
+    def __str__(self):
+        return "Store => %s" % self.subclass.__name__
