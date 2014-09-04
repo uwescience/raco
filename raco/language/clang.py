@@ -17,9 +17,6 @@ _LOG = logging.getLogger(__name__)
 import itertools
 import os.path
 
-EMIT_CONSOLE = 'console'
-EMIT_FILE = 'file'
-
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "c_templates")
@@ -536,37 +533,25 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
         return binary_scan_template
 
 
-class CStore(algebra.Store, CCOperator):
-    def __init__(self, emit_print, relation_key, plan):
-        super(CStore, self).__init__(relation_key, plan)
-        self.emit_print = emit_print
+class CStore(clangcommon.BaseCStore, CCOperator):
 
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
+    def __file_code__(self, t, state):
         code = ""
-        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-        state.addDeclarations([resdecl])
-        code += "result.push_back(%s);\n" % (t.name)
+        state.addPreCode('std::ofstream logfile;\n')
+        resultfile = str(self.relation_key).split(":")[2]
+        opentuple = 'logfile.open("%s");\n' % resultfile
+        schemafile = self.write_schema(self.scheme())
+        state.addPreCode(schemafile)
+        state.addPreCode(opentuple)
+        code += "int logi = 0;\n"
+        code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
+                % (t.name)
+        code += self.language.log_file_unquoted("%s.get(logi)" % t.name)
+        code += "}\n "
+        code += "logfile << %s.get(logi);\n" % (t.name)
+        code += "logfile << '\\n';"
+        state.addPostCode('logfile.close();')
 
-        if self.emit_print == EMIT_CONSOLE:
-            code += self.language.log_unquoted("%s" % t.name, 2)
-        elif self.emit_print == EMIT_FILE:
-            state.addPreCode('std::ofstream logfile;\n')
-            resultfile = str(self.relation_key).split(":")[2]
-            opentuple = 'logfile.open("%s");\n' % resultfile
-            schemafile = self.write_schema(self.scheme())
-            state.addPreCode(schemafile)
-            state.addPreCode(opentuple)
-            code += "int logi = 0;\n"
-            code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
-                    % (t.name)
-            code += self.language.log_file_unquoted("%s.get(logi)" % t.name)
-            code += "}\n "
-            code += "logfile << %s.get(logi);\n" % (t.name)
-            code += "logfile << '\\n';"
-            state.addPostCode('logfile.close();')
         return code
 
     def write_schema(self, scheme):
@@ -578,11 +563,6 @@ class CStore(algebra.Store, CCOperator):
         code += 'logfile.close();'
         return code
 
-    def __repr__(self):
-        return "{op}({ep!r}, {rk!r}, {pl!r})".format(op=self.opname(),
-                                                     ep=self.emit_print,
-                                                     rk=self.relation_key,
-                                                     pl=self.input)
 
 
 class MemoryScanOfFileScan(rules.Rule):

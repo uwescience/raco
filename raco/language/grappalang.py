@@ -1005,9 +1005,9 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
     ascii_scan_template = """
     {
     if (FLAGS_bin) {
-    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( "%(name)s.bin" );
+    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( FLAGS_input_file );
     } else {
-    %(resultsym)s.data = readTuples<%%(result_type)s>( "%(name)s", FLAGS_nt);
+    %(resultsym)s.data = readTuples<%%(result_type)s>( FLAGS_input_file, FLAGS_nt);
     %(resultsym)s.numtuples = FLAGS_nt;
     auto l_%(resultsym)s = %(resultsym)s;
     on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
@@ -1023,20 +1023,23 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
          for GrappaLanguage, emitting ascii")
         return self.ascii_scan_template
 
-    def __get_relation_decl_template__(self):
-        return """Relation<%(tuple_type)s> %(resultsym)s;"""
+    def __get_relation_decl_template__(self, name, binary=True):
+
+        ext = ""
+        if binary:
+            ext = ".bin"
+
+        return """
+            DEFINE_string(input_file, "%%(name)s%(ext)s", "Input file");
+            Relation<%%(tuple_type)s> %%(resultsym)s;
+            """ % locals()
 
 
-class GrappaStore(algebra.Store, GrappaOperator):
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
-        code = ""
-        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-        state.addDeclarations([resdecl])
-        code += "result.push_back(%s);\n" % (t.name)
+class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
+    def __file_code__(self, t, state):
         filename = (str(self.relation_key).split(":")[2])
+        outputnamedecl = """DEFINE_string(output_file, "%s.bin", "Output File");""" % filename
+        state.addDeclarations([outputnamedecl])
         names = [x.encode('UTF8') for x in self.scheme().get_names()]
         schemefile = 'writeSchema("%s", "%s", "%s");\n' % \
                      (names, self.scheme().get_types(), filename)
@@ -1044,9 +1047,7 @@ class GrappaStore(algebra.Store, GrappaOperator):
         resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % (filename)
         state.addPipelineFlushCode(resultfile)
 
-        code += self.language.log_unquoted("%s" % t.name, 2)
-
-        return code
+        return ""
 
 
 class MemoryScanOfFileScan(rules.Rule):
