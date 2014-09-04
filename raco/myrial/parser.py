@@ -61,6 +61,10 @@ def contains_tuple_expression(ex):
             return True
     return False
 
+def check_no_tuple_expression(ex, lineno):
+    if contains_tuple_expression(ex):
+        raise NestedTupleExpressionException(lineno)
+
 
 class TupleExpression(object):
     """Represents an instance of a tuple-valued Expression
@@ -86,8 +90,7 @@ class TupleExpression(object):
         """Raise an exception if a sub-expression contains a TupleExpression"""
 
         for ex in self.emitters:
-            if contains_tuple_expression(ex):
-                raise NestedTupleExpressionException(lineno)
+            check_no_tuple_expression(ex, lineno)
 
 
 class Parser(object):
@@ -203,7 +206,10 @@ class Parser(object):
         for init, update in zip(inits, updates):
             if not isinstance(init, emitarg.SingletonEmitArg):
                 raise IllegalWildcardException(name, p.lineno(0))
-            assert isinstance(update, sexpr.Expression)
+
+            # Init, update expressions cannot return tuples
+            check_no_tuple_expression(init.sexpr, p.lineno(0))
+            check_no_tuple_expression(update, p.lineno(0))
 
             # check for duplicate variable definitions
             sm_name = init.column_name
@@ -226,6 +232,10 @@ class Parser(object):
 
         for e in emitters:
             Parser.check_for_undefined(p, name, e, statemods.keys())
+
+        # Emit arguments cannot themselves return tuples
+        for e in emitters:
+            check_no_tuple_expression(e, p.lineno(0))
 
         # If the function is a UDA, wrap the output expression(s) so
         # downstream users can distinguish stateful apply from
@@ -516,9 +526,9 @@ class Parser(object):
                 raise IllegalColumnNamesException(p.lineno(0))
 
             # Verify that there are no nested TupleExpressions
-            sx.check_for_nested(p.lineno(0))
+            for ssx in sx.emitters:
+                assert not contains_tuple_expression(ssx)
 
-            # TODO: Handle user-provided name lists
             p[0] = emitarg.NaryEmitArg(names, sx.emitters, Parser.statemods)
         else:
             # Verify that the expression does not contain a nested
