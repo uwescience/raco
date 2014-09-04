@@ -1088,21 +1088,6 @@ def grappify(join_type, emit_print):
     ]
 
 
-class GrappaStore(algebra.Store, GrappaOperator):
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
-        code = ""
-        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-        state.addDeclarations([resdecl])
-        code += "result.push_back(%s);\n" % (t.name)
-
-        code += self.language.log_unquoted("%s" % t.name, 2)
-
-        return code
-
-
 class GrappaAlgebra(Algebra):
     language = GrappaLanguage
 
