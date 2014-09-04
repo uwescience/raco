@@ -634,7 +634,7 @@ class Case(Expression):
 
     def get_children(self):
         test_exprs, result_exprs = zip(*self.when_tuples)
-        return test_exprs + result_exprs + [self.else_expr]
+        return list(test_exprs) + list(result_exprs) + [self.else_expr]
 
     def to_binary(self):
         """Convert n-ary case statements to a binary case statement."""

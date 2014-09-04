@@ -184,3 +184,16 @@ def check_no_aggregate(ex, lineno):
     """Raise an exception if the provided expression contains an aggregate."""
     if expression_contains_aggregate(ex):
         raise NestedAggregateException(lineno)
+
+
+def check_no_nested_aggregate(ex, lineno):
+    """Raise an exception if the expression contains a nested aggregate."""
+
+    def descend(sx, in_aggregate):
+        is_aggregate = isinstance(sx, AggregateExpression)
+        if is_aggregate and in_aggregate:
+            raise NestedAggregateException(lineno)
+        for child in sx.get_children():
+            descend(child, is_aggregate or in_aggregate)
+
+    descend(ex, False)
