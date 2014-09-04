@@ -69,6 +69,8 @@ def get_column_name(name, sx, symbols):
         return resolve_attribute_index(sx.position, symbols)
     elif isinstance(sx, Unbox):
         return resolve_unbox(sx, symbols)
+    else:
+        return name
 
 
 class SingletonEmitArg(EmitArg):
