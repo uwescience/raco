@@ -1064,15 +1064,6 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan(FileScan)"
 
 
-# FIXME: this is broken because it does not update the indexes
-class SwapJoinSides(rules.Rule):
-    # swaps the inputs to a join
-    def fire(self, expr):
-        if isinstance(expr, algebra.Join):
-            return algebra.Join(expr.condition, expr.right, expr.left)
-        else:
-            return expr
-
 
 def grappify(join_type, emit_print):
     return [
@@ -1122,6 +1113,7 @@ class GrappaAlgebra(Algebra):
 
         # sequence that works for myrial
         rule_grps_sequence = [
+           # [SwapJoinSides()],
             rules.remove_trivial_sequences,
             rules.simple_group_by,
             clangcommon.clang_push_select,

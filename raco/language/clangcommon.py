@@ -294,7 +294,7 @@ class CFileScan(algebra.Scan):
     def __get_binary_scan_template__(self):
         return
 
-    def __get_relation_decl_template__(self, name, binary):
+    def __get_relation_decl_template__(self, name):
         """
         Implement if the CFileScan implementation requires
         the relation instance to be a global declaration.
@@ -466,3 +466,48 @@ class StoreToBaseCStore(rules.Rule):
 
     def __str__(self):
         return "Store => %s" % self.subclass.__name__
+
+
+class SwapJoinSides(rules.Rule):
+    # swaps the inputs to a join
+    def fire(self, expr):
+        # don't allow swap-created join to be swapped
+        if isinstance(expr, algebra.Join) and not hasattr(expr, '__swapped__'):
+            leftlen = len(expr.left.scheme())
+            rightlen = len(expr.right.scheme())
+            emitters_left = [(None, expression.UnnamedAttributeRef(i)) for i in range(leftlen, leftlen+rightlen)]
+            emitters_right = [(None, expression.UnnamedAttributeRef(i)) for i in range(0, leftlen)]
+
+            # The attribute references in the condition also need to change
+            # (dealing with only named would be great)
+            # TODO: currently only covers a==b conditions
+
+            # find the attribute that corresponds to the right child
+            rightCondIsRightAttr = \
+                expr.condition.right.position >= len(expr.left.scheme())
+            leftCondIsRightAttr = \
+                expr.condition.left.position >= len(expr.left.scheme())
+            assert rightCondIsRightAttr ^ leftCondIsRightAttr
+
+            leftAttr = expression.UnnamedAttributeRef(expr.condition.left.position+rightlen)
+            rightAttr = expression.UnnamedAttributeRef(expr.condition.right.position-leftlen)
+            if rightCondIsRightAttr:
+                leftOfCond = leftAttr
+                rightOfCond = rightAttr
+            else:
+                leftOfCond = rightAttr
+                rightOfCond = leftAttr
+
+            newcondition = expr.condition.__class__(leftOfCond, rightOfCond)
+
+            newjoin = algebra.Join(newcondition, expr.right, expr.left)
+            newjoin.__swapped__ = True
+
+            return algebra.Apply(emitters=emitters_left + emitters_right,
+                                 input=newjoin)
+        else:
+            return expr
+
+    def __str__(self):
+        return "Join(L,R) => Join(R,L)"
+

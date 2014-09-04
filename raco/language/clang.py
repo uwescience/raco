@@ -628,6 +628,7 @@ class CCAlgebra(Algebra):
 
         # sequence that works for myrial
         rule_grps_sequence = [
+            [clangcommon.SwapJoinSides()],
             rules.remove_trivial_sequences,
             rules.simple_group_by,
             clangcommon.clang_push_select,
