@@ -12,7 +12,7 @@ import inspect
 
 class NestedAggregateException(Exception):
     """Nested aggregate functions are not allowed"""
-    def __init__(self, lineno=0):
+    def __init__(self, lineno):
         self.lineno = lineno
 
     def __str__(self):
