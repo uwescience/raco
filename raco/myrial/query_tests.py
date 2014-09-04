@@ -741,6 +741,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             return sum / cnt
 
         self.check_result(query, self.__aggregate_expected_result(avg))
+        self.check_result(query, self.__aggregate_expected_result(avg),
+                          test_logical=True)
 
     def test_stdev(self):
         query = """
@@ -752,6 +754,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         tp = res.elements().next()
         self.assertAlmostEqual(tp[0], 34001.8006726)
 
+        res = self.execute_query(query, test_logical=True)
+        tp = res.elements().next()
+        self.assertAlmostEqual(tp[0], 34001.8006726)
+
     def test_count(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT dept_id, COUNT(salary)];
@@ -759,6 +765,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
+        self.check_result(query, self.__aggregate_expected_result(len),
+                          test_logical=True)
 
     def test_countall(self):
         query = """
@@ -767,6 +775,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
+        self.check_result(query, self.__aggregate_expected_result(len),
+                          test_logical=True)
 
     def test_count_star(self):
         query = """
@@ -775,6 +785,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
+        self.check_result(query, self.__aggregate_expected_result(len),
+                          test_logical=True)
 
     def test_count_star_sql(self):
         query = """
@@ -783,6 +795,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
+        self.check_result(query, self.__aggregate_expected_result(len),
+                          test_logical=True)
 
     def test_max_reversed(self):
         query = """
@@ -793,6 +807,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         ex = self.__aggregate_expected_result(max)
         ex = collections.Counter([(y, x) for (x, y) in ex])
         self.check_result(query, ex)
+        self.check_result(query, ex, test_logical=True)
 
     def test_compound_aggregate(self):
         query = """
@@ -812,6 +827,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         expected = collections.Counter(tuples)
         self.check_result(query, expected)
+        self.check_result(query, expected, test_logical=True)
 
     def test_aggregate_with_unbox(self):
         query = """
@@ -832,6 +848,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         expected = collections.Counter(tuples)
         self.check_result(query, expected)
+        self.check_result(query, expected, test_logical=True)
 
     def test_nary_groupby(self):
         query = """

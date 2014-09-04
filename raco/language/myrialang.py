@@ -353,8 +353,6 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             return "MAX"
         elif isinstance(agg_expr, expression.MIN):
             return "MIN"
-        elif isinstance(agg_expr, expression.COUNT):
-            return "COUNT"
         elif isinstance(agg_expr, expression.SUM):
             return "SUM"
         elif isinstance(agg_expr, expression.AVG):
@@ -1250,6 +1248,7 @@ distributed_group_by = [
     # DistributedGroupBy may introduce a complex GroupBy,
     # so we must run SimpleGroupBy after it. TODO no one likes this.
     DistributedGroupBy(), rules.SimpleGroupBy(),
+    rules.CountToCountall(),   # TODO remove when we have NULL support.
     ProjectToDistinctColumnSelect()
 ]
 
@@ -1305,12 +1304,14 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
     rule_grps_sequence = [
         rules.remove_trivial_sequences,
-        rules.simple_group_by,
+        [rules.SimpleGroupBy(),
+         rules.CountToCountall()],  # TODO remove when we have NULL support.
         rules.push_select,
         rules.push_project,
         rules.push_apply,
         left_deep_tree_shuffle_logic,
         distributed_group_by,
+        [rules.PushApply()],
         myriafy,
         break_communication
     ]
