@@ -691,7 +691,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         else:
             init_template = ct("""auto %(hashname)s = counter::create();
--           """)
+            """)
 
         state.addInitializers([init_template % locals()])
 
