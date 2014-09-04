@@ -353,8 +353,6 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             return "MAX"
         elif isinstance(agg_expr, expression.MIN):
             return "MIN"
-        elif isinstance(agg_expr, expression.COUNT):
-            return "COUNT"
         elif isinstance(agg_expr, expression.SUM):
             return "SUM"
         elif isinstance(agg_expr, expression.AVG):
