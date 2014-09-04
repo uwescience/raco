@@ -75,12 +75,6 @@ def binary_ops():
     return opclasses
 
 
-def isaggregate(expr):
-    """Return true if the expression contains an aggregate function."""
-    return any(expr.postorder(
-        lambda x: isinstance(x, AggregateExpression)))
-
-
 def udf_undefined_vars(expr, vars):
     """Return a list of undefined variables in a UDF.
 

@@ -212,7 +212,8 @@ class ExpressionProcessor(object):
         statemods = [StateVar(name, init, multiway.rewrite_refs(update, from_args, info))  # noqa
                      for name, init, update in statemods]
 
-        if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
+        if any(raco.expression.expression_contains_aggregate(ex)
+               for name, ex in emit_args):
             return groupby.groupby(op, emit_args, implicit_group_by_cols,
                                    statemods)
         else:

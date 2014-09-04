@@ -475,7 +475,8 @@ class Rule(object):
 
         # If any of the expressions in the head are aggregate expression,
         # construct a group by
-        if any([expression.isaggregate(v) for v in self.head.valuerefs]):
+        if any(expression.expression_contains_aggregate(v)
+               for v in self.head.valuerefs):
             emit_clause = [(None, a_or_g) for a_or_g in columnlist]
             return raco.myrial.groupby.groupby(plan, emit_clause, [])
         elif any([not isinstance(e, Var) for e in self.head.valuerefs]):

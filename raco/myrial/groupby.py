@@ -113,7 +113,7 @@ def groupby(op, emit_clause, extra_grouping_columns, statemods=None):
     num_group_terms = 0
 
     for name, sexpr in emit_clause:
-        if not raco.expression.isaggregate(sexpr):
+        if not raco.expression.expression_contains_aggregate(sexpr):
             if isinstance(sexpr, raco.expression.AttributeRef):
                 group_mappings[sexpr.get_position(scheme)] = num_group_terms
             num_group_terms += 1
@@ -142,7 +142,7 @@ def groupby(op, emit_clause, extra_grouping_columns, statemods=None):
     group_terms = []
 
     for name, sexpr in emit_clause:
-        if raco.expression.isaggregate(sexpr):
+        if raco.expression.expression_contains_aggregate(sexpr):
             output_mappings.append(
                 (name, __hoist_aggregates(sexpr, agg_state, group_mappings,
                                           scheme)))
