@@ -1407,6 +1407,46 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(NestedAggregateException):
             self.check_result(query, None)
 
+    def test_uda_nested_init(self):
+        query = """
+        uda Foo(x) {
+            [0 as A];
+            [A + x];
+            [A];
+        };
+        uda Bar(x) {
+            [Foo(0) as B];
+            [B + x];
+            B;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedAggregateException):
+            self.check_result(query, None)
+
+    def test_uda_nested_update(self):
+        query = """
+        uda Foo(x) {
+            [0 as A];
+            [A + x];
+            [A];
+        };
+        uda Bar(x) {
+            [0 as B];
+            [Foo(B)];
+            B;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedAggregateException):
+            self.check_result(query, None)
+
     def test_uda_unary_emit_arg_list(self):
         query = """
         uda MyAvg(val) {
