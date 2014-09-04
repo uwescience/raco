@@ -34,7 +34,7 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
     def check(self, query, name):
         gname = "grappa_{name}".format(name=name)
 
-        plan = self.get_physical_plan(query, GrappaAlgebra())
+        plan = self.get_physical_plan(query, target_alg=GrappaAlgebra())
         physical_dot = viz.operator_to_dot(plan)
         with open("{gname}.physical.dot".format(gname=gname), 'w') as dwf:
             dwf.write(physical_dot)
