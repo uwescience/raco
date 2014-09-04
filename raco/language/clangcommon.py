@@ -294,7 +294,7 @@ class CFileScan(algebra.Scan):
     def __get_binary_scan_template__(self):
         return
 
-    def __get_relation_decl_template__(self):
+    def __get_relation_decl_template__(self, name, binary):
         """
         Implement if the CFileScan implementation requires
         the relation instance to be a global declaration.
@@ -314,8 +314,8 @@ class CFileScan(algebra.Scan):
             #Scan is the only place where a relation is declared
             resultsym = gensym()
 
-            fscode = self.__compileme__(resultsym)
-
+            name = str(self.relation_key).split(':')[2]
+            fscode = self.__compileme__(resultsym, name)
             state.saveExpr(self, resultsym)
 
             stagedTuple = self.new_tuple_ref(resultsym, self.scheme())
@@ -325,7 +325,7 @@ class CFileScan(algebra.Scan):
             tuple_type = stagedTuple.getTupleTypename()
             state.addDeclarations([tuple_type_def])
 
-            rel_decl_template = self.__get_relation_decl_template__()
+            rel_decl_template = self.__get_relation_decl_template__(name)
             if rel_decl_template:
                 state.addDeclarations([rel_decl_template % locals()])
 
@@ -342,11 +342,11 @@ class CFileScan(algebra.Scan):
         assert False, "as a source, no need for consume"
 
 
-    def __compileme__(self, resultsym):
+    def __compileme__(self, resultsym, name):
         # TODO use the identifiers (don't split str and extract)
         #name = self.relation_key
+
         LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
-        name = str(self.relation_key).split(':')[2]
 
         #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
         #self.trace("// Original query position of %s: term %s (%s)" % tup)
@@ -416,3 +416,53 @@ clang_push_select = [
     # rules.MergeSelects()
 ]
 
+EMIT_CONSOLE = 'console'
+EMIT_FILE = 'file'
+
+
+class BaseCStore(algebra.Store):
+    def __init__(self, emit_print, relation_key, plan):
+        super(BaseCStore, self).__init__(relation_key, plan)
+        self.emit_print = emit_print
+
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        code = ""
+        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
+        state.addDeclarations([resdecl])
+        code += "result.push_back(%s);\n" % (t.name)
+
+        if self.emit_print == EMIT_CONSOLE:
+            code += self.language.log_unquoted("%s" % t.name, 2)
+        elif self.emit_print == EMIT_FILE:
+            code += self.__file_code__(t, state)
+
+        return code
+
+    @abc.abstractmethod
+    def __file_code__(self, t, state):
+        pass
+
+    def __repr__(self):
+        return "{op}({ep!r}, {rk!r}, {pl!r})".format(op=self.opname(),
+                                                     ep=self.emit_print,
+                                                     rk=self.relation_key,
+                                                     pl=self.input)
+
+
+class StoreToBaseCStore(rules.Rule):
+    """A rule to store tuples into emit_print"""
+    def __init__(self, emit_print, subclass):
+        self.emit_print = emit_print
+        assert issubclass(subclass, BaseCStore), "%s is not a subclass of %s" % (subclass, BaseCStore)
+        self.subclass = subclass
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.Store):
+            return self.subclass(self.emit_print, expr.relation_key, expr.input)
+        return expr
+
+    def __str__(self):
+        return "Store => %s" % self.subclass.__name__

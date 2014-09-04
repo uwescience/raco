@@ -3,7 +3,8 @@
 
 from raco import algebra
 from raco import expression
-from raco.language import Language, clangcommon
+from raco.expression import aggregate
+from raco.language import Language, clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, ct
@@ -16,9 +17,6 @@ _LOG = logging.getLogger(__name__)
 
 import itertools
 import os.path
-
-EMIT_CONSOLE = 'console'
-EMIT_FILE = 'file'
 
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -383,6 +381,10 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             if len(self.grouping_list) == 2:
                 key2pos = self.grouping_list[1].get_position(self.input.scheme())
 
+        assert not isinstance(self.aggregate_list[0], aggregate.COUNTALL),\
+                              """clang does not currently support COUNT(*),
+                               use COUNT(<attr>)"""
+
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())
 
@@ -536,37 +538,25 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
         return binary_scan_template
 
 
-class CStore(algebra.Store, CCOperator):
-    def __init__(self, emit_print, relation_key, plan):
-        super(CStore, self).__init__(relation_key, plan)
-        self.emit_print = emit_print
+class CStore(clangcommon.BaseCStore, CCOperator):
 
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
+    def __file_code__(self, t, state):
         code = ""
-        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-        state.addDeclarations([resdecl])
-        code += "result.push_back(%s);\n" % (t.name)
+        state.addPreCode('std::ofstream logfile;\n')
+        resultfile = str(self.relation_key).split(":")[2]
+        opentuple = 'logfile.open("%s");\n' % resultfile
+        schemafile = self.write_schema(self.scheme())
+        state.addPreCode(schemafile)
+        state.addPreCode(opentuple)
+        code += "int logi = 0;\n"
+        code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
+                % (t.name)
+        code += self.language.log_file_unquoted("%s.get(logi)" % t.name)
+        code += "}\n "
+        code += "logfile << %s.get(logi);\n" % (t.name)
+        code += "logfile << '\\n';"
+        state.addPostCode('logfile.close();')
 
-        if self.emit_print == EMIT_CONSOLE:
-            code += self.language.log_unquoted("%s" % t.name, 2)
-        elif self.emit_print == EMIT_FILE:
-            state.addPreCode('std::ofstream logfile;\n')
-            resultfile = str(self.relation_key).split(":")[2]
-            opentuple = 'logfile.open("%s");\n' % resultfile
-            schemafile = self.write_schema(self.scheme())
-            state.addPreCode(schemafile)
-            state.addPreCode(opentuple)
-            code += "int logi = 0;\n"
-            code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
-                    % (t.name)
-            code += self.language.log_file_unquoted("%s.get(logi)" % t.name)
-            code += "}\n "
-            code += "logfile << %s.get(logi);\n" % (t.name)
-            code += "logfile << '\\n';"
-            state.addPostCode('logfile.close();')
         return code
 
     def write_schema(self, scheme):
@@ -578,11 +568,6 @@ class CStore(algebra.Store, CCOperator):
         code += 'logfile.close();'
         return code
 
-    def __repr__(self):
-        return "{op}({ep!r}, {rk!r}, {pl!r})".format(op=self.opname(),
-                                                     ep=self.emit_print,
-                                                     rk=self.relation_key,
-                                                     pl=self.input)
 
 
 class MemoryScanOfFileScan(rules.Rule):
@@ -598,20 +583,6 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan[FileScan]"
 
 
-class StoreToCStore(rules.Rule):
-    """A rule to store tuples into emit_print"""
-    def __init__(self, emit_print):
-        self.emit_print = emit_print
-
-    def fire(self, expr):
-        if isinstance(expr, algebra.Store):
-            return CStore(self.emit_print, expr.relation_key, expr.input)
-        return expr
-
-    def __str__(self):
-        return "Store => CStore"
-
-
 def clangify(emit_print):
     return [
         rules.ProjectingJoinToProjectOfJoin(),
@@ -625,20 +596,20 @@ def clangify(emit_print):
         rules.OneToOne(algebra.UnionAll, CUnionAll),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
-        StoreToCStore(emit_print),
+        clangcommon.StoreToBaseCStore(emit_print, CStore),
 
         clangcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
     ]
 
 
-class CCAlgebra(object):
+class CCAlgebra(Algebra):
     language = CC
 
-    def __init__(self, emit_print=EMIT_CONSOLE):
+    def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         """ To store results into a file or onto console """
         self.emit_print = emit_print
 
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         # Sequence that works for datalog
         # TODO: replace with below
         # datalog_rules = [

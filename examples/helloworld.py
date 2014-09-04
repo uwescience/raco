@@ -1,5 +1,3 @@
-from raco.language import PythonAlgebra, PseudoCodeAlgebra, CCAlgebra
-from raco.algebra import Select, Scan, Join, LogicalAlgebra
 from raco.compile import compile, optimize
 from raco.expression.boolean import EQ, AND, OR
 from raco.expression import NamedAttributeRef, StringLiteral, NumericLiteral
@@ -33,7 +31,7 @@ sRsSsT = Join([("object","subject")], sRsS, sT)
 
 # optimize applies a set of rules to translate a source
 # expression to a target expression
-result = optimize([("Ans", sT)], target=CCAlgebra, source=LogicalAlgebra)
+result = optimize([("Ans", sT)], CCAlgebra)
 
 # compile generates the linear code from the expression tree
 print compile(result)

@@ -1,6 +1,6 @@
 from raco import expression
 from raco import scheme
-from raco.utility import emit, emitlist, Printable, str_list, str_list_inner
+from raco.utility import Printable, real_str
 
 from abc import ABCMeta, abstractmethod
 import copy
@@ -105,7 +105,7 @@ class Operator(Printable):
 
     def __str__(self):
         if len(self.children()) > 0:
-            return "%s%s" % (self.shortStr(), str_list(self.children()))
+            return "%s%s" % (self.shortStr(), real_str(self.children()))
         return self.shortStr()
 
     def __hash__(self):
@@ -346,7 +346,8 @@ class NaryJoin(NaryOperator):
         NaryOperator.copy(self, other)
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), str_list_inner(self.conditions))
+        return "%s(%s)" % (self.opname(), real_str(self.conditions,
+                                                   skip_out=True))
 
 
 """Logical Relational Algebra"""
@@ -757,7 +758,8 @@ class Project(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), str_list_inner(self.columnlist))
+        return "%s(%s)" % (self.opname(), real_str(self.columnlist,
+                                                   skip_out=True))
 
     def __repr__(self):
         return "{op}({col!r}, {inp!r})".format(op=self.opname(),
@@ -813,8 +815,8 @@ class GroupBy(UnaryOperator):
 
     def shortStr(self):
         return "%s(%s; %s)" % (self.opname(),
-                               str_list_inner(self.grouping_list),
-                               str_list_inner(self.aggregate_list))
+                               real_str(self.grouping_list, skip_out=True),
+                               real_str(self.aggregate_list, skip_out=True))
 
     def __repr__(self):
         # the next line is because of the refactoring that we do in __init__
@@ -894,7 +896,7 @@ class ProjectingJoin(Join):
         if self.output_columns is None:
             return Join.shortStr(self)
         return "%s(%s; %s)" % (self.opname(), self.condition,
-                               str_list_inner(self.output_columns))
+                               real_str(self.output_columns, skip_out=True))
 
     def __repr__(self):
         return "{op}({cond!r}, {l!r}, {r!r}, {oc!r})"\
@@ -939,7 +941,8 @@ class Shuffle(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), str_list_inner(self.columnlist))
+        return "%s(%s)" % (self.opname(), real_str(self.columnlist,
+                                                   skip_out=True))
 
     def copy(self, other):
         self.columnlist = other.columnlist
@@ -968,7 +971,8 @@ class HyperCubeShuffle(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), str_list_inner(self.hashed_columns))
+        return "%s(%s)" % (self.opname(), real_str(self.hashed_columns,
+                                                   skip_out=True))
 
     def copy(self, other):
         self.hashed_columns = other.hashed_columns
@@ -1018,7 +1022,8 @@ class PartitionBy(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), str_list_inner(self.columnlist))
+        return "%s(%s)" % (self.opname(), real_str(self.columnlist,
+                                                   skip_out=True))
 
     def copy(self, other):
         """deep copy"""
@@ -1199,7 +1204,7 @@ class FileScan(ZeroaryOperator):
 class Scan(ZeroaryOperator):
     """Logical Scan operator."""
 
-    def __init__(self, relation_key=None, _scheme=None):
+    def __init__(self, relation_key=None, _scheme=None, cardinality=None):
         """Initialize a scan operator.
 
         relation_key is a string of the form "user:program:relation"
@@ -1207,7 +1212,10 @@ class Scan(ZeroaryOperator):
         """
         self.relation_key = relation_key
         self._scheme = _scheme
-        self._cardinality = DEFAULT_CARDINALITY  # placeholder, will be updated
+        if cardinality is not None:
+            self._cardinality = cardinality
+        else:
+            self._cardinality = DEFAULT_CARDINALITY
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
@@ -1229,9 +1237,9 @@ class Scan(ZeroaryOperator):
         return self._cardinality
 
     def __repr__(self):
-        return "{op}({rk!r}, {sch!r})".format(op=self.opname(),
-                                              rk=self.relation_key,
-                                              sch=self._scheme)
+        return "{op}({rk!r}, {sch!r}, {card!r})".format(
+            op=self.opname(), rk=self.relation_key, sch=self._scheme,
+            card=self._cardinality)
 
     def copy(self, other):
         """deep copy"""

@@ -1,6 +1,7 @@
 
 import collections
 import math
+import md5
 
 import raco.algebra
 import raco.fakedb
@@ -554,6 +555,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         result = self.execute_query(query, skip_json=True)
         self.assertEquals(len(result), 3)
 
+    def test_table_literal_boolean(self):
+        query = """
+        X = [truE as MyTrue, FaLse as MyFalse];
+        Y = [FROM scan(%s) as E, X where X.MyTrue emit *];
+        STORE(Y, OUTPUT);
+        """ % self.emp_key
+
+        res = [x + (True, False) for x in self.emp_table]
+        self.check_result(query, collections.Counter(res))
+
     def test_table_literal_scalar_expression(self):
         query = """
         X = [FROM ["Andrew", (50 * (500 + 500)) AS salary] Z EMIT salary];
@@ -1054,6 +1065,21 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         expected = collections.Counter(
             [(a, math.tan(b)) for a, b in self.numbers_table.elements()])
+        self.check_result(query, expected)
+
+    def test_md5(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT id, md5(name)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        def md5_as_long(x):
+            m = md5.new()
+            m.update(x)
+            return int(m.hexdigest(), 16) >> 64
+
+        expected = collections.Counter(
+            [(x[0], md5_as_long(x[2])) for x in self.emp_table.elements()])
         self.check_result(query, expected)
 
     def test_pow(self):
@@ -1772,7 +1798,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         ex = collections.Counter((str(d),) for (i, d, n, s) in self.emp_table)
-        ex_scheme = scheme.Scheme([('foo', 'STRING_TYPE')])
+        ex_scheme = scheme.Scheme([('foo', types.STRING_TYPE)])
         self.check_result(query, ex)
 
     def test_float_cast(self):
@@ -1795,7 +1821,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """.format(rel=self.emp_key)
 
         physical_plan = self.get_physical_plan(query)
-        self.assertTrue(isinstance(physical_plan, raco.algebra.Sequence))
+        self.assertIsInstance(physical_plan, raco.algebra.Sequence)
         self.check_result(query, self.emp_table, output='OUTPUT')
         self.check_result(query, self.emp_table, output='OUTPUT2')
 

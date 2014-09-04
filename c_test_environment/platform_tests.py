@@ -1,6 +1,5 @@
 from abc import ABCMeta, abstractmethod
-import unittest
-
+from collections import Counter
 
 class DatalogPlatformTest(object):
     __metaclass__ = ABCMeta
@@ -163,11 +162,11 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
                 three = two + [("c", types.INT_TYPE)]
                 # ingest fake data; data is already generated separately for now
                 if width == 1:
-                    self.db.ingest(fullname, [], scheme.Scheme(one))
+                    self.db.ingest(fullname, Counter(), scheme.Scheme(one))
                 elif width == 2:
-                    self.db.ingest(fullname, [], scheme.Scheme(two))
+                    self.db.ingest(fullname, Counter(), scheme.Scheme(two))
                 else:
-                    self.db.ingest(fullname, [], scheme.Scheme(three))
+                    self.db.ingest(fullname, Counter(), scheme.Scheme(three))
 
     @abstractmethod
     def check(self, query, name):
