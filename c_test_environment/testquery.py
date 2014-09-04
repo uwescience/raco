@@ -123,12 +123,12 @@ class GrappalangRunner(PlatformRunner):
             testoutfn = "%s/%s.out" % (tmppath, gname)
             with open(testoutfn, 'w') as outf:
                 subprocess.check_call(['../../bin/grappa_srun',
-                                       '--ppn=4',
-                                       '--nnode=8',
+                                       '--ppn=12',
+                                       '--nnode=6',
                                        '--',
                                        '%s.exe' % gname,
-                                       'relations=/shared',
-                                       'load_balance=none',
+                                       '--relations=/shared',
+                                       '--load_balance=none',
                                        '--vmodule=%s=1' % gname  # result out
                                        ],
                                         stderr=outf,
