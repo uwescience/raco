@@ -18,6 +18,16 @@ import raco.viz as viz
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
+noskip_glob = False
+
+def raise_skip_test(query=None):
+  print "checking:::"
+  if not noskip_glob:
+    print "skipping:::"
+    if query is not None:
+      raise SkipTest(query)
+    else:
+      raise SkipTest()
 
 class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
     def check(self, query, name):
@@ -38,11 +48,11 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             with open(fname, 'w') as f:
                 f.write(code)
         
-            raise SkipTest(query)
+            raise_skip_test(query)
             checkquery(name, GrappalangRunner())
 
     def setUp(self):
-        raise SkipTest()
+        raise_skip_test()
         super(MyriaLGrappaTest, self).setUp()
         with Chdir("c_test_environment") as d:
             targetpath = os.path.join(os.environ.copy()['GRAPPA_HOME'], 'build/Make+Release/applications/join')
@@ -51,4 +61,8 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
 
 
 if __name__ == '__main__':
+    if 'RACO_GRAPPA_TESTS' in os.environ:
+      if int(os.environ['RACO_GRAPPA_TESTS']) == 1:
+        noskip_glob = True
+
     unittest.main()
