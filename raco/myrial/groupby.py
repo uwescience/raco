@@ -37,20 +37,11 @@ names and values as expected by the caller.
 import collections
 import raco.expression
 from raco.myrial.exceptions import *
-from raco.expression import NestedAggregateException
 
 
 class NonGroupedAccessException(Exception):
     """Attempting to access a non-grouping term in an aggregate expression"""
     pass
-
-
-def __aggregate_count(sexpr):
-    def count(sexpr):
-        if isinstance(sexpr, raco.expression.AggregateExpression):
-            return 1
-        return 0
-    return sum(sexpr.postorder(count))
 
 
 class AggregateState(object):
@@ -80,11 +71,6 @@ def __hoist_aggregates(sexpr, agg_state, group_mappings, input_scheme):
         if sexpr in agg_state.aggregates:
             return agg_state.aggregates[sexpr]
         else:
-            # A new aggregate expression: Add it to our map, first checking for
-            # illegal nested aggregates.
-            if __aggregate_count(sexpr) != 1:
-                raise NestedAggregateException(str(sexpr))
-
             out = raco.expression.UnnamedAttributeRef(agg_state.aggregate_pos)
             agg_state.aggregates[sexpr] = out
             agg_state.aggregate_pos += 1
