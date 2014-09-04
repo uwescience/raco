@@ -367,13 +367,12 @@ class PushApply(Rule):
             return op
 
         child = op.input
+        in_scheme = child.scheme()
+        names, emits = zip(*op.emitters)
+        emits = [to_unnamed_recursive(e, in_scheme) for e in emits]
 
         if isinstance(child, algebra.Apply):
-            in_scheme = child.scheme()
             child_in_scheme = child.input.scheme()
-            names, emits = zip(*op.emitters)
-            emits = [to_unnamed_recursive(e, in_scheme)
-                     for e in emits]
             child_emits = [to_unnamed_recursive(e[1], child_in_scheme)
                            for e in child.emitters]
 
@@ -391,9 +390,7 @@ class PushApply(Rule):
             return self.fire(new_apply)
 
         elif isinstance(child, algebra.ProjectingJoin):
-            in_scheme = child.scheme()
             names, emits = zip(*op.emitters)
-            emits = [to_unnamed_recursive(e, in_scheme) for e in emits]
 
             # If this apply is only AttributeRefs and the columns already
             # have the correct names, we can push it into the ProjectingJoin
@@ -412,6 +409,36 @@ class PushApply(Rule):
             child.output_columns = [child.output_columns[i] for i in accessed]
             for e in emits:
                 expression.reindex_expr(e, index_map)
+            return algebra.Apply(emitters=zip(names, emits),
+                                 input=child)
+
+        elif isinstance(child, algebra.GroupBy):
+            assert all(is_simple_agg_expr(agg) for agg in child.aggregate_list)
+
+            accessed = sorted(set(itertools.chain(*(accessed_columns(e)
+                                                    for e in emits))))
+            num_grps = len(child.grouping_list)
+            accessed_aggs = [i for i in accessed if i >= num_grps]
+            if len(accessed_aggs) == len(child.aggregate_list):
+                return op
+
+            if len(accessed_aggs) == 0:
+                # The aggregates are not used. The group_by should really just
+                # be a Distinct. Before we slide the Distinct is, prepend
+                # an Apply to ensure that the input to the Distinct has exactly
+                # the right columns in the right order.
+                pre_distinct = [(None, g) for g in child.grouping_list]
+                keep_only_grp_cols = algebra.Apply(emitters=pre_distinct,
+                                                   input=child.input)
+                op.input = algebra.Distinct(input=keep_only_grp_cols)
+                return op
+
+            unused_map = {i: j + num_grps for j, i in enumerate(accessed_aggs)}
+            child.aggregate_list = [child.aggregate_list[i - num_grps]
+                                    for i in accessed_aggs]
+            for e in emits:
+                expression.reindex_expr(e, unused_map)
+
             return algebra.Apply(emitters=zip(names, emits),
                                  input=child)
 

@@ -553,3 +553,45 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                           self.db.num_tuples(self.y_key))
         self.assertEquals(sum(self.z_data.values()),
                           self.db.num_tuples(self.z_key))
+
+    def test_groupby_to_distinct(self):
+        query = """
+        x = scan({x});
+        y = select $0, count(*) from x;
+        z = select $0 from y;
+        store(z, OUTPUT);
+        """.format(x=self.x_key)
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, GroupBy), 1)
+        self.assertEquals(self.get_count(lp, Distinct), 0)
+
+        pp = self.logical_to_physical(copy.deepcopy(lp))
+        self.assertEquals(self.get_count(pp, GroupBy), 0)
+        self.assertEquals(self.get_count(pp, Distinct), 1)
+
+        self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
+
+    def test_groupby_to_lesser_groupby(self):
+        query = """
+        x = scan({x});
+        y = select $0, count(*), sum($1) from x;
+        z = select $0, $2 from y;
+        store(z, OUTPUT);
+        """.format(x=self.x_key)
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, GroupBy), 1)
+        for op in lp.walk():
+            if isinstance(op, GroupBy):
+                self.assertEquals(len(op.grouping_list), 1)
+                self.assertEquals(len(op.aggregate_list), 2)
+
+        pp = self.logical_to_physical(copy.deepcopy(lp))
+        self.assertEquals(self.get_count(pp, GroupBy), 2)  # distributed
+        for op in pp.walk():
+            if isinstance(op, GroupBy):
+                self.assertEquals(len(op.grouping_list), 1)
+                self.assertEquals(len(op.aggregate_list), 1)
+
+        self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
