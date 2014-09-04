@@ -473,37 +473,22 @@ class SwapJoinSides(rules.Rule):
     def fire(self, expr):
         # don't allow swap-created join to be swapped
         if isinstance(expr, algebra.Join) and not hasattr(expr, '__swapped__'):
+
+            # An apply will undo the effect of the swap on the scheme, so above operators won't be affected
             leftlen = len(expr.left.scheme())
             rightlen = len(expr.right.scheme())
             emitters_left = [(None, expression.UnnamedAttributeRef(i)) for i in range(leftlen, leftlen+rightlen)]
             emitters_right = [(None, expression.UnnamedAttributeRef(i)) for i in range(0, leftlen)]
+            emitters = emitters_left + emitters_right
 
-            # The attribute references in the condition also need to change
-            # (dealing with only named would be great)
-            # TODO: currently only covers a==b conditions
+            # reindex the expression
+            index_map = dict([(attr[1].position, newpos) for (newpos, attr) in enumerate(emitters)])
+            expression.reindex_expr(expr.condition, index_map)
 
-            # find the attribute that corresponds to the right child
-            rightCondIsRightAttr = \
-                expr.condition.right.position >= len(expr.left.scheme())
-            leftCondIsRightAttr = \
-                expr.condition.left.position >= len(expr.left.scheme())
-            assert rightCondIsRightAttr ^ leftCondIsRightAttr
-
-            leftAttr = expression.UnnamedAttributeRef(expr.condition.left.position+rightlen)
-            rightAttr = expression.UnnamedAttributeRef(expr.condition.right.position-leftlen)
-            if rightCondIsRightAttr:
-                leftOfCond = leftAttr
-                rightOfCond = rightAttr
-            else:
-                leftOfCond = rightAttr
-                rightOfCond = leftAttr
-
-            newcondition = expr.condition.__class__(leftOfCond, rightOfCond)
-
-            newjoin = algebra.Join(newcondition, expr.right, expr.left)
+            newjoin = algebra.Join(expr.condition, expr.right, expr.left)
             newjoin.__swapped__ = True
 
-            return algebra.Apply(emitters=emitters_left + emitters_right,
+            return algebra.Apply(emitters=emitters,
                                  input=newjoin)
         else:
             return expr
