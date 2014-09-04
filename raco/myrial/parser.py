@@ -205,7 +205,10 @@ class Parser(object):
         statemods = {}
         for init, update in zip(inits, updates):
             if not isinstance(init, emitarg.SingletonEmitArg):
-                raise IllegalWildcardException(name, p.lineno(0))
+                if isinstance(init, emitarg.NaryEmitArg):
+                    raise NestedTupleExpressionException(p.lineno(0))
+                else:
+                    raise IllegalWildcardException(name, p.lineno(0))
 
             # Init, update expressions cannot return tuples
             check_no_tuple_expression(init.sexpr, p.lineno(0))

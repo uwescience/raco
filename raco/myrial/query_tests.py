@@ -1659,6 +1659,70 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(IllegalColumnNamesException):
             self.check_result(query, None)
 
+
+    def test_uda_init_tuple_valued(self):
+        query = """
+        uda Foo(x) {
+          [0 as Q];
+          [Q + 1];
+          [1,2,3];
+        };
+
+        uda Bar(x) {
+          [Foo(0) as [A, B, C]];
+          [Q * 8];
+          [1,2,3];
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    def test_uda_update_tuple_valued(self):
+        query = """
+        uda Foo(x) {
+          [0 as Q];
+          [Q + 1];
+          [1,2,3];
+        };
+
+        uda Bar(x) {
+          [0 as Q];
+          [Foo(Q + 1)];
+          [1,2,3];
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    def test_uda_result_tuple_valued(self):
+        query = """
+        uda Foo(x) {
+          [0 as Q];
+          [Q + 1];
+          [1,2,3];
+        };
+
+        uda Bar(x) {
+          [0 as Q];
+          [Q + 2];
+          [1,2,Foo(3)];
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
     def test_uda_multiple_emitters_non_simple(self):
         """Test that we raise an Exception if a tuple-valued UDA doesn't appear
         by itself in an emit expression."""
