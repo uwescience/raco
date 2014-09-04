@@ -37,6 +37,7 @@ names and values as expected by the caller.
 import collections
 import raco.expression
 from raco.myrial.exceptions import *
+from raco.expression import NestedAggregateException
 
 
 class NonGroupedAccessException(Exception):

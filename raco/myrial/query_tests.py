@@ -13,7 +13,7 @@ import raco.myrial.myrial_test as myrial_test
 from raco import types
 
 from raco.myrial.exceptions import *
-
+from raco.expression import NestedAggregateException
 
 class TestQueryFunctions(myrial_test.MyrialTestCase):
 

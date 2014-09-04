@@ -10,6 +10,15 @@ import copy
 import inspect
 
 
+class NestedAggregateException(Exception):
+    """Nested aggregate functions are not allowed"""
+    def __init__(self, lineno=0):
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Nested aggregate expression on line %d" % self.lineno
+
+
 def toUnnamed(ref, scheme):
     """Convert a reference to the unnamed perspective"""
     if issubclass(ref.__class__, UnnamedAttributeRef):
@@ -167,3 +176,17 @@ def reindex_expr(expr, index_map):
                 or isinstance(ex, UnnamedAttributeRef))
         if isinstance(ex, UnnamedAttributeRef) and ex.position in index_map:
             ex.position = index_map[ex.position]
+
+
+def expression_contains_aggregate(ex):
+    """Return True if the expression contains an aggregate."""
+    for sx in ex.walk():
+        if isinstance(sx, AggregateExpression):
+            return True
+    return False
+
+
+def check_no_aggregate(ex, lineno):
+    """Raise an exception if the provided expression contains an aggregate."""
+    if expression_contains_aggregate(ex):
+        raise NestedAggregateException(lineno)

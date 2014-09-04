@@ -62,21 +62,9 @@ def contains_tuple_expression(ex):
     return False
 
 
-def contains_aggregate(ex):
-    for sx in ex.walk():
-        if isinstance(sx, sexpr.AggregateExpression):
-            return True
-    return False
-
-
 def check_no_tuple_expression(ex, lineno):
     if contains_tuple_expression(ex):
         raise NestedTupleExpressionException(lineno)
-
-
-def check_no_aggregate(ex, lineno):
-    if contains_aggregate(ex):
-        raise NestedAggregateException(lineno)
 
 
 class TupleExpression(object):
@@ -228,8 +216,8 @@ class Parser(object):
             check_no_tuple_expression(update, p.lineno(0))
 
             # Nor can then reference aggegates
-            check_no_aggregate(init.sexpr, p.lineno(0))
-            check_no_aggregate(update, p.lineno(0))
+            sexpr.check_no_aggregate(init.sexpr, p.lineno(0))
+            sexpr.check_no_aggregate(update, p.lineno(0))
 
             # check for duplicate variable definitions
             sm_name = init.column_name
@@ -256,7 +244,7 @@ class Parser(object):
         # Emit arguments cannot themselves return tuples
         for e in emitters:
             check_no_tuple_expression(e, p.lineno(0))
-            check_no_aggregate(e, p.lineno(0))
+            sexpr.check_no_aggregate(e, p.lineno(0))
 
         # If the function is a UDA, wrap the output expression(s) so
         # downstream users can distinguish stateful apply from
