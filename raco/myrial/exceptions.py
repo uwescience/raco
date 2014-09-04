@@ -156,4 +156,8 @@ class SchemaMismatchException(MyrialCompileException):
 
 class NestedAggregateException(MyrialCompileException):
     """Nested aggregate functions are not allowed"""
-    pass
+    def __init__(self, lineno=0):
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Nested aggregate expression on line %d" % self.lineno
