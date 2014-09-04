@@ -529,7 +529,7 @@ class Parser(object):
             if names is None:
                 name = None
             elif len(names) != 1:
-                raise InvalidColumnNameException(p.lineno(0))
+                raise IllegalColumnNamesException(p.lineno(0))
             else:
                 name = names[0]
             p[0] = emitarg.SingletonEmitArg(name, sx, Parser.statemods)
