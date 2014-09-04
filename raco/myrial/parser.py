@@ -56,10 +56,7 @@ myrial_type_map = {
 
 def contains_tuple_expression(ex):
     """Return True if an Expression contains a TupleExpression"""
-    for sx in ex.walk():
-        if isinstance(sx, TupleExpression):
-            return True
-    return False
+    return any(isinstance(sx, TupleExpression) for sx in ex.walk())
 
 
 def check_no_tuple_expression(ex, lineno):

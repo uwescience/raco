@@ -174,10 +174,7 @@ def reindex_expr(expr, index_map):
 
 def expression_contains_aggregate(ex):
     """Return True if the expression contains an aggregate."""
-    for sx in ex.walk():
-        if isinstance(sx, AggregateExpression):
-            return True
-    return False
+    return any(isinstance(sx, AggregateExpression) for sx in ex.walk())
 
 
 def check_no_aggregate(ex, lineno):
