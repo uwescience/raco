@@ -54,6 +54,9 @@ class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
         self.emitter.accept(visitor)
         visitor.visit(self)
 
+    def get_children(self):
+        return [self.emitter]
+
     def __repr__(self):
         return "{op}({se!r})".format(op=self.opname(), se=self.emitter)
 

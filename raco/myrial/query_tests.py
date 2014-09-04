@@ -15,6 +15,7 @@ from raco import types
 from raco.myrial.exceptions import *
 from raco.expression import NestedAggregateException
 
+
 class TestQueryFunctions(myrial_test.MyrialTestCase):
 
     emp_table = collections.Counter([

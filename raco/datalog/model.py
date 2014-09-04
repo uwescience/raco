@@ -532,6 +532,9 @@ class Var(expression.Expression):
         # WRONG: we should read this from a catalogue
         return raco.types.LONG_TYPE
 
+    def get_children(self):
+        return []
+
 
 class Term(object):
     def __init__(self, parsedterm):

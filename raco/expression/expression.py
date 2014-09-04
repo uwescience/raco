@@ -56,6 +56,10 @@ class Expression(Printable):
         This is used for unit tests written against the fake database.
         """
 
+    @abstractmethod
+    def get_children(self):
+        """Return a list of child expressions."""
+
     def __copy__(self):
         raise RuntimeError("Shallow copy not supported for expressions")
 
@@ -124,6 +128,9 @@ class ZeroaryOperator(Expression):
     def walk(self):
         yield self
 
+    def get_children(self):
+        return []
+
 
 class UnaryOperator(Expression):
 
@@ -162,6 +169,9 @@ class UnaryOperator(Expression):
 
     def typeof(self, scheme, state_scheme):
         return self.input.typeof(scheme, state_scheme)
+
+    def get_children(self):
+        return [self.input]
 
 
 class BinaryOperator(Expression):
@@ -224,6 +234,9 @@ class BinaryOperator(Expression):
             raise TypeSafetyViolation("Can't combine %s, %s for %s" % (
                 left_type, right_type, self.__class__))
 
+    def get_children(self):
+        return [self.left, self.right]
+
 
 class NaryOperator(Expression):
 
@@ -265,6 +278,9 @@ class NaryOperator(Expression):
             op.accept(visitor)
         visitor.visit(self)
 
+    def get_children(self):
+        return self.operands
+
 
 class Literal(ZeroaryOperator):
 
@@ -292,6 +308,9 @@ class Literal(ZeroaryOperator):
 
     def apply(self, f):
         pass
+
+    def get_children(self):
+        return []
 
     def __repr__(self):
         return "{op}({val!r})".format(op=self.opname(), val=self.value)
@@ -329,6 +348,9 @@ class AttributeRef(Expression):
 
     def typeof(self, scheme, state_scheme):
         return scheme.getType(self.get_position(scheme, state_scheme))
+
+    def get_children(self):
+        return []
 
 
 class NamedAttributeRef(AttributeRef):
@@ -396,6 +418,9 @@ class StateRef(Expression):
 
     def apply(self, f):
         pass
+
+    def get_children(self):
+        return []
 
 
 class UnnamedStateAttributeRef(StateRef):
@@ -606,6 +631,10 @@ class Case(Expression):
                 yield x
         for x in self.else_expr.walk():
             yield x
+
+    def get_children(self):
+        test_exprs, result_exprs = zip(*self.when_tuples)
+        return test_exprs + result_exprs + [self.else_expr]
 
     def to_binary(self):
         """Convert n-ary case statements to a binary case statement."""
