@@ -554,6 +554,7 @@ class Parser(object):
             # TupleExpression
             if contains_tuple_expression(sx):
                 raise IllegalAggregateException(p.lineno(0))
+            sexpr.check_no_nested_aggregate(sx, p.lineno(0))
 
             if names is None:
                 name = None
