@@ -61,15 +61,18 @@ def contains_tuple_expression(ex):
             return True
     return False
 
+
 def contains_aggregate(ex):
     for sx in ex.walk():
         if isinstance(sx, sexpr.AggregateExpression):
             return True
     return False
 
+
 def check_no_tuple_expression(ex, lineno):
     if contains_tuple_expression(ex):
         raise NestedTupleExpressionException(lineno)
+
 
 def check_no_aggregate(ex, lineno):
     if contains_aggregate(ex):
