@@ -41,6 +41,22 @@ class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
     def typeof(self, scheme, state_scheme):
         return self.emitter.typeof(None, state_scheme)
 
+    def apply(self, f):
+        self.emitter = f(self.emitter)
+
+    def walk(self):
+        yield self
+        for ex in self.emitter.walk():
+            yield ex
+
+    def accept(self, visitor):
+        """For post order stateful visitors"""
+        self.emitter.accept(visitor)
+        visitor.visit(self)
+
+    def get_children(self):
+        return [self.emitter]
+
     def __repr__(self):
         return "{op}({se!r})".format(op=self.opname(), se=self.emitter)
 

@@ -10,6 +10,15 @@ import copy
 import inspect
 
 
+class NestedAggregateException(Exception):
+    """Nested aggregate functions are not allowed"""
+    def __init__(self, lineno):
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Nested aggregate expression on line %d" % self.lineno
+
+
 def toUnnamed(ref, scheme):
     """Convert a reference to the unnamed perspective"""
     if issubclass(ref.__class__, UnnamedAttributeRef):
@@ -64,12 +73,6 @@ def binary_ops():
                  if issubclass(opclass, BinaryOperator)
                  and not inspect.isabstract(opclass)]
     return opclasses
-
-
-def isaggregate(expr):
-    """Return true if the expression contains an aggregate function."""
-    return any(expr.postorder(
-        lambda x: isinstance(x, AggregateExpression)))
 
 
 def udf_undefined_vars(expr, vars):
@@ -167,3 +170,27 @@ def reindex_expr(expr, index_map):
                 or isinstance(ex, UnnamedAttributeRef))
         if isinstance(ex, UnnamedAttributeRef) and ex.position in index_map:
             ex.position = index_map[ex.position]
+
+
+def expression_contains_aggregate(ex):
+    """Return True if the expression contains an aggregate."""
+    return any(isinstance(sx, AggregateExpression) for sx in ex.walk())
+
+
+def check_no_aggregate(ex, lineno):
+    """Raise an exception if the provided expression contains an aggregate."""
+    if expression_contains_aggregate(ex):
+        raise NestedAggregateException(lineno)
+
+
+def check_no_nested_aggregate(ex, lineno):
+    """Raise an exception if the expression contains a nested aggregate."""
+
+    def descend(sx, in_aggregate):
+        is_aggregate = isinstance(sx, AggregateExpression)
+        if is_aggregate and in_aggregate:
+            raise NestedAggregateException(lineno)
+        for child in sx.get_children():
+            descend(child, is_aggregate or in_aggregate)
+
+    descend(ex, False)
