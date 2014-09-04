@@ -934,7 +934,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
+        with self.assertRaises(NestedAggregateException):
             self.check_result(query, collections.Counter())
 
     def test_standalone_countall(self):

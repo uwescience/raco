@@ -152,3 +152,8 @@ class SchemaMismatchException(MyrialCompileException):
 
     def __str__(self):
         return "Incompatible input schemas for %s operation" % self.op_name
+
+
+class NestedAggregateException(MyrialCompileException):
+    """Nested aggregate functions are not allowed"""
+    pass

@@ -36,11 +36,7 @@ names and values as expected by the caller.
 
 import collections
 import raco.expression
-
-
-class NestedAggregateException(Exception):
-    """Nested aggregate functions are not allowed"""
-    pass
+from raco.myrial.exceptions import *
 
 
 class NonGroupedAccessException(Exception):
