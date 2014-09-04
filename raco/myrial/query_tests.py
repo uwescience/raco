@@ -1662,7 +1662,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
           [_sum, _count, _sum/_count];
         };
         out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary) %s,
-               dept_id+3];
+               dept_id+3, max(id) as max_id];
         STORE(out, OUTPUT);
         """ % (self.emp_key, names)
 
@@ -1675,7 +1675,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             _sum = sum(x[3] for x in tpls)
             _count = len(tpls)
             _avg = float(_sum) / _count
-            results.append((k, _sum, _count, _avg, k + 3))
+            _max_id = max(x[0] for x in tpls)
+            results.append((k, _sum, _count, _avg, k + 3, _max_id))
 
         self.check_result(query, collections.Counter(results))
 
@@ -1689,7 +1690,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         scheme_expected = scheme.Scheme([
             ('dept_id', types.LONG_TYPE), ('mysum', types.LONG_TYPE),
             ('mycount', types.LONG_TYPE), ('myavg', types.FLOAT_TYPE),
-            ('_COLUMN4_', types.LONG_TYPE)])
+            ('_COLUMN4_', types.LONG_TYPE), ('max_id', types.LONG_TYPE)])
 
         self.assertEquals(scheme_actual, scheme_expected)
 
