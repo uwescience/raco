@@ -294,7 +294,7 @@ class CFileScan(algebra.Scan):
     def __get_binary_scan_template__(self):
         return
 
-    def __get_relation_decl_template__(self, name, binary=True):
+    def __get_relation_decl_template__(self, name, binary):
         """
         Implement if the CFileScan implementation requires
         the relation instance to be a global declaration.

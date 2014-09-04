@@ -1005,7 +1005,7 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
     ascii_scan_template = """
     {
     if (FLAGS_bin) {
-    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( FLAGS_input_file );
+    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( FLAGS_input_file + ".bin" );
     } else {
     %(resultsym)s.data = readTuples<%%(result_type)s>( FLAGS_input_file, FLAGS_nt);
     %(resultsym)s.numtuples = FLAGS_nt;
@@ -1023,16 +1023,11 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
          for GrappaLanguage, emitting ascii")
         return self.ascii_scan_template
 
-    def __get_relation_decl_template__(self, name, binary=True):
-
-        ext = ""
-        if binary:
-            ext = ".bin"
-
+    def __get_relation_decl_template__(self, name):
         return """
-            DEFINE_string(input_file, "%%(name)s%(ext)s", "Input file");
-            Relation<%%(tuple_type)s> %%(resultsym)s;
-            """ % locals()
+            DEFINE_string(input_file, "%(name)s", "Input file");
+            Relation<%(tuple_type)s> %(resultsym)s;
+            """
 
 
 class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
