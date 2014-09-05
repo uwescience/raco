@@ -473,23 +473,30 @@ class SwapJoinSides(rules.Rule):
     def fire(self, expr):
         # don't allow swap-created join to be swapped
         if isinstance(expr, algebra.Join) and not hasattr(expr, '__swapped__'):
-
-            # An apply will undo the effect of the swap on the scheme, so above operators won't be affected
-            leftlen = len(expr.left.scheme())
-            rightlen = len(expr.right.scheme())
-            emitters_left = [(None, expression.UnnamedAttributeRef(i)) for i in range(rightlen, leftlen+rightlen)]
-            emitters_right = [(None, expression.UnnamedAttributeRef(i)) for i in range(0, rightlen)]
+            assert type(expr) is algebra.Join
+            # An apply will undo the effect of the swap on the scheme,
+            # so above operators won't be affected
+            left_sch = expr.left.scheme()
+            right_sch = expr.right.scheme()
+            leftlen = len(left_sch)
+            rightlen = len(right_sch)
+            assert leftlen + rightlen == len(expr.scheme())
+            emitters_left = [(left_sch.getName(i),
+                              UnnamedAttributeRef(rightlen + i))
+                             for i in range(leftlen)]
+            emitters_right = [(right_sch.getName(i), UnnamedAttributeRef(i))
+                              for i in range(rightlen)]
             emitters = emitters_left + emitters_right
 
             # reindex the expression
             index_map = dict([(oldpos, attr[1].position) for (oldpos, attr) in enumerate(emitters)])
+
             expression.reindex_expr(expr.condition, index_map)
 
             newjoin = algebra.Join(expr.condition, expr.right, expr.left)
             newjoin.__swapped__ = True
 
-            return algebra.Apply(emitters=emitters,
-                                 input=newjoin)
+            return algebra.Apply(emitters=emitters, input=newjoin)
         else:
             return expr
 
