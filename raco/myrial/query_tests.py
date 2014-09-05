@@ -1565,6 +1565,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(results))
 
+    def test_uda_no_emit_clause(self):
+        query = """
+        uda MyCount() {
+            [0 as _count];
+            [_count + 1];
+        };
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MyCount()];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        self.check_result(query, self.__aggregate_expected_result(len))
+
     def test_uda_with_udf(self):
         query = """
         def foo(x, y): x + y;
