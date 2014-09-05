@@ -477,12 +477,12 @@ class SwapJoinSides(rules.Rule):
             # An apply will undo the effect of the swap on the scheme, so above operators won't be affected
             leftlen = len(expr.left.scheme())
             rightlen = len(expr.right.scheme())
-            emitters_left = [(None, expression.UnnamedAttributeRef(i)) for i in range(leftlen, leftlen+rightlen)]
-            emitters_right = [(None, expression.UnnamedAttributeRef(i)) for i in range(0, leftlen)]
+            emitters_left = [(None, expression.UnnamedAttributeRef(i)) for i in range(rightlen, leftlen+rightlen)]
+            emitters_right = [(None, expression.UnnamedAttributeRef(i)) for i in range(0, rightlen)]
             emitters = emitters_left + emitters_right
 
             # reindex the expression
-            index_map = dict([(attr[1].position, newpos) for (newpos, attr) in enumerate(emitters)])
+            index_map = dict([(oldpos, attr[1].position) for (oldpos, attr) in enumerate(emitters)])
             expression.reindex_expr(expr.condition, index_map)
 
             newjoin = algebra.Join(expr.condition, expr.right, expr.left)
