@@ -455,7 +455,6 @@ class RemoveUnusedColumns(Rule):
 
             accessed = sorted(accessed)
             left = [a for a in accessed if a < len(l_scheme)]
-            assert len(left)>0, op
             if len(left) < len(l_scheme):
                 emits = [(None, UnnamedAttributeRef(a)) for a in left]
                 apply = algebra.Apply(emits, op.left)
@@ -551,7 +550,8 @@ class SwapJoinSides(Rule):
             emitters = emitters_left + emitters_right
 
             # reindex the expression
-            index_map = dict([(oldpos, attr[1].position) for (oldpos, attr) in enumerate(emitters)])
+            index_map = dict([(oldpos, attr[1].position)
+                              for (oldpos, attr) in enumerate(emitters)])
 
             expression.reindex_expr(expr.condition, index_map)
 
