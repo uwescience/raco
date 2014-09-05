@@ -197,7 +197,8 @@ class Parser(object):
         :param args: A list of function argument names (strings)
         :param inits: A list of SingletonEmitArg that describe init logic
         :param updates: A list of Expression that describe update logic
-        :param emitters: An Expression list that returns the final results
+        :param emitters: An Expression list that returns the final results.
+        If None, all statemod variables are returned in the order specified.
         :param is_aggregate: True if the state_func is a UDA
 
         TODO: de-duplicate logic from add_udf.
@@ -244,6 +245,9 @@ class Parser(object):
         for init_expr, update_expr in statemods.itervalues():
             Parser.check_for_undefined(p, name, init_expr, [])
             Parser.check_for_undefined(p, name, update_expr, allvars)
+
+        if emitters is None:
+            emitters = [sexpr.NamedAttributeRef(v) for v in statemods.keys()]
 
         for e in emitters:
             Parser.check_for_undefined(p, name, e, statemods.keys())
@@ -310,18 +314,21 @@ class Parser(object):
             p[0] = [p[1]]
 
     @staticmethod
-    def p_sexpr_or_sexpr_list(p):
-        """sexpr_or_sexpr_list : LBRACKET sexpr_list RBRACKET
-                               | sexpr"""
-        if len(p) == 4:
+    def p_statefunc_emit_list(p):
+        """statefunc_emit_list : LBRACKET sexpr_list RBRACKET SEMI
+                               | sexpr SEMI
+                               | empty"""
+        if len(p) == 5:
             p[0] = p[2]
-        else:
+        elif len(p) == 3:
             p[0] = (p[1],)
+        else:
+            p[0] = None
 
     @staticmethod
     def p_uda(p):
         'uda : UDA unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr_or_sexpr_list SEMI RBRACE SEMI'  # noqa
+        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI statefunc_emit_list RBRACE SEMI'  # noqa
 
         name = p[2]
         args = p[4]
@@ -334,7 +341,7 @@ class Parser(object):
     @staticmethod
     def p_apply(p):
         'apply : APPLY unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr_or_sexpr_list SEMI RBRACE SEMI'  # noqa
+        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI statefunc_emit_list RBRACE SEMI'  # noqa
 
         name = p[2]
         args = p[4]
