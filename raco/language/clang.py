@@ -638,6 +638,6 @@ class CCAlgebra(Algebra):
         ]
 
         if kwargs.get('SwapJoinSides'):
-            rule_grps_sequence.insert(0, [clangcommon.SwapJoinSides])
+            rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
         return list(itertools.chain(*rule_grps_sequence))

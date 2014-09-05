@@ -455,6 +455,7 @@ class RemoveUnusedColumns(Rule):
 
             accessed = sorted(accessed)
             left = [a for a in accessed if a < len(l_scheme)]
+            assert len(left)>0, op
             if len(left) < len(l_scheme):
                 emits = [(None, UnnamedAttributeRef(a)) for a in left]
                 apply = algebra.Apply(emits, op.left)
@@ -527,6 +528,42 @@ class RemoveNoOpApply(Rule):
 
     def __str__(self):
         return 'Remove no-op apply'
+
+
+class SwapJoinSides(Rule):
+    # swaps the inputs to a join
+    def fire(self, expr):
+        # don't allow swap-created join to be swapped
+        if isinstance(expr, algebra.Join) and not hasattr(expr, '__swapped__'):
+            assert type(expr) is algebra.Join
+            # An apply will undo the effect of the swap on the scheme,
+            # so above operators won't be affected
+            left_sch = expr.left.scheme()
+            right_sch = expr.right.scheme()
+            leftlen = len(left_sch)
+            rightlen = len(right_sch)
+            assert leftlen + rightlen == len(expr.scheme())
+            emitters_left = [(left_sch.getName(i),
+                              UnnamedAttributeRef(rightlen + i))
+                             for i in range(leftlen)]
+            emitters_right = [(right_sch.getName(i), UnnamedAttributeRef(i))
+                              for i in range(rightlen)]
+            emitters = emitters_left + emitters_right
+
+            # reindex the expression
+            index_map = dict([(oldpos, attr[1].position) for (oldpos, attr) in enumerate(emitters)])
+
+            expression.reindex_expr(expr.condition, index_map)
+
+            newjoin = algebra.Join(expr.condition, expr.right, expr.left)
+            newjoin.__swapped__ = True
+
+            return algebra.Apply(emitters=emitters, input=newjoin)
+        else:
+            return expr
+
+    def __str__(self):
+        return "Join(L,R) => Join(R,L)"
 
 
 # logical groups of catalog transparent rules
