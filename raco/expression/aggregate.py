@@ -22,14 +22,25 @@ class BuiltinAggregateExpression(AggregateExpression):
         """Evaluate an aggregate over a bag of tuples"""
 
 
+class DecomposableUdaState(object):
+    """State associated with decomposable UDAs."""
+    def __init__(self, local_emitters, local_statemods, remote_emitters,
+                 remote_statemods):
+        self.local_emitters = local_emitters
+        self.local_statemods = local_statemods
+        self.remote_emitters = remote_emitters
+        self.remote_statemods = remote_statemods
+
+
 class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
     """A user-defined aggregate.
 
     A UDA wraps an emit expression that is responsible for emitting a
     value for each tuple group.
     """
-    def __init__(self, emitter):
+    def __init__(self, emitter, decomposable_state=None):
         self.emitter = emitter
+        self.decomposable_state = decomposable_state
 
     def evaluate(self, _tuple, scheme, state=None):
         """Evaluate the UDA sub-expression.
@@ -56,6 +67,9 @@ class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
 
     def get_children(self):
         return [self.emitter]
+
+    def is_decomposable(self):
+        return self.decomposable_state is not None
 
     def __repr__(self):
         return "{op}({se!r})".format(op=self.opname(), se=self.emitter)
