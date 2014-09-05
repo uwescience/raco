@@ -1115,7 +1115,6 @@ class GrappaAlgebra(Algebra):
 
         # sequence that works for myrial
         rule_grps_sequence = [
-           # [SwapJoinSides()],
             rules.remove_trivial_sequences,
             rules.simple_group_by,
             clangcommon.clang_push_select,
@@ -1123,6 +1122,9 @@ class GrappaAlgebra(Algebra):
             rules.push_apply,
             grappify(self.join_type, self.emit_print)
         ]
+
+        if kwargs.get('SwapJoinSides'):
+            rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
         return list(itertools.chain(*rule_grps_sequence))
 
