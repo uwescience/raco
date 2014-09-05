@@ -842,7 +842,9 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             self.condition.right.position >= len(self.left.scheme())
         self.leftCondIsRightAttr = \
             self.condition.left.position >= len(self.left.scheme())
-        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
+        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr, \
+            "op: %s,\ncondition: %s, left.scheme: %s, right.scheme: %s" \
+            % (self, self.condition, self.left.scheme(), self.right.scheme())
 
         # right key position
         if self.rightCondIsRightAttr:
