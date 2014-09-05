@@ -626,9 +626,9 @@ class CCAlgebra(Algebra):
         # rules.FreeMemory()
         # ]
 
+
         # sequence that works for myrial
         rule_grps_sequence = [
-            [clangcommon.SwapJoinSides()],
             rules.remove_trivial_sequences,
             rules.simple_group_by,
             clangcommon.clang_push_select,
@@ -636,5 +636,8 @@ class CCAlgebra(Algebra):
             rules.push_apply,
             clangify(self.emit_print)
         ]
+
+        if kwargs.get('SwapJoinSides'):
+            rule_grps_sequence.insert(0, [clangcommon.SwapJoinSides])
 
         return list(itertools.chain(*rule_grps_sequence))
