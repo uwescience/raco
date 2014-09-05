@@ -111,7 +111,7 @@ class GrappalangRunner(PlatformRunner):
           # i.e. cmake must generate the target
           with Chdir('build/Make+Release') as makedir:
             print os.getcwd()
-            subprocess.check_call(['make', '-j'], env=envir)
+            subprocess.check_call(['bin/distcc_make', '-j'], env=envir)
 
             """subprocess.check_call(['bin/distcc_make',
                                    '-j24'
@@ -137,6 +137,7 @@ class GrappalangRunner(PlatformRunner):
                                        '--nnode=2',
                                        '--',
                                        '%s.exe' % gname,
+                                       '--bin=false',
                                        '--vmodule=%s=2' % gname  # result out
                                        ],
                                         stderr=outf,

@@ -51,3 +51,13 @@ class Printable(object):
 
     def __str__(self):
         return self.opname()
+
+
+# Optional raco dependency: termcolor
+# Without it, coloring will not happen
+def colored(s, color):
+    return s
+try:
+    from termcolor import colored
+except ImportError:
+    pass

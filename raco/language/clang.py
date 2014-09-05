@@ -3,6 +3,7 @@
 
 from raco import algebra
 from raco import expression
+from raco.expression import aggregate
 from raco.language import Language, clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
@@ -16,9 +17,6 @@ _LOG = logging.getLogger(__name__)
 
 import itertools
 import os.path
-
-EMIT_CONSOLE = 'console'
-EMIT_FILE = 'file'
 
 
 template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -274,9 +272,9 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         return name
 
     def produce(self, state):
-        assert len(self.grouping_list) <= 1, \
+        assert len(self.grouping_list) <= 2, \
             "%s does not currently support groupings of \
-            more than 1 attribute" % self.__class__.__name__
+            more than 2 attributes" % self.__class__.__name__
         assert len(self.aggregate_list) == 1, \
             """%s currently only supports aggregates of 1 attribute
             (aggregate_list=%s)""" \
@@ -291,9 +289,14 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         self.useMap = len(self.grouping_list) > 0
 
         if self.useMap:
-            declr_template = """std::unordered_map<int64_t, int64_t> \
-            %(hashname)s;
-      """
+            if len(self.grouping_list) == 1:
+                declr_template = """std::unordered_map<int64_t, int64_t> \
+                %(hashname)s;
+          """
+            elif len(self.grouping_list) == 2:
+                declr_template = """std::unordered_map<std::pair<int64_t, int64_t>, int64_t, pairhash> \
+                %(hashname)s;
+                """
         else:
             declr_template = """int64_t %(hashname)s;
             """
@@ -320,13 +323,22 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             "second is aggregate result: %s" % (self.column_list()[0])
 
         if self.useMap:
-            produce_template = """for (auto it=%(hashname)s.begin(); \
-            it!=%(hashname)s.end(); it++) {
-            %(output_tuple_type)s %(output_tuple_name)s(\
-            {it->first, it->second});
-            %(inner_code)s
-            }
-            """
+            if len(self.grouping_list) == 1:
+                produce_template = """for (auto it=%(hashname)s.begin(); \
+                it!=%(hashname)s.end(); it++) {
+                %(output_tuple_type)s %(output_tuple_name)s(\
+                {it->first, it->second});
+                %(inner_code)s
+                }
+                """
+            elif len(self.grouping_list) == 2:
+                produce_template = """for (auto it=%(hashname)s.begin(); \
+                it!=%(hashname)s.end(); it++) {
+                %(output_tuple_type)s %(output_tuple_name)s(\
+                {it->first.first, it->first.second, it->second});
+                %(inner_code)s
+                }
+                """
         else:
             produce_template = """{
             %(output_tuple_type)s %(output_tuple_name)s({ %(hashname)s });
@@ -346,9 +358,14 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
     def consume(self, inputTuple, fromOp, state):
         if self.useMap:
-            materialize_template = """%(op)s_insert(%(hashname)s, \
-            %(tuple_name)s, %(keypos)s, %(valpos)s);
-      """
+            if len(self.grouping_list) == 1:
+                materialize_template = """%(op)s_insert(%(hashname)s, \
+                %(tuple_name)s, %(key1pos)s, %(valpos)s);
+                """
+            elif len(self.grouping_list) == 2:
+                materialize_template = """%(op)s_insert(%(hashname)s, \
+                %(tuple_name)s, %(key1pos)s, %(key2pos)s, %(valpos)s);
+                """
         else:
             materialize_template = """%(op)s_insert(%(hashname)s, \
             %(tuple_name)s, %(valpos)s);
@@ -359,7 +376,14 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
         # make key from grouped attributes
         if self.useMap:
-            keypos = self.grouping_list[0].get_position(self.input.scheme())
+            key1pos = self.grouping_list[0].get_position(self.input.scheme())
+
+            if len(self.grouping_list) == 2:
+                key2pos = self.grouping_list[1].get_position(self.input.scheme())
+
+        assert not isinstance(self.aggregate_list[0], aggregate.COUNTALL),\
+                              """clang does not currently support COUNT(*),
+                               use COUNT(<attr>)"""
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())
@@ -514,37 +538,25 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
         return binary_scan_template
 
 
-class CStore(algebra.Store, CCOperator):
-    def __init__(self, emit_print, relation_key, plan):
-        super(CStore, self).__init__(relation_key, plan)
-        self.emit_print = emit_print
+class CStore(clangcommon.BaseCStore, CCOperator):
 
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
+    def __file_code__(self, t, state):
         code = ""
-        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-        state.addDeclarations([resdecl])
-        code += "result.push_back(%s);\n" % (t.name)
+        state.addPreCode('std::ofstream logfile;\n')
+        resultfile = str(self.relation_key).split(":")[2]
+        opentuple = 'logfile.open("%s");\n' % resultfile
+        schemafile = self.write_schema(self.scheme())
+        state.addPreCode(schemafile)
+        state.addPreCode(opentuple)
+        code += "int logi = 0;\n"
+        code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
+                % (t.name)
+        code += self.language.log_file_unquoted("%s.get(logi)" % t.name)
+        code += "}\n "
+        code += "logfile << %s.get(logi);\n" % (t.name)
+        code += "logfile << '\\n';"
+        state.addPostCode('logfile.close();')
 
-        if self.emit_print == EMIT_CONSOLE:
-            code += self.language.log_unquoted("%s" % t.name, 2)
-        elif self.emit_print == EMIT_FILE:
-            state.addPreCode('std::ofstream logfile;\n')
-            resultfile = str(self.relation_key).split(":")[2]
-            opentuple = 'logfile.open("%s");\n' % resultfile
-            schemafile = self.write_schema(self.scheme())
-            state.addPreCode(schemafile)
-            state.addPreCode(opentuple)
-            code += "int logi = 0;\n"
-            code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
-                    % (t.name)
-            code += self.language.log_file_unquoted("%s.get(logi)" % t.name)
-            code += "}\n "
-            code += "logfile << %s.get(logi);\n" % (t.name)
-            code += "logfile << '\\n';"
-            state.addPostCode('logfile.close();')
         return code
 
     def write_schema(self, scheme):
@@ -556,11 +568,6 @@ class CStore(algebra.Store, CCOperator):
         code += 'logfile.close();'
         return code
 
-    def __repr__(self):
-        return "{op}({ep!r}, {rk!r}, {pl!r})".format(op=self.opname(),
-                                                     ep=self.emit_print,
-                                                     rk=self.relation_key,
-                                                     pl=self.input)
 
 
 class MemoryScanOfFileScan(rules.Rule):
@@ -576,39 +583,6 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan[FileScan]"
 
 
-class BreakHashJoinConjunction(rules.Rule):
-    """A rewrite rule for turning HashJoin(a=c and b=d)
-    into select(b=d)[HashJoin(a=c)]"""
-
-    def fire(self, expr):
-        if isinstance(expr, CHashJoin) \
-                and isinstance(expr.condition.left, expression.EQ) \
-                and isinstance(expr.condition.right, expression.EQ):
-            return CSelect(expr.condition.right,
-                           CHashJoin(expr.condition.left,
-                                     expr.left,
-                                     expr.right))
-
-        return expr
-
-    def __str__(self):
-        return "CHashJoin(a=c and b=d) => CSelect(b=d)[CHashJoin(a=c)]"
-
-
-class StoreToCStore(rules.Rule):
-    """A rule to store tuples into emit_print"""
-    def __init__(self, emit_print):
-        self.emit_print = emit_print
-
-    def fire(self, expr):
-        if isinstance(expr, algebra.Store):
-            return CStore(self.emit_print, expr.relation_key, expr.input)
-        return expr
-
-    def __str__(self):
-        return "Store => CStore"
-
-
 def clangify(emit_print):
     return [
         rules.ProjectingJoinToProjectOfJoin(),
@@ -622,24 +596,16 @@ def clangify(emit_print):
         rules.OneToOne(algebra.UnionAll, CUnionAll),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
-        StoreToCStore(emit_print),
+        clangcommon.StoreToBaseCStore(emit_print, CStore),
 
-        BreakHashJoinConjunction()
+        clangcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
     ]
-
-clang_push_select = [
-    rules.SplitSelects(),
-    rules.PushSelects(),
-    # We don't want to merge selects because it doesn't really
-    # help and it (maybe) creates HashJoin(conjunction)
-    # rules.MergeSelects()
-]
 
 
 class CCAlgebra(Algebra):
     language = CC
 
-    def __init__(self, emit_print=EMIT_CONSOLE):
+    def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         """ To store results into a file or onto console """
         self.emit_print = emit_print
 
@@ -660,14 +626,18 @@ class CCAlgebra(Algebra):
         # rules.FreeMemory()
         # ]
 
+
         # sequence that works for myrial
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
             rules.simple_group_by,
-            clang_push_select,
+            clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
             clangify(self.emit_print)
         ]
+
+        if kwargs.get('SwapJoinSides'):
+            rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
         return list(itertools.chain(*rule_grps_sequence))
