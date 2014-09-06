@@ -50,6 +50,13 @@ def to_unnamed_recursive(sexpr, scheme):
     return convert(sexpr)
 
 
+def only_unnamed_refs(sexpr):
+    """Returns True if all AttributeRefs in the expression are unnamed."""
+    return not any((isinstance(e, AttributeRef)
+                    and not isinstance(e, UnnamedAttributeRef))
+                   for e in sexpr.walk())
+
+
 def all_classes():
     """Return a list of all classes in the module"""
     import raco.expression as expr
