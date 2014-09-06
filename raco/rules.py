@@ -1,10 +1,9 @@
 from raco import algebra
 from raco import expression
 from expression import (accessed_columns, UnnamedAttributeRef,
-                        to_unnamed_recursive, only_unnamed_refs)
+                        to_unnamed_recursive)
 
 from abc import ABCMeta, abstractmethod
-import copy
 import itertools
 
 
