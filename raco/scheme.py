@@ -114,13 +114,6 @@ class Scheme(object):
             newsch.addAttribute(n, t)
         return newsch
 
-    def __sub__(self, other):
-        newsch = Scheme()
-        for (n, t) in self:
-            if n not in other:
-                newsch.addAttribute(n, t)
-        return newsch
-
 
 class EmptyScheme(Scheme):
     def __init__(self):
