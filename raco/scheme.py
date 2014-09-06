@@ -73,18 +73,6 @@ class Scheme(object):
         else:
             return self.asdict[name][1]
 
-    def subScheme(self, attributes):
-        """Return a scheme consisting of only the provided attribute names"""
-        return Scheme([(n, self.getType(n)) for n in attributes])
-
-    def subsumes(self, names):
-        """Does this scheme contain all the names in the list?"""
-        return all([n in self.asdict.keys() for n in names])
-
-    def contains(self, names):
-        """deprecated.  use subsumes"""
-        return self.contains(names)
-
     def resolve(self, attrref):
         """return the name and type of the attribute reference, resolved
         against this scheme"""
@@ -102,19 +90,6 @@ class Scheme(object):
             return (attr, type) in self.attributes
         else:
             return attr in self.asdict
-
-    def project(self, tup, subscheme):
-        """Return a tuple corresponding to the subscheme corresponding to the
-        values in tup"""
-        return (tup[self.getPosition(n)] for n, t in subscheme.attributes)
-
-    def rename(self, name1, name2):
-        try:
-            i, t = self.asdict.pop(name1)
-            self.attributes[i] = (name2, t)
-            self.asdict[name2] = (i, t)
-        except KeyError:
-            pass
 
     def __str__(self):
         """Pretty print the scheme"""
