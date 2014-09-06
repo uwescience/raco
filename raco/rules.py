@@ -208,13 +208,8 @@ class SplitSelects(Rule):
         if not isinstance(op, algebra.Select):
             return op
 
-        conjuncs = expression.extract_conjuncs(op.condition)
+        conjuncs = expression.extract_conjuncs(op.get_unnamed_condition())
         assert conjuncs  # Must be at least 1
-
-        # Normalize named references to integer indexes
-        scheme = op.scheme()
-        conjuncs = [to_unnamed_recursive(c, scheme)
-                    for c in conjuncs]
 
         op.condition = conjuncs[0]
         op.has_been_pushed = False

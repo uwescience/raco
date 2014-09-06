@@ -753,6 +753,12 @@ class Select(UnaryOperator):
         """scheme of the result."""
         return self.input.scheme()
 
+    def get_unnamed_condition(self):
+        if expression.only_unnamed_refs(self.condition):
+            return self.condition
+        return expression.to_unnamed_recursive(
+            self.condition, self.input.scheme())
+
 
 class Project(UnaryOperator):
     """Logical projection operator"""
