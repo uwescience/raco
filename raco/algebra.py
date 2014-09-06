@@ -1385,9 +1385,16 @@ def inline_operator(dest_op, var, target_op):
     :param var: The variable name (String) to replace.
     :param target_op: The operation to replace.
     """
+    # Wrap the bool in a list so we pass a pointer that does not change
+    # (the list) into the function.
+    has_inlined = [False]
+
     def rewrite_node(node):
         if isinstance(node, ScanTemp) and node.name == var:
-            return copy.deepcopy(target_op)
+            if has_inlined[0]:
+                return copy.deepcopy(target_op)
+            has_inlined[0] = True
+            return target_op
         else:
             return node.apply(rewrite_node)
 
