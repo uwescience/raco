@@ -1,7 +1,7 @@
 from raco import algebra
 from raco import expression
 from expression import (accessed_columns, UnnamedAttributeRef,
-                        to_unnamed_recursive)
+                        to_unnamed_recursive, only_unnamed_refs)
 
 from abc import ABCMeta, abstractmethod
 import itertools
@@ -280,8 +280,11 @@ class PushSelects(Rule):
             accessed_emits = [op.emitters[i][1] for i in accessed]
             if all(isinstance(e, expression.AttributeRef)
                    for e in accessed_emits):
-                unnamed_emits = [expression.toUnnamed(e, op.input.scheme())
-                                 for e in accessed_emits]
+                if not all(only_unnamed_refs(e) for e in accessed_emits):
+                    unnamed_emits = [expression.toUnnamed(e, op.input.scheme())
+                                     for e in accessed_emits]
+                else:
+                    unnamed_emits = accessed_emits
                 # This condition only touches columns that are copied verbatim
                 # from the child, so we can push it.
                 index_map = {a: e.position
@@ -298,8 +301,11 @@ class PushSelects(Rule):
                 # from the child (grouping keys), so we can push it.
                 assert all(isinstance(e, expression.AttributeRef)
                            for e in op.grouping_list)
-                unnamed_grps = [expression.toUnnamed(e, op.input.scheme())
-                                for e in accessed_grps]
+                if not all(only_unnamed_refs(e) for e in accessed_grps):
+                    unnamed_grps = [expression.toUnnamed(e, op.input.scheme())
+                                    for e in accessed_grps]
+                else:
+                    unnamed_grps = accessed_grps
                 index_map = {a: e.position
                              for (a, e) in zip(accessed, unnamed_grps)}
                 expression.reindex_expr(cond, index_map)
@@ -456,8 +462,7 @@ class RemoveUnusedColumns(Rule):
             agg_list = op.get_unnamed_aggregate_list()
 
             up_names = [name for name, ex in op.updaters]
-            up_list = [to_unnamed_recursive(ex, child_scheme)
-                       for name, ex in op.updaters]
+            up_list = op.get_unnamed_update_exprs()
 
             agg = [accessed_columns(a) for a in agg_list]
             up = [accessed_columns(a) for a in up_list]

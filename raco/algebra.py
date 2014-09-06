@@ -868,6 +868,13 @@ class GroupBy(UnaryOperator):
         return [expression.to_unnamed_recursive(a, self.input.scheme())
                 for a in self.aggregate_list]
 
+    def get_unnamed_update_exprs(self):
+        ups = [expr for _, expr in self.updaters]
+        if all(expression.only_unnamed_refs(u) for u in ups):
+            return ups
+        return [expression.to_unnamed_recursive(u, self.input.scheme())
+                for u in ups]
+
     def scheme(self):
         """scheme of the result."""
         in_scheme = self.input.scheme()
