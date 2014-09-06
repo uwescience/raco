@@ -578,6 +578,16 @@ class Apply(UnaryOperator):
                           for name, ex in self.emitters])
         return "%s(%s)" % (self.opname(), estrs)
 
+    def get_names(self):
+        return [e[0] for e in self.emitters]
+
+    def get_unnamed_emit_exprs(self):
+        emits = [e[1] for e in self.emitters]
+        if all(expression.only_unnamed_refs(e) for e in emits):
+            return emits
+        return [expression.to_unnamed_recursive(e, self.input.scheme())
+                for e in emits]
+
     def __repr__(self):
         return "{op}({emt!r}, {inp!r})".format(op=self.opname(),
                                                emt=self.emitters,
@@ -839,6 +849,18 @@ class GroupBy(UnaryOperator):
 
     def column_list(self):
         return self.grouping_list + self.aggregate_list
+
+    def get_unnamed_grouping_list(self):
+        if all(expression.only_unnamed_refs(g) for g in self.grouping_list):
+            return self.grouping_list
+        return [expression.to_unnamed_recursive(g, self.input.scheme())
+                for g in self.grouping_list]
+
+    def get_unnamed_aggregate_list(self):
+        if all(expression.only_unnamed_refs(a) for a in self.aggregate_list):
+            return self.aggregate_list
+        return [expression.to_unnamed_recursive(a, self.input.scheme())
+                for a in self.aggregate_list]
 
     def scheme(self):
         """scheme of the result."""

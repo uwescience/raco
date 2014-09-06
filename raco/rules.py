@@ -1,7 +1,7 @@
 from raco import algebra
 from raco import expression
 from expression import (accessed_columns, UnnamedAttributeRef,
-                        to_unnamed_recursive)
+                        to_unnamed_recursive, only_unnamed_refs)
 
 from abc import ABCMeta, abstractmethod
 import copy
@@ -367,30 +367,25 @@ class PushApply(Rule):
             return op
 
         child = op.input
-        in_scheme = child.scheme()
-        names, emits = zip(*op.emitters)
-        emits = [to_unnamed_recursive(e, in_scheme) for e in emits]
 
         if isinstance(child, algebra.Apply):
-            child_in_scheme = child.input.scheme()
-            child_emits = [to_unnamed_recursive(e[1], child_in_scheme)
-                           for e in child.emitters]
+
+            emits = op.get_unnamed_emit_exprs()
+            child_emits = child.get_unnamed_emit_exprs()
 
             def convert(n):
                 if isinstance(n, expression.UnnamedAttributeRef):
-                    n = child_emits[n.position]
-                else:
-                    n.apply(convert)
+                    return child_emits[n.position]
+                n.apply(convert)
                 return n
+            emits = [convert(e) for e in emits]
 
-            emits = [convert(copy.deepcopy(e)) for e in emits]
-
-            new_apply = algebra.Apply(emitters=zip(names, emits),
+            new_apply = algebra.Apply(emitters=zip(op.get_names(), emits),
                                       input=child.input)
             return self.fire(new_apply)
 
         elif isinstance(child, algebra.ProjectingJoin):
-            names, emits = zip(*op.emitters)
+            emits = op.get_unnamed_emit_exprs()
 
             # If this apply is only AttributeRefs and the columns already
             # have the correct names, we can push it into the ProjectingJoin
@@ -409,10 +404,12 @@ class PushApply(Rule):
             child.output_columns = [child.output_columns[i] for i in accessed]
             for e in emits:
                 expression.reindex_expr(e, index_map)
-            return algebra.Apply(emitters=zip(names, emits),
+
+            return algebra.Apply(emitters=zip(op.get_names(), emits),
                                  input=child)
 
         elif isinstance(child, algebra.GroupBy):
+            emits = op.get_unnamed_emit_exprs()
             assert all(is_simple_agg_expr(agg) for agg in child.aggregate_list)
 
             accessed = sorted(set(itertools.chain(*(accessed_columns(e)
@@ -439,7 +436,7 @@ class PushApply(Rule):
             for e in emits:
                 expression.reindex_expr(e, unused_map)
 
-            return algebra.Apply(emitters=zip(names, emits),
+            return algebra.Apply(emitters=zip(op.get_names(), emits),
                                  input=child)
 
         return op
@@ -461,10 +458,8 @@ class RemoveUnusedColumns(Rule):
         if isinstance(op, algebra.GroupBy):
             child = op.input
             child_scheme = child.scheme()
-            grp_list = [to_unnamed_recursive(g, child_scheme)
-                        for g in op.grouping_list]
-            agg_list = [to_unnamed_recursive(a, child_scheme)
-                        for a in op.aggregate_list]
+            grp_list = op.get_unnamed_grouping_list()
+            agg_list = op.get_unnamed_aggregate_list()
 
             up_names = [name for name, ex in op.updaters]
             up_list = [to_unnamed_recursive(ex, child_scheme)
