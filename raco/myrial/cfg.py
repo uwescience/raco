@@ -197,8 +197,13 @@ class ControlFlowGraph(object):
             live_in, live_out = self.compute_liveness()
             _continue = False
 
+            inlined_into = None
             # XXX O(N^2) algorithm
-            for nodeA, nodeB in sliding_window(self.sorted_vertices):
+            for nodeB, nodeA in sliding_window(reversed(self.sorted_vertices)):
+                if inlined_into is not None:
+                    nodeB = inlined_into
+                    inlined_into = None
+
                 if self.graph.in_degree(nodeB) == 2:
                     continue  # start of do/while loop
 
@@ -215,7 +220,7 @@ class ControlFlowGraph(object):
 
                 self.__inline_node(nodeB, nodeA)
                 _continue = True
-                break
+                inlined_into = nodeB
 
     def dead_code_elimination(self):
         """Dead code elimination.
