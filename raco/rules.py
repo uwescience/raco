@@ -281,7 +281,8 @@ class PushSelects(Rule):
             if all(isinstance(e, expression.AttributeRef)
                    for e in accessed_emits):
                 if not all(only_unnamed_refs(e) for e in accessed_emits):
-                    unnamed_emits = [expression.toUnnamed(e, op.input.scheme())
+                    child_scheme = op.input.scheme()
+                    unnamed_emits = [expression.toUnnamed(e, child_scheme)
                                      for e in accessed_emits]
                 else:
                     unnamed_emits = accessed_emits

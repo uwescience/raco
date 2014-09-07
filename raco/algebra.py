@@ -585,7 +585,8 @@ class Apply(UnaryOperator):
         emits = [e[1] for e in self.emitters]
         if all(expression.only_unnamed_refs(e) for e in emits):
             return emits
-        return [expression.to_unnamed_recursive(e, self.input.scheme())
+        input_scheme = self.input.scheme()
+        return [expression.to_unnamed_recursive(e, input_scheme)
                 for e in emits]
 
     def __repr__(self):
@@ -756,8 +757,9 @@ class Select(UnaryOperator):
     def get_unnamed_condition(self):
         if expression.only_unnamed_refs(self.condition):
             return self.condition
+        input_scheme = self.input.scheme()
         return expression.to_unnamed_recursive(
-            self.condition, self.input.scheme())
+            self.condition, input_scheme)
 
 
 class Project(UnaryOperator):
@@ -859,20 +861,23 @@ class GroupBy(UnaryOperator):
     def get_unnamed_grouping_list(self):
         if all(expression.only_unnamed_refs(g) for g in self.grouping_list):
             return self.grouping_list
-        return [expression.to_unnamed_recursive(g, self.input.scheme())
+        input_scheme = self.input.scheme()
+        return [expression.to_unnamed_recursive(g, input_scheme)
                 for g in self.grouping_list]
 
     def get_unnamed_aggregate_list(self):
         if all(expression.only_unnamed_refs(a) for a in self.aggregate_list):
             return self.aggregate_list
-        return [expression.to_unnamed_recursive(a, self.input.scheme())
+        input_scheme = self.input.scheme()
+        return [expression.to_unnamed_recursive(a, input_scheme)
                 for a in self.aggregate_list]
 
     def get_unnamed_update_exprs(self):
         ups = [expr for _, expr in self.updaters]
         if all(expression.only_unnamed_refs(u) for u in ups):
             return ups
-        return [expression.to_unnamed_recursive(u, self.input.scheme())
+        input_scheme = self.input.scheme()
+        return [expression.to_unnamed_recursive(u, input_scheme)
                 for u in ups]
 
     def scheme(self):
@@ -956,9 +961,11 @@ class ProjectingJoin(Join):
                 assert pos < len(right_sch)
                 return right_sch.getName(pos), right_sch.getType(pos)
 
-        combined = self.left.scheme() + self.right.scheme()
-        return scheme.Scheme([get_col(p.get_position(combined),
-                              self.left.scheme(), self.right.scheme())
+        left_sch = self.left.scheme()
+        right_sch = self.right.scheme()
+        combined = left_sch + right_sch
+        return scheme.Scheme([get_col(p.get_position(combined), left_sch,
+                                      right_sch)
                               for p in self.output_columns])
 
     def add_equijoin_condition(self, col0, col1):
