@@ -185,8 +185,8 @@ class MyriaLPlatformTests(object):
 
         return '\n'.join(code)
 
-    def check_sub_tables(self, query, name):
-        self.check(query % self.tables, name)
+    def check_sub_tables(self, query, name, **kwargs):
+        self.check(query % self.tables, name, **kwargs)
 
     def test_scan(self):
         self.check_sub_tables("""
@@ -449,4 +449,14 @@ class MyriaLPlatformTests(object):
               emit T1.$0 as src, T2.$1 as dst, count(T1.$0)];
         STORE(MM, OUTPUT);
         """, "matrix_mult")
-
+    
+    def test_two_join_switch(self):
+        self.check_sub_tables("""
+        R3 = SCAN(%(R3)s);
+        S3 = SCAN(%(S3)s);
+        T3 = SCAN(%(T3)s);
+        J1 = JOIN(R3, $2, S3, $1);
+        J2 = JOIN(J1, $3, T3, $0);
+        P = [FROM J2 WHERE $0>1 and $3>2 and $6>3 EMIT $0, $8];
+        STORE(P, OUTPUT);
+        """, "two_join_switch", SwapJoinSides=True)

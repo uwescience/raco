@@ -1,9 +1,11 @@
 from raco import algebra
 
 
-def graph_to_dot(graph):
+def graph_to_dot(graph, **kwargs):
     """Graph is expected to be a dict of the form { 'nodes' : list(), 'edges' :
     list() }. This function returns a string that will be input to dot."""
+
+    title = kwargs.get('title', '')
 
     # Template, including setup and formatting:
     template = """digraph G {
@@ -23,6 +25,10 @@ def graph_to_dot(graph):
 
       // The edges
       %s
+
+      // The title
+      labelloc="t";
+      label="%s";
 }"""
 
     # Nodes:
@@ -34,13 +40,13 @@ def graph_to_dot(graph):
     edges = ['"%s" -> "%s" ;' % (id(x), id(y)) for (x, y) in graph['edges']]
     edge_str = '\n      '.join(edges)
 
-    return template % (node_str, edge_str)
+    return template % (node_str, edge_str, title)
 
 
-def operator_to_dot(operator, graph=None):
+def operator_to_dot(operator, graph=None, **kwargs):
     """Operator is expected to be an object of class raco.algebra.Operator"""
     graph = operator.collectGraph(graph)
-    return graph_to_dot(graph)
+    return graph_to_dot(graph, **kwargs)
 
 
 def get_dot(obj):

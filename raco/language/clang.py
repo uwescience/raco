@@ -294,7 +294,8 @@ class CGroupBy(algebra.GroupBy, CCOperator):
                 %(hashname)s;
           """
             elif len(self.grouping_list) == 2:
-                declr_template = """std::unordered_map<std::pair<int64_t, int64_t>, int64_t, pairhash> \
+                declr_template = """std::unordered_map<\
+                std::pair<int64_t, int64_t>, int64_t, pairhash> \
                 %(hashname)s;
                 """
         else:
@@ -379,11 +380,12 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             key1pos = self.grouping_list[0].get_position(self.input.scheme())
 
             if len(self.grouping_list) == 2:
-                key2pos = self.grouping_list[1].get_position(self.input.scheme())
+                key2pos = self.grouping_list[1].get_position(
+                    self.input.scheme())
 
         assert not isinstance(self.aggregate_list[0], aggregate.COUNTALL),\
-                              """clang does not currently support COUNT(*),
-                               use COUNT(<attr>)"""
+            """clang does not currently support COUNT(*), \
+            use COUNT(<attr>)"""
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())
@@ -569,7 +571,6 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         return code
 
 
-
 class MemoryScanOfFileScan(rules.Rule):
     """A rewrite rule for making a scan into
     materialization in memory then memory scan"""
@@ -635,5 +636,8 @@ class CCAlgebra(Algebra):
             rules.push_apply,
             clangify(self.emit_print)
         ]
+
+        if kwargs.get('SwapJoinSides'):
+            rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
         return list(itertools.chain(*rule_grps_sequence))

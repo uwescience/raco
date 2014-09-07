@@ -644,7 +644,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
     def produce(self, state):
         assert len(self.grouping_list) <= 2, \
-            "%s does not currently support groupings of more than 2 attributes"\
+            """%s does not currently support \
+            "groupings of more than 2 attributes"""\
             % self.__class__.__name__
         assert len(self.aggregate_list) == 1, \
             "%s currently only supports aggregates of 1 attribute"\
@@ -667,11 +668,11 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                                    DHT_int64;
                 """)
             elif len(self.grouping_list) == 2:
-                declr_template = ct("""typedef DHT_symmetric<std::pair<int64_t,int64_t>, \
+                declr_template = ct("""typedef DHT_symmetric<\
+                std::pair<int64_t,int64_t>, \
                                   int64_t, pair_hash> \
                                    DHT_pair_int64;
                 """)
-
 
         self._hashname = self.__genHashName__()
         _LOG.debug("generate hashname %s for %s", self._hashname, self)
@@ -720,7 +721,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             elif len(self.grouping_list) == 2:
                 produce_template = ct("""%(hashname)s->\
                 forall_entries<&%(pipeline_sync)s>\
-                ([=](std::pair<const std::pair<int64_t,int64_t>,int64_t>& %(mapping_var_name)s) {
+                ([=](std::pair<const std::pair<int64_t,int64_t>,int64_t>& \
+                %(mapping_var_name)s) {
                     %(output_tuple_type)s %(output_tuple_name)s(\
                     {%(mapping_var_name)s.first.first,\
                     %(mapping_var_name)s.first.second,\
@@ -735,7 +737,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                        'SUM': 'COLL_ADD',
                        'MAX': 'COLL_MAX',
                        'MIN': 'COLL_MIN'}[op]
-            produce_template = ct("""auto %(output_tuple_name)s_tmp = reduce<int64_t, \
+            produce_template = ct("""auto %(output_tuple_name)s_tmp = \
+            reduce<int64_t, \
             counter, \
             %(coll_op)s, \
             &get_count>\
@@ -801,8 +804,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         pipeline_sync = state.getPipelineProperty("global_syncname")
 
         assert not isinstance(self.aggregate_list[0], aggregate.COUNTALL),\
-                              """grappalang does not currently support COUNT(*),
-                               use COUNT(<attr>)"""
+            """grappalang does not currently support COUNT(*), \
+            use COUNT(<attr>)"""
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())
@@ -842,7 +845,9 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             self.condition.right.position >= len(self.left.scheme())
         self.leftCondIsRightAttr = \
             self.condition.left.position >= len(self.left.scheme())
-        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
+        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr, \
+            "op: %s,\ncondition: %s, left.scheme: %s, right.scheme: %s" \
+            % (self, self.condition, self.left.scheme(), self.right.scheme())
 
         # right key position
         if self.rightCondIsRightAttr:
@@ -1010,9 +1015,11 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
     ascii_scan_template = """
     {
     if (FLAGS_bin) {
-    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( FLAGS_input_file + ".bin" );
+    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( \
+    FLAGS_input_file + ".bin" );
     } else {
-    %(resultsym)s.data = readTuples<%%(result_type)s>( FLAGS_input_file, FLAGS_nt);
+    %(resultsym)s.data = readTuples<%%(result_type)s>( \
+    FLAGS_input_file, FLAGS_nt);
     %(resultsym)s.numtuples = FLAGS_nt;
     auto l_%(resultsym)s = %(resultsym)s;
     on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
@@ -1038,13 +1045,14 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
 class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
     def __file_code__(self, t, state):
         filename = (str(self.relation_key).split(":")[2])
-        outputnamedecl = """DEFINE_string(output_file, "%s.bin", "Output File");""" % filename
+        outputnamedecl = """\
+        DEFINE_string(output_file, "%s.bin", "Output File");""" % filename
         state.addDeclarations([outputnamedecl])
         names = [x.encode('UTF8') for x in self.scheme().get_names()]
         schemefile = 'writeSchema("%s", "%s", "%s");\n' % \
                      (names, self.scheme().get_types(), filename)
         state.addPreCode(schemefile)
-        resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % (filename)
+        resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % filename
         state.addPipelineFlushCode(resultfile)
 
         return ""
@@ -1062,16 +1070,6 @@ class MemoryScanOfFileScan(rules.Rule):
 
     def __str__(self):
         return "Scan => MemoryScan(FileScan)"
-
-
-# FIXME: this is broken because it does not update the indexes
-class SwapJoinSides(rules.Rule):
-    # swaps the inputs to a join
-    def fire(self, expr):
-        if isinstance(expr, algebra.Join):
-            return algebra.Join(expr.condition, expr.right, expr.left)
-        else:
-            return expr
 
 
 def grappify(join_type, emit_print):
@@ -1129,6 +1127,9 @@ class GrappaAlgebra(Algebra):
             rules.push_apply,
             grappify(self.join_type, self.emit_print)
         ]
+
+        if kwargs.get('SwapJoinSides'):
+            rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
         return list(itertools.chain(*rule_grps_sequence))
 

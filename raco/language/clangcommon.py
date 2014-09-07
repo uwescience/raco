@@ -294,7 +294,7 @@ class CFileScan(algebra.Scan):
     def __get_binary_scan_template__(self):
         return
 
-    def __get_relation_decl_template__(self, name, binary):
+    def __get_relation_decl_template__(self, name):
         """
         Implement if the CFileScan implementation requires
         the relation instance to be a global declaration.
@@ -466,3 +466,6 @@ class StoreToBaseCStore(rules.Rule):
 
     def __str__(self):
         return "Store => %s" % self.subclass.__name__
+
+
+
