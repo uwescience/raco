@@ -439,7 +439,7 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(["R2", "T2"], "common_index_disallowed")
         self.check(q, "common_index_disallowed")
 
-    def test_Q2(self):
+    def test_q2(self):
         """
         A test resembling sp2bench Q2
         """
@@ -474,4 +474,4 @@ and T8.b = 1
 and T9.b = 1
 EMIT
 T1.a as inproc, T2.c as author, T3.c as booktitle, T4.c as title, T5.c as proc, T6.c as ee, T7.c as page, T8.c as url, T9.c as yr];
-STORE(P,OUTPUT);""", "Q2")
+STORE(P,OUTPUT);""", "q2")
