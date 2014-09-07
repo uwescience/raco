@@ -42,7 +42,4 @@ class MyriaLClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
 
 
 if __name__ == '__main__':
-    Q2 = unittest.TestSuite()
-    Q2.addTest( MyriaLClangTest('test_Q2') )
-    unittest.TextTestRunner().run(Q2)
-    #unittest.main()
+    unittest.main()
