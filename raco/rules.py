@@ -303,7 +303,8 @@ class PushSelects(Rule):
                 assert all(isinstance(e, expression.AttributeRef)
                            for e in op.grouping_list)
                 if not all(only_unnamed_refs(e) for e in accessed_grps):
-                    unnamed_grps = [expression.toUnnamed(e, op.input.scheme())
+                    input_scheme = op.input.scheme()
+                    unnamed_grps = [expression.toUnnamed(e, input_scheme)
                                     for e in accessed_grps]
                 else:
                     unnamed_grps = accessed_grps
