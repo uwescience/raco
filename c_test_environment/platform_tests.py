@@ -150,8 +150,6 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
     def setUp(self):
         super(MyriaLPlatformTestHarness, self).setUp()
 
-        self.db.ingest("public:adhoc:sp2bench", Counter(), scheme.Scheme([("s",types.INT_TYPE), ("p", types.INT_TYPE), ("o", types.INT_TYPE)]))
-
         self.tables = {}
         for name in ['R', 'S', 'T']:
             for width in [1, 2, 3]:
@@ -442,8 +440,12 @@ class MyriaLPlatformTests(object):
         self.check(q, "common_index_disallowed")
 
     def test_Q2(self):
+        """
+        A test resembling sp2bench Q2
+        """
+
         self.check_sub_tables("""
-            S = SCAN(sp2bench);
+            S = SCAN(R3);
             P = [FROM S T1,
             S T2,
             S T3,
@@ -453,23 +455,23 @@ class MyriaLPlatformTests(object):
             S T7,
             S T8,
             S T9 
-WHERE T1.s=T2.s
-and T2.s=T3.s
-and T3.s=T4.s
-and T4.s=T5.s
-and T5.s=T6.s
-and T6.s=T7.s
-and T7.s=T8.s
-and T8.s=T9.s
-and T1.p = 1 and T1.o = 2
-and T2.p = 3
-and T3.p = 4
-and T4.p = 5
-and T5.p = 6
-and T6.p = 7
-and T7.p = 8
-and T8.p = 9
-and T9.p = 10
+WHERE T1.a=T2.a
+and T2.a=T3.a
+and T3.a=T4.a
+and T4.a=T5.a
+and T5.a=T6.a
+and T6.a=T7.a
+and T7.a=T8.a
+and T8.a=T9.a
+and T1.b = 1 and T1.c > 5
+and T2.b = 1
+and T3.b = 1
+and T4.b = 1
+and T5.b = 1
+and T6.b = 1
+and T7.b = 1
+and T8.b = 1
+and T9.b = 1
 EMIT
-T1.s as inproc, T2.o as author, T3.o as booktitle, T4.o as title, T5.o as proc, T6.o as ee, T7.o as page, T8.o as url, T9.o as yr];
+T1.a as inproc, T2.c as author, T3.c as booktitle, T4.c as title, T5.c as proc, T6.c as ee, T7.c as page, T8.c as url, T9.c as yr];
 STORE(P,OUTPUT);""", "Q2")

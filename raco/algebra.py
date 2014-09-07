@@ -921,9 +921,13 @@ class ProjectingJoin(Join):
                 assert pos < len(right_sch)
                 return right_sch.getName(pos), right_sch.getType(pos)
 
-        combined = self.left.scheme() + self.right.scheme()
+        # TODO: this recursive scheme() results in very inefficient algorithms
+        left_sch = self.left.scheme()
+        right_sch = self.right.scheme()
+
+        combined = left_sch + right_sch
         return scheme.Scheme([get_col(p.get_position(combined),
-                              self.left.scheme(), self.right.scheme())
+                              left_sch, right_sch)
                               for p in self.output_columns])
 
     def add_equijoin_condition(self, col0, col1):
