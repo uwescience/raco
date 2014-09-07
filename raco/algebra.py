@@ -921,7 +921,6 @@ class ProjectingJoin(Join):
                 assert pos < len(right_sch)
                 return right_sch.getName(pos), right_sch.getType(pos)
 
-        # TODO: this recursive scheme() results in very inefficient algorithms
         left_sch = self.left.scheme()
         right_sch = self.right.scheme()
 
