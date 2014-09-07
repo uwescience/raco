@@ -366,7 +366,6 @@ class PushApply(Rule):
         if not isinstance(op, algebra.Apply):
             return op
 
-
         child = op.input
         in_scheme = child.scheme()
         names, emits = zip(*op.emitters)
