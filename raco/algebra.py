@@ -963,9 +963,10 @@ class ProjectingJoin(Join):
 
         left_sch = self.left.scheme()
         right_sch = self.right.scheme()
+
         combined = left_sch + right_sch
-        return scheme.Scheme([get_col(p.get_position(combined), left_sch,
-                                      right_sch)
+        return scheme.Scheme([get_col(p.get_position(combined),
+                              left_sch, right_sch)
                               for p in self.output_columns])
 
     def add_equijoin_condition(self, col0, col1):

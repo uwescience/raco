@@ -438,3 +438,40 @@ class MyriaLPlatformTests(object):
     def test_common_index_disallowed(self):
         q = self.myrial_from_sql(["R2", "T2"], "common_index_disallowed")
         self.check(q, "common_index_disallowed")
+
+    def test_q2(self):
+        """
+        A test resembling sp2bench Q2
+        """
+
+        self.check_sub_tables("""
+            S = SCAN(R3);
+            P = [FROM S T1,
+            S T2,
+            S T3,
+            S T4,
+            S T5,
+            S T6,
+            S T7,
+            S T8,
+            S T9 
+WHERE T1.a=T2.a
+and T2.a=T3.a
+and T3.a=T4.a
+and T4.a=T5.a
+and T5.a=T6.a
+and T6.a=T7.a
+and T7.a=T8.a
+and T8.a=T9.a
+and T1.b = 1 and T1.c > 5
+and T2.b = 1
+and T3.b = 1
+and T4.b = 1
+and T5.b = 1
+and T6.b = 1
+and T7.b = 1
+and T8.b = 1
+and T9.b = 1
+EMIT
+T1.a as inproc, T2.c as author, T3.c as booktitle, T4.c as title, T5.c as proc, T6.c as ee, T7.c as page, T8.c as url, T9.c as yr];
+STORE(P,OUTPUT);""", "q2")
