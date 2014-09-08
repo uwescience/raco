@@ -105,6 +105,11 @@ class ControlFlowGraph(object):
         live_out = {i: set() for i in self.graph}
 
         while True:
+            # Create a copy of live_in, live_out that we will compare against
+            # to detect loop termination. This is shallower than a full deep
+            # copy, but we need to copy the value sets in this dictionary as
+            # they are mutated in the loop below. Make the sets frozen to
+            # ensure they are really immutable.
             live_in_prev = {i: frozenset(s) for i, s in live_in.items()}
             live_out_prev = {i: frozenset(s) for i, s in live_out.items()}
 
@@ -197,8 +202,17 @@ class ControlFlowGraph(object):
             live_in, live_out = self.compute_liveness()
             _continue = False
 
+            # TODO XXX O(N^2) algorithm
+
+            # Walk through the program backwards, and try inlining line A into
+            # line B according to the above logic.
+            #
+            # In most cases, A is line i and B is line i+1. However, when we
+            # successfully inline A into B, we want to consider inlining the
+            # next A' into B, not into A.  In these cases we save the current B
+            # in the inlined_into variable and then reuse it as the inline
+            # candidate the next round.
             inlined_into = None
-            # XXX O(N^2) algorithm
             for nodeB, nodeA in sliding_window(reversed(self.sorted_vertices)):
                 if inlined_into is not None:
                     nodeB = inlined_into
