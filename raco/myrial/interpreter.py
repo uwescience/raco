@@ -414,9 +414,9 @@ class StatementProcessor(object):
 
         return self.__get_physical_plan_for__(target_phys_algebra, **kwargs)
 
-    def get_json(self, multiway_join=False, **kwargs):
+    def get_json(self, **kwargs):
         lp = self.get_logical_plan()
-        pps = self.get_physical_plan(multiway_join, **kwargs)
+        pps = self.get_physical_plan(**kwargs)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
         return compile_to_json(str(lp), pps, pps, "myrial")

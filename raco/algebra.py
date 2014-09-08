@@ -578,6 +578,16 @@ class Apply(UnaryOperator):
                           for name, ex in self.emitters])
         return "%s(%s)" % (self.opname(), estrs)
 
+    def get_names(self):
+        """Get the names of the columns emitted by this Apply."""
+        return [e[0] for e in self.emitters]
+
+    def get_unnamed_emit_exprs(self):
+        """Get the emit expressions for this Apply after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
+        emits = [e[1] for e in self.emitters]
+        return expression.ensure_unnamed(emits, self.input)
+
     def __repr__(self):
         return "{op}({emt!r}, {inp!r})".format(op=self.opname(),
                                                emt=self.emitters,
@@ -743,6 +753,11 @@ class Select(UnaryOperator):
         """scheme of the result."""
         return self.input.scheme()
 
+    def get_unnamed_condition(self):
+        """Get the filter condition for this Select after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
+        return expression.ensure_unnamed(self.condition, self.input)
+
 
 class Project(UnaryOperator):
     """Logical projection operator"""
@@ -840,6 +855,22 @@ class GroupBy(UnaryOperator):
     def column_list(self):
         return self.grouping_list + self.aggregate_list
 
+    def get_unnamed_grouping_list(self):
+        """Get the grouping list for this GroupBy after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
+        return expression.ensure_unnamed(self.grouping_list, self.input)
+
+    def get_unnamed_aggregate_list(self):
+        """Get the aggregate list for this GroupBy after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
+        return expression.ensure_unnamed(self.aggregate_list, self.input)
+
+    def get_unnamed_update_exprs(self):
+        """Get the update list for this GroupBy after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
+        ups = [expr for _, expr in self.updaters]
+        return expression.ensure_unnamed(ups, self.input)
+
     def scheme(self):
         """scheme of the result."""
         in_scheme = self.input.scheme()
@@ -921,9 +952,12 @@ class ProjectingJoin(Join):
                 assert pos < len(right_sch)
                 return right_sch.getName(pos), right_sch.getType(pos)
 
-        combined = self.left.scheme() + self.right.scheme()
+        left_sch = self.left.scheme()
+        right_sch = self.right.scheme()
+
+        combined = left_sch + right_sch
         return scheme.Scheme([get_col(p.get_position(combined),
-                              self.left.scheme(), self.right.scheme())
+                              left_sch, right_sch)
                               for p in self.output_columns])
 
     def add_equijoin_condition(self, col0, col1):
@@ -1385,9 +1419,16 @@ def inline_operator(dest_op, var, target_op):
     :param var: The variable name (String) to replace.
     :param target_op: The operation to replace.
     """
+    # Wrap the bool in a list so we pass a pointer that does not change
+    # (the list) into the function.
+    has_inlined = [False]
+
     def rewrite_node(node):
         if isinstance(node, ScanTemp) and node.name == var:
-            return copy.deepcopy(target_op)
+            if has_inlined[0]:
+                return copy.deepcopy(target_op)
+            has_inlined[0] = True
+            return target_op
         else:
             return node.apply(rewrite_node)
 

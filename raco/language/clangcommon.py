@@ -162,7 +162,7 @@ class CSelect(algebra.Select):
     }
     """
 
-    condition_as_unnamed = util.to_unnamed_recursive(self.condition, self.scheme())
+    condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
 
     # tag the attributes with references
     # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
@@ -227,7 +227,7 @@ class CApply(algebra.Apply):
         src_label, src_expr = src_label_expr
 
         # make sure to resolve attribute positions using input schema
-        src_expr_unnamed = util.to_unnamed_recursive(src_expr, self.input.scheme())
+        src_expr_unnamed = expression.ensure_unnamed(src_expr, self.input)
 
         # tag the attributes with references
         # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
