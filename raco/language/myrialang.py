@@ -1129,22 +1129,6 @@ class DistributedGroupBy(rules.Rule):
         return algebra.Apply(gmappings + fmappings, op_out)
 
 
-class ProjectToDistinctColumnSelect(rules.Rule):
-    def fire(self, expr):
-        # If not a Project, who cares?
-        if not isinstance(expr, algebra.Project):
-            return expr
-
-        mappings = [(None, x) for x in expr.columnlist]
-        colSelect = algebra.Apply(mappings, expr.input)
-        # TODO(dhalperi) the distinct logic is broken because we don't have a
-        # locality-aware optimizer. For now, don't insert Distinct for a
-        # logical project. This is BROKEN.
-        # distinct = algebra.Distinct(colSelect)
-        # return distinct
-        return colSelect
-
-
 class MergeToNaryJoin(rules.Rule):
     """Merge consecutive binary join into a single multiway join
     Note: this code assumes that the binary joins form a left deep tree
@@ -1249,7 +1233,6 @@ distributed_group_by = [
     # so we must run SimpleGroupBy after it. TODO no one likes this.
     DistributedGroupBy(), rules.SimpleGroupBy(),
     rules.CountToCountall(),   # TODO remove when we have NULL support.
-    ProjectToDistinctColumnSelect()
 ]
 
 # 8. Myriafy logical operators
@@ -1306,6 +1289,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
         rules.remove_trivial_sequences,
         [rules.SimpleGroupBy(),
          rules.CountToCountall()],  # TODO remove when we have NULL support.
+            rules.ProjectToDistinctColumnSelect(),
         rules.push_select,
         rules.push_project,
         rules.push_apply,

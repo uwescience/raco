@@ -473,6 +473,23 @@ class PushApply(Rule):
         return 'Push Apply into Apply, ProjectingJoin'
 
 
+class ProjectToDistinctColumnSelect(Rule):
+    def fire(self, expr):
+        # If not a Project, who cares?
+        if not isinstance(expr, algebra.Project):
+            return expr
+
+        mappings = [(None, x) for x in expr.columnlist]
+        col_select = algebra.Apply(mappings, expr.input)
+        # TODO the Raco Datalog users currently want the project to really
+        # be a column select. This is BROKEN, but it is what they want.
+        # return algebra.Distinct(col_select)
+        return col_select
+
+    def __str__(self):
+        return 'Project => Distinct, Column select'
+
+
 class RemoveUnusedColumns(Rule):
     """For operators that construct new tuples (e.g., GroupBy or Join), we are
     guaranteed that any columns from an input tuple that are ignored (neither
