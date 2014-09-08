@@ -1231,8 +1231,10 @@ left_deep_tree_shuffle_logic = [
 distributed_group_by = [
     # DistributedGroupBy may introduce a complex GroupBy,
     # so we must run SimpleGroupBy after it. TODO no one likes this.
-    DistributedGroupBy(), rules.SimpleGroupBy(),
-    rules.CountToCountall(),   # TODO remove when we have NULL support.
+    DistributedGroupBy(),
+    rules.SimpleGroupBy(),
+    rules.CountToCountall(),   # TODO revisit when we have NULL support.
+    rules.EmptyGroupByToDistinct(),
 ]
 
 # 8. Myriafy logical operators
@@ -1287,9 +1289,12 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
     rule_grps_sequence = [
         rules.remove_trivial_sequences,
-        [rules.SimpleGroupBy(),
-         rules.CountToCountall()],  # TODO remove when we have NULL support.
+        [
+            rules.SimpleGroupBy(),
+            rules.CountToCountall(),  # TODO revisit when we have NULL support.
             rules.ProjectToDistinctColumnSelect(),
+            rules.DistinctToGroupBy(),
+        ],
         rules.push_select,
         rules.push_project,
         rules.push_apply,
@@ -1321,7 +1326,12 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
 
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
-            rules.simple_group_by,
+            [
+                rules.SimpleGroupBy(),
+                # TODO revisit when we have NULL support.
+                rules.CountToCountall(),
+                rules.DistinctToGroupBy(),
+            ],
             rules.push_select,
             rules.push_project,
             merge_to_nary_join,

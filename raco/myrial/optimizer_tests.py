@@ -429,11 +429,13 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         """
 
         pp = self.get_physical_plan(query)
-        self.assertEquals(self.get_count(pp, Distinct), 1)
+        self.assertEquals(self.get_count(pp, Distinct), 2)  # distributed
+        first = True
         for op in pp.walk():
             if isinstance(op, Distinct):
                 self.assertIsInstance(op.input, MyriaShuffleConsumer)
                 self.assertIsInstance(op.input.input, MyriaShuffleProducer)
+                break
 
     def test_shuffle_before_difference(self):
         query = """
@@ -568,7 +570,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         pp = self.logical_to_physical(copy.deepcopy(lp))
         self.assertEquals(self.get_count(pp, GroupBy), 0)
-        self.assertEquals(self.get_count(pp, Distinct), 1)
+        self.assertEquals(self.get_count(pp, Distinct), 2)  # distributed
 
         self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
 
