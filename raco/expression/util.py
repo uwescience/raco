@@ -2,8 +2,9 @@
 Utility functions for use in Raco expressions
 """
 
-from .expression import (BinaryOperator, AttributeRef, NamedAttributeRef,
-                         UnnamedAttributeRef, NamedStateAttributeRef)
+from .expression import (Expression, BinaryOperator, AttributeRef,
+                         NamedAttributeRef, UnnamedAttributeRef,
+                         NamedStateAttributeRef)
 from .aggregate import BuiltinAggregateExpression, AggregateExpression
 
 import copy
@@ -17,6 +18,30 @@ class NestedAggregateException(Exception):
 
     def __str__(self):
         return "Nested aggregate expression on line %d" % self.lineno
+
+
+def ensure_unnamed(exprs, op):
+    """Returns the expressions in the supplied exprs, ensuring that all
+    attribute references are in the unnamed perspective. The expressions are
+    resolved against the scheme of the supplied operator, but only if
+    necessary.
+
+    :param exprs: an expression or sequence of expressions.
+    :param op: the operator against whose scheme non-unnamed references will be
+               resolved. Scheme is only computed if needed.
+    """
+    if isinstance(exprs, Expression):
+        # exprs is just a single expression
+        if only_unnamed_refs(exprs):
+            return exprs
+        return to_unnamed_recursive(exprs, op.scheme())
+
+    else:
+        # exprs is a sequence of expressions.
+        if all(only_unnamed_refs(e) for e in exprs):
+            return exprs
+        op_scheme = op.scheme()
+        return [to_unnamed_recursive(e, op_scheme) for e in exprs]
 
 
 def toUnnamed(ref, scheme):
@@ -52,9 +77,9 @@ def to_unnamed_recursive(sexpr, scheme):
 
 def only_unnamed_refs(sexpr):
     """Returns True if all AttributeRefs in the expression are unnamed."""
-    return not any((isinstance(e, AttributeRef)
-                    and not isinstance(e, UnnamedAttributeRef))
-                   for e in sexpr.walk())
+    return all(isinstance(e, UnnamedAttributeRef)
+               for e in sexpr.walk()
+               if isinstance(e, AttributeRef))
 
 
 def all_classes():

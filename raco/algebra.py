@@ -579,15 +579,14 @@ class Apply(UnaryOperator):
         return "%s(%s)" % (self.opname(), estrs)
 
     def get_names(self):
+        """Get the names of the columns emitted by this Apply."""
         return [e[0] for e in self.emitters]
 
     def get_unnamed_emit_exprs(self):
+        """Get the emit expressions for this Apply after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
         emits = [e[1] for e in self.emitters]
-        if all(expression.only_unnamed_refs(e) for e in emits):
-            return emits
-        input_scheme = self.input.scheme()
-        return [expression.to_unnamed_recursive(e, input_scheme)
-                for e in emits]
+        return expression.ensure_unnamed(emits, self.input)
 
     def __repr__(self):
         return "{op}({emt!r}, {inp!r})".format(op=self.opname(),
@@ -755,11 +754,9 @@ class Select(UnaryOperator):
         return self.input.scheme()
 
     def get_unnamed_condition(self):
-        if expression.only_unnamed_refs(self.condition):
-            return self.condition
-        input_scheme = self.input.scheme()
-        return expression.to_unnamed_recursive(
-            self.condition, input_scheme)
+        """Get the filter condition for this Select after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
+        return expression.ensure_unnamed(self.condition, self.input)
 
 
 class Project(UnaryOperator):
@@ -859,26 +856,20 @@ class GroupBy(UnaryOperator):
         return self.grouping_list + self.aggregate_list
 
     def get_unnamed_grouping_list(self):
-        if all(expression.only_unnamed_refs(g) for g in self.grouping_list):
-            return self.grouping_list
-        input_scheme = self.input.scheme()
-        return [expression.to_unnamed_recursive(g, input_scheme)
-                for g in self.grouping_list]
+        """Get the grouping list for this GroupBy after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
+        return expression.ensure_unnamed(self.grouping_list, self.input)
 
     def get_unnamed_aggregate_list(self):
-        if all(expression.only_unnamed_refs(a) for a in self.aggregate_list):
-            return self.aggregate_list
-        input_scheme = self.input.scheme()
-        return [expression.to_unnamed_recursive(a, input_scheme)
-                for a in self.aggregate_list]
+        """Get the aggregate list for this GroupBy after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
+        return expression.ensure_unnamed(self.aggregate_list, self.input)
 
     def get_unnamed_update_exprs(self):
+        """Get the update list for this GroupBy after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
         ups = [expr for _, expr in self.updaters]
-        if all(expression.only_unnamed_refs(u) for u in ups):
-            return ups
-        input_scheme = self.input.scheme()
-        return [expression.to_unnamed_recursive(u, input_scheme)
-                for u in ups]
+        return expression.ensure_unnamed(ups, self.input)
 
     def scheme(self):
         """scheme of the result."""
