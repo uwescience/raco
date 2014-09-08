@@ -901,7 +901,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         if src.childtag == "right":
 
             right_template = ct("""
-            %(hashname)s.insert_async<&%(pipeline_sync)s>(%(keyname)s.get(%(keypos)s), %(keyname)s);
+            %(hashname)s.insert_async<&%(pipeline_sync)s>(\
+            %(keyname)s.get(%(keypos)s), %(keyname)s);
             """)
 
             hashname = self._hashname
