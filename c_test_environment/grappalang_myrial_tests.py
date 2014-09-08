@@ -31,18 +31,20 @@ def raise_skip_test(query=None):
 
 
 class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
-    def check(self, query, name):
+    def check(self, query, name, **kwargs):
         gname = "grappa_{name}".format(name=name)
 
-        plan = self.get_physical_plan(query, target_alg=GrappaAlgebra())
+        kwargs['target_alg'] = GrappaAlgebra()
+        plan = self.get_physical_plan(query, **kwargs)
         physical_dot = viz.operator_to_dot(plan)
-        with open("{gname}.physical.dot".format(gname=gname), 'w') as dwf:
-            dwf.write(physical_dot)
-
-        # generate code in the target language
-        code = compile(plan)
 
         with Chdir("c_test_environment") as d:
+            with open("{gname}.physical.dot".format(gname=gname), 'w') as dwf:
+                dwf.write(physical_dot)
+
+            # generate code in the target language
+            code = compile(plan)
+
             fname = "{gname}.cpp".format(gname=gname)
             if os.path.exists(fname):
                 os.remove(fname)
