@@ -166,6 +166,43 @@ class SimpleGroupBy(Rule):
         return expr
 
 
+class DistinctToGroupBy(Rule):
+    """Turns a distinct into an empty GroupBy"""
+    def fire(self, expr):
+        if isinstance(expr, algebra.Distinct):
+            in_scheme = expr.scheme()
+            grps = [UnnamedAttributeRef(i) for i in range(len(in_scheme))]
+            return algebra.GroupBy(input=expr.input, grouping_list=grps)
+
+        return expr
+
+    def __str__(self):
+        return "Distinct => GroupBy"
+
+
+class EmptyGroupByToDistinct(Rule):
+    """Turns a GroupBy with no aggregates into a Distinct"""
+    def fire(self, expr):
+        if isinstance(expr, algebra.GroupBy) and len(expr.aggregate_list) == 0:
+            # We can turn an empty GroupBy into a Distinct. However,
+            # we must ensure that the GroupBy does not do any column
+            # re-ordering.
+            group_cols = expr.get_unnamed_grouping_list()
+            if all(e.position == i for i, e in enumerate(group_cols)):
+                # No reordering is done
+                return algebra.Distinct(input=expr.input)
+
+            # Some reordering is done, so shim in the Apply to mimic it.
+            reorder_cols = algebra.Apply(
+                emitters=[(None, e) for e in group_cols], input=expr.input)
+            return algebra.Distinct(input=reorder_cols)
+
+        return expr
+
+    def __str__(self):
+        return "Distinct => GroupBy"
+
+
 class CountToCountall(Rule):
     """Since Raco does not support NULLs at the moment, it is safe to always
     map COUNT to COUNTALL."""
@@ -419,17 +456,6 @@ class PushApply(Rule):
             num_grps = len(child.grouping_list)
             accessed_aggs = [i for i in accessed if i >= num_grps]
             if len(accessed_aggs) == len(child.aggregate_list):
-                return op
-
-            if len(accessed_aggs) == 0:
-                # The aggregates are not used. The group_by should really just
-                # be a Distinct. Before we slide the Distinct is, prepend
-                # an Apply to ensure that the input to the Distinct has exactly
-                # the right columns in the right order.
-                pre_distinct = [(None, g) for g in child.grouping_list]
-                keep_only_grp_cols = algebra.Apply(emitters=pre_distinct,
-                                                   input=child.input)
-                op.input = algebra.Distinct(input=keep_only_grp_cols)
                 return op
 
             unused_map = {i: j + num_grps for j, i in enumerate(accessed_aggs)}
