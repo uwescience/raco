@@ -383,9 +383,15 @@ class CGroupBy(algebra.GroupBy, CCOperator):
                 key2pos = self.grouping_list[1].get_position(
                     self.input.scheme())
 
-        assert not isinstance(self.aggregate_list[0], aggregate.COUNTALL),\
-            """clang does not currently support COUNT(*), \
-            use COUNT(<attr>)"""
+        if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
+            # no value needed for Zero-input aggregate,
+            # but just provide the first column
+            valpos = 0
+        elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
+            # get value positions from aggregated attributes
+            valpos = self.aggregate_list[0].input.get_position(self.scheme())
+        else:
+            assert False, "only support Unary or Zeroary aggregates"
 
         # get value positions from aggregated attributes
         valpos = self.aggregate_list[0].input.get_position(self.scheme())

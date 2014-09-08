@@ -803,12 +803,15 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         tuple_name = inputTuple.name
         pipeline_sync = state.getPipelineProperty("global_syncname")
 
-        assert not isinstance(self.aggregate_list[0], aggregate.COUNTALL),\
-            """grappalang does not currently support COUNT(*), \
-            use COUNT(<attr>)"""
-
-        # get value positions from aggregated attributes
-        valpos = self.aggregate_list[0].input.get_position(self.scheme())
+        if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
+            # no value needed for Zero-input aggregate,
+            # but just provide the first column
+            valpos = 0
+        elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
+            # get value positions from aggregated attributes
+            valpos = self.aggregate_list[0].input.get_position(self.scheme())
+        else:
+            assert False, "only support Unary or Zeroary aggregates"
 
         op = self.aggregate_list[0].__class__.__name__
 
