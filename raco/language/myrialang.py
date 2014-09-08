@@ -730,18 +730,6 @@ class BreakBroadcast(rules.Rule):
         return consumer
 
 
-class ShuffleBeforeDistinct(rules.Rule):
-    def fire(self, exp):
-        if not isinstance(exp, algebra.Distinct):
-            return exp
-        if isinstance(exp.input, algebra.Shuffle):
-            return exp
-        cols = [expression.UnnamedAttributeRef(i)
-                for i in range(len(exp.scheme()))]
-        exp.input = algebra.Shuffle(child=exp.input, columnlist=cols)
-        return exp
-
-
 def check_shuffle_xor(exp):
     """Enforce that neither or both inputs to a binary op are shuffled.
 
@@ -1220,7 +1208,6 @@ class GetCardinalities(rules.Rule):
 
 # 6. shuffle logics, hyper_cube_shuffle_logic is only used in HCAlgebra
 left_deep_tree_shuffle_logic = [
-    ShuffleBeforeDistinct(),
     ShuffleBeforeSetop(),
     ShuffleBeforeJoin(),
     BroadcastBeforeCross()
