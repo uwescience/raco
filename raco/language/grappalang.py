@@ -902,7 +902,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
             right_template = ct("""
             %(hashname)s.insert_async<&%(pipeline_sync)s>(%(keyname)s.get(%(keypos)s), %(keyname)s);
-            """)
+            """)  # noqa
 
             hashname = self._hashname
             keyname = t.name

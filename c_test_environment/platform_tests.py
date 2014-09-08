@@ -444,12 +444,12 @@ class MyriaLPlatformTests(object):
         T = scan(%(T2)s);
         T1 = T;
         T2 = T;
-        MM = [from T1, T2 
+        MM = [from T1, T2
               where T1.$1 = T2.$0
               emit T1.$0 as src, T2.$1 as dst, count(T1.$0)];
         STORE(MM, OUTPUT);
         """, "matrix_mult")
-    
+
     def test_two_join_switch(self):
         self.check_sub_tables("""
         R3 = SCAN(%(R3)s);
@@ -460,3 +460,40 @@ class MyriaLPlatformTests(object):
         P = [FROM J2 WHERE $0>1 and $3>2 and $6>3 EMIT $0, $8];
         STORE(P, OUTPUT);
         """, "two_join_switch", SwapJoinSides=True)
+
+    def test_q2(self):
+        """
+        A test resembling sp2bench Q2
+        """
+
+        self.check_sub_tables("""
+            S = SCAN(R3);
+            P = [FROM S T1,
+            S T2,
+            S T3,
+            S T4,
+            S T5,
+            S T6,
+            S T7,
+            S T8,
+            S T9
+WHERE T1.a=T2.a
+and T2.a=T3.a
+and T3.a=T4.a
+and T4.a=T5.a
+and T5.a=T6.a
+and T6.a=T7.a
+and T7.a=T8.a
+and T8.a=T9.a
+and T1.b = 1 and T1.c > 5
+and T2.b = 1
+and T3.b = 1
+and T4.b = 1
+and T5.b = 1
+and T6.b = 1
+and T7.b = 1
+and T8.b = 1
+and T9.b = 1
+EMIT
+T1.a as inproc, T2.c as author, T3.c as booktitle, T4.c as title, T5.c as proc, T6.c as ee, T7.c as page, T8.c as url, T9.c as yr];
+STORE(P,OUTPUT);""", "q2")

@@ -105,8 +105,13 @@ class ControlFlowGraph(object):
         live_out = {i: set() for i in self.graph}
 
         while True:
-            live_in_prev = copy.deepcopy(live_in)
-            live_out_prev = copy.deepcopy(live_out)
+            # Create a copy of live_in, live_out that we will compare against
+            # to detect loop termination. This is shallower than a full deep
+            # copy, but we need to copy the value sets in this dictionary as
+            # they are mutated in the loop below. Make the sets frozen to
+            # ensure they are really immutable.
+            live_in_prev = {i: frozenset(s) for i, s in live_in.items()}
+            live_out_prev = {i: frozenset(s) for i, s in live_out.items()}
 
             for i in self.graph:
                 # live out variables that are not defined are live-in
@@ -197,8 +202,22 @@ class ControlFlowGraph(object):
             live_in, live_out = self.compute_liveness()
             _continue = False
 
-            # XXX O(N^2) algorithm
-            for nodeA, nodeB in sliding_window(self.sorted_vertices):
+            # TODO XXX O(N^2) algorithm
+
+            # Walk through the program backwards, and try inlining line A into
+            # line B according to the above logic.
+            #
+            # In most cases, A is line i and B is line i+1. However, when we
+            # successfully inline A into B, we want to consider inlining the
+            # next A' into B, not into A.  In these cases we save the current B
+            # in the inlined_into variable and then reuse it as the inline
+            # candidate the next round.
+            inlined_into = None
+            for nodeB, nodeA in sliding_window(reversed(self.sorted_vertices)):
+                if inlined_into is not None:
+                    nodeB = inlined_into
+                    inlined_into = None
+
                 if self.graph.in_degree(nodeB) == 2:
                     continue  # start of do/while loop
 
@@ -215,7 +234,7 @@ class ControlFlowGraph(object):
 
                 self.__inline_node(nodeB, nodeA)
                 _continue = True
-                break
+                inlined_into = nodeB
 
     def dead_code_elimination(self):
         """Dead code elimination.
