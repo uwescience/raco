@@ -702,7 +702,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         # now that everything is aggregated, produce the tuples
         assert len(self.column_list()) == 1 \
             or isinstance(self.column_list()[0],
-                          expression.UnnamedAttributeRef), \
+                          expression.AttributeRef), \
             """assumes first column is the key and second is aggregate result
             column_list: %s""" % self.column_list()
 
