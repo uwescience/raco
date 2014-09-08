@@ -105,6 +105,11 @@ class ControlFlowGraph(object):
         live_out = {i: set() for i in self.graph}
 
         while True:
+            # Create a copy of live_in, live_out that we will compare against
+            # to detect loop termination. This is shallower than a full deep
+            # copy, but we need to copy the value sets in this dictionary as
+            # they are mutated in the loop below. Make the sets frozen to
+            # ensure they are really immutable.
             live_in_prev = {i: frozenset(s) for i, s in live_in.items()}
             live_out_prev = {i: frozenset(s) for i, s in live_out.items()}
 
