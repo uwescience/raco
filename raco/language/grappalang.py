@@ -901,7 +901,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         if src.childtag == "right":
 
             right_template = ct("""
-            %(hashname)s.insert(%(keyname)s.get(%(keypos)s), %(keyname)s);
+            %(hashname)s.insert_async<&%(pipeline_sync)s>(%(keyname)s.get(%(keypos)s), %(keyname)s);
             """)
 
             hashname = self._hashname
@@ -913,6 +913,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             if self.rightTupleTypeRef is not None:
                 state.resolveSymbol(self.rightTupleTypeRef,
                                     self.rightTupleTypename)
+
+            pipeline_sync = state.getPipelineProperty('global_syncname')
 
             # materialization point
             code = right_template % locals()
