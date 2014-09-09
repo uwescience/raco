@@ -308,11 +308,13 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         hash_declr = declr_template % locals()
         state.addDeclarations([hash_declr])
 
+        my_sch = self.scheme()
+
         _LOG.debug("aggregates: %s", self.aggregate_list)
         _LOG.debug("columns: %s", self.column_list())
         _LOG.debug("groupings: %s", self.grouping_list)
-        _LOG.debug("groupby scheme: %s", self.scheme())
-        _LOG.debug("groupby scheme[0] type: %s", type(self.scheme()[0]))
+        _LOG.debug("groupby scheme: %s", my_sch)
+        _LOG.debug("groupby scheme[0] type: %s", type(my_sch[0]))
 
         self.input.produce(state)
 
@@ -347,7 +349,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             }
             """
 
-        output_tuple = CStagedTupleRef(gensym(), self.scheme())
+        output_tuple = CStagedTupleRef(gensym(), my_sch)
         output_tuple_name = output_tuple.name
         output_tuple_type = output_tuple.getTupleTypename()
         state.addDeclarations([output_tuple.generateDefinition()])
@@ -377,11 +379,13 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
         # make key from grouped attributes
         if self.useMap:
-            key1pos = self.grouping_list[0].get_position(self.input.scheme())
+            inp_sch = self.input.scheme()
+
+            key1pos = self.grouping_list[0].get_position(inp_sch)
 
             if len(self.grouping_list) == 2:
                 key2pos = self.grouping_list[1].get_position(
-                    self.input.scheme())
+                    inp_sch)
 
         if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
             # no value needed for Zero-input aggregate,
@@ -392,9 +396,6 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             valpos = self.aggregate_list[0].input.get_position(self.scheme())
         else:
             assert False, "only support Unary or Zeroary aggregates"
-
-        # get value positions from aggregated attributes
-        valpos = self.aggregate_list[0].input.get_position(self.scheme())
 
         op = self.aggregate_list[0].__class__.__name__
 
@@ -417,20 +418,22 @@ class CHashJoin(algebra.Join, CCOperator):
             a single attribute: %s" % self.condition
             raise ValueError(msg)
 
+        left_sch = self.left.scheme()
+
         # find the attribute that corresponds to the right child
         self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(self.left.scheme())
+            self.condition.right.position >= len(left_sch)
         self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(self.left.scheme())
+            self.condition.left.position >= len(left_sch)
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
         # find the attribute that corresponds to the right child
         if self.rightCondIsRightAttr:
             self.right_keypos = \
-                self.condition.right.position - len(self.left.scheme())
+                self.condition.right.position - len(left_sch)
         else:
             self.right_keypos = \
-                self.condition.left.position - len(self.left.scheme())
+                self.condition.left.position - len(left_sch)
 
         # find the attribute that corresponds to the left child
         if self.rightCondIsRightAttr:

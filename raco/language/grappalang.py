@@ -322,6 +322,10 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
                     DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s;
       DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s %(hashname)s;
       """)
+
+        my_sch = self.scheme()
+        left_sch = self.left.scheme()
+
         # declaration of hash map
         self._hashname = self.__getHashName__()
         hashname = self._hashname
@@ -333,15 +337,15 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
 
         state.addDeclarationsUnresolved([hashdeclr])
 
-        self.outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
+        self.outTuple = GrappaStagedTupleRef(gensym(), my_sch)
         out_tuple_type_def = self.outTuple.generateDefinition()
         state.addDeclarations([out_tuple_type_def])
 
         # find the attribute that corresponds to the right child
         self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(self.left.scheme())
+            self.condition.right.position >= len(left_sch)
         self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(self.left.scheme())
+            self.condition.left.position >= len(left_sch)
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
         self.right.childtag = "right"
@@ -388,6 +392,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         global_syncname = state.getPipelineProperty('global_syncname')
 
         if src.childtag == "right":
+            left_sch = self.left.scheme()
 
             # save for later
             self.right_in_tuple_type = t.getTupleTypename()
@@ -395,10 +400,10 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
 
             if self.rightCondIsRightAttr:
                 keypos = self.condition.right.position \
-                    - len(self.left.scheme())
+                    - len(left_sch)
             else:
                 keypos = self.condition.left.position \
-                    - len(self.left.scheme())
+                    - len(left_sch)
 
             inner_plan_compiled = self.parent.consume(outTuple, self, state)
 
@@ -462,6 +467,8 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         assert False, "type error {left,right}"
 
     def produce(self, state):
+        left_sch = self.left.scheme()
+
         self.syncnames = []
         self.symBase = self.__genBaseName__()
 
@@ -471,18 +478,18 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
         # find the attribute that corresponds to the right child
         self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(self.left.scheme())
+            self.condition.right.position >= len(left_sch)
         self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(self.left.scheme())
+            self.condition.left.position >= len(left_sch)
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
         # find right key position
         if self.rightCondIsRightAttr:
             self.right_keypos = self.condition.right.position \
-                - len(self.left.scheme())
+                - len(left_sch)
         else:
             self.right_keypos = self.condition.left.position \
-                - len(self.left.scheme())
+                - len(left_sch)
 
         # find left key position
         if self.rightCondIsRightAttr:
@@ -768,6 +775,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         state.addPipeline(code)
 
     def consume(self, inputTuple, fromOp, state):
+        my_sch = self.scheme()
+
         if self.useKey:
             if len(self.grouping_list) == 1:
                 materialize_template = ct("""%(hashname)s->update\
@@ -777,7 +786,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 %(tuple_name)s.get(%(valpos)s));
           """)
                 # make key from grouped attributes
-                keypos = self.grouping_list[0].get_position(self.scheme())
+                keypos = self.grouping_list[0].get_position(my_sch)
 
             elif len(self.grouping_list) == 2:
                 materialize_template = ct("""%(hashname)s->update\
@@ -788,9 +797,9 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 %(tuple_name)s.get(%(key2pos)s)),\
                 %(tuple_name)s.get(%(valpos)s));
           """)
-                # make key from grouped attributes
-                key1pos = self.grouping_list[0].get_position(self.scheme())
-                key2pos = self.grouping_list[1].get_position(self.scheme())
+                # make key from grouped attribute
+                key1pos = self.grouping_list[0].get_position(my_sch)
+                key2pos = self.grouping_list[1].get_position(my_sch)
         else:
             # TODO: use optimization for few keys
             # right now it uses key=0
@@ -809,7 +818,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             valpos = 0
         elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
             # get value positions from aggregated attributes
-            valpos = self.aggregate_list[0].input.get_position(self.scheme())
+            valpos = self.aggregate_list[0].input.get_position(my_sch)
         else:
             assert False, "only support Unary or Zeroary aggregates"
 
@@ -843,22 +852,25 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         self.right.childtag = "right"
         self.rightTupleTypeRef = None  # may remain None if CSE succeeds
 
+        left_sch = self.left.scheme()
+        right_sch = self.right.scheme()
+
         # find the attribute that corresponds to the right child
         self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(self.left.scheme())
+            self.condition.right.position >= len(left_sch)
         self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(self.left.scheme())
+            self.condition.left.position >= len(left_sch)
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr, \
             "op: %s,\ncondition: %s, left.scheme: %s, right.scheme: %s" \
-            % (self, self.condition, self.left.scheme(), self.right.scheme())
+            % (self, self.condition, left_sch, right_sch)
 
         # right key position
         if self.rightCondIsRightAttr:
             self.right_keypos = self.condition.right.position \
-                - len(self.left.scheme())
+                - len(left_sch)
         else:
             self.right_keypos = self.condition.left.position \
-                - len(self.left.scheme())
+                - len(left_sch)
 
         # left key position
         if self.rightCondIsRightAttr:
@@ -1050,13 +1062,15 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
 
 class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
     def __file_code__(self, t, state):
+        my_sch = self.scheme()
+
         filename = (str(self.relation_key).split(":")[2])
         outputnamedecl = """\
         DEFINE_string(output_file, "%s.bin", "Output File");""" % filename
         state.addDeclarations([outputnamedecl])
-        names = [x.encode('UTF8') for x in self.scheme().get_names()]
+        names = [x.encode('UTF8') for x in my_sch.get_names()]
         schemefile = 'writeSchema("%s", "%s", "%s");\n' % \
-                     (names, self.scheme().get_types(), filename)
+                     (names, my_sch.get_types(), filename)
         state.addPreCode(schemefile)
         resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % filename
         state.addPipelineFlushCode(resultfile)
