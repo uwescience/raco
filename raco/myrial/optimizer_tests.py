@@ -596,9 +596,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
 
-    def test_non_decomposable_uda(self):
-        """Test that optimization preserves the value of a non-decomposable UDA
-        """
+    def __get_uda_logical_plan(self):
         scan = Scan(self.x_key, self.x_scheme)
 
         init_ex = expression.NumericLiteral(0)
@@ -609,7 +607,12 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         statemods = [StateVar("value", init_ex, update_ex)]
 
         log_gb = GroupBy([AttIndex(0)], [emit_ex], scan, statemods)
-        lp = StoreTemp('OUTPUT', log_gb)
+        return StoreTemp('OUTPUT', log_gb)
+
+    def test_non_decomposable_uda(self):
+        """Test that optimization preserves the value of a non-decomposable UDA
+        """
+        lp = self.__get_uda_logical_plan()
         pp = self.logical_to_physical(copy.deepcopy(lp))
 
         self.db.evaluate(lp)
