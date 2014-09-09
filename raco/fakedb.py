@@ -91,6 +91,9 @@ class FakeDatabase(Catalog):
     def get_temp_table(self, key):
         return self.temp_tables[key]
 
+    def delete_temp_table(self, key):
+        del self.temp_tables[key]
+
     def dump_all(self):
         for key, val in self.tables.iteritems():
             bag = val[0]
