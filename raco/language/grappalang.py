@@ -1034,10 +1034,10 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
     {
     if (FLAGS_bin) {
     %(resultsym)s = readTuplesUnordered<%%(result_type)s>( \
-    FLAGS_input_file + ".bin" );
+    FLAGS_input_file_%(name)s + ".bin" );
     } else {
     %(resultsym)s.data = readTuples<%%(result_type)s>( \
-    FLAGS_input_file, FLAGS_nt);
+    FLAGS_input_file_%(name)s, FLAGS_nt);
     %(resultsym)s.numtuples = FLAGS_nt;
     auto l_%(resultsym)s = %(resultsym)s;
     on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
@@ -1055,7 +1055,7 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
 
     def __get_relation_decl_template__(self, name):
         return """
-            DEFINE_string(input_file, "%(name)s", "Input file");
+            DEFINE_string(input_file_%(name)s, "%(name)s", "Input file");
             Relation<%(tuple_type)s> %(resultsym)s;
             """
 
