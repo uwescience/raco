@@ -4,6 +4,7 @@ Aggregate expressions for use in Raco
 
 from .expression import *
 from .function import UnaryFunction, SQRT, POW
+from .statevar import *
 from raco import types
 from abc import abstractmethod
 import math
@@ -37,8 +38,8 @@ class DecomposableUdaState(object):
 
         assert all(isinstance(a, UdaAggregateExpression) for a in local_aggregates)  # noqa
         assert all(isinstance(a, UdaAggregateExpression) for a in remote_aggregates)  # noqa
-#        assert all(isinstance(s, StateVar) for s in local_statemods)
-#        assert all(isinstance(s, StateVar) for s in remote_statemods)
+        assert all(isinstance(s, StateVar) for s in local_statemods)
+        assert all(isinstance(s, StateVar) for s in remote_statemods)
 
         self.local_aggregates = local_aggregates
         self.local_statemods = local_statemods
