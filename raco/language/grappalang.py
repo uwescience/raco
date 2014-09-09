@@ -4,7 +4,8 @@
 
 from raco import algebra
 from raco import expression
-from raco.language import Language
+from raco.expression import aggregate
+from raco.language import Language, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, ct
@@ -321,6 +322,10 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
                     DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s;
       DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s %(hashname)s;
       """)
+
+        my_sch = self.scheme()
+        left_sch = self.left.scheme()
+
         # declaration of hash map
         self._hashname = self.__getHashName__()
         hashname = self._hashname
@@ -332,15 +337,15 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
 
         state.addDeclarationsUnresolved([hashdeclr])
 
-        self.outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
+        self.outTuple = GrappaStagedTupleRef(gensym(), my_sch)
         out_tuple_type_def = self.outTuple.generateDefinition()
         state.addDeclarations([out_tuple_type_def])
 
         # find the attribute that corresponds to the right child
         self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(self.left.scheme())
+            self.condition.right.position >= len(left_sch)
         self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(self.left.scheme())
+            self.condition.left.position >= len(left_sch)
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
         self.right.childtag = "right"
@@ -387,6 +392,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         global_syncname = state.getPipelineProperty('global_syncname')
 
         if src.childtag == "right":
+            left_sch = self.left.scheme()
 
             # save for later
             self.right_in_tuple_type = t.getTupleTypename()
@@ -394,10 +400,10 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
 
             if self.rightCondIsRightAttr:
                 keypos = self.condition.right.position \
-                    - len(self.left.scheme())
+                    - len(left_sch)
             else:
                 keypos = self.condition.left.position \
-                    - len(self.left.scheme())
+                    - len(left_sch)
 
             inner_plan_compiled = self.parent.consume(outTuple, self, state)
 
@@ -461,6 +467,8 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         assert False, "type error {left,right}"
 
     def produce(self, state):
+        left_sch = self.left.scheme()
+
         self.syncnames = []
         self.symBase = self.__genBaseName__()
 
@@ -470,18 +478,18 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
         # find the attribute that corresponds to the right child
         self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(self.left.scheme())
+            self.condition.right.position >= len(left_sch)
         self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(self.left.scheme())
+            self.condition.left.position >= len(left_sch)
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
         # find right key position
         if self.rightCondIsRightAttr:
             self.right_keypos = self.condition.right.position \
-                - len(self.left.scheme())
+                - len(left_sch)
         else:
             self.right_keypos = self.condition.left.position \
-                - len(self.left.scheme())
+                - len(left_sch)
 
         # find left key position
         if self.rightCondIsRightAttr:
@@ -643,7 +651,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
     def produce(self, state):
         assert len(self.grouping_list) <= 2, \
-            "%s does not currently support groupings of more than 2 attributes"\
+            """%s does not currently support \
+            "groupings of more than 2 attributes"""\
             % self.__class__.__name__
         assert len(self.aggregate_list) == 1, \
             "%s currently only supports aggregates of 1 attribute"\
@@ -666,7 +675,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                                    DHT_int64;
                 """)
             elif len(self.grouping_list) == 2:
-                declr_template = ct("""typedef DHT_symmetric<std::pair<int64_t,int64_t>, \
+                declr_template = ct("""typedef DHT_symmetric<\
+                std::pair<int64_t,int64_t>, \
                                   int64_t, pair_hash> \
                                    DHT_pair_int64;
                 """)
@@ -699,7 +709,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         # now that everything is aggregated, produce the tuples
         assert len(self.column_list()) == 1 \
             or isinstance(self.column_list()[0],
-                          expression.UnnamedAttributeRef), \
+                          expression.AttributeRef), \
             """assumes first column is the key and second is aggregate result
             column_list: %s""" % self.column_list()
 
@@ -718,7 +728,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             elif len(self.grouping_list) == 2:
                 produce_template = ct("""%(hashname)s->\
                 forall_entries<&%(pipeline_sync)s>\
-                ([=](std::pair<const std::pair<int64_t,int64_t>,int64_t>& %(mapping_var_name)s) {
+                ([=](std::pair<const std::pair<int64_t,int64_t>,int64_t>& \
+                %(mapping_var_name)s) {
                     %(output_tuple_type)s %(output_tuple_name)s(\
                     {%(mapping_var_name)s.first.first,\
                     %(mapping_var_name)s.first.second,\
@@ -733,7 +744,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                        'SUM': 'COLL_ADD',
                        'MAX': 'COLL_MAX',
                        'MIN': 'COLL_MIN'}[op]
-            produce_template = ct("""auto %(output_tuple_name)s_tmp = reduce<int64_t, \
+            produce_template = ct("""auto %(output_tuple_name)s_tmp = \
+            reduce<int64_t, \
             counter, \
             %(coll_op)s, \
             &get_count>\
@@ -763,6 +775,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         state.addPipeline(code)
 
     def consume(self, inputTuple, fromOp, state):
+        inp_sch = self.input.scheme()
+
         if self.useKey:
             if len(self.grouping_list) == 1:
                 materialize_template = ct("""%(hashname)s->update\
@@ -772,7 +786,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 %(tuple_name)s.get(%(valpos)s));
           """)
                 # make key from grouped attributes
-                keypos = self.grouping_list[0].get_position(self.scheme())
+                keypos = self.grouping_list[0].get_position(inp_sch)
 
             elif len(self.grouping_list) == 2:
                 materialize_template = ct("""%(hashname)s->update\
@@ -783,9 +797,9 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 %(tuple_name)s.get(%(key2pos)s)),\
                 %(tuple_name)s.get(%(valpos)s));
           """)
-                # make key from grouped attributes
-                key1pos = self.grouping_list[0].get_position(self.scheme())
-                key2pos = self.grouping_list[1].get_position(self.scheme())
+                # make key from grouped attribute
+                key1pos = self.grouping_list[0].get_position(inp_sch)
+                key2pos = self.grouping_list[1].get_position(inp_sch)
         else:
             # TODO: use optimization for few keys
             # right now it uses key=0
@@ -798,8 +812,15 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         tuple_name = inputTuple.name
         pipeline_sync = state.getPipelineProperty("global_syncname")
 
-        # get value positions from aggregated attributes
-        valpos = self.aggregate_list[0].input.get_position(self.scheme())
+        if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
+            # no value needed for Zero-input aggregate,
+            # but just provide the first column
+            valpos = 0
+        elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
+            # get value positions from aggregated attributes
+            valpos = self.aggregate_list[0].input.get_position(self.scheme())
+        else:
+            assert False, "only support Unary or Zeroary aggregates"
 
         op = self.aggregate_list[0].__class__.__name__
 
@@ -831,20 +852,25 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         self.right.childtag = "right"
         self.rightTupleTypeRef = None  # may remain None if CSE succeeds
 
+        left_sch = self.left.scheme()
+        right_sch = self.right.scheme()
+
         # find the attribute that corresponds to the right child
         self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(self.left.scheme())
+            self.condition.right.position >= len(left_sch)
         self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(self.left.scheme())
-        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
+            self.condition.left.position >= len(left_sch)
+        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr, \
+            "op: %s,\ncondition: %s, left.scheme: %s, right.scheme: %s" \
+            % (self, self.condition, left_sch, right_sch)
 
         # right key position
         if self.rightCondIsRightAttr:
             self.right_keypos = self.condition.right.position \
-                - len(self.left.scheme())
+                - len(left_sch)
         else:
             self.right_keypos = self.condition.left.position \
-                - len(self.left.scheme())
+                - len(left_sch)
 
         # left key position
         if self.rightCondIsRightAttr:
@@ -890,7 +916,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         if src.childtag == "right":
 
             right_template = ct("""
-            %(hashname)s.insert(%(keyname)s.get(%(keypos)s), %(keyname)s);
+            %(hashname)s.insert_async<&%(pipeline_sync)s>(\
+            %(keyname)s.get(%(keypos)s), %(keyname)s);
             """)
 
             hashname = self._hashname
@@ -902,6 +929,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             if self.rightTupleTypeRef is not None:
                 state.resolveSymbol(self.rightTupleTypeRef,
                                     self.rightTupleTypename)
+
+            pipeline_sync = state.getPipelineProperty('global_syncname')
 
             # materialization point
             code = right_template % locals()
@@ -1004,9 +1033,11 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
     ascii_scan_template = """
     {
     if (FLAGS_bin) {
-    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( "%(name)s.bin" );
+    %(resultsym)s = readTuplesUnordered<%%(result_type)s>( \
+    FLAGS_input_file_%(name)s + ".bin" );
     } else {
-    %(resultsym)s.data = readTuples<%%(result_type)s>( "%(name)s", FLAGS_nt);
+    %(resultsym)s.data = readTuples<%%(result_type)s>( \
+    FLAGS_input_file_%(name)s, FLAGS_nt);
     %(resultsym)s.numtuples = FLAGS_nt;
     auto l_%(resultsym)s = %(resultsym)s;
     on_all_cores([=]{ %(resultsym)s = l_%(resultsym)s; });
@@ -1022,30 +1053,29 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
          for GrappaLanguage, emitting ascii")
         return self.ascii_scan_template
 
-    def __get_relation_decl_template__(self):
-        return """Relation<%(tuple_type)s> %(resultsym)s;"""
+    def __get_relation_decl_template__(self, name):
+        return """
+            DEFINE_string(input_file_%(name)s, "%(name)s", "Input file");
+            Relation<%(tuple_type)s> %(resultsym)s;
+            """
 
 
-class GrappaStore(algebra.Store, GrappaOperator):
-    def produce(self, state):
-        self.input.produce(state)
+class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
+    def __file_code__(self, t, state):
+        my_sch = self.scheme()
 
-    def consume(self, t, src, state):
-        code = ""
-        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-        state.addDeclarations([resdecl])
-        code += "result.push_back(%s);\n" % (t.name)
         filename = (str(self.relation_key).split(":")[2])
-        names = [x.encode('UTF8') for x in self.scheme().get_names()]
+        outputnamedecl = """\
+        DEFINE_string(output_file, "%s.bin", "Output File");""" % filename
+        state.addDeclarations([outputnamedecl])
+        names = [x.encode('UTF8') for x in my_sch.get_names()]
         schemefile = 'writeSchema("%s", "%s", "%s.schema");\n' % \
-                     (names, self.scheme().get_types(), filename)
+                     (names, my_sch.get_types(), filename)
         state.addPreCode(schemefile)
-        resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % (filename)
+        resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % filename
         state.addPipelineFlushCode(resultfile)
 
-        code += self.language.log_unquoted("%s" % t.name, 2)
-
-        return code
+        return ""
 
 
 class MemoryScanOfFileScan(rules.Rule):
@@ -1062,16 +1092,7 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan(FileScan)"
 
 
-class SwapJoinSides(rules.Rule):
-    # swaps the inputs to a join
-    def fire(self, expr):
-        if isinstance(expr, algebra.Join):
-            return algebra.Join(expr.condition, expr.right, expr.left)
-        else:
-            return expr
-
-
-def grappify(join_type):
+def grappify(join_type, emit_print):
     return [
         rules.ProjectingJoinToProjectOfJoin(),
 
@@ -1084,19 +1105,20 @@ def grappify(join_type):
         rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll),
-        rules.OneToOne(algebra.Store, GrappaStore),
+        clangcommon.StoreToBaseCStore(emit_print, GrappaStore),
 
         clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
     ]
 
 
-class GrappaAlgebra(object):
+class GrappaAlgebra(Algebra):
     language = GrappaLanguage
 
-    def __init__(self):
+    def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         self.join_type = GrappaHashJoin
+        self.emit_print = emit_print
 
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         # datalog_rules = [
         #     # rules.removeProject(),
         #     rules.CrossProduct2Join(),
@@ -1123,8 +1145,11 @@ class GrappaAlgebra(object):
             clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
-            grappify(self.join_type)
+            grappify(self.join_type, self.emit_print)
         ]
+
+        if kwargs.get('SwapJoinSides'):
+            rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
         return list(itertools.chain(*rule_grps_sequence))
 

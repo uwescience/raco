@@ -14,18 +14,22 @@ import os
 
 import raco.viz as viz
 
+#import logging
+#logging.basicConfig(level=logging.DEBUG)
+
 
 class MyriaLClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
-    def check(self, query, name):
-        plan = self.get_physical_plan(query, CCAlgebra())
-        physical_dot = viz.operator_to_dot(plan)
-        with open("%s.physical.dot"%(name), 'w') as dwf:
-            dwf.write(physical_dot)
-
-        # generate code in the target language
-        code = compile(plan)
-
+    def check(self, query, name, **kwargs):
         with Chdir("c_test_environment") as d:
+            kwargs['target_alg'] = CCAlgebra()
+            plan = self.get_physical_plan(query, **kwargs)
+            physical_dot = viz.operator_to_dot(plan)
+            with open("%s.physical.dot"%(name), 'w') as dwf:
+                dwf.write(physical_dot)
+
+            # generate code in the target language
+            code = compile(plan)
+
             fname = "{name}.cpp".format(name=name)
             if os.path.exists(fname):
                 os.remove(fname)

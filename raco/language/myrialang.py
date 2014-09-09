@@ -1,15 +1,11 @@
-import copy
 import itertools
 from collections import defaultdict, deque
 from operator import mul
-from abc import abstractmethod
 
 from raco import algebra, expression, rules
 from raco.catalog import Catalog
-from raco.language import Language
-from raco.utility import emit
-from raco.expression import (accessed_columns, to_unnamed_recursive,
-                             UnnamedAttributeRef)
+from raco.language import Language, Algebra
+from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import DecomposableAggregate
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
@@ -19,11 +15,11 @@ def scheme_to_schema(s):
     if s:
         names, descrs = zip(*s.asdict.items())
         names = ["%s" % n for n in names]
-        types = [r[1] for r in descrs]
+        types_ = [r[1] for r in descrs]
     else:
         names = []
-        types = []
-    return {"columnTypes": types, "columnNames": names}
+        types_ = []
+    return {"columnTypes": types_, "columnNames": names}
 
 
 def compile_expr(op, child_scheme, state_scheme):
@@ -32,14 +28,12 @@ def compile_expr(op, child_scheme, state_scheme):
     ####
     if isinstance(op, expression.NumericLiteral):
         if type(op.value) == int:
-            if (2 ** 31) - 1 >= op.value >= -2 ** 31:
-                myria_type = 'INT_TYPE'
-            else:
-                myria_type = types.LONG_TYPE
+            myria_type = types.LONG_TYPE
         elif type(op.value) == float:
             myria_type = types.DOUBLE_TYPE
         else:
-            raise NotImplementedError("Compiling NumericLiteral %s of type %s" % (op, type(op.value)))  # noqa
+            raise NotImplementedError("Compiling NumericLiteral {} of type {}"
+                                      .format(op, type(op.value)))
 
         return {
             'type': 'CONSTANT',
@@ -50,7 +44,13 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type': 'CONSTANT',
             'value': str(op.value),
-            'valueType': 'STRING_TYPE'
+            'valueType': types.STRING_TYPE
+        }
+    elif isinstance(op, expression.BooleanLiteral):
+        return {
+            'type': 'CONSTANT',
+            'value': bool(op.value),
+            'valueType': 'BOOLEAN_TYPE'
         }
     elif isinstance(op, expression.StateRef):
         return {
@@ -353,8 +353,6 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             return "MAX"
         elif isinstance(agg_expr, expression.MIN):
             return "MIN"
-        elif isinstance(agg_expr, expression.COUNT):
-            return "COUNT"
         elif isinstance(agg_expr, expression.SUM):
             return "SUM"
         elif isinstance(agg_expr, expression.AVG):
@@ -1023,8 +1021,15 @@ class BroadcastBeforeCross(rules.Rule):
                 isinstance(expr.right, algebra.Broadcast)):
             return expr
 
-        # By default, broadcast the right child
-        expr.right = algebra.Broadcast(expr.right)
+        try:
+            # By default, broadcast the smaller child
+            if expr.left.num_tuples() < expr.right.num_tuples():
+                expr.left = algebra.Broadcast(expr.left)
+            else:
+                expr.right = algebra.Broadcast(expr.right)
+        except NotImplementedError, e:
+            # If cardinalities unknown, broadcast the right child
+            expr.right = algebra.Broadcast(expr.right)
 
         return expr
 
@@ -1243,6 +1248,7 @@ distributed_group_by = [
     # DistributedGroupBy may introduce a complex GroupBy,
     # so we must run SimpleGroupBy after it. TODO no one likes this.
     DistributedGroupBy(), rules.SimpleGroupBy(),
+    rules.CountToCountall(),   # TODO remove when we have NULL support.
     ProjectToDistinctColumnSelect()
 ]
 
@@ -1280,9 +1286,8 @@ break_communication = [
 ]
 
 
-class MyriaAlgebra(object):
-    """ Myria algebra abstract class
-    """
+class MyriaAlgebra(Algebra):
+    """ Myria algebra abstract class"""
     language = MyriaLanguage
 
     fragment_leaves = (
@@ -1294,32 +1299,30 @@ class MyriaAlgebra(object):
         MyriaScanTemp
     )
 
-    @abstractmethod
-    def opt_rules(self):
-        """Specific Myria algebra must instantiate this method."""
-
 
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
     rule_grps_sequence = [
         rules.remove_trivial_sequences,
-        rules.simple_group_by,
+        [rules.SimpleGroupBy(),
+         rules.CountToCountall()],  # TODO remove when we have NULL support.
         rules.push_select,
         rules.push_project,
         rules.push_apply,
         left_deep_tree_shuffle_logic,
         distributed_group_by,
+        [rules.PushApply()],
         myriafy,
         break_communication
     ]
 
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         return list(itertools.chain(*self.rule_grps_sequence))
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
     """Myria physical algebra using HyperCubeShuffle and LeapFrogJoin"""
-    def opt_rules(self):
+    def opt_rules(self, **kwargs):
         # this rule is hyper cube shuffle specific
         merge_to_nary_join = [
             MergeToNaryJoin()

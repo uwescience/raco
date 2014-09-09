@@ -46,7 +46,7 @@ def emitCode(query, name, algType, plan=None, emit_print=None):
     with open("%s.logical.dot"%(name), 'w') as dwf:
         dwf.write(logical_dot)
 
-    dlog.optimize(target=alg, eliminate_common_subexpressions=False)
+    dlog.optimize(target=alg)
 
     LOG.info("physical: %s",dlog.physicalplan)
 

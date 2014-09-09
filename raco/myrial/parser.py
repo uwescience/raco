@@ -9,7 +9,7 @@ import raco.scheme as scheme
 import raco.types
 import raco.expression as sexpr
 import raco.myrial.emitarg as emitarg
-from raco.expression.udf import Function, Apply, UDA
+from raco.expression.udf import Function, StatefulFunc
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
@@ -54,6 +54,53 @@ myrial_type_map = {
 }
 
 
+def contains_tuple_expression(ex):
+    """Return True if an Expression contains a TupleExpression"""
+    return any(isinstance(sx, TupleExpression) for sx in ex.walk())
+
+
+def check_no_tuple_expression(ex, lineno):
+    if contains_tuple_expression(ex):
+        raise NestedTupleExpressionException(lineno)
+
+
+class TupleExpression(sexpr.Expression):
+    """Represents an instance of a tuple-valued Expression
+
+    This class is a pseudo-expression that corresponds to a UDA or stateful
+    apply with multiple return values.  Myria doesn't support tuples as a
+    first-class data type.  Instead, instances of TupleExpression are converted
+    into multiple scalar expression instances.
+    """
+    def __init__(self, emitters):
+        self.emitters = emitters
+
+    def walk(self):
+        yield self
+        for emitter in self.emitters:
+            for x in emitter.walk():
+                yield x
+
+    def apply(self, f):
+        self.emitters = [f(e) for e in self.emitters]
+
+    def check_for_nested(self, lineno):
+        """Raise an exception if a sub-expression contains a TupleExpression"""
+
+        for ex in self.emitters:
+            check_no_tuple_expression(ex, lineno)
+
+    def get_children(self):
+        return emitters
+
+    def typeof(self, scheme, state_scheme):
+        """Type checks are not applied to TupleExpressions."""
+        raise NotImplementedError()
+
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError()
+
+
 class Parser(object):
     # mapping from function name to Function tuple
     udf_functions = {}
@@ -69,7 +116,7 @@ class Parser(object):
         self.tokens = scanner.tokens
 
         # Precedence among scalar expression operators in ascending order; this
-        # is necessary to disambiguate the grammer.  Operator precedence is
+        # is necessary to disambiguate the grammar.  Operator precedence is
         # identical to Python:
         # http://docs.python.org/2/reference/expressions.html#comparisons
 
@@ -83,7 +130,7 @@ class Parser(object):
             ('right', 'UMINUS'),    # Unary minus
         )
 
-    # A myrial program consists of 1 or more "translation units", each of which
+    # A MyriaL program consists of 1 or more "translation units", each of which
     # is a function, apply definition, or statement.
     @staticmethod
     def p_translation_unit_list(p):
@@ -143,8 +190,15 @@ class Parser(object):
         return "{name}__{mid}".format(name=name, mid=Parser.mangle_id)
 
     @staticmethod
-    def add_apply(p, name, args, inits, updates, finalizer, is_aggregate):
-        """Register a stateful apply function.
+    def add_state_func(p, name, args, inits, updates, emitters, is_aggregate):
+        """Register a stateful apply or UDA.
+
+        :param name: The name of the function
+        :param args: A list of function argument names (strings)
+        :param inits: A list of SingletonEmitArg that describe init logic
+        :param updates: A list of Expression that describe update logic
+        :param emitters: An Expression list that returns the final results
+        :param is_aggregate: True if the state_func is a UDA
 
         TODO: de-duplicate logic from add_udf.
         """
@@ -159,9 +213,18 @@ class Parser(object):
         statemods = {}
         for init, update in zip(inits, updates):
             if not isinstance(init, emitarg.SingletonEmitArg):
-                raise IllegalWildcardException(name, p.lineno(0))
-            if not isinstance(update, emitarg.SingletonEmitArg):
-                raise IllegalWildcardException(name, p.lineno(0))
+                if isinstance(init, emitarg.NaryEmitArg):
+                    raise NestedTupleExpressionException(p.lineno(0))
+                else:
+                    raise IllegalWildcardException(name, p.lineno(0))
+
+            # Init, update expressions cannot return tuples
+            check_no_tuple_expression(init.sexpr, p.lineno(0))
+            check_no_tuple_expression(update, p.lineno(0))
+
+            # Nor can then reference aggegates
+            sexpr.check_no_aggregate(init.sexpr, p.lineno(0))
+            sexpr.check_no_aggregate(update, p.lineno(0))
 
             # check for duplicate variable definitions
             sm_name = init.column_name
@@ -170,30 +233,54 @@ class Parser(object):
             if sm_name in statemods or sm_name in args:
                 raise DuplicateVariableException(name, p.lineno(0))
 
-            statemods[sm_name] = (init.sexpr, update.sexpr)
+            statemods[sm_name] = (init.sexpr, update)
 
         # Check for undefined variables:
         #  - Init expressions cannot reference any variables.
         #  - Update expression can reference function arguments and state
         #    variables.
-        #  - The finalizer expression can reference state variables.
+        #  - The emitter expressions can reference state variables.
         allvars = statemods.keys() + args
         for init_expr, update_expr in statemods.itervalues():
             Parser.check_for_undefined(p, name, init_expr, [])
             Parser.check_for_undefined(p, name, update_expr, allvars)
-        Parser.check_for_undefined(p, name, finalizer, statemods.keys())
 
+        for e in emitters:
+            Parser.check_for_undefined(p, name, e, statemods.keys())
+
+        # Emit arguments cannot themselves return tuples
+        for e in emitters:
+            check_no_tuple_expression(e, p.lineno(0))
+            sexpr.check_no_aggregate(e, p.lineno(0))
+
+        # If the function is a UDA, wrap the output expression(s) so
+        # downstream users can distinguish stateful apply from
+        # aggregate expressions.
         if is_aggregate:
-            f = UDA(args, statemods, finalizer)
+            emitters = [sexpr.UdaAggregateExpression(e) for e in emitters]
+
+        assert len(emitters) > 0
+        if len(emitters) == 1:
+            emit_op = emitters[0]
         else:
-            f = Apply(args, statemods, finalizer)
-        Parser.udf_functions[name] = f
+            emit_op = TupleExpression(emitters)
+
+        Parser.udf_functions[name] = StatefulFunc(args, statemods, emit_op)
 
     @staticmethod
     def p_unreserved_id(p):
         'unreserved_id : ID'
         Parser.check_for_reserved(p, p[1])
         p[0] = p[1]
+
+    @staticmethod
+    def p_unreserved_id_list(p):
+        """unreserved_id_list : unreserved_id_list COMMA unreserved_id
+                              | unreserved_id"""
+        if len(p) == 4:
+            p[0] = p[1] + [p[3]]
+        else:
+            p[0] = [p[1]]
 
     @staticmethod
     def p_udf(p):
@@ -223,29 +310,38 @@ class Parser(object):
             p[0] = [p[1]]
 
     @staticmethod
+    def p_sexpr_or_sexpr_list(p):
+        """sexpr_or_sexpr_list : LBRACKET sexpr_list RBRACKET
+                               | sexpr"""
+        if len(p) == 4:
+            p[0] = p[2]
+        else:
+            p[0] = (p[1],)
+
+    @staticmethod
     def p_uda(p):
         'uda : UDA unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI table_literal SEMI sexpr SEMI RBRACE SEMI'
+        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr_or_sexpr_list SEMI RBRACE SEMI'  # noqa
 
         name = p[2]
         args = p[4]
         inits = p[7]
-        updates = p[9]
-        finalizer = p[11]
-        Parser.add_apply(p, name, args, inits, updates, finalizer, True)
+        updates = p[10]
+        emits = p[13]
+        Parser.add_state_func(p, name, args, inits, updates, emits, True)
         p[0] = None
 
     @staticmethod
     def p_apply(p):
         'apply : APPLY unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI table_literal SEMI sexpr SEMI RBRACE SEMI'
+        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr_or_sexpr_list SEMI RBRACE SEMI'  # noqa
 
         name = p[2]
         args = p[4]
         inits = p[7]
-        updates = p[9]
-        finalizer = p[11]
-        Parser.add_apply(p, name, args, inits, updates, finalizer, False)
+        updates = p[10]
+        emits = p[13]
+        Parser.add_state_func(p, name, args, inits, updates, emits, False)
         p[0] = None
 
     @staticmethod
@@ -303,6 +399,15 @@ class Parser(object):
     def p_expression_id(p):
         'expression : unreserved_id'
         p[0] = ('ALIAS', p[1])
+
+    @staticmethod
+    def p_sexpr_list(p):
+        """sexpr_list : sexpr_list COMMA sexpr
+                      | sexpr"""
+        if len(p) == 4:
+            p[0] = p[1] + (p[3],)
+        else:
+            p[0] = (p[1],)
 
     @staticmethod
     def p_expression_table_literal(p):
@@ -419,15 +524,41 @@ class Parser(object):
 
     @staticmethod
     def p_emit_arg_singleton(p):
-        """emit_arg : sexpr AS unreserved_id
+        """emit_arg : sexpr AS LBRACKET unreserved_id_list RBRACKET
+                    | sexpr AS unreserved_id
                     | sexpr"""
+
+        sx = p[1]
+        names = None
+        if len(p) == 6:
+            names = p[4]
         if len(p) == 4:
-            name = p[3]
-            sexpr = p[1]
+            names = [p[3]]
+
+        if isinstance(sx, TupleExpression):
+            # If names were provided, the length must equal the number
+            # of emitters
+            if names is not None and len(sx.emitters) != len(names):
+                raise IllegalColumnNamesException(p.lineno(0))
+
+            # Verify that there are no nested TupleExpressions
+            for ssx in sx.emitters:
+                assert not contains_tuple_expression(ssx)
+
+            p[0] = emitarg.NaryEmitArg(names, sx.emitters, Parser.statemods)
         else:
-            name = None
-            sexpr = p[1]
-        p[0] = emitarg.SingletonEmitArg(name, sexpr, Parser.statemods)
+            # The emit argument shouldn't contain nested any TupleExpressions
+            check_no_tuple_expression(sx, p.lineno(0))
+            # The emit arguments shouldn't contain nested aggregates
+            sexpr.check_no_nested_aggregate(sx, p.lineno(0))
+
+            if names is None:
+                name = None
+            elif len(names) != 1:
+                raise IllegalColumnNamesException(p.lineno(0))
+            else:
+                name = names[0]
+            p[0] = emitarg.SingletonEmitArg(name, sx, Parser.statemods)
         Parser.statemods = []
 
     @staticmethod
@@ -561,6 +692,13 @@ class Parser(object):
         p[0] = sexpr.NumericLiteral(p[1])
 
     @staticmethod
+    def p_sexpr_boolean_literal(p):
+        '''sexpr : TRUE
+                 | FALSE'''
+        bv = p[1] == 'TRUE'
+        p[0] = sexpr.BooleanLiteral(bv)
+
+    @staticmethod
     def p_sexpr_id(p):
         'sexpr : unreserved_id'
         try:
@@ -649,7 +787,7 @@ class Parser(object):
 
         if isinstance(func, Function):
             return sexpr.resolve_function(func.sexpr, dict(zip(func.args, args)))  # noqa
-        elif isinstance(func, (Apply, UDA)):
+        elif isinstance(func, StatefulFunc):
             state_vars = func.statemods.keys()
 
             # Mangle state variable names to allow multiple invocations to
@@ -666,15 +804,7 @@ class Parser(object):
                     dict(zip(func.args, args)))  # noqa
                 Parser.statemods.append(StateVar(
                     mangled[sm_name], init_expr, update_expr))
-            ex = sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
-
-            # If the function is a UDA, wrap the output expression so
-            # downstream users can distinguish stateful apply from
-            # aggregate expressions.
-            if isinstance(func, UDA):
-                return sexpr.UdaAggregateExpression(ex)
-            else:
-                return ex
+            return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
         else:
             assert False
 

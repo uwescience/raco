@@ -41,7 +41,10 @@ class FakeDatabase(Catalog):
         return 1
 
     def num_tuples(self, rel_key):
-        return DEFAULT_CARDINALITY
+        try:
+            return sum(self.tables[rel_key][0].values())
+        except KeyError:
+            return DEFAULT_CARDINALITY
 
     def evaluate(self, op):
         """Evaluate a relational algebra operation.
