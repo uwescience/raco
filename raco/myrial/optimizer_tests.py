@@ -596,23 +596,19 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
 
-    def __get_uda_logical_plan(self):
+    def __run_uda_test(self, uda_state=None):
         scan = Scan(self.x_key, self.x_scheme)
 
         init_ex = expression.NumericLiteral(0)
         update_ex = expression.PLUS(expression.NamedStateAttributeRef("value"),
                                     AttIndex(1))
         emit_ex = expression.UdaAggregateExpression(
-            expression.NamedStateAttributeRef("value"))
+            expression.NamedStateAttributeRef("value"), uda_state)
         statemods = [StateVar("value", init_ex, update_ex)]
 
         log_gb = GroupBy([AttIndex(0)], [emit_ex], scan, statemods)
-        return StoreTemp('OUTPUT', log_gb)
 
-    def test_non_decomposable_uda(self):
-        """Test that optimization preserves the value of a non-decomposable UDA
-        """
-        lp = self.__get_uda_logical_plan()
+        lp = StoreTemp('OUTPUT', log_gb)
         pp = self.logical_to_physical(copy.deepcopy(lp))
 
         self.db.evaluate(lp)
@@ -624,3 +620,25 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(log_result, phys_result)
         self.assertEquals(len(log_result), 15)
+
+
+    def test_non_decomposable_uda(self):
+        """Test that optimization preserves the value of a non-decomposable UDA
+        """
+        self.__run_uda_test()
+
+    def test_decomposable_uda(self):
+        """Test that optimization preserves the value of decomposable UDAs"""
+        lemits = [expression.UdaAggregateExpression(
+                  expression.NamedStateAttributeRef("value"))]
+        remits = copy.deepcopy(lemits)
+
+        init_ex = expression.NumericLiteral(0)
+        update_ex = expression.PLUS(expression.NamedStateAttributeRef("value"),
+                                    AttIndex(1))
+        lstatemods = [StateVar("value", init_ex, update_ex)]
+        rstatemods = copy.deepcopy(lstatemods)
+
+        uda_state = expression.DecomposableUdaState(
+            lemits, lstatemods, remits, rstatemods)
+        self.__run_uda_test(uda_state)

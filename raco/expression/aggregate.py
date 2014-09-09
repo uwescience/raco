@@ -24,13 +24,30 @@ class BuiltinAggregateExpression(AggregateExpression):
 
 class DecomposableUdaState(object):
     """State associated with decomposable UDAs."""
-    def __init__(self, local_emitters, local_statemods, remote_emitters,
-                 remote_statemods):
-        self.local_emitters = local_emitters
+    def __init__(self, local_aggregates, local_statemods,
+                 remote_aggregates, remote_statemods):
+
+        assert all(isinstance(a, UdaAggregateExpression) for a in local_aggregates)  # noqa
+        assert all(isinstance(a, UdaAggregateExpression) for a in remote_aggregates)  # noqa
+#        assert all(isinstance(s, StateVar) for s in local_statemods)
+#        assert all(isinstance(s, StateVar) for s in remote_statemods)
+
+        self.local_aggregates = local_aggregates
         self.local_statemods = local_statemods
-        self.remote_emitters = remote_emitters
+        self.remote_aggregates = remote_aggregates
         self.remote_statemods = remote_statemods
 
+    def get_local_aggregates(self):
+        return self.local_aggregates
+
+    def get_remote_aggregates(self):
+        return self.remote_aggregates
+
+    def get_local_statemods(self):
+        return self.local_statemods
+
+    def get_remote_statemods(self):
+        return self.remote_statemods
 
 class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
     """A user-defined aggregate.
