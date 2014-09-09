@@ -23,7 +23,15 @@ class BuiltinAggregateExpression(AggregateExpression):
 
 
 class DecomposableUdaState(object):
-    """State associated with decomposable UDAs."""
+    """State associated with decomposable UDAs.
+
+    :param local_aggregates: A list of one or more aggregates to run prior to
+    the shuffle operation
+    :param local_statemods: A list of StateVars associated with local aggs
+    :param remote_aggregates: A list of one or more aggregates to run after
+    the shuffle operation
+    :param remote_statemods: A list of StateVars associated with remote aggs
+    """
     def __init__(self, local_aggregates, local_statemods,
                  remote_aggregates, remote_statemods):
 
