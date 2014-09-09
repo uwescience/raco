@@ -6,7 +6,7 @@ from raco import algebra, expression, rules
 from raco.catalog import Catalog
 from raco.language import Language, Algebra
 from raco.expression import UnnamedAttributeRef
-from raco.expression.aggregate import DecomposableAggregate
+from raco.expression.aggregate import DecomposableAggregate, UdaAggregateExpression  # noqa
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
 
@@ -1034,6 +1034,71 @@ class BroadcastBeforeCross(rules.Rule):
         return expr
 
 
+class DistributedUda(rules.Rule):
+    """Convert a logical UDA into a distributed UDA.
+
+    The local half of the UDA before the shuffle step, whereas the remote half
+    runs after the shuffle step.
+
+    TODO: omit this optimization if the data is already shuffled, or
+    if the cardinality of the grouping keys is high.
+
+    TODO: unify with functionality in DistributedGroupBy.
+    """
+
+    def fire(self, op):
+        # Punt if it's not a group by or we've already converted this into an
+        # an instance of MyriaGroupBy
+        if op.__class__ != algebra.GroupBy:
+            return op
+
+        # Bail early if we have any non-decomposable aggregates
+        if not all(isinstance(x, UdaAggregateExpression)
+                   and x.is_decomposable()
+                   for x in op.aggregate_list):
+            return op
+
+        num_grouping_terms = len(op.grouping_list)
+
+        local_aggs = []
+        local_statemods = []
+        remote_aggs = []
+        remote_statemods = []
+
+        state = None
+        for agg in op.aggregate_list:
+            # Multiple emit arguments can be associted with a single
+            # decomposition rule; coalesce them all together.
+            if state is agg.decomposable_state:
+                continue
+            state = agg.decomposable_state
+            local_aggs.extend(state.get_local_aggregates())
+            local_statemods.extend(state.get_local_statemods())
+            remote_aggs.extend(state.get_remote_aggregates())
+            remote_statemods.extend(state.get_remote_statemods())
+
+        local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input,
+                                local_statemods)
+
+        # Introduce a communication step
+        shuffle_fields = [UnnamedAttributeRef(i)
+                          for i in range(len(op.grouping_list))]
+
+        if len(shuffle_fields) == 0:
+            # Need to Collect all tuples at once place
+            shuffle = algebra.Collect(local_gb)
+        else:
+            # Need to Shuffle
+            shuffle = algebra.Shuffle(local_gb, shuffle_fields)
+
+        grouping_fields = [UnnamedAttributeRef(i)
+                           for i in range(len(op.grouping_list))]
+
+        remote_gb = MyriaGroupBy(grouping_fields, remote_aggs, shuffle,
+                                 remote_statemods)
+        return remote_gb
+
+
 class DistributedGroupBy(rules.Rule):
     @staticmethod
     def do_transfer(op):
@@ -1247,6 +1312,7 @@ left_deep_tree_shuffle_logic = [
 distributed_group_by = [
     # DistributedGroupBy may introduce a complex GroupBy,
     # so we must run SimpleGroupBy after it. TODO no one likes this.
+    DistributedUda(),
     DistributedGroupBy(), rules.SimpleGroupBy(),
     rules.CountToCountall(),   # TODO remove when we have NULL support.
     ProjectToDistinctColumnSelect()
