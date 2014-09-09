@@ -115,7 +115,6 @@ class GrappalangRunner(PlatformRunner):
 
             # subprocess.check_call(['bin/distcc_make',
             #                        '-j24',
-            #                        '%s.exe' % gname,
             #                        ], env=envir)
 
           with Chdir('build/Make+Release/applications/join') as appdir:
