@@ -775,7 +775,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         state.addPipeline(code)
 
     def consume(self, inputTuple, fromOp, state):
-        my_sch = self.scheme()
+        inp_sch = self.input.scheme()
 
         if self.useKey:
             if len(self.grouping_list) == 1:
@@ -786,7 +786,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 %(tuple_name)s.get(%(valpos)s));
           """)
                 # make key from grouped attributes
-                keypos = self.grouping_list[0].get_position(my_sch)
+                keypos = self.grouping_list[0].get_position(inp_sch)
 
             elif len(self.grouping_list) == 2:
                 materialize_template = ct("""%(hashname)s->update\
@@ -798,8 +798,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 %(tuple_name)s.get(%(valpos)s));
           """)
                 # make key from grouped attribute
-                key1pos = self.grouping_list[0].get_position(my_sch)
-                key2pos = self.grouping_list[1].get_position(my_sch)
+                key1pos = self.grouping_list[0].get_position(inp_sch)
+                key2pos = self.grouping_list[1].get_position(inp_sch)
         else:
             # TODO: use optimization for few keys
             # right now it uses key=0
@@ -818,7 +818,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             valpos = 0
         elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
             # get value positions from aggregated attributes
-            valpos = self.aggregate_list[0].input.get_position(my_sch)
+            valpos = self.aggregate_list[0].input.get_position(self.scheme())
         else:
             assert False, "only support Unary or Zeroary aggregates"
 
