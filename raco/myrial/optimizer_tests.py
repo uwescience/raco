@@ -4,6 +4,8 @@ import random
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
+from raco.expression import StateVar
+
 from raco.language.myrialang import (MyriaShuffleConsumer,
                                      MyriaShuffleProducer,
                                      MyriaHyperShuffleProducer,

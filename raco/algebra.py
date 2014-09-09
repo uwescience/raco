@@ -7,6 +7,8 @@ import copy
 import operator
 import math
 import collections
+from raco.expression import StateVar
+
 
 # BEGIN Code to generate variables names
 var_id = 0
@@ -592,11 +594,6 @@ class Apply(UnaryOperator):
         return "{op}({emt!r}, {inp!r})".format(op=self.opname(),
                                                emt=self.emitters,
                                                inp=self.input)
-
-
-# This type represents a state variable, as used by StatefulApply and UDAs
-StateVar = collections.namedtuple(
-    'StateVar', ['name', 'init_expr', 'update_expr'])
 
 
 class StatefulApply(UnaryOperator):

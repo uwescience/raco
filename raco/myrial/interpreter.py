@@ -12,7 +12,7 @@ from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
 from raco.language.myrialang import compile_to_json
 from raco.compile import optimize
 from raco import relation_key
-from raco.algebra import StateVar
+from raco.expression import StateVar
 
 import collections
 import copy

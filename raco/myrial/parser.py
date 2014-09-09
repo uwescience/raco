@@ -13,7 +13,7 @@ from raco.expression.udf import Function, StatefulFunc
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
-from raco.algebra import StateVar
+from raco.expression import StateVar
 
 
 class JoinColumnCountMismatchException(Exception):
