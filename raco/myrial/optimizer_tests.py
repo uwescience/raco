@@ -621,6 +621,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(log_result, phys_result)
         self.assertEquals(len(log_result), 15)
 
+        return pp
 
     def test_non_decomposable_uda(self):
         """Test that optimization preserves the value of a non-decomposable UDA
@@ -641,4 +642,12 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         uda_state = expression.DecomposableUdaState(
             lemits, lstatemods, remits, rstatemods)
-        self.__run_uda_test(uda_state)
+        pp = self.__run_uda_test(uda_state)
+
+        self.assertEquals(self.get_count(pp, GroupBy), 2)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
+
+        for op in pp.walk():
+            if isinstance(op, MyriaShuffleProducer):
+                self.assertEquals(op.hash_columns, [AttIndex(0)])
