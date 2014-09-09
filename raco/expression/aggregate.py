@@ -57,6 +57,7 @@ class DecomposableUdaState(object):
     def get_remote_statemods(self):
         return self.remote_statemods
 
+
 class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
     """A user-defined aggregate.
 
