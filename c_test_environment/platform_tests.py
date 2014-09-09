@@ -185,8 +185,8 @@ class MyriaLPlatformTests(object):
 
         return '\n'.join(code)
 
-    def check_sub_tables(self, query, name):
-        self.check(query % self.tables, name)
+    def check_sub_tables(self, query, name, **kwargs):
+        self.check(query % self.tables, name, **kwargs)
 
     def test_scan(self):
         self.check_sub_tables("""
@@ -439,6 +439,28 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(["R2", "T2"], "common_index_disallowed")
         self.check(q, "common_index_disallowed")
 
+    def test_matrix_mult(self):
+        self.check_sub_tables("""
+        T = scan(%(T2)s);
+        T1 = T;
+        T2 = T;
+        MM = [from T1, T2
+              where T1.$1 = T2.$0
+              emit T1.$0 as src, T2.$1 as dst, count(T1.$0)];
+        STORE(MM, OUTPUT);
+        """, "matrix_mult")
+
+    def test_two_join_switch(self):
+        self.check_sub_tables("""
+        R3 = SCAN(%(R3)s);
+        S3 = SCAN(%(S3)s);
+        T3 = SCAN(%(T3)s);
+        J1 = JOIN(R3, $2, S3, $1);
+        J2 = JOIN(J1, $3, T3, $0);
+        P = [FROM J2 WHERE $0>1 and $3>2 and $6>3 EMIT $0, $8];
+        STORE(P, OUTPUT);
+        """, "two_join_switch", SwapJoinSides=True)
+
     def test_q2(self):
         """
         A test resembling sp2bench Q2
@@ -454,7 +476,7 @@ class MyriaLPlatformTests(object):
             S T6,
             S T7,
             S T8,
-            S T9 
+            S T9
 WHERE T1.a=T2.a
 and T2.a=T3.a
 and T3.a=T4.a

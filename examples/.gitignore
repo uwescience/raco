@@ -4,7 +4,7 @@
 build/
 log*.rb
 *.logical.pdf
-*.physical.pdf
+*.physical*.pdf
 *.logical.ps
 *.physical.ps
 
