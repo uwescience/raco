@@ -818,7 +818,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             valpos = 0
         elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
             # get value positions from aggregated attributes
-            valpos = self.aggregate_list[0].input.get_position(my_sch)
+            valpos = self.aggregate_list[0].input.get_position(self.scheme())
         else:
             assert False, "only support Unary or Zeroary aggregates"
 
