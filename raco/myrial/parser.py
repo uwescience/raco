@@ -26,6 +26,9 @@ JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 SelectFromWhere = collections.namedtuple(
     'SelectFromWhere', ['distinct', 'select', 'from_', 'where', 'limit'])
 
+DecomposableAgg = collections.namedtuple(
+    'DecomposableAgg', ['logical', 'local', 'remote'])
+
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
     '+': sexpr.PLUS,
@@ -99,6 +102,13 @@ class TupleExpression(sexpr.Expression):
 
     def evaluate(self, _tuple, scheme, state=None):
         raise NotImplementedError()
+
+
+def get_num_emitters(ex):
+    if isinstance(ex, TupleExpression):
+        return len(ex.emitters)
+    else:
+        return 1
 
 
 class Parser(object):
@@ -187,7 +197,8 @@ class Parser(object):
                 raise NoSuchFunctionException(lineno)
             return func
 
-        tpl = tuple([check_name(x) for x in (logical, local, remote)])
+        tpl = DecomposableAgg(*[check_name(x) for x in
+                              (logical, local, remote)])
         Parser.decomposable_aggs[logical] = tpl
 
     @staticmethod
