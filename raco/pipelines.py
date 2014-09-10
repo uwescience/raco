@@ -185,6 +185,9 @@ class CompileState:
     def saveTupleDef(self, sym, tupledef):
         self.tupledefs[sym] = tupledef
 
+    def getCurrentPipelineId(self):
+        return self.pipeline_count
+
 
 class Pipelined(object):
     """

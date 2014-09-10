@@ -211,12 +211,23 @@ def create_pipeline_synchronization(state):
     within a single pipeline. Adds this new object to
     the compiler state.
     """
+    global_syncname = gensym()
+
     global_sync_decl_template = ct("""
         GlobalCompletionEvent %(global_syncname)s;
         """)
+    global_sync_decl = global_sync_decl_template % locals()
 
-    global_syncname = gensym()
-    state.addDeclarations([global_sync_decl_template % locals()])
+    gce_metric_template = """
+    GRAPPA_DEFINE_METRIC(CallbackMetric<int64_t>, app_%(pipeline_id)s_gce_incomplete, []{
+    return %(global_syncname)s.incomplete();
+    });
+    """
+    pipeline_id = state.getCurrentPipelineId()
+    gce_metric_def = gce_metric_template % locals()
+
+    state.addDeclarations([global_sync_decl, gce_metric_def])
+
     state.setPipelineProperty('global_syncname', global_syncname)
     return global_syncname
 
