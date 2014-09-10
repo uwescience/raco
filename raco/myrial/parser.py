@@ -215,7 +215,8 @@ class Parser(object):
             raise InvalidArgumentList(remote, phony_names, lineno)
 
         # Number of remote outputs must match number of logical outputs
-        Parser.decomposable_aggs[logical] = da
+        if get_num_emitters(da.logical.sexpr) != get_num_emitters(da.remote.sexpr):  # noqa
+            raise InvalidEmitList(remote, lineno)
 
     @staticmethod
     def add_udf(p, name, args, body_expr):

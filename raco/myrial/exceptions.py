@@ -126,6 +126,16 @@ class NestedTupleExpressionException(MyrialCompileException):
         return "Illegal use of tuple expression on line %d" % self.lineno
 
 
+class InvalidEmitList(MyrialCompileException):
+    def __init__(self, function, lineno):
+        self.function = function
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Wrong number of emit arguments in %s at line %d" % (
+            self.function, self.lineno)
+
+
 class IllegalColumnNamesException(MyrialCompileException):
     def __init__(self, lineno):
         self.lineno = lineno
