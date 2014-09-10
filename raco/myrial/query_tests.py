@@ -1580,6 +1580,23 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     def test_uda_no_emit_clause_many_cols(self):
         query = """
         uda MyAggs(x) {
+            [0 as _count, 0 as _sum, 0 as _sumsq];
+            [_count + 1, _sum + x, _sumsq + x*x];
+        };
+        out = [FROM SCAN(%s) AS X EMIT MyAggs(salary) as [a, b, c]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        c = len(list(self.emp_table.elements()))
+        s = sum(d for a, b, c, d in self.emp_table.elements())
+        sq = sum(d * d for a, b, c, d in self.emp_table.elements())
+        expected = collections.Counter([(c, s, sq)])
+        self.check_result(query, expected)
+
+        # Test with two different column orders in case the undefined
+        # order used by Python is correct by chance.
+        query = """
+        uda MyAggs(x) {
             [0 as _count, 0 as _sumsq, 0 as _sum];
             [_count + 1, _sumsq + x*x, _sum + x];
         };
