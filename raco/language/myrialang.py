@@ -291,6 +291,9 @@ class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
             self.output_columns = self.scheme().ascolumnlist()
         column_names = [name for (name, _) in self.scheme()]
         pos = [i.get_position(combined) for i in self.output_columns]
+        side = [p >= left_len for p in pos]
+        assert sorted(side) == side, \
+            "MyriaSymmetricHashJoin always emits left columns first"
         allleft = [i for i in pos if i < left_len]
         allright = [i - left_len for i in pos if i >= left_len]
 
