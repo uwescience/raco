@@ -37,6 +37,8 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
 
         if kwargs.get('join_type', None) == 'symmetric_hash':
             kwargs['join_type'] = grappalang.GrappaSymmetricHashJoin
+        elif kwargs.get('join_type', None) == 'shuffle_hash':
+            kwargs['join_type'] = grappalang.GrappaShuffleHashJoin
 
         kwargs['target_alg'] = GrappaAlgebra()
 
