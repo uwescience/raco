@@ -197,9 +197,25 @@ class Parser(object):
                 raise NoSuchFunctionException(lineno)
             return func
 
-        tpl = DecomposableAgg(*[check_name(x) for x in
+        da = DecomposableAgg(*[check_name(x) for x in
                               (logical, local, remote)])
-        Parser.decomposable_aggs[logical] = tpl
+
+        # Do some basic sanity checking of the arguments; we can't do full
+        # type inspection here, because the full type information is not
+        # known until the funtion is invoked.
+
+        # Number of local inputs must match number of logical inputs
+        if len(da.local.args) != len(da.logical.args):
+            raise InvalidArgumentList(local, da.logical.args, lineno)
+
+        # Number of local outputs must equal number of remote inputs
+        num_local_emitters = get_num_emitters(da.local.sexpr)
+        if num_local_emitters != len(da.remote.args):
+            phony_names = ['x%d' % n for n in range(num_local_emitters)]
+            raise InvalidArgumentList(remote, phony_names, lineno)
+
+        # Number of remote outputs must match number of logical outputs
+        Parser.decomposable_aggs[logical] = da
 
     @staticmethod
     def add_udf(p, name, args, body_expr):
