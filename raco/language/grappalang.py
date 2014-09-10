@@ -1115,7 +1115,6 @@ class GrappaAlgebra(Algebra):
     language = GrappaLanguage
 
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
-        self.join_type = GrappaHashJoin
         self.emit_print = emit_print
 
     def opt_rules(self, **kwargs):
@@ -1138,6 +1137,8 @@ class GrappaAlgebra(Algebra):
         #     # rules.FreeMemory()
         # ]
 
+        join_type = kwargs.get('join_type', GrappaHashJoin)
+
         # sequence that works for myrial
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
@@ -1145,13 +1146,10 @@ class GrappaAlgebra(Algebra):
             clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
-            grappify(self.join_type, self.emit_print)
+            grappify(join_type, self.emit_print)
         ]
 
         if kwargs.get('SwapJoinSides'):
             rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
         return list(itertools.chain(*rule_grps_sequence))
-
-    def set_join_type(self, joinclass):
-        self.join_type = joinclass
