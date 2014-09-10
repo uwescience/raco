@@ -67,10 +67,20 @@ class ProjectingJoin(Rule):
     def fire(self, expr):
         if isinstance(expr, algebra.Project):
             if isinstance(expr.input, algebra.Join):
-                return algebra.ProjectingJoin(expr.input.condition,
-                                              expr.input.left,
-                                              expr.input.right,
-                                              expr.columnlist)
+                columns = expr.get_unnamed_column_list()
+                pos = [e.position for e in columns]
+                if pos == sorted(pos):
+                    return algebra.ProjectingJoin(
+                        expr.input.condition, expr.input.left,
+                        expr.input.right, columns)
+                join = algebra.ProjectingJoin(
+                    expr.input.condition, expr.input.left,
+                    expr.input.right,
+                    [UnnamedAttributeRef(p) for p in pos])
+                apply = algebra.Apply(
+                    emitters=[(None, e) for e in columns],
+                    input=join)
+                return apply
         return expr
 
     def __str__(self):
@@ -423,9 +433,16 @@ class PushApply(Rule):
             if (all(isinstance(e, expression.AttributeRef) for e in emits)
                     and len(set(emits)) == len(emits)):
                 new_cols = [child.output_columns[e.position] for e in emits]
-                left_len = len(child.left.scheme())
-                side = [e.position >= left_len for e in emits]
+                # We need to ensure that left columns come before right cols
+                left_sch = child.left.scheme()
+                right_sch = child.right.scheme()
+                combined = left_sch + right_sch
+                left_len = len(left_sch)
+                new_cols = [expression.to_unnamed_recursive(e, combined)
+                            for e in new_cols]
+                side = [e.position >= left_len for e in new_cols]
                 if sorted(side) == side:
+                    # Left columns do come before right cols
                     new_pj = algebra.ProjectingJoin(
                         condition=child.condition, left=child.left,
                         right=child.right, output_columns=new_cols)
