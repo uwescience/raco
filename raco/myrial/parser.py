@@ -186,6 +186,10 @@ class Parser(object):
         :param remote: The name of the remote UDA
         """
         lineno = p.lineno(0)
+
+        if logical in Parser.decomposable_aggs:
+            raise DuplicateFunctionDefinitionException(logical, lineno)
+
         def check_name(name):
             if name not in Parser.udf_functions:
                 raise NoSuchFunctionException(lineno)
@@ -217,6 +221,8 @@ class Parser(object):
         # Number of remote outputs must match number of logical outputs
         if get_num_emitters(da.logical.sexpr) != get_num_emitters(da.remote.sexpr):  # noqa
             raise InvalidEmitList(remote, lineno)
+
+        Parser.decomposable_aggs[logical] = da
 
     @staticmethod
     def add_udf(p, name, args, body_expr):
