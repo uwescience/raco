@@ -10,7 +10,7 @@ class OptLogicalAlgebra(Algebra):
                 rules.SplitSelects(),
                 rules.PushSelects(),
                 rules.MergeSelects(),
-                rules.ProjectingJoin(),
+                rules.ProjectToOnlyColumnSelect(),  # TODO BROKEN
                 rules.JoinToProjectingJoin(),
                 rules.PushApply(),
                 rules.RemoveUnusedColumns(),

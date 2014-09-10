@@ -1282,7 +1282,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
         [
             rules.SimpleGroupBy(),
             rules.CountToCountall(),  # TODO revisit when we have NULL support.
-            rules.ProjectToDistinctColumnSelect(),
+            rules.ProjectToOnlyColumnSelect(),  # TODO BROKEN
             rules.DistinctToGroupBy(),
         ],
         rules.push_select,
