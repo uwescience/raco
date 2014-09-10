@@ -1115,7 +1115,6 @@ class GrappaAlgebra(Algebra):
     language = GrappaLanguage
 
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
-        self.join_type = GrappaHashJoin
         self.emit_print = emit_print
 
     def opt_rules(self, **kwargs):
