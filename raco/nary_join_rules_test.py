@@ -92,7 +92,7 @@ class testNaryJoin(unittest.TestCase):
         self.assertEqual(get_hc_dim(shuffle_s, 0), get_hc_dim(shuffle_t, 0))
 
     def test_cell_partition(self):
-        def get_cell_partiton(expr, dim_sizes, child_idx):
+        def get_cell_partition(expr, dim_sizes, child_idx):
             children = expr.children()
             children = [c.input.input for c in children]
             child_schemes = [c.scheme() for c in children]
@@ -108,24 +108,24 @@ class testNaryJoin(unittest.TestCase):
         dim_sizes = [1, 2, 2]
         # test cell partion of scan r
         self.assertEqual(
-            get_cell_partiton(expr, dim_sizes, 0), [[0, 1], [2, 3]])
+            get_cell_partition(expr, dim_sizes, 0), [[0, 1], [2, 3]])
         # test cell partition of scan s
         self.assertEqual(
-            get_cell_partiton(expr, dim_sizes, 1), [[0], [1], [2], [3]])
+            get_cell_partition(expr, dim_sizes, 1), [[0], [1], [2], [3]])
         # test cell partition of scan t
         self.assertEqual(
-            get_cell_partiton(expr, dim_sizes, 2), [[0, 2], [1, 3]])
+            get_cell_partition(expr, dim_sizes, 2), [[0, 2], [1, 3]])
 
         # 2. chain join
         expr = testNaryJoin.get_phys_plan_root(
             "A(x,y,z,p):-R(x,y),S(y,z),T(z,p)", 64)
         dim_sizes = [2, 2]
         self.assertEqual(
-            get_cell_partiton(expr, dim_sizes, 0), [[0, 1], [2, 3]])
+            get_cell_partition(expr, dim_sizes, 0), [[0, 1], [2, 3]])
         self.assertEqual(
-            get_cell_partiton(expr, dim_sizes, 1), [[0], [1], [2], [3]])
+            get_cell_partition(expr, dim_sizes, 1), [[0], [1], [2], [3]])
         self.assertEqual(
-            get_cell_partiton(expr, dim_sizes, 2), [[0, 2], [1, 3]])
+            get_cell_partition(expr, dim_sizes, 2), [[0, 2], [1, 3]])
 
     def test_dim_size(self):
         def get_dim_size(expr):
