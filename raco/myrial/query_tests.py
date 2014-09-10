@@ -1829,6 +1829,40 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(NestedTupleExpressionException):
             self.check_result(query, None)
 
+    def test_decomposable_average_uda(self):
+        query = """
+        uda LogicalAvg(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+          [_sum/_count];
+        };
+        uda LocalAvg(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+        };
+        uda RemoteAvg(_local_sum, _local_count) {
+          [0 as _sum, 0 as _count];
+          [_sum + _local_sum, _count + _local_count];
+          [_sum/_count];
+        };
+
+        uda* LogicalAvg {LocalAvg, RemoteAvg};
+        out = [FROM SCAN(%s) AS X EMIT dept_id, LogicalAvg(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _cnt = len(vals)
+            _sum = sum(vals)
+            tuples.append((key, float(_sum) / _cnt))
+
+        self.check_result(query, collections.Counter(tuples))
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {

@@ -111,6 +111,9 @@ class Parser(object):
     # A unique ID pool for the stateful apply state variables
     mangle_id = 0
 
+    # mapping from UDA name to local, remote aggregates
+    decomposable_aggs = {}
+
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
         self.tokens = scanner.tokens
@@ -147,7 +150,8 @@ class Parser(object):
                             | constant
                             | udf
                             | apply
-                            | uda"""
+                            | uda
+                            | decomposable_uda"""
         p[0] = p[1]
 
     @staticmethod
@@ -161,6 +165,30 @@ class Parser(object):
         """Check whether an identifier name is reserved."""
         if expr_lib.is_defined(name):
             raise ReservedTokenException(name, p.lineno(0))
+
+    @staticmethod
+    def add_decomposable_uda(p, logical, local, remote):
+        """Register a decomposable UDA.
+
+        :param p: The parser context
+        :param logical: The name of the logical UDA
+        :param local: The name of the local UDA
+        :param remote: The name of the remote UDA
+        """
+        lineno = p.lineno(0)
+        def check_name(name):
+            if name not in Parser.udf_functions:
+                raise NoSuchFunctionException(lineno)
+
+            func = Parser.udf_functions[name]
+            if not isinstance (func, StatefulFunc):
+                raise NoSuchFunctionException(lineno)
+            if not sexpr.expression_contains_aggregate(func.sexpr):
+                raise NoSuchFunctionException(lineno)
+            return func
+
+        tpl = tuple([check_name(x) for x in (logical, local, remote)])
+        Parser.decomposable_aggs[logical] = tpl
 
     @staticmethod
     def add_udf(p, name, args, body_expr):
@@ -324,6 +352,15 @@ class Parser(object):
             p[0] = (p[1],)
         else:
             p[0] = None
+
+    @staticmethod
+    def p_decomposable_uda(p):
+        'decomposable_uda : UDA TIMES unreserved_id LBRACE unreserved_id COMMA unreserved_id RBRACE SEMI'  # noqa
+        logical = p[3]
+        local = p[5]
+        remote = p[7]
+        Parser.add_decomposable_uda(p, logical, local, remote)
+        p[0] = None
 
     @staticmethod
     def p_uda(p):
