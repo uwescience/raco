@@ -195,14 +195,14 @@ class Parser(object):
                 raise NoSuchFunctionException(lineno)
 
             func = Parser.udf_functions[name]
-            if not isinstance (func, StatefulFunc):
+            if not isinstance(func, StatefulFunc):
                 raise NoSuchFunctionException(lineno)
             if not sexpr.expression_contains_aggregate(func.sexpr):
                 raise NoSuchFunctionException(lineno)
             return func
 
         da = DecomposableAgg(*[check_name(x) for x in
-                              (logical, local, remote)])
+                             (logical, local, remote)])
 
         # Do some basic sanity checking of the arguments; we can't do full
         # type inspection here, because the full type information is not
@@ -841,6 +841,36 @@ class Parser(object):
         p[0] = sexpr.NOT(p[2])
 
     @staticmethod
+    def resolve_stateful_func(func, args):
+        """Resolve a stateful function given argument expressions.
+
+        :param func: An instance of StatefulFunc
+        :param args: A list of argument expressions
+        :return: An emit expression and a StateVar list.  All expressions
+        have no free variables.
+        """
+        assert isinstance(func, StatefulFunc)
+        state_var_names = func.statemods.keys()
+
+        # Mangle state variable names to allow multiple invocations to coexist
+        state_vars_mangled = [Parser.mangle(sv) for sv in state_var_names]
+        mangle_dict = dict(zip(state_var_names, state_vars_mangled))
+
+        statemods = []
+        for name, (init_expr, update_expr) in func.statemods.iteritems():
+            # Convert state mod references into appropriate expressions
+            update_expr = sexpr.resolve_state_vars(update_expr,  # noqa
+                state_var_names, mangle_dict)
+            # Convert argument references into appropriate expressions
+            update_expr = sexpr.resolve_function(update_expr,  # noqa
+                dict(zip(func.args, args)))
+            statemods.append(StateVar(mangle_dict[name],
+                                      init_expr, update_expr))
+        emit_expr = sexpr.resolve_state_vars(func.sexpr, state_var_names,
+                                             mangle_dict)
+        return emit_expr, statemods
+
+    @staticmethod
     def resolve_function(p, name, args):
         """Resolve a function invocation into an Expression instance.
 
@@ -866,23 +896,9 @@ class Parser(object):
         if isinstance(func, Function):
             return sexpr.resolve_function(func.sexpr, dict(zip(func.args, args)))  # noqa
         elif isinstance(func, StatefulFunc):
-            state_vars = func.statemods.keys()
-
-            # Mangle state variable names to allow multiple invocations to
-            # co-exist
-            state_vars_mangled = [Parser.mangle(sv) for sv in state_vars]
-            mangled = dict(zip(state_vars, state_vars_mangled))
-
-            for sm_name, (init_expr, update_expr) in func.statemods.iteritems():  # noqa
-                # Convert state mod references into appropriate expressions
-                update_expr = sexpr.resolve_state_vars(update_expr,
-                    state_vars, mangled)  # noqa
-                # Convert argument references into appropriate expressions
-                update_expr = sexpr.resolve_function(update_expr,
-                    dict(zip(func.args, args)))  # noqa
-                Parser.statemods.append(StateVar(
-                    mangled[sm_name], init_expr, update_expr))
-            return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
+            emit_expr, statemods = Parser.resolve_stateful_func(func, args)
+            Parser.statemods.extend(statemods)
+            return emit_expr
         else:
             assert False
 
