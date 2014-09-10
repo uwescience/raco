@@ -730,18 +730,6 @@ class BreakBroadcast(rules.Rule):
         return consumer
 
 
-class ShuffleBeforeDistinct(rules.Rule):
-    def fire(self, exp):
-        if not isinstance(exp, algebra.Distinct):
-            return exp
-        if isinstance(exp.input, algebra.Shuffle):
-            return exp
-        cols = [expression.UnnamedAttributeRef(i)
-                for i in range(len(exp.scheme()))]
-        exp.input = algebra.Shuffle(child=exp.input, columnlist=cols)
-        return exp
-
-
 def check_shuffle_xor(exp):
     """Enforce that neither or both inputs to a binary op are shuffled.
 
@@ -1194,22 +1182,6 @@ class DistributedGroupBy(rules.Rule):
         return algebra.Apply(gmappings + fmappings, op_out)
 
 
-class ProjectToDistinctColumnSelect(rules.Rule):
-    def fire(self, expr):
-        # If not a Project, who cares?
-        if not isinstance(expr, algebra.Project):
-            return expr
-
-        mappings = [(None, x) for x in expr.columnlist]
-        colSelect = algebra.Apply(mappings, expr.input)
-        # TODO(dhalperi) the distinct logic is broken because we don't have a
-        # locality-aware optimizer. For now, don't insert Distinct for a
-        # logical project. This is BROKEN.
-        # distinct = algebra.Distinct(colSelect)
-        # return distinct
-        return colSelect
-
-
 class MergeToNaryJoin(rules.Rule):
     """Merge consecutive binary join into a single multiway join
     Note: this code assumes that the binary joins form a left deep tree
@@ -1301,7 +1273,6 @@ class GetCardinalities(rules.Rule):
 
 # 6. shuffle logics, hyper_cube_shuffle_logic is only used in HCAlgebra
 left_deep_tree_shuffle_logic = [
-    ShuffleBeforeDistinct(),
     ShuffleBeforeSetop(),
     ShuffleBeforeJoin(),
     BroadcastBeforeCross()
@@ -1313,9 +1284,10 @@ distributed_group_by = [
     # DistributedGroupBy may introduce a complex GroupBy,
     # so we must run SimpleGroupBy after it. TODO no one likes this.
     DistributedUda(),
-    DistributedGroupBy(), rules.SimpleGroupBy(),
-    rules.CountToCountall(),   # TODO remove when we have NULL support.
-    ProjectToDistinctColumnSelect()
+    DistributedGroupBy(),
+    rules.SimpleGroupBy(),
+    rules.CountToCountall(),   # TODO revisit when we have NULL support.
+    rules.EmptyGroupByToDistinct(),
 ]
 
 # 8. Myriafy logical operators
@@ -1370,8 +1342,12 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
     rule_grps_sequence = [
         rules.remove_trivial_sequences,
-        [rules.SimpleGroupBy(),
-         rules.CountToCountall()],  # TODO remove when we have NULL support.
+        [
+            rules.SimpleGroupBy(),
+            rules.CountToCountall(),  # TODO revisit when we have NULL support.
+            rules.ProjectToDistinctColumnSelect(),
+            rules.DistinctToGroupBy(),
+        ],
         rules.push_select,
         rules.push_project,
         rules.push_apply,
@@ -1403,7 +1379,12 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
 
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
-            rules.simple_group_by,
+            [
+                rules.SimpleGroupBy(),
+                # TODO revisit when we have NULL support.
+                rules.CountToCountall(),
+                rules.DistinctToGroupBy(),
+            ],
             rules.push_select,
             rules.push_project,
             merge_to_nary_join,
