@@ -1577,6 +1577,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, self.__aggregate_expected_result(len))
 
+    def test_uda_no_emit_clause_many_cols(self):
+        query = """
+        uda MyAggs(x) {
+            [0 as _count, 0 as _sumsq, 0 as _sum];
+            [_count + 1, _sumsq + x*x, _sum + x];
+        };
+        out = [FROM SCAN(%s) AS X EMIT MyAggs(salary) as [a, b, c]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        c = len(list(self.emp_table.elements()))
+        sq = sum(d * d for a, b, c, d in self.emp_table.elements())
+        s = sum(d for a, b, c, d in self.emp_table.elements())
+        expected = collections.Counter([(c, sq, s)])
+        self.check_result(query, expected)
+
     def test_uda_with_udf(self):
         query = """
         def foo(x, y): x + y;
