@@ -67,10 +67,20 @@ class ProjectingJoin(Rule):
     def fire(self, expr):
         if isinstance(expr, algebra.Project):
             if isinstance(expr.input, algebra.Join):
-                return algebra.ProjectingJoin(expr.input.condition,
-                                              expr.input.left,
-                                              expr.input.right,
-                                              expr.columnlist)
+                columns = expr.get_unnamed_column_list()
+                pos = [e.position for e in columns]
+                if pos == sorted(pos):
+                    return algebra.ProjectingJoin(
+                        expr.input.condition, expr.input.left,
+                        expr.input.right, columns)
+                join = algebra.ProjectingJoin(
+                    expr.input.condition, expr.input.left,
+                    expr.input.right,
+                    [UnnamedAttributeRef(p) for p in pos])
+                apply = algebra.Apply(
+                    emitters=[(None, e) for e in columns],
+                    input=join)
+                return apply
         return expr
 
     def __str__(self):
@@ -164,6 +174,43 @@ class SimpleGroupBy(Rule):
         # are mutating the objects it contains when we modify grp_expr or
         # agg_expr in the above for loops.
         return expr
+
+
+class DistinctToGroupBy(Rule):
+    """Turns a distinct into an empty GroupBy"""
+    def fire(self, expr):
+        if isinstance(expr, algebra.Distinct):
+            in_scheme = expr.scheme()
+            grps = [UnnamedAttributeRef(i) for i in range(len(in_scheme))]
+            return algebra.GroupBy(input=expr.input, grouping_list=grps)
+
+        return expr
+
+    def __str__(self):
+        return "Distinct => GroupBy"
+
+
+class EmptyGroupByToDistinct(Rule):
+    """Turns a GroupBy with no aggregates into a Distinct"""
+    def fire(self, expr):
+        if isinstance(expr, algebra.GroupBy) and len(expr.aggregate_list) == 0:
+            # We can turn an empty GroupBy into a Distinct. However,
+            # we must ensure that the GroupBy does not do any column
+            # re-ordering.
+            group_cols = expr.get_unnamed_grouping_list()
+            if all(e.position == i for i, e in enumerate(group_cols)):
+                # No reordering is done
+                return algebra.Distinct(input=expr.input)
+
+            # Some reordering is done, so shim in the Apply to mimic it.
+            reorder_cols = algebra.Apply(
+                emitters=[(None, e) for e in group_cols], input=expr.input)
+            return algebra.Distinct(input=reorder_cols)
+
+        return expr
+
+    def __str__(self):
+        return "Distinct => GroupBy"
 
 
 class CountToCountall(Rule):
@@ -386,11 +433,21 @@ class PushApply(Rule):
             if (all(isinstance(e, expression.AttributeRef) for e in emits)
                     and len(set(emits)) == len(emits)):
                 new_cols = [child.output_columns[e.position] for e in emits]
-                new_pj = algebra.ProjectingJoin(
-                    condition=child.condition, left=child.left,
-                    right=child.right, output_columns=new_cols)
-                if new_pj.scheme() == op.scheme():
-                    return new_pj
+                # We need to ensure that left columns come before right cols
+                left_sch = child.left.scheme()
+                right_sch = child.right.scheme()
+                combined = left_sch + right_sch
+                left_len = len(left_sch)
+                new_cols = [expression.to_unnamed_recursive(e, combined)
+                            for e in new_cols]
+                side = [e.position >= left_len for e in new_cols]
+                if sorted(side) == side:
+                    # Left columns do come before right cols
+                    new_pj = algebra.ProjectingJoin(
+                        condition=child.condition, left=child.left,
+                        right=child.right, output_columns=new_cols)
+                    if new_pj.scheme() == op.scheme():
+                        return new_pj
 
             accessed = sorted(set(itertools.chain(*(accessed_columns(e)
                                                     for e in emits))))
@@ -413,17 +470,6 @@ class PushApply(Rule):
             if len(accessed_aggs) == len(child.aggregate_list):
                 return op
 
-            if len(accessed_aggs) == 0:
-                # The aggregates are not used. The group_by should really just
-                # be a Distinct. Before we slide the Distinct is, prepend
-                # an Apply to ensure that the input to the Distinct has exactly
-                # the right columns in the right order.
-                pre_distinct = [(None, g) for g in child.grouping_list]
-                keep_only_grp_cols = algebra.Apply(emitters=pre_distinct,
-                                                   input=child.input)
-                op.input = algebra.Distinct(input=keep_only_grp_cols)
-                return op
-
             unused_map = {i: j + num_grps for j, i in enumerate(accessed_aggs)}
             child.aggregate_list = [child.aggregate_list[i - num_grps]
                                     for i in accessed_aggs]
@@ -437,6 +483,23 @@ class PushApply(Rule):
 
     def __str__(self):
         return 'Push Apply into Apply, ProjectingJoin'
+
+
+class ProjectToDistinctColumnSelect(Rule):
+    def fire(self, expr):
+        # If not a Project, who cares?
+        if not isinstance(expr, algebra.Project):
+            return expr
+
+        mappings = [(None, x) for x in expr.columnlist]
+        col_select = algebra.Apply(mappings, expr.input)
+        # TODO the Raco Datalog users currently want the project to really
+        # be a column select. This is BROKEN, but it is what they want.
+        # return algebra.Distinct(col_select)
+        return col_select
+
+    def __str__(self):
+        return 'Project => Distinct, Column select'
 
 
 class RemoveUnusedColumns(Rule):

@@ -793,6 +793,11 @@ class Project(UnaryOperator):
                  for attref in self.columnlist]
         return scheme.Scheme(attrs)
 
+    def get_unnamed_column_list(self):
+        """Get the column list for this Project after ensuring that all
+        attribute references are UnnamedAttributeRefs."""
+        return expression.ensure_unnamed(self.columnlist, self.input)
+
 
 class GroupBy(UnaryOperator):
     """Logical GroupBy operator
