@@ -423,11 +423,14 @@ class PushApply(Rule):
             if (all(isinstance(e, expression.AttributeRef) for e in emits)
                     and len(set(emits)) == len(emits)):
                 new_cols = [child.output_columns[e.position] for e in emits]
-                new_pj = algebra.ProjectingJoin(
-                    condition=child.condition, left=child.left,
-                    right=child.right, output_columns=new_cols)
-                if new_pj.scheme() == op.scheme():
-                    return new_pj
+                left_len = len(child.left.scheme())
+                side = [e.position >= left_len for e in emits]
+                if sorted(side) == side:
+                    new_pj = algebra.ProjectingJoin(
+                        condition=child.condition, left=child.left,
+                        right=child.right, output_columns=new_cols)
+                    if new_pj.scheme() == op.scheme():
+                        return new_pj
 
             accessed = sorted(set(itertools.chain(*(accessed_columns(e)
                                                     for e in emits))))
