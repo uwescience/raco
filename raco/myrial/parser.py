@@ -79,6 +79,10 @@ def get_emitters(ex):
         return [ex]
 
 
+def get_num_emitters(ex):
+    return len(get_emitters(ex))
+
+
 class TupleExpression(sexpr.Expression):
     """Represents an instance of a tuple-valued Expression
 
@@ -114,13 +118,6 @@ class TupleExpression(sexpr.Expression):
 
     def evaluate(self, _tuple, scheme, state=None):
         raise NotImplementedError()
-
-
-def get_num_emitters(ex):
-    if isinstance(ex, TupleExpression):
-        return len(ex.emitters)
-    else:
-        return 1
 
 
 class Parser(object):
