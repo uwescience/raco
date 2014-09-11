@@ -147,6 +147,19 @@ def rebase_local_aggregate_output(expr, offset):
     return convert(expr)
 
 
+def rebase_finalizer(expr, offset):
+    """Convert RemoteAggregateOutput instances to raw column references."""
+    assert isinstance(expr, Expression)
+
+    def convert(n):
+        if isinstance(n, RemoteAggregateOutput):
+            return UnnamedAttributeRef(n.index + offset)
+        n.apply(convert)
+        return n
+    return convert(expr)
+
+
+# AAA dead code
 def finalizer_expr_to_absolute(expr, offsets):
     """Convert a finalizer expression to absolute column positions."""
 
