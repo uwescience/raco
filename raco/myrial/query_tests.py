@@ -1940,6 +1940,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(DuplicateFunctionDefinitionException):
             self.check_result(query, None)
 
+    def test_decomposable_uda_type_check_fail1(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Local(x, y) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* Logical {Local, Logical};
+        """
+
+        with self.assertRaises(InvalidArgumentList):
+            self.check_result(query, None)
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {
