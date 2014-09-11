@@ -1926,6 +1926,20 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(tuples))
 
+    def test_duplicate_decomposable_uda(self):
+        query = """
+        uda Agg1(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+
+        uda* Agg1 {Agg1, Agg1};
+        uda* Agg1 {Agg1, Agg1};
+        """
+
+        with self.assertRaises(DuplicateFunctionDefinitionException):
+            self.check_result(query, None)
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {
