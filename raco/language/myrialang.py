@@ -1048,9 +1048,9 @@ class DecomposeGroupBy(rules.Rule):
 
         num_grouping_terms = len(op.grouping_list)
 
-        local_aggs = []
+        local_emitters = []
         local_statemods = []
-        remote_aggs = []
+        remote_emitters = []
         remote_statemods = []
         finalizer_exprs = []
 
@@ -1069,24 +1069,37 @@ class DecomposeGroupBy(rules.Rule):
                 continue
             state = next_state
 
+            ################################
+            # Extract the set of emitters and statemods required for the
+            # local aggregate.
+            ################################
+
             laggs = state.get_local_emitters()
-            local_aggs.extend(laggs)
+            local_emitters.extend(laggs)
             local_statemods.extend(state.get_local_statemods())
 
-            # For builtin aggregates, we must rebase the emit expressions
-            # to remove instances of LocalAggregateOutput
+            ################################
+            # Extract the set of emitters and statemods required for the
+            # remote aggregate.  Remote expressions must be rebased to
+            # remove instances of LocalAggregateOutput
+            ################################
+
             raggs = state.get_remote_emitters()
             raggs = [rebase_local_aggregate_output(x, local_output_pos)
                       for x in raggs]
-            remote_aggs.extend(raggs)
+            remote_emitters.extend(raggs)
 
-            # The update expressions of statemods must be rebased.
             rsms = state.get_remote_statemods()
             for sm in rsms:
                 update_expr = rebase_local_aggregate_output(
                     sm.update_expr, local_output_pos)
                 remote_statemods.append(
                     StateVar(sm.name, sm.init_expr, update_expr))
+
+            ################################
+            # Extract any required finalizers.  These must be rebased to remove
+            # instances of RemoteAggregateOutput
+            ################################
 
             finalizer = state.get_finalizer()
             if finalizer is not None:
@@ -1100,7 +1113,7 @@ class DecomposeGroupBy(rules.Rule):
             local_output_pos += len(laggs)
             remote_output_pos += len(raggs)
 
-        local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input,
+        local_gb = MyriaGroupBy(op.grouping_list, local_emitters, op.input,
                                 local_statemods)
 
         # Introduce a communication step
@@ -1117,7 +1130,7 @@ class DecomposeGroupBy(rules.Rule):
         grouping_fields = [UnnamedAttributeRef(i)
                            for i in range(len(op.grouping_list))]
 
-        remote_gb = MyriaGroupBy(grouping_fields, remote_aggs, shuffle,
+        remote_gb = MyriaGroupBy(grouping_fields, remote_emitters, shuffle,
                                  remote_statemods)
         return remote_gb
 
