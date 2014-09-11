@@ -59,14 +59,14 @@ class DecomposableUdaState(object):
         return self.remote_statemods
 
 
-class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
+class UdaAggregateExpression(AggregateExpression, UnaryOperator):
     """A user-defined aggregate.
 
     A UDA wraps an emit expression that is responsible for emitting a
     value for each tuple group.
     """
     def __init__(self, emitter, decomposable_state=None):
-        self.emitter = emitter
+        UnaryOperator.__init__(self, emitter)
         self.decomposable_state = decomposable_state
 
     def evaluate(self, _tuple, scheme, state=None):
@@ -74,26 +74,10 @@ class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
 
         Note that the emitter should only reference the state argument.
         """
-        return self.emitter.evaluate(None, None, state)
+        return self.input.evaluate(None, None, state)
 
     def typeof(self, scheme, state_scheme):
-        return self.emitter.typeof(None, state_scheme)
-
-    def apply(self, f):
-        self.emitter = f(self.emitter)
-
-    def walk(self):
-        yield self
-        for ex in self.emitter.walk():
-            yield ex
-
-    def accept(self, visitor):
-        """For post order stateful visitors"""
-        self.emitter.accept(visitor)
-        visitor.visit(self)
-
-    def get_children(self):
-        return [self.emitter]
+        return self.input.typeof(None, state_scheme)
 
     def is_decomposable(self):
         return self.decomposable_state is not None
@@ -102,14 +86,10 @@ class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
         self.decomposable_state = ds
 
     def __repr__(self):
-        return "{op}({se!r})".format(op=self.opname(), se=self.emitter)
+        return "{op}({se!r})".format(op=self.opname(), se=self.input)
 
     def __str__(self):
-        return 'UDA(%s)' % self.emitter
-
-    def __eq__(self, other):
-        return (self.__class__ == other.__class__ and
-                self.emitter == other.emitter)
+        return 'UDA(%s)' % self.input
 
 
 class LocalAggregateOutput(object):
