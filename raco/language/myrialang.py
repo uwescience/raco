@@ -1130,10 +1130,16 @@ class DecomposeGroupBy(rules.Rule):
         grouping_fields = [UnnamedAttributeRef(i)
                            for i in range(len(op.grouping_list))]
 
-        remote_gb = MyriaGroupBy(grouping_fields, remote_emitters, shuffle,
-                                 remote_statemods)
-        return remote_gb
+        op = MyriaGroupBy(grouping_fields, remote_emitters, shuffle,
+                          remote_statemods)
 
+        if requires_finalizer:
+            # Pass through grouping terms
+            gmappings = [(None, UnnamedAttributeRef(i))
+                         for i in range(num_grouping_terms)]
+            fmappings = [(None, fx) for fx in finalizer_exprs]
+            op = algebra.Apply(gmappings + fmappings, op)
+        return op
 
 class DistributedGroupBy(rules.Rule):
     @staticmethod
