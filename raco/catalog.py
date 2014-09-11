@@ -1,6 +1,7 @@
 from abc import abstractmethod, ABCMeta
 from raco.algebra import DEFAULT_CARDINALITY
 from raco.relation_key import RelationKey
+from raco.scheme import Scheme
 
 
 class Relation(object):
@@ -40,6 +41,8 @@ class Catalog(object):
         """ Return number of tuples of rel_key """
 
 
+# Some useful Catalog implementations
+
 class FakeCatalog(Catalog):
     """ fake catalog, should only be used in test """
     def __init__(self, num_servers, child_sizes=None):
@@ -61,3 +64,46 @@ class FakeCatalog(Catalog):
 
     def get_scheme(self, rel_key):
         raise NotImplementedError()
+
+
+class FromFileCatalog(Catalog):
+    """ Catalog that is created from a python file.
+    Format of file is a dictionary of schemas.
+
+    {'relation1' : [('a', 'LONG_TYPE'), ('b', 'STRING_TYPE')],
+     'relation2' : [('y', 'STRING_TYPE'), ('z', 'DATETIME_TYPE')]}
+
+     Or there can be an optional cardinality for any relation
+    {'relation1' : ([('a', 'LONG_TYPE'), ('b', 'STRING_TYPE')], 10),
+     'relation2' : [('y', 'STRING_TYPE'), ('z', 'DATETIME_TYPE')]}
+
+     see raco.types for allowed types
+    """
+
+    def __init__(self, cat):
+        self.catalog = {}
+
+        def parse(v):
+            if isinstance(v, ().__class__):
+                return v
+            elif isinstance(v, [].__class__):
+                return v, DEFAULT_CARDINALITY
+            else:
+                assert False, """Unexpected catalog file format. \
+                See raco.catalog.FromFileCatalog"""
+
+        self.catalog = dict([(k, parse(v)) for k, v in cat.iteritems()])
+
+    def get_scheme(self, rel_key):
+        return Scheme(self.catalog[str(rel_key)][0])
+
+    @classmethod
+    def load_from_file(cls, path):
+        with open(path) as fh:
+            return cls(eval(fh.read()))
+
+    def get_num_servers(self):
+        return 1
+
+    def num_tuples(self, rel_key):
+        return self.catalog[rel_key][1]
