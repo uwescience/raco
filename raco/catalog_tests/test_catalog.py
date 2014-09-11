@@ -28,4 +28,12 @@ class TestFromFileCatalog(unittest.TestCase):
         self.assertEqual(cut.num_tuples('B'), DEFAULT_CARDINALITY)
         self.assertEqual(cut.num_tuples('C'), 12)
 
+    def test_missing_relation(self):
+        cut = FromFileCatalog.load_from_file(
+            "{p}/set_cardinality_relation.py".format(p=test_file_path))
 
+        with self.assertRaises(Exception):
+            cut.num_tuples('D')
+
+        with self.assertRaises(Exception):
+            cut.get_scheme('D')

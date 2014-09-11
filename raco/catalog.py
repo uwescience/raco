@@ -95,7 +95,7 @@ class FromFileCatalog(Catalog):
         self.catalog = dict([(k, parse(v)) for k, v in cat.iteritems()])
 
     def get_scheme(self, rel_key):
-        return Scheme(self.catalog[str(rel_key)][0])
+        return Scheme(self.__get_catalog_entry__(rel_key)[0])
 
     @classmethod
     def load_from_file(cls, path):
@@ -105,5 +105,13 @@ class FromFileCatalog(Catalog):
     def get_num_servers(self):
         return 1
 
+    def __get_catalog_entry__(self, rel_key):
+        e = self.catalog.get(str(rel_key))
+        if e is None:
+            raise Exception(
+                "relation {r} not found in catalog".format(r=rel_key))
+
+        return e
+
     def num_tuples(self, rel_key):
-        return self.catalog[rel_key][1]
+        return self.__get_catalog_entry__(rel_key)[1]
