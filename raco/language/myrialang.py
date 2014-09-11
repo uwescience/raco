@@ -1113,10 +1113,15 @@ class DecomposeGroupBy(rules.Rule):
             local_output_pos += len(laggs)
             remote_output_pos += len(raggs)
 
+        ################################
+        # Glue together the local and remote aggregates:
+        # Local => Shuffle => Remote => (optional) Finalizer.
+        ################################
+
         local_gb = MyriaGroupBy(op.grouping_list, local_emitters, op.input,
                                 local_statemods)
 
-        # Introduce a communication step
+
         shuffle_fields = [UnnamedAttributeRef(i)
                           for i in range(len(op.grouping_list))]
 
@@ -1128,18 +1133,18 @@ class DecomposeGroupBy(rules.Rule):
             shuffle = algebra.Shuffle(local_gb, shuffle_fields)
 
         grouping_fields = [UnnamedAttributeRef(i)
-                           for i in range(len(op.grouping_list))]
+                           for i in range(num_grouping_terms)]
 
-        op = MyriaGroupBy(grouping_fields, remote_emitters, shuffle,
-                          remote_statemods)
+        remote_gb = MyriaGroupBy(grouping_fields, remote_emitters, shuffle,
+                                 remote_statemods)
 
         if requires_finalizer:
             # Pass through grouping terms
             gmappings = [(None, UnnamedAttributeRef(i))
                          for i in range(num_grouping_terms)]
             fmappings = [(None, fx) for fx in finalizer_exprs]
-            op = algebra.Apply(gmappings + fmappings, op)
-        return op
+            return algebra.Apply(gmappings + fmappings, remote_gb)
+        return remote_gb
 
 class DistributedGroupBy(rules.Rule):
     @staticmethod
