@@ -47,9 +47,17 @@ class CompileState:
         self.current_pipeline_precode = []
         self.current_pipeline_postcode = []
 
+        self.main_wait_statements = set()
+
     def setPipelineProperty(self, key, value):
         LOG.debug("set %s in %s" % (key, self.current_pipeline_properties))
         self.current_pipeline_properties[key] = value
+
+    def appendPipelineProperty(self, key, value):
+        current = self.current_pipeline_properties.get(key, [])
+        assert isinstance(current, [].__class__), \
+            "cannot append to non-list property"
+        current.append(value)
 
     def getPipelineProperty(self, key):
         LOG.debug("get %s from %s" % (key, self.current_pipeline_properties))
@@ -82,9 +90,11 @@ class CompileState:
         """
         self.declarations_later += d
 
-
     def addInitializers(self, i):
         self.initializers += i
+
+    def addMainWaitStatement(self, c):
+        self.main_wait_statements.add(c)
 
     def addPipeline(self, p):
         LOG.debug("output pipeline %s", self.current_pipeline_properties)
@@ -153,7 +163,7 @@ class CompileState:
     def getExecutionCode(self):
         # list -> string
         scan_linearized = emitlist(self.scan_pipelines)
-        mem_linearized = emitlist(self.pipelines)
+        mem_linearized = emitlist(self.pipelines) + emitlist(self.main_wait_statements)
         flush_linearized = emitlist(self.flush_pipelines)
         scan_linearized_wrapped = self.language.group_wrap(gensym(), scan_linearized, {'type': 'scan'})
         mem_linearized_wrapped = self.language.group_wrap(gensym(), mem_linearized, {'type': 'in_memory'})

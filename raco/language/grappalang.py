@@ -10,6 +10,7 @@ from raco import rules
 from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, ct
 from raco.language import clangcommon
+from raco.utility import emitlist
 
 from raco.algebra import gensym
 
@@ -114,22 +115,28 @@ class GrappaLanguage(Language):
             """)
             code = timing_template % locals()
 
+        dependences = attrs.get('dependences', [])
+        dependence_list = []
+        for d in dependences:
+            dependence_list.append(wait_statement(d))
+
+        dependence_code = emitlist(dependence_list)
+
+        code = """{dependence_code}
+                  {inner_code}
+                  """.format(dependence_code=dependence_code,
+                             inner_code=code)
+
         syncname = attrs.get('sync')
         if syncname:
             inner_code = code
-            sync_template = ct("""spawn(&%(syncname)s, [=] {
+            sync_template = ct("""
+            CompletionEvent %(syncname)s;
+            spawn(&%(syncname)s, [=] {
                     %(inner_code)s
                     });
                     """)
             code = sync_template % locals()
-
-        syncname = attrs.get('syncdef')
-        if syncname:
-            inner_code = code
-            sync_def_template = ct("""CompletionEvent %(syncname)s;
-            %(inner_code)s
-            """)
-            code = sync_def_template % locals()
 
         return code
 
@@ -263,6 +270,7 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         #       """
 
         global_syncname = create_pipeline_synchronization(state)
+        get_pipeline_task_name(state)
 
         memory_scan_template = ct("""
     forall<&%(global_syncname)s>( %(inputsym)s.data, %(inputsym)s.numtuples, \
@@ -305,8 +313,6 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
 
 class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
     _i = 0
-    wait_template = ct("""%(syncname)s.wait();
-        """)
 
     @classmethod
     def __genBaseName__(cls):
@@ -318,16 +324,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         name = "dhash_%s" % self.symBase
         return name
 
-    def __getSyncName__(self, side):
-        base = "dh_sync_%s" % self.symBase
-        if side == "left":
-            return base + "_L"
-        if side == "right":
-            return base + "_R"
-        assert False, "type error {left,right}"
-
     def produce(self, state):
-        self.syncnames = []
         self.symBase = self.__genBaseName__()
 
         if not isinstance(self.condition, expression.EQ):
@@ -378,10 +375,6 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         self.left.childtag = "left"
         self.left.produce(state)
 
-        for sn in self.syncnames:
-            syncname = sn
-            state.addCode(self.wait_template % locals())
-
     def consume(self, t, src, state):
         access_template = ct("""
         %(hashname)s.insert_lookup_iter_%(side)s<&%(global_syncname)s>(\
@@ -404,13 +397,6 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         outTuple = self.outTuple
         out_tuple_type = self.outTuple.getTupleTypename()
         out_tuple_name = self.outTuple.name
-
-        syncname = self.__getSyncName__(src.childtag)
-        # only add such a sync if one doesn't exist yet
-        if not state.checkPipelineProperty('sync'):
-            state.setPipelineProperty('sync', syncname)
-            state.setPipelineProperty('syncdef', syncname)
-            self.syncnames.append(syncname)
 
         global_syncname = state.getPipelineProperty('global_syncname')
 
@@ -468,8 +454,6 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
 
 class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
     _i = 0
-    wait_template = ct("""%(syncname)s.wait();
-        """)
 
     @classmethod
     def __genBaseName__(cls):
@@ -480,14 +464,6 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
     def __getHashName__(self):
         name = "hashjoin_reducer_%s" % self.symBase
         return name
-
-    def __getSyncName__(self, side):
-        base = "shj_sync_%s" % self.symBase
-        if side == "left":
-            return base + "_L"
-        if side == "right":
-            return base + "_R"
-        assert False, "type error {left,right}"
 
     def produce(self, state):
         left_sch = self.left.scheme()
@@ -562,15 +538,14 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
             self.left.produce(state)
 
             state.saveExpr((self.right, self.right_keypos),
-                           (self._hashname, right_type, left_type))
+                           (self._hashname, right_type, left_type,
+                           self.right_syncname, self.left_syncname))
 
-            for sn in self.syncnames:
-                syncname = sn
-                state.addCode(self.wait_template % locals())
         else:
             # if found a common subexpression on right child then
             # use the same hashtable
-            self._hashname, right_type, left_type = hashtableInfo
+            self._hashname, right_type, left_type,\
+                self.right_syncname, self.left_syncname = hashtableInfo
             _LOG.debug("reuse hash %s for %s", self._hashname, self)
 
         # now that Relation is produced, produce its contents by iterating over
@@ -589,6 +564,10 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         state.addDeclarations([out_tuple_type_def])
 
         pipeline_sync = create_pipeline_synchronization(state)
+
+        # add dependences on left and right inputs
+        state.appendPipelineProperty('dependences', self.right_syncname)
+        state.appendPipelineProperty('dependences', self.left_syncname)
 
         # reduce is a single self contained pipeline.
         # future hashjoin implementations may pipeline out of it
@@ -613,6 +592,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
     def consume(self, inputTuple, fromOp, state):
         if fromOp.childtag == "right":
             side = "Right"
+            self.right_syncname = get_pipeline_task_name(state)
 
             keypos = self.right_keypos
 
@@ -622,6 +602,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
                                     self.rightTupleTypename)
         elif fromOp.childtag == "left":
             side = "Left"
+            self.left_syncname = get_pipeline_task_name(state)
 
             keypos = self.left_keypos
 
@@ -638,14 +619,6 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
         # intra-pipeline sync
         global_syncname = state.getPipelineProperty('global_syncname')
-
-        # inter-pipeline sync
-        syncname = self.__getSyncName__(fromOp.childtag)
-        # only add such a sync if one doesn't exist yet
-        if not state.checkPipelineProperty('sync'):
-            state.setPipelineProperty('sync', syncname)
-            state.setPipelineProperty('syncdef', syncname)
-            self.syncnames.append(syncname)
 
         mat_template = ct("""%(hashname)s_ctx.emitIntermediate%(side)s\
                 <&%(global_syncname)s>(\
@@ -774,6 +747,9 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         pipeline_sync = create_pipeline_synchronization(state)
 
+        # add a dependence on the input aggregation pipeline
+        state.appendPipelineProperty('dependences', self.input_syncname)
+
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
         output_tuple_name = output_tuple.name
         output_tuple_type = output_tuple.getTupleTypename()
@@ -785,6 +761,9 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         state.addPipeline(code)
 
     def consume(self, inputTuple, fromOp, state):
+        # save the inter-pipeline task name
+        self.input_syncname = get_pipeline_task_name(state)
+
         inp_sch = self.input.scheme()
 
         if self.useKey:
@@ -836,6 +815,16 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         code = materialize_template % locals()
         return code
+
+def wait_statement(name):
+    return """{name}.wait();""".format(name=name)
+
+def get_pipeline_task_name(state):
+    name = "p_task_{n}".format(n=state.getCurrentPipelineId())
+    state.setPipelineProperty('sync', name)
+    wait_stmt = wait_statement(name)
+    state.addMainWaitStatement(wait_stmt)
+    return name
 
 
 class GrappaHashJoin(algebra.Join, GrappaOperator):
@@ -909,14 +898,16 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             state.addInitializers([init_template % locals()])
             self.right.produce(state)
             state.saveExpr((self.right, self.right_keypos),
-                           (self._hashname, self.rightTupleTypename))
+                           (self._hashname, self.rightTupleTypename,
+                           self.right_syncname))
             # TODO always safe here? I really want to call
             # TODO saveExpr before self.right.produce(),
             # TODO but I need to get the self.rightTupleTypename cleanly
         else:
             # if found a common subexpression on right child then
             # use the same hashtable
-            self._hashname, self.rightTupleTypename = hashtableInfo
+            self._hashname, self.rightTupleTypename, self.right_syncname\
+                = hashtableInfo
             _LOG.debug("reuse hash %s for %s", self._hashname, self)
 
         self.left.childtag = "left"
@@ -934,6 +925,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             keyname = t.name
 
             keypos = self.right_keypos
+
+            self.right_syncname = get_pipeline_task_name(state)
 
             self.rightTupleTypename = t.getTupleTypename()
             if self.rightTupleTypeRef is not None:
@@ -961,6 +954,9 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
               %(inner_plan_compiled)s
             });
      """)
+
+            # add a dependence on the right pipeline
+            state.appendPipelineProperty('dependences', self.right_syncname)
 
             hashname = self._hashname
             keyname = t.name
