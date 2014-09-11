@@ -653,7 +653,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         lstatemods = [StateVar("value", init_ex, update_ex)]
         rstatemods = copy.deepcopy(lstatemods)
 
-        uda_state = expression.DecomposableUdaState(
+        uda_state = expression.DecomposableAggregateState(
             lemits, lstatemods, remits, rstatemods)
         pp = self.__run_uda_test(uda_state)
 
