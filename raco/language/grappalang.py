@@ -213,8 +213,9 @@ def create_pipeline_synchronization(state):
     """
     global_syncname = gensym()
 
+    # true = tracked by gce user metrics
     global_sync_decl_template = ct("""
-        GlobalCompletionEvent %(global_syncname)s;
+        GlobalCompletionEvent %(global_syncname)s(true);
         """)
     global_sync_decl = global_sync_decl_template % locals()
 
