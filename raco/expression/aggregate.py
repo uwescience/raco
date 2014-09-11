@@ -115,6 +115,18 @@ class MergeAggregateOutput(object):
         return UnnamedAttributeRef(offsets[self.pos])
 
 
+def rebase_local_aggregate_output(expr, offset):
+    """Convert LocalAggregateOutput instances to raw column references."""
+    assert isinstance(expr, Expression)
+
+    def convert(n):
+        if isinstance(n, LocalAggregateOutput):
+            return UnnamedAttributeRef(n.index + offset)
+        n.apply(convert)
+        return n
+    return convert(expr)
+
+
 def finalizer_expr_to_absolute(expr, offsets):
     """Convert a finalizer expression to absolute column positions."""
 

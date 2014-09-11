@@ -7,7 +7,8 @@ from raco.catalog import Catalog
 from raco.language import Language, Algebra
 from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import (
-    DecomposableAggregate, UdaAggregateExpression)
+    DecomposableAggregate, UdaAggregateExpression, rebase_local_aggregate_output)
+from raco.expression.statevar import *
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
 
@@ -1055,16 +1056,30 @@ class DistributedUda(rules.Rule):
         remote_statemods = []
 
         state = None
+        start_position = num_grouping_terms
         for agg in op.aggregate_list:
             # Multiple emit arguments can be associted with a single
             # decomposition rule; coalesce them all together.
             if state is agg.decomposable_state:
                 continue
             state = agg.decomposable_state
-            local_aggs.extend(state.get_local_emitters())
+
+            laggs = state.get_local_emitters()
+            local_aggs.extend(laggs)
             local_statemods.extend(state.get_local_statemods())
+
             remote_aggs.extend(state.get_remote_emitters())
-            remote_statemods.extend(state.get_remote_statemods())
+
+            # remote statemods must be rebased to receive their inputs from
+            # local aggregates.
+            rsms = state.get_remote_statemods()
+            for sm in rsms:
+                update_expr = rebase_local_aggregate_output(
+                    sm.update_expr, start_position)
+                remote_statemods.append(
+                    StateVar(sm.name, sm.init_expr, update_expr))
+
+            start_position += len(laggs)
 
         local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input,
                                 local_statemods)
