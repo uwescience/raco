@@ -913,7 +913,7 @@ class Parser(object):
                 # local and remote emitters may be tuple-valued; flatten them.
                 local_emitters = get_emitters(local_emit)
                 remote_emitters = get_emitters(remote_emit)
-                ds = sexpr.DecomposableUdaState(
+                ds = sexpr.DecomposableAggregateState(
                     local_emitters, local_statemods,
                     remote_emitters, remote_statemods)
 

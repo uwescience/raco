@@ -10,8 +10,8 @@ from abc import abstractmethod
 import math
 
 
-class DecomposableUdaState(object):
-    """State associated with decomposable UDAs.
+class DecomposableAggregateState(object):
+    """State associated with decomposable aggregates.
 
     :param local_emitters: A list of one or more aggregates to run prior to
     the shuffle operation
