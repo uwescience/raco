@@ -398,6 +398,31 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                                         ('Shumo Chu', 'human resources')])
         self.check_result(query, expected)
 
+    def test_join_with_reordering(self):
+        # Try both FROM orders of the query and verify they both get the
+        # correct answer.
+        query = """
+        out = [FROM SCAN({d}) AS D, SCAN({e}) E
+               WHERE E.dept_id == D.id AND E.salary < 6000
+               EMIT E.name, D.id];
+        STORE(out, OUTPUT);
+        """.format(d=self.dept_key, e=self.emp_key)
+
+        expected = collections.Counter([('Andrew Whitaker', 1),
+                                        ('Shumo Chu', 2)])
+        self.check_result(query, expected)
+        # Swap E and D
+        query = """
+        out = [FROM SCAN({e}) E, SCAN({d}) AS D
+               WHERE E.dept_id == D.id AND E.salary < 6000
+               EMIT E.name, D.id];
+        STORE(out, OUTPUT);
+        """.format(d=self.dept_key, e=self.emp_key)
+
+        expected = collections.Counter([('Andrew Whitaker', 1),
+                                        ('Shumo Chu', 2)])
+        self.check_result(query, expected)
+
     def test_sql_join(self):
         """SQL-style select-from-where join"""
 
