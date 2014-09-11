@@ -26,31 +26,31 @@ class BuiltinAggregateExpression(AggregateExpression):
 class DecomposableUdaState(object):
     """State associated with decomposable UDAs.
 
-    :param local_aggregates: A list of one or more aggregates to run prior to
+    :param local_emitters: A list of one or more aggregates to run prior to
     the shuffle operation
     :param local_statemods: A list of StateVars associated with local aggs
-    :param remote_aggregates: A list of one or more aggregates to run after
+    :param remote_emitters: A list of one or more aggregates to run after
     the shuffle operation
     :param remote_statemods: A list of StateVars associated with remote aggs
     """
-    def __init__(self, local_aggregates, local_statemods,
-                 remote_aggregates, remote_statemods):
+    def __init__(self, local_emitters, local_statemods,
+                 remote_emitters, remote_statemods):
 
-        assert all(isinstance(a, UdaAggregateExpression) for a in local_aggregates)  # noqa
-        assert all(isinstance(a, UdaAggregateExpression) for a in remote_aggregates)  # noqa
+        assert all(isinstance(a, UdaAggregateExpression) for a in local_emitters)  # noqa
+        assert all(isinstance(a, UdaAggregateExpression) for a in remote_emitters)  # noqa
         assert all(isinstance(s, StateVar) for s in local_statemods)
         assert all(isinstance(s, StateVar) for s in remote_statemods)
 
-        self.local_aggregates = local_aggregates
+        self.local_emitters = local_emitters
         self.local_statemods = local_statemods
-        self.remote_aggregates = remote_aggregates
+        self.remote_emitters = remote_emitters
         self.remote_statemods = remote_statemods
 
-    def get_local_aggregates(self):
-        return self.local_aggregates
+    def get_local_emitters(self):
+        return self.local_emitters
 
-    def get_remote_aggregates(self):
-        return self.remote_aggregates
+    def get_remote_emitters(self):
+        return self.remote_emitters
 
     def get_local_statemods(self):
         return self.local_statemods

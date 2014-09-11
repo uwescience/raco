@@ -1072,9 +1072,9 @@ class DistributedUda(rules.Rule):
             if state is agg.decomposable_state:
                 continue
             state = agg.decomposable_state
-            local_aggs.extend(state.get_local_aggregates())
+            local_aggs.extend(state.get_local_emitters())
             local_statemods.extend(state.get_local_statemods())
-            remote_aggs.extend(state.get_remote_aggregates())
+            remote_aggs.extend(state.get_remote_emitters())
             remote_statemods.extend(state.get_remote_statemods())
 
         local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input,
