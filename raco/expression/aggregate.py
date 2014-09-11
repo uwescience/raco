@@ -210,7 +210,7 @@ class MAX(UnaryFunction, TrivialAggregateExpression):
         return self.input.typeof(scheme, state_scheme)
 
 
-class MIN(UnaryFunction, BuiltinAggregateExpression):
+class MIN(UnaryFunction, TrivialAggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return min(inputs)
@@ -246,7 +246,7 @@ class COUNT(UnaryFunction, DecomposableAggregate):
         return types.LONG_TYPE
 
 
-class SUM(UnaryFunction, DecomposableAggregate):
+class SUM(UnaryFunction, TrivialAggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
 
