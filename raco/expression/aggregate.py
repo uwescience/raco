@@ -219,7 +219,7 @@ class MIN(UnaryFunction, TrivialAggregateExpression):
         return self.input.typeof(scheme, state_scheme)
 
 
-class COUNTALL(ZeroaryOperator, DecomposableAggregate):
+class COUNTALL(ZeroaryOperator, BuiltinAggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         return len(tuple_iterator)
 
@@ -229,8 +229,15 @@ class COUNTALL(ZeroaryOperator, DecomposableAggregate):
     def typeof(self, scheme, state_scheme):
         return types.LONG_TYPE
 
+    def get_decomposable_state(self):
+        return DecomposableAggregateState(
+            [self], [], [SUM(LocalAggregateOutput(0))], [])
 
-class COUNT(UnaryFunction, DecomposableAggregate):
+    def is_decomposable(self):
+        return True
+
+
+class COUNT(UnaryFunction, BuiltinAggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         count = 0
@@ -244,6 +251,13 @@ class COUNT(UnaryFunction, DecomposableAggregate):
 
     def typeof(self, scheme, state_scheme):
         return types.LONG_TYPE
+
+    def get_decomposable_state(self):
+        return DecomposableAggregateState(
+            [self], [], [SUM(LocalAggregateOutput(0))], [])
+
+    def is_decomposable(self):
+        return True
 
 
 class SUM(UnaryFunction, TrivialAggregateExpression):
