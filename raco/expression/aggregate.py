@@ -246,9 +246,6 @@ class COUNT(UnaryFunction, BuiltinAggregateExpression):
                 count += 1
         return count
 
-    def get_merge_aggregates(self):
-        return [SUM(LocalAggregateOutput())]
-
     def typeof(self, scheme, state_scheme):
         return types.LONG_TYPE
 
