@@ -1054,7 +1054,9 @@ class DecomposeGroupBy(rules.Rule):
         remote_statemods = []
 
         state = None
-        start_position = num_grouping_terms
+        # The starting positions for the current local, remote aggregate
+        local_output_pos = num_grouping_terms
+        remote_output_pos = num_grouping_terms
         for agg in op.aggregate_list:
             # Multiple emit arguments can be associted with a single
             # decomposition rule; coalesce them all together.
@@ -1070,20 +1072,21 @@ class DecomposeGroupBy(rules.Rule):
 
             # For builtin aggregates, we must rebase the emit expressions
             # to remove instances of LocalAggregateOutput
-            remits = state.get_remote_emitters()
-            remits = [rebase_local_aggregate_output(x, start_position)
-                      for x in remits]
-            remote_aggs.extend(remits)
+            raggs = state.get_remote_emitters()
+            raggs = [rebase_local_aggregate_output(x, local_output_pos)
+                      for x in raggs]
+            remote_aggs.extend(raggs)
 
             # The update expressions of statemods must be rebased.
             rsms = state.get_remote_statemods()
             for sm in rsms:
                 update_expr = rebase_local_aggregate_output(
-                    sm.update_expr, start_position)
+                    sm.update_expr, local_output_pos)
                 remote_statemods.append(
                     StateVar(sm.name, sm.init_expr, update_expr))
 
-            start_position += len(laggs)
+            local_output_pos += len(laggs)
+            remote_output_pos += len(raggs)
 
         local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input,
                                 local_statemods)
