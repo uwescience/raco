@@ -536,7 +536,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
             state.saveExpr((self.right, self.right_keypos),
                            (self._hashname, right_type, left_type,
-                           self.right_syncname, self.left_syncname))
+                            self.right_syncname, self.left_syncname))
 
         else:
             # if found a common subexpression on right child then
@@ -815,8 +815,10 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         code = materialize_template % locals()
         return code
 
+
 def wait_statement(name):
     return """{name}.wait();""".format(name=name)
+
 
 def get_pipeline_task_name(state):
     name = "p_task_{n}".format(n=state.getCurrentPipelineId())
@@ -898,7 +900,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             self.right.produce(state)
             state.saveExpr((self.right, self.right_keypos),
                            (self._hashname, self.rightTupleTypename,
-                           self.right_syncname))
+                            self.right_syncname))
             # TODO always safe here? I really want to call
             # TODO saveExpr before self.right.produce(),
             # TODO but I need to get the self.rightTupleTypename cleanly
