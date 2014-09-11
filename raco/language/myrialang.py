@@ -1060,9 +1060,11 @@ class DistributedUda(rules.Rule):
         for agg in op.aggregate_list:
             # Multiple emit arguments can be associted with a single
             # decomposition rule; coalesce them all together.
-            if state is agg.decomposable_state:
+            next_state = agg.get_decomposable_state()
+            assert next_state
+            if next_state is state:
                 continue
-            state = agg.decomposable_state
+            state = next_state
 
             laggs = state.get_local_emitters()
             local_aggs.extend(laggs)

@@ -82,6 +82,9 @@ class UdaAggregateExpression(AggregateExpression, UnaryOperator):
     def is_decomposable(self):
         return self.decomposable_state is not None
 
+    def get_decomposable_state(self):
+        return self.decomposable_state
+
     def set_decomposable_state(self, ds):
         self.decomposable_state = ds
 
