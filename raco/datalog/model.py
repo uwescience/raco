@@ -486,12 +486,10 @@ class Rule(object):
             # we decided probably not in
             # https://github.com/uwescience/raco/pull/209
             plan = algebra.Apply([(None, e) for e in columnlist], plan)
-            plan = algebra.Project([expression.UnnamedAttributeRef(i)
-                                    for i, _ in enumerate(columnlist)],
-                                   plan)
         else:
             # otherwise, just build a Project
-            plan = algebra.Project(columnlist, plan)
+            plan = algebra.Apply(emitters=[(None, c) for c in columnlist],
+                                 input=plan)
 
         # If we found a cycle, the "root" of the plan is the fixpoint operator
         if self.fixpoint:
