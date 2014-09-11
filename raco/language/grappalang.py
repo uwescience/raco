@@ -561,6 +561,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         state.addDeclarations([out_tuple_type_def])
 
         pipeline_sync = create_pipeline_synchronization(state)
+        get_pipeline_task_name(state)
 
         # add dependences on left and right inputs
         state.appendPipelineProperty('dependences', self.right_syncname)
@@ -743,6 +744,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             """)
 
         pipeline_sync = create_pipeline_synchronization(state)
+        get_pipeline_task_name(state)
 
         # add a dependence on the input aggregation pipeline
         state.appendPipelineProperty('dependences', self.input_syncname)
