@@ -6,7 +6,7 @@ import os
 import json
 import sys
 
-from raco.from_file_catalog import FromFileCatalog
+from raco.catalog import FromFileCatalog
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 from raco.fakedb import FakeDatabase
