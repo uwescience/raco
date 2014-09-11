@@ -1068,10 +1068,14 @@ class DecomposeGroupBy(rules.Rule):
             local_aggs.extend(laggs)
             local_statemods.extend(state.get_local_statemods())
 
-            remote_aggs.extend(state.get_remote_emitters())
+            # For builtin aggregates, we must rebase the emit expressions
+            # to remove instances of LocalAggregateOutput
+            remits = state.get_remote_emitters()
+            remits = [rebase_local_aggregate_output(x, start_position)
+                      for x in remits]
+            remote_aggs.extend(remits)
 
-            # remote statemods must be rebased to receive their inputs from
-            # local aggregates.
+            # The update expressions of statemods must be rebased.
             rsms = state.get_remote_statemods()
             for sm in rsms:
                 update_expr = rebase_local_aggregate_output(

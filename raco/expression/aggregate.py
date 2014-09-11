@@ -23,8 +23,8 @@ class DecomposableAggregateState(object):
     def __init__(self, local_emitters, local_statemods,
                  remote_emitters, remote_statemods):
 
-        assert all(isinstance(a, UdaAggregateExpression) for a in local_emitters)  # noqa
-        assert all(isinstance(a, UdaAggregateExpression) for a in remote_emitters)  # noqa
+        assert all(isinstance(a, AggregateExpression) for a in local_emitters)
+        assert all(isinstance(a, AggregateExpression) for a in remote_emitters)
         assert all(isinstance(s, StateVar) for s in local_statemods)
         assert all(isinstance(s, StateVar) for s in remote_statemods)
 
@@ -189,7 +189,15 @@ class DecomposableAggregate(BuiltinAggregateExpression):
         return None  # by default, use the result from merge aggregate 0
 
 
-class MAX(UnaryFunction, DecomposableAggregate):
+class MAX(UnaryFunction, BuiltinAggregateExpression):
+
+    def get_decomposable_state(self):
+        return DecomposableAggregateState(
+            [self], [], [MAX(LocalAggregateOutput(0))], [])
+
+    def is_decomposable(self):
+        return True
+
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return max(inputs)
