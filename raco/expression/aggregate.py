@@ -122,7 +122,7 @@ class LocalAggregateOutput(object):
         self.index = index
 
 
-class MergeAggregateOutput(object):
+class RemoteAggregateOutput(object):
     """Dummy placeholder to refer to the output of a merge aggregate."""
     def __init__(self, index):
         """Instantiate a merge aggregate object.
@@ -153,7 +153,7 @@ def finalizer_expr_to_absolute(expr, offsets):
     assert isinstance(expr, Expression)
 
     def convert(n):
-        if isinstance(n, MergeAggregateOutput):
+        if isinstance(n, RemoteAggregateOutput):
             n = n.to_absolute(offsets)
         n.apply(convert)
         return n
@@ -293,7 +293,7 @@ class AVG(UnaryFunction, DecomposableAggregate):
     def get_finalizer(self):
         # Note: denominator cannot equal zero because groups always have
         # at least one member.
-        return DIVIDE(MergeAggregateOutput(0), MergeAggregateOutput(1))
+        return DIVIDE(RemoteAggregateOutput(0), RemoteAggregateOutput(1))
 
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
@@ -323,9 +323,9 @@ class STDEV(UnaryFunction, DecomposableAggregate):
 
     def get_finalizer(self):
         # variance(X) = E(X^2) - E(X)^2
-        _sum = MergeAggregateOutput(0)
-        ssq = MergeAggregateOutput(1)
-        count = MergeAggregateOutput(2)
+        _sum = RemoteAggregateOutput(0)
+        ssq = RemoteAggregateOutput(1)
+        count = RemoteAggregateOutput(2)
 
         return SQRT(MINUS(DIVIDE(ssq, count),
                           POW(DIVIDE(_sum, count),
