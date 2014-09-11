@@ -62,31 +62,6 @@ class OneToOne(Rule):
         return "%s => %s" % (self.opfrom.__name__, self.opto.__name__)
 
 
-class ProjectingJoin(Rule):
-    """A rewrite rule for combining Project after Join into ProjectingJoin"""
-    def fire(self, expr):
-        if isinstance(expr, algebra.Project):
-            if isinstance(expr.input, algebra.Join):
-                columns = expr.get_unnamed_column_list()
-                pos = [e.position for e in columns]
-                if pos == sorted(pos):
-                    return algebra.ProjectingJoin(
-                        expr.input.condition, expr.input.left,
-                        expr.input.right, columns)
-                join = algebra.ProjectingJoin(
-                    expr.input.condition, expr.input.left,
-                    expr.input.right,
-                    [UnnamedAttributeRef(p) for p in pos])
-                apply = algebra.Apply(
-                    emitters=[(None, e) for e in columns],
-                    input=join)
-                return apply
-        return expr
-
-    def __str__(self):
-        return "Project, Join => ProjectingJoin"
-
-
 class JoinToProjectingJoin(Rule):
     """A rewrite rule for turning every Join into a ProjectingJoin"""
 
@@ -493,10 +468,7 @@ class ProjectToDistinctColumnSelect(Rule):
 
         mappings = [(None, x) for x in expr.columnlist]
         col_select = algebra.Apply(mappings, expr.input)
-        # TODO the Raco Datalog users currently want the project to really
-        # be a column select. This is BROKEN, but it is what they want.
-        # return algebra.Distinct(col_select)
-        return col_select
+        return algebra.Distinct(input=col_select)
 
     def __str__(self):
         return 'Project => Distinct, Column select'
@@ -685,7 +657,7 @@ push_select = [
 
 # 4. push projection
 push_project = [
-    ProjectingJoin(),
+    ProjectToDistinctColumnSelect(),
     JoinToProjectingJoin()
 ]
 
