@@ -116,11 +116,8 @@ class GrappaLanguage(Language):
             code = timing_template % locals()
 
         dependences = attrs.get('dependences', [])
-        dependence_list = []
-        for d in dependences:
-            dependence_list.append(wait_statement(d))
-
-        dependence_code = emitlist(dependence_list)
+        _LOG.debug("pipeline %s dependences %s", ident, dependences)
+        dependence_code = emitlist([wait_statement(d) for d in dependences])
 
         code = """{dependence_code}
                   {inner_code}

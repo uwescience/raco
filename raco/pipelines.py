@@ -57,6 +57,9 @@ class CompileState:
         current = self.current_pipeline_properties.get(key, [])
         assert isinstance(current, [].__class__), \
             "cannot append to non-list property"
+        if len(current) == 0:
+            self.current_pipeline_properties[key] = current
+
         current.append(value)
 
     def getPipelineProperty(self, key):
