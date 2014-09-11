@@ -281,7 +281,7 @@ class Parser(object):
             raise BadApplyDefinitionException(name, p.lineno(0))
 
         # Unpack the update, init expressions into a statemod dictionary
-        statemods = {}
+        statemods = collections.OrderedDict()
         for init, update in zip(inits, updates):
             if not isinstance(init, emitarg.NaryEmitArg):
                 raise IllegalWildcardException(name, p.lineno(0))
