@@ -67,6 +67,11 @@ def check_no_tuple_expression(ex, lineno):
         raise NestedTupleExpressionException(lineno)
 
 
+def check_simple_expression(ex, lineno):
+    check_no_tuple_expression(ex, lineno)
+    sexpr.check_no_aggregate(ex, lineno)
+
+
 def get_emitters(ex):
     if isinstance(ex, TupleExpression):
         return ex.emitters
@@ -273,37 +278,34 @@ class Parser(object):
 
         TODO: de-duplicate logic from add_udf.
         """
+        lineno = p.lineno(0)
         if name in Parser.udf_functions:
-            raise DuplicateFunctionDefinitionException(name, p.lineno(0))
+            raise DuplicateFunctionDefinitionException(name, lineno)
         if len(args) != len(set(args)):
-            raise DuplicateVariableException(name, p.lineno(0))
+            raise DuplicateVariableException(name, lineno)
         if len(inits) != len(updates):
-            raise BadApplyDefinitionException(name, p.lineno(0))
+            raise BadApplyDefinitionException(name, lineno)
 
         # Unpack the update, init expressions into a statemod dictionary
         statemods = collections.OrderedDict()
         for init, update in zip(inits, updates):
             if not isinstance(init, emitarg.NaryEmitArg):
-                raise IllegalWildcardException(name, p.lineno(0))
+                raise IllegalWildcardException(name, lineno)
 
             if len(init.sexprs) != 1:
-                raise NestedTupleExpressionException(p.lineno(0))
+                raise NestedTupleExpressionException(lineno)
 
-            # Init, update expressions cannot return tuples
-            check_no_tuple_expression(init.sexprs[0], p.lineno(0))
-            check_no_tuple_expression(update, p.lineno(0))
-
-            # Nor can then reference aggegates
-            sexpr.check_no_aggregate(init.sexprs[0], p.lineno(0))
-            sexpr.check_no_aggregate(update, p.lineno(0))
+            # Init, update expressions contain tuples or contain aggregates
+            check_simple_expression(init.sexprs[0], lineno)
+            check_simple_expression(update, lineno)
 
             if not init.column_names:
-                raise UnnamedStateVariableException(name, p.lineno(0))
+                raise UnnamedStateVariableException(name, lineno)
 
             # check for duplicate variable definitions
             sm_name = init.column_names[0]
             if sm_name in statemods or sm_name in args:
-                raise DuplicateVariableException(name, p.lineno(0))
+                raise DuplicateVariableException(name, lineno)
 
             statemods[sm_name] = (init.sexprs[0], update)
 
@@ -322,11 +324,7 @@ class Parser(object):
 
         for e in emitters:
             Parser.check_for_undefined(p, name, e, statemods.keys())
-
-        # Emit arguments cannot themselves return tuples
-        for e in emitters:
-            check_no_tuple_expression(e, p.lineno(0))
-            sexpr.check_no_aggregate(e, p.lineno(0))
+            check_simple_expression(e, lineno)
 
         # If the function is a UDA, wrap the output expression(s) so
         # downstream users can distinguish stateful apply from
