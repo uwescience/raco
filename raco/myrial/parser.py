@@ -610,7 +610,7 @@ class Parser(object):
             p[0] = (p[1],)
 
     @staticmethod
-    def p_emit_arg_singleton(p):
+    def p_emit_arg_explicit(p):
         """emit_arg : sexpr AS LBRACKET unreserved_id_list RBRACKET
                     | sexpr AS unreserved_id
                     | sexpr"""
