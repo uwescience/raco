@@ -19,19 +19,25 @@ class DecomposableAggregateState(object):
     :param remote_emitters: A list of one or more aggregates to run after
     the shuffle operation
     :param remote_statemods: A list of StateVars associated with remote aggs
+    :param finalizer: An optional expression that reduces the remote aggregate
+    values to a single value.
     """
     def __init__(self, local_emitters, local_statemods,
-                 remote_emitters, remote_statemods):
+                 remote_emitters, remote_statemods, finalizer=None):
 
         assert all(isinstance(a, AggregateExpression) for a in local_emitters)
         assert all(isinstance(a, AggregateExpression) for a in remote_emitters)
         assert all(isinstance(s, StateVar) for s in local_statemods)
         assert all(isinstance(s, StateVar) for s in remote_statemods)
+        if finalizer is not None:
+            assert isinstance(finalizer, Expression)
+            assert not isinstance(finalizer, AggregateExpression)
 
         self.local_emitters = local_emitters
         self.local_statemods = local_statemods
         self.remote_emitters = remote_emitters
         self.remote_statemods = remote_statemods
+        self.finalizer = finalizer
 
     def get_local_emitters(self):
         return self.local_emitters
@@ -44,6 +50,9 @@ class DecomposableAggregateState(object):
 
     def get_remote_statemods(self):
         return self.remote_statemods
+
+    def get_finalizer(self):
+        return self.finalizer
 
 
 class AggregateExpression(Expression):
