@@ -1881,7 +1881,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     """
 
     def test_decomposable_average_uda(self):
-        """Test of a decomposed UDA.
+        """Test of a decomposed average UDA.
 
         Note that the logical aggregate returns a broken value, so
         this test only passes if we decompose the aggregate properly.
@@ -1925,6 +1925,31 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             tuples.append((key, (float(_salary_sum) + float(_id_sum)) / _cnt))
 
         self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_sum_uda(self):
+        """Test of a decomposed sum UDA.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """
+        uda MySumBroken(x) {
+          [0 as _sum];
+          [_sum + x];
+          17; -- broken
+        };
+        uda MySum(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* MySumBroken {MySum, MySum};
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MySumBroken(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        self.check_result(query, self.__aggregate_expected_result(sum))
 
     def test_duplicate_decomposable_uda(self):
         query = """
