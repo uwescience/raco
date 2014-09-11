@@ -641,7 +641,7 @@ class CCAlgebra(Algebra):
             rules.remove_trivial_sequences,
             rules.simple_group_by,
             clangcommon.clang_push_select,
-            [rules.ProjectToOnlyColumnSelect(),  # TODO BROKEN
+            [rules.ProjectToDistinctColumnSelect(),
              rules.JoinToProjectingJoin()],
             rules.push_apply,
             clangify(self.emit_print)
