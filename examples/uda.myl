@@ -2,7 +2,7 @@
 uda LogicalAvg(x) {
   [0 as _sum, 0 as _count];
   [_sum + x, _count + 1];
-  7.7; -- Note bogus return value
+  _sum / _count;
 };
 uda LocalAvg(x) {
   [0 as _sum, 0 as _count];
