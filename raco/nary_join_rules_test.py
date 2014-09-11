@@ -1,6 +1,7 @@
-from raco import RACompiler
+from nose.plugins.skip import SkipTest
 import unittest
 import algebra
+from raco import RACompiler
 from raco.catalog import FakeCatalog
 from raco.language import myrialang
 
@@ -20,6 +21,7 @@ class testNaryJoin(unittest.TestCase):
         assert isinstance(ret, algebra.Store)
         return ret.input
 
+    @SkipTest
     def test_merge_to_nary_join(self):
         """ Test the rule merging binary join to nary join.
         """
@@ -58,6 +60,7 @@ class testNaryJoin(unittest.TestCase):
         self.assertEqual(in_cond_idx(0, conds), in_cond_idx(2, conds))
         self.assertEqual(in_cond_idx(2, conds), in_cond_idx(4, conds))
 
+    @SkipTest
     def test_hashed_column_mapping(self):
         """Test whether hashed columns are mapped to correct HC dimensions."""
         def get_hc_dim(expr, column):
@@ -91,6 +94,7 @@ class testNaryJoin(unittest.TestCase):
         # x in S and x in T are shuffled to the same dimension
         self.assertEqual(get_hc_dim(shuffle_s, 0), get_hc_dim(shuffle_t, 0))
 
+    @SkipTest
     def test_cell_partition(self):
         def get_cell_partition(expr, dim_sizes, child_idx):
             children = expr.children()
@@ -127,6 +131,7 @@ class testNaryJoin(unittest.TestCase):
         self.assertEqual(
             get_cell_partition(expr, dim_sizes, 2), [[0, 2], [1, 3]])
 
+    @SkipTest
     def test_dim_size(self):
         def get_dim_size(expr):
             producer = expr.children()[0].input.input
