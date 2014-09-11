@@ -7,7 +7,8 @@ from raco.catalog import Catalog
 from raco.language import Language, Algebra
 from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import (
-    DecomposableAggregate, UdaAggregateExpression, rebase_local_aggregate_output)  # noqa
+    DecomposableAggregate, UdaAggregateExpression,
+    rebase_local_aggregate_output, rebase_finalizer)
 from raco.expression.statevar import *
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
@@ -1086,7 +1087,7 @@ class DecomposeGroupBy(rules.Rule):
 
             raggs = state.get_remote_emitters()
             raggs = [rebase_local_aggregate_output(x, local_output_pos)
-                      for x in raggs]
+                     for x in raggs]
             remote_emitters.extend(raggs)
 
             rsms = state.get_remote_statemods()
@@ -1108,7 +1109,8 @@ class DecomposeGroupBy(rules.Rule):
                     rebase_finalizer(finalizer, remote_output_pos))
             else:
                 for i in range(len(raggs)):
-                    finalizer_exprs.append(UnnamedAttributeRef(remote_output_pos + i))
+                    finalizer_exprs.append(
+                        UnnamedAttributeRef(remote_output_pos + i))
 
             local_output_pos += len(laggs)
             remote_output_pos += len(raggs)
@@ -1120,7 +1122,6 @@ class DecomposeGroupBy(rules.Rule):
 
         local_gb = MyriaGroupBy(op.grouping_list, local_emitters, op.input,
                                 local_statemods)
-
 
         shuffle_fields = [UnnamedAttributeRef(i)
                           for i in range(len(op.grouping_list))]
@@ -1145,6 +1146,7 @@ class DecomposeGroupBy(rules.Rule):
             fmappings = [(None, fx) for fx in finalizer_exprs]
             return algebra.Apply(gmappings + fmappings, remote_gb)
         return remote_gb
+
 
 class DistributedGroupBy(rules.Rule):
     @staticmethod

@@ -291,27 +291,25 @@ class SUM(UnaryFunction, TrivialAggregateExpression):
         return input_type
 
 
-class AVG(UnaryFunction, DecomposableAggregate):
+class AVG(UnaryFunction, BuiltinAggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         filtered = list(x for x in inputs if x is not None)
         return sum(filtered) / len(filtered)
 
-    def get_local_aggregates(self):
-        return [SUM(self.input), COUNT(self.input)]
-
-    def get_merge_aggregates(self):
-        return [SUM(LocalAggregateOutput()), SUM(LocalAggregateOutput())]
-
-    def get_finalizer(self):
-        # Note: denominator cannot equal zero because groups always have
-        # at least one member.
-        return DIVIDE(RemoteAggregateOutput(0), RemoteAggregateOutput(1))
-
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
         return types.DOUBLE_TYPE
+
+    def get_decomposable_state(self):
+        return DecomposableAggregateState(
+            [SUM(self.input), COUNT(self.input)], [],
+            [SUM(LocalAggregateOutput(0)), SUM(LocalAggregateOutput(1))], [],
+            DIVIDE(RemoteAggregateOutput(0), RemoteAggregateOutput(1)))
+
+    def is_decomposable(self):
+        return True
 
 
 class STDEV(UnaryFunction, DecomposableAggregate):
