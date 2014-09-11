@@ -62,21 +62,6 @@ class OneToOne(Rule):
         return "%s => %s" % (self.opfrom.__name__, self.opto.__name__)
 
 
-class ProjectingJoin(Rule):
-    """A rewrite rule for combining Project after Join into ProjectingJoin"""
-    def fire(self, expr):
-        if isinstance(expr, algebra.Project):
-            if isinstance(expr.input, algebra.Join):
-                return algebra.ProjectingJoin(expr.input.condition,
-                                              expr.input.left,
-                                              expr.input.right,
-                                              expr.columnlist)
-        return expr
-
-    def __str__(self):
-        return "Project, Join => ProjectingJoin"
-
-
 class JoinToProjectingJoin(Rule):
     """A rewrite rule for turning every Join into a ProjectingJoin"""
 
@@ -423,9 +408,16 @@ class PushApply(Rule):
             if (all(isinstance(e, expression.AttributeRef) for e in emits)
                     and len(set(emits)) == len(emits)):
                 new_cols = [child.output_columns[e.position] for e in emits]
-                left_len = len(child.left.scheme())
-                side = [e.position >= left_len for e in emits]
+                # We need to ensure that left columns come before right cols
+                left_sch = child.left.scheme()
+                right_sch = child.right.scheme()
+                combined = left_sch + right_sch
+                left_len = len(left_sch)
+                new_cols = [expression.to_unnamed_recursive(e, combined)
+                            for e in new_cols]
+                side = [e.position >= left_len for e in new_cols]
                 if sorted(side) == side:
+                    # Left columns do come before right cols
                     new_pj = algebra.ProjectingJoin(
                         condition=child.condition, left=child.left,
                         right=child.right, output_columns=new_cols)
@@ -476,10 +468,7 @@ class ProjectToDistinctColumnSelect(Rule):
 
         mappings = [(None, x) for x in expr.columnlist]
         col_select = algebra.Apply(mappings, expr.input)
-        # TODO the Raco Datalog users currently want the project to really
-        # be a column select. This is BROKEN, but it is what they want.
-        # return algebra.Distinct(col_select)
-        return col_select
+        return algebra.Distinct(input=col_select)
 
     def __str__(self):
         return 'Project => Distinct, Column select'
@@ -668,7 +657,7 @@ push_select = [
 
 # 4. push projection
 push_project = [
-    ProjectingJoin(),
+    ProjectToDistinctColumnSelect(),
     JoinToProjectingJoin()
 ]
 
