@@ -84,9 +84,9 @@ class FromFileCatalog(Catalog):
         self.catalog = {}
 
         def parse(v):
-            if isinstance(v, ().__class__):
+            if isinstance(v, tuple):
                 return v
-            elif isinstance(v, [].__class__):
+            elif isinstance(v, list):
                 return v, DEFAULT_CARDINALITY
             else:
                 assert False, """Unexpected catalog file format. \
