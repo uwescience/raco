@@ -1052,11 +1052,14 @@ class DecomposeGroupBy(rules.Rule):
         local_statemods = []
         remote_aggs = []
         remote_statemods = []
+        finalizer_exprs = []
 
         state = None
         # The starting positions for the current local, remote aggregate
         local_output_pos = num_grouping_terms
         remote_output_pos = num_grouping_terms
+        requires_finalizer = False
+
         for agg in op.aggregate_list:
             # Multiple emit arguments can be associted with a single
             # decomposition rule; coalesce them all together.
@@ -1084,6 +1087,15 @@ class DecomposeGroupBy(rules.Rule):
                     sm.update_expr, local_output_pos)
                 remote_statemods.append(
                     StateVar(sm.name, sm.init_expr, update_expr))
+
+            finalizer = state.get_finalizer()
+            if finalizer is not None:
+                requires_finalizer = True
+                finalizer_exprs.append(
+                    rebase_finalizer(finalizer, remote_output_pos))
+            else:
+                for i in range(len(raggs)):
+                    finalizer_exprs.append(UnnamedAttributeRef(remote_output_pos + i))
 
             local_output_pos += len(laggs)
             remote_output_pos += len(raggs)

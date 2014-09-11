@@ -20,7 +20,7 @@ class DecomposableAggregateState(object):
     the shuffle operation
     :param remote_statemods: A list of StateVars associated with remote aggs
     :param finalizer: An optional expression that reduces the remote aggregate
-    values to a single value.
+    outputs to a single value.
     """
     def __init__(self, local_emitters, local_statemods,
                  remote_emitters, remote_statemods, finalizer=None):
