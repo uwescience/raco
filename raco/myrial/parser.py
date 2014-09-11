@@ -67,6 +67,13 @@ def check_no_tuple_expression(ex, lineno):
         raise NestedTupleExpressionException(lineno)
 
 
+def get_emitters(ex):
+    if isinstance(ex, TupleExpression):
+        return ex.emitters
+    else:
+        return [ex]
+
+
 class TupleExpression(sexpr.Expression):
     """Represents an instance of a tuple-valued Expression
 
@@ -94,7 +101,7 @@ class TupleExpression(sexpr.Expression):
             check_no_tuple_expression(ex, lineno)
 
     def get_children(self):
-        return emitters
+        return self.emitters
 
     def typeof(self, scheme, state_scheme):
         """Type checks are not applied to TupleExpressions."""
@@ -257,7 +264,8 @@ class Parser(object):
 
         :param name: The name of the function
         :param args: A list of function argument names (strings)
-        :param inits: A list of SingletonEmitArg that describe init logic
+        :param inits: A list of NaryEmitArg that describe init logic; each
+        should contain exactly one emit expression.
         :param updates: A list of Expression that describe update logic
         :param emitters: An Expression list that returns the final results.
         If None, all statemod variables are returned in the order specified.
@@ -275,28 +283,29 @@ class Parser(object):
         # Unpack the update, init expressions into a statemod dictionary
         statemods = {}
         for init, update in zip(inits, updates):
-            if not isinstance(init, emitarg.SingletonEmitArg):
-                if isinstance(init, emitarg.NaryEmitArg):
-                    raise NestedTupleExpressionException(p.lineno(0))
-                else:
-                    raise IllegalWildcardException(name, p.lineno(0))
+            if not isinstance(init, emitarg.NaryEmitArg):
+                raise IllegalWildcardException(name, p.lineno(0))
+
+            if len(init.sexprs) != 1:
+                raise NestedTupleExpressionException(p.lineno(0))
 
             # Init, update expressions cannot return tuples
-            check_no_tuple_expression(init.sexpr, p.lineno(0))
+            check_no_tuple_expression(init.sexprs[0], p.lineno(0))
             check_no_tuple_expression(update, p.lineno(0))
 
             # Nor can then reference aggegates
-            sexpr.check_no_aggregate(init.sexpr, p.lineno(0))
+            sexpr.check_no_aggregate(init.sexprs[0], p.lineno(0))
             sexpr.check_no_aggregate(update, p.lineno(0))
 
-            # check for duplicate variable definitions
-            sm_name = init.column_name
-            if not sm_name:
+            if not init.column_names:
                 raise UnnamedStateVariableException(name, p.lineno(0))
+
+            # check for duplicate variable definitions
+            sm_name = init.column_names[0]
             if sm_name in statemods or sm_name in args:
                 raise DuplicateVariableException(name, p.lineno(0))
 
-            statemods[sm_name] = (init.sexpr, update)
+            statemods[sm_name] = (init.sexprs[0], update)
 
         # Check for undefined variables:
         #  - Init expressions cannot reference any variables.
@@ -613,30 +622,19 @@ class Parser(object):
         if len(p) == 4:
             names = [p[3]]
 
-        if isinstance(sx, TupleExpression):
-            # If names were provided, the length must equal the number
-            # of emitters
-            if names is not None and len(sx.emitters) != len(names):
-                raise IllegalColumnNamesException(p.lineno(0))
+        emitters = get_emitters(sx)
+        if names is not None and len(emitters) != len(names):
+            raise IllegalColumnNamesException(p.lineno(0))
 
-            # Verify that there are no nested TupleExpressions
-            for ssx in sx.emitters:
-                assert not contains_tuple_expression(ssx)
+        # Verify that there are no nested aggregate expressions
+        for ssx in emitters:
+            sexpr.check_no_nested_aggregate(ssx, p.lineno(0))
 
-            p[0] = emitarg.NaryEmitArg(names, sx.emitters, Parser.statemods)
-        else:
-            # The emit argument shouldn't contain nested any TupleExpressions
-            check_no_tuple_expression(sx, p.lineno(0))
-            # The emit arguments shouldn't contain nested aggregates
-            sexpr.check_no_nested_aggregate(sx, p.lineno(0))
+        # Verify that there are no remaining tuple expressions
+        for ssx in emitters:
+            check_no_tuple_expression(ssx, p.lineno(0))
 
-            if names is None:
-                name = None
-            elif len(names) != 1:
-                raise IllegalColumnNamesException(p.lineno(0))
-            else:
-                name = names[0]
-            p[0] = emitarg.SingletonEmitArg(name, sx, Parser.statemods)
+        p[0] = emitarg.NaryEmitArg(names, emitters, Parser.statemods)
         Parser.statemods = []
 
     @staticmethod
