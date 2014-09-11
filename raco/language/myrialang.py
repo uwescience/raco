@@ -6,7 +6,8 @@ from raco import algebra, expression, rules
 from raco.catalog import Catalog
 from raco.language import Language, Algebra
 from raco.expression import UnnamedAttributeRef
-from raco.expression.aggregate import DecomposableAggregate, UdaAggregateExpression  # noqa
+from raco.expression.aggregate import (
+    DecomposableAggregate, UdaAggregateExpression)
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
 
