@@ -220,7 +220,8 @@ def create_pipeline_synchronization(state):
     global_sync_decl = global_sync_decl_template % locals()
 
     gce_metric_template = """
-    GRAPPA_DEFINE_METRIC(CallbackMetric<int64_t>, app_%(pipeline_id)s_gce_incomplete, []{
+    GRAPPA_DEFINE_METRIC(CallbackMetric<int64_t>, \
+    app_%(pipeline_id)s_gce_incomplete, []{
     return %(global_syncname)s.incomplete();
     });
     """
