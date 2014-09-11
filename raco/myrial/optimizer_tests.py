@@ -655,3 +655,4 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         for op in pp.walk():
             if isinstance(op, MyriaShuffleProducer):
                 self.assertEquals(op.hash_columns, [AttIndex(0)])
+                self.assertEquals(self.get_count(op, GroupBy), 1)
