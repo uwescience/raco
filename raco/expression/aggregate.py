@@ -277,16 +277,6 @@ class STDEV(UnaryFunction, BuiltinAggregateExpression):
         return [SUM(LocalAggregateOutput()), SUM(LocalAggregateOutput()),
                 SUM(LocalAggregateOutput())]
 
-    def get_finalizer(self):
-        # variance(X) = E(X^2) - E(X)^2
-        _sum = RemoteAggregateOutput(0)
-        ssq = RemoteAggregateOutput(1)
-        count = RemoteAggregateOutput(2)
-
-        return SQRT(MINUS(DIVIDE(ssq, count),
-                          POW(DIVIDE(_sum, count),
-                              NumericLiteral(2))))
-
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
