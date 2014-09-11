@@ -111,6 +111,12 @@ class UdaAggregateExpression(AggregateExpression, ZeroaryOperator):
 
 class LocalAggregateOutput(object):
     """Dummy placeholder to refer to the output of a local aggregate."""
+    def __init__(self, index=0):
+        """Initialize a LocalAggregateOutput
+
+        :param index: The index into the array of local aggregate outputs.
+        """
+        self.index = index
 
 
 class MergeAggregateOutput(object):
