@@ -628,18 +628,17 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
         self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
 
-        for op in pp.walk():
-            if isinstance(op, MyriaShuffleProducer):
-                self.assertEquals(op.hash_columns, [AttIndex(0)])
-                self.assertEquals(self.get_count(op, GroupBy), 1)
-
         return pp
 
     def test_non_decomposable_uda(self):
         """Test that optimization preserves the value of a non-decomposable UDA
         """
         pp = self.__run_uda_test()
-        self.assertEquals(self.get_count(pp, GroupBy), 1)
+
+        for op in pp.walk():
+            if isinstance(op, MyriaShuffleProducer):
+                self.assertEquals(op.hash_columns, [AttIndex(0)])
+                self.assertEquals(self.get_count(op, GroupBy), 0)
 
     def test_decomposable_uda(self):
         """Test that optimization preserves the value of decomposable UDAs"""
@@ -658,3 +657,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.__run_uda_test(uda_state)
 
         self.assertEquals(self.get_count(pp, GroupBy), 2)
+
+        for op in pp.walk():
+            if isinstance(op, MyriaShuffleProducer):
+                self.assertEquals(op.hash_columns, [AttIndex(0)])
+                self.assertEquals(self.get_count(op, GroupBy), 1)
