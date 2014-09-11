@@ -189,14 +189,18 @@ class DecomposableAggregate(BuiltinAggregateExpression):
         return None  # by default, use the result from merge aggregate 0
 
 
-class MAX(UnaryFunction, BuiltinAggregateExpression):
+class TrivialAggregateExpression(BuiltinAggregateExpression):
+    """A built-in aggregate with identical local and remote aggregates."""
 
     def get_decomposable_state(self):
         return DecomposableAggregateState(
-            [self], [], [MAX(LocalAggregateOutput(0))], [])
+            [self], [], [self.__class__(LocalAggregateOutput(0))], [])
 
     def is_decomposable(self):
         return True
+
+
+class MAX(UnaryFunction, TrivialAggregateExpression):
 
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
@@ -206,7 +210,7 @@ class MAX(UnaryFunction, BuiltinAggregateExpression):
         return self.input.typeof(scheme, state_scheme)
 
 
-class MIN(UnaryFunction, DecomposableAggregate):
+class MIN(UnaryFunction, BuiltinAggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         return min(inputs)
