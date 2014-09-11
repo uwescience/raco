@@ -115,15 +115,15 @@ class LocalAggregateOutput(object):
 
 class MergeAggregateOutput(object):
     """Dummy placeholder to refer to the output of a merge aggregate."""
-    def __init__(self, pos):
+    def __init__(self, index):
         """Instantiate a merge aggregate object.
 
-        pos is the position relative to the start of the remote aggregate.
+        index is the position relative to the start of the remote aggregate.
         """
-        self.pos = pos
+        self.index = index
 
     def to_absolute(self, offsets):
-        return UnnamedAttributeRef(offsets[self.pos])
+        return UnnamedAttributeRef(offsets[self.index])
 
 
 def rebase_local_aggregate_output(expr, offset):
