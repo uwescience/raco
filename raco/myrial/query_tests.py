@@ -1972,6 +1972,23 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(InvalidArgumentList):
             self.check_result(query, None)
 
+    def test_decomposable_uda_type_check_fail3(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Remote(x) {
+          [0 as _sum];
+          [_sum + x];
+          [1, 2, 3];
+        };
+        uda* Logical {Logical, Remote};
+        """
+
+        with self.assertRaises(InvalidEmitList):
+            self.check_result(query, None)
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {
