@@ -6,8 +6,7 @@ from raco import algebra, expression, rules
 from raco.catalog import Catalog
 from raco.language import Language, Algebra
 from raco.expression import UnnamedAttributeRef
-from raco.expression.aggregate import (
-    DecomposableAggregate, UdaAggregateExpression,
+from raco.expression.aggregate import (UdaAggregateExpression,
     rebase_local_aggregate_output, rebase_finalizer)
 from raco.expression.statevar import *
 from raco.datastructure.UnionFind import UnionFind
@@ -1040,6 +1039,21 @@ class DecomposeGroupBy(rules.Rule):
     TODO: unify with functionality in DistributedGroupBy.
     """
 
+    @staticmethod
+    def do_transfer(op):
+        """Introduce a network transfer before a groupby operation."""
+
+        # Get an array of position references to columns in the child scheme
+        child_scheme = op.input.scheme()
+        group_fields = [expression.toUnnamed(ref, child_scheme)
+                        for ref in op.grouping_list]
+        if len(group_fields) == 0:
+            # Need to Collect all tuples at once place
+            op.input = algebra.Collect(op.input)
+        else:
+            # Need to Shuffle
+            op.input = algebra.Shuffle(op.input, group_fields)
+
     def fire(self, op):
         # Punt if it's not a group by or we've already converted this into an
         # an instance of MyriaGroupBy
@@ -1048,7 +1062,10 @@ class DecomposeGroupBy(rules.Rule):
 
         # Bail early if we have any non-decomposable aggregates
         if not all(x.is_decomposable() for x in op.aggregate_list):
-            return op
+            out_op = MyriaGroupBy()
+            out_op.copy(op)
+            DecomposeGroupBy.do_transfer(out_op)
+            return out_op
 
         num_grouping_terms = len(op.grouping_list)
 
@@ -1139,8 +1156,10 @@ class DecomposeGroupBy(rules.Rule):
         grouping_fields = [UnnamedAttributeRef(i)
                            for i in range(num_grouping_terms)]
 
-        remote_gb = MyriaGroupBy(grouping_fields, remote_emitters, shuffle,
+        remote_gb = MyriaGroupBy(grouping_fields, remote_emitters, local_gb,
                                  remote_statemods)
+
+        DecomposeGroupBy.do_transfer(remote_gb)
 
         if requires_finalizer:
             # Pass through grouping terms
@@ -1149,101 +1168,6 @@ class DecomposeGroupBy(rules.Rule):
             fmappings = [(None, fx) for fx in finalizer_exprs]
             return algebra.Apply(gmappings + fmappings, remote_gb)
         return remote_gb
-
-
-class DistributedGroupBy(rules.Rule):
-    @staticmethod
-    def do_transfer(op):
-        """Introduce a network transfer before a groupby operation."""
-
-        # Get an array of position references to columns in the child scheme
-        child_scheme = op.input.scheme()
-        group_fields = [expression.toUnnamed(ref, child_scheme)
-                        for ref in op.grouping_list]
-        if len(group_fields) == 0:
-            # Need to Collect all tuples at once place
-            op.input = algebra.Collect(op.input)
-        else:
-            # Need to Shuffle
-            op.input = algebra.Shuffle(op.input, group_fields)
-
-        return op
-
-    def fire(self, op):
-        # If not a GroupBy, who cares?
-        if op.__class__ != algebra.GroupBy:
-            return op
-
-        num_grouping_terms = len(op.grouping_list)
-
-        # Bail early if we have any non-decomposable aggregates
-        if not all(isinstance(agg, DecomposableAggregate)
-                   for agg in op.aggregate_list):
-            out_op = MyriaGroupBy()
-            out_op.copy(op)
-            return DistributedGroupBy.do_transfer(out_op)
-
-        # Each logical aggregate generates one or more local aggregates:
-        # e.g., average requires a SUM and a COUNT.  In turn, these local
-        # aggregates are consumed by merge aggregates.
-
-        local_aggs = []  # aggregates executed on each local machine
-        merge_aggs = []  # aggregates executed after local aggs
-        agg_offsets = defaultdict(list)  # map aggregate to local agg indices
-
-        for (i, logical_agg) in enumerate(op.aggregate_list):
-            for local, merge in zip(logical_agg.get_local_aggregates(),
-                                    logical_agg.get_merge_aggregates()):
-                try:
-                    idx = local_aggs.index(local)
-                    agg_offsets[i].append(idx)
-                except ValueError:
-                    agg_offsets[i].append(len(local_aggs))
-                    local_aggs.append(local)
-                    merge_aggs.append(merge)
-
-        assert len(merge_aggs) == len(local_aggs)
-
-        local_gb = MyriaGroupBy(op.grouping_list, local_aggs, op.input)
-
-        # Create a merge aggregate; grouping terms are passed through.
-        merge_groupings = [UnnamedAttributeRef(i)
-                           for i in range(num_grouping_terms)]
-
-        # Connect the output of local aggregates to merge aggregates
-        for pos, agg in enumerate(merge_aggs, num_grouping_terms):
-            agg.input = UnnamedAttributeRef(pos)
-
-        merge_gb = MyriaGroupBy(merge_groupings, merge_aggs, local_gb)
-        op_out = self.do_transfer(merge_gb)
-
-        # Extract a single result per logical aggregate using the finalizer
-        # expressions (if any)
-        has_finalizer = any([agg.get_finalizer() for agg in op.aggregate_list])
-        if not has_finalizer:
-            return op_out
-
-        def resolve_finalizer_expr(logical_agg, pos):
-            assert isinstance(logical_agg, DecomposableAggregate)
-            fexpr = logical_agg.get_finalizer()
-
-            # Start of merge aggregates for this logical aggregate
-            offsets = [idx + num_grouping_terms for idx in agg_offsets[pos]]
-
-            if fexpr is None:
-                assert len(offsets) == 1
-                return UnnamedAttributeRef(offsets[0])
-            else:
-                # Convert MergeAggregateOutput instances to absolute col refs
-                return expression.finalizer_expr_to_absolute(fexpr, offsets)
-
-        # pass through grouping terms
-        gmappings = [(None, UnnamedAttributeRef(i))
-                     for i in range(len(op.grouping_list))]
-        # extract a single result for aggregate terms
-        fmappings = [(None, resolve_finalizer_expr(agg, pos)) for pos, agg in
-                     enumerate(op.aggregate_list)]
-        return algebra.Apply(gmappings + fmappings, op_out)
 
 
 class MergeToNaryJoin(rules.Rule):
@@ -1345,10 +1269,9 @@ left_deep_tree_shuffle_logic = [
 # 7. distributed groupby
 # this need to be put after shuffle logic
 distributed_group_by = [
-    # DistributedGroupBy may introduce a complex GroupBy,
+    # DecomposeGroupBy may introduce a complex GroupBy,
     # so we must run SimpleGroupBy after it. TODO no one likes this.
     DecomposeGroupBy(),
-    DistributedGroupBy(),
     rules.SimpleGroupBy(),
     rules.CountToCountall(),   # TODO revisit when we have NULL support.
     rules.EmptyGroupByToDistinct(),

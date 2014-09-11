@@ -131,9 +131,6 @@ class RemoteAggregateOutput(object):
         """
         self.index = index
 
-    def to_absolute(self, offsets):
-        return UnnamedAttributeRef(offsets[self.index])
-
 
 def rebase_local_aggregate_output(expr, offset):
     """Convert LocalAggregateOutput instances to raw column references."""
@@ -157,58 +154,6 @@ def rebase_finalizer(expr, offset):
         n.apply(convert)
         return n
     return convert(expr)
-
-
-# AAA dead code
-def finalizer_expr_to_absolute(expr, offsets):
-    """Convert a finalizer expression to absolute column positions."""
-
-    assert isinstance(expr, Expression)
-
-    def convert(n):
-        if isinstance(n, RemoteAggregateOutput):
-            n = n.to_absolute(offsets)
-        n.apply(convert)
-        return n
-    return convert(expr)
-
-
-class DecomposableAggregate(BuiltinAggregateExpression):
-    """An aggregate expression that yields a distributed execution plan.
-
-    Execution of a decomposable aggregate proceeds in three phases:
-
-    1) Each logical aggregate maps to one or more "local" aggregates that
-    are executed on each local machine.
-    2) The data is shuffled, and the output of each local aggregate is
-    passed to a "merge" aggregate.
-    3) The outputs of the merge aggregates are passed to a "finalizer"
-    expression, which produces a single output for each of the original logical
-    aggregates.
-
-    For example, the AVERAGE aggregate is expressed as:
-    Local = [SUM, COUNT]
-    Merge = [SUM, SUM]
-    Finalize = DIVIDE($0, $1)
-    """
-
-    def get_local_aggregates(self):
-        """Return a list of local aggregates.
-
-        By default, local aggregates == logical aggregate"""
-        return [self]
-
-    def get_merge_aggregates(self):
-        """Return a list of merge aggregates.
-
-        By default, apply the same aggregate on the output of the local
-        aggregate.
-        """
-        return [self.__class__(LocalAggregateOutput())]
-
-    def get_finalizer(self):
-        """Return a rule for computing the result from the merge aggregates."""
-        return None  # by default, use the result from merge aggregate 0
 
 
 class TrivialAggregateExpression(BuiltinAggregateExpression):
