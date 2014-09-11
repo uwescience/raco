@@ -1951,6 +1951,41 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, self.__aggregate_expected_result(sum))
 
+    def test_decomposable_uda_with_builtin_agg(self):
+        """Test of a decomposed UDA + builtin aggregate.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """
+        uda MySumBroken(x) {
+          [0 as _sum];
+          [_sum + x];
+          17; -- broken
+        };
+        uda MySum(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* MySumBroken {MySum, MySum};
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MySumBroken(salary), SUM(id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _salary_sum = sum(t[3] for t in vals)
+            _id_sum = sum(t[0] for t in vals)
+            tuples.append((key, _salary_sum, _id_sum))
+
+        self.check_result(query, collections.Counter(tuples))
+
     def test_duplicate_decomposable_uda(self):
         query = """
         uda Agg1(x) {
