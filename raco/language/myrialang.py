@@ -6,8 +6,8 @@ from raco import algebra, expression, rules
 from raco.catalog import Catalog
 from raco.language import Language, Algebra
 from raco.expression import UnnamedAttributeRef
-from raco.expression.aggregate import (UdaAggregateExpression,
-    rebase_local_aggregate_output, rebase_finalizer)
+from raco.expression.aggregate import (
+    UdaAggregateExpression, rebase_local_aggregate_output, rebase_finalizer)
 from raco.expression.statevar import *
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
@@ -1035,8 +1035,6 @@ class DecomposeGroupBy(rules.Rule):
 
     TODO: omit this optimization if the data is already shuffled, or
     if the cardinality of the grouping keys is high.
-
-    TODO: unify with functionality in DistributedGroupBy.
     """
 
     @staticmethod
