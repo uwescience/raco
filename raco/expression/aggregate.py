@@ -312,7 +312,7 @@ class AVG(UnaryFunction, BuiltinAggregateExpression):
         return True
 
 
-class STDEV(UnaryFunction, DecomposableAggregate):
+class STDEV(UnaryFunction, BuiltinAggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         filtered = [x for x in inputs if x is not None]
@@ -346,3 +346,21 @@ class STDEV(UnaryFunction, DecomposableAggregate):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
         return types.DOUBLE_TYPE
+
+    def get_decomposable_state(self):
+        si = self.input
+        remits = [SUM(LocalAggregateOutput(i)) for i in range(3)]
+
+        _sum = RemoteAggregateOutput(0)
+        ssq = RemoteAggregateOutput(1)
+        count = RemoteAggregateOutput(2)
+        finalizer = SQRT(MINUS(DIVIDE(ssq, count),
+                         POW(DIVIDE(_sum, count),
+                             NumericLiteral(2))))
+
+        return DecomposableAggregateState(
+            [SUM(si), SUM(TIMES(si, si)), COUNT(si)], [],
+            remits, [], finalizer)
+
+    def is_decomposable(self):
+        return True
