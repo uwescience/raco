@@ -894,6 +894,34 @@ class Parser(object):
         elif isinstance(func, StatefulFunc):
             emit_expr, statemods = Parser.resolve_stateful_func(func, args)
             Parser.statemods.extend(statemods)
+
+            # If the aggregate is decomposable, construct local and remote
+            # emitters and statemods.
+            if name in Parser.decomposable_aggs:
+                ds = Parser.decomposable_aggs[name]
+                local_emit, local_statemods = Parser.resolve_stateful_func(
+                    ds.local, args)
+
+                # Problem: we must connect the local aggregate outputs to
+                # the remote aggregate inputs.  At this stage, we don't have
+                # enough information to construct argument expresisons to
+                # serve as input to the remote aggregate.  Instead, we
+                # introduce a placeholder reference, which is referenced
+                # relative to the start of the local aggregate output.
+                remote_args = [sexpr.LocalAggregateOutput(i)
+                               for i in range(len(ds.remote.args))]
+                remote_emit, remote_statemods = Parser.resolve_stateful_func(
+                    ds.remote, remote_args)
+
+                # local and remote emitters may be tuple-valued; flatten them.
+                local_emitters = get_emitters(local_emit)
+                remote_emitters = get_emitters(remote_emit)
+                ds = sexpr.DecomposableUdaState(
+                    local_emitters, local_statemods,
+                    remote_emitters, remote_statemods)
+
+                for sx in get_emitters(emit_expr):
+                    sx.set_decomposable_state(ds)
             return emit_expr
         else:
             assert False
