@@ -1862,12 +1862,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(NestedTupleExpressionException):
             self.check_result(query, None)
 
-    def test_decomposable_average_uda(self):
-        query = """
+    __DECOMPOSED_UDA = """
         uda LogicalAvg(x) {
           [0 as _sum, 0 as _count];
           [_sum + x, _count + 1];
-          [_sum/_count];
+          float(_sum); -- Note bogus return value
         };
         uda LocalAvg(x) {
           [0 as _sum, 0 as _count];
@@ -1878,11 +1877,20 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
           [_sum + _local_sum, _count + _local_count];
           [_sum/_count];
         };
-
         uda* LogicalAvg {LocalAvg, RemoteAvg};
+    """
+
+    def test_decomposable_average_uda(self):
+        """Test of a decomposed UDA.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """%s
         out = [FROM SCAN(%s) AS X EMIT dept_id, LogicalAvg(salary)];
         STORE(out, OUTPUT);
-        """ % self.emp_key
+        """ % (TestQueryFunctions.__DECOMPOSED_UDA, self.emp_key)
 
         result_dict = collections.defaultdict(list)
         for t in self.emp_table.elements():
@@ -1893,6 +1901,28 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             _cnt = len(vals)
             _sum = sum(vals)
             tuples.append((key, float(_sum) / _cnt))
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_average_uda_repeated(self):
+        """Test of repeated invocations of decomposed UDAs."""
+
+        query = """%s
+        out = [FROM SCAN(%s) AS X EMIT dept_id,
+               LogicalAvg(salary) + LogicalAvg($0)];
+        STORE(out, OUTPUT);
+        """ % (TestQueryFunctions.__DECOMPOSED_UDA, self.emp_key)
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _cnt = len(vals)
+            _salary_sum = sum(t[3] for t in vals)
+            _id_sum = sum(t[0] for t in vals)
+            tuples.append((key, (float(_salary_sum) + float(_id_sum)) / _cnt))
 
         self.check_result(query, collections.Counter(tuples))
 

@@ -1008,6 +1008,7 @@ class Parser(object):
     def parse(self, s):
         scanner.lexer.lineno = 1
         Parser.udf_functions = {}
+        Parser.decomposable_aggs = {}
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 
