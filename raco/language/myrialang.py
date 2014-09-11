@@ -1024,11 +1024,11 @@ class BroadcastBeforeCross(rules.Rule):
         return expr
 
 
-class DistributedUda(rules.Rule):
-    """Convert a logical UDA into a distributed UDA.
+class DecomposeGroupBy(rules.Rule):
+    """Convert a logical group by into a two-phase group by.
 
-    The local half of the UDA before the shuffle step, whereas the remote half
-    runs after the shuffle step.
+    The local half of the aggregate before the shuffle step, whereas the remote
+    half runs after the shuffle step.
 
     TODO: omit this optimization if the data is already shuffled, or
     if the cardinality of the grouping keys is high.
@@ -1043,9 +1043,7 @@ class DistributedUda(rules.Rule):
             return op
 
         # Bail early if we have any non-decomposable aggregates
-        if not all(isinstance(x, UdaAggregateExpression)
-                   and x.is_decomposable()
-                   for x in op.aggregate_list):
+        if not all(x.is_decomposable() for x in op.aggregate_list):
             return op
 
         num_grouping_terms = len(op.grouping_list)
@@ -1301,7 +1299,7 @@ left_deep_tree_shuffle_logic = [
 distributed_group_by = [
     # DistributedGroupBy may introduce a complex GroupBy,
     # so we must run SimpleGroupBy after it. TODO no one likes this.
-    DistributedUda(),
+    DecomposeGroupBy(),
     DistributedGroupBy(),
     rules.SimpleGroupBy(),
     rules.CountToCountall(),   # TODO revisit when we have NULL support.

@@ -10,19 +10,6 @@ from abc import abstractmethod
 import math
 
 
-class AggregateExpression(Expression):
-    pass
-
-
-class BuiltinAggregateExpression(AggregateExpression):
-    def evaluate(self, _tuple, scheme, state=None):
-        raise NotImplementedError("{expr}.evaluate".format(expr=type(self)))
-
-    @abstractmethod
-    def evaluate_aggregate(self, tuple_iterator, scheme):
-        """Evaluate an aggregate over a bag of tuples"""
-
-
 class DecomposableUdaState(object):
     """State associated with decomposable UDAs.
 
@@ -57,6 +44,27 @@ class DecomposableUdaState(object):
 
     def get_remote_statemods(self):
         return self.remote_statemods
+
+
+class AggregateExpression(Expression):
+    def is_decomposable(self):
+        return self.get_decomposable_state() is not None
+
+    @abstractmethod
+    def get_decomposable_state(self):
+        pass
+
+
+class BuiltinAggregateExpression(AggregateExpression):
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError("{expr}.evaluate".format(expr=type(self)))
+
+    def get_decomposable_state(self):
+        return None
+
+    @abstractmethod
+    def evaluate_aggregate(self, tuple_iterator, scheme):
+        """Evaluate an aggregate over a bag of tuples"""
 
 
 class UdaAggregateExpression(AggregateExpression, UnaryOperator):
