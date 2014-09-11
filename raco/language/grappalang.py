@@ -205,6 +205,35 @@ class GrappaOperator (Pipelined):
 from raco.algebra import UnaryOperator
 
 
+def create_pipeline_synchronization(state):
+    """
+    The pipeline_synchronization will sync tasks
+    within a single pipeline. Adds this new object to
+    the compiler state.
+    """
+    global_syncname = gensym()
+
+    # true = tracked by gce user metrics
+    global_sync_decl_template = ct("""
+        GlobalCompletionEvent %(global_syncname)s(true);
+        """)
+    global_sync_decl = global_sync_decl_template % locals()
+
+    gce_metric_template = """
+    GRAPPA_DEFINE_METRIC(CallbackMetric<int64_t>, \
+    app_%(pipeline_id)s_gce_incomplete, []{
+    return %(global_syncname)s.incomplete();
+    });
+    """
+    pipeline_id = state.getCurrentPipelineId()
+    gce_metric_def = gce_metric_template % locals()
+
+    state.addDeclarations([global_sync_decl, gce_metric_def])
+
+    state.setPipelineProperty('global_syncname', global_syncname)
+    return global_syncname
+
+
 # TODO: replace with ScanTemp functionality?
 class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
     def num_tuples(self):
@@ -233,13 +262,7 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         #       }); // end scan over %(inputsym)s (forall_localized)
         #       """
 
-        global_sync_decl_template = ct("""
-        GlobalCompletionEvent %(global_syncname)s;
-        """)
-
-        global_syncname = gensym()
-        state.addDeclarations([global_sync_decl_template % locals()])
-        state.setPipelineProperty('global_syncname', global_syncname)
+        global_syncname = create_pipeline_synchronization(state)
 
         memory_scan_template = ct("""
     forall<&%(global_syncname)s>( %(inputsym)s.data, %(inputsym)s.numtuples, \
@@ -565,14 +588,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
         state.addDeclarations([out_tuple_type_def])
 
-        global_sync_decl_template = ct("""
-        GlobalCompletionEvent %(pipeline_sync)s;
-        """)
-
-        pipeline_sync = gensym()
-
-        state.addDeclarations([global_sync_decl_template % locals()])
-        state.setPipelineProperty('global_syncname', pipeline_sync)
+        pipeline_sync = create_pipeline_synchronization(state)
 
         # reduce is a single self contained pipeline.
         # future hashjoin implementations may pipeline out of it
@@ -756,13 +772,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             %(inner_code)s
             """)
 
-        pipeline_sync_decl_template = ct("""
-        GlobalCompletionEvent %(pipeline_sync)s;
-        """)
-
-        pipeline_sync = gensym()
-        state.setPipelineProperty('global_syncname', pipeline_sync)
-        state.addDeclarations([pipeline_sync_decl_template % locals()])
+        pipeline_sync = create_pipeline_synchronization(state)
 
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
         output_tuple_name = output_tuple.name
@@ -1115,7 +1125,6 @@ class GrappaAlgebra(Algebra):
     language = GrappaLanguage
 
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
-        self.join_type = GrappaHashJoin
         self.emit_print = emit_print
 
     def opt_rules(self, **kwargs):
@@ -1138,6 +1147,8 @@ class GrappaAlgebra(Algebra):
         #     # rules.FreeMemory()
         # ]
 
+        join_type = kwargs.get('join_type', GrappaHashJoin)
+
         # sequence that works for myrial
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
@@ -1145,13 +1156,10 @@ class GrappaAlgebra(Algebra):
             clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
-            grappify(self.join_type, self.emit_print)
+            grappify(join_type, self.emit_print)
         ]
 
         if kwargs.get('SwapJoinSides'):
             rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
         return list(itertools.chain(*rule_grps_sequence))
-
-    def set_join_type(self, joinclass):
-        self.join_type = joinclass
