@@ -6,8 +6,8 @@ from raco import algebra, expression, rules
 from raco.catalog import Catalog
 from raco.language import Language, Algebra
 from raco.expression import UnnamedAttributeRef
-from raco.expression.aggregate import (
-    UdaAggregateExpression, rebase_local_aggregate_output, rebase_finalizer)
+from raco.expression.aggregate import (rebase_local_aggregate_output,
+                                       rebase_finalizer)
 from raco.expression.statevar import *
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
@@ -373,6 +373,7 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         if isinstance(agg, expression.COUNTALL):
             return {"type": "CountAll"}
 
+        assert isinstance(agg, expression.UnaryOperator)
         column = expression.toUnnamed(agg.input, child_scheme).position
         return {"type": "SingleColumn",
                 "aggOps": [MyriaGroupBy.agg_mapping(agg)],
@@ -1140,16 +1141,6 @@ class DecomposeGroupBy(rules.Rule):
 
         local_gb = MyriaGroupBy(op.grouping_list, local_emitters, op.input,
                                 local_statemods)
-
-        shuffle_fields = [UnnamedAttributeRef(i)
-                          for i in range(len(op.grouping_list))]
-
-        if len(shuffle_fields) == 0:
-            # Need to Collect all tuples at once place
-            shuffle = algebra.Collect(local_gb)
-        else:
-            # Need to Shuffle
-            shuffle = algebra.Shuffle(local_gb, shuffle_fields)
 
         grouping_fields = [UnnamedAttributeRef(i)
                            for i in range(num_grouping_terms)]
