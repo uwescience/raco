@@ -2,6 +2,7 @@ from abc import abstractmethod, ABCMeta
 from raco.algebra import DEFAULT_CARDINALITY
 from raco.relation_key import RelationKey
 from raco.scheme import Scheme
+from ast import literal_eval
 
 
 class Relation(object):
@@ -100,7 +101,7 @@ class FromFileCatalog(Catalog):
     @classmethod
     def load_from_file(cls, path):
         with open(path) as fh:
-            return cls(eval(fh.read()))
+            return cls(literal_eval(fh.read()))
 
     def get_num_servers(self):
         return 1
