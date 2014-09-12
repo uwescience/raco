@@ -110,7 +110,7 @@ class testNaryJoin(unittest.TestCase):
         expr = testNaryJoin.get_phys_plan_root(
             "A(x,y,z):-R(x,y),S(y,z),T(z,x)", 64, {"R": 1, "S": 100, "T": 20})
         dim_sizes = [1, 2, 2]
-        # test cell partion of scan r
+        # test cell partition of scan r
         self.assertEqual(
             get_cell_partition(expr, dim_sizes, 0), [[0, 1], [2, 3]])
         # test cell partition of scan s

@@ -1081,7 +1081,7 @@ class DecomposeGroupBy(rules.Rule):
         requires_finalizer = False
 
         for agg in op.aggregate_list:
-            # Multiple emit arguments can be associted with a single
+            # Multiple emit arguments can be associated with a single
             # decomposition rule; coalesce them all together.
             next_state = agg.get_decomposable_state()
             assert next_state
@@ -1216,7 +1216,7 @@ class MergeToNaryJoin(rules.Rule):
         children = []
         MergeToNaryJoin.collect_join_groups(
             op, join_groups, children)
-        # 2. extract join groups from the union find datastructure
+        # 2. extract join groups from the union-find data structure
         join_conds = defaultdict(list)
         for field, key in join_groups.parents.items():
             join_conds[key].append(field)

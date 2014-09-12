@@ -215,7 +215,7 @@ class Parser(object):
 
         # Do some basic sanity checking of the arguments; we can't do full
         # type inspection here, because the full type information is not
-        # known until the funtion is invoked.
+        # known until the function is invoked.
 
         # Number of local inputs must match number of logical inputs
         if len(da.local.args) != len(da.logical.args):
@@ -901,7 +901,7 @@ class Parser(object):
 
                 # Problem: we must connect the local aggregate outputs to
                 # the remote aggregate inputs.  At this stage, we don't have
-                # enough information to construct argument expresisons to
+                # enough information to construct argument expressions to
                 # serve as input to the remote aggregate.  Instead, we
                 # introduce a placeholder reference, which is referenced
                 # relative to the start of the local aggregate output.

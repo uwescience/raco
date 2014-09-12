@@ -42,7 +42,7 @@ def get_unnamed_ref(column_ref, scheme, offset=0):
 
 def check_binop_compatability(op_name, left, right):
     """Check whether the arguments to an operation are compatible."""
-    # Todo: check for type compatibilty here?
+    # Todo: check for type compatibility here?
     # https://github.com/uwescience/raco/issues/213
     if len(left.scheme()) != len(right.scheme()):
         raise SchemaMismatchException(op_name)
@@ -62,7 +62,7 @@ class ExpressionProcessor(object):
         self.catalog = catalog
         self.use_dummy_schema = use_dummy_schema
 
-        # Variables accesed by the current operation
+        # Variables accessed by the current operation
         self.uses_set = set()
 
     def get_and_clear_uses_set(self):
