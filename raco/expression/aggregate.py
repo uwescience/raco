@@ -190,9 +190,6 @@ class COUNTALL(ZeroaryOperator, BuiltinAggregateExpression):
     def evaluate_aggregate(self, tuple_iterator, scheme):
         return len(tuple_iterator)
 
-    def get_merge_aggregates(self):
-        return [SUM(LocalAggregateOutput())]
-
     def typeof(self, scheme, state_scheme):
         return types.LONG_TYPE
 
