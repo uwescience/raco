@@ -266,14 +266,6 @@ class STDEV(UnaryFunction, BuiltinAggregateExpression):
         mean = float(sum(filtered)) / n
         return math.sqrt(sum((a - mean) ** 2 for a in filtered) / n)
 
-    def get_local_aggregates(self):
-        return [SUM(self.input), SUM(TIMES(self.input, self.input)),
-                COUNT(self.input)]
-
-    def get_merge_aggregates(self):
-        return [SUM(LocalAggregateOutput()), SUM(LocalAggregateOutput()),
-                SUM(LocalAggregateOutput())]
-
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
