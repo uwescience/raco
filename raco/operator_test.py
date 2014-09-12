@@ -1,5 +1,4 @@
 import unittest
-import collections
 
 import raco.fakedb
 from raco.relation_key import RelationKey
