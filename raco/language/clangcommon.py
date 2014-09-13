@@ -7,10 +7,11 @@ from raco import expression
 from raco import catalog
 from raco.algebra import gensym
 from raco.expression import UnnamedAttributeRef
+from raco.language import Language
 from raco.expression import util
 
 import logging
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
 import re
 
@@ -32,6 +33,69 @@ class CodeTemplate:
 
 def ct(s):
     return CodeTemplate(s)
+
+
+class CBaseLanguage(Language):
+    @classmethod
+    def body(cls, compileResult):
+        queryexec = compileResult.getExecutionCode()
+        initialized = compileResult.getInitCode()
+        declarations = compileResult.getDeclCode()
+        resultsym = "__result__"
+        return cls.base_template() % locals()
+
+    @staticmethod
+    @abc.abstractmethod
+    def base_template():
+        pass
+
+    @staticmethod
+    def comment(txt):
+        return "// %s\n" % txt
+
+    nextstrid = 0
+
+    @classmethod
+    def newstringident(cls):
+        r = """str_%s""" % (cls.nextstrid)
+        cls.nextstrid += 1
+        return r
+
+    @classmethod
+    def compile_numericliteral(cls, value):
+        return '%s' % (value), [], []
+
+    @classmethod
+    def negation(cls, input):
+        innerexpr, decls, inits = input
+        return "(!%s)" % (innerexpr,), decls, inits
+
+    @classmethod
+    def negative(cls, input):
+        innerexpr, decls, inits = input
+        return "(-%s)" % (innerexpr,), decls, inits
+
+    @classmethod
+    def expression_combine(cls, args, operator="&&"):
+        opstr = " %s " % operator
+        conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
+        decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
+        inits = reduce(lambda sofar, x: sofar + x, [d for _, _, d in args])
+        _LOG.debug("conjunc: %s", conjunc)
+        return "( %s )" % conjunc, decls, inits
+
+    @classmethod
+    def compile_attribute(cls, expr):
+        if isinstance(expr, expression.NamedAttributeRef):
+            raise TypeError(
+                "Error compiling attribute reference %s. \
+                C compiler only support unnamed perspective. \
+                Use helper function unnamed." % expr)
+        if isinstance(expr, expression.UnnamedAttributeRef):
+            symbol = expr.tupleref.name
+            position = expr.position
+            assert position >= 0
+            return '%s.get(%s)' % (symbol, position), [], []
 
 
 # TODO:
@@ -308,7 +372,7 @@ class CFileScan(algebra.Scan):
         # Common subexpression elimination
         # don't scan the same file twice
         resultsym = state.lookupExpr(self)
-        LOG.debug("lookup %s(h=%s) => %s", self, self.__hash__(), resultsym)
+        _LOG.debug("lookup %s(h=%s) => %s", self, self.__hash__(), resultsym)
         if not resultsym:
             #TODO for now this will break whatever relies on self.bound like reusescans
             #Scan is the only place where a relation is declared
@@ -346,7 +410,7 @@ class CFileScan(algebra.Scan):
         # TODO use the identifiers (don't split str and extract)
         #name = self.relation_key
 
-        LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
+        _LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
 
         #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
         #self.trace("// Original query position of %s: term %s (%s)" % tup)

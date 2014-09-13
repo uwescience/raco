@@ -3,11 +3,10 @@
 
 from raco import algebra
 from raco import expression
-from raco.expression import aggregate
-from raco.language import Language, clangcommon, Algebra
+from raco.language import clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.language.clangcommon import StagedTupleRef, ct
+from raco.language.clangcommon import StagedTupleRef, ct, CBaseLanguage
 
 from raco.algebra import gensym
 
@@ -63,29 +62,10 @@ class CStagedTupleRef(StagedTupleRef):
         return constructor_template % locals()
 
 
-class CC(Language):
-    @classmethod
-    def new_relation_assignment(cls, rvar, val):
-        return """
-    %s
-    %s
-    """ % (cls.relation_decl(rvar), cls.assignment(rvar, val))
-
-    @classmethod
-    def relation_decl(cls, rvar):
-        return "struct relationInfo *%s;" % rvar
-
-    @classmethod
-    def assignment(cls, x, y):
-        return "%s = %s;" % (x, y)
-
+class CC(CBaseLanguage):
     @staticmethod
-    def body(compileResult):
-        queryexec = compileResult.getExecutionCode()
-        initialized = compileResult.getInitCode()
-        declarations = compileResult.getDeclCode()
-        resultsym = "__result__"
-        return base_template % locals()
+    def base_template():
+        return base_template
 
     @staticmethod
     def pipeline_wrap(ident, code, attrs):
@@ -144,22 +124,6 @@ class CC(Language):
     def log_file_unquoted(code, level=0):
         return """logfile << %s << " ";\n """ % code
 
-    @staticmethod
-    def comment(txt):
-        return "// %s\n" % txt
-
-    nextstrid = 0
-
-    @classmethod
-    def newstringident(cls):
-        r = """str_%s""" % (cls.nextstrid)
-        cls.nextstrid += 1
-        return r
-
-    @classmethod
-    def compile_numericliteral(cls, value):
-        return '%s' % (value), [], []
-
     @classmethod
     def compile_stringliteral(cls, s):
         sid = cls.newstringident()
@@ -171,38 +135,6 @@ class CC(Language):
         return """(%s)""" % sid, [], [build_init, lookup_init]
         # raise ValueError("String Literals not supported\
         # in C language: %s" % s)
-
-    @classmethod
-    def negation(cls, input):
-        innerexpr, inits = input
-        return "(!%s)" % (innerexpr,), [], inits
-
-    @classmethod
-    def negative(cls, input):
-        innerexpr, decls, inits = input
-        return "(-%s)" % (innerexpr,), decls, inits
-
-    @classmethod
-    def expression_combine(cls, args, operator="&&"):
-        opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
-        decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
-        inits = reduce(lambda sofar, x: sofar + x, [d for _, _, d in args])
-        _LOG.debug("conjunc: %s", conjunc)
-        return "( %s )" % conjunc, decls, inits
-
-    @classmethod
-    def compile_attribute(cls, expr):
-        if isinstance(expr, expression.NamedAttributeRef):
-            raise TypeError(
-                "Error compiling attribute reference %s. \
-                C compiler only support unnamed perspective. \
-                Use helper function unnamed." % expr)
-        if isinstance(expr, expression.UnnamedAttributeRef):
-            symbol = expr.tupleref.name
-            position = expr.position
-            assert position >= 0
-            return '%s.get(%s)' % (symbol, position), [], []
 
 
 class CCOperator(Pipelined):

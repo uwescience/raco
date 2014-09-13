@@ -4,11 +4,10 @@
 
 from raco import algebra
 from raco import expression
-from raco.expression import aggregate
-from raco.language import Language, Algebra
+from raco.language import Algebra
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.language.clangcommon import StagedTupleRef, ct
+from raco.language.clangcommon import StagedTupleRef, ct, CBaseLanguage
 from raco.language import clangcommon
 from raco.utility import emitlist
 
@@ -38,29 +37,10 @@ class GrappaStagedTupleRef(StagedTupleRef):
         return "GRAPPA_BLOCK_ALIGNED"
 
 
-class GrappaLanguage(Language):
-    @classmethod
-    def new_relation_assignment(cls, rvar, val):
-        return """
-    %s
-    %s
-    """ % (cls.relation_decl(rvar), cls.assignment(rvar, val))
-
-    @classmethod
-    def relation_decl(cls, rvar):
-        return "GlobalAddress<Tuple> %s;" % rvar
-
-    @classmethod
-    def assignment(cls, x, y):
-        return "%s = %s;" % (x, y)
-
+class GrappaLanguage(CBaseLanguage):
     @staticmethod
-    def body(compileResult):
-        queryexec = compileResult.getExecutionCode()
-        initialized = compileResult.getInitCode()
-        declarations = compileResult.getDeclCode()
-        resultsym = "__result__"
-        return base_template % locals()
+    def base_template():
+        return base_template
 
     @staticmethod
     def log(txt):
@@ -137,22 +117,6 @@ class GrappaLanguage(Language):
 
         return code
 
-    @staticmethod
-    def comment(txt):
-        return "// %s\n" % txt
-
-    nextstrid = 0
-
-    @classmethod
-    def newstringident(cls):
-        r = """str_%s""" % (cls.nextstrid)
-        cls.nextstrid += 1
-        return r
-
-    @classmethod
-    def compile_numericliteral(cls, value):
-        return '%s' % (value), [], []
-
     @classmethod
     def compile_stringliteral(cls, st):
         sid = cls.newstringident()
@@ -166,37 +130,6 @@ class GrappaLanguage(Language):
         return """(%s)""" % sid, [decl], [build_init, lookup_init]
         # raise ValueError("String Literals not supported in
         # C language: %s" % s)
-
-    @classmethod
-    def negation(cls, input):
-        innerexpr, decls, inits = input
-        return "(!%s)" % (innerexpr,), decls, inits
-
-    @classmethod
-    def negative(cls, input):
-        innerexpr, decls, inits = input
-        return "(-%s)" % (innerexpr,), decls, inits
-
-    @classmethod
-    def expression_combine(cls, args, operator="&&"):
-        opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
-        decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
-        inits = reduce(lambda sofar, x: sofar + x, [d for _, _, d in args])
-        _LOG.debug("conjunc: %s", conjunc)
-        return "( %s )" % conjunc, decls, inits
-
-    @classmethod
-    def compile_attribute(cls, expr):
-        if isinstance(expr, expression.NamedAttributeRef):
-            raise TypeError("""Error compiling attribute reference %s. \
-            C compiler only support unnamed perspective. \
-            Use helper function unnamed.""" % expr)
-        if isinstance(expr, expression.UnnamedAttributeRef):
-            symbol = expr.tupleref.name
-            # NOTE: this will only work in Selects right now
-            position = expr.position
-            return '%s.get(%s)' % (symbol, position), [], []
 
 
 class GrappaOperator (Pipelined):
