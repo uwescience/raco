@@ -133,10 +133,14 @@ class GrappaLanguage(CBaseLanguage):
 
 
 class GrappaOperator (Pipelined):
-    language = GrappaLanguage
+    _language = GrappaLanguage
 
     def new_tuple_ref(self, sym, scheme):
         return GrappaStagedTupleRef(sym, scheme)
+
+    @classmethod
+    def language(cls):
+        return cls._language
 
 
 from raco.algebra import UnaryOperator
@@ -1043,8 +1047,6 @@ def grappify(join_type, emit_print):
 
 
 class GrappaAlgebra(Algebra):
-    language = GrappaLanguage
-
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         self.emit_print = emit_print
 

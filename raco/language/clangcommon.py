@@ -230,7 +230,7 @@ class CSelect(algebra.Select):
 
         # compile the predicate into code
         conditioncode, cond_decls, cond_inits = \
-            self.language.compile_expression(condition_as_unnamed)
+            self.language().compile_expression(condition_as_unnamed)
         state.addInitializers(cond_inits)
         state.addDeclarations(cond_decls)
 
@@ -299,7 +299,7 @@ class CApply(algebra.Apply):
             [_ for _ in src_expr_unnamed.postorder(getTaggingFunc(t))]
 
             src_expr_compiled, expr_decls, expr_inits = \
-                self.language.compile_expression(src_expr_unnamed)
+                self.language().compile_expression(src_expr_unnamed)
             state.addInitializers(expr_inits)
             state.addDeclarations(expr_decls)
 
@@ -504,7 +504,7 @@ class BaseCStore(algebra.Store):
         code += "result.push_back(%s);\n" % (t.name)
 
         if self.emit_print == EMIT_CONSOLE:
-            code += self.language.log_unquoted("%s" % t.name, 2)
+            code += self.language().log_unquoted("%s" % t.name, 2)
         elif self.emit_print == EMIT_FILE:
             code += self.__file_code__(t, state)
 

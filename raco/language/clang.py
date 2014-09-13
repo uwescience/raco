@@ -138,10 +138,14 @@ class CC(CBaseLanguage):
 
 
 class CCOperator(Pipelined):
-    language = CC
+    _language = CC
 
     def new_tuple_ref(self, sym, scheme):
         return CStagedTupleRef(sym, scheme)
+
+    @classmethod
+    def language(cls):
+        return cls._language
 
 
 from raco.algebra import UnaryOperator
@@ -494,7 +498,7 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         code += "int logi = 0;\n"
         code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
                 % (t.name)
-        code += self.language.log_file_unquoted("%s.get(logi)" % t.name)
+        code += self.language().log_file_unquoted("%s.get(logi)" % t.name)
         code += "}\n "
         code += "logfile << %s.get(logi);\n" % (t.name)
         code += "logfile << '\\n';"
@@ -506,8 +510,8 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         schemafile = 'schema/' + str(self.relation_key).split(":")[2]
         code = 'logfile.open("%s");\n' % schemafile
         names = [x.encode('UTF8') for x in scheme.get_names()]
-        code += self.language.log_file("%s" % names)
-        code += self.language.log_file("%s" % scheme.get_types())
+        code += self.language().log_file("%s" % names)
+        code += self.language().log_file("%s" % scheme.get_types())
         code += 'logfile.close();'
         return code
 
@@ -545,8 +549,6 @@ def clangify(emit_print):
 
 
 class CCAlgebra(Algebra):
-    language = CC
-
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         """ To store results into a file or onto console """
         self.emit_print = emit_print

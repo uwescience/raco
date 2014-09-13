@@ -1,7 +1,7 @@
 
 import abc
 from raco.utility import emitlist
-from algebra import gensym
+from algebra import gensym, Operator
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -216,7 +216,7 @@ class CompileState:
         return self.pipeline_count
 
 
-class Pipelined(object):
+class Pipelined(Operator):
     """
     Trait to provide the compilePipeline method
     for calling into pipeline style compilation.
@@ -234,6 +234,11 @@ class Pipelined(object):
 
         [_ for _ in root.postorder(markChildParent)]
 
+    @classmethod
+    @abc.abstractmethod
+    def language(cls):
+        pass
+
     @abc.abstractmethod
     def produce(self, state):
         """Denotation for producing a tuple"""
@@ -247,12 +252,13 @@ class Pipelined(object):
     def compilePipeline(self):
         self.__markAllParents__()
 
-        state = CompileState(self.language)
+        state = CompileState(self.language())
 
-        state.addCode(self.language.comment("Compiled subplan for %s" % self))
+        state.addCode(
+            self.language().comment("Compiled subplan for %s" % self))
 
         self.produce(state)
 
-        # state.addCode( self.language.log("Evaluating subplan %s" % self) )
+        # state.addCode( self.language().log("Evaluating subplan %s" % self) )
 
         return state
