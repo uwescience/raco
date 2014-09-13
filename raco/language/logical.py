@@ -1,21 +1,16 @@
 import raco.rules as rules
+from raco.language import Algebra
 
 
-class LogicalAlgebra(object):
+class OptLogicalAlgebra(Algebra):
     @staticmethod
-    def opt_rules():
-        return []
-
-
-class OptLogicalAlgebra(object):
-    @staticmethod
-    def opt_rules():
+    def opt_rules(**kwargs):
         return [rules.RemoveTrivialSequences(),
                 rules.SimpleGroupBy(),
                 rules.SplitSelects(),
                 rules.PushSelects(),
                 rules.MergeSelects(),
-                rules.ProjectingJoin(),
+                rules.ProjectToDistinctColumnSelect(),
                 rules.JoinToProjectingJoin(),
                 rules.PushApply(),
                 rules.RemoveUnusedColumns(),

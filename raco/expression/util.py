@@ -2,12 +2,46 @@
 Utility functions for use in Raco expressions
 """
 
-from .expression import (BinaryOperator, AttributeRef, NamedAttributeRef,
-                         UnnamedAttributeRef, NamedStateAttributeRef)
-from .aggregate import AggregateExpression
+from .expression import (Expression, BinaryOperator, AttributeRef,
+                         NamedAttributeRef, UnnamedAttributeRef,
+                         NamedStateAttributeRef)
+from .aggregate import BuiltinAggregateExpression, AggregateExpression
 
 import copy
 import inspect
+
+
+class NestedAggregateException(Exception):
+    """Nested aggregate functions are not allowed"""
+    def __init__(self, lineno):
+        self.lineno = lineno
+
+    def __str__(self):
+        return "Nested aggregate expression on line %d" % self.lineno
+
+
+def ensure_unnamed(exprs, op):
+    """Returns the expressions in the supplied exprs, ensuring that all
+    attribute references are in the unnamed perspective. The expressions are
+    resolved against the scheme of the supplied operator, but only if
+    necessary.
+
+    :param exprs: an expression or sequence of expressions.
+    :param op: the operator against whose scheme non-unnamed references will be
+               resolved. Scheme is only computed if needed.
+    """
+    if isinstance(exprs, Expression):
+        # exprs is just a single expression
+        if only_unnamed_refs(exprs):
+            return exprs
+        return to_unnamed_recursive(exprs, op.scheme())
+
+    else:
+        # exprs is a sequence of expressions.
+        if all(only_unnamed_refs(e) for e in exprs):
+            return exprs
+        op_scheme = op.scheme()
+        return [to_unnamed_recursive(e, op_scheme) for e in exprs]
 
 
 def toUnnamed(ref, scheme):
@@ -41,6 +75,13 @@ def to_unnamed_recursive(sexpr, scheme):
     return convert(sexpr)
 
 
+def only_unnamed_refs(sexpr):
+    """Returns True if all AttributeRefs in the expression are unnamed."""
+    return all(isinstance(e, UnnamedAttributeRef)
+               for e in sexpr.walk()
+               if isinstance(e, AttributeRef))
+
+
 def all_classes():
     """Return a list of all classes in the module"""
     import raco.expression as expr
@@ -51,7 +92,7 @@ def aggregate_functions():
     """Return all the classes that can be used to construct an aggregate expression"""  # noqa
     allclasses = all_classes()
     opclasses = [opclass for opclass in allclasses
-                 if issubclass(opclass, AggregateExpression)
+                 if issubclass(opclass, BuiltinAggregateExpression)
                  and not inspect.isabstract(opclass)]
 
     return opclasses
@@ -64,10 +105,6 @@ def binary_ops():
                  if issubclass(opclass, BinaryOperator)
                  and not inspect.isabstract(opclass)]
     return opclasses
-
-
-def isaggregate(expr):
-    return any(expr.postorder(lambda x: isinstance(x, AggregateExpression)))
 
 
 def udf_undefined_vars(expr, vars):
@@ -165,3 +202,27 @@ def reindex_expr(expr, index_map):
                 or isinstance(ex, UnnamedAttributeRef))
         if isinstance(ex, UnnamedAttributeRef) and ex.position in index_map:
             ex.position = index_map[ex.position]
+
+
+def expression_contains_aggregate(ex):
+    """Return True if the expression contains an aggregate."""
+    return any(isinstance(sx, AggregateExpression) for sx in ex.walk())
+
+
+def check_no_aggregate(ex, lineno):
+    """Raise an exception if the provided expression contains an aggregate."""
+    if expression_contains_aggregate(ex):
+        raise NestedAggregateException(lineno)
+
+
+def check_no_nested_aggregate(ex, lineno):
+    """Raise an exception if the expression contains a nested aggregate."""
+
+    def descend(sx, in_aggregate):
+        is_aggregate = isinstance(sx, AggregateExpression)
+        if is_aggregate and in_aggregate:
+            raise NestedAggregateException(lineno)
+        for child in sx.get_children():
+            descend(child, is_aggregate or in_aggregate)
+
+    descend(ex, False)

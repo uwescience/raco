@@ -118,14 +118,14 @@ cd examples
 
 Available test tables are `{R,S,T}{1,2,3}` with that number of columns.
 
-### Run the datalog -> Grappa tests
+### Run the myriaL -> Grappa tests
 
 1. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
 2. set GRAPPA_HOME to root of Grappa
 3. set RACO_HOME to root of raco
 4. run tests:
 ```bash
-python c_test_environment/grappalang_tests.py
+PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_myrial_tests.MyriaLGrappaTest
 ```
 
 ### Compile a datalog query into Grappa, then run it

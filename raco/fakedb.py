@@ -6,9 +6,25 @@ import csv
 from raco import relation_key, types
 from raco.algebra import StoreTemp, DEFAULT_CARDINALITY
 from raco.catalog import Catalog
-from raco.expression import AND, EQ
+from raco.expression import AND, EQ, BuiltinAggregateExpression
 
 debug = False
+
+
+class State(object):
+    def __init__(self, op_scheme, state_scheme, init_exprs):
+        self.scheme = state_scheme
+        self.op_scheme = op_scheme
+        self.values = [x.evaluate(None, op_scheme, None)
+                       for (_, x) in init_exprs]
+
+    def update(self, tpl, update_exprs):
+        new_vals = [expr.evaluate(tpl, self.op_scheme, self)
+                    for (_, expr) in update_exprs]
+        self.values = new_vals
+
+    def __str__(self):
+        return 'State(%s)' % self.values
 
 
 class FakeDatabase(Catalog):
@@ -25,7 +41,10 @@ class FakeDatabase(Catalog):
         return 1
 
     def num_tuples(self, rel_key):
-        return DEFAULT_CARDINALITY
+        try:
+            return sum(self.tables[rel_key][0].values())
+        except KeyError:
+            return DEFAULT_CARDINALITY
 
     def evaluate(self, op):
         """Evaluate a relational algebra operation.
@@ -71,6 +90,9 @@ class FakeDatabase(Catalog):
 
     def get_temp_table(self, key):
         return self.temp_tables[key]
+
+    def delete_temp_table(self, key):
+        del self.temp_tables[key]
 
     def dump_all(self):
         for key, val in self.tables.iteritems():
@@ -123,18 +145,16 @@ class FakeDatabase(Catalog):
         child_it = self.evaluate(op.input)
         scheme = op.input.scheme()
 
-        State = collections.namedtuple('State', ['scheme', 'values'])
-        state = State(op.state_scheme, [expr.evaluate(None, scheme, None)
-                      for (_, expr) in op.inits])
+        state = State(scheme, op.state_scheme, op.inits)
 
         def make_tuple(input_tuple, state):
-            for i, new_state in enumerate(
-                    [colexpr.evaluate(input_tuple, scheme, state)
-                     for (_, colexpr) in op.updaters]):
-                state.values[i] = new_state
-            ls = [colexpr.evaluate(input_tuple, scheme, state)
-                  for (_, colexpr) in op.emitters]
-            return tuple(ls)
+            # Update state variables
+            state.update(input_tuple, op.updaters)
+
+            # Extract a result for each emit expression
+            return tuple([colexpr.evaluate(input_tuple, scheme, state)
+                          for (_, colexpr) in op.emitters])
+
         return (make_tuple(t, state) for t in child_it)
 
     def join(self, op):
@@ -217,9 +237,10 @@ class FakeDatabase(Catalog):
 
     def groupby(self, op):
         child_it = self.evaluate(op.input)
+        input_scheme = op.input.scheme()
 
         def process_grouping_columns(_tuple):
-            ls = [sexpr.evaluate(_tuple, op.input.scheme()) for
+            ls = [sexpr.evaluate(_tuple, input_scheme) for
                   sexpr in op.grouping_list]
             return tuple(ls)
 
@@ -237,8 +258,23 @@ class FakeDatabase(Catalog):
 
         # resolve aggregate functions
         for key, tuples in results.iteritems():
-            agg_fields = [agg_expr.evaluate_aggregate(
-                tuples, op.input.scheme()) for agg_expr in op.aggregate_list]
+            state = State(input_scheme, op.state_scheme, op.inits)
+            for tpl in tuples:
+                state.update(tpl, op.updaters)
+
+            # For now, built-in aggregates are handled differently than UDA
+            # aggregates.  TODO: clean this up!
+
+            agg_fields = []
+            for expr in op.aggregate_list:
+                if isinstance(expr, BuiltinAggregateExpression):
+                    # Old-style aggregate: pass all tuples to the eval func
+                    agg_fields.append(
+                        expr.evaluate_aggregate(tuples, input_scheme))
+                else:
+                    # UDA-style aggregate: evaluate a normal expression that
+                    # can reference only the state tuple
+                    agg_fields.append(expr.evaluate(None, None, state))
             yield(key + tuple(agg_fields))
 
     def sequence(self, op):

@@ -1,16 +1,17 @@
-
 import collections
 import random
 
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
+from raco.expression import StateVar
+
 from raco.language.myrialang import (MyriaShuffleConsumer,
                                      MyriaShuffleProducer,
-                                     MyriaHyperShuffleProducer)
+                                     MyriaHyperShuffleProducer,
+                                     MyriaBroadcastConsumer)
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
-from raco.language.logical import LogicalAlgebra
 from raco.compile import optimize
 from raco import relation_key
 from raco.catalog import FakeCatalog
@@ -67,9 +68,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
             algebra = MyriaLeftDeepTreeAlgebra()
         else:
             algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
-        return optimize(lp,
-                        target=algebra,
-                        source=LogicalAlgebra)
+        return optimize(lp, algebra)
 
     @staticmethod
     def get_count(op, claz):
@@ -105,7 +104,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, CrossProduct), 1)
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, Join))
+        self.assertIsInstance(pp.input, Join)
         self.assertEquals(self.get_count(pp, Select), 2)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
 
@@ -125,7 +124,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, Apply), 4)
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, Apply))
+        self.assertIsInstance(pp.input, Apply)
         self.assertEquals(self.get_count(pp, Apply), 1)
 
         expected = collections.Counter(
@@ -146,10 +145,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, GroupBy), 1)
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, GroupBy))
+        self.assertIsInstance(pp.input, GroupBy)
         # GroupBy.CollectProducer.CollectConsumer.GroupBy.Apply
         apply = pp.input.input.input.input.input
-        self.assertTrue(isinstance(apply, Apply))
+        self.assertIsInstance(apply, Apply)
         self.assertEquals(self.get_count(pp, Apply), 1)
         self.assertEquals(len(apply.scheme()), 1)
 
@@ -169,13 +168,13 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                    Scan(self.x_key, self.x_scheme),
                    [AttIndex(i) for i in xrange(2 * len(self.x_scheme))])))  # noqa
 
-        self.assertTrue(isinstance(lp.input.input, ProjectingJoin))
+        self.assertIsInstance(lp.input.input, ProjectingJoin)
         self.assertEquals(2 * len(self.x_scheme),
                           len(lp.input.input.scheme()))
 
         pp = self.logical_to_physical(lp)
         proj_join = pp.input
-        self.assertTrue(isinstance(proj_join, ProjectingJoin))
+        self.assertIsInstance(proj_join, ProjectingJoin)
         self.assertEquals(1, len(proj_join.scheme()))
         self.assertEquals(2, len(proj_join.left.scheme()))
         self.assertEquals(1, len(proj_join.right.scheme()))
@@ -205,10 +204,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_count(lp, Select), 2)
         self.assertEquals(self.get_count(lp, Scan), 1)
-        self.assertTrue(isinstance(lp.input, Select))
+        self.assertIsInstance(lp.input, Select)
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, Apply))
+        self.assertIsInstance(pp.input, Apply)
         self.assertEquals(self.get_count(pp, Select), 1)
 
         self.db.evaluate(pp)
@@ -230,10 +229,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_count(lp, Select), 2)
         self.assertEquals(self.get_count(lp, Scan), 1)
-        self.assertTrue(isinstance(lp.input, Select))
+        self.assertIsInstance(lp.input, Select)
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, GroupBy))
+        self.assertIsInstance(pp.input, GroupBy)
         self.assertEquals(self.get_count(pp, Select), 1)
 
         self.db.evaluate(pp)
@@ -248,11 +247,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                    Scan(self.x_key, self.x_scheme),
                    [AttIndex(i) for i in xrange(2 * len(self.x_scheme))])))  # noqa
 
-        self.assertTrue(isinstance(lp.input, Apply))
+        self.assertIsInstance(lp.input, Apply)
         lp_scheme = lp.scheme()
 
         pp = self.logical_to_physical(lp)
-        self.assertFalse(isinstance(pp.input, Apply))
+        self.assertNotIsInstance(pp.input, Apply)
         self.assertEquals(lp_scheme, pp.scheme())
 
     def test_not_noop_apply_not_removed(self):
@@ -263,11 +262,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                    Scan(self.x_key, self.x_scheme),
                    [AttIndex(i) for i in xrange(2 * len(self.x_scheme))])))  # noqa
 
-        self.assertTrue(isinstance(lp.input, Apply))
+        self.assertIsInstance(lp.input, Apply)
         lp_scheme = lp.scheme()
 
         pp = self.logical_to_physical(lp)
-        self.assertTrue(isinstance(pp.input, Apply))
+        self.assertIsInstance(pp.input, Apply)
         self.assertEquals(lp_scheme, pp.scheme())
 
     def test_extract_join(self):
@@ -286,7 +285,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp)
 
         # non-equijoin conditions should get pushed separately below the join
-        self.assertTrue(isinstance(pp.input, Join))
+        self.assertIsInstance(pp.input, Join)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
         self.assertEquals(self.get_count(pp, Select), 2)
 
@@ -432,11 +431,13 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         """
 
         pp = self.get_physical_plan(query)
-        self.assertEquals(self.get_count(pp, Distinct), 1)
+        self.assertEquals(self.get_count(pp, Distinct), 2)  # distributed
+        first = True
         for op in pp.walk():
             if isinstance(op, Distinct):
                 self.assertIsInstance(op.input, MyriaShuffleConsumer)
                 self.assertIsInstance(op.input.input, MyriaShuffleProducer)
+                break
 
     def test_shuffle_before_difference(self):
         query = """
@@ -471,3 +472,193 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # This is it -- just test that we can get the physical plan and
         # compile to JSON. See https://github.com/uwescience/raco/issues/240
         pp = self.execute_query(query, output='OutputTemp')
+
+    def test_broadcast_cardinality_right(self):
+        # x and y have the same cardinality, z is smaller
+        query = """
+        x = scan({x});
+        y = scan({y});
+        z = scan({z});
+        out = [from x, z emit *];
+        store(out, OUTPUT);
+        """.format(x=self.x_key, y=self.y_key, z=self.z_key)
+
+        pp = self.get_physical_plan(query)
+        counter = 0
+        for op in pp.walk():
+            if isinstance(op, CrossProduct):
+                counter += 1
+                self.assertIsInstance(op.right, MyriaBroadcastConsumer)
+        self.assertEquals(counter, 1)
+
+    def test_broadcast_cardinality_left(self):
+        # x and y have the same cardinality, z is smaller
+        query = """
+        x = scan({x});
+        y = scan({y});
+        z = scan({z});
+        out = [from z, y emit *];
+        store(out, OUTPUT);
+        """.format(x=self.x_key, y=self.y_key, z=self.z_key)
+
+        pp = self.get_physical_plan(query)
+        counter = 0
+        for op in pp.walk():
+            if isinstance(op, CrossProduct):
+                counter += 1
+                self.assertIsInstance(op.left, MyriaBroadcastConsumer)
+        self.assertEquals(counter, 1)
+
+    def test_broadcast_cardinality_with_agg(self):
+        # x and y have the same cardinality, z is smaller
+        query = """
+        x = scan({x});
+        y = countall(scan({y}));
+        z = scan({z});
+        out = [from y, z emit *];
+        store(out, OUTPUT);
+        """.format(x=self.x_key, y=self.y_key, z=self.z_key)
+
+        pp = self.get_physical_plan(query)
+        counter = 0
+        for op in pp.walk():
+            if isinstance(op, CrossProduct):
+                counter += 1
+                self.assertIsInstance(op.left, MyriaBroadcastConsumer)
+        self.assertEquals(counter, 1)
+
+    def test_relation_cardinality(self):
+        query = """
+        x = scan({x});
+        out = [from x as x1, x as x2 emit *];
+        store(out, OUTPUT);
+        """.format(x=self.x_key)
+        lp = self.get_logical_plan(query)
+        self.assertIsInstance(lp, Sequence)
+        self.assertEquals(1, len(lp.children()))
+        self.assertEquals(sum(self.x_data.values()) ** 2,
+                          lp.children()[0].num_tuples())
+
+    def test_relation_physical_cardinality(self):
+        query = """
+        x = scan({x});
+        out = [from x as x1, x as x2 emit *];
+        store(out, OUTPUT);
+        """.format(x=self.x_key)
+
+        pp = self.get_physical_plan(query)
+        self.assertEquals(sum(self.x_data.values()) ** 2,
+                          pp.num_tuples())
+
+    def test_catalog_cardinality(self):
+        self.assertEquals(sum(self.x_data.values()),
+                          self.db.num_tuples(self.x_key))
+        self.assertEquals(sum(self.y_data.values()),
+                          self.db.num_tuples(self.y_key))
+        self.assertEquals(sum(self.z_data.values()),
+                          self.db.num_tuples(self.z_key))
+
+    def test_groupby_to_distinct(self):
+        query = """
+        x = scan({x});
+        y = select $0, count(*) from x;
+        z = select $0 from y;
+        store(z, OUTPUT);
+        """.format(x=self.x_key)
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, GroupBy), 1)
+        self.assertEquals(self.get_count(lp, Distinct), 0)
+
+        pp = self.logical_to_physical(copy.deepcopy(lp))
+        self.assertEquals(self.get_count(pp, GroupBy), 0)
+        self.assertEquals(self.get_count(pp, Distinct), 2)  # distributed
+
+        self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
+
+    def test_groupby_to_lesser_groupby(self):
+        query = """
+        x = scan({x});
+        y = select $0, count(*), sum($1) from x;
+        z = select $0, $2 from y;
+        store(z, OUTPUT);
+        """.format(x=self.x_key)
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, GroupBy), 1)
+        for op in lp.walk():
+            if isinstance(op, GroupBy):
+                self.assertEquals(len(op.grouping_list), 1)
+                self.assertEquals(len(op.aggregate_list), 2)
+
+        pp = self.logical_to_physical(copy.deepcopy(lp))
+        self.assertEquals(self.get_count(pp, GroupBy), 2)  # distributed
+        for op in pp.walk():
+            if isinstance(op, GroupBy):
+                self.assertEquals(len(op.grouping_list), 1)
+                self.assertEquals(len(op.aggregate_list), 1)
+
+        self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
+
+    def __run_uda_test(self, uda_state=None):
+        scan = Scan(self.x_key, self.x_scheme)
+
+        init_ex = expression.NumericLiteral(0)
+        update_ex = expression.PLUS(expression.NamedStateAttributeRef("value"),
+                                    AttIndex(1))
+        emit_ex = expression.UdaAggregateExpression(
+            expression.NamedStateAttributeRef("value"), uda_state)
+        statemods = [StateVar("value", init_ex, update_ex)]
+
+        log_gb = GroupBy([AttIndex(0)], [emit_ex], scan, statemods)
+
+        lp = StoreTemp('OUTPUT', log_gb)
+        pp = self.logical_to_physical(copy.deepcopy(lp))
+
+        self.db.evaluate(lp)
+        log_result = self.db.get_temp_table('OUTPUT')
+
+        self.db.delete_temp_table('OUTPUT')
+        self.db.evaluate(pp)
+        phys_result = self.db.get_temp_table('OUTPUT')
+
+        self.assertEquals(log_result, phys_result)
+        self.assertEquals(len(log_result), 15)
+
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
+
+        return pp
+
+    def test_non_decomposable_uda(self):
+        """Test that optimization preserves the value of a non-decomposable UDA
+        """
+        pp = self.__run_uda_test()
+
+        for op in pp.walk():
+            if isinstance(op, MyriaShuffleProducer):
+                self.assertEquals(op.hash_columns, [AttIndex(0)])
+                self.assertEquals(self.get_count(op, GroupBy), 0)
+
+    def test_decomposable_uda(self):
+        """Test that optimization preserves the value of decomposable UDAs"""
+        lemits = [expression.UdaAggregateExpression(
+                  expression.NamedStateAttributeRef("value"))]
+        remits = copy.deepcopy(lemits)
+
+        init_ex = expression.NumericLiteral(0)
+        update_ex = expression.PLUS(expression.NamedStateAttributeRef("value"),
+                                    AttIndex(1))
+        lstatemods = [StateVar("value", init_ex, update_ex)]
+        rstatemods = copy.deepcopy(lstatemods)
+
+        uda_state = expression.DecomposableAggregateState(
+            lemits, lstatemods, remits, rstatemods)
+        pp = self.__run_uda_test(uda_state)
+
+        self.assertEquals(self.get_count(pp, GroupBy), 2)
+
+        for op in pp.walk():
+            if isinstance(op, MyriaShuffleProducer):
+                self.assertEquals(op.hash_columns, [AttIndex(0)])
+                self.assertEquals(self.get_count(op, GroupBy), 1)

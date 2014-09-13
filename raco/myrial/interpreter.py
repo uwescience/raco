@@ -7,12 +7,12 @@ import raco.algebra
 import raco.expression
 import raco.catalog
 import raco.scheme
-from raco.language.logical import LogicalAlgebra, OptLogicalAlgebra
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
 from raco.language.myrialang import compile_to_json
 from raco.compile import optimize
 from raco import relation_key
+from raco.expression import StateVar
 
 import collections
 import copy
@@ -42,7 +42,7 @@ def get_unnamed_ref(column_ref, scheme, offset=0):
 
 def check_binop_compatability(op_name, left, right):
     """Check whether the arguments to an operation are compatible."""
-    # Todo: check for type compatibilty here?
+    # Todo: check for type compatibility here?
     # https://github.com/uwescience/raco/issues/213
     if len(left.scheme()) != len(right.scheme()):
         raise SchemaMismatchException(op_name)
@@ -62,7 +62,7 @@ class ExpressionProcessor(object):
         self.catalog = catalog
         self.use_dummy_schema = use_dummy_schema
 
-        # Variables accesed by the current operation
+        # Variables accessed by the current operation
         self.uses_set = set()
 
     def get_and_clear_uses_set(self):
@@ -95,7 +95,8 @@ class ExpressionProcessor(object):
             # Create a dummy schema suitable for emitting plans
             scheme = raco.scheme.DummyScheme()
 
-        return raco.algebra.Scan(rel_key, scheme)
+        return raco.algebra.Scan(rel_key, scheme,
+                                 self.catalog.num_tuples(rel_key))
 
     def load(self, path, scheme):
         return raco.algebra.FileScan(path, scheme)
@@ -208,11 +209,13 @@ class ExpressionProcessor(object):
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
                      for (name, sexpr) in emit_args]
 
-        statemods = [(name, init, multiway.rewrite_refs(update, from_args, info))  # noqa
+        statemods = [StateVar(name, init, multiway.rewrite_refs(update, from_args, info))  # noqa
                      for name, init, update in statemods]
 
-        if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
-            return groupby.groupby(op, emit_args, implicit_group_by_cols)
+        if any(raco.expression.expression_contains_aggregate(ex)
+               for name, ex in emit_args):
+            return groupby.groupby(op, emit_args, implicit_group_by_cols,
+                                   statemods)
         else:
             if statemods:
                 return raco.algebra.StatefulApply(emit_args, statemods, op)
@@ -394,23 +397,26 @@ class StatementProcessor(object):
         """Return an operator representing the logical query plan."""
         return self.cfg.get_logical_plan()
 
-    def get_physical_plan(self, multiway_join=False):
-        """Return an operator representing the physical query plan."""
-
-        # TODO: Get rid of the dummy label argument here.
-        # Return first (only) plan; strip off dummy label.
+    def __get_physical_plan_for__(self, target_phys_algebra, **kwargs):
         logical_plan = self.get_logical_plan()
-        if multiway_join:
-            target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog)
-        else:
-            target_phys_algebra = MyriaLeftDeepTreeAlgebra()
-        return optimize(logical_plan,
-                        target=target_phys_algebra,
-                        source=LogicalAlgebra)
 
-    def get_json(self, multiway_join=False):
+        kwargs['target'] = target_phys_algebra
+        return optimize(logical_plan, **kwargs)
+
+    def get_physical_plan(self, **kwargs):
+        """Return an operator representing the physical query plan."""
+        target_phys_algebra = kwargs.get('target_alg')
+        if target_phys_algebra is None:
+            if kwargs.get('multiway_join', False):
+                target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog)
+            else:
+                target_phys_algebra = MyriaLeftDeepTreeAlgebra()
+
+        return self.__get_physical_plan_for__(target_phys_algebra, **kwargs)
+
+    def get_json(self, **kwargs):
         lp = self.get_logical_plan()
-        pps = self.get_physical_plan(multiway_join)
+        pps = self.get_physical_plan(**kwargs)
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
         return compile_to_json(str(lp), pps, pps, "myrial")

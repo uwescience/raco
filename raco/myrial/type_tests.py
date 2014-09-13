@@ -12,11 +12,11 @@ from raco import types
 class TypeTests(MyrialTestCase):
     schema = Scheme(
         [("clong", types.LONG_TYPE),
-         ("cint", "INT_TYPE"),
+         ("cint", types.INT_TYPE),
          ("cstring", types.STRING_TYPE),
          ("cfloat", types.DOUBLE_TYPE),
-         ("cbool", "BOOLEAN_TYPE"),
-         ("cdate", "DATETIME_TYPE")])
+         ("cbool", types.BOOLEAN_TYPE),
+         ("cdate", types.DATETIME_TYPE)])
 
     def setUp(self):
         super(TypeTests, self).setUp()

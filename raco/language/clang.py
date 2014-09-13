@@ -3,17 +3,18 @@
 
 from raco import algebra
 from raco import expression
-from raco.language import Language, clangcommon
+from raco.language import clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.language.clangcommon import StagedTupleRef, ct
+from raco.language.clangcommon import StagedTupleRef, ct, CBaseLanguage
 
 from raco.algebra import gensym
 
 import logging
 
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
+import itertools
 import os.path
 
 
@@ -61,29 +62,10 @@ class CStagedTupleRef(StagedTupleRef):
         return constructor_template % locals()
 
 
-class CC(Language):
-    @classmethod
-    def new_relation_assignment(cls, rvar, val):
-        return """
-    %s
-    %s
-    """ % (cls.relation_decl(rvar), cls.assignment(rvar, val))
-
-    @classmethod
-    def relation_decl(cls, rvar):
-        return "struct relationInfo *%s;" % rvar
-
-    @classmethod
-    def assignment(cls, x, y):
-        return "%s = %s;" % (x, y)
-
+class CC(CBaseLanguage):
     @staticmethod
-    def body(compileResult):
-        queryexec = compileResult.getExecutionCode()
-        initialized = compileResult.getInitCode()
-        declarations = compileResult.getDeclCode()
-        resultsym = "__result__"
-        return base_template % locals()
+    def base_template():
+        return base_template
 
     @staticmethod
     def pipeline_wrap(ident, code, attrs):
@@ -136,23 +118,11 @@ class CC(Language):
 
     @staticmethod
     def log_file(code, level=0):
-        return """logfile << %s << "\\n";\n """ % code
+        return """logfile << "%s" << "\\n";\n """ % code
 
     @staticmethod
-    def comment(txt):
-        return "// %s\n" % txt
-
-    nextstrid = 0
-
-    @classmethod
-    def newstringident(cls):
-        r = """str_%s""" % (cls.nextstrid)
-        cls.nextstrid += 1
-        return r
-
-    @classmethod
-    def compile_numericliteral(cls, value):
-        return '%s' % (value), [], []
+    def log_file_unquoted(code, level=0):
+        return """logfile << %s << " ";\n """ % code
 
     @classmethod
     def compile_stringliteral(cls, s):
@@ -166,50 +136,26 @@ class CC(Language):
         # raise ValueError("String Literals not supported\
         # in C language: %s" % s)
 
-    @classmethod
-    def negation(cls, input):
-        innerexpr, inits = input
-        return "(!%s)" % (innerexpr,), [], inits
+
+class CCOperator(Pipelined, algebra.Operator):
+    _language = CC
 
     @classmethod
-    def negative(cls, input):
-        innerexpr, decls, inits = input
-        return "(-%s)" % (innerexpr,), decls, inits
-
-    @classmethod
-    def expression_combine(cls, args, operator="&&"):
-        opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
-        decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
-        inits = reduce(lambda sofar, x: sofar + x, [d for _, _, d in args])
-        LOG.debug("conjunc: %s", conjunc)
-        return "( %s )" % conjunc, decls, inits
-
-    @classmethod
-    def compile_attribute(cls, expr):
-        if isinstance(expr, expression.NamedAttributeRef):
-            raise TypeError(
-                "Error compiling attribute reference %s. \
-                C compiler only support unnamed perspective. \
-                Use helper function unnamed." % expr)
-        if isinstance(expr, expression.UnnamedAttributeRef):
-            symbol = expr.tupleref.name
-            position = expr.position
-            assert position >= 0
-            return '%s.get(%s)' % (symbol, position), [], []
-
-
-class CCOperator(Pipelined):
-    language = CC
-
-    def new_tuple_ref(self, sym, scheme):
+    def new_tuple_ref(cls, sym, scheme):
         return CStagedTupleRef(sym, scheme)
+
+    @classmethod
+    def language(cls):
+        return cls._language
+
+    def postorder_traversal(self, func):
+        return self.postorder(func)
 
 
 from raco.algebra import UnaryOperator
 
 
-class MemoryScan(algebra.UnaryOperator, CCOperator):
+class CMemoryScan(algebra.UnaryOperator, CCOperator):
     def produce(self, state):
         self.input.produce(state)
 
@@ -231,7 +177,7 @@ class MemoryScan(algebra.UnaryOperator, CCOperator):
         tuple_type = stagedTuple.getTupleTypename()
         tuple_name = stagedTuple.name
 
-        inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
+        inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
 
         code = memory_scan_template % locals()
         state.setPipelineProperty("type", "in_memory")
@@ -266,15 +212,16 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         return name
 
     def produce(self, state):
-        assert len(self.grouping_list) <= 1, \
+        assert len(self.grouping_list) <= 2, \
             "%s does not currently support groupings of \
-            more than 1 attribute" % self.__class__.__name__
+            more than 2 attributes" % self.__class__.__name__
         assert len(self.aggregate_list) == 1, \
             """%s currently only supports aggregates of 1 attribute
             (aggregate_list=%s)""" \
             % (self.__class__.__name__, self.aggregate_list)
         for agg_term in self.aggregate_list:
-            assert isinstance(agg_term, expression.AggregateExpression), \
+            assert isinstance(agg_term,
+                              expression.BuiltinAggregateExpression), \
                 """%s only supports simple aggregate expressions.
                 A rule should create Apply[GroupBy]""" \
                 % self.__class__.__name__
@@ -282,9 +229,15 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         self.useMap = len(self.grouping_list) > 0
 
         if self.useMap:
-            declr_template = """std::unordered_map<int64_t, int64_t> \
-            %(hashname)s;
-      """
+            if len(self.grouping_list) == 1:
+                declr_template = """std::unordered_map<int64_t, int64_t> \
+                %(hashname)s;
+          """
+            elif len(self.grouping_list) == 2:
+                declr_template = """std::unordered_map<\
+                std::pair<int64_t, int64_t>, int64_t, pairhash> \
+                %(hashname)s;
+                """
         else:
             declr_template = """int64_t %(hashname)s;
             """
@@ -295,28 +248,40 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         hash_declr = declr_template % locals()
         state.addDeclarations([hash_declr])
 
-        LOG.debug("aggregates: %s", self.aggregate_list)
-        LOG.debug("columns: %s", self.column_list())
-        LOG.debug("groupings: %s", self.grouping_list)
-        LOG.debug("groupby scheme: %s", self.scheme())
-        LOG.debug("groupby scheme[0] type: %s", type(self.scheme()[0]))
+        my_sch = self.scheme()
+
+        _LOG.debug("aggregates: %s", self.aggregate_list)
+        _LOG.debug("columns: %s", self.column_list())
+        _LOG.debug("groupings: %s", self.grouping_list)
+        _LOG.debug("groupby scheme: %s", my_sch)
+        _LOG.debug("groupby scheme[0] type: %s", type(my_sch[0]))
 
         self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
         assert (not self.useMap) \
             or isinstance(self.column_list()[0],
-                          expression.UnnamedAttributeRef), \
-            "assumes first column is the key and second is aggregate result"
+                          expression.AttributeRef), \
+            "assumes first column is the key and " \
+            "second is aggregate result: %s" % (self.column_list()[0])
 
         if self.useMap:
-            produce_template = """for (auto it=%(hashname)s.begin(); \
-            it!=%(hashname)s.end(); it++) {
-            %(output_tuple_type)s %(output_tuple_name)s(\
-            {it->first, it->second});
-            %(inner_code)s
-            }
-            """
+            if len(self.grouping_list) == 1:
+                produce_template = """for (auto it=%(hashname)s.begin(); \
+                it!=%(hashname)s.end(); it++) {
+                %(output_tuple_type)s %(output_tuple_name)s(\
+                {it->first, it->second});
+                %(inner_code)s
+                }
+                """
+            elif len(self.grouping_list) == 2:
+                produce_template = """for (auto it=%(hashname)s.begin(); \
+                it!=%(hashname)s.end(); it++) {
+                %(output_tuple_type)s %(output_tuple_name)s(\
+                {it->first.first, it->first.second, it->second});
+                %(inner_code)s
+                }
+                """
         else:
             produce_template = """{
             %(output_tuple_type)s %(output_tuple_name)s({ %(hashname)s });
@@ -324,21 +289,26 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             }
             """
 
-        output_tuple = CStagedTupleRef(gensym(), self.scheme())
+        output_tuple = CStagedTupleRef(gensym(), my_sch)
         output_tuple_name = output_tuple.name
         output_tuple_type = output_tuple.getTupleTypename()
         state.addDeclarations([output_tuple.generateDefinition()])
 
-        inner_code = self.parent.consume(output_tuple, self, state)
+        inner_code = self.parent().consume(output_tuple, self, state)
         code = produce_template % locals()
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
 
     def consume(self, inputTuple, fromOp, state):
         if self.useMap:
-            materialize_template = """%(op)s_insert(%(hashname)s, \
-            %(tuple_name)s, %(keypos)s, %(valpos)s);
-      """
+            if len(self.grouping_list) == 1:
+                materialize_template = """%(op)s_insert(%(hashname)s, \
+                %(tuple_name)s, %(key1pos)s, %(valpos)s);
+                """
+            elif len(self.grouping_list) == 2:
+                materialize_template = """%(op)s_insert(%(hashname)s, \
+                %(tuple_name)s, %(key1pos)s, %(key2pos)s, %(valpos)s);
+                """
         else:
             materialize_template = """%(op)s_insert(%(hashname)s, \
             %(tuple_name)s, %(valpos)s);
@@ -349,10 +319,23 @@ class CGroupBy(algebra.GroupBy, CCOperator):
 
         # make key from grouped attributes
         if self.useMap:
-            keypos = self.grouping_list[0].get_position(self.scheme())
+            inp_sch = self.input.scheme()
 
-        # get value positions from aggregated attributes
-        valpos = self.aggregate_list[0].input.get_position(self.scheme())
+            key1pos = self.grouping_list[0].get_position(inp_sch)
+
+            if len(self.grouping_list) == 2:
+                key2pos = self.grouping_list[1].get_position(
+                    inp_sch)
+
+        if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
+            # no value needed for Zero-input aggregate,
+            # but just provide the first column
+            valpos = 0
+        elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
+            # get value positions from aggregated attributes
+            valpos = self.aggregate_list[0].input.get_position(self.scheme())
+        else:
+            assert False, "only support Unary or Zeroary aggregates"
 
         op = self.aggregate_list[0].__class__.__name__
 
@@ -375,20 +358,22 @@ class CHashJoin(algebra.Join, CCOperator):
             a single attribute: %s" % self.condition
             raise ValueError(msg)
 
+        left_sch = self.left.scheme()
+
         # find the attribute that corresponds to the right child
         self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(self.left.scheme())
+            self.condition.right.position >= len(left_sch)
         self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(self.left.scheme())
+            self.condition.left.position >= len(left_sch)
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
 
         # find the attribute that corresponds to the right child
         if self.rightCondIsRightAttr:
             self.right_keypos = \
-                self.condition.right.position - len(self.left.scheme())
+                self.condition.right.position - len(left_sch)
         else:
             self.right_keypos = \
-                self.condition.left.position - len(self.left.scheme())
+                self.condition.left.position - len(left_sch)
 
         # find the attribute that corresponds to the left child
         if self.rightCondIsRightAttr:
@@ -404,14 +389,14 @@ class CHashJoin(algebra.Join, CCOperator):
             # if right child never bound then store hashtable symbol and
             # call right child produce
             self._hashname = self.__genHashName__()
-            LOG.debug("generate hashname %s for %s", self._hashname, self)
+            _LOG.debug("generate hashname %s for %s", self._hashname, self)
             state.saveExpr((self.right, self.right_keypos), self._hashname)
             self.right.produce(state)
         else:
             # if found a common subexpression on right child then
             # use the same hashtable
             self._hashname = hashsym
-            LOG.debug("reuse hash %s for %s", self._hashname, self)
+            _LOG.debug("reuse hash %s for %s", self._hashname, self)
 
         self.left.childtag = "left"
         self.left.produce(state)
@@ -465,7 +450,7 @@ class CHashJoin(algebra.Join, CCOperator):
 
             state.addDeclarations([out_tuple_type_def])
 
-            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+            inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
             code = left_template % locals()
             return code
@@ -504,29 +489,34 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
         return binary_scan_template
 
 
-class CStore(algebra.Store, CCOperator):
-    def __init__(self, emit_print, relation_key, plan):
-        super(CStore, self).__init__(relation_key, plan)
-        self.emit_print = emit_print
+class CStore(clangcommon.BaseCStore, CCOperator):
 
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
+    def __file_code__(self, t, state):
         code = ""
-        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
-        state.addDeclarations([resdecl])
-        code += "result.push_back(%s);\n" % (t.name)
+        state.addPreCode('std::ofstream logfile;\n')
+        resultfile = str(self.relation_key).split(":")[2]
+        opentuple = 'logfile.open("%s");\n' % resultfile
+        schemafile = self.write_schema(self.scheme())
+        state.addPreCode(schemafile)
+        state.addPreCode(opentuple)
+        code += "int logi = 0;\n"
+        code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
+                % (t.name)
+        code += self.language().log_file_unquoted("%s.get(logi)" % t.name)
+        code += "}\n "
+        code += "logfile << %s.get(logi);\n" % (t.name)
+        code += "logfile << '\\n';"
+        state.addPostCode('logfile.close();')
 
-        if self.emit_print in ['console', 'both']:
-            code += self.language.log_unquoted("%s" % t.name, 2)
-        if self.emit_print in ['file', 'both']:
-            state.addPreCode('std::ofstream logfile;\n')
-            filename = 'datasets/' + str(self.relation_key) + '.txt'
-            openfile = 'logfile.open("%s", std::ios::app);\n' % filename
-            state.addPreCode(openfile)
-            code += self.language.log_file("%s" % t.name, 2)
-            state.addPostCode('logfile.close();')
+        return code
+
+    def write_schema(self, scheme):
+        schemafile = 'schema/' + str(self.relation_key).split(":")[2]
+        code = 'logfile.open("%s");\n' % schemafile
+        names = [x.encode('UTF8') for x in scheme.get_names()]
+        code += self.language().log_file("%s" % names)
+        code += self.language().log_file("%s" % scheme.get_types())
+        code += 'logfile.close();'
         return code
 
 
@@ -536,56 +526,66 @@ class MemoryScanOfFileScan(rules.Rule):
 
     def fire(self, expr):
         if isinstance(expr, algebra.Scan) and not isinstance(expr, CFileScan):
-            return MemoryScan(CFileScan(expr.relation_key, expr.scheme()))
+            return CMemoryScan(CFileScan(expr.relation_key, expr.scheme()))
         return expr
 
     def __str__(self):
-        return "Scan => MemoryScan(FileScan)"
+        return "Scan => MemoryScan[FileScan]"
 
 
-class StoreToCStore(rules.Rule):
-    """A rule to store tuples into emit_print"""
-    def __init__(self, emit_print):
+def clangify(emit_print):
+    return [
+        rules.ProjectingJoinToProjectOfJoin(),
+
+        rules.OneToOne(algebra.Select, CSelect),
+        MemoryScanOfFileScan(),
+        rules.OneToOne(algebra.Apply, CApply),
+        rules.OneToOne(algebra.Join, CHashJoin),
+        rules.OneToOne(algebra.GroupBy, CGroupBy),
+        rules.OneToOne(algebra.Project, CProject),
+        rules.OneToOne(algebra.UnionAll, CUnionAll),
+        # TODO: obviously breaks semantics
+        rules.OneToOne(algebra.Union, CUnionAll),
+        clangcommon.StoreToBaseCStore(emit_print, CStore),
+
+        clangcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
+    ]
+
+
+class CCAlgebra(Algebra):
+    def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
+        """ To store results into a file or onto console """
         self.emit_print = emit_print
 
-    def fire(self, expr):
-        if isinstance(expr, algebra.Store):
-            return CStore(self.emit_print, expr.relation_key, expr.input)
-        return expr
+    def opt_rules(self, **kwargs):
+        # Sequence that works for datalog
+        # TODO: replace with below
+        # datalog_rules = [
+        # rules.CrossProduct2Join(),
+        # rules.SimpleGroupBy(),
+        # rules.OneToOne(algebra.Select, CSelect),
+        # MemoryScanOfFileScan(),
+        # rules.OneToOne(algebra.Apply, CApply),
+        # rules.OneToOne(algebra.Join, CHashJoin),
+        # rules.OneToOne(algebra.GroupBy, CGroupBy),
+        # rules.OneToOne(algebra.Project, CProject),
+        # TODO: obviously breaks semantics
+        # rules.OneToOne(algebra.Union, CUnionAll),
+        # rules.FreeMemory()
+        # ]
 
-    def __str__(self):
-        return "Store => CStore"
-
-
-class CCAlgebra(object):
-    language = CC
-
-    def __init__(self, emit_print='console'):
-        """ To store results into a file, onto console, both file and console,
-        or stays quiet """
-        self.emit_print = emit_print
-
-    def opt_rules(self):
-        return [
-            # rules.OneToOne(algebra.Join,TwoPassHashJoin),
-            # rules.removeProject(),
-            rules.CrossProduct2Join(),
-            rules.SimpleGroupBy(),
-            #    FilteringNestedLoopJoinRule(),
-            #    FilteringHashJoinChainRule(),
-            #    LeftDeepFilteringJoinChainRule(),
-            rules.OneToOne(algebra.Select, CSelect),
-            #   rules.OneToOne(algebra.Select,TwoPassSelect),
-            #  rules.OneToOne(algebra.Scan,MemoryScan),
-            MemoryScanOfFileScan(),
-            rules.OneToOne(algebra.Apply, CApply),
-            rules.OneToOne(algebra.Join, CHashJoin),
-            rules.OneToOne(algebra.GroupBy, CGroupBy),
-            rules.OneToOne(algebra.Project, CProject),
-            # TODO: obviously breaks semantics
-            rules.OneToOne(algebra.Union, CUnionAll),
-            StoreToCStore(self.emit_print)
-            #  rules.FreeMemory()
-
-
+        # sequence that works for myrial
+        rule_grps_sequence = [
+            rules.remove_trivial_sequences,
+            rules.simple_group_by,
+            clangcommon.clang_push_select,
+            [rules.ProjectToDistinctColumnSelect(),
+             rules.JoinToProjectingJoin()],
+            rules.push_apply,
+            clangify(self.emit_print)
         ]
+
+        if kwargs.get('SwapJoinSides'):
+            rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
+
+        return list(itertools.chain(*rule_grps_sequence))

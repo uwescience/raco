@@ -13,7 +13,6 @@ class FlinkAlgebra(object):
                      rules.SplitSelects(),
                      rules.PushSelects(),
                      rules.MergeSelects(),
-                     rules.ProjectingJoin(),
                      rules.JoinToProjectingJoin()]
         cleanup_rules = [rules.PushApply(),
                          rules.RemoveUnusedColumns(),

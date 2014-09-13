@@ -9,8 +9,10 @@ import raco.viz as viz
 import logging
 LOG = logging.getLogger(__name__)
 
+
 def comment(s):
-  return "/*\n%s\n*/\n" % str(s)
+    return "/*\n%s\n*/\n" % str(s)
+
 
 def hack_plan(alg, plan):
     # plan hacking
@@ -20,8 +22,13 @@ def hack_plan(alg, plan):
     elif plan == "shuf":
         alg.set_join_type(GrappaShuffleHashJoin)
 
-def emitCode(query, name, algType, plan=""):
-    alg = algType()
+
+def emitCode(query, name, algType, plan=None, emit_print=None):
+    if emit_print is not None:
+        alg = algType(emit_print)
+    else:
+        alg = algType()
+
     hack_plan(alg, plan)
 
     LOG.info("compiling %s: %s", name, query)
@@ -39,7 +46,7 @@ def emitCode(query, name, algType, plan=""):
     with open("%s.logical.dot"%(name), 'w') as dwf:
         dwf.write(logical_dot)
 
-    dlog.optimize(target=alg, eliminate_common_subexpressions=False)
+    dlog.optimize(target=alg)
 
     LOG.info("physical: %s",dlog.physicalplan)
 

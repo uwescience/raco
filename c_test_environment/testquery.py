@@ -3,7 +3,7 @@ import subprocess
 import sys
 import sqlite3
 import csv
-from verifier import verify
+from verifier import verify, verify_store
 import osutils
 
 def testdbname():
@@ -102,25 +102,32 @@ class GrappalangRunner(PlatformRunner):
 
         envir = os.environ.copy()
 
-        # cpp -> exe
+        # cpp -> exe 
+        # TODO: may need to force configure: try touch on a CMakelists file, which seems to tell cmake to reconfigure 
         subprocess.check_call(['cp', '%s.cpp' % gname, envir['GRAPPA_HOME']+'/applications/join'], env=envir)
+        subprocess.check_call(['./grappa_detect_new_files.sh'], env=envir)
         with Chdir(envir['GRAPPA_HOME']) as grappa_dir:
-
           # make at base in case the cpp file is new;
           # i.e. cmake must generate the target
           with Chdir('build/Make+Release') as makedir:
             print os.getcwd()
-            subprocess.check_call(['bin/distcc_make',
+            subprocess.check_call(['bin/distcc_make', '-j'], env=envir)
+
+            """subprocess.check_call(['bin/distcc_make',
                                    '-j24'
                                    ], env=envir)
+                                   """
 
           with Chdir('build/Make+Release/applications/join') as appdir:
             # build the grappa application
             print os.getcwd()
-            subprocess.check_call(['../../bin/distcc_make',
-                                   '-j24',
-                                   '%s.exe' % gname,
-                                   ], env=envir)
+            print subprocess.check_call(['make', '-j', '%s.exe' % gname], env=envir)
+
+            # subprocess.check_call(['../../bin/distcc_make',
+            #                        '-j24',
+            #                        '%s.exe' % gname,
+            #                        ], env=envir)
+
 
             # run the application
             testoutfn = "%s/%s.out" % (tmppath, gname)
@@ -185,6 +192,24 @@ def checkquery(name, testplatform, trustedplatform=SqliteRunner("testqueries"), 
 
     print "test: %s" % (name)
     verify(testoutfn, expectedfn, False)
+
+
+def checkstore(name, testplatform, trustedplatform=SqliteRunner("testqueries"), tmppath="tmp"):  # noqa
+
+    """
+    @param name: name of query
+    @param tmppath: existing directory for temporary files
+    """
+
+    osutils.mkdir_p(tmppath)
+    abstmppath = os.path.abspath(tmppath)
+    testplatform.run(name, abstmppath)
+    trustedplatform.run(name, abstmppath)
+    testoutfn = name
+    expectedfn = "%s/%s.sqlite.csv" %(abstmppath, name)
+
+    print "test: %s" % (name)
+    verify_store(testoutfn, expectedfn, False)
 
 
 import argparse
