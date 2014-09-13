@@ -1,6 +1,3 @@
-# TODO: make it pass with flake8 test
-# flake8: noqa
-
 import abc
 from raco import algebra
 from raco import expression
@@ -8,7 +5,6 @@ from raco import catalog
 from raco.algebra import gensym
 from raco.expression import UnnamedAttributeRef
 from raco.language import Language
-from raco.expression import util
 
 import logging
 _LOG = logging.getLogger(__name__)
@@ -100,40 +96,41 @@ class CBaseLanguage(Language):
 
 # TODO:
 # The following is actually a staged materialized tuple ref.
-# we should also add a staged reference tuple ref that just has relationsymbol and row
+# we should also add a staged reference tuple ref that
+# just has relationsymbol and row
 class StagedTupleRef:
-  nextid = 0
+    nextid = 0
 
-  @classmethod
-  def genname(cls):
-    # use StagedTupleRef so everyone shares one mutable copy of nextid
-    x = StagedTupleRef.nextid
-    StagedTupleRef.nextid+=1
-    return "t_%03d" % x
+    @classmethod
+    def genname(cls):
+        # use StagedTupleRef so everyone shares one mutable copy of nextid
+        x = StagedTupleRef.nextid
+        StagedTupleRef.nextid += 1
+        return "t_%03d" % x
 
-  def __init__(self, relsym, scheme):
-    self.name = self.genname()
-    self.relsym = relsym
-    self.scheme = scheme
-    self.__typename = None
+    def __init__(self, relsym, scheme):
+        self.name = self.genname()
+        self.relsym = relsym
+        self.scheme = scheme
+        self.__typename = None
 
-  def getTupleTypename(self):
-    if self.__typename is None:
-      fields = ""
-      relsym = self.relsym
-      for i in range(0, len(self.scheme)):
-        fieldnum = i
-        fields += "_%(fieldnum)s" % locals()
+    def getTupleTypename(self):
+        if self.__typename is None:
+            fields = ""
+            relsym = self.relsym
+            for i in range(0, len(self.scheme)):
+                fieldnum = i
+                fields += "_%(fieldnum)s" % locals()
 
-      self.__typename = "MaterializedTupleRef_%(relsym)s%(fields)s" % locals()
+            self.__typename = "MaterializedTupleRef_%(relsym)s%(fields)s" \
+                              % locals()
 
-    return self.__typename
+        return self.__typename
 
-
-  def generateDefinition(self):
-    fielddeftemplate = """int64_t _fields[%(numfields)s];
+    def generateDefinition(self):
+        fielddeftemplate = """int64_t _fields[%(numfields)s];
     """
-    template = """
+        template = """
           // can be just the necessary schema
   class %(tupletypename)s {
 
@@ -176,183 +173,191 @@ class StagedTupleRef:
   }
 
   """
-    getcases = ""
-    setcases = ""
-    copies = ""
-    numfields = len(self.scheme)
-    fielddefs = fielddeftemplate % locals()
+        getcases = ""
+        setcases = ""
+        copies = ""
+        numfields = len(self.scheme)
+        fielddefs = fielddeftemplate % locals()
 
+        additional_code = self.__additionalDefinitionCode__()
+        after_def_code = self.__afterDefinitionCode__()
 
-    additional_code = self.__additionalDefinitionCode__()
-    after_def_code = self.__afterDefinitionCode__()
+        tupletypename = self.getTupleTypename()
+        relsym = self.relsym
 
+        code = template % locals()
+        return code
 
-    tupletypename = self.getTupleTypename()
-    relsym = self.relsym
+    def __additionalDefinitionCode__(self):
+        return ""
 
-    code = template % locals()
-    return code
-
-  def __additionalDefinitionCode__(self):
-    return ""
-
-  def __afterDefinitionCode__(self):
-      return ""
+    def __afterDefinitionCode__(self):
+        return ""
 
 
 def getTaggingFunc(t):
-  """
-  Return a visitor function that will tag
-  UnnamedAttributes with the provided TupleRef
-  """
+    """
+    Return a visitor function that will tag
+    UnnamedAttributes with the provided TupleRef
+    """
 
-  def tagAttributes(expr):
-    # TODO non mutable would be nice
-    if isinstance(expr, expression.UnnamedAttributeRef):
-      expr.tupleref = t
+    def tagAttributes(expr):
+        # TODO non mutable would be nice
+        if isinstance(expr, expression.UnnamedAttributeRef):
+            expr.tupleref = t
 
-    return None
+        return None
 
-  return tagAttributes
+    return tagAttributes
 
 
 class CSelect(algebra.Select):
-  def produce(self, state):
-    self.input.produce(state)
+    def produce(self, state):
+        self.input.produce(state)
 
-  def consume(self, t, src, state):
-    basic_select_template = """if (%(conditioncode)s) {
+    def consume(self, t, src, state):
+        basic_select_template = """if (%(conditioncode)s) {
       %(inner_code_compiled)s
     }
     """
 
-    condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
+        condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
 
-    # tag the attributes with references
-    # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
-    [_ for _ in condition_as_unnamed.postorder(getTaggingFunc(t))]
+        # tag the attributes with references
+        # TODO: use an immutable approach instead
+        # (ie an expression Visitor for compiling)
+        [_ for _ in condition_as_unnamed.postorder(getTaggingFunc(t))]
 
-    # compile the predicate into code
-    conditioncode, cond_decls, cond_inits = self.language.compile_expression(condition_as_unnamed)
-    state.addInitializers(cond_inits)
-    state.addDeclarations(cond_decls)
+        # compile the predicate into code
+        conditioncode, cond_decls, cond_inits = \
+            self.language.compile_expression(condition_as_unnamed)
+        state.addInitializers(cond_inits)
+        state.addDeclarations(cond_decls)
 
-    inner_code_compiled = self.parent.consume(t, self, state)
+        inner_code_compiled = self.parent.consume(t, self, state)
 
-    code = basic_select_template % locals()
-    return code
+        code = basic_select_template % locals()
+        return code
 
 
 class CUnionAll(algebra.Union):
-  def produce(self, state):
-    self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
-    state.addDeclarations([self.unifiedTupleType.generateDefinition()])
+    def produce(self, state):
+        self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
+        state.addDeclarations([self.unifiedTupleType.generateDefinition()])
 
-    self.right.produce(state)
-    self.left.produce(state)
+        self.right.produce(state)
+        self.left.produce(state)
 
-  def consume(self, t, src, state):
-    union_template = """auto %(unified_tuple_name)s = transpose<%(unified_tuple_typename)s>(%(src_tuple_name)s);
+    def consume(self, t, src, state):
+        union_template = """
+        auto %(unified_tuple_name)s = \
+        transpose<%(unified_tuple_typename)s>(%(src_tuple_name)s);
                         %(inner_plan_compiled)s"""
 
-    unified_tuple_typename = self.unifiedTupleType.getTupleTypename()
-    unified_tuple_name = self.unifiedTupleType.name
-    src_tuple_name = t.name
+        unified_tuple_typename = self.unifiedTupleType.getTupleTypename()
+        unified_tuple_name = self.unifiedTupleType.name
+        src_tuple_name = t.name
 
-    inner_plan_compiled = self.parent.consume(self.unifiedTupleType, self, state)
-    return union_template % locals()
+        inner_plan_compiled = \
+            self.parent.consume(self.unifiedTupleType, self, state)
+        return union_template % locals()
 
 
 class CApply(algebra.Apply):
-  def produce(self, state):
-    # declare a single new type for project
-    #TODO: instead do mark used-columns?
+    def produce(self, state):
+        # declare a single new type for project
+        # TODO: instead do mark used-columns?
 
-    # always does an assignment to new tuple
-    self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
-    state.addDeclarations( [self.newtuple.generateDefinition()] )
+        # always does an assignment to new tuple
+        self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
+        state.addDeclarations([self.newtuple.generateDefinition()])
 
-    self.input.produce(state)
+        self.input.produce(state)
 
-  def consume(self, t, src, state):
-    code = ""
+    def consume(self, t, src, state):
+        code = ""
 
-    assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_expr_compiled)s);
-    """
+        assignment_template = """
+        %(dst_name)s.set(%(dst_fieldnum)s, %(src_expr_compiled)s);
+        """
 
-    dst_name = self.newtuple.name
-    dst_type_name = self.newtuple.getTupleTypename()
+        dst_name = self.newtuple.name
+        dst_type_name = self.newtuple.getTupleTypename()
 
-    # declaration of tuple instance
-    code += """%(dst_type_name)s %(dst_name)s;
-    """ % locals()
+        # declaration of tuple instance
+        code += """%(dst_type_name)s %(dst_name)s;""" % locals()
 
-    for dst_fieldnum, src_label_expr in enumerate(self.emitters):
-        src_label, src_expr = src_label_expr
+        for dst_fieldnum, src_label_expr in enumerate(self.emitters):
+            src_label, src_expr = src_label_expr
 
-        # make sure to resolve attribute positions using input schema
-        src_expr_unnamed = expression.ensure_unnamed(src_expr, self.input)
+            # make sure to resolve attribute positions using input schema
+            src_expr_unnamed = expression.ensure_unnamed(src_expr, self.input)
 
-        # tag the attributes with references
-        # TODO: use an immutable approach instead (ie an expression Visitor for compiling)
-        [_ for _ in src_expr_unnamed.postorder(getTaggingFunc(t))]
+            # tag the attributes with references
+            # TODO: use an immutable approach instead
+            # (ie an expression Visitor for compiling)
+            [_ for _ in src_expr_unnamed.postorder(getTaggingFunc(t))]
 
-        src_expr_compiled, expr_decls, expr_inits = self.language.compile_expression(src_expr_unnamed)
-        state.addInitializers(expr_inits)
-        state.addDeclarations(expr_decls)
+            src_expr_compiled, expr_decls, expr_inits = \
+                self.language.compile_expression(src_expr_unnamed)
+            state.addInitializers(expr_inits)
+            state.addDeclarations(expr_decls)
 
-        code += assignment_template % locals()
+            code += assignment_template % locals()
 
-    innercode = self.parent.consume(self.newtuple, self, state)
-    code += innercode
+        innercode = self.parent.consume(self.newtuple, self, state)
+        code += innercode
 
-    return code
+        return code
 
 
 class CProject(algebra.Project):
-  def produce(self, state):
-    # declare a single new type for project
-    #TODO: instead do mark used-columns?
+    def produce(self, state):
+        # declare a single new type for project
+        # TODO: instead do mark used-columns?
 
-    # always does an assignment to new tuple
-    self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
-    state.addDeclarations( [self.newtuple.generateDefinition()] )
+        # always does an assignment to new tuple
+        self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
+        state.addDeclarations([self.newtuple.generateDefinition()])
 
-    self.input.produce(state)
+        self.input.produce(state)
 
-  def consume(self, t, src, state):
-    code = ""
+    def consume(self, t, src, state):
+        code = ""
 
-    assignment_template = """%(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
-    """
+        assignment_template = """
+        %(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
+        """
 
-    dst_name = self.newtuple.name
-    dst_type_name = self.newtuple.getTupleTypename()
-    src_name = t.name
+        dst_name = self.newtuple.name
+        dst_type_name = self.newtuple.getTupleTypename()
+        src_name = t.name
 
-    # declaration of tuple instance
-    code += """%(dst_type_name)s %(dst_name)s;
-    """ % locals()
+        # declaration of tuple instance
+        code += """%(dst_type_name)s %(dst_name)s;
+        """ % locals()
 
-    for dst_fieldnum, src_expr in enumerate(self.columnlist):
-      if isinstance(src_expr, UnnamedAttributeRef):
-        src_fieldnum = src_expr.position
-      else:
-        assert False, "Unsupported Project expression"
-      code += assignment_template % locals()
+        for dst_fieldnum, src_expr in enumerate(self.columnlist):
+            if isinstance(src_expr, UnnamedAttributeRef):
+                src_fieldnum = src_expr.position
+            else:
+                assert False, "Unsupported Project expression"
+            code += assignment_template % locals()
 
-    innercode = self.parent.consume(self.newtuple, self, state)
-    code+=innercode
+        innercode = self.parent.consume(self.newtuple, self, state)
+        code += innercode
 
-    return code
+        return code
 
 
 from raco.algebra import ZeroaryOperator
+
+
 class CFileScan(algebra.Scan):
 
     @abc.abstractmethod
     def __get_ascii_scan_template__(self):
-       return
+        return
 
     @abc.abstractmethod
     def __get_binary_scan_template__(self):
@@ -374,8 +379,9 @@ class CFileScan(algebra.Scan):
         resultsym = state.lookupExpr(self)
         _LOG.debug("lookup %s(h=%s) => %s", self, self.__hash__(), resultsym)
         if not resultsym:
-            #TODO for now this will break whatever relies on self.bound like reusescans
-            #Scan is the only place where a relation is declared
+            # TODO for now this will break
+            # whatever relies on self.bound like reusescans
+            # Scan is the only place where a relation is declared
             resultsym = gensym()
 
             name = str(self.relation_key).split(':')[2]
@@ -396,8 +402,7 @@ class CFileScan(algebra.Scan):
             # now that we have the type, format this in;
             state.setPipelineProperty('type', 'scan')
             state.setPipelineProperty('source', self.__class__)
-            state.addPipeline(fscode%{"result_type": tuple_type})
-
+            state.addPipeline(fscode % {"result_type": tuple_type})
 
         # no return value used because parent is a new pipeline
         self.parent.consume(resultsym, self, state)
@@ -405,15 +410,15 @@ class CFileScan(algebra.Scan):
     def consume(self, t, src, state):
         assert False, "as a source, no need for consume"
 
-
     def __compileme__(self, resultsym, name):
         # TODO use the identifiers (don't split str and extract)
-        #name = self.relation_key
+        # name = self.relation_key
 
-        _LOG.debug('compiling file scan for relation_key %s' % self.relation_key)
+        _LOG.debug('compiling file scan for relation_key %s'
+                   % self.relation_key)
 
-        #tup = (resultsym, self.originalterm.originalorder, self.originalterm)
-        #self.trace("// Original query position of %s: term %s (%s)" % tup)
+        # tup = (resultsym, self.originalterm.originalorder, self.originalterm)
+        # self.trace("// Original query position of %s: term %s (%s)" % tup)
 
         if isinstance(self.relation_key, catalog.ASCIIFile):
             code = self.__get_ascii_scan_template__() % locals()
@@ -439,7 +444,7 @@ class CFileScan(algebra.Scan):
         @see MemoryScan.__eq__
         """
         return ZeroaryOperator.__eq__(self, other) and \
-               self.relation_key == other.relation_key
+            self.relation_key == other.relation_key
 
 
 # Rules
@@ -520,16 +525,16 @@ class StoreToBaseCStore(rules.Rule):
     """A rule to store tuples into emit_print"""
     def __init__(self, emit_print, subclass):
         self.emit_print = emit_print
-        assert issubclass(subclass, BaseCStore), "%s is not a subclass of %s" % (subclass, BaseCStore)
+        assert issubclass(subclass, BaseCStore), \
+            "%s is not a subclass of %s" % (subclass, BaseCStore)
         self.subclass = subclass
 
     def fire(self, expr):
         if isinstance(expr, algebra.Store):
-            return self.subclass(self.emit_print, expr.relation_key, expr.input)
+            return self.subclass(self.emit_print,
+                                 expr.relation_key,
+                                 expr.input)
         return expr
 
     def __str__(self):
         return "Store => %s" % self.subclass.__name__
-
-
-
