@@ -96,9 +96,6 @@ class UdaAggregateExpression(AggregateExpression, UnaryOperator):
     def typeof(self, scheme, state_scheme):
         return self.input.typeof(None, state_scheme)
 
-    def is_decomposable(self):
-        return self.decomposable_state is not None
-
     def get_decomposable_state(self):
         return self.decomposable_state
 
