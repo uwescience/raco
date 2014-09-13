@@ -226,16 +226,7 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
 
     def __eq__(self, other):
         """
-        For what we are using MemoryScan for, the only use
-        of __eq__ is in hashtable lookups for CSE optimization.
-        We omit self.schema because the relation_key determines
-        the level of equality needed.
-
-        This could break other things, so better may be to
-        make a normalized copy of an expression. This could
-        include simplification but in the case of Scans make
-        the scheme more generic.
-
+        See important __eq__ notes below
         @see FileScan.__eq__
         """
         return UnaryOperator.__eq__(self, other)
