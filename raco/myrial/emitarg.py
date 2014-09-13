@@ -73,25 +73,6 @@ def get_column_name(name, sx, symbols):
         return name
 
 
-class SingletonEmitArg(EmitArg):
-    """An emit arg that defines a single column.
-
-    e.g.: [FROM Emp EMIT double_salary = salary * 2]"""
-
-    def __init__(self, column_name, sexpr, statemods):
-        self.column_name = column_name
-        self.sexpr = sexpr
-        self.statemods = statemods
-
-    def expand(self, symbols):
-        x = self.sexpr
-        n = self.column_name
-        return [(get_column_name(n, x, symbols), x)]
-
-    def get_statemods(self):
-        return self.statemods
-
-
 class NaryEmitArg(EmitArg):
     """An emit arg that defines one or more columns."""
 

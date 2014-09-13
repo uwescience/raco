@@ -91,6 +91,9 @@ class FakeDatabase(Catalog):
     def get_temp_table(self, key):
         return self.temp_tables[key]
 
+    def delete_temp_table(self, key):
+        del self.temp_tables[key]
+
     def dump_all(self):
         for key, val in self.tables.iteritems():
             bag = val[0]
@@ -269,7 +272,7 @@ class FakeDatabase(Catalog):
                     agg_fields.append(
                         expr.evaluate_aggregate(tuples, input_scheme))
                 else:
-                    # UDA-style aggregate: evaluate a nornal expression that
+                    # UDA-style aggregate: evaluate a normal expression that
                     # can reference only the state tuple
                     agg_fields.append(expr.evaluate(None, None, state))
             yield(key + tuple(agg_fields))
