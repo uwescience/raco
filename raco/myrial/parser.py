@@ -91,7 +91,7 @@ class TupleExpression(sexpr.Expression):
             check_no_tuple_expression(ex, lineno)
 
     def get_children(self):
-        return emitters
+        return self.emitters
 
     def typeof(self, scheme, state_scheme):
         """Type checks are not applied to TupleExpressions."""
