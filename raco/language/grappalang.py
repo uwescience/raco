@@ -4,10 +4,10 @@
 
 from raco import algebra
 from raco import expression
-from raco.language import Language, Algebra
+from raco.language import Algebra
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.language.clangcommon import StagedTupleRef, ct
+from raco.language.clangcommon import StagedTupleRef, ct, CBaseLanguage
 from raco.language import clangcommon
 from raco.utility import emitlist
 
@@ -37,29 +37,10 @@ class GrappaStagedTupleRef(StagedTupleRef):
         return "GRAPPA_BLOCK_ALIGNED"
 
 
-class GrappaLanguage(Language):
-    @classmethod
-    def new_relation_assignment(cls, rvar, val):
-        return """
-    %s
-    %s
-    """ % (cls.relation_decl(rvar), cls.assignment(rvar, val))
-
-    @classmethod
-    def relation_decl(cls, rvar):
-        return "GlobalAddress<Tuple> %s;" % rvar
-
-    @classmethod
-    def assignment(cls, x, y):
-        return "%s = %s;" % (x, y)
-
+class GrappaLanguage(CBaseLanguage):
     @staticmethod
-    def body(compileResult):
-        queryexec = compileResult.getExecutionCode()
-        initialized = compileResult.getInitCode()
-        declarations = compileResult.getDeclCode()
-        resultsym = "__result__"
-        return base_template % locals()
+    def base_template():
+        return base_template
 
     @staticmethod
     def log(txt):
@@ -136,22 +117,6 @@ class GrappaLanguage(Language):
 
         return code
 
-    @staticmethod
-    def comment(txt):
-        return "// %s\n" % txt
-
-    nextstrid = 0
-
-    @classmethod
-    def newstringident(cls):
-        r = """str_%s""" % (cls.nextstrid)
-        cls.nextstrid += 1
-        return r
-
-    @classmethod
-    def compile_numericliteral(cls, value):
-        return '%s' % (value), [], []
-
     @classmethod
     def compile_stringliteral(cls, st):
         sid = cls.newstringident()
@@ -166,43 +131,20 @@ class GrappaLanguage(Language):
         # raise ValueError("String Literals not supported in
         # C language: %s" % s)
 
-    @classmethod
-    def negation(cls, input):
-        innerexpr, decls, inits = input
-        return "(!%s)" % (innerexpr,), decls, inits
+
+class GrappaOperator (Pipelined, algebra.Operator):
+    _language = GrappaLanguage
 
     @classmethod
-    def negative(cls, input):
-        innerexpr, decls, inits = input
-        return "(-%s)" % (innerexpr,), decls, inits
-
-    @classmethod
-    def expression_combine(cls, args, operator="&&"):
-        opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
-        decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
-        inits = reduce(lambda sofar, x: sofar + x, [d for _, _, d in args])
-        _LOG.debug("conjunc: %s", conjunc)
-        return "( %s )" % conjunc, decls, inits
-
-    @classmethod
-    def compile_attribute(cls, expr):
-        if isinstance(expr, expression.NamedAttributeRef):
-            raise TypeError("""Error compiling attribute reference %s. \
-            C compiler only support unnamed perspective. \
-            Use helper function unnamed.""" % expr)
-        if isinstance(expr, expression.UnnamedAttributeRef):
-            symbol = expr.tupleref.name
-            # NOTE: this will only work in Selects right now
-            position = expr.position
-            return '%s.get(%s)' % (symbol, position), [], []
-
-
-class GrappaOperator (Pipelined):
-    language = GrappaLanguage
-
-    def new_tuple_ref(self, sym, scheme):
+    def new_tuple_ref(cls, sym, scheme):
         return GrappaStagedTupleRef(sym, scheme)
+
+    @classmethod
+    def language(cls):
+        return cls._language
+
+    def postorder_traversal(self, func):
+        return self.postorder(func)
 
 
 from raco.algebra import UnaryOperator
@@ -279,7 +221,7 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         tuple_type = stagedTuple.getTupleTypename()
         tuple_name = stagedTuple.name
 
-        inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
+        inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
 
         code = memory_scan_template % locals()
         state.setPipelineProperty('type', 'in_memory')
@@ -292,16 +234,7 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
 
     def __eq__(self, other):
         """
-        For what we are using MemoryScan for, the only use
-        of __eq__ is in hashtable lookups for CSE optimization.
-        We omit self.schema because the relation_key determines
-        the level of equality needed.
-
-        This could break other things, so better may be to
-        make a normalized copy of an expression. This could
-        include simplification but in the case of Scans make
-        the scheme more generic.
-
+        See important __eq__ notes below
         @see FileScan.__eq__
         """
         return UnaryOperator.__eq__(self, other)
@@ -410,7 +343,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
                 keypos = self.condition.left.position \
                     - len(left_sch)
 
-            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+            inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
             other_tuple_type = self.leftTypeRef.getPlaceholder()
             left_type = other_tuple_type
@@ -433,7 +366,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
             else:
                 keypos = self.condition.right.position
 
-            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+            inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
             left_type = left_in_tuple_type
             right_type = self.right_in_tuple_type
@@ -579,7 +512,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
             freeJoinReducers(%(hashname)s, %(hashname)s_num_reducers);""")
         state.addPostCode(delete_template % locals())
 
-        inner_code_compiled = self.parent.consume(outTuple, self, state)
+        inner_code_compiled = self.parent().consume(outTuple, self, state)
 
         code = iterate_template % locals()
         state.setPipelineProperty('type', 'in_memory')
@@ -753,7 +686,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         output_tuple_type = output_tuple.getTupleTypename()
         state.addDeclarations([output_tuple.generateDefinition()])
 
-        inner_code = self.parent.consume(output_tuple, self, state)
+        inner_code = self.parent().consume(output_tuple, self, state)
         code = produce_template % locals()
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
@@ -976,7 +909,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
             state.addDeclarations([out_tuple_type_def])
 
-            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+            inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
             code = left_template % locals()
             return code
@@ -1118,8 +1051,6 @@ def grappify(join_type, emit_print):
 
 
 class GrappaAlgebra(Algebra):
-    language = GrappaLanguage
-
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         self.emit_print = emit_print
 

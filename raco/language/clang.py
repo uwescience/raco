@@ -3,10 +3,10 @@
 
 from raco import algebra
 from raco import expression
-from raco.language import Language, clangcommon, Algebra
+from raco.language import clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.language.clangcommon import StagedTupleRef, ct
+from raco.language.clangcommon import StagedTupleRef, ct, CBaseLanguage
 
 from raco.algebra import gensym
 
@@ -62,29 +62,10 @@ class CStagedTupleRef(StagedTupleRef):
         return constructor_template % locals()
 
 
-class CC(Language):
-    @classmethod
-    def new_relation_assignment(cls, rvar, val):
-        return """
-    %s
-    %s
-    """ % (cls.relation_decl(rvar), cls.assignment(rvar, val))
-
-    @classmethod
-    def relation_decl(cls, rvar):
-        return "struct relationInfo *%s;" % rvar
-
-    @classmethod
-    def assignment(cls, x, y):
-        return "%s = %s;" % (x, y)
-
+class CC(CBaseLanguage):
     @staticmethod
-    def body(compileResult):
-        queryexec = compileResult.getExecutionCode()
-        initialized = compileResult.getInitCode()
-        declarations = compileResult.getDeclCode()
-        resultsym = "__result__"
-        return base_template % locals()
+    def base_template():
+        return base_template
 
     @staticmethod
     def pipeline_wrap(ident, code, attrs):
@@ -143,22 +124,6 @@ class CC(Language):
     def log_file_unquoted(code, level=0):
         return """logfile << %s << " ";\n """ % code
 
-    @staticmethod
-    def comment(txt):
-        return "// %s\n" % txt
-
-    nextstrid = 0
-
-    @classmethod
-    def newstringident(cls):
-        r = """str_%s""" % (cls.nextstrid)
-        cls.nextstrid += 1
-        return r
-
-    @classmethod
-    def compile_numericliteral(cls, value):
-        return '%s' % (value), [], []
-
     @classmethod
     def compile_stringliteral(cls, s):
         sid = cls.newstringident()
@@ -171,44 +136,20 @@ class CC(Language):
         # raise ValueError("String Literals not supported\
         # in C language: %s" % s)
 
-    @classmethod
-    def negation(cls, input):
-        innerexpr, inits = input
-        return "(!%s)" % (innerexpr,), [], inits
+
+class CCOperator(Pipelined, algebra.Operator):
+    _language = CC
 
     @classmethod
-    def negative(cls, input):
-        innerexpr, decls, inits = input
-        return "(-%s)" % (innerexpr,), decls, inits
-
-    @classmethod
-    def expression_combine(cls, args, operator="&&"):
-        opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
-        decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
-        inits = reduce(lambda sofar, x: sofar + x, [d for _, _, d in args])
-        _LOG.debug("conjunc: %s", conjunc)
-        return "( %s )" % conjunc, decls, inits
-
-    @classmethod
-    def compile_attribute(cls, expr):
-        if isinstance(expr, expression.NamedAttributeRef):
-            raise TypeError(
-                "Error compiling attribute reference %s. \
-                C compiler only support unnamed perspective. \
-                Use helper function unnamed." % expr)
-        if isinstance(expr, expression.UnnamedAttributeRef):
-            symbol = expr.tupleref.name
-            position = expr.position
-            assert position >= 0
-            return '%s.get(%s)' % (symbol, position), [], []
-
-
-class CCOperator(Pipelined):
-    language = CC
-
-    def new_tuple_ref(self, sym, scheme):
+    def new_tuple_ref(cls, sym, scheme):
         return CStagedTupleRef(sym, scheme)
+
+    @classmethod
+    def language(cls):
+        return cls._language
+
+    def postorder_traversal(self, func):
+        return self.postorder(func)
 
 
 from raco.algebra import UnaryOperator
@@ -236,7 +177,7 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
         tuple_type = stagedTuple.getTupleTypename()
         tuple_name = stagedTuple.name
 
-        inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
+        inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
 
         code = memory_scan_template % locals()
         state.setPipelineProperty("type", "in_memory")
@@ -353,7 +294,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         output_tuple_type = output_tuple.getTupleTypename()
         state.addDeclarations([output_tuple.generateDefinition()])
 
-        inner_code = self.parent.consume(output_tuple, self, state)
+        inner_code = self.parent().consume(output_tuple, self, state)
         code = produce_template % locals()
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
@@ -509,7 +450,7 @@ class CHashJoin(algebra.Join, CCOperator):
 
             state.addDeclarations([out_tuple_type_def])
 
-            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+            inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
             code = left_template % locals()
             return code
@@ -561,7 +502,7 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         code += "int logi = 0;\n"
         code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
                 % (t.name)
-        code += self.language.log_file_unquoted("%s.get(logi)" % t.name)
+        code += self.language().log_file_unquoted("%s.get(logi)" % t.name)
         code += "}\n "
         code += "logfile << %s.get(logi);\n" % (t.name)
         code += "logfile << '\\n';"
@@ -573,8 +514,8 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         schemafile = 'schema/' + str(self.relation_key).split(":")[2]
         code = 'logfile.open("%s");\n' % schemafile
         names = [x.encode('UTF8') for x in scheme.get_names()]
-        code += self.language.log_file("%s" % names)
-        code += self.language.log_file("%s" % scheme.get_types())
+        code += self.language().log_file("%s" % names)
+        code += self.language().log_file("%s" % scheme.get_types())
         code += 'logfile.close();'
         return code
 
@@ -612,8 +553,6 @@ def clangify(emit_print):
 
 
 class CCAlgebra(Algebra):
-    language = CC
-
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         """ To store results into a file or onto console """
         self.emit_print = emit_print
