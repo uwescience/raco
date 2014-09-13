@@ -1,9 +1,11 @@
-
+import collections
 import random
 
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
+from raco.expression import StateVar
+
 from raco.language.myrialang import (MyriaShuffleConsumer,
                                      MyriaShuffleProducer,
                                      MyriaHyperShuffleProducer,
@@ -597,3 +599,66 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                 self.assertEquals(len(op.aggregate_list), 1)
 
         self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
+
+    def __run_uda_test(self, uda_state=None):
+        scan = Scan(self.x_key, self.x_scheme)
+
+        init_ex = expression.NumericLiteral(0)
+        update_ex = expression.PLUS(expression.NamedStateAttributeRef("value"),
+                                    AttIndex(1))
+        emit_ex = expression.UdaAggregateExpression(
+            expression.NamedStateAttributeRef("value"), uda_state)
+        statemods = [StateVar("value", init_ex, update_ex)]
+
+        log_gb = GroupBy([AttIndex(0)], [emit_ex], scan, statemods)
+
+        lp = StoreTemp('OUTPUT', log_gb)
+        pp = self.logical_to_physical(copy.deepcopy(lp))
+
+        self.db.evaluate(lp)
+        log_result = self.db.get_temp_table('OUTPUT')
+
+        self.db.delete_temp_table('OUTPUT')
+        self.db.evaluate(pp)
+        phys_result = self.db.get_temp_table('OUTPUT')
+
+        self.assertEquals(log_result, phys_result)
+        self.assertEquals(len(log_result), 15)
+
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
+
+        return pp
+
+    def test_non_decomposable_uda(self):
+        """Test that optimization preserves the value of a non-decomposable UDA
+        """
+        pp = self.__run_uda_test()
+
+        for op in pp.walk():
+            if isinstance(op, MyriaShuffleProducer):
+                self.assertEquals(op.hash_columns, [AttIndex(0)])
+                self.assertEquals(self.get_count(op, GroupBy), 0)
+
+    def test_decomposable_uda(self):
+        """Test that optimization preserves the value of decomposable UDAs"""
+        lemits = [expression.UdaAggregateExpression(
+                  expression.NamedStateAttributeRef("value"))]
+        remits = copy.deepcopy(lemits)
+
+        init_ex = expression.NumericLiteral(0)
+        update_ex = expression.PLUS(expression.NamedStateAttributeRef("value"),
+                                    AttIndex(1))
+        lstatemods = [StateVar("value", init_ex, update_ex)]
+        rstatemods = copy.deepcopy(lstatemods)
+
+        uda_state = expression.DecomposableAggregateState(
+            lemits, lstatemods, remits, rstatemods)
+        pp = self.__run_uda_test(uda_state)
+
+        self.assertEquals(self.get_count(pp, GroupBy), 2)
+
+        for op in pp.walk():
+            if isinstance(op, MyriaShuffleProducer):
+                self.assertEquals(op.hash_columns, [AttIndex(0)])
+                self.assertEquals(self.get_count(op, GroupBy), 1)

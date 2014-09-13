@@ -3,7 +3,6 @@
 
 from raco import algebra
 from raco import expression
-from raco.expression import aggregate
 from raco.language import Language, clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined

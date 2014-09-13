@@ -1590,6 +1590,51 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(results))
 
+    def test_uda_no_emit_clause(self):
+        query = """
+        uda MyCount() {
+            [0 as _count];
+            [_count + 1];
+        };
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MyCount()];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        self.check_result(query, self.__aggregate_expected_result(len))
+
+    def test_uda_no_emit_clause_many_cols(self):
+        query = """
+        uda MyAggs(x) {
+            [0 as _count, 0 as _sum, 0 as _sumsq];
+            [_count + 1, _sum + x, _sumsq + x*x];
+        };
+        out = [FROM SCAN(%s) AS X EMIT MyAggs(salary) as [a, b, c]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        c = len(list(self.emp_table.elements()))
+        s = sum(d for a, b, c, d in self.emp_table.elements())
+        sq = sum(d * d for a, b, c, d in self.emp_table.elements())
+        expected = collections.Counter([(c, s, sq)])
+        self.check_result(query, expected)
+
+        # Test with two different column orders in case the undefined
+        # order used by Python is correct by chance.
+        query = """
+        uda MyAggs(x) {
+            [0 as _count, 0 as _sumsq, 0 as _sum];
+            [_count + 1, _sumsq + x*x, _sum + x];
+        };
+        out = [FROM SCAN(%s) AS X EMIT MyAggs(salary) as [a, b, c]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        c = len(list(self.emp_table.elements()))
+        sq = sum(d * d for a, b, c, d in self.emp_table.elements())
+        s = sum(d for a, b, c, d in self.emp_table.elements())
+        expected = collections.Counter([(c, sq, s)])
+        self.check_result(query, expected)
+
     def test_uda_with_udf(self):
         query = """
         def foo(x, y): x + y;
@@ -1840,6 +1885,193 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    __DECOMPOSED_UDA = """
+        uda LogicalAvg(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+          float(_sum); -- Note bogus return value
+        };
+        uda LocalAvg(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+        };
+        uda RemoteAvg(_local_sum, _local_count) {
+          [0 as _sum, 0 as _count];
+          [_sum + _local_sum, _count + _local_count];
+          [_sum/_count];
+        };
+        uda* LogicalAvg {LocalAvg, RemoteAvg};
+    """
+
+    def test_decomposable_average_uda(self):
+        """Test of a decomposed average UDA.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """%s
+        out = [FROM SCAN(%s) AS X EMIT dept_id, LogicalAvg(salary)];
+        STORE(out, OUTPUT);
+        """ % (TestQueryFunctions.__DECOMPOSED_UDA, self.emp_key)
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _cnt = len(vals)
+            _sum = sum(vals)
+            tuples.append((key, float(_sum) / _cnt))
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_average_uda_repeated(self):
+        """Test of repeated invocations of decomposed UDAs."""
+
+        query = """%s
+        out = [FROM SCAN(%s) AS X EMIT dept_id,
+               LogicalAvg(salary) + LogicalAvg($0)];
+        STORE(out, OUTPUT);
+        """ % (TestQueryFunctions.__DECOMPOSED_UDA, self.emp_key)
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _cnt = len(vals)
+            _salary_sum = sum(t[3] for t in vals)
+            _id_sum = sum(t[0] for t in vals)
+            tuples.append((key, (float(_salary_sum) + float(_id_sum)) / _cnt))
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_sum_uda(self):
+        """Test of a decomposed sum UDA.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """
+        uda MySumBroken(x) {
+          [0 as _sum];
+          [_sum + x];
+          17; -- broken
+        };
+        uda MySum(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* MySumBroken {MySum, MySum};
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MySumBroken(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        self.check_result(query, self.__aggregate_expected_result(sum))
+
+    def test_decomposable_uda_with_builtin_agg(self):
+        """Test of a decomposed UDA + builtin aggregate.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """
+        uda MySumBroken(x) {
+          [0 as _sum];
+          [_sum + x];
+          17; -- broken
+        };
+        uda MySum(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* MySumBroken {MySum, MySum};
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MySumBroken(salary), SUM(id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _salary_sum = sum(t[3] for t in vals)
+            _id_sum = sum(t[0] for t in vals)
+            tuples.append((key, _salary_sum, _id_sum))
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_duplicate_decomposable_uda(self):
+        query = """
+        uda Agg1(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+
+        uda* Agg1 {Agg1, Agg1};
+        uda* Agg1 {Agg1, Agg1};
+        """
+
+        with self.assertRaises(DuplicateFunctionDefinitionException):
+            self.check_result(query, None)
+
+    def test_decomposable_uda_type_check_fail1(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Local(x, y) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* Logical {Local, Logical};
+        """
+
+        with self.assertRaises(InvalidArgumentList):
+            self.check_result(query, None)
+
+    def test_decomposable_uda_type_check_fail2(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Remote(x, y) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* Logical {Logical, Remote};
+        """
+
+        with self.assertRaises(InvalidArgumentList):
+            self.check_result(query, None)
+
+    def test_decomposable_uda_type_check_fail3(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Remote(x) {
+          [0 as _sum];
+          [_sum + x];
+          [1, 2, 3];
+        };
+        uda* Logical {Logical, Remote};
+        """
+
+        with self.assertRaises(InvalidEmitList):
             self.check_result(query, None)
 
     def test_running_mean_sapply(self):
