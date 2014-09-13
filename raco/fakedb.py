@@ -272,7 +272,7 @@ class FakeDatabase(Catalog):
                     agg_fields.append(
                         expr.evaluate_aggregate(tuples, input_scheme))
                 else:
-                    # UDA-style aggregate: evaluate a nornal expression that
+                    # UDA-style aggregate: evaluate a normal expression that
                     # can reference only the state tuple
                     agg_fields.append(expr.evaluate(None, None, state))
             yield(key + tuple(agg_fields))

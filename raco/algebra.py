@@ -6,7 +6,6 @@ from abc import ABCMeta, abstractmethod
 import copy
 import operator
 import math
-import collections
 from raco.expression import StateVar
 
 

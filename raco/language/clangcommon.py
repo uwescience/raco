@@ -7,7 +7,6 @@ from raco import expression
 from raco import catalog
 from raco.algebra import gensym
 from raco.expression import UnnamedAttributeRef
-from raco.expression import util
 
 import logging
 LOG = logging.getLogger(__name__)
