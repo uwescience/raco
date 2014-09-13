@@ -5,6 +5,7 @@ from raco import catalog
 from raco.algebra import gensym
 from raco.expression import UnnamedAttributeRef
 from raco.language import Language
+from raco.pipelines import Pipelined
 
 import logging
 _LOG = logging.getLogger(__name__)
@@ -211,7 +212,7 @@ def getTaggingFunc(t):
     return tagAttributes
 
 
-class CSelect(algebra.Select):
+class CSelect(algebra.Select, Pipelined):
     def produce(self, state):
         self.input.produce(state)
 
@@ -234,13 +235,13 @@ class CSelect(algebra.Select):
         state.addInitializers(cond_inits)
         state.addDeclarations(cond_decls)
 
-        inner_code_compiled = self.parent.consume(t, self, state)
+        inner_code_compiled = self.parent().consume(t, self, state)
 
         code = basic_select_template % locals()
         return code
 
 
-class CUnionAll(algebra.Union):
+class CUnionAll(algebra.Union, Pipelined):
     def produce(self, state):
         self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
         state.addDeclarations([self.unifiedTupleType.generateDefinition()])
@@ -259,11 +260,11 @@ class CUnionAll(algebra.Union):
         src_tuple_name = t.name
 
         inner_plan_compiled = \
-            self.parent.consume(self.unifiedTupleType, self, state)
+            self.parent().consume(self.unifiedTupleType, self, state)
         return union_template % locals()
 
 
-class CApply(algebra.Apply):
+class CApply(algebra.Apply, Pipelined):
     def produce(self, state):
         # declare a single new type for project
         # TODO: instead do mark used-columns?
@@ -305,13 +306,13 @@ class CApply(algebra.Apply):
 
             code += assignment_template % locals()
 
-        innercode = self.parent.consume(self.newtuple, self, state)
+        innercode = self.parent().consume(self.newtuple, self, state)
         code += innercode
 
         return code
 
 
-class CProject(algebra.Project):
+class CProject(algebra.Project, Pipelined):
     def produce(self, state):
         # declare a single new type for project
         # TODO: instead do mark used-columns?
@@ -344,7 +345,7 @@ class CProject(algebra.Project):
                 assert False, "Unsupported Project expression"
             code += assignment_template % locals()
 
-        innercode = self.parent.consume(self.newtuple, self, state)
+        innercode = self.parent().consume(self.newtuple, self, state)
         code += innercode
 
         return code
@@ -353,7 +354,7 @@ class CProject(algebra.Project):
 from raco.algebra import ZeroaryOperator
 
 
-class CFileScan(algebra.Scan):
+class CFileScan(algebra.Scan, Pipelined):
 
     @abc.abstractmethod
     def __get_ascii_scan_template__(self):
@@ -405,7 +406,7 @@ class CFileScan(algebra.Scan):
             state.addPipeline(fscode % {"result_type": tuple_type})
 
         # no return value used because parent is a new pipeline
-        self.parent.consume(resultsym, self, state)
+        self.parent().consume(resultsym, self, state)
 
     def consume(self, t, src, state):
         assert False, "as a source, no need for consume"
@@ -489,7 +490,7 @@ EMIT_CONSOLE = 'console'
 EMIT_FILE = 'file'
 
 
-class BaseCStore(algebra.Store):
+class BaseCStore(algebra.Store, Pipelined):
     def __init__(self, emit_print, relation_key, plan):
         super(BaseCStore, self).__init__(relation_key, plan)
         self.emit_print = emit_print

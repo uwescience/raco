@@ -229,14 +229,22 @@ class Pipelined(Operator):
 
         def markChildParent(op):
             for c in op.children():
-                c.parent = op
+                c._parent = op
             return []
 
         [_ for _ in root.postorder(markChildParent)]
 
+    def parent(self):
+        return self._parent
+
     @classmethod
     @abc.abstractmethod
     def language(cls):
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def new_tuple_ref(cls, symbol, scheme):
         pass
 
     @abc.abstractmethod

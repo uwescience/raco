@@ -135,7 +135,8 @@ class GrappaLanguage(CBaseLanguage):
 class GrappaOperator (Pipelined):
     _language = GrappaLanguage
 
-    def new_tuple_ref(self, sym, scheme):
+    @classmethod
+    def new_tuple_ref(cls, sym, scheme):
         return GrappaStagedTupleRef(sym, scheme)
 
     @classmethod
@@ -217,7 +218,7 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         tuple_type = stagedTuple.getTupleTypename()
         tuple_name = stagedTuple.name
 
-        inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
+        inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
 
         code = memory_scan_template % locals()
         state.setPipelineProperty('type', 'in_memory')
@@ -339,7 +340,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
                 keypos = self.condition.left.position \
                     - len(left_sch)
 
-            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+            inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
             other_tuple_type = self.leftTypeRef.getPlaceholder()
             left_type = other_tuple_type
@@ -362,7 +363,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
             else:
                 keypos = self.condition.right.position
 
-            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+            inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
             left_type = left_in_tuple_type
             right_type = self.right_in_tuple_type
@@ -508,7 +509,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
             freeJoinReducers(%(hashname)s, %(hashname)s_num_reducers);""")
         state.addPostCode(delete_template % locals())
 
-        inner_code_compiled = self.parent.consume(outTuple, self, state)
+        inner_code_compiled = self.parent().consume(outTuple, self, state)
 
         code = iterate_template % locals()
         state.setPipelineProperty('type', 'in_memory')
@@ -682,7 +683,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         output_tuple_type = output_tuple.getTupleTypename()
         state.addDeclarations([output_tuple.generateDefinition()])
 
-        inner_code = self.parent.consume(output_tuple, self, state)
+        inner_code = self.parent().consume(output_tuple, self, state)
         code = produce_template % locals()
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
@@ -905,7 +906,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
             state.addDeclarations([out_tuple_type_def])
 
-            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+            inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
             code = left_template % locals()
             return code

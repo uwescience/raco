@@ -140,7 +140,8 @@ class CC(CBaseLanguage):
 class CCOperator(Pipelined):
     _language = CC
 
-    def new_tuple_ref(self, sym, scheme):
+    @classmethod
+    def new_tuple_ref(cls, sym, scheme):
         return CStagedTupleRef(sym, scheme)
 
     @classmethod
@@ -173,7 +174,7 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
         tuple_type = stagedTuple.getTupleTypename()
         tuple_name = stagedTuple.name
 
-        inner_plan_compiled = self.parent.consume(stagedTuple, self, state)
+        inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
 
         code = memory_scan_template % locals()
         state.setPipelineProperty("type", "in_memory")
@@ -290,7 +291,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         output_tuple_type = output_tuple.getTupleTypename()
         state.addDeclarations([output_tuple.generateDefinition()])
 
-        inner_code = self.parent.consume(output_tuple, self, state)
+        inner_code = self.parent().consume(output_tuple, self, state)
         code = produce_template % locals()
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
@@ -446,7 +447,7 @@ class CHashJoin(algebra.Join, CCOperator):
 
             state.addDeclarations([out_tuple_type_def])
 
-            inner_plan_compiled = self.parent.consume(outTuple, self, state)
+            inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
             code = left_template % locals()
             return code
