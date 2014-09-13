@@ -132,7 +132,7 @@ class GrappaLanguage(CBaseLanguage):
         # C language: %s" % s)
 
 
-class GrappaOperator (Pipelined):
+class GrappaOperator (Pipelined, algebra.Operator):
     _language = GrappaLanguage
 
     @classmethod
@@ -142,6 +142,9 @@ class GrappaOperator (Pipelined):
     @classmethod
     def language(cls):
         return cls._language
+
+    def postorder_traversal(self, func):
+        return self.postorder(func)
 
 
 from raco.algebra import UnaryOperator

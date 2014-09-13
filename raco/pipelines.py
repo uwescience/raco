@@ -216,13 +216,22 @@ class CompileState:
         return self.pipeline_count
 
 
-class Pipelined(Operator):
+class Pipelined(object):
     """
     Trait to provide the compilePipeline method
     for calling into pipeline style compilation.
+
+    This is a mixin class that supports cooperative
+    multiple inheritance. To use it properly, put
+    it _before_ the base class in the inheritance clause
     """
 
     __metaclass__ = abc.ABCMeta
+
+    def __init__(self, *args):
+        self._parent = None
+        # Ensure this class follows cooperative multiple inheritance
+        super(Pipelined, self).__init__(*args)
 
     def __markAllParents__(self):
         root = self
@@ -232,7 +241,7 @@ class Pipelined(Operator):
                 c._parent = op
             return []
 
-        [_ for _ in root.postorder(markChildParent)]
+        [_ for _ in root.postorder_traversal(markChildParent)]
 
     def parent(self):
         return self._parent
@@ -245,6 +254,10 @@ class Pipelined(Operator):
     @classmethod
     @abc.abstractmethod
     def new_tuple_ref(cls, symbol, scheme):
+        pass
+
+    @abc.abstractmethod
+    def postorder_traversal(self, func):
         pass
 
     @abc.abstractmethod

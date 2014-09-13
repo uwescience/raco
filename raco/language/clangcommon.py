@@ -212,7 +212,7 @@ def getTaggingFunc(t):
     return tagAttributes
 
 
-class CSelect(algebra.Select, Pipelined):
+class CSelect(Pipelined, algebra.Select):
     def produce(self, state):
         self.input.produce(state)
 
@@ -241,7 +241,7 @@ class CSelect(algebra.Select, Pipelined):
         return code
 
 
-class CUnionAll(algebra.Union, Pipelined):
+class CUnionAll(Pipelined, algebra.Union):
     def produce(self, state):
         self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
         state.addDeclarations([self.unifiedTupleType.generateDefinition()])
@@ -264,7 +264,7 @@ class CUnionAll(algebra.Union, Pipelined):
         return union_template % locals()
 
 
-class CApply(algebra.Apply, Pipelined):
+class CApply(Pipelined, algebra.Apply):
     def produce(self, state):
         # declare a single new type for project
         # TODO: instead do mark used-columns?
@@ -312,7 +312,7 @@ class CApply(algebra.Apply, Pipelined):
         return code
 
 
-class CProject(algebra.Project, Pipelined):
+class CProject(Pipelined, algebra.Project):
     def produce(self, state):
         # declare a single new type for project
         # TODO: instead do mark used-columns?
@@ -354,7 +354,7 @@ class CProject(algebra.Project, Pipelined):
 from raco.algebra import ZeroaryOperator
 
 
-class CFileScan(algebra.Scan, Pipelined):
+class CFileScan(Pipelined, algebra.Scan):
 
     @abc.abstractmethod
     def __get_ascii_scan_template__(self):
@@ -490,7 +490,7 @@ EMIT_CONSOLE = 'console'
 EMIT_FILE = 'file'
 
 
-class BaseCStore(algebra.Store, Pipelined):
+class BaseCStore(Pipelined, algebra.Store):
     def __init__(self, emit_print, relation_key, plan):
         super(BaseCStore, self).__init__(relation_key, plan)
         self.emit_print = emit_print

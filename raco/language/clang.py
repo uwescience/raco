@@ -137,7 +137,7 @@ class CC(CBaseLanguage):
         # in C language: %s" % s)
 
 
-class CCOperator(Pipelined):
+class CCOperator(Pipelined, algebra.Operator):
     _language = CC
 
     @classmethod
@@ -147,6 +147,9 @@ class CCOperator(Pipelined):
     @classmethod
     def language(cls):
         return cls._language
+
+    def postorder_traversal(self, func):
+        return self.postorder(func)
 
 
 from raco.algebra import UnaryOperator
