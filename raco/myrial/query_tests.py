@@ -1977,6 +1977,25 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                          for a1, b1, c1, d1 in self.emp_table)]
         self.check_result(query, collections.Counter(tuples))
 
+    def test_arg_max_uda_with_functions(self):
+        """Test of an arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
     def test_decomposable_arg_max_uda(self):
         """Test of a decomposable arg_max UDA.
         """
@@ -1999,7 +2018,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         attribute references.
         """
 
-    def test_decomposable_arg_max_uda_references(self):
+    def test_decomposable_arg_max_uda_with_references(self):
         """Test of a decomposable arg_max UDA with named, unnamed, and dotted
         attribute references.
         """
@@ -2007,8 +2026,28 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         {arg}
         uda* ArgMax {{ArgMax, ArgMax}};
         emp = scan({emp});
-        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)
+        out = [from emp emit 1, 2, ArgMax(id, emp.dept_id, $2, emp.$3)
                as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda_with_functions(self):
+        """Test of a decomposable arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
         store(out, OUTPUT);
         """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
 
