@@ -594,6 +594,7 @@ class Unbox(ZeroaryOperator):
             op=self.opname(), re=self.relational_expression,
             f=self.field or "$0")
 
+
 class Case(Expression):
 
     def __init__(self, when_tuples, else_expr):
