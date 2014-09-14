@@ -2026,7 +2026,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         {arg}
         uda* ArgMax {{ArgMax, ArgMax}};
         emp = scan({emp});
-        out = [from emp emit 1, 2, ArgMax(id, emp.dept_id, $2, emp.$3)
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)
                as [a, b, c, d]];
         store(out, OUTPUT);
         """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
