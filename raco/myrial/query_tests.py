@@ -1905,7 +1905,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         uda* LogicalAvg {LocalAvg, RemoteAvg};
     """
 
-     # id dept_id name salary
     __ARG_MAX_UDA = """
         def pickval(id, salary, val, _id, _salary, _val):
            case when salary > _salary then val
@@ -1986,7 +1985,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         {arg}
         uda* ArgMax {{ArgMax, ArgMax}};
         emp = scan({emp});
-        out = [from emp emit ArgMax(id, dept_id, name, salary) as [a, b, c, d]];
+        out = [from emp emit ArgMax(id, dept_id, name, salary)
+               as [a, b, c, d]];
         store(out, OUTPUT);
         """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
 
