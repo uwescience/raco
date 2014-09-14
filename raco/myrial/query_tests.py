@@ -1920,6 +1920,22 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         };
     """
 
+    __ARG_MAX_UDA_UNNECESSARY_EXPR = """
+        def pickval(id, salary, val, _id, _salary, _val):
+           case when salary > _salary then val
+                when salary = _salary and id > _id then val
+                else _val end;
+        uda ArgMax(id, dept_id, name, salary) {
+          [0 as _id, 0 as _dept_id, "" as _name, 0 as _salary];
+          [pickval(id, salary, greater(id, id), _id, _salary, _id),
+           pickval(id, salary, lesser(dept_id, dept_id), _id, _salary, _dept_id),
+           pickval(id, salary, case when name="" then name else name end, _id,
+                   _salary, _name),
+           pickval(id, salary, salary * 1, _id, _salary, _salary)];
+          [_id, _dept_id, _name, _salary];
+        };
+    """
+
     def test_decomposable_average_uda(self):
         """Test of a decomposed average UDA.
 
@@ -2050,6 +2066,118 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                         salary)];
         store(out, OUTPUT);
         """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_internal_exprs(self):
+        """Test of an arg_max UDA.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, dept_id, name, salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_internal_exprs_with_references(self):
+        """Test of an arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_internal_exprs_with_functions(self):
+        """Test of an arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda_internal_exprs(self):
+        """Test of a decomposable arg_max UDA.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, dept_id, name, salary)
+               as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+        """Test of an arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+
+    def test_decomposable_arg_max_uda_internal_exprs_with_references(self):
+        """Test of a decomposable arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)
+               as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda_internal_exprs_with_functions(self):
+        """Test of a decomposable arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
 
         tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
                   if all(d > d1 or d == d1 and a >= a1
