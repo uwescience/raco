@@ -109,7 +109,7 @@ class UdaAggregateExpression(AggregateExpression, UnaryOperator):
         return 'UDA(%s)' % self.input
 
 
-class LocalAggregateOutput(object):
+class LocalAggregateOutput(ZeroaryOperator):
     """Dummy placeholder to refer to the output of a local aggregate."""
     def __init__(self, index=0):
         """Initialize a LocalAggregateOutput
@@ -118,8 +118,18 @@ class LocalAggregateOutput(object):
         """
         self.index = index
 
+    def evaluate(self, _tuple, scheme, state=None):
+        """Raise an error on attempted evaluation.
 
-class RemoteAggregateOutput(object):
+        These expressions should be compiled away prior to evaluation.
+        """
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        raise NotImplementedError()  # See above comment
+
+
+class RemoteAggregateOutput(ZeroaryOperator):
     """Dummy placeholder to refer to the output of a merge aggregate."""
     def __init__(self, index):
         """Instantiate a merge aggregate object.
@@ -127,6 +137,16 @@ class RemoteAggregateOutput(object):
         index is the position relative to the start of the remote aggregate.
         """
         self.index = index
+
+    def evaluate(self, _tuple, scheme, state=None):
+        """Raise an error on attempted evaluation.
+
+        These expressions should be compiled away prior to evaluation.
+        """
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        raise NotImplementedError()  # See above comment
 
 
 def rebase_local_aggregate_output(expr, offset):
