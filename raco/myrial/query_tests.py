@@ -1960,6 +1960,30 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(tuples))
 
+    def test_decomposable_nary_uda(self):
+
+        query = """
+        uda Sum2(x, y) {
+          [0 as sum_x, 0 as sum_y];
+          [sum_x + x, sum_y + y];
+        };
+        uda* Sum2 {Sum2, Sum2};
+        out = [FROM SCAN(%s) AS X EMIT
+               Sum2(id, salary) AS [id_sum, salary_sum]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        id_sum = sum(t[0] for t in self.emp_table.elements())
+        salary_sum = sum(t[3] for t in self.emp_table.elements())
+
+        tuples = [(id_sum, salary_sum),]
+        self.check_result(query, collections.Counter(tuples))
+
     def test_arg_max_uda(self):
         """Test of an arg_max UDA.
         """
@@ -2070,6 +2094,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
                   if all(d > d1 or d == d1 and a >= a1
                          for a1, b1, c1, d1 in self.emp_table)]
+
         self.check_result(query, collections.Counter(tuples))
 
     def test_arg_max_uda_internal_exprs(self):
