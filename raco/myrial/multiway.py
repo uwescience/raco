@@ -2,7 +2,22 @@
 
 from raco import algebra
 from raco import expression
+from raco.expression.statevar import *
+
 from raco.myrial.exceptions import ColumnIndexOutOfBounds
+
+
+def rewrite_statemods(statemods, from_args, base_offsets):
+    """Convert Unbox expressions contained inside statemod variables.
+
+    :param statemods: A list of StateVar instances
+    :param from_args: A map from relation name to Operator
+    :param base_offsets: A map from relation name to initial column offsets
+    :return: An updated list of StateVar instances
+    """
+    assert all(isinstance(sm, StateVar) for sm in statemods)
+    return [StateVar(name, init, rewrite_refs(update, from_args, base_offsets))
+            for name, init, update in statemods]
 
 
 def rewrite_refs(sexpr, from_args, base_offsets):
