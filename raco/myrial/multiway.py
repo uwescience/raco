@@ -32,9 +32,11 @@ def rewrite_refs(sexpr, from_args, base_offsets):
                 rsms = rewrite_statemods(ds.get_remote_statemods(), from_args, base_offsets)  # noqa
 
                 if lsms or rsms:
-                    sexpr.set_decomposable_state(expression.DecomposableState(
-                        ds.get_local_emitter(), lsms, ds.get_remote_emitter(),
-                        rsms, ds.get_finalizer()))
+                    sexpr.set_decomposable_state(
+                        expression.DecomposableAggregateState(
+                            ds.get_local_emitters(), lsms,
+                            ds.get_remote_emitters(), rsms,
+                            ds.get_finalizer()))
                 return sexpr
 
         if not isinstance(sexpr, expression.Unbox):
