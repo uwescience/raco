@@ -24,6 +24,19 @@ def rewrite_refs(sexpr, from_args, base_offsets):
     """Convert all Unbox expressions into raw indexes."""
 
     def rewrite_node(sexpr):
+        # Push unboxing into the state variables of distributed aggregates
+        if isinstance(sexpr, expression.AggregateExpression):
+            if sexpr.is_decomposable():
+                ds = sexpr.get_decomposable_state()
+                lsms = rewrite_statemods(ds.get_local_statemods(), from_args, base_offsets)  # noqa
+                rsms = rewrite_statemods(ds.get_remote_statemods(), from_args, base_offsets)  # noqa
+
+                if lsms or rsms:
+                    sexpr.set_decomposable_state(expression.DecomposableState(
+                        ds.get_local_emitter(), lsms, ds.get_remote_emitter(),
+                        rsms, ds.get_finalizer()))
+                return sexpr
+
         if not isinstance(sexpr, expression.Unbox):
             return sexpr
         else:
