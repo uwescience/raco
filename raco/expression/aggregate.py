@@ -22,8 +22,8 @@ class DecomposableAggregateState(object):
     :param finalizer: An optional expression that reduces the remote aggregate
     outputs to a single value.
     """
-    def __init__(self, local_emitters=[], local_statemods=[],
-                 remote_emitters=[], remote_statemods=[], finalizer=None):
+    def __init__(self, local_emitters=(), local_statemods=(),
+                 remote_emitters=(), remote_statemods=(), finalizer=None):
 
         assert all(isinstance(a, AggregateExpression) for a in local_emitters)
         assert all(isinstance(a, AggregateExpression) for a in remote_emitters)
