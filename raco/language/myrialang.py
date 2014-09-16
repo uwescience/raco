@@ -239,6 +239,16 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
         }
 
 
+class MyriaAppendTemp(algebra.AppendTemp, MyriaOperator):
+    def compileme(self, inputid):
+        return {
+            "opType": "TempInsert",
+            "table": self.name,
+            "argOverwriteTable": False,
+            "argChild": inputid,
+        }
+
+
 def convertcondition(condition, left_len, combined_scheme):
     """Convert an equijoin condition to a pair of column lists."""
 
@@ -1159,6 +1169,28 @@ class DecomposeGroupBy(rules.Rule):
         return remote_gb
 
 
+class AddAppendTemp(rules.Rule):
+    def fire(self, op):
+        if type(op) is not MyriaStoreTemp:
+            return op
+
+        child = op.input
+        if type(child) is not MyriaUnionAll:
+            return op
+
+        left = child.left
+        right = child.right
+        rel_name = op.name
+
+        if type(left) is MyriaScanTemp and left.name == rel_name:
+            return MyriaAppendTemp(name=rel_name, input=right)
+
+        elif type(right) is MyriaScanTemp and right.name == rel_name:
+            return MyriaAppendTemp(name=rel_name, input=left)
+
+        return op
+
+
 class MergeToNaryJoin(rules.Rule):
     """Merge consecutive binary join into a single multiway join
     Note: this code assumes that the binary joins form a left deep tree
@@ -1331,6 +1363,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
         distributed_group_by,
         [rules.PushApply()],
         myriafy,
+        [AddAppendTemp()],
         break_communication
     ]
 

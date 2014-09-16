@@ -342,6 +342,10 @@ class FakeDatabase(Catalog):
         bag = self.evaluate_to_bag(op.input)
         self.temp_tables[op.name] = bag
 
+    def appendtemp(self, op):
+        bag = self.evaluate_to_bag(op.input)
+        self.temp_tables[op.name].update(bag)
+
     def scantemp(self, op):
         bag = self.temp_tables[op.name]
         return bag.elements()
@@ -374,6 +378,9 @@ class FakeDatabase(Catalog):
 
     def myriastoretemp(self, op):
         return self.storetemp(op)
+
+    def myriaappendtemp(self, op):
+        return self.appendtemp(op)
 
     def myriaapply(self, op):
         return self.apply(op)
