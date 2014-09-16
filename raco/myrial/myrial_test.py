@@ -30,7 +30,7 @@ class MyrialTestCase(unittest.TestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         if kwargs.get('logical', False):
-            p = self.processor.get_logical_plan()
+            p = self.processor.get_logical_plan(**kwargs)
         else:
             p = self.processor.get_physical_plan(**kwargs)
         # verify that we can stringify p
@@ -42,9 +42,10 @@ class MyrialTestCase(unittest.TestCase):
         # Test repr
         return replace_with_repr(p)
 
-    def get_logical_plan(self, query):
+    def get_logical_plan(self, query, **kwargs):
         """Get the logical plan for a MyriaL query"""
-        return self.get_plan(query, logical=True)
+        kwargs['logical'] = True
+        return self.get_plan(query, **kwargs)
 
     def get_physical_plan(self, query, **kwargs):
         """Get the physical plan for a MyriaL query"""

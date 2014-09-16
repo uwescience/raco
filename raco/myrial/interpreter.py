@@ -393,12 +393,14 @@ class StatementProcessor(object):
         # loop
         self.cfg.add_edge(last_op_id, first_op_id)
 
-    def get_logical_plan(self):
+    def get_logical_plan(self, **kwargs):
         """Return an operator representing the logical query plan."""
-        return self.cfg.get_logical_plan()
+        return self.cfg.get_logical_plan(
+            dead_code_elimination=kwargs.get('dead_code_elimination', True),
+            apply_chaining=kwargs.get('apply_chaining', True))
 
     def __get_physical_plan_for__(self, target_phys_algebra, **kwargs):
-        logical_plan = self.get_logical_plan()
+        logical_plan = self.get_logical_plan(**kwargs)
 
         kwargs['target'] = target_phys_algebra
         return optimize(logical_plan, **kwargs)
