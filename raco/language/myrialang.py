@@ -1182,11 +1182,12 @@ class AddAppendTemp(rules.Rule):
         right = child.right
         rel_name = op.name
 
-        if type(left) is MyriaScanTemp and left.name == rel_name:
-            return MyriaAppendTemp(name=rel_name, input=right)
+        is_scan = lambda op: type(op) is MyriaScanTemp and op.name == rel_name
+        if is_scan(left) and not any(is_scan(op) for op in right.walk()):
+                return MyriaAppendTemp(name=rel_name, input=right)
 
-        elif type(right) is MyriaScanTemp and right.name == rel_name:
-            return MyriaAppendTemp(name=rel_name, input=left)
+        elif is_scan(right) and not any(is_scan(op) for op in left.walk()):
+                return MyriaAppendTemp(name=rel_name, input=left)
 
         return op
 
