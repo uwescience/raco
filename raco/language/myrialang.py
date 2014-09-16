@@ -1084,7 +1084,6 @@ class DecomposeGroupBy(rules.Rule):
         remote_statemods = []
         finalizer_exprs = []
 
-        state = None
         # The starting positions for the current local, remote aggregate
         local_output_pos = num_grouping_terms
         remote_output_pos = num_grouping_terms
@@ -1093,11 +1092,8 @@ class DecomposeGroupBy(rules.Rule):
         for agg in op.aggregate_list:
             # Multiple emit arguments can be associated with a single
             # decomposition rule; coalesce them all together.
-            next_state = agg.get_decomposable_state()
-            assert next_state
-            if next_state is state:
-                continue
-            state = next_state
+            state = agg.get_decomposable_state()
+            assert state
 
             ################################
             # Extract the set of emitters and statemods required for the
