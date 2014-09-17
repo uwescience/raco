@@ -262,6 +262,13 @@ def getTaggingFunc(t):
     return tagAttributes
 
 
+def tag_expression_attributes_with_reference(expr, tupleref):
+    # tag the attributes with references
+    # TODO: use an immutable approach instead
+    # (ie an expression Visitor for compiling)
+    [_ for _ in expr.postorder(getTaggingFunc(tupleref))]
+
+
 class CSelect(Pipelined, algebra.Select):
     def produce(self, state):
         self.input.produce(state)
@@ -274,10 +281,7 @@ class CSelect(Pipelined, algebra.Select):
 
         condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
 
-        # tag the attributes with references
-        # TODO: use an immutable approach instead
-        # (ie an expression Visitor for compiling)
-        [_ for _ in condition_as_unnamed.postorder(getTaggingFunc(t))]
+        tag_expression_attributes_with_reference(condition_as_unnamed, t)
 
         # compile the predicate into code
         conditioncode, cond_decls, cond_inits = \
@@ -344,10 +348,7 @@ class CApply(Pipelined, algebra.Apply):
             # make sure to resolve attribute positions using input schema
             src_expr_unnamed = expression.ensure_unnamed(src_expr, self.input)
 
-            # tag the attributes with references
-            # TODO: use an immutable approach instead
-            # (ie an expression Visitor for compiling)
-            [_ for _ in src_expr_unnamed.postorder(getTaggingFunc(t))]
+            tag_expression_attributes_with_reference(src_expr_unnamed, t)
 
             src_expr_compiled, expr_decls, expr_inits = \
                 self.language().compile_expression(src_expr_unnamed)
