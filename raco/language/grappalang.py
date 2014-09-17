@@ -570,18 +570,18 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
     def produce(self, state):
         assert len(self.grouping_list) <= 2, \
-            """%s does not currently support \
-            "groupings of more than 2 attributes"""\
-            % self.__class__.__name__
-        assert len(self.aggregate_list) == 1, \
-            "%s currently only supports aggregates of 1 attribute"\
-            % self.__class__.__name__
+            """Unsupported: groupings of more than 2 attributes"""
+        assert len(self.aggregate_list) == 1 or \
+            all([isinstance(a, expression.UdaAggregateExpression)
+                 for a in self.aggregate_list]), \
+            """Unsupported: aggregates of more than 1 attribute unless
+            all are UDAs"""
         for agg_term in self.aggregate_list:
             assert isinstance(agg_term,
-                              expression.BuiltinAggregateExpression), \
-                """%s only supports simple aggregate expressions.
-                A rule should create Apply[GroupBy]""" \
-                % self.__class__.__name__
+                              expression.BuiltinAggregateExpression) or \
+                isinstance(agg_term, expression.UdaAggregateExpression), \
+                """Unsupported: only allow simple aggregate expressions or UDAs.
+                A rule should create Apply[GroupBy]"""
 
         self.useKey = len(self.grouping_list) > 0
         _LOG.debug("groupby uses keys? %s" % self.useKey)
