@@ -3,6 +3,12 @@
 # rdf-raptor: https://github.com/ruby-rdf/rdf-raptor
 require 'rdf/raptor'
 
+"""
+TODO!!! Retest with below
+Prefixes are now fixed in 1.2.0 of rdf/raptor!
+https://github.com/ruby-rdf/rdf-raptor/issues/13#issuecomment-34163991
+"""
+
 $inputfile = ARGV[0]
 
 $extras = false
