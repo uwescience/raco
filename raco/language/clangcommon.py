@@ -97,7 +97,7 @@ class CBaseLanguage(Language):
             assert position >= 0
             return '%s.get(%s)' % (symbol, position), [], []
         if isinstance(expr, expression.NamedStateAttributeRef):
-            return 'state.get(??)', [], []
+            return 'state.get(0xC0FFEE)', [], []
 
         assert False, "{expr} is unsupported attribute".format(expr=expr)
 
