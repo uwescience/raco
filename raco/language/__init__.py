@@ -76,7 +76,8 @@ class CompileExpressionVisitor(expression.ExpressionVisitor):
         self.stack = []
 
     def getresult(self):
-        assert len(self.stack) == 1
+        assert len(self.stack) == 1, \
+            "stack is size {0} != 1".format(len(self.stack))
         return self.stack.pop()
 
     def __visit_BinaryOperator__(self, binaryexpr):
@@ -156,3 +157,17 @@ class CompileExpressionVisitor(expression.ExpressionVisitor):
     def visit_NEG(self, unaryexpr):
         inputexpr = self.stack.pop()
         self.stack.append(self.language.negative(inputexpr))
+
+    def visit_Case(self, caseexpr):
+        if caseexpr.else_expr is not None:
+            else_compiled = self.stack.pop()
+
+        when_compiled = []
+        for _ in range(len(caseexpr.when_tuples)):
+            thenexpr, ifexpr = self.stack.pop(), self.stack.pop()
+            when_compiled.insert(0, (ifexpr, thenexpr))
+
+        self.stack.append(self.language.conditional(when_compiled, else_compiled))
+
+    def visit_NamedStateAttributeRef(self, attr):
+        self.stack.append(self.language.compile_attribute(attr))
