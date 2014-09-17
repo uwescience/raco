@@ -63,12 +63,12 @@ class OptimizerTest(myrial_test.MyrialTestCase):
              for (s3, d3) in self.z_data.elements() if d1 == s2 and d2 == s3])
 
     @staticmethod
-    def logical_to_physical(lp, hypercube=False):
-        if not hypercube:
-            algebra = MyriaLeftDeepTreeAlgebra()
-        else:
+    def logical_to_physical(lp, **kwargs):
+        if kwargs.get('hypercube', False):
             algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
-        return optimize(lp, algebra)
+        else:
+            algebra = MyriaLeftDeepTreeAlgebra()
+        return optimize(lp, algebra, **kwargs)
 
     @staticmethod
     def get_count(op, claz):
@@ -378,7 +378,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
         lp = self.processor.get_logical_plan()
-        pp = self.logical_to_physical(lp, True)
+        pp = self.logical_to_physical(lp, hypercube=True)
         self.assertEquals(self.get_count(pp, NaryJoin), 0)
 
     def test_right_deep_join(self):
@@ -662,3 +662,59 @@ class OptimizerTest(myrial_test.MyrialTestCase):
             if isinstance(op, MyriaShuffleProducer):
                 self.assertEquals(op.hash_columns, [AttIndex(0)])
                 self.assertEquals(self.get_count(op, GroupBy), 1)
+
+    def test_successful_append(self):
+        """Insert an append if storing a relation into itself with a
+        UnionAll."""
+        query = """
+        x = scan({x});
+        y = select $0 from x;
+        y2 = select $1 from x;
+        y = y+y2;
+        store(y, OUTPUT);
+        """.format(x=self.x_key)
+
+        lp = self.get_logical_plan(query, apply_chaining=False)
+        self.assertEquals(self.get_count(lp, ScanTemp), 5)
+        self.assertEquals(self.get_count(lp, StoreTemp), 4)
+        self.assertEquals(self.get_count(lp, AppendTemp), 0)
+        self.assertEquals(self.get_count(lp, Store), 1)
+        self.assertEquals(self.get_count(lp, Scan), 1)
+
+        pp = self.logical_to_physical(copy.deepcopy(lp))
+        self.assertEquals(self.get_count(pp, ScanTemp), 4)
+        self.assertEquals(self.get_count(pp, StoreTemp), 3)
+        self.assertEquals(self.get_count(pp, AppendTemp), 1)
+        self.assertEquals(self.get_count(pp, Store), 1)
+        self.assertEquals(self.get_count(pp, Scan), 1)
+
+        self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
+
+    def test_failed_append(self):
+        """Do not insert an append when the tuples to be appended
+        depend on the relation itself."""
+
+        # NB test in both the left and right directions
+        # left: y = y + y2
+        # right: y = y2 + y
+        query = """
+        x = scan({x});
+        y = select $0, $1 from x;
+        t = empty(a:int);
+        y2 = select $1, $1 from y;
+        y = y+y2;
+        t = empty(a:int);
+        y3 = select $1, $1 from y;
+        y = y3+y;
+        s = empty(a:int);
+        store(y, OUTPUT);
+        """.format(x=self.x_key)
+
+        lp = self.get_logical_plan(query, dead_code_elimination=False)
+        self.assertEquals(self.get_count(lp, AppendTemp), 0)
+
+        # No AppendTemp
+        pp = self.logical_to_physical(copy.deepcopy(lp))
+        self.assertEquals(self.get_count(pp, AppendTemp), 0)
+
+        self.assertEquals(self.db.evaluate(lp), self.db.evaluate(pp))
