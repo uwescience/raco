@@ -13,6 +13,8 @@ from raco.fakedb import FakeDatabase
 from raco import algebra
 from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
+from raco.language.grappalang import GrappaAlgebra
+from raco.compile import compile
 
 
 def print_pretty_plan(plan, indent=0):
@@ -51,6 +53,8 @@ def parse_options(args):
                        help="Encode plan as Python repr", action='store_true')
     group.add_argument('-f', dest='standalone', action='store_true',
                        help='Execute the program in standalone mode')
+    group.add_argument('-c', dest='clang', action='store_true',
+                       help='Output physical plan for grappalang and source program')
     arg_parser.add_argument('file',
                             help='File containing MyriaL source program')
 
@@ -95,6 +99,12 @@ def main(args):
             elif opt.repr:
                 pp = processor.get_physical_plan()
                 print repr(pp)
+            elif opt.clang:
+                pp = processor.get_physical_plan(target_alg=GrappaAlgebra())
+                print_pretty_plan(pp)
+                c = compile(pp)
+                with open('_myrial_default_name_.cpp', 'w') as f:
+                    f.write(c)
             else:
                 print_pretty_plan(processor.get_physical_plan())
 
