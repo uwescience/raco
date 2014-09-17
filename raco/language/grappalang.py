@@ -24,10 +24,10 @@ template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 
 def readtemplate(fname):
-    return file(os.path.join(template_path, fname)).read()
+    return file(os.path.join(template_path, fname+'.template')).read()
 
 
-base_template = readtemplate("base_query.template")
+base_template = readtemplate("base_query")
 
 
 class GrappaStagedTupleRef(StagedTupleRef):
