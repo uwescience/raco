@@ -1,4 +1,5 @@
 import abc
+import itertools
 from raco import algebra
 from raco import expression
 from raco import catalog
@@ -89,10 +90,59 @@ class CBaseLanguage(Language):
                 C compiler only support unnamed perspective. \
                 Use helper function unnamed." % expr)
         if isinstance(expr, expression.UnnamedAttributeRef):
+            assert hasattr(expr, 'tupleref'), \
+                "{0} was not tagged with a tupleref".format(expr)
             symbol = expr.tupleref.name
             position = expr.position
             assert position >= 0
             return '%s.get(%s)' % (symbol, position), [], []
+        if isinstance(expr, expression.NamedStateAttributeRef):
+            return 'state.get(??)', [], []
+
+        assert False, "{expr} is unsupported attribute".format(expr=expr)
+
+    @classmethod
+    def ifelse(cls, when_compiled, else_compiled):
+        if_template = """
+        if ({cond}) {{
+        {then}
+        }}
+        """
+
+        else_template = """
+        else {{
+        {then}
+        }}
+        """
+
+        return cls._conditional_(when_compiled, else_compiled, if_template, else_template, "else")
+
+    @classmethod
+    def conditional(cls, when_compiled, else_compiled):
+        if_template = """{cond} ? {then}"""
+
+        else_template = """: {then}"""
+
+        return cls._conditional_(when_compiled, else_compiled, if_template, else_template, ":")
+
+    @classmethod
+    def _conditional_(cls, when_compiled, else_compiled, if_template, else_template, else_joiner):
+        def by_pairs(l):
+            assert len(l) % 2 == 0, "must be even length"
+            for i in range(0, len(l), 2):
+                yield l[i], l[i+1]
+
+        flatten_when_then = list(itertools.chain.from_iterable(when_compiled))
+        when_exec, when_decls, when_inits = zip(*flatten_when_then)
+
+        code = else_joiner.join([if_template.format(cond=cond, then=then) for (cond, then) in by_pairs(when_exec)])
+
+        if else_compiled is not None:
+            code += else_template.format(then=else_compiled[0])
+
+        return code, \
+               list(itertools.chain.from_iterable(when_decls))+else_compiled[1], \
+               list(itertools.chain.from_iterable(when_inits))+else_compiled[2]
 
 
 # TODO:
