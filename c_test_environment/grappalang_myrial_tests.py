@@ -45,20 +45,22 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         plan = self.get_physical_plan(query, **kwargs)
         physical_dot = viz.operator_to_dot(plan)
 
+        with open(os.path.join("c_test_environment",
+                               "{gname}.physical.dot".format(gname=gname)), 'w') as dwf:
+            dwf.write(physical_dot)
+
+        # generate code in the target language
+        code = compile(plan)
+
+        fname = os.path.join("c_test_environment", "{gname}.cpp".format(gname=gname))
+        if os.path.exists(fname):
+            os.remove(fname)
+        with open(fname, 'w') as f:
+            f.write(code)
+
+        raise_skip_test(query)
+
         with Chdir("c_test_environment") as d:
-            with open("{gname}.physical.dot".format(gname=gname), 'w') as dwf:
-                dwf.write(physical_dot)
-
-            # generate code in the target language
-            code = compile(plan)
-
-            fname = "{gname}.cpp".format(gname=gname)
-            if os.path.exists(fname):
-                os.remove(fname)
-            with open(fname, 'w') as f:
-                f.write(code)
-        
-            raise_skip_test(query)
             checkquery(name, GrappalangRunner())
 
     def setUp(self):
