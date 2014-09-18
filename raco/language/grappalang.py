@@ -719,6 +719,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 state_name, update_exp = a
                 clangcommon.tag_expression_attributes_with_reference(update_exp,
                                                                  inputTuple)
+                clangcommon.tag_expression(update_exp, self.state_scheme, expression.NamedStateAttributeRef, 'tagged_state_scheme')
+
                 rhs = self.language().compile_expression(update_exp)
                 # combine lhs, rhs with assignment
                 code, decls, inits = self.language().expression_combine(
