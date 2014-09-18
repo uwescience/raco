@@ -736,6 +736,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
             for a in assgns:
                 state_name, update_exp = a
+                # doesn't have to use inputTuple.name, but it will for simplicity
                 rhs = self.language().compile_expression(update_exp,
                                                          tupleref=inputTuple,
                                                          state_scheme=self.state_scheme)
@@ -762,6 +763,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             update_def = readtemplate('update_definition').format(
                 state_type=self.state_tuple.getTupleTypename(),
                 input_type=inputTuple.getTupleTypename(),
+                input_tuple_name=inputTuple.name,
                 state_var_updates=emitlist(update_updates),
                 state_vars=','.join(update_state_vars),
                 name=self.func_name)
