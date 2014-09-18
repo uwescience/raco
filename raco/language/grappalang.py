@@ -796,9 +796,11 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             update_val = "{tuple_name}".format(tuple_name=inputTuple.name)
 
         if self.useKey:
+            input_type = inputTuple.getTupleTypename()
+
             if len(self.grouping_list) == 1:
                 materialize_template = ct("""%(hashname)s->update\
-                <&%(pipeline_sync)s, int64_t, \
+                <&%(pipeline_sync)s, %(input_type)s, \
                 &%(update_func)s,&%(init_func)s>(\
                 %(tuple_name)s.get(%(keypos)s),\
                 %(update_val)s);
@@ -808,7 +810,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
             elif len(self.grouping_list) == 2:
                 materialize_template = ct("""%(hashname)s->update\
-                <&%(pipeline_sync)s, int64_t, \
+                <&%(pipeline_sync)s, %(input_type)s, \
                 &%(update_func)s,&%(init_func)s>(\
                 std::pair<int64_t,int64_t>(\
                 %(tuple_name)s.get(%(key1pos)s),\
