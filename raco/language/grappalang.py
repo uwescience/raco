@@ -730,11 +730,10 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                                                          tupleref=inputTuple,
                                                          state_scheme=self.state_scheme)
                 # combine lhs, rhs with assignment
-                code, l_decls, l_inits = self.language().expression_combine(
-                    [(state_name, [], []), rhs], '=')
+                code = "{lhs} = {rhs}".format(lhs=state_name, rhs=rhs[0])
 
-                decls += l_decls
-                inits += l_inits
+                decls += rhs[1]
+                inits += rhs[2]
 
                 state_var_updates.append(
                     state_var_update_template.format(assignment=code))
