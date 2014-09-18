@@ -591,6 +591,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             # for now just name the aggregate after the first state variable
             self.func_name = self.updaters[0][0]
             self.state_tuple = GrappaStagedTupleRef(gensym(), self.state_scheme)
+            state.addDeclarations([self.state_tuple.generateDefinition()])
             state_type = self.state_tuple.getTupleTypename()
             self.update_func = "{name}_update".format(name=self.func_name)
 
