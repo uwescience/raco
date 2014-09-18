@@ -563,7 +563,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
     _i = 0
 
     _ONE_BUILT_IN = 0
-    _MULTI_UDA = 0
+    _MULTI_UDA = 1
 
     @classmethod
     def __genHashName__(cls):
