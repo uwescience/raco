@@ -20,15 +20,16 @@
       // no-op
     }
 
-    %(tupletypename)s (std::vector<int64_t> vals) {
-      std::memcpy(&_fields[0], &vals[0], vals.size()*sizeof(int64_t))
+    %(tupletypename)s (const int64_t(&data)[%(numfields)s]) {
+      std::memcpy(&_fields[0], &data, %(numfields)s*sizeof(int64_t));
     }
 
     template <typename T>
-    %(tupletypename)s (T& from) {
-      static_assert(%(tupletypename)s::numFields() == T::numFields(), "constructor only works on same num fields")
-      std::memcpy(&_fields[0], &(from._fields[0]), from.numFields()*sizeof(int64_t))
+    %(tupletypename)s (T& from, bool ignore) {
+      static_assert(%(tupletypename)s::numFields() == T::numFields(), "constructor only works on same num fields");
+      std::memcpy(&_fields[0], &(from._fields[0]), from.numFields()*sizeof(int64_t));
     }
+
 
     std::ostream& dump(std::ostream& o) const {
       o << "Materialized(";

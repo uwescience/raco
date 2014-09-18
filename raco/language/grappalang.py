@@ -642,7 +642,6 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         #    """assumes first column is the key and second is aggregate result
 #            column_list: %s""" % self.column_list()
 
-
         if self.useKey:
             mapping_var_name = gensym()
 
@@ -671,16 +670,20 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             if self._agg_mode == self._ONE_BUILT_IN:
                 template_args = "{state_type}, counter, &{update_func}, &get_count".format(state_type=state_type,
                                                                                            update_func=update_func)
+                output_template = """%(output_tuple_type)s %(output_tuple_name)s;
+                %(output_tuple_name)s = %(output_tuple_name)s_tmp;"""
+
             elif self._agg_mode == self._MULTI_UDA:
                 template_args = "{state_type}, &{update_func}".format(state_type=state_type,
                                                                       update_func=update_func)
+                output_template = """%(output_tuple_type)s %(output_tuple_name)s(%(output_tuple_name)s_tmp, true);"""
 
-            produce_template = ct("""auto %(output_tuple_name)s_tmp = \
+            produce_template = """auto %(output_tuple_name)s_tmp = \
             reduce<%(template_args)s>(%(hashname)s);
 
-            %(output_tuple_type)s %(output_tuple_name)s(%(output_tuple_name)s_tmp);
+            {output_template}
             %(inner_code)s
-            """)
+            """.format(output_template=output_template)
 
 
         pipeline_sync = create_pipeline_synchronization(state)
