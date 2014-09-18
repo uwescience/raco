@@ -91,23 +91,25 @@ class CBaseLanguage(Language):
         return "( %s )" % conjunc, decls, inits
 
     @classmethod
-    def compile_attribute(cls, expr):
+    def compile_attribute(cls, expr, **kwargs):
         if isinstance(expr, expression.NamedAttributeRef):
             raise TypeError(
                 "Error compiling attribute reference %s. \
                 C compiler only support unnamed perspective. \
                 Use helper function unnamed." % expr)
         if isinstance(expr, expression.UnnamedAttributeRef):
-            assert hasattr(expr, 'tupleref'), \
-                "{0} was not tagged with a tupleref".format(expr)
-            symbol = expr.tupleref.name
+            tupleref = kwargs.get('tupleref')
+            assert tupleref is not None, "Cannot compile {0} without a tupleref".format(expr)
+
+            symbol = tupleref.name
             position = expr.position
             assert position >= 0
             return '%s.get(%s)' % (symbol, position), [], []
         if isinstance(expr, expression.NamedStateAttributeRef):
-            assert hasattr(expr, 'tagged_state_scheme'), \
-                "{0} was not tagged with a state_scheme".format(expr)
-            position = expr.get_position(None, expr.tagged_state_scheme)
+            state_scheme = kwargs.get('state_scheme')
+            assert state_scheme is not None, "Cannot compile {0} without a state_scheme".format(expr)
+
+            position = expr.get_position(None, state_scheme)
             return 'state.get({0})'.format(position), [], []
 
         assert False, "{expr} is unsupported attribute".format(expr=expr)
@@ -209,33 +211,6 @@ class StagedTupleRef:
         return ""
 
 
-def getTaggingFunc(tag, pattern, tagname):
-    """
-    Return a visitor function that will tag
-    UnnamedAttributes with the provided TupleRef
-    """
-
-    def tagAttributes(expr):
-        # TODO non mutable would be nice
-        if isinstance(expr, pattern):
-            setattr(expr, tagname, tag)
-
-        return None
-
-    return tagAttributes
-
-
-def tag_expression(expr, tag, pattern, tagname):
-    # tag the attributes with references
-    # TODO: use an immutable approach instead
-    # (ie an expression Visitor for compiling)
-    [_ for _ in expr.postorder(getTaggingFunc(tag, pattern, tagname))]
-
-
-def tag_expression_attributes_with_reference(expr, tupleref):
-    tag_expression(expr, tupleref, UnnamedAttributeRef, 'tupleref')
-
-
 class CSelect(Pipelined, algebra.Select):
     def produce(self, state):
         self.input.produce(state)
@@ -248,11 +223,9 @@ class CSelect(Pipelined, algebra.Select):
 
         condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
 
-        tag_expression_attributes_with_reference(condition_as_unnamed, t)
-
         # compile the predicate into code
         conditioncode, cond_decls, cond_inits = \
-            self.language().compile_expression(condition_as_unnamed)
+            self.language().compile_expression(condition_as_unnamed, tupleref=t)
         state.addInitializers(cond_inits)
         state.addDeclarations(cond_decls)
 
@@ -315,10 +288,8 @@ class CApply(Pipelined, algebra.Apply):
             # make sure to resolve attribute positions using input schema
             src_expr_unnamed = expression.ensure_unnamed(src_expr, self.input)
 
-            tag_expression_attributes_with_reference(src_expr_unnamed, t)
-
             src_expr_compiled, expr_decls, expr_inits = \
-                self.language().compile_expression(src_expr_unnamed)
+                self.language().compile_expression(src_expr_unnamed, tupleref=t)
             state.addInitializers(expr_inits)
             state.addDeclarations(expr_decls)
 
