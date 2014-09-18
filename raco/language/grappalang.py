@@ -583,15 +583,23 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             self._agg_mode = self._MULTI_UDA
 
         assert self._agg_mode is not None, "unsupported aggregates {0}".format(self.aggregate_list)
+        _LOG.debug("%s _agg_mode was set to %s", self, self._agg_mode)
 
         self.useKey = len(self.grouping_list) > 0
         _LOG.debug("groupby uses keys? %s" % self.useKey)
 
         if self._agg_mode == self._ONE_BUILT_IN:
-            valtype = "int64_t"
+            state_type = "int64_t"
+            op = self.aggregate_list[0].__class__.__name__
+            self.update_func = "Aggregates::{op}<int64_t, int64_t>".format(op=op)
         elif self._agg_mode == self._MULTI_UDA:
+            # for now just name the aggregate after the first state variable
+            self.func_name = self.updaters[0][0]
             self.state_tuple = GrappaStagedTupleRef(gensym(), self.state_scheme)
-            valtype = self.state_tuple.getTupleTypename()
+            state_type = self.state_tuple.getTupleTypename()
+            self.update_func = "{name}_update".format(name=self.func_name)
+
+        update_func = self.update_func
 
         declr_template = None
         if self.useKey:
@@ -599,13 +607,13 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 declr_template = """typedef DHT_symmetric<int64_t, \
                                   {valtype}, std_hash> \
                                    DHT_{valtype};
-                """.format(valtype=valtype)
+                """.format(valtype=state_type)
             elif len(self.grouping_list) == 2:
                 declr_template = """typedef DHT_symmetric<\
                 std::pair<int64_t,int64_t>, \
                                   {valtype}, pair_hash> \
                                    DHT_pair_{valtype};
-                """.format(valtype=valtype)
+                """.format(valtype=state_type)
 
         self._hashname = self.__genHashName__()
         _LOG.debug("generate hashname %s for %s", self._hashname, self)
@@ -619,10 +627,10 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         if self.useKey:
             if len(self.grouping_list) == 1:
                 init_template = """auto %(hashname)s = \
-                DHT_{valtype}::create_DHT_symmetric( );""".format(valtype=valtype)
+                DHT_{valtype}::create_DHT_symmetric( );""".format(valtype=state_type)
             elif len(self.grouping_list) == 2:
                 init_template = """auto %(hashname)s = \
-                DHT_pair_{valtype}::create_DHT_symmetric( );""".format(valtype=valtype)
+                DHT_pair_{valtype}::create_DHT_symmetric( );""".format(valtype=state_type)
 
         else:
             init_template = ct("""auto %(hashname)s = counter::create();
@@ -633,11 +641,12 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
-        assert len(self.column_list()) == 1 \
-            or isinstance(self.column_list()[0],
-                          expression.AttributeRef), \
-            """assumes first column is the key and second is aggregate result
-            column_list: %s""" % self.column_list()
+        #assert len(self.column_list()) == 1 \
+        #    or isinstance(self.column_list()[0],
+        #                  expression.AttributeRef), \
+        #    """assumes first column is the key and second is aggregate result
+#            column_list: %s""" % self.column_list()
+
 
         if self.useKey:
             mapping_var_name = gensym()
@@ -664,23 +673,20 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                     });
                     """)
         else:
-            op = self.aggregate_list[0].__class__.__name__
-            # translations for Grappa::reduce predefined ops
-            coll_op = {'COUNT': 'COLL_ADD',
-                       'SUM': 'COLL_ADD',
-                       'MAX': 'COLL_MAX',
-                       'MIN': 'COLL_MIN'}[op]
-            produce_template = ct("""auto %(output_tuple_name)s_tmp = \
-            reduce<int64_t, \
-            counter, \
-            %(coll_op)s, \
-            &get_count>\
-            (%(hashname)s);
+            if self._agg_mode == self._ONE_BUILT_IN:
+                template_args = "{state_type}, counter, &{update_func}, &get_count".format(state_type=state_type,
+                                                                                           update_func=update_func)
+            elif self._agg_mode == self._MULTI_UDA:
+                template_args = "{state_type}, &{update_func}".format(state_type=state_type,
+                                                                      update_func=update_func)
 
-            %(output_tuple_type)s %(output_tuple_name)s;
-            %(output_tuple_name)s.set(0, %(output_tuple_name)s_tmp);
+            produce_template = ct("""auto %(output_tuple_name)s_tmp = \
+            reduce<%(template_args)s>(%(hashname)s);
+
+            %(output_tuple_type)s %(output_tuple_name)s(%(output_tuple_name)s_tmp);
             %(inner_code)s
             """)
+
 
         pipeline_sync = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
@@ -736,28 +742,23 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         all_inits += update_inits + init_inits
 
         if self._agg_mode == self._MULTI_UDA:
-            # for now just name the aggregate after the first state variable
-            func_name = self.updaters[0][0]
-
             state_tuple_decl = self.state_tuple.generateDefinition()
             update_def = readtemplate('update_definition').format(
                 state_type=self.state_tuple.getTupleTypename(),
                 input_type=inputTuple.getTupleTypename(),
                 state_var_updates=emitlist(update_updates),
                 state_vars=','.join(update_state_vars),
-                name=func_name)
+                name=self.func_name)
             init_def = readtemplate('init_definition').format(
                 state_type=self.state_tuple.getTupleTypename(),
                 state_var_updates=emitlist(init_updates),
                 state_vars=','.join(init_state_vars),
-                name=func_name)
+                name=self.func_name)
 
             all_decls += [update_def, init_def]
 
         # form code to fill in the materialize template
         if self._agg_mode == self._ONE_BUILT_IN:
-            op = self.aggregate_list[0].__class__.__name__
-            update_func = "Aggregates::{op}<int64_t, int64_t>".format(op=op)
             init_func = "Aggregates::Zero"
 
             if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
@@ -773,8 +774,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             update_val = "{tuple_name}.get({valpos})".format(tuple_name=inputTuple.name,
                                                              valpos=valpos)
         elif self._agg_mode == self._MULTI_UDA:
-            update_func = "{name}_update".format(name=func_name)
-            init_func = "{name}_init".format(name=func_name)
+            init_func = "{name}_init".format(name=self.func_name)
             update_val = "{tuple_name}".format(tuple_name=inputTuple.name)
 
         if self.useKey:
@@ -814,6 +814,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         state.addDeclarations(all_decls)
         state.addInitializers(all_inits)
+
+        update_func = self.update_func
 
         code = materialize_template % locals()
         return code
