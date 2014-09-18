@@ -10,6 +10,7 @@ using namespace Grappa;
 #include <vector>
 #include <unordered_map>
 #include <iomanip>
+#include <cstring>
 
 // query library
 #include "relation_io.hpp"
