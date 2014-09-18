@@ -650,27 +650,37 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             elif self._agg_mode == self._MULTI_UDA:
                 emit_type = self.state_tuple.getTupleTypename()
 
+            if self._agg_mode == self._ONE_BUILT_IN:
+                # pass in attribute values as an array
+                initializer_template = "{{ {values} }}"
+            elif self._agg_mode == self._MULTI_UDA:
+                # pass in attribute values individually
+                initializer_template = "{values}"
+
             if len(self.grouping_list) == 1:
-                produce_template = ct("""%(hashname)s->\
+                initializer = initializer_template.format(values="%(mapping_var_name)s.first, %(mapping_var_name)s.second");
+
+                produce_template = """%(hashname)s->\
                 forall_entries<&%(pipeline_sync)s>\
-                ([=](std::pair<const int64_t,%(emit_type)s>& %(mapping_var_name)s) {
-                    %(output_tuple_type)s %(output_tuple_name)s(\
-                    {%(mapping_var_name)s.first, %(mapping_var_name)s.second});
+                ([=](std::pair<const int64_t,%(emit_type)s>& %(mapping_var_name)s) {{
+                    %(output_tuple_type)s %(output_tuple_name)s({initializer});
                     %(inner_code)s
-                    });
-                    """)
+                    }});
+                    """.format(initializer=initializer)
+
             elif len(self.grouping_list) == 2:
-                produce_template = ct("""%(hashname)s->\
+                initializer = initializer_template.format(values="""%(mapping_var_name)s.first.first,
+                    %(mapping_var_name)s.first.second,
+                    %(mapping_var_name)s.second""")
+
+                produce_template = """%(hashname)s->\
                 forall_entries<&%(pipeline_sync)s>\
                 ([=](std::pair<const std::pair<int64_t,int64_t>,%(emit_type)s>& \
-                %(mapping_var_name)s) {
-                    %(output_tuple_type)s %(output_tuple_name)s(\
-                    {%(mapping_var_name)s.first.first,\
-                    %(mapping_var_name)s.first.second,\
-                    %(mapping_var_name)s.second});
+                %(mapping_var_name)s) {{
+                    %(output_tuple_type)s %(output_tuple_name)s({initializer});
                     %(inner_code)s
-                    });
-                    """)
+                    }});
+                    """.format(initializer=initializer)
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
                 template_args = "{state_type}, counter, &{update_func}, &get_count".format(state_type=state_type,
