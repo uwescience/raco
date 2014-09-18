@@ -1,0 +1,4 @@
+{state_type} {name}_update({state_type} state, {input_type} val) {{
+    {state_var_updates}
+    return {state_type}({state_vars});
+}}
