@@ -187,15 +187,8 @@ class StagedTupleRef:
         return self.__typename
 
     def generateDefinition(self):
-        fielddeftemplate = """int64_t _fields[%(numfields)s];
-    """
-
         template = readtemplate('materialized_tuple_ref')
-        getcases = ""
-        setcases = ""
-        copies = ""
         numfields = len(self.scheme)
-        fielddefs = fielddeftemplate % locals()
 
         additional_code = self.__additionalDefinitionCode__()
         after_def_code = self.__afterDefinitionCode__()

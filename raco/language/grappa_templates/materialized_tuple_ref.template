@@ -2,7 +2,7 @@
   class %(tupletypename)s {
 
     public:
-    %(fielddefs)s
+    int64_t _fields[%(numfields)s];
 
     int64_t get(int field) const {
       return _fields[field];
@@ -21,7 +21,12 @@
     }
 
     %(tupletypename)s (std::vector<int64_t> vals) {
-      for (int i=0; i<vals.size(); i++) _fields[i] = vals[i];
+      std::memcpy(&_fields[0], &vals[0], vals.size()*sizeof(int64_t))
+    }
+
+    template <typename T>
+    %(tupletypename)s (T from) {
+      std::memcpy(&_fields[0], &(from._fields[0]), from.numFields()*sizeof(int64_t))
     }
 
     std::ostream& dump(std::ostream& o) const {
@@ -35,6 +40,7 @@
 
     %(additional_code)s
   } %(after_def_code)s;
+
   std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
     return t.dump(o);
   }
