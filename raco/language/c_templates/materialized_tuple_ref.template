@@ -12,7 +12,7 @@
       _fields[field] = val;
     }
 
-    int numFields() const {
+    static constexpr int numFields() {
       return %(numfields)s;
     }
 
@@ -25,7 +25,8 @@
     }
 
     template <typename T>
-    %(tupletypename)s (T from) {
+    %(tupletypename)s (T& from) {
+      static_assert(%(tupletypename)s::numFields() == T::numFields(), "constructor only works on same num fields")
       std::memcpy(&_fields[0], &(from._fields[0]), from.numFields()*sizeof(int64_t))
     }
 
