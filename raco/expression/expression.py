@@ -585,6 +585,15 @@ class Unbox(ZeroaryOperator):
     def typeof(self, scheme, state_scheme):
         raise NotImplementedError()  # See above comment
 
+    def __repr__(self):
+        return "{op}({re!r}, {f!r})".format(
+            op=self.opname(), re=self.relational_expression, f=self.field)
+
+    def __str__(self):
+        return "{op}({re}.{f})".format(
+            op=self.opname(), re=self.relational_expression,
+            f=self.field or "$0")
+
 
 class Case(Expression):
 

@@ -198,7 +198,10 @@ class ExpressionProcessor(object):
         new_schema_length = len(op.scheme())
         implicit_group_by_cols = range(orig_schema_length, new_schema_length)
 
-        # rewrite clauses in terms of the new schema
+        ################################################
+        # Compile away unbox expressions in where, emit clauses
+        ################################################
+
         if where_clause:
             where_clause = multiway.rewrite_refs(where_clause, from_args, info)
             # Extract the type of there where clause to force type safety
@@ -209,8 +212,7 @@ class ExpressionProcessor(object):
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
                      for (name, sexpr) in emit_args]
 
-        statemods = [StateVar(name, init, multiway.rewrite_refs(update, from_args, info))  # noqa
-                     for name, init, update in statemods]
+        statemods = multiway.rewrite_statemods(statemods, from_args, info)
 
         if any(raco.expression.expression_contains_aggregate(ex)
                for name, ex in emit_args):
@@ -393,12 +395,14 @@ class StatementProcessor(object):
         # loop
         self.cfg.add_edge(last_op_id, first_op_id)
 
-    def get_logical_plan(self):
+    def get_logical_plan(self, **kwargs):
         """Return an operator representing the logical query plan."""
-        return self.cfg.get_logical_plan()
+        return self.cfg.get_logical_plan(
+            dead_code_elimination=kwargs.get('dead_code_elimination', True),
+            apply_chaining=kwargs.get('apply_chaining', True))
 
     def __get_physical_plan_for__(self, target_phys_algebra, **kwargs):
-        logical_plan = self.get_logical_plan()
+        logical_plan = self.get_logical_plan(**kwargs)
 
         kwargs['target'] = target_phys_algebra
         return optimize(logical_plan, **kwargs)

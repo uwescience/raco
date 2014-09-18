@@ -917,8 +917,15 @@ class Parser(object):
                     local_emitters, local_statemods,
                     remote_emitters, remote_statemods)
 
-                for sx in get_emitters(emit_expr):
-                    sx.set_decomposable_state(ds)
+                # Associate a decomposable state structure with the first
+                # emitter.  Mark the remaining emitters as decomposable, but
+                # without their own associated decomposed emitters and
+                # statemods.
+                emitters = get_emitters(emit_expr)
+                emitters[0].set_decomposable_state(ds)
+                for emt in emitters[1:]:
+                    emt.set_decomposable_state(
+                        sexpr.DecomposableAggregateState())
             return emit_expr
         else:
             assert False

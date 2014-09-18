@@ -16,6 +16,6 @@ def replace_with_repr(plan):
     r = repr(plan)
     try:
         return eval(r)
-    except (TypeError, AttributeError):
+    except (TypeError, AttributeError, SyntaxError):
         print 'Error with repr {r} of plan {p}'.format(r=r, p=plan)
         raise

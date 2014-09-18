@@ -22,8 +22,8 @@ class DecomposableAggregateState(object):
     :param finalizer: An optional expression that reduces the remote aggregate
     outputs to a single value.
     """
-    def __init__(self, local_emitters, local_statemods,
-                 remote_emitters, remote_statemods, finalizer=None):
+    def __init__(self, local_emitters=(), local_statemods=(),
+                 remote_emitters=(), remote_statemods=(), finalizer=None):
 
         assert all(isinstance(a, AggregateExpression) for a in local_emitters)
         assert all(isinstance(a, AggregateExpression) for a in remote_emitters)
@@ -109,7 +109,7 @@ class UdaAggregateExpression(AggregateExpression, UnaryOperator):
         return 'UDA(%s)' % self.input
 
 
-class LocalAggregateOutput(object):
+class LocalAggregateOutput(ZeroaryOperator):
     """Dummy placeholder to refer to the output of a local aggregate."""
     def __init__(self, index=0):
         """Initialize a LocalAggregateOutput
@@ -118,8 +118,18 @@ class LocalAggregateOutput(object):
         """
         self.index = index
 
+    def evaluate(self, _tuple, scheme, state=None):
+        """Raise an error on attempted evaluation.
 
-class RemoteAggregateOutput(object):
+        These expressions should be compiled away prior to evaluation.
+        """
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        raise NotImplementedError()  # See above comment
+
+
+class RemoteAggregateOutput(ZeroaryOperator):
     """Dummy placeholder to refer to the output of a merge aggregate."""
     def __init__(self, index):
         """Instantiate a merge aggregate object.
@@ -127,6 +137,16 @@ class RemoteAggregateOutput(object):
         index is the position relative to the start of the remote aggregate.
         """
         self.index = index
+
+    def evaluate(self, _tuple, scheme, state=None):
+        """Raise an error on attempted evaluation.
+
+        These expressions should be compiled away prior to evaluation.
+        """
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        raise NotImplementedError()  # See above comment
 
 
 def rebase_local_aggregate_output(expr, offset):
