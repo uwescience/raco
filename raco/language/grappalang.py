@@ -98,7 +98,8 @@ class GrappaLanguage(CBaseLanguage):
         dependences = attrs.get('dependences', [])
         _LOG.debug("pipeline %s dependences %s", ident, dependences)
         dependence_code = emitlist([wait_statement(d) for d in dependences])
-        dependence_captures = emitlist([",&{dep}".format(dep=d) for d in dependences])
+        dependence_captures = emitlist(
+            [",&{dep}".format(dep=d) for d in dependences])
 
         code = """{dependence_code}
                   {inner_code}
