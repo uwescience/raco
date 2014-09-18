@@ -16,18 +16,11 @@ from raco.algebra import gensym
 import logging
 _LOG = logging.getLogger(__name__)
 
-import os.path
 import itertools
-
-template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "grappa_templates")
 
 
 def readtemplate(fname):
-    return file(os.path.join(template_path, fname+'.template')).read()
-
-
-base_template = readtemplate("base_query")
+    return clangcommon.readtemplate("grappa_templates", fname)
 
 
 class GrappaStagedTupleRef(StagedTupleRef):
@@ -38,6 +31,8 @@ class GrappaStagedTupleRef(StagedTupleRef):
 
 
 class GrappaLanguage(CBaseLanguage):
+    base_template = readtemplate("base_query")
+
     @staticmethod
     def base_template():
         return base_template

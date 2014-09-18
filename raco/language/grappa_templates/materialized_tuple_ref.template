@@ -1,0 +1,41 @@
+          // can be just the necessary schema
+  class %(tupletypename)s {
+
+    public:
+    %(fielddefs)s
+
+    int64_t get(int field) const {
+      return _fields[field];
+    }
+
+    void set(int field, int64_t val) {
+      _fields[field] = val;
+    }
+
+    int numFields() const {
+      return %(numfields)s;
+    }
+
+    %(tupletypename)s () {
+      // no-op
+    }
+
+    %(tupletypename)s (std::vector<int64_t> vals) {
+      for (int i=0; i<vals.size(); i++) _fields[i] = vals[i];
+    }
+
+    std::ostream& dump(std::ostream& o) const {
+      o << "Materialized(";
+      for (int i=0; i<numFields(); i++) {
+        o << _fields[i] << ",";
+      }
+      o << ")";
+      return o;
+    }
+
+    %(additional_code)s
+  } %(after_def_code)s;
+  std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
+    return t.dump(o);
+  }
+

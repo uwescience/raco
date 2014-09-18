@@ -1,5 +1,8 @@
 import abc
 import itertools
+import re
+import os.path
+
 from raco import algebra
 from raco import expression
 from raco import catalog
@@ -10,8 +13,6 @@ from raco.pipelines import Pipelined
 
 import logging
 _LOG = logging.getLogger(__name__)
-
-import re
 
 
 class CodeTemplate:
@@ -31,6 +32,13 @@ class CodeTemplate:
 
 def ct(s):
     return CodeTemplate(s)
+
+
+def readtemplate(grouppath, fname):
+    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 grouppath)
+
+    return file(os.path.join(template_path, fname+'.template')).read()
 
 
 class CBaseLanguage(Language):
@@ -181,49 +189,8 @@ class StagedTupleRef:
     def generateDefinition(self):
         fielddeftemplate = """int64_t _fields[%(numfields)s];
     """
-        template = """
-          // can be just the necessary schema
-  class %(tupletypename)s {
 
-    public:
-    %(fielddefs)s
-
-    int64_t get(int field) const {
-      return _fields[field];
-    }
-
-    void set(int field, int64_t val) {
-      _fields[field] = val;
-    }
-
-    int numFields() const {
-      return %(numfields)s;
-    }
-
-    %(tupletypename)s () {
-      // no-op
-    }
-
-    %(tupletypename)s (std::vector<int64_t> vals) {
-      for (int i=0; i<vals.size(); i++) _fields[i] = vals[i];
-    }
-
-    std::ostream& dump(std::ostream& o) const {
-      o << "Materialized(";
-      for (int i=0; i<numFields(); i++) {
-        o << _fields[i] << ",";
-      }
-      o << ")";
-      return o;
-    }
-
-    %(additional_code)s
-  } %(after_def_code)s;
-  std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
-    return t.dump(o);
-  }
-
-  """
+        template = readtemplate('materialized_tuple_ref')
         getcases = ""
         setcases = ""
         copies = ""

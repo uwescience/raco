@@ -15,28 +15,10 @@ import logging
 _LOG = logging.getLogger(__name__)
 
 import itertools
-import os.path
-
-
-template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "c_templates")
 
 
 def readtemplate(fname):
-    return file(os.path.join(template_path, fname)).read()
-
-
-template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "c_templates")
-
-base_template = readtemplate("base_query.template")
-twopass_select_template = readtemplate("precount_select.template")
-hashjoin_template = readtemplate("hashjoin.template")
-filteringhashjoin_template = ""
-filtering_nestedloop_join_chain_template = ""
-# =readtemplate("filtering_nestedloop_join_chain.template")
-ascii_scan_template = readtemplate("ascii_scan.template")
-binary_scan_template = readtemplate("binary_scan.template")
+    return clangcommon.readtemplate("c_templates", fname)
 
 
 class CStagedTupleRef(StagedTupleRef):
@@ -63,6 +45,8 @@ class CStagedTupleRef(StagedTupleRef):
 
 
 class CC(CBaseLanguage):
+    base_template = readtemplate("base_query")
+
     @staticmethod
     def base_template():
         return base_template
@@ -482,11 +466,14 @@ class CSelect(clangcommon.CSelect, CCOperator):
 
 
 class CFileScan(clangcommon.CFileScan, CCOperator):
+    ascii_scan_template = readtemplate("ascii_scan")
+    binary_scan_template = readtemplate("binary_scan")
+
     def __get_ascii_scan_template__(self):
-        return ascii_scan_template
+        return self.ascii_scan_template
 
     def __get_binary_scan_template__(self):
-        return binary_scan_template
+        return self.binary_scan_template
 
 
 class CStore(clangcommon.BaseCStore, CCOperator):
