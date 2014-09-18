@@ -24,6 +24,11 @@
       std::memcpy(&_fields[0], &data, %(numfields)s*sizeof(int64_t));
     }
 
+    // shamelessly terrible disambiguation: one solution is named factory methods
+    %(tupletypename)s (std::vector<int64_t> vals, bool ignore1, bool ignore2) {
+      std::memcpy(&_fields[0], &vals[0], %(numfields)s*sizeof(int64_t));
+    }
+
     template <typename T>
     %(tupletypename)s (T& from, bool ignore) {
       static_assert(%(tupletypename)s::numFields() == T::numFields(), "constructor only works on same num fields");
