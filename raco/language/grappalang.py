@@ -98,6 +98,8 @@ class GrappaLanguage(CBaseLanguage):
         dependences = attrs.get('dependences', [])
         _LOG.debug("pipeline %s dependences %s", ident, dependences)
         dependence_code = emitlist([wait_statement(d) for d in dependences])
+        dependence_captures = emitlist(
+            [",&{dep}".format(dep=d) for d in dependences])
 
         code = """{dependence_code}
                   {inner_code}
@@ -109,7 +111,7 @@ class GrappaLanguage(CBaseLanguage):
             inner_code = code
             sync_template = ct("""
             CompletionEvent %(syncname)s;
-            spawn(&%(syncname)s, [=] {
+            spawn(&%(syncname)s, [=%(dependence_captures)s] {
                     %(inner_code)s
                     });
                     """)
