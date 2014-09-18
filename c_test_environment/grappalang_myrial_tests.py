@@ -71,6 +71,30 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             if need_generate(targetpath):
                 generate_default(targetpath)
 
+    def _uda_def(self):
+        uda_def_path = os.path.join("c_test_environment", "testqueries", "argmax.myl")
+        with open(uda_def_path, 'r') as ro:
+            return ro.read()
+
+    # Grappa-only tests
+    def test_argmax_uda(self):
+
+        self.check_sub_tables("""
+        {UDA}
+        R3 = SCAN(%(R3)s);
+        out = select a, ArgMax(b, c) from R3;
+        STORE(out, OUTPUT);
+        """.format(UDA=self._uda_def()), "argmax_uda")
+
+    def test_argmax_all_uda(self):
+
+        self.check_sub_tables("""
+        {UDA}
+        R3 = SCAN(%(R3)s);
+        out = select ArgMax(b, c) from R3;
+        STORE(out, OUTPUT);
+        """.format(UDA=self._uda_def()), "argmax_all_uda")
+
 
 if __name__ == '__main__':
     unittest.main()
