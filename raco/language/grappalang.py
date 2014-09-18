@@ -31,11 +31,11 @@ class GrappaStagedTupleRef(StagedTupleRef):
 
 
 class GrappaLanguage(CBaseLanguage):
-    base_template = readtemplate("base_query")
+    _base_template = readtemplate("base_query")
 
-    @staticmethod
-    def base_template():
-        return base_template
+    @classmethod
+    def base_template(cls):
+        return cls._base_template
 
     @staticmethod
     def log(txt):

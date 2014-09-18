@@ -50,9 +50,9 @@ class CBaseLanguage(Language):
         resultsym = "__result__"
         return cls.base_template() % locals()
 
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
-    def base_template():
+    def base_template(cls):
         pass
 
     @staticmethod
@@ -187,7 +187,7 @@ class StagedTupleRef:
         return self.__typename
 
     def generateDefinition(self):
-        template = readtemplate('materialized_tuple_ref')
+        template = readtemplate('c_templates', 'materialized_tuple_ref')
         numfields = len(self.scheme)
 
         additional_code = self.__additionalDefinitionCode__()
