@@ -644,6 +644,10 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         if self.useKey:
             mapping_var_name = gensym()
+            if self._agg_mode == self._ONE_BUILT_IN:
+                emit_type = "int64_t"
+            elif self._agg_mode == self._MULTI_UDA:
+                emit_type = self.state_tuple.getTupleTypename()
 
             if len(self.grouping_list) == 1:
                 produce_template = ct("""%(hashname)s->\
@@ -695,7 +699,6 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
         output_tuple_name = output_tuple.name
         output_tuple_type = output_tuple.getTupleTypename()
-        emit_type = self.state_tuple.getTupleTypename()
         state.addDeclarations([output_tuple.generateDefinition()])
 
         inner_code = self.parent().consume(output_tuple, self, state)
