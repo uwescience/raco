@@ -800,12 +800,14 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
             update_val = "{tuple_name}.get({valpos})".format(tuple_name=inputTuple.name,
                                                              valpos=valpos)
+            input_type = "int64_t"
+
         elif self._agg_mode == self._MULTI_UDA:
             init_func = "{name}_init".format(name=self.func_name)
             update_val = "{tuple_name}".format(tuple_name=inputTuple.name)
+            input_type = inputTuple.getTupleTypename()
 
         if self.useKey:
-            input_type = inputTuple.getTupleTypename()
 
             if len(self.grouping_list) == 1:
                 materialize_template = ct("""%(hashname)s->update\
