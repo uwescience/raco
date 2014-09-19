@@ -90,7 +90,9 @@ class GrappaLanguage(CBaseLanguage):
             """)
             code = timing_template % locals()
 
-        dependences = attrs.get('dependences', [])
+        dependences = attrs.get('dependences', set())
+        assert isinstance(dependences, set)
+
         _LOG.debug("pipeline %s dependences %s", ident, dependences)
         dependence_code = emitlist([wait_statement(d) for d in dependences])
         dependence_captures = emitlist(
@@ -493,8 +495,8 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         get_pipeline_task_name(state)
 
         # add dependences on left and right inputs
-        state.appendPipelineProperty('dependences', self.right_syncname)
-        state.appendPipelineProperty('dependences', self.left_syncname)
+        state.addToPipelinePropertySet('dependences', self.right_syncname)
+        state.addToPipelinePropertySet('dependences', self.left_syncname)
 
         # reduce is a single self contained pipeline.
         # future hashjoin implementations may pipeline out of it
@@ -714,7 +716,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         get_pipeline_task_name(state)
 
         # add a dependence on the input aggregation pipeline
-        state.appendPipelineProperty('dependences', self.input_syncname)
+        state.addToPipelinePropertySet('dependences', self.input_syncname)
 
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
         output_tuple_name = output_tuple.name
@@ -998,7 +1000,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
      """)
 
             # add a dependence on the right pipeline
-            state.appendPipelineProperty('dependences', self.right_syncname)
+            state.addToPipelinePropertySet('dependences', self.right_syncname)
 
             hashname = self._hashname
             keyname = t.name
