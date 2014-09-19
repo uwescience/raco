@@ -401,6 +401,11 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
         aggregators = [MyriaGroupBy.compile_builtin_agg(agg_expr, child_scheme)
                        for agg_expr in built_ins]
 
+        assert all(aggregators[i] != aggregators[j]
+                   for i in range(len(aggregators))
+                   for j in range(len(aggregators))
+                   if i < j)
+
         udas = [agg_expr for agg_expr in self.aggregate_list
                 if isinstance(agg_expr, expression.UdaAggregateExpression)]
         assert len(udas) + len(built_ins) == len(self.aggregate_list)
