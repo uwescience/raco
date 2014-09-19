@@ -53,13 +53,21 @@ class CompileState:
         LOG.debug("set %s in %s" % (key, self.current_pipeline_properties))
         self.current_pipeline_properties[key] = value
 
-    def appendPipelineProperty(self, key, value):
+    def addToPipelinePropertyList(self, key, value):
         current = self.current_pipeline_properties.get(key, [])
-        assert isinstance(current, list), "cannot append to non-list property"
+        assert isinstance(current, list), "cannot add to non-list property"
         if len(current) == 0:
             self.current_pipeline_properties[key] = current
 
         current.append(value)
+
+    def addToPipelinePropertySet(self, key, value):
+        current = self.current_pipeline_properties.get(key, set())
+        assert isinstance(current, set), "cannot add to non-set property"
+        if len(current) == 0:
+            self.current_pipeline_properties[key] = current
+
+        current.add(value)
 
     def getPipelineProperty(self, key):
         LOG.debug("get %s from %s" % (key, self.current_pipeline_properties))
