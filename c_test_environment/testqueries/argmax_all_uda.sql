@@ -1,1 +1,1 @@
-select b, max(c) from R3;
+select b, max(c) from I3;
