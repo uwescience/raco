@@ -151,6 +151,57 @@ class SimpleGroupBy(Rule):
         return expr
 
 
+class DedupGroupBy(Rule):
+    """When a GroupBy computes redundant fields, replace this duplicate
+    computation by a single computation plus a duplicating Apply."""
+
+    def fire(self, expr):
+        if not isinstance(expr, algebra.GroupBy):
+            return expr
+
+        aggs = expr.get_unnamed_aggregate_list()
+
+        # Maps aggregate index j to index i < j that j duplicates
+        dups = {}
+        # Maps non-dup aggregate index i to index i' <= i it will have
+        # in the output aggregate list.
+        orig = {}
+        for i, a in enumerate(aggs):
+            if i in dups:
+                continue
+            orig[i] = len(orig)
+            dups.update({(j + i + 1): i
+                         for j, b in enumerate(aggs[(i + 1):])
+                         if a == b})
+
+        if len(dups) == 0:
+            # All the aggregate expressions are unique, we're good
+            return expr
+
+        #################################
+        # Construct a new Apply that drops all duplicates and replaces
+        # them with repeated UnnamedAttributeRefs
+        #################################
+
+        # First keep the grouping list intact
+        num_grps = len(expr.grouping_list)
+        mappings = [(None, UnnamedAttributeRef(i))
+                    for i in range(num_grps)]
+
+        # Construct the references to the grouping list
+        for i in range(len(aggs)):
+            if i in orig:
+                m = orig[i] + num_grps
+            else:
+                m = orig[dups[i]] + num_grps
+            mappings.append((None, UnnamedAttributeRef(m)))
+
+        # Drop any duplicates from the agg list
+        expr.aggregate_list = [aggs[i] for i in sorted(orig)]
+
+        return algebra.Apply(emitters=mappings, input=expr)
+
+
 class DistinctToGroupBy(Rule):
     """Turns a distinct into an empty GroupBy"""
     def fire(self, expr):
