@@ -1297,6 +1297,7 @@ distributed_group_by = [
     DecomposeGroupBy(),
     rules.SimpleGroupBy(),
     rules.CountToCountall(),   # TODO revisit when we have NULL support.
+    rules.DedupGroupBy(),
     rules.EmptyGroupByToDistinct(),
 ]
 
@@ -1357,6 +1358,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             rules.CountToCountall(),  # TODO revisit when we have NULL support.
             rules.ProjectToDistinctColumnSelect(),
             rules.DistinctToGroupBy(),
+            rules.DedupGroupBy(),
         ],
         rules.push_select,
         rules.push_project,
@@ -1395,6 +1397,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
                 # TODO revisit when we have NULL support.
                 rules.CountToCountall(),
                 rules.DistinctToGroupBy(),
+                rules.DedupGroupBy(),
             ],
             rules.push_select,
             rules.push_project,
