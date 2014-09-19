@@ -151,7 +151,7 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
         super(MyriaLPlatformTestHarness, self).setUp()
 
         self.tables = {}
-        for name in ['R', 'S', 'T']:
+        for name in ['R', 'S', 'T', 'I']:
             for width in [1, 2, 3]:
                 tablename = "%s%d" % (name, width)
                 fullname = "public:adhoc:%s" % tablename

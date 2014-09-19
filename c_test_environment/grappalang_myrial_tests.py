@@ -78,11 +78,14 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
 
     # Grappa-only tests
     def test_argmax_uda(self):
+        # test depends on determinism in
+        # argmax_uda.sql. To do this we
+        # use dataset I3, where column c is unique
 
         self.check_sub_tables("""
         {UDA}
-        R3 = SCAN(%(R3)s);
-        out = select a, ArgMax(b, c) from R3;
+        I3 = SCAN(%(I3)s);
+        out = select a, ArgMax(b, c) from I3;
         STORE(out, OUTPUT);
         """.format(UDA=self._uda_def()), "argmax_uda")
 
@@ -91,8 +94,8 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         raise SkipTest()
         self.check_sub_tables("""
         {UDA}
-        R3 = SCAN(%(R3)s);
-        out = select ArgMax(b, c) from R3;
+        I3 = SCAN(%(I3)s);
+        out = select ArgMax(b, c) from I3;
         STORE(out, OUTPUT);
         """.format(UDA=self._uda_def()), "argmax_all_uda")
         # TODO only test decomposable argmax here, as the non decomposable no-key is less useful
