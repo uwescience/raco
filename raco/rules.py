@@ -105,8 +105,6 @@ class SimpleGroupBy(Rule):
         if not isinstance(expr, algebra.GroupBy):
             return expr
 
-        child_scheme = expr.input.scheme()
-
         # A simple grouping expression is an AttributeRef
         def is_simple_grp_expr(grp):
             return isinstance(grp, expression.AttributeRef)
@@ -124,6 +122,8 @@ class SimpleGroupBy(Rule):
             return expr
 
         # Construct the Apply we're going to stick before the GroupBy
+
+        child_scheme = expr.input.scheme()
 
         # First: copy every column from the input verbatim
         mappings = [(None, UnnamedAttributeRef(i))
