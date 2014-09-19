@@ -1,4 +1,4 @@
-{state_type} {name}_update({state_type} state, {input_type} {input_tuple_name}) {{
+{state_type} {name}_update(const {state_type}& state, const {input_type}& {input_tuple_name}) {{
     {state_var_updates}
     return {state_type}({{ {state_vars} }});
 }}
