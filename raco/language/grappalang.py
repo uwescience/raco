@@ -843,7 +843,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 materialize_template = """
                 auto %(hashname)s_local_ptr = %(hashname)s.localize();
                 *%(hashname)s_local_ptr = \
-                %(update_func)s(*%(hashname)s_local, %(update_val)s);
+                %(update_func)s(*%(hashname)s_local_ptr, %(update_val)s);
                 """
 
         hashname = self._hashname
