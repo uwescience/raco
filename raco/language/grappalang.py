@@ -631,8 +631,15 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 DHT_pair_{valtype}::create_DHT_symmetric( );""".format(valtype=state_type)
 
         else:
-            init_template = ct("""auto %(hashname)s = counter::create();
-            """)
+            if self._agg_mode == self._ONE_BUILT_IN:
+                no_key_state_initializer = "counter::create()"
+            elif self._agg_mode == self._MULTI_UDA:
+                no_key_state_initializer = \
+                    "symmetric_global_alloc<{state_tuple_type}>()".format(
+                        state_tuple_type=self.state_tuple.getTupleTypename())
+
+            init_template = ct("""auto %(hashname)s = {initializer};
+            """.format(initializer=no_key_state_initializer))
 
         state.addInitializers([init_template % locals()])
 
@@ -823,12 +830,17 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 key1pos = self.grouping_list[0].get_position(inp_sch)
                 key2pos = self.grouping_list[1].get_position(inp_sch)
         else:
-            # TODO: use optimization for few keys
-            # right now it uses key=0
-            materialize_template = ct("""%(hashname)s->count = \
-            %(update_func)s(%(hashname)s->count, \
-                                      %(update_val)s);
-            """)
+            if self._agg_mode == self._ONE_BUILT_IN:
+                materialize_template = """%(hashname)s->count = \
+                %(update_func)s(%(hashname)s->count, \
+                                          %(update_val)s);
+                """
+            elif self._agg_mode == self._MULTI_UDA:
+                materialize_template = """
+                auto %(hashname)s_local_ptr = %(hashname)s.localize();
+                *%(hashname)s_local_ptr = \
+                %(update_func)s(*%(hashname)s_local, %(update_val)s);
+                """
 
         hashname = self._hashname
         tuple_name = inputTuple.name
