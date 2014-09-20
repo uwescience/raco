@@ -173,3 +173,17 @@ class CompileExpressionVisitor(ExpressionVisitor):
 
     def visit_NamedStateAttributeRef(self, attr):
         self.stack.append(self.language.compile_attribute(attr, **self.kwargs))
+
+    def visit_UnaryFunction(self, expr):
+        inputexpr = self.stack.pop()
+        self.stack.append(self.language.function_call(type(expr).__name__, inputexpr))
+
+    def visit_BinaryFunction(self, expr):
+        left, right = self.__visit_BinaryOperator__(expr)
+        self.stack.append(self.language.function_call(type(expr).__name__, left, right))
+
+    def visit_NaryFunction(self, expr):
+        arglist = []
+        for _ in range(len(expr.operands)):
+            arglist.insert(0, self.stack.pop())
+        self.stack.append(self.language.function_call(type(expr).__name__, *arglist))
