@@ -263,10 +263,10 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         init_template = ct("""%(hashname)s.init_global_DHT( &%(hashname)s, \
         cores()*16*1024 );
                         """)
-        declr_template = ct("""typedef DoubleDHT<int64_t, \
+        declr_template = ct("""typedef DoubleDHT<%(keytype)s, \
                                                    %(left_in_tuple_type)s, \
                                                    %(right_in_tuple_type)s,
-                                                std::hash<int64_t>> \
+                                                std::hash<%(keytype)s>> \
                     DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s;
       DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s %(hashname)s;
       """)
@@ -295,6 +295,15 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         self.leftCondIsRightAttr = \
             self.condition.left.position >= len(left_sch)
         assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
+
+        if self.rightCondIsRightAttr:
+            self.keypos = self.condition.right.position \
+                     - len(left_sch)
+            self.keytype = self.language().typename(self.condition.right.typeof(my_sch, None))
+        else:
+            self.keypos = self.condition.left.position \
+                     - len(left_sch)
+            self.keytype = self.language().typename(self.condition.left.typeof(my_sch, None))
 
         self.right.childtag = "right"
         state.addInitializers([init_template % locals()])
@@ -584,10 +593,12 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         self.useKey = len(self.grouping_list) > 0
         _LOG.debug("groupby uses keys? %s" % self.useKey)
 
+        inp_sch = self.input.scheme()
+
         if self._agg_mode == self._ONE_BUILT_IN:
-            state_type = "int64_t"
+            state_type = self.language().typename(self.aggregate_list[0].input.typeof(inp_sch, None))
             op = self.aggregate_list[0].__class__.__name__
-            self.update_func = "Aggregates::{op}<int64_t, int64_t>".format(op=op)
+            self.update_func = "Aggregates::{op}<{type}, {type}>".format(op=op, type=state_type)
         elif self._agg_mode == self._MULTI_UDA:
             # for now just name the aggregate after the first state variable
             self.func_name = self.updaters[0][0]
@@ -600,7 +611,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         if self.useKey:
             numkeys = len(self.grouping_list)
-            keytype = "std::tuple<{types}>".format(types=','.join(["int64_t"] * numkeys))
+            keytype = "std::tuple<{types}>".format(types=','.join([self.language().typename(g.typeof(inp_sch, None)) for g in self.grouping_list]))
 
         self._hashname = self.__genHashName__()
         _LOG.debug("generate hashname %s for %s", self._hashname, self)
@@ -637,18 +648,18 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         if self.useKey:
             mapping_var_name = gensym()
             if self._agg_mode == self._ONE_BUILT_IN:
-                emit_type = "int64_t"
+                emit_type = self.language().typename(self.aggregate_list[0].input.typeof(self.input.scheme(), None))
             elif self._agg_mode == self._MULTI_UDA:
                 emit_type = self.state_tuple.getTupleTypename()
 
             if self._agg_mode == self._ONE_BUILT_IN:
                 # pass in attribute values as an array
-                initializer_template = "{{ {values} }}"
+                initializer_template = "std::make_tuple( {values} )"
             elif self._agg_mode == self._MULTI_UDA:
                 # pass in attribute values individually
                 initializer_template = "{values}"
 
-            initializer_list = ["std::get<{0}>(%(mapping_var_name)s.first)".format(i) for i in range(len(self.grouping_list))]
+            initializer_list = ["%(mapping_var_name)s.first"]
             initializer_list += ["%(mapping_var_name)s.second"]
             initializer = initializer_template.format(values=','.join(initializer_list))
 
@@ -768,9 +779,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             else:
                 assert False, "only support Unary or Zeroary aggregates"
 
-            update_val = "{tuple_name}.get({valpos})".format(tuple_name=inputTuple.name,
-                                                             valpos=valpos)
-            input_type = "int64_t"
+            update_val = inputTuple.get_code(valpos)
+            input_type = self.language().typename(self.aggregate_list[0].input.typeof(inp_sch, None))
 
         elif self._agg_mode == self._MULTI_UDA:
             init_func = "{name}_init".format(name=self.func_name)
@@ -841,15 +851,17 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
              a single attribute: %s" % self.condition
             raise ValueError(msg)
 
-        declr_template = ct("""typedef MatchesDHT<int64_t, \
-                          %(in_tuple_type)s, std::hash<int64_t>> \
+        declr_template = ct("""typedef MatchesDHT<%(keytype)s, \
+                          %(in_tuple_type)s, std::hash<%(keytype)s>> \
                            DHT_%(in_tuple_type)s;
         DHT_%(in_tuple_type)s %(hashname)s;
         """)
 
+
         self.right.childtag = "right"
         self.rightTupleTypeRef = None  # may remain None if CSE succeeds
 
+        my_sch = self.scheme()
         left_sch = self.left.scheme()
         right_sch = self.right.scheme()
 
@@ -866,9 +878,11 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         if self.rightCondIsRightAttr:
             self.right_keypos = self.condition.right.position \
                 - len(left_sch)
+            keytype = self.language().typename(self.condition.right.typeof(my_sch, None))
         else:
             self.right_keypos = self.condition.left.position \
                 - len(left_sch)
+            keytype = self.language().typename(self.condition.left.typeof(my_sch, None))
 
         # left key position
         if self.rightCondIsRightAttr:
@@ -917,13 +931,13 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
             right_template = ct("""
             %(hashname)s.insert_async<&%(pipeline_sync)s>(\
-            %(keyname)s.get(%(keypos)s), %(keyname)s);
+            %(keyval)s, %(keyname)s);
             """)
 
             hashname = self._hashname
             keyname = t.name
-
             keypos = self.right_keypos
+            keyval = t.get_code(keypos)
 
             self.right_syncname = get_pipeline_task_name(state)
 
