@@ -110,7 +110,8 @@ def main(args):
                 pp = processor.get_physical_plan(target_alg=GrappaAlgebra())
                 print_pretty_plan(pp)
                 c = compile(pp)
-                with open('_myrial_default_name_.cpp', 'w') as f:
+                fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
+                with open(fname, 'w') as f:
                     f.write(c)
             else:
                 print_pretty_plan(processor.get_physical_plan())
