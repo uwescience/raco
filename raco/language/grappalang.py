@@ -609,7 +609,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         if self.useKey:
             init_template = """auto %(hashname)s = \
-            DHT_symmetric<{keytype},{valtype},std_hash<{keytype}>>::create_DHT_symmetric( );""".format(keytype=keytype,
+            DHT_symmetric<{keytype},{valtype},hash_tuple_hash<{keytype}>>::create_DHT_symmetric( );""".format(keytype=keytype,
                                                                                                        valtype=state_type)
 
         else:
