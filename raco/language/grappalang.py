@@ -266,7 +266,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         declr_template = ct("""typedef DoubleDHT<int64_t, \
                                                    %(left_in_tuple_type)s, \
                                                    %(right_in_tuple_type)s,
-                                                std_hash> \
+                                                std_hash<int64_t>> \
                     DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s;
       DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s %(hashname)s;
       """)
@@ -571,9 +571,6 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         return name
 
     def produce(self, state):
-        assert len(self.grouping_list) <= 2, \
-            """Unsupported: groupings of more than 2 attributes"""
-
         self._agg_mode = None
         if len(self.aggregate_list) == 1 and isinstance(self.aggregate_list[0], expression.BuiltinAggregateExpression):
             self._agg_mode = self._ONE_BUILT_IN
@@ -601,36 +598,19 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         update_func = self.update_func
 
-        declr_template = None
         if self.useKey:
-            if len(self.grouping_list) == 1:
-                declr_template = """typedef DHT_symmetric<int64_t, \
-                                  {valtype}, std_hash> \
-                                   DHT_{valtype};
-                """.format(valtype=state_type)
-            elif len(self.grouping_list) == 2:
-                declr_template = """typedef DHT_symmetric<\
-                std::pair<int64_t,int64_t>, \
-                                  {valtype}, pair_hash> \
-                                   DHT_pair_{valtype};
-                """.format(valtype=state_type)
+            numkeys = len(self.grouping_list)
+            keytype = "std::tuple<{types}>".format(types=','.join(["int64_t"] * numkeys))
 
         self._hashname = self.__genHashName__()
         _LOG.debug("generate hashname %s for %s", self._hashname, self)
 
         hashname = self._hashname
 
-        if declr_template is not None:
-            hashdeclr = declr_template % locals()
-            state.addDeclarationsUnresolved([hashdeclr])
-
         if self.useKey:
-            if len(self.grouping_list) == 1:
-                init_template = """auto %(hashname)s = \
-                DHT_{valtype}::create_DHT_symmetric( );""".format(valtype=state_type)
-            elif len(self.grouping_list) == 2:
-                init_template = """auto %(hashname)s = \
-                DHT_pair_{valtype}::create_DHT_symmetric( );""".format(valtype=state_type)
+            init_template = """auto %(hashname)s = \
+            DHT_symmetric<{keytype},{valtype},std_hash<{keytype}>>::create_DHT_symmetric( );""".format(keytype=keytype,
+                                                                                                       valtype=state_type)
 
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
@@ -668,30 +648,18 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 # pass in attribute values individually
                 initializer_template = "{values}"
 
-            if len(self.grouping_list) == 1:
-                initializer = initializer_template.format(values="%(mapping_var_name)s.first, %(mapping_var_name)s.second");
+            initializer_list = ["std::get<{0}>(%(mapping_var_name)s.first)".format(i) for i in range(len(self.grouping_list))]
+            initializer_list += ["%(mapping_var_name)s.second"]
+            initializer = initializer_template.format(values=','.join(initializer_list))
 
-                produce_template = """%(hashname)s->\
+            produce_template = """%(hashname)s->\
                 forall_entries<&%(pipeline_sync)s>\
-                ([=](std::pair<const int64_t,%(emit_type)s>& %(mapping_var_name)s) {{
+                ([=](std::pair<const {keytype},%(emit_type)s>& %(mapping_var_name)s) {{
                     %(output_tuple_type)s %(output_tuple_name)s({initializer});
                     %(inner_code)s
                     }});
-                    """.format(initializer=initializer)
+                    """.format(initializer=initializer, keytype=keytype)
 
-            elif len(self.grouping_list) == 2:
-                initializer = initializer_template.format(values="""%(mapping_var_name)s.first.first,
-                    %(mapping_var_name)s.first.second,
-                    %(mapping_var_name)s.second""")
-
-                produce_template = """%(hashname)s->\
-                forall_entries<&%(pipeline_sync)s>\
-                ([=](std::pair<const std::pair<int64_t,int64_t>,%(emit_type)s>& \
-                %(mapping_var_name)s) {{
-                    %(output_tuple_type)s %(output_tuple_name)s({initializer});
-                    %(inner_code)s
-                    }});
-                    """.format(initializer=initializer)
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
                 template_args = "{state_type}, counter, &{update_func}, &get_count".format(state_type=state_type,
@@ -810,29 +778,16 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             input_type = inputTuple.getTupleTypename()
 
         if self.useKey:
+            numkeys = len(self.grouping_list)
+            keygets = ','.join(
+                ["%(tuple_name)s.get({keypos})".format(
+                    keypos=g.get_position(inp_sch)) for g in self.grouping_list])
 
-            if len(self.grouping_list) == 1:
-                materialize_template = ct("""%(hashname)s->update\
+            materialize_template = """%(hashname)s->update\
                 <&%(pipeline_sync)s, %(input_type)s, \
                 &%(update_func)s,&%(init_func)s>(\
-                %(tuple_name)s.get(%(keypos)s),\
-                %(update_val)s);
-          """)
-                # make key from grouped attributes
-                keypos = self.grouping_list[0].get_position(inp_sch)
-
-            elif len(self.grouping_list) == 2:
-                materialize_template = ct("""%(hashname)s->update\
-                <&%(pipeline_sync)s, %(input_type)s, \
-                &%(update_func)s,&%(init_func)s>(\
-                std::pair<int64_t,int64_t>(\
-                %(tuple_name)s.get(%(key1pos)s),\
-                %(tuple_name)s.get(%(key2pos)s)),\
-                %(update_val)s);
-          """)
-                # make key from grouped attribute
-                key1pos = self.grouping_list[0].get_position(inp_sch)
-                key2pos = self.grouping_list[1].get_position(inp_sch)
+                std::make_tuple({keygets}), %(update_val)s);
+          """.format(keygets=keygets)
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
                 materialize_template = """%(hashname)s->count = \
@@ -887,7 +842,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             raise ValueError(msg)
 
         declr_template = ct("""typedef MatchesDHT<int64_t, \
-                          %(in_tuple_type)s, std_hash> \
+                          %(in_tuple_type)s, std_hash<int64_t>> \
                            DHT_%(in_tuple_type)s;
         DHT_%(in_tuple_type)s %(hashname)s;
         """)
