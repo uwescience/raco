@@ -81,14 +81,27 @@ class CBaseLanguage(Language):
         innerexpr, decls, inits = input
         return "(-%s)" % (innerexpr,), decls, inits
 
+    @staticmethod
+    def _extract_code_decl_init(args):
+        codes = [c for c, _, _ in args]
+        decls_combined = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
+        inits_combined = reduce(lambda sofar, x: sofar + x, [i for _, _, i in args])
+        return codes, decls_combined, inits_combined
+
     @classmethod
     def expression_combine(cls, args, operator="&&"):
         opstr = " %s " % operator
-        conjunc = opstr.join(["(%s)" % arg for arg, _, _ in args])
-        decls = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
-        inits = reduce(lambda sofar, x: sofar + x, [d for _, _, d in args])
+        codes, decls, inits = cls._extract_code_decl_init(args)
+        conjunc = opstr.join(["(%s)" % c for c in codes])
         _LOG.debug("conjunc: %s", conjunc)
         return "( %s )" % conjunc, decls, inits
+
+    @classmethod
+    def function_call(cls, name, *args):
+        codes, decls, inits = cls._extract_code_decl_init(list(args))
+        argscode = ",".join(["{0}".format(d) for d in codes])
+        code = "{name}({argscode})".format(name=name.lower(), argscode=argscode)
+        return code, decls, inits
 
     @classmethod
     def compile_attribute(cls, expr, **kwargs):
