@@ -7,12 +7,6 @@
 
 uint64_t identity_hash( int64_t k );
 
-// adapters for hash functions
-template <typename T>
-uint64_t std_hash( T k ) {
-  return std::hash<T>()(k);
-}
-
 uint64_t linear_hash( int64_t k);
 
 uint64_t pair_hash( std::pair<int64_t, int64_t> k );
@@ -132,11 +126,5 @@ namespace hash_tuple{
         }                                              
     };
 
-}
-
-// adapter for hash function
-template <typename T>
-uint64_t hash_tuple_hash(T k) {
-  return hash_tuple::hash<T>()(k);
 }
 
