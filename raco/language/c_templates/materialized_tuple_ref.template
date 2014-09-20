@@ -2,14 +2,18 @@
   class %(tupletypename)s {
 
     public:
-    int64_t _fields[%(numfields)s];
+    // relies on std::tuple having predictable field sizes if all fields are same size
+    std::tuple<%(fieldtypes)s> _fields;
 
-    int64_t get(int field) const {
-      return _fields[field];
+    template <int field>
+    int64_t get() const {
+      return std::get<field>(_fields);
     }
 
-    void set(int field, int64_t val) {
-      _fields[field] = val;
+    template <int field, typename T>
+    void set(T val) {
+      static_assert(!(std::is_integral<std::tuple_element<field,decltype(_fields)>::type>::value ^ std::is_integral<T>::value))
+      std::get<field>(_fields) = val;
     }
 
     static constexpr int numFields() {
@@ -20,51 +24,36 @@
       // no-op
     }
 
-    %(tupletypename)s (const int64_t(&data)[%(numfields)s]) {
-      std::memcpy(&_fields[0], &data, %(numfields)s*sizeof(int64_t));
+    %(tupletypename)s (const decltype(_fields)& data) {
+      std::memcpy(&_fields, &data, sizeof(_fields));
     }
 
     // shamelessly terrible disambiguation: one solution is named factory methods
     %(tupletypename)s (std::vector<int64_t> vals, bool ignore1, bool ignore2) {
-      std::memcpy(&_fields[0], &vals[0], %(numfields)s*sizeof(int64_t));
+      std::memcpy(&_fields, &vals[0], sizeof(_fields));
     }
 
     template <typename T>
     %(tupletypename)s (T& from, bool ignore) {
       static_assert(%(tupletypename)s::numFields() == T::numFields(), "constructor only works on same num fields");
-      std::memcpy(&_fields[0], &(from._fields[0]), from.numFields()*sizeof(int64_t));
+      std::memcpy(&_fields, &(from._fields), from.numFields()*sizeof(int64_t));
     }
 
-    template <typename T>
-    %(tupletypename)s (int64_t v0, T& from) {
-      static_assert(%(tupletypename)s::numFields() == T::numFields()+1, "constructor only works on same num fields");
-      set(0, v0);
-      std::memcpy(&_fields[1], &(from._fields[0]), from.numFields()*sizeof(int64_t));
+    template <typename Tuple, typename T& from>
+    %(tupletypename)s (Tuple& v0, T& from) {
+        static_assert(%(tupletypename)s::numFields() == (std::tuple_size<Tuple>::value + TupleT::numFields()), "constructor only works on same number of total fields");
+        std::memcpy(&_fields, &v0, sizeof(Tuple));
+        std::memcpy(((char*)&_fields)+sizeof(Tuple), &(from._fields), TupleT::numFields());
     }
-
-    template <typename T>
-    %(tupletypename)s (int64_t v0, int64_t v1, T& from) {
-      static_assert(%(tupletypename)s::numFields() == T::numFields()+2, "constructor only works on same num fields");
-      set(0, v0);
-      set(1, v1);
-      std::memcpy(&_fields[2], &(from._fields[0]), from.numFields()*sizeof(int64_t));
-    }
-
-    template <typename T>
-    %(tupletypename)s (int64_t v0, int64_t v1, int64_t v2, T& from) {
-      static_assert(%(tupletypename)s::numFields() == T::numFields()+3, "constructor only works on same num fields");
-      set(0, v0);
-      set(1, v1);
-      set(2, v2);
-      std::memcpy(&_fields[3], &(from._fields[0]), from.numFields()*sizeof(int64_t));
-    }
-
 
     std::ostream& dump(std::ostream& o) const {
       o << "Materialized(";
-      for (int i=0; i<numFields(); i++) {
-        o << _fields[i] << ",";
-      }
+
+      // for (int i=0; i<numFields(); i++) {
+      //  o << _fields[i] << ",";
+      // }
+      %(string_append_statements)s
+
       o << ")";
       return o;
     }
