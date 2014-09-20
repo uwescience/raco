@@ -8,6 +8,7 @@ expressions.
 import networkx as nx
 from raco import expression
 import raco.algebra as algebra
+from raco.expression.visitor import SimpleExpressionVisitor
 from raco.scheme import Scheme
 import raco.catalog
 import raco.myrial.groupby
@@ -409,7 +410,7 @@ class Rule(object):
                 raise SyntaxError(msg)
             return expression.UnnamedAttributeRef(scheme.getPosition(var))
 
-        class FindVarExpressionVisitor(expression.SimpleExpressionVisitor):
+        class FindVarExpressionVisitor(SimpleExpressionVisitor):
             def __init__(self):
                 self.stack = []
 
