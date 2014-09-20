@@ -10,6 +10,7 @@ from raco.algebra import gensym
 from raco.expression import UnnamedAttributeRef
 from raco.language import Language
 from raco.pipelines import Pipelined
+from raco import types
 
 import logging
 _LOG = logging.getLogger(__name__)
@@ -101,6 +102,19 @@ class CBaseLanguage(Language):
         codes, decls, inits = cls._extract_code_decl_init(list(args))
         argscode = ",".join(["{0}".format(d) for d in codes])
         code = "{name}({argscode})".format(name=name.lower(), argscode=argscode)
+        return code, decls, inits
+
+    @classmethod
+    def cast(cls, castto, inputexpr):
+        inputcode, decls, inits = inputexpr
+        internal_to_c = {
+            types.LONG_TYPE: 'int64_t',
+            types.BOOLEAN_TYPE: 'bool',
+            types.DOUBLE_TYPE: 'double'
+        }
+        typename = internal_to_c.get(castto)
+        assert typename is not None, "Clang does not yet support casts to {type}".format(type=castto)
+        code = "(({typename}){expr})".format(typename=typename, expr=inputcode)
         return code, decls, inits
 
     @classmethod

@@ -123,6 +123,10 @@ class ExpressionVisitor(object):
     def visit_NaryFunction(self, expr):
         return
 
+    @abstractmethod
+    def visit_CAST(self, expr):
+        return
+
 
 class SimpleExpressionVisitor(ExpressionVisitor):
     @abstractmethod
@@ -217,3 +221,6 @@ class SimpleExpressionVisitor(ExpressionVisitor):
 
     def visit_NaryFunction(self, expr):
         self.visit_nary(expr)
+
+    def visit_CAST(self, expr):
+        self.visit_unary(expr)

@@ -187,3 +187,7 @@ class CompileExpressionVisitor(ExpressionVisitor):
         for _ in range(len(expr.operands)):
             arglist.insert(0, self.stack.pop())
         self.stack.append(self.language.function_call(type(expr).__name__, *arglist))
+
+    def visit_CAST(self, expr):
+        inputexpr = self.stack.pop()
+        self.stack.append(self.language.cast(expr._type, inputexpr))
