@@ -1,7 +1,8 @@
 from abc import ABCMeta, abstractmethod
-import raco.expression as expression
 
 import logging
+from raco.expression.visitor import ExpressionVisitor
+
 LOG = logging.getLogger(__name__)
 
 
@@ -69,7 +70,7 @@ class Language(object):
         """Combine the given arguments using the specified infix operator"""
 
 
-class CompileExpressionVisitor(expression.ExpressionVisitor):
+class CompileExpressionVisitor(ExpressionVisitor):
     def __init__(self, language, **kwargs):
         self.language = language
         self.combine = language.expression_combine
