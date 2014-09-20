@@ -315,7 +315,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
     def consume(self, t, src, state):
         access_template = ct("""
         %(hashname)s.insert_lookup_iter_%(side)s<&%(global_syncname)s>(\
-        %(keyname)s.get(%(keypos)s), %(keyname)s, \
+        %(keyval)s, %(keyname)s, \
         [=](%(other_tuple_type)s %(valname)s) {
             join_coarse_result_count++;
             %(out_tuple_type)s %(out_tuple_name)s = \
@@ -344,12 +344,8 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
             self.right_in_tuple_type = t.getTupleTypename()
             state.resolveSymbol(self.rightTypeRef, self.right_in_tuple_type)
 
-            if self.rightCondIsRightAttr:
-                keypos = self.condition.right.position \
-                    - len(left_sch)
-            else:
-                keypos = self.condition.left.position \
-                    - len(left_sch)
+            keypos = self.keypos
+            keyval = t.get_code(keypos)
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
@@ -373,6 +369,8 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
                 keypos = self.condition.left.position
             else:
                 keypos = self.condition.right.position
+
+            keyval = t.get_code(keypos)
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
@@ -554,13 +552,14 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         hashname = self._hashname
         keyname = inputTuple.name
         keytype = inputTuple.getTupleTypename()
+        keyval = inputTuple.get_code(keypos)
 
         # intra-pipeline sync
         global_syncname = state.getPipelineProperty('global_syncname')
 
         mat_template = ct("""%(hashname)s_ctx.emitIntermediate%(side)s\
                 <&%(global_syncname)s>(\
-                %(keyname)s.get(%(keypos)s), %(keyname)s);""")
+                %(keyval)s, %(keyname)s);""")
 
         # materialization point
         code = mat_template % locals()
@@ -676,7 +675,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 template_args = "{state_type}, counter, &{update_func}, &get_count".format(state_type=state_type,
                                                                                            update_func=update_func)
                 output_template = """%(output_tuple_type)s %(output_tuple_name)s;
-                %(output_tuple_name)s.set(0, %(output_tuple_name)s_tmp);"""
+                %(output_tuple_set_func)s(%(output_tuple_name)s_tmp);"""
 
             elif self._agg_mode == self._MULTI_UDA:
                 template_args = "{state_type}, &{update_func}".format(state_type=state_type,
@@ -700,6 +699,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
         output_tuple_name = output_tuple.name
         output_tuple_type = output_tuple.getTupleTypename()
+        output_tuple_set_func = output_tuple.set_func_code(0)
         state.addDeclarations([output_tuple.generateDefinition()])
 
         inner_code = self.parent().consume(output_tuple, self, state)
@@ -789,9 +789,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         if self.useKey:
             numkeys = len(self.grouping_list)
-            keygets = ','.join(
-                ["%(tuple_name)s.get({keypos})".format(
-                    keypos=g.get_position(inp_sch)) for g in self.grouping_list])
+            keygets = ','.join([inputTuple.get_code(g.get_position(inp_sch))
+                                for g in self.grouping_list])
 
             materialize_template = """%(hashname)s->update\
                 <&%(pipeline_sync)s, %(input_type)s, \
@@ -956,7 +955,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         if src.childtag == "left":
             left_template = ct("""
             %(hashname)s.lookup_iter<&%(pipeline_sync)s>( \
-            %(keyname)s.get(%(keypos)s), \
+            %(keyval)s, \
             [=](%(right_tuple_type)s& %(right_tuple_name)s) {
               join_coarse_result_count++;
               %(out_tuple_type)s %(out_tuple_name)s = \
@@ -974,10 +973,11 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
             keytype = t.getTupleTypename()
+            keypos = self.left_keypos
+            keyval = t.get_code(keypos)
 
             pipeline_sync = state.getPipelineProperty('global_syncname')
 
-            keypos = self.left_keypos
 
             right_tuple_name = gensym()
             right_tuple_type = self.rightTupleTypename

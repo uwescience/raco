@@ -134,16 +134,16 @@ class CBaseLanguage(Language):
             tupleref = kwargs.get('tupleref')
             assert tupleref is not None, "Cannot compile {0} without a tupleref".format(expr)
 
-            symbol = tupleref.name
             position = expr.position
             assert position >= 0
-            return '%s.get(%s)' % (symbol, position), [], []
+            return tupleref.get_code(position), [], []
         if isinstance(expr, expression.NamedStateAttributeRef):
             state_scheme = kwargs.get('state_scheme')
             assert state_scheme is not None, "Cannot compile {0} without a state_scheme".format(expr)
 
             position = expr.get_position(None, state_scheme)
-            return 'state.get({0})'.format(position), [], []
+            code = StagedTupleRef.get_code_with_name(position, "state")
+            return code, [], []
 
         assert False, "{expr} is unsupported attribute".format(expr=expr)
 
@@ -224,9 +224,22 @@ class StagedTupleRef:
 
         return self.__typename
 
+    @staticmethod
+    def get_code_with_name(position, name):
+        return "{name}.get<{position}>()".format(position=position, name=name)
+
+    def get_code(self, position):
+        return StagedTupleRef.get_code_with_name(position, self.name)
+
+    def set_func_code(self, position):
+        return "{name}.set<{position}>".format(position=position, name=self.name)
+
     def generateDefinition(self):
         template = readtemplate('c_templates', 'materialized_tuple_ref')
         numfields = len(self.scheme)
+
+        fieldtypes = ','.join([CBaseLanguage.typename(t) for t in self.scheme.get_types()])
+        string_append_statements = emitlist(['o << std::get<{i}>(_fields) << ",";'.format(i=i) for i in range(numfields)])
 
         additional_code = self.__additionalDefinitionCode__()
         after_def_code = self.__afterDefinitionCode__()
@@ -306,7 +319,7 @@ class CApply(Pipelined, algebra.Apply):
         code = ""
 
         assignment_template = """
-        %(dst_name)s.set(%(dst_fieldnum)s, %(src_expr_compiled)s);
+        %(dst_set_func)s(%(src_expr_compiled)s);
         """
 
         dst_name = self.newtuple.name
@@ -316,6 +329,7 @@ class CApply(Pipelined, algebra.Apply):
         code += """%(dst_type_name)s %(dst_name)s;""" % locals()
 
         for dst_fieldnum, src_label_expr in enumerate(self.emitters):
+            dst_set_func = self.newtuple.set_func_code(dst_fieldnum)
             src_label, src_expr = src_label_expr
 
             # make sure to resolve attribute positions using input schema
@@ -326,6 +340,7 @@ class CApply(Pipelined, algebra.Apply):
             state.addInitializers(expr_inits)
             state.addDeclarations(expr_decls)
 
+            print locals()
             code += assignment_template % locals()
 
         innercode = self.parent().consume(self.newtuple, self, state)
@@ -349,12 +364,11 @@ class CProject(Pipelined, algebra.Project):
         code = ""
 
         assignment_template = """
-        %(dst_name)s.set(%(dst_fieldnum)s, %(src_name)s.get(%(src_fieldnum)s));
+        %(dst_set_func)s(%(src_val)s);
         """
 
         dst_name = self.newtuple.name
         dst_type_name = self.newtuple.getTupleTypename()
-        src_name = t.name
 
         # declaration of tuple instance
         code += """%(dst_type_name)s %(dst_name)s;
@@ -362,7 +376,8 @@ class CProject(Pipelined, algebra.Project):
 
         for dst_fieldnum, src_expr in enumerate(self.columnlist):
             if isinstance(src_expr, UnnamedAttributeRef):
-                src_fieldnum = src_expr.position
+                src_val = t.get_code(src_expr.position)
+                dst_set_func = t.set_func_code(dst_fieldnum)
             else:
                 assert False, "Unsupported Project expression"
             code += assignment_template % locals()
