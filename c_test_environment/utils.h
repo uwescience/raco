@@ -133,3 +133,10 @@ namespace hash_tuple{
     };
 
 }
+
+// adapter for hash function
+template <typename T>
+uint64_t hash_tuple_hash(T k) {
+  return hash_tuple::hash<T>()(k);
+}
+
