@@ -697,7 +697,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
                 template_args = "{state_type}, counter, &{update_func}, &get_count".format(state_type=state_type,
                                                                                            update_func=update_func)
                 output_template = """%(output_tuple_type)s %(output_tuple_name)s;
-                %(output_tuple_name)s = %(output_tuple_name)s_tmp;"""
+                %(output_tuple_name)s.set(0, %(output_tuple_name)s_tmp);"""
 
             elif self._agg_mode == self._MULTI_UDA:
                 template_args = "{state_type}, &{update_func}".format(state_type=state_type,
