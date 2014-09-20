@@ -266,7 +266,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         declr_template = ct("""typedef DoubleDHT<int64_t, \
                                                    %(left_in_tuple_type)s, \
                                                    %(right_in_tuple_type)s,
-                                                std_hash<int64_t>> \
+                                                std::hash<int64_t>> \
                     DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s;
       DHT_%(left_in_tuple_type)s_%(right_in_tuple_type)s %(hashname)s;
       """)
@@ -609,7 +609,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         if self.useKey:
             init_template = """auto %(hashname)s = \
-            DHT_symmetric<{keytype},{valtype},hash_tuple_hash<{keytype}>>::create_DHT_symmetric( );""".format(keytype=keytype,
+            DHT_symmetric<{keytype},{valtype},hash_tuple::hash<{keytype}>>::create_DHT_symmetric( );""".format(keytype=keytype,
                                                                                                        valtype=state_type)
 
         else:
@@ -842,7 +842,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             raise ValueError(msg)
 
         declr_template = ct("""typedef MatchesDHT<int64_t, \
-                          %(in_tuple_type)s, std_hash<int64_t>> \
+                          %(in_tuple_type)s, std::hash<int64_t>> \
                            DHT_%(in_tuple_type)s;
         DHT_%(in_tuple_type)s %(hashname)s;
         """)
