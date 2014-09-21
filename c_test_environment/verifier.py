@@ -2,7 +2,7 @@ import re
 import sys
 import nose
 
-doublepat = re.compile(r'\d+[.]\d+')
+doublepat = re.compile(r'-?\d+[.]\d+')
 def parse_number(number):
     if doublepat.match(number):
         n = float(number)
@@ -13,7 +13,7 @@ def parse_number(number):
 
 
 def verify(testout, expected, ordered):
-    tuplepat = re.compile(r'Materialized\(([\d,. ]+)\)')
+    tuplepat = re.compile(r'Materialized\(([-\d,. ]+)\)')
     test = ({}, [])
     expect = ({}, [])
 
