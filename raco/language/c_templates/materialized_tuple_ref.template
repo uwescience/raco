@@ -13,7 +13,9 @@
 
     template <int field, typename T>
     void set(T val) {
-      _fields[field] = *(void **)&val;
+      // first be sure to convert to proper type, based on scheme
+      typename std::tuple_element<field,decltype(_scheme)>::type __val = val;
+      std::memcpy(&_fields[field], &__val, sizeof(int64_t));
     }
 
     static constexpr int numFields() {

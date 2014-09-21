@@ -657,6 +657,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             if self._agg_mode == self._ONE_BUILT_IN:
                 # pass in attribute values as a tuple
                 initializer_template = "std::tuple_cat( {values} )"
+                # need to force type in make_tuple
                 initializer_list += ["std::make_tuple(%(mapping_var_name)s.second)"]
             elif self._agg_mode == self._MULTI_UDA:
                 # pass in attribute values individually
@@ -795,6 +796,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             keygets = ','.join([inputTuple.get_code(g.get_position(inp_sch))
                                 for g in self.grouping_list])
 
+            # need to force types in std::make_tuple
             materialize_template = """%(hashname)s->update\
                 <&%(pipeline_sync)s, %(input_type)s, \
                 &%(update_func)s,&%(init_func)s>(\
