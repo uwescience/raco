@@ -6,7 +6,7 @@
 #include <iostream>
 #include <cstdlib>
 
-std::ostream& CHECK(bool cond) {
+void CHECK(bool cond) {
   if (!cond) {
     std::cerr << "assertion failed" << std::endl;
     exit(1);
