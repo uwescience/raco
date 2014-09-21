@@ -32,7 +32,7 @@ void convert2bin_withTuple( std::string fn, uint64_t burn=0 ) {
     std::istringstream iss(line);
     auto t = Tuple::fromIStream(iss);
     
-    outfile.write((char*) &(t._fields), sizeof(Tuple)); 
+    outfile.write((char*) &(t._fields), sizeof(int64_t)*Tuple::numFields()); 
     linenum++;
   }
   infile.close();
