@@ -1,10 +1,13 @@
 import re
 import sys
+import nose
 
 doublepat = re.compile(r'\d+[.]\d+')
 def parse_number(number):
     if doublepat.match(number):
-        return float(number) 
+        n = float(number)
+        assert n < pow(2, 40), "decimal place rounding based comparison will be unsound for very large numbers"
+        return round(n, 5)
     else:
         return int(number) 
 
