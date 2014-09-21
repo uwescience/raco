@@ -32,10 +32,10 @@ def generate_tuple_class(rel_key, catalogpath):
    tupleref = StagedTupleRef(None, sch)
    definition = tupleref.generateDefinition()
    outfnbase = rel_key.split(':')[2]
-   with open("{0}.cpp".format(outfnbase), 'w') as outf:
+   with open("{0}.convert.cpp".format(outfnbase), 'w') as outf:
        outf.write(template.format(definition=definition, typ=tupleref.getTupleTypename()))
 
-   subprocess.check_output("make -j 8 {fn}.exe".format(fn=outfnbase))
+   subprocess.check_output("make {fn}.convert".format(fn=outfnbase))
 
 
 if __name__ == "__main__":
