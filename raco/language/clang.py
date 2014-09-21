@@ -213,21 +213,27 @@ class CGroupBy(algebra.GroupBy, CCOperator):
                 A rule should create Apply[GroupBy]""" \
                 % self.__class__.__name__
 
+        inp_sch = self.input.scheme()
         self.useMap = len(self.grouping_list) > 0
 
         if self.useMap:
             if len(self.grouping_list) == 1:
-                declr_template = """std::unordered_map<int64_t, int64_t> \
+                declr_template = """std::unordered_map<%(keytype)s,%(valtype)s> \
                 %(hashname)s;
           """
+                keytype = self.language().typename(self.grouping_list[0].typeof(inp_sch, None))
             elif len(self.grouping_list) == 2:
                 declr_template = """std::unordered_map<\
-                std::pair<int64_t, int64_t>, int64_t, pairhash> \
+                std::pair<%(keytypes)s>, %(valtype)s, pairhash> \
                 %(hashname)s;
                 """
+                keytypes = ','.join([self.language().typename(g.typeof(inp_sch, None)) for g in self.grouping_list])
+
         else:
-            declr_template = """int64_t %(hashname)s;
+            declr_template = """%(valtype)s %(hashname)s;
             """
+
+        valtype = self.language().typename(self.aggregate_list[0].input.typeof(inp_sch, None))
 
         self.hashname = self.__genHashName__()
         hashname = self.hashname
@@ -393,8 +399,10 @@ class CHashJoin(algebra.Join, CCOperator):
 
     def consume(self, t, src, state):
         if src.childtag == "right":
+            my_sch = self.scheme()
+
             declr_template = """std::unordered_map\
-            <int64_t, std::vector<%(in_tuple_type)s>* > %(hashname)s;
+            <%(keytype)s, std::vector<%(in_tuple_type)s>* > %(hashname)s;
             """
 
             right_template = """insert(%(hashname)s, %(keyval)s, %(in_tuple_name)s);
@@ -403,6 +411,11 @@ class CHashJoin(algebra.Join, CCOperator):
             hashname = self._hashname
             keypos = self.right_keypos
             keyval = t.get_code(self.right_keypos)
+
+            if self.rightCondIsRightAttr:
+                keytype = self.language().typename(self.condition.right.typeof(my_sch, None))
+            else:
+                keytype = self.language().typename(self.condition.left.typeof(my_sch, None))
 
             in_tuple_type = t.getTupleTypename()
             in_tuple_name = t.name
