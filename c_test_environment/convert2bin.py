@@ -3,7 +3,7 @@ import argparse
 import sys
 
 from raco.catalog import FromFileCatalog
-from raco.language.clang import CStagedTupleRef
+from raco.language.clangcommon import StagedTupleRef
 
 template = """
 #include <tuple>
@@ -29,7 +29,7 @@ int main(int argc, char** argv) {{
 def generate_tuple_class(rel_key, catalogpath):
    cat = FromFileCatalog.load_from_file(catalogpath)
    sch = cat.get_scheme(rel_key)
-   tupleref = CStagedTupleRef(None, sch)
+   tupleref = StagedTupleRef(None, sch)
    definition = tupleref.generateDefinition()
    outfnbase = rel_key.split(':')[2]
    with open("{0}.cpp".format(outfnbase), 'w') as outf:
