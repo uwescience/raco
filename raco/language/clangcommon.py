@@ -241,6 +241,8 @@ class StagedTupleRef:
         fieldtypes = ','.join([CBaseLanguage.typename(t) for t in self.scheme.get_types()])
         string_append_statements = emitlist(['o << std::get<{i}>(_fields) << ",";'.format(i=i) for i in range(numfields)])
 
+        stream_reads = "ss" + emitlist([' >> std::get<{i}>(_t._fields)'.format(i=i) for i in range(numfields)]) + ";"
+
         additional_code = self.__additionalDefinitionCode__()
         after_def_code = self.__afterDefinitionCode__()
 

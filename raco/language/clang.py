@@ -153,9 +153,7 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
         # now generate the scan from memory
 
         # TODO: generate row variable to avoid naming conflict for nested scans
-        memory_scan_template = """for (uint64_t i : %(inputsym)s->range()) {
-          %(tuple_type)s %(tuple_name)s = %(tuple_type)s::fromRelationInfo(%(inputsym)s, i);
-
+        memory_scan_template = """for (auto %(tuple_name)s : %(inputsym)s) {
           %(inner_plan_compiled)s
        } // end scan over %(inputsym)s
        """
@@ -485,14 +483,24 @@ class CSelect(clangcommon.CSelect, CCOperator):
 
 
 class CFileScan(clangcommon.CFileScan, CCOperator):
-    ascii_scan_template = readtemplate("ascii_scan")
-    binary_scan_template = readtemplate("binary_scan")
+    ascii_scan_template = """
+    auto %(resultsym)s = tuplesFromAscii<%%(result_type)s>("%(name)s");
+    """
+
+    # TODO binary input
+    binary_scan_template = """
+    auto %(resultsym)s = tuplesFromAscii<%%(result_type)s>("%(name)s");
+    """
+
 
     def __get_ascii_scan_template__(self):
         return self.ascii_scan_template
 
     def __get_binary_scan_template__(self):
         return self.binary_scan_template
+
+    def __get_relation_decl_template__(self, name):
+        return """std::vector<%(tuple_type)s> %(resultsym)s;"""
 
 
 class CStore(clangcommon.BaseCStore, CCOperator):

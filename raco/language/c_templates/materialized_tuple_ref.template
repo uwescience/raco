@@ -6,7 +6,7 @@
     std::tuple<%(fieldtypes)s> _fields;
 
     template <int field>
-    int64_t get() const {
+    typename std::tuple_element<field,decltype(_fields)>::type get() const {
       return std::get<field>(_fields);
     }
 
@@ -30,6 +30,13 @@
     // shamelessly terrible disambiguation: one solution is named factory methods
     %(tupletypename)s (std::vector<int64_t> vals, bool ignore1, bool ignore2) {
       std::memcpy(&_fields, &vals[0], sizeof(_fields));
+    }
+
+    // use the tuple schema to interpret the input stream
+    static %(tupletypename)s fromIStream(std::istream& ss) {
+        %(tupletypename)s _t;
+        %(stream_reads)s
+        return _t;
     }
 
     // note not typesafe!!
