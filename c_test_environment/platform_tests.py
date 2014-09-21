@@ -477,6 +477,13 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "aggregate_double")
 
+    def test_aggregate_of_binop_double(self):
+        self.check_sub_tables("""
+        D3 = SCAN(%(D3)s);
+        out = select a, MAX(b-c) from D3;
+        STORE(out, OUTPUT);
+        """, "aggregate_of_binop_double")
+
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
