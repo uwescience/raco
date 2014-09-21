@@ -8,7 +8,7 @@
 
     template <int field>
     typename std::tuple_element<field,decltype(_scheme)>::type get() const {
-      return (typename std::tuple_element<field,decltype(_scheme)>::type) _fields[field];
+      return *(typename std::tuple_element<field,decltype(_scheme)>::type *)&_fields[field];
     }
 
     template <int field, typename T>
