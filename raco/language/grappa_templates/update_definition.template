@@ -1,4 +1,4 @@
 {state_type} {name}_update(const {state_type}& state, const {input_type}& {input_tuple_name}) {{
     {state_var_updates}
-    return {state_type}({{ {state_vars} }});
+    return {state_type}(std::make_tuple({state_vars}));
 }}
