@@ -624,7 +624,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
-                initial_value = self.__get_initial_value__(cached_inp_sch=inp_sch)
+                initial_value = self.__get_initial_value__(0, cached_inp_sch=inp_sch)
                 no_key_state_initializer = "counter<{state_type}>::create({valinit})".format(state_type=state_type, valinit=initial_value)
             elif self._agg_mode == self._MULTI_UDA:
                 no_key_state_initializer = \

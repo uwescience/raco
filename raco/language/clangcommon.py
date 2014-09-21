@@ -586,11 +586,13 @@ class StoreToBaseCStore(rules.Rule):
 
 
 class BaseCGroupby(Pipelined, algebra.GroupBy):
-    def __get_initial_value__(self, cached_inp_sch=None):
+    def __get_initial_value__(self, index, cached_inp_sch=None):
         if cached_inp_sch is None:
             cached_inp_sch = self.input.scheme()
 
-        op = self.aggregate_list[0].__class__.__name__
-        initial_value = {'MAX': self.language().limits('min', self.aggregate_list[0].typeof(cached_inp_sch, None)),
-                         'MIN': self.language().limits('max', self.aggregate_list[0].typeof(cached_inp_sch, None))}.get(op, 0)
+        op = self.aggregate_list[index].__class__.__name__
+
+        # min, max need special values; default to 0 as initial value
+        initial_value = {'MAX': self.language().limits('min', self.aggregate_list[index].typeof(cached_inp_sch, None)),
+                         'MIN': self.language().limits('max', self.aggregate_list[index].typeof(cached_inp_sch, None))}.get(op, 0)
         return initial_value

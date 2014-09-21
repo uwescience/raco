@@ -228,7 +228,7 @@ class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
                 keytypes = ','.join([self.language().typename(g.typeof(inp_sch, None)) for g in self.grouping_list])
 
         else:
-            initial_value = self.__get_initial_value__(cached_inp_sch=inp_sch)
+            initial_value = self.__get_initial_value__(0, cached_inp_sch=inp_sch)
             declr_template = """%(valtype)s %(hashname)s = %(initial_value)s;
             """
 
