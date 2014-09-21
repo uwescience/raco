@@ -470,6 +470,13 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(["D3"], "select_double")
         self.check(q, "select_double")
 
+    def test_aggregate_double(self):
+        self.check_sub_tables("""
+        D2 = SCAN(%(D2)s);
+        out = select a, SUM(b) from D2;
+        STORE(out, OUTPUT);
+        """, "aggregate_double")
+
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
