@@ -164,6 +164,11 @@ class CBaseLanguage(Language):
         return cls._conditional_(when_compiled, else_compiled, if_template, else_template, "else")
 
     @classmethod
+    def limits(cls, side, typ):
+        return "std::numeric_limits<{type}>::{side}()".format(type=cls.typename(typ),
+                                                              side=side)
+
+    @classmethod
     def conditional(cls, when_compiled, else_compiled):
         if_template = """{cond} ? {then}"""
 
@@ -578,3 +583,14 @@ class StoreToBaseCStore(rules.Rule):
 
     def __str__(self):
         return "Store => %s" % self.subclass.__name__
+
+
+class BaseCGroupby(Pipelined, algebra.GroupBy):
+    def __get_initial_value__(self, cached_inp_sch=None):
+        if cached_inp_sch is None:
+            cached_inp_sch = self.input.scheme()
+
+        op = self.aggregate_list[0].__class__.__name__
+        initial_value = {'MAX': self.language().limits('min', self.aggregate_list[0].typeof(cached_inp_sch, None)),
+                         'MIN': self.language().limits('max', self.aggregate_list[0].typeof(cached_inp_sch, None))}.get(op, 0)
+        return initial_value

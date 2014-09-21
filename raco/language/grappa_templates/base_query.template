@@ -35,17 +35,20 @@ using namespace Grappa;
 
 DEFINE_uint64( nt, 30, "hack: number of tuples"); 
 
+template <typename T>
 struct counter {
-  int64_t count;
-  static GlobalAddress<counter> create() {
-    auto res = symmetric_global_alloc<counter>();
-    on_all_cores([res] {
-        res->count = 0;
+  T count;
+  static GlobalAddress<counter<T>> create(T init) {
+    auto res = symmetric_global_alloc<counter<T>>();
+    on_all_cores([res, init] {
+        res->count = init;
         });           
     return res;
   }
 } GRAPPA_BLOCK_ALIGNED;
-int64_t get_count(GlobalAddress<counter> p) { 
+
+template <typename T>
+T get_count(GlobalAddress<counter<T>> p) {
   return p->count;                           
 }
 

@@ -566,7 +566,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         return code
 
 
-class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
+class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
     _i = 0
 
     _ONE_BUILT_IN = 0
@@ -624,7 +624,8 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
-                no_key_state_initializer = "counter::create()"
+                initial_value = self.__get_initial_value__(cached_inp_sch=inp_sch)
+                no_key_state_initializer = "counter<{state_type}>::create({valinit})".format(state_type=state_type, valinit=initial_value)
             elif self._agg_mode == self._MULTI_UDA:
                 no_key_state_initializer = \
                     "symmetric_global_alloc<{state_tuple_type}>()".format(
