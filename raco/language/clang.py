@@ -419,7 +419,7 @@ class CHashJoin(algebra.Join, CCOperator):
         if src.childtag == "left":
             left_template = """
           for (auto %(right_tuple_name)s : \
-          lookup(%(hashname)s, %(keyval)) {
+          lookup(%(hashname)s, %(keyval)s)) {
             auto %(out_tuple_name)s = \
             %(out_tuple_type)s::create(%(keyname)s, %(right_tuple_name)s);
          %(inner_plan_compiled)s

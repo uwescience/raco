@@ -41,7 +41,7 @@
         static_assert(%(tupletypename)s::numFields() == (T1::numFields() + T2::numFields()), "lhs and rhs must have equal number of fields");
         %(tupletypename)s t;
         std::memcpy(&(t._fields), &(t1._fields), T1::numFields()*sizeof(int64_t));
-        std::memcpy(((char*)&(t._fields))+T1::numFields*sizeof(int64_t), &(t2._fields), T2::numFields()*sizeof(int64_t));
+        std::memcpy(((char*)&(t._fields))+T1::numFields()*sizeof(int64_t), &(t2._fields), T2::numFields()*sizeof(int64_t));
         return t;
     }
 
