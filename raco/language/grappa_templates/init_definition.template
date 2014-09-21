@@ -1,4 +1,4 @@
 {state_type} {name}_init() {{
     {state_var_updates}
-    return {state_type}({{ {state_vars} }});
+    return {state_type}( std::make_tuple({state_vars}) );
 }}
