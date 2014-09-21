@@ -151,15 +151,20 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
         super(MyriaLPlatformTestHarness, self).setUp()
 
         self.tables = {}
-        for name in ['R', 'S', 'T', 'I']:
+        for name in ['R', 'S', 'T', 'I', 'D']:
             for width in [1, 2, 3]:
                 tablename = "%s%d" % (name, width)
                 fullname = "public:adhoc:%s" % tablename
                 self.tables[tablename] = fullname
 
-                one = [("a", types.INT_TYPE)]
-                two = one + [("b", types.INT_TYPE)]
-                three = two + [("c", types.INT_TYPE)]
+                if name == 'D':
+                    rest_type = types.DOUBLE_TYPE
+                else:
+                    rest_type = types.LONG_TYPE
+
+                one = [("a", types.LONG_TYPE)]
+                two = one + [("b", rest_type)]
+                three = two + [("c", rest_type)]
                 # ingest fake data; data is already generated separately for now
                 if width == 1:
                     self.db.ingest(fullname, Counter(), scheme.Scheme(one))
@@ -460,6 +465,10 @@ class MyriaLPlatformTests(object):
         P = [FROM J2 WHERE $0>1 and $3>2 and $6>3 EMIT $0, $8];
         STORE(P, OUTPUT);
         """, "two_join_switch", SwapJoinSides=True)
+
+    def test_select_double(self):
+        q = self.myrial_from_sql(["D3"], "select_double")
+        self.check(q, "select_double")
 
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""
