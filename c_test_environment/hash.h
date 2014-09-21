@@ -48,40 +48,56 @@ void COUNT_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, K1 k
   slot += 1;
 }
 
-static uint64_t MIN(uint64_t a, uint64_t b) {
+template <typename T>
+static T MIN(T a, T b) {
   return (a<b) ? a : b;
 }
 
-static uint64_t MAX(uint64_t a, uint64_t b) {
+template <typename T>
+static T MAX(T a, T b) {
   return (a>b) ? a : b;
 }
 
 template <typename K, typename V>
 void MIN_insert(std::unordered_map<K, V >& hash, K key, V val) {
-  // NOTE: this method is only valid for 0 identity functions
-  auto& slot = hash[key];
-  slot = MIN(slot, val);
+  auto got = hash.find(key);
+  if (got==hash.end()) {
+    hash[key] = val;
+  } else {
+    hash[key] = MIN(got->second, val);  
+  }
 }
 
 template <typename K, typename V>
 void MAX_insert(std::unordered_map<K, V >& hash, K key, V val) {
-  // NOTE: this method is only valid for 0 identity functions
-  auto& slot = hash[key];
-  slot = MAX(slot, val);
+  auto got = hash.find(key);
+  if (got==hash.end()) {
+    hash[key] = val;
+  } else {
+    hash[key] = MAX(got->second, val);  
+  }
 }
 
 template <typename K1, typename K2, typename V>
 void MIN_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, K1 key1, K2 key2, V val) {
-  // NOTE: this method is only valid for 0 identity functions
-  auto& slot = hash[std::pair<K1,K2>(key1,key2)];
-  slot = MIN(slot, val);
+  auto key = std::pair<K1,K2>(key1,key2);
+  auto got = hash.find(key);
+  if (got==hash.end()) {
+    hash[key] = val;
+  } else {
+    hash[key] = MIN(got->second, val);  
+  }
 }
 
 template <typename T, typename K1, typename K2, typename V>
 void MAX_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, K1 key1, K2 key2, V val) {
-  // NOTE: this method is only valid for 0 identity functions
-  auto& slot = hash[std::pair<K1,K2>(key1,key2)];
-  slot = MAX(slot, val);
+  auto key = std::pair<K1,K2>(key1,key2);
+  auto got = hash.find(key);
+  if (got==hash.end()) {
+    hash[key] = val;
+  } else {
+    hash[key] = MAX(got->second, val);  
+  }
 }
 
 // one key
