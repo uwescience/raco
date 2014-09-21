@@ -106,6 +106,18 @@ class ExpressionTest(unittest.TestCase):
             def visit_TIMES(self, binaryExpr):
                 pass
 
+            def visit_BinaryFunction(self, expr):
+                pass
+
+            def visit_UnaryFunction(self, expr):
+                pass
+
+            def visit_CAST(self, expr):
+                pass
+
+            def visit_NaryFunction(self, expr):
+                pass
+
         v = EvalVisitor()
         ex = e.AND(e.NEQ(e.NumericLiteral(1), e.NumericLiteral(2)),
                    e.NEQ(e.NumericLiteral(4), e.NumericLiteral(5)))
