@@ -8,16 +8,19 @@ from raco.language.clangcommon import StagedTupleRef
 template = """
 #include <tuple>
 #include <string>
+#include <cstring>
+#include <cstdint>
 #include <sstream>
+#include <vector>
 #include <cstdlib>
 #include <iostream>
-#include "relation_io.hpp"
+#include "convert2bin.h"
 
 {definition}
 
 int main(int argc, char** argv) {{
     if (argc < 3) {{
-        std::cerr << "usage ./" << argv[0] << " [file] [burns]"
+        std::cerr << "usage ./" << argv[0] << " [file] [burns]" << std::endl;
         exit(1);
     }}
 
