@@ -7,6 +7,7 @@ from raco.language import clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, ct, CBaseLanguage
+from raco.utility import emitlist
 
 from raco.algebra import gensym
 
@@ -289,15 +290,15 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         if self.useMap:
             if len(self.grouping_list) == 1:
                 materialize_template = """%(op)s_insert(%(hashname)s, \
-                %(tuple_name)s, %(key1pos)s, %(valpos)s);
+                %(key1val)s, %(val)s);
                 """
             elif len(self.grouping_list) == 2:
                 materialize_template = """%(op)s_insert(%(hashname)s, \
-                %(tuple_name)s, %(key1pos)s, %(key2pos)s, %(valpos)s);
+                %(key1val)s, %(key2val)s, %(val)s);
                 """
         else:
             materialize_template = """%(op)s_insert(%(hashname)s, \
-            %(tuple_name)s, %(valpos)s);
+            %(val)s);
             """
 
         hashname = self.hashname
@@ -308,10 +309,11 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             inp_sch = self.input.scheme()
 
             key1pos = self.grouping_list[0].get_position(inp_sch)
+            key1val = inputTuple.get_code(key1pos)
 
             if len(self.grouping_list) == 2:
-                key2pos = self.grouping_list[1].get_position(
-                    inp_sch)
+                key2pos = self.grouping_list[1].get_position(inp_sch)
+                key2val = inputTuple.get_code(key2pos)
 
         if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
             # no value needed for Zero-input aggregate,
@@ -322,6 +324,8 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             valpos = self.aggregate_list[0].input.get_position(self.scheme())
         else:
             assert False, "only support Unary or Zeroary aggregates"
+
+        val = inputTuple.get_code(valpos)
 
         op = self.aggregate_list[0].__class__.__name__
 
@@ -393,15 +397,15 @@ class CHashJoin(algebra.Join, CCOperator):
             <int64_t, std::vector<%(in_tuple_type)s>* > %(hashname)s;
             """
 
-            right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
+            right_template = """insert(%(hashname)s, %(keyval)s, %(in_tuple_name)s);
             """
 
             hashname = self._hashname
-            keyname = t.name
-
             keypos = self.right_keypos
+            keyval = t.get_code(self.right_keypos)
 
             in_tuple_type = t.getTupleTypename()
+            in_tuple_name = t.name
 
             # declaration of hash map
             hashdeclr = declr_template % locals()
@@ -415,7 +419,7 @@ class CHashJoin(algebra.Join, CCOperator):
         if src.childtag == "left":
             left_template = """
           for (auto %(right_tuple_name)s : \
-          lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
+          lookup(%(hashname)s, %(keyval)) {
             auto %(out_tuple_name)s = \
             %(out_tuple_type)s::create(%(keyname)s, %(right_tuple_name)s);
          %(inner_plan_compiled)s
@@ -424,8 +428,8 @@ class CHashJoin(algebra.Join, CCOperator):
             hashname = self._hashname
             keyname = t.name
             keytype = t.getTupleTypename()
-
             keypos = self.left_keypos
+            keyval = t.get_code(keypos)
 
             right_tuple_name = gensym()
 
@@ -488,13 +492,12 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         schemafile = self.write_schema(self.scheme())
         state.addPreCode(schemafile)
         state.addPreCode(opentuple)
-        code += "int logi = 0;\n"
-        code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
-                % (t.name)
-        code += self.language().log_file_unquoted("%s.get(logi)" % t.name)
-        code += "}\n "
-        code += "logfile << %s.get(logi);\n" % (t.name)
+
+        loggings = emitlist([self.language().log_file_unquoted("{0}".format(t.get_code(i))) for i in range(len(t.scheme))])
+        code += loggings
+
         code += "logfile << '\\n';"
+
         state.addPostCode('logfile.close();')
 
         return code
