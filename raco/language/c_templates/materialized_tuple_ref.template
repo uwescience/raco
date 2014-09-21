@@ -41,7 +41,7 @@
 
     // note not typesafe!!
     template <typename T1, typename T2>
-    static %(tupletypename)s create(T1& t1, T2& t2) {
+    static %(tupletypename)s create(const T1& t1, const T2& t2) {
       //TODO: format of assertion for type safe memcpy; fo this for each field
       //static_assert(!(std::is_integral<typename std::tuple_element<field,decltype(_fields)>::type>::value ^ std::is_integral<T>::value), "Type mismatch");
 
@@ -53,7 +53,7 @@
     }
 
     template <typename T>
-    static %(tupletypename)s create(T& from) {
+    static %(tupletypename)s create(const T& from) {
       static_assert(%(tupletypename)s::numFields() == T::numFields(), "constructor only works on same num fields");
       %(tupletypename)s t;
       std::memcpy(&(t._fields), &(from._fields), from.numFields()*sizeof(int64_t));
@@ -61,7 +61,7 @@
     }
 
     template <typename Tuple, typename T>
-    %(tupletypename)s (Tuple& v0, T& from) {
+    %(tupletypename)s (const Tuple& v0, const T& from) {
         static_assert(%(tupletypename)s::numFields() == (std::tuple_size<Tuple>::value + T::numFields()), "constructor only works on same number of total fields");
         std::memcpy(&_fields, &v0, sizeof(Tuple));
         std::memcpy(((char*)&_fields)+sizeof(Tuple), &(from._fields), T::numFields());
