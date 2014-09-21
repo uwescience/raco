@@ -652,15 +652,17 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             elif self._agg_mode == self._MULTI_UDA:
                 emit_type = self.state_tuple.getTupleTypename()
 
+            initializer_list = ["%(mapping_var_name)s.first"]
+
             if self._agg_mode == self._ONE_BUILT_IN:
-                # pass in attribute values as an array
-                initializer_template = "std::make_tuple( {values} )"
+                # pass in attribute values as a tuple
+                initializer_template = "std::tuple_cat( {values} )"
+                initializer_list += ["std::make_tuple(%(mapping_var_name)s.second)"]
             elif self._agg_mode == self._MULTI_UDA:
                 # pass in attribute values individually
                 initializer_template = "{values}"
+                initializer_list += ["%(mapping_var_name)s.second"]
 
-            initializer_list = ["%(mapping_var_name)s.first"]
-            initializer_list += ["%(mapping_var_name)s.second"]
             initializer = initializer_template.format(values=','.join(initializer_list))
 
             produce_template = """%(hashname)s->\
