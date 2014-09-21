@@ -484,6 +484,15 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "aggregate_of_binop_double")
 
+    def test_aggregate_of_binop_no_key_union_double(self):
+        self.check_sub_tables("""
+        D3 = SCAN(%(D3)s);
+        ma = select MAX(b-c) from D3;
+        mi = select MIN(c-b) from D3;
+        out = UNIONALL(ma, mi);
+        STORE(out, OUTPUT);
+        """, "aggregate_of_binop_no_key_union_double")
+
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
