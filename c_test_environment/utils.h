@@ -103,6 +103,54 @@ namespace hash_tuple{
           return seed;                                 
         }                                              
     };
-
+  
 }
 
+
+namespace TupleUtils {
+
+namespace impl {
+  template <typename T, int total, int dst_o, int src_o>
+    struct AssignmentHelper {
+      void operator()(void ** x, T t) const {
+        x[total-dst_o] = *(void**)(&std::get<total-src_o>(t));
+        AssignmentHelper<T, total, dst_o-1, src_o-1>()(x, t);
+      }
+    };
+
+  template <typename T, int total, int dst_o>
+    struct AssignmentHelper<T, total, dst_o, 0> {
+      void operator()(void ** x, T t) const {
+        return; //done
+      }
+    };
+  
+  template <typename T, int total, int i>
+    struct StrHelper {
+      void operator()(std::ostream& o, void ** x, T t) const {
+        o << *((typename std::tuple_element<total-i, T>::type *) &x[total-i]) << ",";
+        StrHelper<T, total, i-1>()(o, x, t);
+      }
+    };
+
+  template <typename T, int total>
+    struct StrHelper<T, total, 0> {
+      void operator()(std::ostream& o, void ** x, T t) const {
+        return; //done
+      }
+    };
+}
+
+  template <int dst_o, typename T>
+  void assign(void ** x, T t) {
+    constexpr size_t n = std::tuple_size<T>::value;
+    impl::AssignmentHelper<T, n, dst_o+n, n>()(x, t);
+  }
+  
+  template <typename T>
+  std::ostream& str(std::ostream& o, void ** x, T t) {
+    constexpr size_t n = std::tuple_size<T>::value;
+    impl::StrHelper<T, n, n>()(o, x, t);
+    return o;
+  }
+};

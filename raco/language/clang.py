@@ -28,20 +28,15 @@ class CStagedTupleRef(StagedTupleRef):
     public:
     static %(tupletypename)s fromRelationInfo(relationInfo * rel, int row) {
       %(tupletypename)s _t;
-      %(copies)s
+      for (int i=0; i<%(numfields)s; i++) {
+         _t._fields[i] = *(void**)(&(rel->relation[row*rel->fields+i]));
+         }
       return _t;
     }
     """
 
-        copytemplate = """std::get<%(fieldnum)s>(_t._fields) = \
-        rel->relation[row*rel->fields + %(fieldnum)s];
-    """
-
         copies = ""
-        # TODO: actually list the trimmed schema offsets
-        for i in range(0, len(self.scheme)):
-            fieldnum = i
-            copies += copytemplate % locals()
+        numfields = len(self.scheme)
 
         tupletypename = self.getTupleTypename()
         return constructor_template % locals()

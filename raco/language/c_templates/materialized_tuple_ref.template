@@ -2,17 +2,18 @@
   class %(tupletypename)s {
 
     public:
-    // relies on std::tuple having predictable field sizes if all fields are same size
-    std::tuple<%(fieldtypes)s> _fields;
+    static std::tuple<%(fieldtypes)s> _scheme;
+
+    void * _fields[%(numfields)s];
 
     template <int field>
-    typename std::tuple_element<field,decltype(_fields)>::type get() const {
-      return std::get<field>(_fields);
+    typename std::tuple_element<field,decltype(_scheme)>::type get() const {
+      return *(typename std::tuple_element<field,decltype(_scheme)>::type *)&_fields[field];
     }
 
     template <int field, typename T>
     void set(T val) {
-      std::get<field>(_fields) = val;
+      _fields[field] = *(void **)&val;
     }
 
     static constexpr int numFields() {
@@ -34,9 +35,12 @@
 
     // use the tuple schema to interpret the input stream
     static %(tupletypename)s fromIStream(std::istream& ss) {
-        %(tupletypename)s _t;
+        decltype(%(tupletypename)s::_scheme) _t;
         %(stream_reads)s
-        return _t;
+
+        %(tupletypename)s _ret;
+        TupleUtils::assign<0>(_ret._fields, _t);
+        return _ret;
     }
 
     // note not typesafe!!
@@ -63,8 +67,14 @@
     template <typename Tuple, typename T>
     %(tupletypename)s (const Tuple& v0, const T& from) {
         static_assert(%(tupletypename)s::numFields() == (std::tuple_size<Tuple>::value + T::numFields()), "constructor only works on same number of total fields");
-        std::memcpy(&_fields, &v0, sizeof(Tuple));
-        std::memcpy(((char*)&_fields)+sizeof(Tuple), &(from._fields), T::numFields());
+        TupleUtils::assign<0>(_fields, v0);
+        std::memcpy(((char*)&_fields)+T::numFields()*sizeof(int64_t), &(from._fields), T::numFields());
+    }
+
+    template <typename Tuple>
+    %(tupletypename)s (const Tuple& v0) {
+        static_assert(%(tupletypename)s::numFields() == (std::tuple_size<Tuple>::value), "constructor only works on same number of total fields");
+        TupleUtils::assign<0>(_fields, v0);
     }
 
     std::ostream& dump(std::ostream& o) const {
@@ -73,7 +83,7 @@
       // for (int i=0; i<numFields(); i++) {
       //  o << _fields[i] << ",";
       // }
-      %(string_append_statements)s
+      TupleUtils::str(o, (void**)_fields, _scheme);
 
       o << ")";
       return o;
@@ -85,4 +95,6 @@
   std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
     return t.dump(o);
   }
+
+  std::tuple<%(fieldtypes)s> %(tupletypename)s::_scheme;
 
