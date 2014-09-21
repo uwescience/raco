@@ -256,7 +256,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
                 produce_template = """for (auto it=%(hashname)s.begin(); \
                 it!=%(hashname)s.end(); it++) {
                 %(output_tuple_type)s %(output_tuple_name)s(\
-                {it->first, it->second});
+                std::make_tuple(it->first, it->second));
                 %(inner_code)s
                 }
                 """
@@ -264,13 +264,13 @@ class CGroupBy(algebra.GroupBy, CCOperator):
                 produce_template = """for (auto it=%(hashname)s.begin(); \
                 it!=%(hashname)s.end(); it++) {
                 %(output_tuple_type)s %(output_tuple_name)s(\
-                {it->first.first, it->first.second, it->second});
+                std::make_tuple(it->first.first, it->first.second, it->second));
                 %(inner_code)s
                 }
                 """
         else:
             produce_template = """{
-            %(output_tuple_type)s %(output_tuple_name)s({ %(hashname)s });
+            %(output_tuple_type)s %(output_tuple_name)s(std::make_tuple(%(hashname)s));
             %(inner_code)s
             }
             """
@@ -417,7 +417,7 @@ class CHashJoin(algebra.Join, CCOperator):
           for (auto %(right_tuple_name)s : \
           lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
             auto %(out_tuple_name)s = \
-            combine<%(out_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
+            %(out_tuple_type)s::create(%(keyname)s, %(right_tuple_name)s);
          %(inner_plan_compiled)s
       }
       """
