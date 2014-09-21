@@ -13,7 +13,7 @@
 
     template <int field, typename T>
     void set(T val) {
-      _fields[field] = (void *) val;
+      _fields[field] = *(void **)&val;
     }
 
     static constexpr int numFields() {
