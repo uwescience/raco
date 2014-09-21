@@ -5,7 +5,7 @@ from subprocess import check_call
 def get_name(basename, fields):
     return basename+str(fields)
 
-def generate_random(basename, fields, tuples, datarange):
+def generate_random_int(basename, fields, tuples, datarange):
     fn = get_name(basename, fields)
     with open(fn, 'w') as f:
         print "generating %s" % (os.path.abspath(fn))
@@ -16,6 +16,26 @@ def generate_random(basename, fields, tuples, datarange):
                 if j<(fields-1):
                     f.write(' ')
             f.write("\n")
+
+
+def generate_random_double(basename, fields, tuples, datarange):
+    """
+     First attribute is integer and the rest are doubles
+    """
+    fn = get_name(basename, fields)
+    with open(fn, 'w') as f:
+        print "generating %s" % (os.path.abspath(fn))
+        for i in range(0,tuples):
+            f.write(str(random.randint(0, datarange)))
+            if 0<(fields-1):
+                f.write(' ')
+            for j in range(1,fields):
+                dat = random.uniform(0, datarange)
+                f.write(str(dat))
+                if j<(fields-1):
+                    f.write(' ')
+            f.write("\n")
+
 
 def generate_last_sequential(basename, fields, tuples, datarange):
     fn = get_name(basename, fields)
@@ -31,7 +51,7 @@ def generate_last_sequential(basename, fields, tuples, datarange):
 
             f.write("\n")
 
-def importStatement(basename, fields):
+def importStatement(basename, fields, intfields):
     template = """create table %(basename)s%(fields)s(%(fielddcls)s);
 .separator " "
 .import %(basename)s%(fields)s %(basename)s%(fields)s
@@ -41,7 +61,11 @@ def importStatement(basename, fields):
     fielddcls = ""
     names = ['a','b','c']
     for i in range(0,fields):
-        fielddcls += names[i] + ' integer'
+        if i < intfields:
+            fielddcls += names[i] + ' integer'
+        else:
+            fielddcls += names[i] + ' real'
+
         if i < fields-1:
             fielddcls +=", "
 
@@ -57,13 +81,14 @@ def need_generate(cpdir=None):
 def generate_default(cpdir=None):
     print 'generating'
     with open('importTestData.sql', 'w') as f:
-        for n, genfunc in [('R', generate_random),
-                           ('S', generate_random),
-                           ('T', generate_random),
-                           ('I', generate_last_sequential)]:
+        for n, genfunc, intfields in [('R', generate_random_int, 3),
+                           ('S', generate_random_int, 3),
+                           ('T', generate_random_int, 3),
+                           ('D', generate_random_double, 1),
+                           ('I', generate_last_sequential, 3)]:
             for nf in [1, 2, 3]:
                 genfunc(n, nf, 30, 10)
-                f.write(importStatement(n, nf))
+                f.write(importStatement(n, nf, intfields))
                 if cpdir:
                     fn = get_name(n, nf)
                     check_call(['ln', '-fs', os.path.abspath(fn), cpdir])
