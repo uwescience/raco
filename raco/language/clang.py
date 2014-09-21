@@ -25,12 +25,14 @@ class CStagedTupleRef(StagedTupleRef):
     def __additionalDefinitionCode__(self):
         constructor_template = """
     public:
-    %(tupletypename)s (relationInfo * rel, int row) {
+    static %(tupletypename)s fromRelationInfo(relationInfo * rel, int row) {
+      %(tupletypename)s _t;
       %(copies)s
+      return _t;
     }
     """
 
-        copytemplate = """_fields[%(fieldnum)s] = \
+        copytemplate = """std::get<%(fieldnum)s>(_t._fields) = \
         rel->relation[row*rel->fields + %(fieldnum)s];
     """
 
@@ -151,7 +153,7 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
 
         # TODO: generate row variable to avoid naming conflict for nested scans
         memory_scan_template = """for (uint64_t i : %(inputsym)s->range()) {
-          %(tuple_type)s %(tuple_name)s(%(inputsym)s, i);
+          %(tuple_type)s %(tuple_name)s = %(tuple_type)s::fromRelationInfo(%(inputsym)s, i);
 
           %(inner_plan_compiled)s
        } // end scan over %(inputsym)s
