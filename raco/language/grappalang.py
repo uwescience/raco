@@ -319,7 +319,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         [=](%(other_tuple_type)s %(valname)s) {
             join_coarse_result_count++;
             %(out_tuple_type)s %(out_tuple_name)s = \
-                             combine<%(out_tuple_type)s, \
+                             %(out_tuple_type)s::create<\
                                       %(left_type)s, \
                                       %(right_type)s> (%(left_name)s, \
                             %(right_name)s);
@@ -680,7 +680,7 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
             elif self._agg_mode == self._MULTI_UDA:
                 template_args = "{state_type}, &{update_func}".format(state_type=state_type,
                                                                       update_func=update_func)
-                output_template = """%(output_tuple_type)s %(output_tuple_name)s(%(output_tuple_name)s_tmp, true);"""
+                output_template = """%(output_tuple_type)s %(output_tuple_name)s = %(output_tuple_type)s::create(%(output_tuple_name)s_tmp);"""
 
             produce_template = """auto %(output_tuple_name)s_tmp = \
             reduce<%(template_args)s>(%(hashname)s);
@@ -959,7 +959,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             [=](%(right_tuple_type)s& %(right_tuple_name)s) {
               join_coarse_result_count++;
               %(out_tuple_type)s %(out_tuple_name)s = \
-               combine<%(out_tuple_type)s, \
+               %(out_tuple_type)s::create<\
                        %(keytype)s, \
                        %(right_tuple_type)s> \
                            (%(keyname)s, %(right_tuple_name)s);

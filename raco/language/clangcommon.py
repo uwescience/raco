@@ -291,8 +291,8 @@ class CUnionAll(Pipelined, algebra.Union):
 
     def consume(self, t, src, state):
         union_template = """
-        auto %(unified_tuple_name)s = \
-        transpose<%(unified_tuple_typename)s>(%(src_tuple_name)s);
+        %(unified_tuple_typename)s %(unified_tuple_name)s = \
+        %(unified_tuple_typename)s::create(%(src_tuple_name)s);
                         %(inner_plan_compiled)s"""
 
         unified_tuple_typename = self.unifiedTupleType.getTupleTypename()
