@@ -114,6 +114,13 @@ class FromFileCatalog(Catalog):
         return self.catalog.keys()
 
     @classmethod
+    def print_cat(cls, ffc1, ffc2):
+        cpy = ffc1.catalog.copy()
+        for k,v in ffc2.catalog:
+            cpy[k] = v
+        print cpy
+
+    @classmethod
     def load_from_file(cls, path):
         with open(path) as fh:
             return cls(literal_eval(fh.read()), path)
