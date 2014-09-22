@@ -103,7 +103,7 @@ class FromFileCatalog(Catalog):
             self.catalog = dict([(k, parse(v)) for k, v in cat.iteritems()])
         elif isinstance(cat, list):
             name = os.path.splitext(os.path.basename(fname))[0]
-            self.catalog = {'public:adhoc:{0}'.format(name): cat}
+            self.catalog = {'public:adhoc:{0}'.format(name): (cat, DEFAULT_CARDINALITY,)}
         else:
             error()
 
