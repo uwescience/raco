@@ -3,7 +3,7 @@ from raco.algebra import DEFAULT_CARDINALITY
 from raco.relation_key import RelationKey
 from raco.scheme import Scheme
 from ast import literal_eval
-
+import os
 
 class Relation(object):
     def __init__(self, name, sch):
@@ -78,22 +78,34 @@ class FromFileCatalog(Catalog):
     {'relation1' : ([('a', 'LONG_TYPE'), ('b', 'STRING_TYPE')], 10),
      'relation2' : [('y', 'STRING_TYPE'), ('z', 'DATETIME_TYPE')]}
 
+     Or it can be a single relation, using filename as basename
+     [('a', 'LONG_TYPE'), ('b', 'STRING_TYPE')]
+
      see raco.types for allowed types
     """
 
-    def __init__(self, cat):
+    def __init__(self, cat, fname):
         self.catalog = {}
 
-        def parse(v):
-            if isinstance(v, tuple):
-                return v
-            elif isinstance(v, list):
-                return v, DEFAULT_CARDINALITY
-            else:
-                assert False, """Unexpected catalog file format. \
-                See raco.catalog.FromFileCatalog"""
+        def error():
+            assert False, """Unexpected catalog file format. \
+                    See raco.catalog.FromFileCatalog"""
 
-        self.catalog = dict([(k, parse(v)) for k, v in cat.iteritems()])
+        if isinstance(cat, dict):
+            def parse(v):
+                if isinstance(v, tuple):
+                    return v
+                elif isinstance(v, list):
+                    return v, DEFAULT_CARDINALITY
+                else:
+                    error()
+
+            self.catalog = dict([(k, parse(v)) for k, v in cat.iteritems()])
+        elif isinstance(cat, list):
+            name = os.path.splitext(os.path.basename(fname))[0]
+            self.catalog = {'public:adhoc:{0}'.format(name): cat}
+        else:
+            error()
 
     def get_scheme(self, rel_key):
         return Scheme(self.__get_catalog_entry__(rel_key)[0])
@@ -104,7 +116,7 @@ class FromFileCatalog(Catalog):
     @classmethod
     def load_from_file(cls, path):
         with open(path) as fh:
-            return cls(literal_eval(fh.read()))
+            return cls(literal_eval(fh.read()), path)
 
     def get_num_servers(self):
         return 1
