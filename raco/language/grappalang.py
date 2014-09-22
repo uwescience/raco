@@ -1096,7 +1096,7 @@ class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
         schemefile = 'writeSchema("%s", "%s");\n' % \
                      (zip(names, my_sch.get_types()), filename)
         state.addPreCode(schemefile)
-        resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % filename
+        resultfile = 'writeTuplesUnordered(&result, FLAGS_output_file);' % filename
         state.addPipelineFlushCode(resultfile)
 
         return ""
