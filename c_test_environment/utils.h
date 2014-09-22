@@ -110,16 +110,20 @@ namespace hash_tuple{
 namespace TupleUtils {
 
 namespace impl {
-  template <typename T, int total, int dst_o, int src_o>
+  template <typename T, typename Sch, int total, int dst_o, int src_o>
     struct AssignmentHelper {
       void operator()(void ** x, T t) const {
-        x[total-dst_o] = *(void**)(&std::get<total-src_o>(t));
-        AssignmentHelper<T, total, dst_o-1, src_o-1>()(x, t);
+        constexpr int i = total - dst_o;
+        // convert to data type
+        typename std::tuple_element<i,Sch>::type __dat = std::get<i>(t);
+        // now store
+        std::memcpy(&x[i], &__dat, sizeof(int64_t));
+        AssignmentHelper<T, Sch, total, dst_o-1, src_o-1>()(x, t);
       }
     };
 
-  template <typename T, int total, int dst_o>
-    struct AssignmentHelper<T, total, dst_o, 0> {
+  template <typename T, typename Sch, int total, int dst_o>
+    struct AssignmentHelper<T, Sch, total, dst_o, 0> {
       void operator()(void ** x, T t) const {
         return; //done
       }
@@ -141,10 +145,10 @@ namespace impl {
     };
 }
 
-  template <int dst_o, typename T>
+  template <int dst_o, typename Sch, typename T>
   void assign(void ** x, T t) {
     constexpr size_t n = std::tuple_size<T>::value;
-    impl::AssignmentHelper<T, n, dst_o+n, n>()(x, t);
+    impl::AssignmentHelper<T, Sch, n, dst_o+n, n>()(x, t);
   }
   
   template <typename T>
