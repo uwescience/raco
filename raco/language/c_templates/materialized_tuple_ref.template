@@ -1,5 +1,7 @@
           // can be just the necessary schema
   class %(tupletypename)s {
+    // Invariant: data stored in _fields is always in the representation
+    // specified by _scheme.
 
     public:
     static std::tuple<%(fieldtypes)s> _scheme;
@@ -43,6 +45,12 @@
         %(tupletypename)s _ret;
         TupleUtils::assign<0, decltype(_scheme)>(_ret._fields, _t);
         return _ret;
+    }
+
+    void toOStream(std::ostream& os) const {
+       for (int i=0; i<numFields(); i++) {
+         os.write((char *)&_fields[i], sizeof(int64_t))
+       }
     }
 
     // note not typesafe!!
