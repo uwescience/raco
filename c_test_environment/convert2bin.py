@@ -25,7 +25,7 @@ int main(int argc, char** argv) {{
         exit(1);
     }}
 
-    convert2bin_withTuple<{typ}>(argv[1], atoi(argv[2]), atoi(argv[3]);
+    convert2bin_withTuple<{typ}>(argv[1], atoi(argv[2]), atoi(argv[3]));
 }}
 """
 
