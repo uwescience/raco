@@ -234,7 +234,7 @@ class Parser(object):
         Parser.decomposable_aggs[logical] = da
 
     @staticmethod
-    def add_nary_udf(p, name, args, emitter):
+    def add_nary_udf(p, name, args, emitters):
         """Add an n-ary user-defined function to the global function table.
 
         :param p: The parser context
@@ -243,12 +243,14 @@ class Parser(object):
         :param args: A list of function arguments
         :type args: list of strings
         :param emitter: The output expression(s)
-        :type body_expr: An instance of emitarg.EmitArg
+        :type body_expr: A list of NaryEmitArg instances
         """
-        if not isinstance(emitter, emitarg.NaryEmitArg):
-            raise IllegalWildcardException(name, lineno)
-
-        self.add_udf(p, name, args, emitter.sexprs)
+        if not all(isinstance(e, emitarg.NaryEmitArg) for e in emitters):
+            raise IllegalWildcardException(name, p.lineno(0))
+        if sum(len(x.sexprs) for x in emitters) != len(emitters):
+            raise NestedTupleExpressionException(p.lineno())
+        emit_exprs = [e.sexprs[0] for e in emitters]
+        Parser.add_udf(p, name, args, emit_exprs)
 
     @staticmethod
     def add_udf(p, name, args, body_exprs):
