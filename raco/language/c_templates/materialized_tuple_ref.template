@@ -49,7 +49,7 @@
 
     void toOStream(std::ostream& os) const {
        for (int i=0; i<numFields(); i++) {
-         os.write((char *)&_fields[i], sizeof(int64_t))
+         os.write((char *)&_fields[i], sizeof(int64_t));
        }
     }
 
