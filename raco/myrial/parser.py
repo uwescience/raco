@@ -234,6 +234,23 @@ class Parser(object):
         Parser.decomposable_aggs[logical] = da
 
     @staticmethod
+    def add_nary_udf(p, name, args, emitter):
+        """Add an n-ary user-defined function to the global function table.
+
+        :param p: The parser context
+        :param name: The name of the function
+        :type name: string
+        :param args: A list of function arguments
+        :type args: list of strings
+        :param emitter: The output expression(s)
+        :type body_expr: An instance of emitarg.EmitArg
+        """
+        if not isinstance(emitter, emitarg.NaryEmitArg):
+            raise IllegalWildcardException(name, lineno)
+
+        self.add_udf(p, name, args, emitter.sexprs)
+
+    @staticmethod
     def add_udf(p, name, args, body_exprs):
         """Add a user-defined function to the global function table.
 
@@ -251,13 +268,14 @@ class Parser(object):
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno(0))
 
-        Parser.check_for_undefined(p, name, body_expr, args)
-
-        Parser.udf_functions[name] = Function(args, body_expr)
         if len(body_exprs) == 1:
             emit_op = body_exprs[0]
         else:
             emit_op = TupleExpression(body_exprs)
+
+        Parser.check_for_undefined(p, name, emit_op, args)
+
+        Parser.udf_functions[name] = Function(args, emit_op)
         return emit_op
 
     @staticmethod
@@ -360,13 +378,19 @@ class Parser(object):
     @staticmethod
     def p_udf(p):
         """udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON sexpr SEMI"""  # noqa
-        Parser.add_udf(p, p[2], p[4], p[7])
+        Parser.add_udf(p, p[2], p[4], [p[7]])
+        p[0] = None
+
+    @staticmethod
+    def p_nary_udf(p):
+        """udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON table_literal SEMI"""  # noqa
+        Parser.add_nary_udf(p, p[2], p[4], p[7])
         p[0] = None
 
     @staticmethod
     def p_constant(p):
         """constant : CONST unreserved_id COLON sexpr SEMI"""
-        Parser.add_udf(p, p[2], [], p[4])
+        Parser.add_udf(p, p[2], [], [p[4]])
         p[0] = None
 
     @staticmethod
