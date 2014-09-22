@@ -2,11 +2,16 @@ input = SCAN(trainingdata);
 
 -- an alternation operation like an unpivot
 -- may be unnecessary if input already comes in a sparse format
-input_sp0 = select input.id as id, input.x0 as value, 0 as index, y from input;
-input_sp1 = select input.id as id, input.x1 as value, 1 as index, y from input;
-input_sp2 = select input.id as id, input.x2 as value, 2 as index, y from input;
-input_sp3 = select input.id as id, input.x3 as value, 3 as index, y from input;
-input_sp4 = select input.id as id, input.x4 as value, 4 as index, y from input;
+--input_sp0 = select input.id as id, input.x0 as value, 0 as index, y from input;
+--input_sp1 = select input.id as id, input.x1 as value, 1 as index, y from input;
+--input_sp2 = select input.id as id, input.x2 as value, 2 as index, y from input;
+--input_sp3 = select input.id as id, input.x3 as value, 3 as index, y from input;
+--input_sp4 = select input.id as id, input.x4 as value, 4 as index, y from input;
+input_sp0 = select input.x0 as value, 0 as index, y from input;
+input_sp1 = select input.x1 as value, 1 as index, y from input;
+input_sp2 = select input.x2 as value, 2 as index, y from input;
+input_sp3 = select input.x3 as value, 3 as index, y from input;
+input_sp4 = select input.x4 as value, 4 as index, y from input;
 input_sp01 = UNIONALL(input_sp0, input_sp1);
 input_sp02 = UNIONALL(input_sp01, input_sp2);
 input_sp03 = UNIONALL(input_sp02, input_sp3);
