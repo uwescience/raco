@@ -1093,8 +1093,8 @@ class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
         DEFINE_string(output_file, "%s.bin", "Output File");""" % filename
         state.addDeclarations([outputnamedecl])
         names = [x.encode('UTF8') for x in my_sch.get_names()]
-        schemefile = 'writeSchema("%s", "%s", "%s");\n' % \
-                     (names, my_sch.get_types(), filename)
+        schemefile = 'writeSchema("%s", "%s");\n' % \
+                     (zip(names, my_sch.get_types()), filename)
         state.addPreCode(schemefile)
         resultfile = 'writeTuplesUnordered(&result, "%s.bin");' % filename
         state.addPipelineFlushCode(resultfile)
