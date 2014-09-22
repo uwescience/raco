@@ -1245,6 +1245,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(DuplicateVariableException):
             self.check_result(query, collections.Counter())
 
+    def test_nary_udf(self):
+        query = """
+        DEF Foo(a,b): [a + b, a - b];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[1] + t[3], t[3] - t[1])
+                                        for t in self.emp_table])
+        self.check_result(query, expected)
+
     def test_triangle_udf(self):
         query = """
         DEF Triangle(a,b): (a*b)//2;
