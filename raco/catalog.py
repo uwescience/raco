@@ -97,6 +97,9 @@ class FromFileCatalog(Catalog):
 
     def get_scheme(self, rel_key):
         return Scheme(self.__get_catalog_entry__(rel_key)[0])
+    
+    def get_keys(self):
+        return self.catalog.keys()
 
     @classmethod
     def load_from_file(cls, path):
