@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <utility>
 #include <tuple>
+#include <cstring>
 
 uint64_t identity_hash( int64_t k );
 
