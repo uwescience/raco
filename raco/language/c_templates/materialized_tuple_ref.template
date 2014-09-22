@@ -68,9 +68,11 @@
 
     template <typename Tuple, typename T>
     %(tupletypename)s (const Tuple& v0, const T& from) {
-        static_assert(%(tupletypename)s::numFields() == (std::tuple_size<Tuple>::value + T::numFields()), "constructor only works on same number of total fields");
+        constexpr size_t v0_size = std::tuple_size<Tuple>::value;
+        constexpr int from_size = T::numFields();
+        static_assert(%(tupletypename)s::numFields() == (v0_size + from_size), "constructor only works on same number of total fields");
         TupleUtils::assign<0, decltype(_scheme)>(_fields, v0);
-        std::memcpy(((char*)&_fields)+T::numFields()*sizeof(int64_t), &(from._fields), T::numFields());
+        std::memcpy(((char*)&_fields)+v0_size*sizeof(int64_t), &(from._fields), from_size*sizeof(int64_t));
     }
 
     template <typename Tuple>
