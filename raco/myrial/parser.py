@@ -261,8 +261,8 @@ class Parser(object):
         :type name: string
         :param args: A list of function arguments
         :type args: list of strings
-        :param body_exprs: A list of scalar expression containing the body
-        :type body_expr: raco.expression.Expression
+        :param body_exprs: A list of scalar expressions containing the body
+        :type body_exprs: list of raco.expression.Expression
         """
         if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno(0))
