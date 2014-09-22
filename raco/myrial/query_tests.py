@@ -1249,13 +1249,24 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         DEF Foo(a,b): [a + b, a - b];
 
-        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id)];
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y]];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
         expected = collections.Counter([(t[0], t[1] + t[3], t[3] - t[1])
                                         for t in self.emp_table])
         self.check_result(query, expected)
+
+    def test_nary_udf_name_count(self):
+        query = """
+        DEF Foo(a,b): [a + b, a - b];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y, z]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalColumnNamesException):
+            self.check_result(query, None)
 
     def test_triangle_udf(self):
         query = """
