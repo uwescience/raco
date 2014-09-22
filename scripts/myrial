@@ -59,6 +59,7 @@ def parse_options(args):
                        help='Output physical plan for grappalang and source program')
     arg_parser.add_argument('-v', dest='verbose', action='store_true',
                        help='Turn on verbose DEBUG logging')
+    arg_parser.add_argument('--catalog', dest="catalog_path", default=None, help="[Optional] path to catalog file")
     arg_parser.add_argument('file',
                             help='File containing MyriaL source program')
 
@@ -73,7 +74,11 @@ def main(args):
         logging.basicConfig(level=logging.DEBUG)
 
     # Search for a catalog definition file
-    catalog_path = os.path.join(os.path.dirname(opt.file), 'catalog.py')
+    if opt.catalog_path is not None:
+        catalog_path = opt.catalog_path
+    else:
+        catalog_path = os.path.join(os.path.dirname(opt.file), 'catalog.py')
+
     if os.path.exists(catalog_path):
         catalog = FromFileCatalog.load_from_file(catalog_path)
     else:
