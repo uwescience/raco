@@ -1280,6 +1280,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(NestedTupleExpressionException):
             self.check_result(query, None)
 
+    def test_nary_udf_illegal_wildcard(self):
+        query = """
+        DEF Foo(x): [x + 3, *];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalWildcardException):
+            self.check_result(query, None)
+
     def test_triangle_udf(self):
         query = """
         DEF Triangle(a,b): (a*b)//2;
