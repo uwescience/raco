@@ -15,6 +15,7 @@ template = """
 #include <cstdlib>
 #include <iostream>
 #include "convert2bin.h"
+#include "utils.h"
 
 {definition}
 
@@ -29,8 +30,7 @@ int main(int argc, char** argv) {{
 """
 
 
-def generate_tuple_class(rel_key, catalogpath):
-   cat = FromFileCatalog.load_from_file(catalogpath)
+def generate_tuple_class(rel_key, cat):
    sch = cat.get_scheme(rel_key)
    tupleref = StagedTupleRef(None, sch)
    definition = tupleref.generateDefinition()
@@ -44,9 +44,15 @@ def generate_tuple_class(rel_key, catalogpath):
 if __name__ == "__main__":
 
     p = argparse.ArgumentParser(prog=sys.argv[0])
-    p.add_argument("-n", dest="name", help="name of relation", required=True)
+    p.add_argument("-n", dest="name", help="name of relation [optional]. If not specified then will convert whole catalog")
     p.add_argument("-c", dest="catpath", help="path of catalog file, see FromFileCatalog for format", required=True)
 
     args = p.parse_args(sys.argv[1:])
+   
+    cat = FromFileCatalog.load_from_file(args.catpath)
 
-    generate_tuple_class("public:adhoc:{0}".format(args.name), args.catpath)
+    if args.name is not None:
+      generate_tuple_class("public:adhoc:{0}".format(args.name), cat)
+    else:
+      for n in cat.get_keys():
+        generate_tuple_class(n, cat)
