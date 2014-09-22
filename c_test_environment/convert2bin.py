@@ -20,12 +20,12 @@ template = """
 {definition}
 
 int main(int argc, char** argv) {{
-    if (argc < 3) {{
-        std::cerr << "usage ./" << argv[0] << " [file] [burns]" << std::endl;
+    if (argc < 4) {{
+        std::cerr << "usage: " << argv[0] << " [file] [burns] [add_id?]" << std::endl;
         exit(1);
     }}
 
-    convert2bin_withTuple<{typ}>(argv[1], atoi(argv[2]));
+    convert2bin_withTuple<{typ}>(argv[1], atoi(argv[2]), atoi(argv[3]);
 }}
 """
 

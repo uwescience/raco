@@ -15,7 +15,7 @@ void CHECK(bool cond) {
 
 
 template< typename Tuple >
-void convert2bin_withTuple( std::string fn, uint64_t burn=0 ) {
+void convert2bin_withTuple( std::string fn, uint64_t burn=0, bool add_id=false) {
   std::ifstream infile(fn, std::ifstream::in);
   CHECK( infile.is_open() );// << fn << " failed to open";
   
@@ -31,7 +31,12 @@ void convert2bin_withTuple( std::string fn, uint64_t burn=0 ) {
 
     std::istringstream iss(line);
     auto t = Tuple::fromIStream(iss);
-    
+   
+    // add a sequential id to the data
+    if (add_id) {
+      outfile.write(&linenum, sizeof(int64_t));
+    }
+ 
     outfile.write((char*) &(t._fields), sizeof(int64_t)*Tuple::numFields()); 
     linenum++;
   }
