@@ -234,7 +234,7 @@ class Parser(object):
         Parser.decomposable_aggs[logical] = da
 
     @staticmethod
-    def add_udf(p, name, args, body_expr):
+    def add_udf(p, name, args, body_exprs):
         """Add a user-defined function to the global function table.
 
         :param p: The parser context
@@ -242,7 +242,7 @@ class Parser(object):
         :type name: string
         :param args: A list of function arguments
         :type args: list of strings
-        :param body_expr: A scalar expression containing the function body
+        :param body_exprs: A list of scalar expression containing the body
         :type body_expr: raco.expression.Expression
         """
         if name in Parser.udf_functions:
@@ -254,6 +254,11 @@ class Parser(object):
         Parser.check_for_undefined(p, name, body_expr, args)
 
         Parser.udf_functions[name] = Function(args, body_expr)
+        if len(body_exprs) == 1:
+            emit_op = body_exprs[0]
+        else:
+            emit_op = TupleExpression(body_exprs)
+        return emit_op
 
     @staticmethod
     def mangle(name):
