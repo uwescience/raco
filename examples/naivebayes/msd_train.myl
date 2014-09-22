@@ -2,12 +2,12 @@ input = SCAN(trainingdata);
 
 -- an alternation operation like an unpivot
 -- may be unnecessary if input already comes in a sparse format
-input_sp0 = select input.x0 as value, 0 as index, y from input;
-input_sp1 = select input.x1 as value, 1 as index, y from input;
-input_sp2 = select input.x2 as value, 2 as index, y from input;
-input_sp3 = select input.x3 as value, 3 as index, y from input;
-input_sp4 = select input.x4 as value, 4 as index, y from input;
-input_sp5 = select input.x5 as value, 5 as index, y from input;
+input_sp0 = select INT(input.x0/10) as value, 0 as index, y from input;
+input_sp1 = select INT(input.x1/10) as value, 1 as index, y from input;
+input_sp2 = select INT(input.x2/10) as value, 2 as index, y from input;
+input_sp3 = select INT(input.x3/10) as value, 3 as index, y from input;
+input_sp4 = select INT(input.x4/10) as value, 4 as index, y from input;
+input_sp5 = select INT(input.x5/10) as value, 5 as index, y from input;
 input_sp01 = UNIONALL(input_sp0, input_sp1);
 input_sp02 = UNIONALL(input_sp01, input_sp2);
 input_sp03 = UNIONALL(input_sp02, input_sp3);
@@ -25,4 +25,4 @@ condp = select freq_e_o.index,
 from freq_o, freq_e_o
 where freq_e_o.outcome = freq_o.outcome;
 
-STORE(condp, OUTPUT);
+STORE(condp, conditionals);
