@@ -41,7 +41,7 @@
         %(stream_reads)s
 
         %(tupletypename)s _ret;
-        TupleUtils::assign<0>(_ret._fields, _t);
+        TupleUtils::assign<0, decltype(_scheme)>(_ret._fields, _t);
         return _ret;
     }
 
@@ -69,14 +69,14 @@
     template <typename Tuple, typename T>
     %(tupletypename)s (const Tuple& v0, const T& from) {
         static_assert(%(tupletypename)s::numFields() == (std::tuple_size<Tuple>::value + T::numFields()), "constructor only works on same number of total fields");
-        TupleUtils::assign<0>(_fields, v0);
+        TupleUtils::assign<0, decltype(_scheme)>(_fields, v0);
         std::memcpy(((char*)&_fields)+T::numFields()*sizeof(int64_t), &(from._fields), T::numFields());
     }
 
     template <typename Tuple>
     %(tupletypename)s (const Tuple& v0) {
         static_assert(%(tupletypename)s::numFields() == (std::tuple_size<Tuple>::value), "constructor only works on same number of total fields");
-        TupleUtils::assign<0>(_fields, v0);
+        TupleUtils::assign<0, decltype(_scheme)>(_fields, v0);
     }
 
     std::ostream& dump(std::ostream& o) const {
