@@ -79,12 +79,12 @@ class GrappaLanguage(CBaseLanguage):
         if True:
             inner_code = code
             timing_template = ct("""auto start_%(ident)s = walltime();
+            VLOG(1) << "timestamp %(ident)s start " << std::setprecision(15)\
+             << start_%(ident)s;
             %(inner_code)s
             auto end_%(ident)s = walltime();
             auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
             VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
-            VLOG(1) << "timestamp %(ident)s start " << std::setprecision(15)\
-             << start_%(ident)s;
             VLOG(1) << "timestamp %(ident)s end " << std::setprecision(15)\
              << end_%(ident)s;
             """)
