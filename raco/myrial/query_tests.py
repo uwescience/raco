@@ -1245,6 +1245,52 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(DuplicateVariableException):
             self.check_result(query, collections.Counter())
 
+    def test_nary_udf(self):
+        query = """
+        DEF Foo(a,b): [a + b, a - b];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[1] + t[3], t[3] - t[1])
+                                        for t in self.emp_table])
+        self.check_result(query, expected)
+
+    def test_nary_udf_name_count(self):
+        query = """
+        DEF Foo(a,b): [a + b, a - b];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y, z]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalColumnNamesException):
+            self.check_result(query, None)
+
+    def test_nary_udf_illegal_nesting(self):
+        query = """
+        DEF Foo(x): [x + 3, x - 3];
+        DEF Bar(a,b): [Foo(x), Foo(b)];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Bar(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    def test_nary_udf_illegal_wildcard(self):
+        query = """
+        DEF Foo(x): [x + 3, *];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalWildcardException):
+            self.check_result(query, None)
+
     def test_triangle_udf(self):
         query = """
         DEF Triangle(a,b): (a*b)//2;
