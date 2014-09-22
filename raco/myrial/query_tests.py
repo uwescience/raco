@@ -1268,6 +1268,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(IllegalColumnNamesException):
             self.check_result(query, None)
 
+    def test_nary_udf_illegal_nesting(self):
+        query = """
+        DEF Foo(x): [x + 3, x - 3];
+        DEF Bar(a,b): [Foo(x), Foo(b)];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Bar(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
     def test_triangle_udf(self):
         query = """
         DEF Triangle(a,b): (a*b)//2;

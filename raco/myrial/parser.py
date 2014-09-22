@@ -248,7 +248,7 @@ class Parser(object):
         if not all(isinstance(e, emitarg.NaryEmitArg) for e in emitters):
             raise IllegalWildcardException(name, p.lineno(0))
         if sum(len(x.sexprs) for x in emitters) != len(emitters):
-            raise NestedTupleExpressionException(p.lineno())
+            raise NestedTupleExpressionException(p.lineno(0))
         emit_exprs = [e.sexprs[0] for e in emitters]
         Parser.add_udf(p, name, args, emit_exprs)
 
