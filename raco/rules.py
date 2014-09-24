@@ -62,31 +62,6 @@ class OneToOne(Rule):
         return "%s => %s" % (self.opfrom.__name__, self.opto.__name__)
 
 
-class ProjectingJoin(Rule):
-    """A rewrite rule for combining Project after Join into ProjectingJoin"""
-    def fire(self, expr):
-        if isinstance(expr, algebra.Project):
-            if isinstance(expr.input, algebra.Join):
-                columns = expr.get_unnamed_column_list()
-                pos = [e.position for e in columns]
-                if pos == sorted(pos):
-                    return algebra.ProjectingJoin(
-                        expr.input.condition, expr.input.left,
-                        expr.input.right, columns)
-                join = algebra.ProjectingJoin(
-                    expr.input.condition, expr.input.left,
-                    expr.input.right,
-                    [UnnamedAttributeRef(p) for p in pos])
-                apply = algebra.Apply(
-                    emitters=[(None, e) for e in columns],
-                    input=join)
-                return apply
-        return expr
-
-    def __str__(self):
-        return "Project, Join => ProjectingJoin"
-
-
 class JoinToProjectingJoin(Rule):
     """A rewrite rule for turning every Join into a ProjectingJoin"""
 
@@ -130,8 +105,6 @@ class SimpleGroupBy(Rule):
         if not isinstance(expr, algebra.GroupBy):
             return expr
 
-        child_scheme = expr.input.scheme()
-
         # A simple grouping expression is an AttributeRef
         def is_simple_grp_expr(grp):
             return isinstance(grp, expression.AttributeRef)
@@ -149,6 +122,8 @@ class SimpleGroupBy(Rule):
             return expr
 
         # Construct the Apply we're going to stick before the GroupBy
+
+        child_scheme = expr.input.scheme()
 
         # First: copy every column from the input verbatim
         mappings = [(None, UnnamedAttributeRef(i))
@@ -174,6 +149,57 @@ class SimpleGroupBy(Rule):
         # are mutating the objects it contains when we modify grp_expr or
         # agg_expr in the above for loops.
         return expr
+
+
+class DedupGroupBy(Rule):
+    """When a GroupBy computes redundant fields, replace this duplicate
+    computation by a single computation plus a duplicating Apply."""
+
+    def fire(self, expr):
+        if not isinstance(expr, algebra.GroupBy):
+            return expr
+
+        aggs = expr.get_unnamed_aggregate_list()
+
+        # Maps aggregate index j to index i < j that j duplicates
+        dups = {}
+        # Maps non-dup aggregate index i to index i' <= i it will have
+        # in the output aggregate list.
+        orig = {}
+        for i, a in enumerate(aggs):
+            if i in dups:
+                continue
+            orig[i] = len(orig)
+            dups.update({(j + i + 1): i
+                         for j, b in enumerate(aggs[(i + 1):])
+                         if a == b})
+
+        if len(dups) == 0:
+            # All the aggregate expressions are unique, we're good
+            return expr
+
+        #################################
+        # Construct a new Apply that drops all duplicates and replaces
+        # them with repeated UnnamedAttributeRefs
+        #################################
+
+        # First keep the grouping list intact
+        num_grps = len(expr.grouping_list)
+        mappings = [(None, UnnamedAttributeRef(i))
+                    for i in range(num_grps)]
+
+        # Construct the references to the grouping list
+        for i in range(len(aggs)):
+            if i in orig:
+                m = orig[i] + num_grps
+            else:
+                m = orig[dups[i]] + num_grps
+            mappings.append((None, UnnamedAttributeRef(m)))
+
+        # Drop any duplicates from the agg list
+        expr.aggregate_list = [aggs[i] for i in sorted(orig)]
+
+        return algebra.Apply(emitters=mappings, input=expr)
 
 
 class DistinctToGroupBy(Rule):
@@ -493,10 +519,7 @@ class ProjectToDistinctColumnSelect(Rule):
 
         mappings = [(None, x) for x in expr.columnlist]
         col_select = algebra.Apply(mappings, expr.input)
-        # TODO the Raco Datalog users currently want the project to really
-        # be a column select. This is BROKEN, but it is what they want.
-        # return algebra.Distinct(col_select)
-        return col_select
+        return algebra.Distinct(input=col_select)
 
     def __str__(self):
         return 'Project => Distinct, Column select'
@@ -685,7 +708,7 @@ push_select = [
 
 # 4. push projection
 push_project = [
-    ProjectingJoin(),
+    ProjectToDistinctColumnSelect(),
     JoinToProjectingJoin()
 ]
 

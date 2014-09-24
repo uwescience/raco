@@ -39,16 +39,16 @@ class SQLTestCase(unittest.TestCase):
         self.parser = parser.Parser()
         self.processor = interpreter.StatementProcessor(self.db)
 
-    def query_to_phys_plan(self, query):
+    def query_to_phys_plan(self, query, **kwargs):
         statements = self.parser.parse(query)
         self.processor.evaluate(statements)
-        p = self.processor.get_logical_plan()
+        p = self.processor.get_logical_plan(**kwargs)
         p = optimize_by_rules(p, OptLogicalAlgebra.opt_rules())
         if isinstance(p, (algebra.Store, algebra.StoreTemp)):
             p = p.input
         return p
 
-    def execute(self, query, expected):
-        p = self.query_to_phys_plan(query)
+    def execute(self, query, expected, **kwargs):
+        p = self.query_to_phys_plan(query, **kwargs)
         ans = self.db.evaluate(p)
         self.assertEquals(expected, Counter(ans))

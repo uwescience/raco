@@ -1,21 +1,18 @@
 #!/usr/bin/env python
 
 """Compile a MyriaL program into a physical plan."""
-
-import raco.myrial.interpreter as interpreter
-import raco.myrial.parser as parser
-import raco.scheme
-import raco.catalog
-from raco.fakedb import FakeDatabase
-
-from raco import algebra
-from raco.viz import operator_to_dot
-from raco.myrial.exceptions import *
-
 import argparse
 import os
 import json
 import sys
+
+from raco.catalog import FromFileCatalog
+import raco.myrial.interpreter as interpreter
+import raco.myrial.parser as parser
+from raco.fakedb import FakeDatabase
+from raco import algebra
+from raco.viz import operator_to_dot
+from raco.myrial.exceptions import *
 
 
 def print_pretty_plan(plan, indent=0):
@@ -61,35 +58,15 @@ def parse_options(args):
     return ns
 
 
-class FakeCatalog(raco.catalog.Catalog):
-    def __init__(self, catalog):
-        self.catalog = catalog
-
-    def get_scheme(self, rel_key):
-        string_key = str(rel_key)
-        return raco.scheme.Scheme(self.catalog[string_key])
-
-    @classmethod
-    def load_from_file(cls, path):
-        with open(path) as fh:
-            return cls(eval(fh.read()))
-
-    def get_num_servers(self):
-        return 1
-
-    def num_tuples(self, rel_key):
-        return algebra.DEFAULT_CARDINALITY
-
-
 def main(args):
     opt = parse_options(args)
 
     # Search for a catalog definition file
     catalog_path = os.path.join(os.path.dirname(opt.file), 'catalog.py')
     if os.path.exists(catalog_path):
-        catalog = FakeCatalog.load_from_file(catalog_path)
+        catalog = FromFileCatalog.load_from_file(catalog_path)
     else:
-        catalog = FakeCatalog({})
+        catalog = FromFileCatalog({})
 
     _parser = parser.Parser()
     processor = interpreter.StatementProcessor(catalog, True)

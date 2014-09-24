@@ -6,7 +6,8 @@ from abc import ABCMeta, abstractmethod
 import copy
 import operator
 import math
-import collections
+from raco.expression import StateVar
+
 
 # BEGIN Code to generate variables names
 var_id = 0
@@ -592,11 +593,6 @@ class Apply(UnaryOperator):
         return "{op}({emt!r}, {inp!r})".format(op=self.opname(),
                                                emt=self.emitters,
                                                inp=self.input)
-
-
-# This type represents a state variable, as used by StatefulApply and UDAs
-StateVar = collections.namedtuple(
-    'StateVar', ['name', 'init_expr', 'update_expr'])
 
 
 class StatefulApply(UnaryOperator):
@@ -1310,7 +1306,35 @@ class StoreTemp(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return 'StoreTemp(%s)' % self.name
+        return '{op}({name})'.format(op=self.opname(), name=self.name)
+
+    def copy(self, other):
+        self.name = other.name
+        UnaryOperator.copy(self, other)
+
+    def __eq__(self, other):
+        return UnaryOperator.__eq__(self, other) and self.name == other.name
+
+    def __repr__(self):
+        return "{op}({name!r}, {inp!r})".format(op=self.opname(),
+                                                name=self.name,
+                                                inp=self.input)
+
+
+class AppendTemp(UnaryOperator):
+    """Append an input relation to a "temporary" relation.
+
+    Temporary relations exist for the lifetime of a query.
+    """
+    def __init__(self, name=None, input=None):
+        UnaryOperator.__init__(self, input)
+        self.name = name
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def shortStr(self):
+        return '{op}({name})'.format(op=self.opname(), name=self.name)
 
     def copy(self, other):
         self.name = other.name

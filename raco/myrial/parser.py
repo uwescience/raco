@@ -13,7 +13,7 @@ from raco.expression.udf import Function, StatefulFunc
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
-from raco.algebra import StateVar
+from raco.expression import StateVar
 
 
 class JoinColumnCountMismatchException(Exception):
@@ -25,6 +25,9 @@ JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 
 SelectFromWhere = collections.namedtuple(
     'SelectFromWhere', ['distinct', 'select', 'from_', 'where', 'limit'])
+
+DecomposableAgg = collections.namedtuple(
+    'DecomposableAgg', ['logical', 'local', 'remote'])
 
 # Mapping from source symbols to raco.expression.BinaryOperator classes
 binops = {
@@ -64,6 +67,22 @@ def check_no_tuple_expression(ex, lineno):
         raise NestedTupleExpressionException(lineno)
 
 
+def check_simple_expression(ex, lineno):
+    check_no_tuple_expression(ex, lineno)
+    sexpr.check_no_aggregate(ex, lineno)
+
+
+def get_emitters(ex):
+    if isinstance(ex, TupleExpression):
+        return ex.emitters
+    else:
+        return [ex]
+
+
+def get_num_emitters(ex):
+    return len(get_emitters(ex))
+
+
 class TupleExpression(sexpr.Expression):
     """Represents an instance of a tuple-valued Expression
 
@@ -91,7 +110,7 @@ class TupleExpression(sexpr.Expression):
             check_no_tuple_expression(ex, lineno)
 
     def get_children(self):
-        return emitters
+        return self.emitters
 
     def typeof(self, scheme, state_scheme):
         """Type checks are not applied to TupleExpressions."""
@@ -110,6 +129,9 @@ class Parser(object):
 
     # A unique ID pool for the stateful apply state variables
     mangle_id = 0
+
+    # mapping from UDA name to local, remote aggregates
+    decomposable_aggs = {}
 
     def __init__(self, log=yacc.PlyLogger(sys.stderr)):
         self.log = log
@@ -147,7 +169,8 @@ class Parser(object):
                             | constant
                             | udf
                             | apply
-                            | uda"""
+                            | uda
+                            | decomposable_uda"""
         p[0] = p[1]
 
     @staticmethod
@@ -163,7 +186,74 @@ class Parser(object):
             raise ReservedTokenException(name, p.lineno(0))
 
     @staticmethod
-    def add_udf(p, name, args, body_expr):
+    def add_decomposable_uda(p, logical, local, remote):
+        """Register a decomposable UDA.
+
+        :param p: The parser context
+        :param logical: The name of the logical UDA
+        :param local: The name of the local UDA
+        :param remote: The name of the remote UDA
+        """
+        lineno = p.lineno(0)
+
+        if logical in Parser.decomposable_aggs:
+            raise DuplicateFunctionDefinitionException(logical, lineno)
+
+        def check_name(name):
+            if name not in Parser.udf_functions:
+                raise NoSuchFunctionException(lineno)
+
+            func = Parser.udf_functions[name]
+            if not isinstance(func, StatefulFunc):
+                raise NoSuchFunctionException(lineno)
+            if not sexpr.expression_contains_aggregate(func.sexpr):
+                raise NoSuchFunctionException(lineno)
+            return func
+
+        da = DecomposableAgg(*[check_name(x) for x in
+                             (logical, local, remote)])
+
+        # Do some basic sanity checking of the arguments; we can't do full
+        # type inspection here, because the full type information is not
+        # known until the function is invoked.
+
+        # Number of local inputs must match number of logical inputs
+        if len(da.local.args) != len(da.logical.args):
+            raise InvalidArgumentList(local, da.logical.args, lineno)
+
+        # Number of local outputs must equal number of remote inputs
+        num_local_emitters = get_num_emitters(da.local.sexpr)
+        if num_local_emitters != len(da.remote.args):
+            phony_names = ['x%d' % n for n in range(num_local_emitters)]
+            raise InvalidArgumentList(remote, phony_names, lineno)
+
+        # Number of remote outputs must match number of logical outputs
+        if get_num_emitters(da.logical.sexpr) != get_num_emitters(da.remote.sexpr):  # noqa
+            raise InvalidEmitList(remote, lineno)
+
+        Parser.decomposable_aggs[logical] = da
+
+    @staticmethod
+    def add_nary_udf(p, name, args, emitters):
+        """Add an n-ary user-defined function to the global function table.
+
+        :param p: The parser context
+        :param name: The name of the function
+        :type name: string
+        :param args: A list of function arguments
+        :type args: list of strings
+        :param emitter: The output expression(s)
+        :type body_expr: A list of NaryEmitArg instances
+        """
+        if not all(isinstance(e, emitarg.NaryEmitArg) for e in emitters):
+            raise IllegalWildcardException(name, p.lineno(0))
+        if sum(len(x.sexprs) for x in emitters) != len(emitters):
+            raise NestedTupleExpressionException(p.lineno(0))
+        emit_exprs = [e.sexprs[0] for e in emitters]
+        Parser.add_udf(p, name, args, emit_exprs)
+
+    @staticmethod
+    def add_udf(p, name, args, body_exprs):
         """Add a user-defined function to the global function table.
 
         :param p: The parser context
@@ -171,8 +261,8 @@ class Parser(object):
         :type name: string
         :param args: A list of function arguments
         :type args: list of strings
-        :param body_expr: A scalar expression containing the function body
-        :type body_expr: raco.expression.Expression
+        :param body_exprs: A list of scalar expressions containing the body
+        :type body_exprs: list of raco.expression.Expression
         """
         if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno(0))
@@ -180,9 +270,15 @@ class Parser(object):
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno(0))
 
-        Parser.check_for_undefined(p, name, body_expr, args)
+        if len(body_exprs) == 1:
+            emit_op = body_exprs[0]
+        else:
+            emit_op = TupleExpression(body_exprs)
 
-        Parser.udf_functions[name] = Function(args, body_expr)
+        Parser.check_for_undefined(p, name, emit_op, args)
+
+        Parser.udf_functions[name] = Function(args, emit_op)
+        return emit_op
 
     @staticmethod
     def mangle(name):
@@ -195,45 +291,45 @@ class Parser(object):
 
         :param name: The name of the function
         :param args: A list of function argument names (strings)
-        :param inits: A list of SingletonEmitArg that describe init logic
+        :param inits: A list of NaryEmitArg that describe init logic; each
+        should contain exactly one emit expression.
         :param updates: A list of Expression that describe update logic
-        :param emitters: An Expression list that returns the final results
+        :param emitters: An Expression list that returns the final results.
+        If None, all statemod variables are returned in the order specified.
         :param is_aggregate: True if the state_func is a UDA
 
         TODO: de-duplicate logic from add_udf.
         """
+        lineno = p.lineno(0)
         if name in Parser.udf_functions:
-            raise DuplicateFunctionDefinitionException(name, p.lineno(0))
+            raise DuplicateFunctionDefinitionException(name, lineno)
         if len(args) != len(set(args)):
-            raise DuplicateVariableException(name, p.lineno(0))
+            raise DuplicateVariableException(name, lineno)
         if len(inits) != len(updates):
-            raise BadApplyDefinitionException(name, p.lineno(0))
+            raise BadApplyDefinitionException(name, lineno)
 
         # Unpack the update, init expressions into a statemod dictionary
-        statemods = {}
+        statemods = collections.OrderedDict()
         for init, update in zip(inits, updates):
-            if not isinstance(init, emitarg.SingletonEmitArg):
-                if isinstance(init, emitarg.NaryEmitArg):
-                    raise NestedTupleExpressionException(p.lineno(0))
-                else:
-                    raise IllegalWildcardException(name, p.lineno(0))
+            if not isinstance(init, emitarg.NaryEmitArg):
+                raise IllegalWildcardException(name, lineno)
 
-            # Init, update expressions cannot return tuples
-            check_no_tuple_expression(init.sexpr, p.lineno(0))
-            check_no_tuple_expression(update, p.lineno(0))
+            if len(init.sexprs) != 1:
+                raise NestedTupleExpressionException(lineno)
 
-            # Nor can then reference aggegates
-            sexpr.check_no_aggregate(init.sexpr, p.lineno(0))
-            sexpr.check_no_aggregate(update, p.lineno(0))
+            # Init, update expressions contain tuples or contain aggregates
+            check_simple_expression(init.sexprs[0], lineno)
+            check_simple_expression(update, lineno)
+
+            if not init.column_names:
+                raise UnnamedStateVariableException(name, lineno)
 
             # check for duplicate variable definitions
-            sm_name = init.column_name
-            if not sm_name:
-                raise UnnamedStateVariableException(name, p.lineno(0))
+            sm_name = init.column_names[0]
             if sm_name in statemods or sm_name in args:
-                raise DuplicateVariableException(name, p.lineno(0))
+                raise DuplicateVariableException(name, lineno)
 
-            statemods[sm_name] = (init.sexpr, update)
+            statemods[sm_name] = (init.sexprs[0], update)
 
         # Check for undefined variables:
         #  - Init expressions cannot reference any variables.
@@ -245,13 +341,12 @@ class Parser(object):
             Parser.check_for_undefined(p, name, init_expr, [])
             Parser.check_for_undefined(p, name, update_expr, allvars)
 
+        if emitters is None:
+            emitters = [sexpr.NamedAttributeRef(v) for v in statemods.keys()]
+
         for e in emitters:
             Parser.check_for_undefined(p, name, e, statemods.keys())
-
-        # Emit arguments cannot themselves return tuples
-        for e in emitters:
-            check_no_tuple_expression(e, p.lineno(0))
-            sexpr.check_no_aggregate(e, p.lineno(0))
+            check_simple_expression(e, lineno)
 
         # If the function is a UDA, wrap the output expression(s) so
         # downstream users can distinguish stateful apply from
@@ -285,13 +380,19 @@ class Parser(object):
     @staticmethod
     def p_udf(p):
         """udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON sexpr SEMI"""  # noqa
-        Parser.add_udf(p, p[2], p[4], p[7])
+        Parser.add_udf(p, p[2], p[4], [p[7]])
+        p[0] = None
+
+    @staticmethod
+    def p_nary_udf(p):
+        """udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON table_literal SEMI"""  # noqa
+        Parser.add_nary_udf(p, p[2], p[4], p[7])
         p[0] = None
 
     @staticmethod
     def p_constant(p):
         """constant : CONST unreserved_id COLON sexpr SEMI"""
-        Parser.add_udf(p, p[2], [], p[4])
+        Parser.add_udf(p, p[2], [], [p[4]])
         p[0] = None
 
     @staticmethod
@@ -310,18 +411,30 @@ class Parser(object):
             p[0] = [p[1]]
 
     @staticmethod
-    def p_sexpr_or_sexpr_list(p):
-        """sexpr_or_sexpr_list : LBRACKET sexpr_list RBRACKET
-                               | sexpr"""
-        if len(p) == 4:
+    def p_statefunc_emit_list(p):
+        """statefunc_emit_list : LBRACKET sexpr_list RBRACKET SEMI
+                               | sexpr SEMI
+                               | empty"""
+        if len(p) == 5:
             p[0] = p[2]
-        else:
+        elif len(p) == 3:
             p[0] = (p[1],)
+        else:
+            p[0] = None
+
+    @staticmethod
+    def p_decomposable_uda(p):
+        'decomposable_uda : UDA TIMES unreserved_id LBRACE unreserved_id COMMA unreserved_id RBRACE SEMI'  # noqa
+        logical = p[3]
+        local = p[5]
+        remote = p[7]
+        Parser.add_decomposable_uda(p, logical, local, remote)
+        p[0] = None
 
     @staticmethod
     def p_uda(p):
         'uda : UDA unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr_or_sexpr_list SEMI RBRACE SEMI'  # noqa
+        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI statefunc_emit_list RBRACE SEMI'  # noqa
 
         name = p[2]
         args = p[4]
@@ -334,7 +447,7 @@ class Parser(object):
     @staticmethod
     def p_apply(p):
         'apply : APPLY unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI sexpr_or_sexpr_list SEMI RBRACE SEMI'  # noqa
+        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI statefunc_emit_list RBRACE SEMI'  # noqa
 
         name = p[2]
         args = p[4]
@@ -523,7 +636,7 @@ class Parser(object):
             p[0] = (p[1],)
 
     @staticmethod
-    def p_emit_arg_singleton(p):
+    def p_emit_arg_explicit(p):
         """emit_arg : sexpr AS LBRACKET unreserved_id_list RBRACKET
                     | sexpr AS unreserved_id
                     | sexpr"""
@@ -535,30 +648,19 @@ class Parser(object):
         if len(p) == 4:
             names = [p[3]]
 
-        if isinstance(sx, TupleExpression):
-            # If names were provided, the length must equal the number
-            # of emitters
-            if names is not None and len(sx.emitters) != len(names):
-                raise IllegalColumnNamesException(p.lineno(0))
+        emitters = get_emitters(sx)
+        if names is not None and len(emitters) != len(names):
+            raise IllegalColumnNamesException(p.lineno(0))
 
-            # Verify that there are no nested TupleExpressions
-            for ssx in sx.emitters:
-                assert not contains_tuple_expression(ssx)
+        # Verify that there are no nested aggregate expressions
+        for ssx in emitters:
+            sexpr.check_no_nested_aggregate(ssx, p.lineno(0))
 
-            p[0] = emitarg.NaryEmitArg(names, sx.emitters, Parser.statemods)
-        else:
-            # The emit argument shouldn't contain nested any TupleExpressions
-            check_no_tuple_expression(sx, p.lineno(0))
-            # The emit arguments shouldn't contain nested aggregates
-            sexpr.check_no_nested_aggregate(sx, p.lineno(0))
+        # Verify that there are no remaining tuple expressions
+        for ssx in emitters:
+            check_no_tuple_expression(ssx, p.lineno(0))
 
-            if names is None:
-                name = None
-            elif len(names) != 1:
-                raise IllegalColumnNamesException(p.lineno(0))
-            else:
-                name = names[0]
-            p[0] = emitarg.SingletonEmitArg(name, sx, Parser.statemods)
+        p[0] = emitarg.NaryEmitArg(names, emitters, Parser.statemods)
         Parser.statemods = []
 
     @staticmethod
@@ -763,6 +865,36 @@ class Parser(object):
         p[0] = sexpr.NOT(p[2])
 
     @staticmethod
+    def resolve_stateful_func(func, args):
+        """Resolve a stateful function given argument expressions.
+
+        :param func: An instance of StatefulFunc
+        :param args: A list of argument expressions
+        :return: An emit expression and a StateVar list.  All expressions
+        have no free variables.
+        """
+        assert isinstance(func, StatefulFunc)
+        state_var_names = func.statemods.keys()
+
+        # Mangle state variable names to allow multiple invocations to coexist
+        state_vars_mangled = [Parser.mangle(sv) for sv in state_var_names]
+        mangle_dict = dict(zip(state_var_names, state_vars_mangled))
+
+        statemods = []
+        for name, (init_expr, update_expr) in func.statemods.iteritems():
+            # Convert state mod references into appropriate expressions
+            update_expr = sexpr.resolve_state_vars(update_expr,  # noqa
+                state_var_names, mangle_dict)
+            # Convert argument references into appropriate expressions
+            update_expr = sexpr.resolve_function(update_expr,  # noqa
+                dict(zip(func.args, args)))
+            statemods.append(StateVar(mangle_dict[name],
+                                      init_expr, update_expr))
+        emit_expr = sexpr.resolve_state_vars(func.sexpr, state_var_names,
+                                             mangle_dict)
+        return emit_expr, statemods
+
+    @staticmethod
     def resolve_function(p, name, args):
         """Resolve a function invocation into an Expression instance.
 
@@ -788,23 +920,44 @@ class Parser(object):
         if isinstance(func, Function):
             return sexpr.resolve_function(func.sexpr, dict(zip(func.args, args)))  # noqa
         elif isinstance(func, StatefulFunc):
-            state_vars = func.statemods.keys()
+            emit_expr, statemods = Parser.resolve_stateful_func(func, args)
+            Parser.statemods.extend(statemods)
 
-            # Mangle state variable names to allow multiple invocations to
-            # co-exist
-            state_vars_mangled = [Parser.mangle(sv) for sv in state_vars]
-            mangled = dict(zip(state_vars, state_vars_mangled))
+            # If the aggregate is decomposable, construct local and remote
+            # emitters and statemods.
+            if name in Parser.decomposable_aggs:
+                ds = Parser.decomposable_aggs[name]
+                local_emit, local_statemods = Parser.resolve_stateful_func(
+                    ds.local, args)
 
-            for sm_name, (init_expr, update_expr) in func.statemods.iteritems():  # noqa
-                # Convert state mod references into appropriate expressions
-                update_expr = sexpr.resolve_state_vars(update_expr,
-                    state_vars, mangled)  # noqa
-                # Convert argument references into appropriate expressions
-                update_expr = sexpr.resolve_function(update_expr,
-                    dict(zip(func.args, args)))  # noqa
-                Parser.statemods.append(StateVar(
-                    mangled[sm_name], init_expr, update_expr))
-            return sexpr.resolve_state_vars(func.sexpr, state_vars, mangled)
+                # Problem: we must connect the local aggregate outputs to
+                # the remote aggregate inputs.  At this stage, we don't have
+                # enough information to construct argument expressions to
+                # serve as input to the remote aggregate.  Instead, we
+                # introduce a placeholder reference, which is referenced
+                # relative to the start of the local aggregate output.
+                remote_args = [sexpr.LocalAggregateOutput(i)
+                               for i in range(len(ds.remote.args))]
+                remote_emit, remote_statemods = Parser.resolve_stateful_func(
+                    ds.remote, remote_args)
+
+                # local and remote emitters may be tuple-valued; flatten them.
+                local_emitters = get_emitters(local_emit)
+                remote_emitters = get_emitters(remote_emit)
+                ds = sexpr.DecomposableAggregateState(
+                    local_emitters, local_statemods,
+                    remote_emitters, remote_statemods)
+
+                # Associate a decomposable state structure with the first
+                # emitter.  Mark the remaining emitters as decomposable, but
+                # without their own associated decomposed emitters and
+                # statemods.
+                emitters = get_emitters(emit_expr)
+                emitters[0].set_decomposable_state(ds)
+                for emt in emitters[1:]:
+                    emt.set_decomposable_state(
+                        sexpr.DecomposableAggregateState())
+            return emit_expr
         else:
             assert False
 
@@ -893,6 +1046,7 @@ class Parser(object):
     def parse(self, s):
         scanner.lexer.lineno = 1
         Parser.udf_functions = {}
+        Parser.decomposable_aggs = {}
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 

@@ -132,7 +132,7 @@ def resolve_function(func_expr, arg_dict):
 
     def convert(n):
         if isinstance(n, NamedAttributeRef):
-            n = arg_dict[n.name]
+            n = copy.deepcopy(arg_dict[n.name])
         else:
             n.apply(convert)
         return n

@@ -1245,6 +1245,52 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(DuplicateVariableException):
             self.check_result(query, collections.Counter())
 
+    def test_nary_udf(self):
+        query = """
+        DEF Foo(a,b): [a + b, a - b];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[1] + t[3], t[3] - t[1])
+                                        for t in self.emp_table])
+        self.check_result(query, expected)
+
+    def test_nary_udf_name_count(self):
+        query = """
+        DEF Foo(a,b): [a + b, a - b];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y, z]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalColumnNamesException):
+            self.check_result(query, None)
+
+    def test_nary_udf_illegal_nesting(self):
+        query = """
+        DEF Foo(x): [x + 3, x - 3];
+        DEF Bar(a,b): [Foo(x), Foo(b)];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Bar(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    def test_nary_udf_illegal_wildcard(self):
+        query = """
+        DEF Foo(x): [x + 3, *];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalWildcardException):
+            self.check_result(query, None)
+
     def test_triangle_udf(self):
         query = """
         DEF Triangle(a,b): (a*b)//2;
@@ -1590,6 +1636,51 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, collections.Counter(results))
 
+    def test_uda_no_emit_clause(self):
+        query = """
+        uda MyCount() {
+            [0 as _count];
+            [_count + 1];
+        };
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MyCount()];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        self.check_result(query, self.__aggregate_expected_result(len))
+
+    def test_uda_no_emit_clause_many_cols(self):
+        query = """
+        uda MyAggs(x) {
+            [0 as _count, 0 as _sum, 0 as _sumsq];
+            [_count + 1, _sum + x, _sumsq + x*x];
+        };
+        out = [FROM SCAN(%s) AS X EMIT MyAggs(salary) as [a, b, c]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        c = len(list(self.emp_table.elements()))
+        s = sum(d for a, b, c, d in self.emp_table.elements())
+        sq = sum(d * d for a, b, c, d in self.emp_table.elements())
+        expected = collections.Counter([(c, s, sq)])
+        self.check_result(query, expected)
+
+        # Test with two different column orders in case the undefined
+        # order used by Python is correct by chance.
+        query = """
+        uda MyAggs(x) {
+            [0 as _count, 0 as _sumsq, 0 as _sum];
+            [_count + 1, _sumsq + x*x, _sum + x];
+        };
+        out = [FROM SCAN(%s) AS X EMIT MyAggs(salary) as [a, b, c]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        c = len(list(self.emp_table.elements()))
+        sq = sum(d * d for a, b, c, d in self.emp_table.elements())
+        s = sum(d for a, b, c, d in self.emp_table.elements())
+        expected = collections.Counter([(c, sq, s)])
+        self.check_result(query, expected)
+
     def test_uda_with_udf(self):
         query = """
         def foo(x, y): x + y;
@@ -1840,6 +1931,474 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    __DECOMPOSED_UDA = """
+        uda LogicalAvg(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+          float(_sum); -- Note bogus return value
+        };
+        uda LocalAvg(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+        };
+        uda RemoteAvg(_local_sum, _local_count) {
+          [0 as _sum, 0 as _count];
+          [_sum + _local_sum, _count + _local_count];
+          [_sum/_count];
+        };
+        uda* LogicalAvg {LocalAvg, RemoteAvg};
+    """
+
+    __ARG_MAX_UDA = """
+        def pickval(id, salary, val, _id, _salary, _val):
+           case when salary > _salary then val
+                when salary = _salary and id > _id then val
+                else _val end;
+        uda ArgMax(id, dept_id, name, salary) {
+          [0 as _id, 0 as _dept_id, "" as _name, 0 as _salary];
+          [pickval(id, salary, id, _id, _salary, _id),
+           pickval(id, salary, dept_id, _id, _salary, _dept_id),
+           pickval(id, salary, name, _id, _salary, _name),
+           pickval(id, salary, salary, _id, _salary, _salary)];
+          [_id, _dept_id, _name, _salary];
+        };
+    """
+
+    __ARG_MAX_UDA_UNNECESSARY_EXPR = """
+        def pickval(id, salary, val, _id, _salary, _val):
+           case when salary > _salary then val
+                when salary = _salary and id > _id then val
+                else _val end;
+        uda ArgMax(id, dept_id, name, salary) {
+          [0 as _id, 0 as _dept_id, "" as _name, 0 as _salary];
+          [pickval(id, salary, greater(id, id), _id, _salary, _id),
+           pickval(id, salary, lesser(dept_id, dept_id), _id, _salary,
+                   _dept_id),
+           pickval(id, salary, case when name="" then name else name end, _id,
+                   _salary, _name),
+           pickval(id, salary, salary * 1, _id, _salary, _salary)];
+          [_id, _dept_id, _name, _salary];
+        };
+    """
+
+    def test_decomposable_average_uda(self):
+        """Test of a decomposed average UDA.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """%s
+        out = [FROM SCAN(%s) AS X EMIT dept_id, LogicalAvg(salary)];
+        STORE(out, OUTPUT);
+        """ % (TestQueryFunctions.__DECOMPOSED_UDA, self.emp_key)
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _cnt = len(vals)
+            _sum = sum(vals)
+            tuples.append((key, float(_sum) / _cnt))
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_nary_uda(self):
+
+        query = """
+        uda Sum2(x, y) {
+          [0 as sum_x, 0 as sum_y];
+          [sum_x + x, sum_y + y];
+        };
+        uda* Sum2 {Sum2, Sum2};
+        out = [FROM SCAN(%s) AS X EMIT
+               Sum2(id, salary) AS [id_sum, salary_sum]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        id_sum = sum(t[0] for t in self.emp_table.elements())
+        salary_sum = sum(t[3] for t in self.emp_table.elements())
+
+        tuples = [(id_sum, salary_sum)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda(self):
+        """Test of an arg_max UDA.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, dept_id, name, salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_with_references(self):
+        """Test of an arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_with_functions(self):
+        """Test of an arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda(self):
+        """Test of a decomposable arg_max UDA.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, dept_id, name, salary)
+               as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+        """Test of an arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+
+    def test_decomposable_arg_max_uda_with_references(self):
+        """Test of a decomposable arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)
+               as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda_with_functions(self):
+        """Test of a decomposable arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_internal_exprs(self):
+        """Test of an arg_max UDA.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, dept_id, name, salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_internal_exprs_with_references(self):
+        """Test of an arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_internal_exprs_with_functions(self):
+        """Test of an arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda_internal_exprs(self):
+        """Test of a decomposable arg_max UDA.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, dept_id, name, salary)
+               as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+        """Test of an arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+
+    def test_decomposable_arg_max_uda_internal_exprs_with_references(self):
+        """Test of a decomposable arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)
+               as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda_internal_exprs_with_functions(self):
+        """Test of a decomposable arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_average_uda_repeated(self):
+        """Test of repeated invocations of decomposed UDAs."""
+
+        query = """%s
+        out = [FROM SCAN(%s) AS X EMIT dept_id,
+               LogicalAvg(salary) + LogicalAvg($0)];
+        STORE(out, OUTPUT);
+        """ % (TestQueryFunctions.__DECOMPOSED_UDA, self.emp_key)
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _cnt = len(vals)
+            _salary_sum = sum(t[3] for t in vals)
+            _id_sum = sum(t[0] for t in vals)
+            tuples.append((key, (float(_salary_sum) + float(_id_sum)) / _cnt))
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_sum_uda(self):
+        """Test of a decomposed sum UDA.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """
+        uda MySumBroken(x) {
+          [0 as _sum];
+          [_sum + x];
+          17; -- broken
+        };
+        uda MySum(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* MySumBroken {MySum, MySum};
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MySumBroken(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        self.check_result(query, self.__aggregate_expected_result(sum))
+
+    def test_decomposable_uda_with_builtin_agg(self):
+        """Test of a decomposed UDA + builtin aggregate.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """
+        uda MySumBroken(x) {
+          [0 as _sum];
+          [_sum + x];
+          17; -- broken
+        };
+        uda MySum(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* MySumBroken {MySum, MySum};
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MySumBroken(salary), SUM(id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _salary_sum = sum(t[3] for t in vals)
+            _id_sum = sum(t[0] for t in vals)
+            tuples.append((key, _salary_sum, _id_sum))
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_duplicate_decomposable_uda(self):
+        query = """
+        uda Agg1(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+
+        uda* Agg1 {Agg1, Agg1};
+        uda* Agg1 {Agg1, Agg1};
+        """
+
+        with self.assertRaises(DuplicateFunctionDefinitionException):
+            self.check_result(query, None)
+
+    def test_decomposable_uda_type_check_fail1(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Local(x, y) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* Logical {Local, Logical};
+        """
+
+        with self.assertRaises(InvalidArgumentList):
+            self.check_result(query, None)
+
+    def test_decomposable_uda_type_check_fail2(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Remote(x, y) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* Logical {Logical, Remote};
+        """
+
+        with self.assertRaises(InvalidArgumentList):
+            self.check_result(query, None)
+
+    def test_decomposable_uda_type_check_fail3(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Remote(x) {
+          [0 as _sum];
+          [_sum + x];
+          [1, 2, 3];
+        };
+        uda* Logical {Logical, Remote};
+        """
+
+        with self.assertRaises(InvalidEmitList):
             self.check_result(query, None)
 
     def test_running_mean_sapply(self):

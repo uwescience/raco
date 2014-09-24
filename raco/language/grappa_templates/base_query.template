@@ -2,6 +2,7 @@
 #include <Grappa.hpp>
 #include <Collective.hpp>
 #include <GlobalCompletionEvent.hpp>
+#include <Metrics.hpp>
 
 using namespace Grappa;
 
