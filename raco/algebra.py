@@ -1306,7 +1306,35 @@ class StoreTemp(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return 'StoreTemp(%s)' % self.name
+        return '{op}({name})'.format(op=self.opname(), name=self.name)
+
+    def copy(self, other):
+        self.name = other.name
+        UnaryOperator.copy(self, other)
+
+    def __eq__(self, other):
+        return UnaryOperator.__eq__(self, other) and self.name == other.name
+
+    def __repr__(self):
+        return "{op}({name!r}, {inp!r})".format(op=self.opname(),
+                                                name=self.name,
+                                                inp=self.input)
+
+
+class AppendTemp(UnaryOperator):
+    """Append an input relation to a "temporary" relation.
+
+    Temporary relations exist for the lifetime of a query.
+    """
+    def __init__(self, name=None, input=None):
+        UnaryOperator.__init__(self, input)
+        self.name = name
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def shortStr(self):
+        return '{op}({name})'.format(op=self.opname(), name=self.name)
 
     def copy(self, other):
         self.name = other.name

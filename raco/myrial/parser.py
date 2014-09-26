@@ -234,7 +234,26 @@ class Parser(object):
         Parser.decomposable_aggs[logical] = da
 
     @staticmethod
-    def add_udf(p, name, args, body_expr):
+    def add_nary_udf(p, name, args, emitters):
+        """Add an n-ary user-defined function to the global function table.
+
+        :param p: The parser context
+        :param name: The name of the function
+        :type name: string
+        :param args: A list of function arguments
+        :type args: list of strings
+        :param emitter: The output expression(s)
+        :type body_expr: A list of NaryEmitArg instances
+        """
+        if not all(isinstance(e, emitarg.NaryEmitArg) for e in emitters):
+            raise IllegalWildcardException(name, p.lineno(0))
+        if sum(len(x.sexprs) for x in emitters) != len(emitters):
+            raise NestedTupleExpressionException(p.lineno(0))
+        emit_exprs = [e.sexprs[0] for e in emitters]
+        Parser.add_udf(p, name, args, emit_exprs)
+
+    @staticmethod
+    def add_udf(p, name, args, body_exprs):
         """Add a user-defined function to the global function table.
 
         :param p: The parser context
@@ -242,8 +261,8 @@ class Parser(object):
         :type name: string
         :param args: A list of function arguments
         :type args: list of strings
-        :param body_expr: A scalar expression containing the function body
-        :type body_expr: raco.expression.Expression
+        :param body_exprs: A list of scalar expressions containing the body
+        :type body_exprs: list of raco.expression.Expression
         """
         if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno(0))
@@ -251,9 +270,15 @@ class Parser(object):
         if len(args) != len(set(args)):
             raise DuplicateVariableException(name, p.lineno(0))
 
-        Parser.check_for_undefined(p, name, body_expr, args)
+        if len(body_exprs) == 1:
+            emit_op = body_exprs[0]
+        else:
+            emit_op = TupleExpression(body_exprs)
 
-        Parser.udf_functions[name] = Function(args, body_expr)
+        Parser.check_for_undefined(p, name, emit_op, args)
+
+        Parser.udf_functions[name] = Function(args, emit_op)
+        return emit_op
 
     @staticmethod
     def mangle(name):
@@ -355,13 +380,19 @@ class Parser(object):
     @staticmethod
     def p_udf(p):
         """udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON sexpr SEMI"""  # noqa
-        Parser.add_udf(p, p[2], p[4], p[7])
+        Parser.add_udf(p, p[2], p[4], [p[7]])
+        p[0] = None
+
+    @staticmethod
+    def p_nary_udf(p):
+        """udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON table_literal SEMI"""  # noqa
+        Parser.add_nary_udf(p, p[2], p[4], p[7])
         p[0] = None
 
     @staticmethod
     def p_constant(p):
         """constant : CONST unreserved_id COLON sexpr SEMI"""
-        Parser.add_udf(p, p[2], [], p[4])
+        Parser.add_udf(p, p[2], [], [p[4]])
         p[0] = None
 
     @staticmethod
@@ -917,8 +948,15 @@ class Parser(object):
                     local_emitters, local_statemods,
                     remote_emitters, remote_statemods)
 
-                for sx in get_emitters(emit_expr):
-                    sx.set_decomposable_state(ds)
+                # Associate a decomposable state structure with the first
+                # emitter.  Mark the remaining emitters as decomposable, but
+                # without their own associated decomposed emitters and
+                # statemods.
+                emitters = get_emitters(emit_expr)
+                emitters[0].set_decomposable_state(ds)
+                for emt in emitters[1:]:
+                    emt.set_decomposable_state(
+                        sexpr.DecomposableAggregateState())
             return emit_expr
         else:
             assert False

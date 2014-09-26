@@ -239,6 +239,16 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
         }
 
 
+class MyriaAppendTemp(algebra.AppendTemp, MyriaOperator):
+    def compileme(self, inputid):
+        return {
+            "opType": "TempInsert",
+            "table": self.name,
+            "argOverwriteTable": False,
+            "argChild": inputid,
+        }
+
+
 def convertcondition(condition, left_len, combined_scheme):
     """Convert an equijoin condition to a pair of column lists."""
 
@@ -390,6 +400,11 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
 
         aggregators = [MyriaGroupBy.compile_builtin_agg(agg_expr, child_scheme)
                        for agg_expr in built_ins]
+
+        assert all(aggregators[i] != aggregators[j]
+                   for i in range(len(aggregators))
+                   for j in range(len(aggregators))
+                   if i < j)
 
         udas = [agg_expr for agg_expr in self.aggregate_list
                 if isinstance(agg_expr, expression.UdaAggregateExpression)]
@@ -1074,7 +1089,6 @@ class DecomposeGroupBy(rules.Rule):
         remote_statemods = []
         finalizer_exprs = []
 
-        state = None
         # The starting positions for the current local, remote aggregate
         local_output_pos = num_grouping_terms
         remote_output_pos = num_grouping_terms
@@ -1083,11 +1097,8 @@ class DecomposeGroupBy(rules.Rule):
         for agg in op.aggregate_list:
             # Multiple emit arguments can be associated with a single
             # decomposition rule; coalesce them all together.
-            next_state = agg.get_decomposable_state()
-            assert next_state
-            if next_state is state:
-                continue
-            state = next_state
+            state = agg.get_decomposable_state()
+            assert state
 
             ################################
             # Extract the set of emitters and statemods required for the
@@ -1157,6 +1168,29 @@ class DecomposeGroupBy(rules.Rule):
             fmappings = [(None, fx) for fx in finalizer_exprs]
             return algebra.Apply(gmappings + fmappings, remote_gb)
         return remote_gb
+
+
+class AddAppendTemp(rules.Rule):
+    def fire(self, op):
+        if type(op) is not MyriaStoreTemp:
+            return op
+
+        child = op.input
+        if type(child) is not MyriaUnionAll:
+            return op
+
+        left = child.left
+        right = child.right
+        rel_name = op.name
+
+        is_scan = lambda op: type(op) is MyriaScanTemp and op.name == rel_name
+        if is_scan(left) and not any(is_scan(op) for op in right.walk()):
+                return MyriaAppendTemp(name=rel_name, input=right)
+
+        elif is_scan(right) and not any(is_scan(op) for op in left.walk()):
+                return MyriaAppendTemp(name=rel_name, input=left)
+
+        return op
 
 
 class MergeToNaryJoin(rules.Rule):
@@ -1263,6 +1297,7 @@ distributed_group_by = [
     DecomposeGroupBy(),
     rules.SimpleGroupBy(),
     rules.CountToCountall(),   # TODO revisit when we have NULL support.
+    rules.DedupGroupBy(),
     rules.EmptyGroupByToDistinct(),
 ]
 
@@ -1323,6 +1358,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             rules.CountToCountall(),  # TODO revisit when we have NULL support.
             rules.ProjectToDistinctColumnSelect(),
             rules.DistinctToGroupBy(),
+            rules.DedupGroupBy(),
         ],
         rules.push_select,
         rules.push_project,
@@ -1331,6 +1367,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
         distributed_group_by,
         [rules.PushApply()],
         myriafy,
+        [AddAppendTemp()],
         break_communication
     ]
 
@@ -1360,6 +1397,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
                 # TODO revisit when we have NULL support.
                 rules.CountToCountall(),
                 rules.DistinctToGroupBy(),
+                rules.DedupGroupBy(),
             ],
             rules.push_select,
             rules.push_project,
