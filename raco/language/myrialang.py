@@ -735,7 +735,7 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
 
     def compileme(self):
         return {
-            "opType": "QueryScan",
+            "opType": "DbQueryScan",
             "sql": self.sql,
             "schema": scheme_to_schema(self._scheme)
         }
