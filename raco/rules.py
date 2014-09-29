@@ -608,8 +608,12 @@ class SwapJoinSides(Rule):
     # swaps the inputs to a join
     def fire(self, expr):
         # don't allow swap-created join to be swapped
-        if isinstance(expr, algebra.Join) and not hasattr(expr, '__swapped__'):
-            assert type(expr) is algebra.Join
+        if (isinstance(expr, algebra.Join) or \
+                        isinstance(expr, algebra.CrossProduct)) \
+                and not hasattr(expr, '__swapped__'):
+
+            assert (type(expr) is algebra.Join) or (type(expr) is algebra.CrossProduct)
+
             # An apply will undo the effect of the swap on the scheme,
             # so above operators won't be affected
             left_sch = expr.left.scheme()
@@ -624,13 +628,17 @@ class SwapJoinSides(Rule):
                               for i in range(rightlen)]
             emitters = emitters_left + emitters_right
 
-            # reindex the expression
-            index_map = dict([(oldpos, attr[1].position)
-                              for (oldpos, attr) in enumerate(emitters)])
+            if isinstance(expr, algebra.Join):
+                # reindex the expression
+                index_map = dict([(oldpos, attr[1].position)
+                                  for (oldpos, attr) in enumerate(emitters)])
 
-            expression.reindex_expr(expr.condition, index_map)
+                expression.reindex_expr(expr.condition, index_map)
 
-            newjoin = algebra.Join(expr.condition, expr.right, expr.left)
+                newjoin = algebra.Join(expr.condition, expr.right, expr.left)
+            else:
+                newjoin = algebra.CrossProduct(expr.right, expr.left)
+
             newjoin.__swapped__ = True
 
             return algebra.Apply(emitters=emitters, input=newjoin)
