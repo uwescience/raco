@@ -1462,3 +1462,26 @@ def inline_operator(dest_op, var, target_op):
             return node.apply(rewrite_node)
 
     return rewrite_node(dest_op)
+
+
+def convertcondition(condition, left_len, combined_scheme):
+    """Convert an equijoin condition to a pair of column lists."""
+
+    if isinstance(condition, expression.AND):
+        leftcols1, rightcols1 = convertcondition(condition.left,
+                                                 left_len,
+                                                 combined_scheme)
+        leftcols2, rightcols2 = convertcondition(condition.right,
+                                                 left_len,
+                                                 combined_scheme)
+        return leftcols1 + leftcols2, rightcols1 + rightcols2
+
+    if isinstance(condition, expression.EQ):
+        leftpos = condition.left.get_position(combined_scheme)
+        rightpos = condition.right.get_position(combined_scheme)
+        leftcol = min(leftpos, rightpos)
+        rightcol = max(leftpos, rightpos)
+        assert rightcol >= left_len
+        return [leftcol], [rightcol - left_len]
+
+    raise NotImplementedError("Myria only supports EquiJoins, not %s" % condition)  # noqa

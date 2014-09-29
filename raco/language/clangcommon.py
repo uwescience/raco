@@ -527,7 +527,7 @@ clang_push_select = [
     rules.PushSelects(),
     # We don't want to merge selects because it doesn't really
     # help and it (maybe) creates HashJoin(conjunction)
-    # rules.MergeSelects()
+    rules.MergeSelects()
 ]
 
 EMIT_CONSOLE = 'console'

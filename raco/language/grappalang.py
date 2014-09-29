@@ -849,14 +849,19 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         cls._i += 1
         return name
 
-    def produce(self, state):
-        if not isinstance(self.condition, expression.EQ):
-            msg = "The C compiler can only handle equi-join conditions of\
-             a single attribute: %s" % self.condition
-            raise ValueError(msg)
+    @classmethod
+    def __aggregate_val__(cls, tuple, cols):
+        return "std::make_tuple({0})".format(
+            ','.join([tuple.get_code(p) for p in cols]))
 
+    def __aggregate_type__(cls, sch, cols):
+        return "std::tuple<{0}>".format(
+            ','.join([cls.language().typename(
+                expression.UnnamedAttributeRef(c).typeof(sch, None)) for c in cols]))
+
+    def produce(self, state):
         declr_template = ct("""typedef MatchesDHT<%(keytype)s, \
-                          %(in_tuple_type)s, std::hash<%(keytype)s>> \
+                          %(in_tuple_type)s, hash_tuple::hash<%(keytype)s>> \
                            DHT_%(in_tuple_type)s;
         DHT_%(in_tuple_type)s %(hashname)s;
         """)
@@ -869,33 +874,14 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         left_sch = self.left.scheme()
         right_sch = self.right.scheme()
 
-        # find the attribute that corresponds to the right child
-        self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(left_sch)
-        self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(left_sch)
-        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr, \
-            "op: %s,\ncondition: %s, left.scheme: %s, right.scheme: %s" \
-            % (self, self.condition, left_sch, right_sch)
+        self.leftcols, self.rightcols = algebra.convertcondition(self.condition,
+                                               len(left_sch),
+                                               left_sch+right_sch)
 
-        # right key position
-        if self.rightCondIsRightAttr:
-            self.right_keypos = self.condition.right.position \
-                - len(left_sch)
-            keytype = self.language().typename(self.condition.right.typeof(my_sch, None))
-        else:
-            self.right_keypos = self.condition.left.position \
-                - len(left_sch)
-            keytype = self.language().typename(self.condition.left.typeof(my_sch, None))
-
-        # left key position
-        if self.rightCondIsRightAttr:
-            self.left_keypos = self.condition.left.position
-        else:
-            self.left_keypos = self.condition.right.position
+        keytype = self.__aggregate_type__(my_sch, self.rightcols)
 
         # common index is defined by same right side and same key
-        hashtableInfo = state.lookupExpr((self.right, self.right_keypos))
+        hashtableInfo = state.lookupExpr((self.right, frozenset(self.rightcols)))
         if not hashtableInfo:
             # if right child never bound then store hashtable symbol and
             # call right child produce
@@ -914,7 +900,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             cores()*16*1024 );""")
             state.addInitializers([init_template % locals()])
             self.right.produce(state)
-            state.saveExpr((self.right, self.right_keypos),
+            state.saveExpr((self.right, frozenset(self.rightcols)),
                            (self._hashname, self.rightTupleTypename,
                             self.right_syncname))
             # TODO always safe here? I really want to call
@@ -940,8 +926,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
             hashname = self._hashname
             keyname = t.name
-            keypos = self.right_keypos
-            keyval = t.get_code(keypos)
+            keyval = self.__aggregate_val__(t, self.rightcols)
 
             self.right_syncname = get_pipeline_task_name(state)
 
@@ -965,7 +950,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
               join_coarse_result_count++;
               %(out_tuple_type)s %(out_tuple_name)s = \
                %(out_tuple_type)s::create<\
-                       %(keytype)s, \
+                       %(input_tuple_type)s, \
                        %(right_tuple_type)s> \
                            (%(keyname)s, %(right_tuple_name)s);
               %(inner_plan_compiled)s
@@ -977,9 +962,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
             hashname = self._hashname
             keyname = t.name
-            keytype = t.getTupleTypename()
-            keypos = self.left_keypos
-            keyval = t.get_code(keypos)
+            input_tuple_type = t.getTupleTypename()
+            keyval = self.__aggregate_val__(t, self.leftcols)
 
             pipeline_sync = state.getPipelineProperty('global_syncname')
 
@@ -1131,7 +1115,7 @@ def grappify(join_type, emit_print):
         rules.OneToOne(algebra.Union, GrappaUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, GrappaStore),
 
-        clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
+        #clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
     ]
 
 
