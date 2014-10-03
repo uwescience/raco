@@ -25,3 +25,9 @@ class SQLLiteTest(unittest.TestCase, FakeData):
 
         num_out = collections.Counter(self.conn2.get_table('num'))
         self.assertEquals(num_out, FakeData.numbers_table)
+
+    def test_schema_lookup(self):
+        self.assertEquals(self.conn1.get_scheme('emp'), FakeData.emp_schema)
+        self.assertEquals(self.conn1.get_scheme('dept'), FakeData.dept_schema)
+        self.assertEquals(self.conn2.get_scheme('num'),
+                          FakeData.numbers_schema)
