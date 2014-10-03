@@ -7,6 +7,7 @@ from raco.fake_data import FakeData
 
 """Test the raco to sqllite interface."""
 
+
 class SQLLiteTest(unittest.TestCase, FakeData):
 
     def setUp(self):
@@ -68,7 +69,8 @@ class SQLLiteTest(unittest.TestCase, FakeData):
     def test_append_table(self):
         self.conn1.append_table("emp", FakeData.emp_table)
 
-        it = itertools.chain(iter(FakeData.emp_table), iter(FakeData.emp_table))
+        it = itertools.chain(iter(FakeData.emp_table),
+                             iter(FakeData.emp_table))
         expected = collections.Counter(it)
         actual = collections.Counter(self.conn1.get_table('emp'))
         self.assertEquals(actual, expected)
