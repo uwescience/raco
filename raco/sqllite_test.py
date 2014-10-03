@@ -40,3 +40,11 @@ class SQLLiteTest(unittest.TestCase, FakeData):
                           len(FakeData.dept_table))
         self.assertEquals(self.conn2.num_tuples('num'),
                           len(FakeData.numbers_table))
+
+    def test_schema_lookup_key_error(self):
+        with self.assertRaises(KeyError):
+            sc = self.conn2.get_scheme("emp")
+
+    def test_scan_key_error(self):
+        with self.assertRaises(KeyError):
+            sc = self.conn1.get_table("num")
