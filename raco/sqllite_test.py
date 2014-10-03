@@ -4,6 +4,7 @@ import unittest
 from raco.sqllite import SQLLiteConnection
 from raco.fake_data import FakeData
 
+"""Test the raco to sqllite interface."""
 
 class SQLLiteTest(unittest.TestCase, FakeData):
 
