@@ -32,7 +32,7 @@ raco_to_type = {types.LONG_TYPE: Integer,
 class DBConnection(object):
 
     def __init__(self, connection_string='sqlite:///:memory:', echo=False):
-        """Initialize a SQLLite connection."""
+        """Initialize a database connection."""
         self.engine = create_engine(connection_string, echo=echo)
         self.metadata = MetaData()
         self.metadata.bind = self.engine
@@ -45,7 +45,7 @@ class DBConnection(object):
                       for c in table.columns)
 
     def add_table(self, rel_key, schema, tuples=None):
-        """Add a table to the SQLLite database."""
+        """Add a table to the database."""
         self.delete_table(rel_key, ignore_failure=True)
         assert str(rel_key) not in self.metadata.tables
 
@@ -70,7 +70,7 @@ class DBConnection(object):
             self.engine.execute(table.insert(), tuples)
 
     def num_tuples(self, rel_key):
-        """ Return number of tuples of rel_key """
+        """Return number of tuples of rel_key """
         table = self.metadata.tables[str(rel_key)]
         return self.engine.execute(table.count()).scalar()
 
