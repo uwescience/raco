@@ -42,7 +42,7 @@ class DBConnection(object):
 
         table = self.metadata.tables[str(rel_key)]
         return Scheme((c.name, type_to_raco[type(c.type)])
-                       for c in table.columns)
+                      for c in table.columns)
 
     def add_table(self, rel_key, schema, tuples=None):
         """Add a table to the SQLLite database."""
@@ -66,7 +66,8 @@ class DBConnection(object):
         table = self.metadata.tables[str(rel_key)]
         tuples = [{n: v for n, v in zip(scheme.get_names(), tup)}
                   for tup in tuples]
-        self.engine.execute(table.insert(), tuples)
+        if tuples:
+            self.engine.execute(table.insert(), tuples)
 
     def num_tuples(self, rel_key):
         """ Return number of tuples of rel_key """
@@ -88,4 +89,3 @@ class DBConnection(object):
         except:
             if not ignore_failure:
                 raise
-
