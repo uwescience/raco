@@ -1,7 +1,7 @@
 import collections
 import unittest
 
-from raco.sqllite import SQLLiteConnection
+from raco.dbconn import DBConnection
 from raco.fake_data import FakeData
 
 """Test the raco to sqllite interface."""
@@ -9,8 +9,8 @@ from raco.fake_data import FakeData
 class SQLLiteTest(unittest.TestCase, FakeData):
 
     def setUp(self):
-        self.conn1 = SQLLiteConnection()
-        self.conn2 = SQLLiteConnection()
+        self.conn1 = DBConnection()
+        self.conn2 = DBConnection()
 
         self.conn1.add_table("emp", FakeData.emp_schema, FakeData.emp_table)
         self.conn1.add_table("dept", FakeData.dept_schema, FakeData.dept_table)

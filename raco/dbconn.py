@@ -1,7 +1,7 @@
 
-"""Maintain a connection to a sqllite database.
+"""Maintain a connection to a SQL database.
 
-This class translates between raco's internal data types and sqllite's
+This class translates between raco's internal data types and sqlalchemy's
 representation.
 """
 
@@ -25,7 +25,7 @@ raco_to_type = {types.LONG_TYPE: Integer,
                 types.DOUBLE_TYPE: Float}
 
 
-class SQLLiteConnection(object):
+class DBConnection(object):
 
     def __init__(self, connection_string='sqlite:///:memory:', echo=False):
         """Initialize a SQLLite connection."""
