@@ -7,8 +7,8 @@ representation.
 
 import collections
 
-from sqlalchemy import (Column, Table, MetaData, Integer, String,
-                        Float, create_engine, select, func)
+from sqlalchemy import (Column, Table, MetaData, Integer, String, DateTime,
+                        Float, Boolean, create_engine, select, func)
 
 from raco.scheme import Scheme
 import raco.types as types
@@ -22,7 +22,9 @@ raco_to_type = {types.LONG_TYPE: Integer,
                 types.INT_TYPE: Integer,
                 types.STRING_TYPE: String,
                 types.FLOAT_TYPE: Float,
-                types.DOUBLE_TYPE: Float}
+                types.DOUBLE_TYPE: Float,
+                types.BOOLEAN_TYPE: Boolean,
+                types.DATETIME_TYPE: DateTime}
 
 
 class DBConnection(object):
@@ -42,6 +44,8 @@ class DBConnection(object):
 
     def add_table(self, rel_key, schema, tuples=None):
         """Add a table to the SQLLite database."""
+        self.delete_table(rel_key, ignore_failure=True)
+        assert str(rel_key) not in self.metadata.tables
 
         columns = [Column(n, raco_to_type[t](), nullable=False)
                    for n, t in schema.attributes]
@@ -50,7 +54,8 @@ class DBConnection(object):
         if tuples:
             tuples = [{n: v for n, v in zip(schema.get_names(), tup)}
                       for tup in tuples]
-            self.engine.execute(table.insert(), tuples)
+            if tuples:
+                self.engine.execute(table.insert(), tuples)
 
     def append_table(self, rel_key, tuples):
         """Append tuples to an existing relation."""
@@ -67,13 +72,18 @@ class DBConnection(object):
         return self.engine.execute(table.count()).scalar()
 
     def get_table(self, rel_key):
-        """Retrieve the contents of a table as a tuple iterator."""
+        """Retrieve the contents of a table as a bag (Counter)."""
         table = self.metadata.tables[str(rel_key)]
         s = select([table])
-        return (tuple(t) for t in self.engine.execute(s))
+        return collections.Counter(tuple(t) for t in self.engine.execute(s))
 
-    def delete_table(self, rel_key):
+    def delete_table(self, rel_key, ignore_failure=False):
         """Delete a table from the database."""
+        try:
+            table = self.metadata.tables[str(rel_key)]
+            table.drop(self.engine)
+            self.metadata.remove(table)
+        except:
+            if not ignore_failure:
+                raise
 
-        table = self.metadata.tables[str(rel_key)]
-        self.metadata.remove(table)
