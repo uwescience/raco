@@ -15,7 +15,9 @@ import raco.types as types
 
 type_to_raco = {Integer: types.LONG_TYPE,
                 String: types.STRING_TYPE,
-                Float: types.FLOAT_TYPE}
+                Float: types.FLOAT_TYPE,
+                Boolean: types.BOOLEAN_TYPE,
+                DateTime: types.DATETIME_TYPE}
 
 
 raco_to_type = {types.LONG_TYPE: Integer,
