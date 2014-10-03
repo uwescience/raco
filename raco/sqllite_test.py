@@ -1,5 +1,6 @@
 import collections
 import unittest
+import itertools
 
 from raco.dbconn import DBConnection
 from raco.fake_data import FakeData
@@ -54,3 +55,11 @@ class SQLLiteTest(unittest.TestCase, FakeData):
         self.conn1.delete_table("emp")
         with self.assertRaises(KeyError):
             sc = self.conn1.get_scheme("emp")
+
+    def test_append_table(self):
+        self.conn1.append_table("emp", FakeData.emp_table)
+
+        it = itertools.chain(iter(FakeData.emp_table), iter(FakeData.emp_table))
+        expected = collections.Counter(it)
+        actual = collections.Counter(self.conn1.get_table('emp'))
+        self.assertEquals(actual, expected)
