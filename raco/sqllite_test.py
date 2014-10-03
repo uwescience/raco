@@ -48,3 +48,9 @@ class SQLLiteTest(unittest.TestCase, FakeData):
     def test_scan_key_error(self):
         with self.assertRaises(KeyError):
             sc = self.conn1.get_table("num")
+
+    def test_delete_table(self):
+        sc = self.conn1.get_scheme("emp")
+        self.conn1.delete_table("emp")
+        with self.assertRaises(KeyError):
+            sc = self.conn1.get_scheme("emp")

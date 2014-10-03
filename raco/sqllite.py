@@ -31,6 +31,7 @@ class SQLLiteConnection(object):
         """Initialize a SQLLite connection."""
         self.engine = create_engine(connection_string, echo=echo)
         self.metadata = MetaData()
+        self.metadata.bind = self.engine
 
     def get_scheme(self, rel_key):
         """Return the schema associated with a relation key."""
@@ -61,3 +62,9 @@ class SQLLiteConnection(object):
         table = self.metadata.tables[str(rel_key)]
         s = select([table])
         return (tuple(t) for t in self.engine.execute(s))
+
+    def delete_table(self, rel_key):
+        """Delete a table from the database."""
+
+        table = self.metadata.tables[str(rel_key)]
+        self.metadata.remove(table)
