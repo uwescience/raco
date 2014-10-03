@@ -31,3 +31,11 @@ class SQLLiteTest(unittest.TestCase, FakeData):
         self.assertEquals(self.conn1.get_scheme('dept'), FakeData.dept_schema)
         self.assertEquals(self.conn2.get_scheme('num'),
                           FakeData.numbers_schema)
+
+    def test_num_tuples(self):
+        self.assertEquals(self.conn1.num_tuples('emp'),
+                          len(FakeData.emp_table))
+        self.assertEquals(self.conn1.num_tuples('dept'),
+                          len(FakeData.dept_table))
+        self.assertEquals(self.conn2.num_tuples('num'),
+                          len(FakeData.numbers_table))
