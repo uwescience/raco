@@ -1,3 +1,6 @@
+import collections
+import raco.scheme as scheme
+import raco.types as types
 
 """This class contains fake data used by several unit tests."""
 

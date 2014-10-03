@@ -55,5 +55,5 @@ class SQLLiteConnection(object):
     def get_table(self, rel_key):
         """Retrieve the contents of a table as a tuple iterator."""
         table = self.metadata.tables[str(rel_key)]
-        s = select(table)
+        s = select([table])
         return (tuple(t) for t in self.engine.execute(s))
