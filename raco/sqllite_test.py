@@ -18,6 +18,15 @@ class SQLLiteTest(unittest.TestCase, FakeData):
         self.conn2.add_table("num", FakeData.numbers_schema,
                              FakeData.numbers_table)
 
+    def test_empty_relation(self):
+        self.conn1.add_table("emp2", FakeData.emp_schema,
+                             collections.Counter())
+        emp_out = collections.Counter(self.conn1.get_table('emp2'))
+        self.assertEquals(emp_out, collections.Counter())
+
+        scheme_out = self.conn1.get_scheme('emp2')
+        self.assertEquals(scheme_out, FakeData.emp_schema)
+
     def test_scan(self):
         emp_out = collections.Counter(self.conn1.get_table('emp'))
         self.assertEquals(emp_out, FakeData.emp_table)
