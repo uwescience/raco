@@ -1,5 +1,9 @@
 
-"""Maintain a connection to a sqllite database."""
+"""Maintain a connection to a sqllite database.
+
+This class translates between raco's internal data types and sqllite's
+representation.
+"""
 
 import collections
 
