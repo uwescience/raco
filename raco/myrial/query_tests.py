@@ -87,7 +87,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     """
 
     salary_expected_result = collections.Counter(
-        [x for x in emp_table.elements() if x[3] > 25000])
+        [x for x in FakeData.emp_table.elements() if x[3] > 25000])
 
     def test_bag_comp_filter_large_salary_by_name(self):
         query = TestQueryFunctions.salary_filter_query % (self.emp_key,
