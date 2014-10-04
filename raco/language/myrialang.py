@@ -711,18 +711,15 @@ class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
 
 class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
     """A Myria Query Scan"""
-    def __init__(self, sql, scheme, replaces,
-                 num_tuples=algebra.DEFAULT_CARDINALITY,):
+    def __init__(self, sql, scheme, num_tuples=algebra.DEFAULT_CARDINALITY):
         self.sql = str(sql)
         self._scheme = scheme
-        self.replaces = replaces
         self._num_tuples = num_tuples
 
     def __repr__(self):
-        return ("{op}({sql!r}, {sch!r}, {rep!r}, {nt!r})"
+        return ("{op}({sql!r}, {sch!r}, {nt!r})"
                 .format(op=self.opname(), sql=self.sql,
-                        sch=self._scheme, rep=self.replaces,
-                        nt=self._num_tuples))
+                        sch=self._scheme, nt=self._num_tuples))
 
     def num_tuples(self):
         return self._num_tuples
@@ -1244,8 +1241,7 @@ class PushIntoSQL(rules.Rule):
             sql_string.visit_bindparam = sql_string.render_literal_bindparam
             return MyriaQueryScan(sql=sql_string.process(sql_plan),
                                   scheme=expr.scheme(),
-                                  num_tuples=expr.num_tuples(),
-                                  replaces=expr)
+                                  num_tuples=expr.num_tuples())
         except NotImplementedError, e:
             LOGGER.warn("Error converting {plan}: {e}"
                         .format(plan=expr, e=e))
