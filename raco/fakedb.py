@@ -3,6 +3,7 @@ import collections
 import itertools
 import csv
 
+from raco.dbconn import DBConnection
 from raco import relation_key, types
 from raco.algebra import StoreTemp, DEFAULT_CARDINALITY
 from raco.catalog import Catalog
@@ -31,18 +32,18 @@ class FakeDatabase(Catalog):
     """An in-memory implementation of relational algebra operators"""
 
     def __init__(self):
-        # Map from relation keys to tuples of (Bag, scheme.Scheme)
-        self.tables = {}
+        # Persistent tables, identified by RelationKey
+        self.tables = DBConnection()
 
-        # Map from relation names to bags; schema is tracked by the runtime.
-        self.temp_tables = {}
+        # Temporary tables, identified by string name
+        self.temp_tables = DBConnection()
 
     def get_num_servers(self):
         return 1
 
     def num_tuples(self, rel_key):
         try:
-            return sum(self.tables[rel_key][0].values())
+            return self.tables.num_tuples(rel_key)
         except KeyError:
             return DEFAULT_CARDINALITY
 
@@ -64,7 +65,7 @@ class FakeDatabase(Catalog):
         if isinstance(rel_key, str):
             rel_key = relation_key.RelationKey.from_string(rel_key)
         assert isinstance(rel_key, relation_key.RelationKey)
-        self.tables[rel_key] = (contents, scheme)
+        self.tables.add_table(rel_key, scheme, contents.elements())
 
     def get_scheme(self, rel_key):
         if isinstance(rel_key, str):
@@ -72,8 +73,7 @@ class FakeDatabase(Catalog):
 
         assert isinstance(rel_key, relation_key.RelationKey)
 
-        (_, scheme) = self.tables[rel_key]
-        return scheme
+        return self.tables.get_scheme(rel_key)
 
     def get_table(self, rel_key):
         """Retrieve the contents of table.
@@ -85,14 +85,13 @@ class FakeDatabase(Catalog):
         if isinstance(rel_key, str):
             rel_key = relation_key.RelationKey.from_string(rel_key)
         assert isinstance(rel_key, relation_key.RelationKey)
-        (contents, scheme) = self.tables[rel_key]
-        return contents
+        return self.tables.get_table(rel_key)
 
     def get_temp_table(self, key):
-        return self.temp_tables[key]
+        return self.temp_tables.get_table(key)
 
     def delete_temp_table(self, key):
-        del self.temp_tables[key]
+        self.temp_tables.delete_table(key)
 
     def dump_all(self):
         for key, val in self.tables.iteritems():
@@ -104,8 +103,7 @@ class FakeDatabase(Catalog):
 
     def scan(self, op):
         assert isinstance(op.relation_key, relation_key.RelationKey)
-        (bag, _) = self.tables[op.relation_key]
-        return bag.elements()
+        return self.tables.get_table(op.relation_key).elements()
 
     def filescan(self, op):
         type_list = op.scheme().get_types()
@@ -327,10 +325,8 @@ class FakeDatabase(Catalog):
     def store(self, op):
         assert isinstance(op.relation_key, relation_key.RelationKey)
 
-        # Materialize the result
-        bag = self.evaluate_to_bag(op.input)
         scheme = op.input.scheme()
-        self.tables[op.relation_key] = (bag, scheme)
+        self.tables.add_table(op.relation_key, scheme, self.evaluate(op.input))
         return None
 
     def dump(self, op):
@@ -339,16 +335,14 @@ class FakeDatabase(Catalog):
         return None
 
     def storetemp(self, op):
-        bag = self.evaluate_to_bag(op.input)
-        self.temp_tables[op.name] = bag
+        scheme = op.input.scheme()
+        self.temp_tables.add_table(op.name, scheme, self.evaluate(op.input))
 
     def appendtemp(self, op):
-        bag = self.evaluate_to_bag(op.input)
-        self.temp_tables[op.name].update(bag)
+        self.temp_tables.append_table(op.name, self.evaluate(op.input))
 
     def scantemp(self, op):
-        bag = self.temp_tables[op.name]
-        return bag.elements()
+        return self.temp_tables.get_table(op.name).elements()
 
     def myriascan(self, op):
         return self.scan(op)
