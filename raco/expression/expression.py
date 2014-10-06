@@ -316,6 +316,7 @@ class Literal(ZeroaryOperator):
 
 
 class StringLiteral(Literal):
+
     def __str__(self):
         return '"{val}"'.format(val=self.value)
 
@@ -367,7 +368,7 @@ class NamedAttributeRef(AttributeRef):
         return hash(self.name)
 
     def __eq__(self, other):
-        return type(self) == type(other) and self.name == other.name
+        return isinstance(self, type(other)) and self.name == other.name
 
     def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
@@ -521,6 +522,7 @@ class TIMES(BinaryOperator):
 
 
 class CAST(UnaryOperator):
+
     def __init__(self, _type, input):
         """Initialize a cast operator.
 
@@ -683,5 +685,3 @@ class Case(Expression):
 
         self.else_expr.accept(visitor)
         visitor.visit(self)
-
-

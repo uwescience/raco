@@ -24,6 +24,7 @@ def readtemplate(fname):
 
 
 class GrappaStagedTupleRef(StagedTupleRef):
+
     def __afterDefinitionCode__(self):
         # Grappa requires structures to be block aligned if they will be
         # iterated over with localizing forall
@@ -180,6 +181,7 @@ def create_pipeline_synchronization(state):
 
 # TODO: replace with ScanTemp functionality?
 class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
+
     def num_tuples(self):
         return 10000  # placeholder
 
@@ -298,12 +300,14 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
 
         if self.rightCondIsRightAttr:
             self.keypos = self.condition.right.position \
-                     - len(left_sch)
-            self.keytype = self.language().typename(self.condition.right.typeof(my_sch, None))
+                - len(left_sch)
+            self.keytype = self.language().typename(
+                self.condition.right.typeof(my_sch, None))
         else:
             self.keypos = self.condition.left.position \
-                     - len(left_sch)
-            self.keytype = self.language().typename(self.condition.left.typeof(my_sch, None))
+                - len(left_sch)
+            self.keytype = self.language().typename(self.condition.left.typeof(
+                my_sch, None))
 
         self.right.childtag = "right"
         state.addInitializers([init_template % locals()])
@@ -580,13 +584,16 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
     def produce(self, state):
         self._agg_mode = None
-        if len(self.aggregate_list) == 1 and isinstance(self.aggregate_list[0], expression.BuiltinAggregateExpression):
+        if len(self.aggregate_list) == 1 \
+                and isinstance(self.aggregate_list[0],
+                               expression.BuiltinAggregateExpression):
             self._agg_mode = self._ONE_BUILT_IN
         elif all([isinstance(a, expression.UdaAggregateExpression)
-                 for a in self.aggregate_list]):
+                  for a in self.aggregate_list]):
             self._agg_mode = self._MULTI_UDA
 
-        assert self._agg_mode is not None, "unsupported aggregates {0}".format(self.aggregate_list)
+        assert self._agg_mode is not None, \
+            "unsupported aggregates {0}".format(self.aggregate_list)
         _LOG.debug("%s _agg_mode was set to %s", self, self._agg_mode)
 
         self.useKey = len(self.grouping_list) > 0
@@ -595,13 +602,16 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         inp_sch = self.input.scheme()
 
         if self._agg_mode == self._ONE_BUILT_IN:
-            state_type = self.language().typename(self.aggregate_list[0].input.typeof(inp_sch, None))
+            state_type = self.language().typename(
+                self.aggregate_list[0].input.typeof(inp_sch, None))
             op = self.aggregate_list[0].__class__.__name__
-            self.update_func = "Aggregates::{op}<{type}, {type}>".format(op=op, type=state_type)
+            self.update_func = "Aggregates::{op}<{type}, {type}>".format(
+                op=op, type=state_type)
         elif self._agg_mode == self._MULTI_UDA:
             # for now just name the aggregate after the first state variable
             self.func_name = self.updaters[0][0]
-            self.state_tuple = GrappaStagedTupleRef(gensym(), self.state_scheme)
+            self.state_tuple = GrappaStagedTupleRef(gensym(),
+                                                    self.state_scheme)
             state.addDeclarations([self.state_tuple.generateDefinition()])
             state_type = self.state_tuple.getTupleTypename()
             self.update_func = "{name}_update".format(name=self.func_name)
@@ -610,7 +620,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         if self.useKey:
             numkeys = len(self.grouping_list)
-            keytype = "std::tuple<{types}>".format(types=','.join([self.language().typename(g.typeof(inp_sch, None)) for g in self.grouping_list]))
+            keytype = "std::tuple<{types}>".format(
+                types=','.join([self.language().typename(
+                    g.typeof(inp_sch, None)) for g in self.grouping_list]))
 
         self._hashname = self.__genHashName__()
         _LOG.debug("generate hashname %s for %s", self._hashname, self)
@@ -619,13 +631,17 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         if self.useKey:
             init_template = """auto %(hashname)s = \
-            DHT_symmetric<{keytype},{valtype},hash_tuple::hash<{keytype}>>::create_DHT_symmetric( );""".format(keytype=keytype,
-                                                                                                       valtype=state_type)
+            DHT_symmetric<{keytype},{valtype},hash_tuple::hash<{keytype}>>\
+            ::create_DHT_symmetric( );""".format(keytype=keytype,
+                                                 valtype=state_type)
 
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
-                initial_value = self.__get_initial_value__(0, cached_inp_sch=inp_sch)
-                no_key_state_initializer = "counter<{state_type}>::create({valinit})".format(state_type=state_type, valinit=initial_value)
+                initial_value = \
+                    self.__get_initial_value__(0, cached_inp_sch=inp_sch)
+                no_key_state_initializer = \
+                    "counter<{state_type}>::create({valinit})".format(
+                        state_type=state_type, valinit=initial_value)
             elif self._agg_mode == self._MULTI_UDA:
                 no_key_state_initializer = \
                     "symmetric_global_alloc<{state_tuple_type}>()".format(
@@ -639,7 +655,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
-        #assert len(self.column_list()) == 1 \
+        # assert len(self.column_list()) == 1 \
         #    or isinstance(self.column_list()[0],
         #                  expression.AttributeRef), \
         #    """assumes first column is the key and second is aggregate result
@@ -648,7 +664,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         if self.useKey:
             mapping_var_name = gensym()
             if self._agg_mode == self._ONE_BUILT_IN:
-                emit_type = self.language().typename(self.aggregate_list[0].input.typeof(self.input.scheme(), None))
+                emit_type = self.language().typename(
+                    self.aggregate_list[0].input.typeof(
+                        self.input.scheme(), None))
             elif self._agg_mode == self._MULTI_UDA:
                 emit_type = self.state_tuple.getTupleTypename()
 
@@ -658,17 +676,20 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                 # pass in attribute values as a tuple
                 initializer_template = "std::tuple_cat( {values} )"
                 # need to force type in make_tuple
-                initializer_list += ["std::make_tuple(%(mapping_var_name)s.second)"]
+                initializer_list += \
+                    ["std::make_tuple(%(mapping_var_name)s.second)"]
             elif self._agg_mode == self._MULTI_UDA:
                 # pass in attribute values individually
                 initializer_template = "{values}"
                 initializer_list += ["%(mapping_var_name)s.second"]
 
-            initializer = initializer_template.format(values=','.join(initializer_list))
+            initializer = initializer_template.format(
+                values=','.join(initializer_list))
 
             produce_template = """%(hashname)s->\
                 forall_entries<&%(pipeline_sync)s>\
-                ([=](std::pair<const {keytype},%(emit_type)s>& %(mapping_var_name)s) {{
+                ([=](std::pair<const {keytype},%(emit_type)s>&\
+                 %(mapping_var_name)s) {{
                     %(output_tuple_type)s %(output_tuple_name)s({initializer});
                     %(inner_code)s
                     }});
@@ -676,15 +697,21 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
-                template_args = "{state_type}, counter, &{update_func}, &get_count".format(state_type=state_type,
-                                                                                           update_func=update_func)
-                output_template = """%(output_tuple_type)s %(output_tuple_name)s;
+                template_args = \
+                    "{state_type}, counter, &{update_func}, &get_count".format(
+                        state_type=state_type,
+                        update_func=update_func)
+                output_template = """
+                %(output_tuple_type)s %(output_tuple_name)s;
                 %(output_tuple_set_func)s(%(output_tuple_name)s_tmp);"""
 
             elif self._agg_mode == self._MULTI_UDA:
-                template_args = "{state_type}, &{update_func}".format(state_type=state_type,
-                                                                      update_func=update_func)
-                output_template = """%(output_tuple_type)s %(output_tuple_name)s = %(output_tuple_type)s::create(%(output_tuple_name)s_tmp);"""
+                template_args = "{state_type}, &{update_func}".format(
+                    state_type=state_type,
+                    update_func=update_func)
+                output_template = """
+                %(output_tuple_type)s %(output_tuple_name)s = \
+                %(output_tuple_type)s::create(%(output_tuple_name)s_tmp);"""
 
             produce_template = """auto %(output_tuple_name)s_tmp = \
             reduce<%(template_args)s>(%(hashname)s);
@@ -692,7 +719,6 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             {output_template}
             %(inner_code)s
             """.format(output_template=output_template)
-
 
         pipeline_sync = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
@@ -730,10 +756,13 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
             for a in assgns:
                 state_name, update_exp = a
-                # doesn't have to use inputTuple.name, but it will for simplicity
-                rhs = self.language().compile_expression(update_exp,
-                                                         tupleref=inputTuple,
-                                                         state_scheme=self.state_scheme)
+                # doesn't have to use inputTuple.name,
+                # but it will for simplicity
+                rhs = self.language().compile_expression(
+                    update_exp,
+                    tupleref=inputTuple,
+                    state_scheme=self.state_scheme)
+
                 # combine lhs, rhs with assignment
                 code = "{lhs} = {rhs}".format(lhs=state_name, rhs=rhs[0])
 
@@ -746,9 +775,13 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
             return state_var_updates, state_vars, decls, inits
 
-        update_updates, update_state_vars, update_decls, update_inits = compile_assignments(self.updaters)
-        init_updates, init_state_vars, init_decls, init_inits = compile_assignments(self.inits)
-        assert set(update_state_vars) == set(init_state_vars), "Initialized and update state vars are not the same (may not need to be?)"
+        update_updates, update_state_vars, update_decls, update_inits = \
+            compile_assignments(self.updaters)
+        init_updates, init_state_vars, init_decls, init_inits = \
+            compile_assignments(self.inits)
+        assert set(update_state_vars) == set(init_state_vars), \
+            """Initialized and update state vars are not the same \
+            (may not need to be?)"""
         all_decls += update_decls + init_decls
         all_inits += update_inits + init_inits
 
@@ -779,12 +812,14 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                 valpos = 0
             elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
                 # get value positions from aggregated attributes
-                valpos = self.aggregate_list[0].input.get_position(self.scheme())
+                valpos = \
+                    self.aggregate_list[0].input.get_position(self.scheme())
             else:
                 assert False, "only support Unary or Zeroary aggregates"
 
             update_val = inputTuple.get_code(valpos)
-            input_type = self.language().typename(self.aggregate_list[0].input.typeof(inp_sch, None))
+            input_type = self.language().typename(
+                self.aggregate_list[0].input.typeof(inp_sch, None))
 
         elif self._agg_mode == self._MULTI_UDA:
             init_func = "{name}_init".format(name=self.func_name)
@@ -857,7 +892,8 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
     def __aggregate_type__(cls, sch, cols):
         return "std::tuple<{0}>".format(
             ','.join([cls.language().typename(
-                expression.UnnamedAttributeRef(c).typeof(sch, None)) for c in cols]))
+                expression.UnnamedAttributeRef(c).typeof(sch, None))
+                for c in cols]))
 
     def produce(self, state):
         declr_template = ct("""typedef MatchesDHT<%(keytype)s, \
@@ -866,7 +902,6 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         DHT_%(in_tuple_type)s %(hashname)s;
         """)
 
-
         self.right.childtag = "right"
         self.rightTupleTypeRef = None  # may remain None if CSE succeeds
 
@@ -874,14 +909,16 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         left_sch = self.left.scheme()
         right_sch = self.right.scheme()
 
-        self.leftcols, self.rightcols = algebra.convertcondition(self.condition,
-                                               len(left_sch),
-                                               left_sch+right_sch)
+        self.leftcols, self.rightcols = \
+            algebra.convertcondition(self.condition,
+                                     len(left_sch),
+                                     left_sch + right_sch)
 
         keytype = self.__aggregate_type__(my_sch, self.rightcols)
 
         # common index is defined by same right side and same key
-        hashtableInfo = state.lookupExpr((self.right, frozenset(self.rightcols)))
+        hashtableInfo = state.lookupExpr((self.right,
+                                          frozenset(self.rightcols)))
         if not hashtableInfo:
             # if right child never bound then store hashtable symbol and
             # call right child produce
@@ -966,7 +1003,6 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             keyval = self.__aggregate_val__(t, self.leftcols)
 
             pipeline_sync = state.getPipelineProperty('global_syncname')
-
 
             right_tuple_name = gensym()
             right_tuple_type = self.rightTupleTypename
@@ -1069,6 +1105,7 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
 
 
 class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
+
     def __file_code__(self, t, state):
         my_sch = self.scheme()
 
@@ -1087,8 +1124,10 @@ class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
 
 
 class MemoryScanOfFileScan(rules.Rule):
+
     """A rewrite rule for making a scan into materialization
      in memory then memory scan"""
+
     def fire(self, expr):
         if isinstance(expr, algebra.Scan) \
                 and not isinstance(expr, GrappaFileScan):
@@ -1115,32 +1154,33 @@ def grappify(join_type, emit_print):
         rules.OneToOne(algebra.Union, GrappaUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, GrappaStore),
 
-        #clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
+        # clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
     ]
 
 
 class GrappaAlgebra(Algebra):
+
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         self.emit_print = emit_print
 
     def opt_rules(self, **kwargs):
         # datalog_rules = [
-        #     # rules.removeProject(),
+        # rules.removeProject(),
         #     rules.CrossProduct2Join(),
         #     rules.SimpleGroupBy(),
-        #     # SwapJoinSides(),
+        # SwapJoinSides(),
         #     rules.OneToOne(algebra.Select, GrappaSelect),
         #     rules.OneToOne(algebra.Apply, GrappaApply),
-        #     # rules.OneToOne(algebra.Scan,MemoryScan),
+        # rules.OneToOne(algebra.Scan,MemoryScan),
         #     MemoryScanOfFileScan(),
-        #     # rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
+        # rules.OneToOne(algebra.Join, GrappaSymmetricHashJoin),
         #     rules.OneToOne(algebra.Join, self.join_type),
         #     rules.OneToOne(algebra.Project, GrappaProject),
         #     rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
-        #     # TODO: this Union obviously breaks semantics
+        # TODO: this Union obviously breaks semantics
         #     rules.OneToOne(algebra.Union, GrappaUnionAll),
         #     rules.OneToOne(algebra.Store, GrappaStore)
-        #     # rules.FreeMemory()
+        # rules.FreeMemory()
         # ]
 
         join_type = kwargs.get('join_type', GrappaHashJoin)

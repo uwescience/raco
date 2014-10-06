@@ -1,6 +1,6 @@
 from raco import algebra
 import raco.language as language
-from pipelines import Pipelined
+from .pipelines import Pipelined
 from raco.utility import emit
 import raco.viz as viz
 import os

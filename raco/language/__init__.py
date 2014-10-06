@@ -71,6 +71,7 @@ class Language(object):
 
 
 class CompileExpressionVisitor(ExpressionVisitor):
+
     def __init__(self, language, **kwargs):
         self.language = language
         self.combine = language.expression_combine
@@ -124,11 +125,17 @@ class CompileExpressionVisitor(ExpressionVisitor):
         self.stack.append(self.combine([left, right], operator="<="))
 
     def visit_NamedAttributeRef(self, named):
-        self.stack.append(self.language.compile_attribute(named, **self.kwargs))
+        self.stack.append(
+            self.language.compile_attribute(
+                named,
+                **self.kwargs))
 
     def visit_UnnamedAttributeRef(self, unnamed):
         LOG.debug("expr %s is UnnamedAttributeRef", unnamed)
-        self.stack.append(self.language.compile_attribute(unnamed, **self.kwargs))
+        self.stack.append(
+            self.language.compile_attribute(
+                unnamed,
+                **self.kwargs))
 
     def visit_NumericLiteral(self, numericliteral):
         self.stack.append(self.language.compile_numericliteral(numericliteral))
@@ -169,24 +176,37 @@ class CompileExpressionVisitor(ExpressionVisitor):
             thenexpr, ifexpr = self.stack.pop(), self.stack.pop()
             when_compiled.insert(0, (ifexpr, thenexpr))
 
-        self.stack.append(self.language.conditional(when_compiled, else_compiled))
+        self.stack.append(
+            self.language.conditional(
+                when_compiled,
+                else_compiled))
 
     def visit_NamedStateAttributeRef(self, attr):
         self.stack.append(self.language.compile_attribute(attr, **self.kwargs))
 
     def visit_UnaryFunction(self, expr):
         inputexpr = self.stack.pop()
-        self.stack.append(self.language.function_call(type(expr).__name__, inputexpr))
+        self.stack.append(
+            self.language.function_call(
+                type(expr).__name__,
+                inputexpr))
 
     def visit_BinaryFunction(self, expr):
         left, right = self.__visit_BinaryOperator__(expr)
-        self.stack.append(self.language.function_call(type(expr).__name__, left, right))
+        self.stack.append(
+            self.language.function_call(
+                type(expr).__name__,
+                left,
+                right))
 
     def visit_NaryFunction(self, expr):
         arglist = []
         for _ in range(len(expr.operands)):
             arglist.insert(0, self.stack.pop())
-        self.stack.append(self.language.function_call(type(expr).__name__, *arglist))
+        self.stack.append(
+            self.language.function_call(
+                type(expr).__name__,
+                *arglist))
 
     def visit_CAST(self, expr):
         inputexpr = self.stack.pop()

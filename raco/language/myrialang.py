@@ -250,9 +250,6 @@ class MyriaAppendTemp(algebra.AppendTemp, MyriaOperator):
         }
 
 
-
-
-
 def convert_nary_conditions(conditions, schemes):
     """Convert an NaryJoin map from global column index to local"""
     attr_map = {}   # map of global attribute to local column index

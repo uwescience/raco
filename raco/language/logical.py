@@ -3,6 +3,7 @@ from raco.language import Algebra
 
 
 class OptLogicalAlgebra(Algebra):
+
     @staticmethod
     def opt_rules(**kwargs):
         return [rules.RemoveTrivialSequences(),
