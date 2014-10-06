@@ -102,6 +102,22 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         """.format(UDA=self._uda_def()), "argmax_all_uda")
         # TODO only test decomposable argmax here, as the non decomposable no-key is less useful
 
+    def test_two_key_hash_join(self):
+        self.check_sub_tables("""
+        R3 = SCAN(%(R3)s);
+        T3 = SCAN(%(T3)s);
+        J = [from R3, T3 where R3.a=T3.a and R3.b=T3.b emit R3.c, T3.c];
+        STORE(J, OUTPUT);
+        """, "two_key_hash_join")
+
+    def test_two_key_hash_join_swap(self):
+        self.check_sub_tables("""
+        R3 = SCAN(%(R3)s);
+        T3 = SCAN(%(T3)s);
+        J = [from R3, T3 where R3.a=T3.b and R3.b=T3.a emit R3.c, T3.c];
+        STORE(J, OUTPUT);
+        """, "two_key_hash_join_swap")
+
 
 if __name__ == '__main__':
     unittest.main()
