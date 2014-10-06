@@ -33,6 +33,7 @@ typedef uint64_t uint64;
 
 #include <unordered_map>
 #include <vector>
+#include <limits>
 #endif
 
 #include "io_util.h"
