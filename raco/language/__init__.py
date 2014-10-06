@@ -46,7 +46,7 @@ class Language(object):
         return '%s' % value
 
     @classmethod
-    def compile_attribute(cls, attr):
+    def compile_attribute(cls, attr, **kwargs):
         return attr.compile()
 
     @classmethod
@@ -58,8 +58,8 @@ class Language(object):
         return cls.expression_combine(args, operator="or")
 
     @classmethod
-    def compile_expression(cls, expr):
-        compilevisitor = CompileExpressionVisitor(cls)
+    def compile_expression(cls, expr, **kwargs):
+        compilevisitor = CompileExpressionVisitor(cls, **kwargs)
         expr.accept(compilevisitor)
         return compilevisitor.getresult()
 
@@ -70,13 +70,15 @@ class Language(object):
 
 
 class CompileExpressionVisitor(expression.ExpressionVisitor):
-    def __init__(self, language):
+    def __init__(self, language, **kwargs):
         self.language = language
         self.combine = language.expression_combine
         self.stack = []
+        self.kwargs = kwargs
 
     def getresult(self):
-        assert len(self.stack) == 1
+        assert len(self.stack) == 1, \
+            "stack is size {0} != 1".format(len(self.stack))
         return self.stack.pop()
 
     def __visit_BinaryOperator__(self, binaryexpr):
@@ -121,11 +123,11 @@ class CompileExpressionVisitor(expression.ExpressionVisitor):
         self.stack.append(self.combine([left, right], operator="<="))
 
     def visit_NamedAttributeRef(self, named):
-        self.stack.append(self.language.compile_attribute(named))
+        self.stack.append(self.language.compile_attribute(named, **self.kwargs))
 
     def visit_UnnamedAttributeRef(self, unnamed):
         LOG.debug("expr %s is UnnamedAttributeRef", unnamed)
-        self.stack.append(self.language.compile_attribute(unnamed))
+        self.stack.append(self.language.compile_attribute(unnamed, **self.kwargs))
 
     def visit_NumericLiteral(self, numericliteral):
         self.stack.append(self.language.compile_numericliteral(numericliteral))
@@ -156,3 +158,17 @@ class CompileExpressionVisitor(expression.ExpressionVisitor):
     def visit_NEG(self, unaryexpr):
         inputexpr = self.stack.pop()
         self.stack.append(self.language.negative(inputexpr))
+
+    def visit_Case(self, caseexpr):
+        if caseexpr.else_expr is not None:
+            else_compiled = self.stack.pop()
+
+        when_compiled = []
+        for _ in range(len(caseexpr.when_tuples)):
+            thenexpr, ifexpr = self.stack.pop(), self.stack.pop()
+            when_compiled.insert(0, (ifexpr, thenexpr))
+
+        self.stack.append(self.language.conditional(when_compiled, else_compiled))
+
+    def visit_NamedStateAttributeRef(self, attr):
+        self.stack.append(self.language.compile_attribute(attr, **self.kwargs))

@@ -1,4 +1,8 @@
 import abc
+import itertools
+import re
+import os.path
+
 from raco import algebra
 from raco import expression
 from raco import catalog
@@ -9,8 +13,6 @@ from raco.pipelines import Pipelined
 
 import logging
 _LOG = logging.getLogger(__name__)
-
-import re
 
 
 class CodeTemplate:
@@ -32,6 +34,13 @@ def ct(s):
     return CodeTemplate(s)
 
 
+def readtemplate(grouppath, fname):
+    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 grouppath)
+
+    return file(os.path.join(template_path, fname+'.template')).read()
+
+
 class CBaseLanguage(Language):
     @classmethod
     def body(cls, compileResult):
@@ -41,9 +50,9 @@ class CBaseLanguage(Language):
         resultsym = "__result__"
         return cls.base_template() % locals()
 
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
-    def base_template():
+    def base_template(cls):
         pass
 
     @staticmethod
@@ -82,17 +91,71 @@ class CBaseLanguage(Language):
         return "( %s )" % conjunc, decls, inits
 
     @classmethod
-    def compile_attribute(cls, expr):
+    def compile_attribute(cls, expr, **kwargs):
         if isinstance(expr, expression.NamedAttributeRef):
             raise TypeError(
                 "Error compiling attribute reference %s. \
                 C compiler only support unnamed perspective. \
                 Use helper function unnamed." % expr)
         if isinstance(expr, expression.UnnamedAttributeRef):
-            symbol = expr.tupleref.name
+            tupleref = kwargs.get('tupleref')
+            assert tupleref is not None, "Cannot compile {0} without a tupleref".format(expr)
+
+            symbol = tupleref.name
             position = expr.position
             assert position >= 0
             return '%s.get(%s)' % (symbol, position), [], []
+        if isinstance(expr, expression.NamedStateAttributeRef):
+            state_scheme = kwargs.get('state_scheme')
+            assert state_scheme is not None, "Cannot compile {0} without a state_scheme".format(expr)
+
+            position = expr.get_position(None, state_scheme)
+            return 'state.get({0})'.format(position), [], []
+
+        assert False, "{expr} is unsupported attribute".format(expr=expr)
+
+    @classmethod
+    def ifelse(cls, when_compiled, else_compiled):
+        if_template = """
+        if ({cond}) {{
+        {then}
+        }}
+        """
+
+        else_template = """
+        else {{
+        {then}
+        }}
+        """
+
+        return cls._conditional_(when_compiled, else_compiled, if_template, else_template, "else")
+
+    @classmethod
+    def conditional(cls, when_compiled, else_compiled):
+        if_template = """{cond} ? {then}"""
+
+        else_template = """: {then}"""
+
+        return cls._conditional_(when_compiled, else_compiled, if_template, else_template, ":")
+
+    @classmethod
+    def _conditional_(cls, when_compiled, else_compiled, if_template, else_template, else_joiner):
+        def by_pairs(l):
+            assert len(l) % 2 == 0, "must be even length"
+            for i in range(0, len(l), 2):
+                yield l[i], l[i+1]
+
+        flatten_when_then = list(itertools.chain.from_iterable(when_compiled))
+        when_exec, when_decls, when_inits = zip(*flatten_when_then)
+
+        code = else_joiner.join([if_template.format(cond=cond, then=then) for (cond, then) in by_pairs(when_exec)])
+
+        if else_compiled is not None:
+            code += else_template.format(then=else_compiled[0])
+
+        return code, \
+               list(itertools.chain.from_iterable(when_decls))+else_compiled[1], \
+               list(itertools.chain.from_iterable(when_inits))+else_compiled[2]
 
 
 # TODO:
@@ -129,56 +192,8 @@ class StagedTupleRef:
         return self.__typename
 
     def generateDefinition(self):
-        fielddeftemplate = """int64_t _fields[%(numfields)s];
-    """
-        template = """
-          // can be just the necessary schema
-  class %(tupletypename)s {
-
-    public:
-    %(fielddefs)s
-
-    int64_t get(int field) const {
-      return _fields[field];
-    }
-
-    void set(int field, int64_t val) {
-      _fields[field] = val;
-    }
-
-    int numFields() const {
-      return %(numfields)s;
-    }
-
-    %(tupletypename)s () {
-      // no-op
-    }
-
-    %(tupletypename)s (std::vector<int64_t> vals) {
-      for (int i=0; i<vals.size(); i++) _fields[i] = vals[i];
-    }
-
-    std::ostream& dump(std::ostream& o) const {
-      o << "Materialized(";
-      for (int i=0; i<numFields(); i++) {
-        o << _fields[i] << ",";
-      }
-      o << ")";
-      return o;
-    }
-
-    %(additional_code)s
-  } %(after_def_code)s;
-  std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
-    return t.dump(o);
-  }
-
-  """
-        getcases = ""
-        setcases = ""
-        copies = ""
+        template = readtemplate('c_templates', 'materialized_tuple_ref')
         numfields = len(self.scheme)
-        fielddefs = fielddeftemplate % locals()
 
         additional_code = self.__additionalDefinitionCode__()
         after_def_code = self.__afterDefinitionCode__()
@@ -196,22 +211,6 @@ class StagedTupleRef:
         return ""
 
 
-def getTaggingFunc(t):
-    """
-    Return a visitor function that will tag
-    UnnamedAttributes with the provided TupleRef
-    """
-
-    def tagAttributes(expr):
-        # TODO non mutable would be nice
-        if isinstance(expr, expression.UnnamedAttributeRef):
-            expr.tupleref = t
-
-        return None
-
-    return tagAttributes
-
-
 class CSelect(Pipelined, algebra.Select):
     def produce(self, state):
         self.input.produce(state)
@@ -224,14 +223,9 @@ class CSelect(Pipelined, algebra.Select):
 
         condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
 
-        # tag the attributes with references
-        # TODO: use an immutable approach instead
-        # (ie an expression Visitor for compiling)
-        [_ for _ in condition_as_unnamed.postorder(getTaggingFunc(t))]
-
         # compile the predicate into code
         conditioncode, cond_decls, cond_inits = \
-            self.language().compile_expression(condition_as_unnamed)
+            self.language().compile_expression(condition_as_unnamed, tupleref=t)
         state.addInitializers(cond_inits)
         state.addDeclarations(cond_decls)
 
@@ -294,13 +288,8 @@ class CApply(Pipelined, algebra.Apply):
             # make sure to resolve attribute positions using input schema
             src_expr_unnamed = expression.ensure_unnamed(src_expr, self.input)
 
-            # tag the attributes with references
-            # TODO: use an immutable approach instead
-            # (ie an expression Visitor for compiling)
-            [_ for _ in src_expr_unnamed.postorder(getTaggingFunc(t))]
-
             src_expr_compiled, expr_decls, expr_inits = \
-                self.language().compile_expression(src_expr_unnamed)
+                self.language().compile_expression(src_expr_unnamed, tupleref=t)
             state.addInitializers(expr_inits)
             state.addDeclarations(expr_decls)
 

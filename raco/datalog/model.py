@@ -436,6 +436,13 @@ class Rule(object):
                 raise NotImplementedError(
                     "TODO: implement findvar visit of nary expression")
 
+            def visit_attr(self, attr):
+                assert False, \
+                    "FindVar should not be used on expressions with attributes"
+
+            def visit_Case(self, caseExpr):
+                raise NotImplementedError("Case now implemented for Datalog?")
+
             def visit_Var(self, var):
                 asAttr = findvar(var)
                 self.stack.append(asAttr)

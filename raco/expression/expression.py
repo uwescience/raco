@@ -674,6 +674,16 @@ class Case(Expression):
                 "Case expresssions must resolve to a single type")
         return types[0]
 
+    def accept(self, visitor):
+        """
+        For post-order stateful visitors
+        """
+        for w in self.when_tuples:
+            w[0].accept(visitor)
+            w[1].accept(visitor)
+
+        self.else_expr.accept(visitor)
+        visitor.visit(self)
 
 import abc
 
@@ -733,6 +743,10 @@ class ExpressionVisitor(object):
     def visit_UnnamedAttributeRef(self, unnamed):
         return
 
+    @abstractmethod
+    def visit_NamedStateAttributeRef(self, attr):
+        return
+
     @abc.abstractmethod
     def visit_StringLiteral(self, stringLiteral):
         return
@@ -765,6 +779,10 @@ class ExpressionVisitor(object):
     def visit_NEG(self, unaryExpr):
         return
 
+    @abstractmethod
+    def visit_Case(self, caseExpr):
+        return
+
 
 class SimpleExpressionVisitor(ExpressionVisitor):
     @abstractmethod
@@ -779,6 +797,7 @@ class SimpleExpressionVisitor(ExpressionVisitor):
     def visit_zeroary(self, zeroaryexpr):
         pass
 
+    @abstractmethod
     def visit_literal(self, literalexpr):
         pass
 
@@ -786,6 +805,7 @@ class SimpleExpressionVisitor(ExpressionVisitor):
     def visit_nary(self, naryexpr):
         pass
 
+    @abstractmethod
     def visit_attr(self, attr):
         pass
 
@@ -821,6 +841,9 @@ class SimpleExpressionVisitor(ExpressionVisitor):
 
     def visit_UnnamedAttributeRef(self, unnamed):
         self.visit_attr(unnamed)
+
+    def visit_NamedStateAttributeRef(self, attr):
+        self.visit_attr(attr)
 
     def visit_StringLiteral(self, stringLiteral):
         self.visit_literal(stringLiteral)

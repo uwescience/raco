@@ -5,7 +5,7 @@ from subprocess import check_call
 def get_name(basename, fields):
     return basename+str(fields)
 
-def generate(basename, fields, tuples, datarange):
+def generate_random(basename, fields, tuples, datarange):
     fn = get_name(basename, fields)
     with open(fn, 'w') as f:
         print "generating %s" % (os.path.abspath(fn))
@@ -15,6 +15,20 @@ def generate(basename, fields, tuples, datarange):
                 f.write(str(dat))
                 if j<(fields-1):
                     f.write(' ')
+            f.write("\n")
+
+def generate_last_sequential(basename, fields, tuples, datarange):
+    fn = get_name(basename, fields)
+    with open(fn, 'w') as f:
+        print "generating %s" % (os.path.abspath(fn))
+        for i in range(0,tuples):
+            for j in range(0,fields-1):
+                dat = random.randint(0, datarange)
+                f.write(str(dat))
+                if j<(fields-1):
+                    f.write(' ')
+            f.write(str(i))  # sequential attribute
+
             f.write("\n")
 
 def importStatement(basename, fields):
@@ -43,9 +57,12 @@ def need_generate(cpdir=None):
 def generate_default(cpdir=None):
     print 'generating'
     with open('importTestData.sql', 'w') as f:
-        for n in ['R','S','T']:
-            for nf in [1,2,3]:
-                generate(n, nf, 30, 10)
+        for n, genfunc in [('R', generate_random),
+                           ('S', generate_random),
+                           ('T', generate_random),
+                           ('I', generate_last_sequential)]:
+            for nf in [1, 2, 3]:
+                genfunc(n, nf, 30, 10)
                 f.write(importStatement(n, nf))
                 if cpdir:
                     fn = get_name(n, nf)

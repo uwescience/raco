@@ -1,0 +1,69 @@
+          // can be just the necessary schema
+  class %(tupletypename)s {
+
+    public:
+    int64_t _fields[%(numfields)s];
+
+    int64_t get(int field) const {
+      return _fields[field];
+    }
+
+    void set(int field, int64_t val) {
+      _fields[field] = val;
+    }
+
+    static constexpr int numFields() {
+      return %(numfields)s;
+    }
+
+    %(tupletypename)s () {
+      // no-op
+    }
+
+    %(tupletypename)s (const int64_t(&data)[%(numfields)s]) {
+      std::memcpy(&_fields[0], &data, %(numfields)s*sizeof(int64_t));
+    }
+
+    // shamelessly terrible disambiguation: one solution is named factory methods
+    %(tupletypename)s (std::vector<int64_t> vals, bool ignore1, bool ignore2) {
+      std::memcpy(&_fields[0], &vals[0], %(numfields)s*sizeof(int64_t));
+    }
+
+    template <typename T>
+    %(tupletypename)s (T& from, bool ignore) {
+      static_assert(%(tupletypename)s::numFields() == T::numFields(), "constructor only works on same num fields");
+      std::memcpy(&_fields[0], &(from._fields[0]), from.numFields()*sizeof(int64_t));
+    }
+
+    template <typename T>
+    %(tupletypename)s (int64_t v0, T& from) {
+      static_assert(%(tupletypename)s::numFields() == T::numFields()+1, "constructor only works on same num fields");
+      set(0, v0);
+      std::memcpy(&_fields[1], &(from._fields[0]), from.numFields()*sizeof(int64_t));
+    }
+
+    template <typename T>
+    %(tupletypename)s (int64_t v0, int64_t v1, T& from) {
+      static_assert(%(tupletypename)s::numFields() == T::numFields()+2, "constructor only works on same num fields");
+      set(0, v0);
+      set(1, v1);
+      std::memcpy(&_fields[2], &(from._fields[0]), from.numFields()*sizeof(int64_t));
+    }
+
+
+    std::ostream& dump(std::ostream& o) const {
+      o << "Materialized(";
+      for (int i=0; i<numFields(); i++) {
+        o << _fields[i] << ",";
+      }
+      o << ")";
+      return o;
+    }
+
+    %(additional_code)s
+  } %(after_def_code)s;
+
+  std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
+    return t.dump(o);
+  }
+

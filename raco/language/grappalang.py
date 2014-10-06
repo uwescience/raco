@@ -16,18 +16,11 @@ from raco.algebra import gensym
 import logging
 _LOG = logging.getLogger(__name__)
 
-import os.path
 import itertools
-
-template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "grappa_templates")
 
 
 def readtemplate(fname):
-    return file(os.path.join(template_path, fname)).read()
-
-
-base_template = readtemplate("base_query.template")
+    return clangcommon.readtemplate("grappa_templates", fname)
 
 
 class GrappaStagedTupleRef(StagedTupleRef):
@@ -38,9 +31,11 @@ class GrappaStagedTupleRef(StagedTupleRef):
 
 
 class GrappaLanguage(CBaseLanguage):
-    @staticmethod
-    def base_template():
-        return base_template
+    _base_template = readtemplate("base_query")
+
+    @classmethod
+    def base_template(cls):
+        return cls._base_template
 
     @staticmethod
     def log(txt):
@@ -566,6 +561,9 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
     _i = 0
 
+    _ONE_BUILT_IN = 0
+    _MULTI_UDA = 1
+
     @classmethod
     def __genHashName__(cls):
         name = "group_hash_%03d" % cls._i
@@ -574,35 +572,48 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
     def produce(self, state):
         assert len(self.grouping_list) <= 2, \
-            """%s does not currently support \
-            "groupings of more than 2 attributes"""\
-            % self.__class__.__name__
-        assert len(self.aggregate_list) == 1, \
-            "%s currently only supports aggregates of 1 attribute"\
-            % self.__class__.__name__
-        for agg_term in self.aggregate_list:
-            assert isinstance(agg_term,
-                              expression.BuiltinAggregateExpression), \
-                """%s only supports simple aggregate expressions.
-                A rule should create Apply[GroupBy]""" \
-                % self.__class__.__name__
+            """Unsupported: groupings of more than 2 attributes"""
+
+        self._agg_mode = None
+        if len(self.aggregate_list) == 1 and isinstance(self.aggregate_list[0], expression.BuiltinAggregateExpression):
+            self._agg_mode = self._ONE_BUILT_IN
+        elif all([isinstance(a, expression.UdaAggregateExpression)
+                 for a in self.aggregate_list]):
+            self._agg_mode = self._MULTI_UDA
+
+        assert self._agg_mode is not None, "unsupported aggregates {0}".format(self.aggregate_list)
+        _LOG.debug("%s _agg_mode was set to %s", self, self._agg_mode)
 
         self.useKey = len(self.grouping_list) > 0
         _LOG.debug("groupby uses keys? %s" % self.useKey)
 
+        if self._agg_mode == self._ONE_BUILT_IN:
+            state_type = "int64_t"
+            op = self.aggregate_list[0].__class__.__name__
+            self.update_func = "Aggregates::{op}<int64_t, int64_t>".format(op=op)
+        elif self._agg_mode == self._MULTI_UDA:
+            # for now just name the aggregate after the first state variable
+            self.func_name = self.updaters[0][0]
+            self.state_tuple = GrappaStagedTupleRef(gensym(), self.state_scheme)
+            state.addDeclarations([self.state_tuple.generateDefinition()])
+            state_type = self.state_tuple.getTupleTypename()
+            self.update_func = "{name}_update".format(name=self.func_name)
+
+        update_func = self.update_func
+
         declr_template = None
         if self.useKey:
             if len(self.grouping_list) == 1:
-                declr_template = ct("""typedef DHT_symmetric<int64_t, \
-                                  int64_t, std_hash> \
-                                   DHT_int64;
-                """)
+                declr_template = """typedef DHT_symmetric<int64_t, \
+                                  {valtype}, std_hash> \
+                                   DHT_{valtype};
+                """.format(valtype=state_type)
             elif len(self.grouping_list) == 2:
-                declr_template = ct("""typedef DHT_symmetric<\
+                declr_template = """typedef DHT_symmetric<\
                 std::pair<int64_t,int64_t>, \
-                                  int64_t, pair_hash> \
-                                   DHT_pair_int64;
-                """)
+                                  {valtype}, pair_hash> \
+                                   DHT_pair_{valtype};
+                """.format(valtype=state_type)
 
         self._hashname = self.__genHashName__()
         _LOG.debug("generate hashname %s for %s", self._hashname, self)
@@ -615,69 +626,91 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         if self.useKey:
             if len(self.grouping_list) == 1:
-                init_template = ct("""auto %(hashname)s = \
-                DHT_int64::create_DHT_symmetric( );""")
+                init_template = """auto %(hashname)s = \
+                DHT_{valtype}::create_DHT_symmetric( );""".format(valtype=state_type)
             elif len(self.grouping_list) == 2:
-                init_template = ct("""auto %(hashname)s = \
-                DHT_pair_int64::create_DHT_symmetric( );""")
+                init_template = """auto %(hashname)s = \
+                DHT_pair_{valtype}::create_DHT_symmetric( );""".format(valtype=state_type)
 
         else:
-            init_template = ct("""auto %(hashname)s = counter::create();
-            """)
+            if self._agg_mode == self._ONE_BUILT_IN:
+                no_key_state_initializer = "counter::create()"
+            elif self._agg_mode == self._MULTI_UDA:
+                no_key_state_initializer = \
+                    "symmetric_global_alloc<{state_tuple_type}>()".format(
+                        state_tuple_type=self.state_tuple.getTupleTypename())
+
+            init_template = ct("""auto %(hashname)s = {initializer};
+            """.format(initializer=no_key_state_initializer))
 
         state.addInitializers([init_template % locals()])
 
         self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
-        assert len(self.column_list()) == 1 \
-            or isinstance(self.column_list()[0],
-                          expression.AttributeRef), \
-            """assumes first column is the key and second is aggregate result
-            column_list: %s""" % self.column_list()
+        #assert len(self.column_list()) == 1 \
+        #    or isinstance(self.column_list()[0],
+        #                  expression.AttributeRef), \
+        #    """assumes first column is the key and second is aggregate result
+#            column_list: %s""" % self.column_list()
 
         if self.useKey:
             mapping_var_name = gensym()
+            if self._agg_mode == self._ONE_BUILT_IN:
+                emit_type = "int64_t"
+            elif self._agg_mode == self._MULTI_UDA:
+                emit_type = self.state_tuple.getTupleTypename()
+
+            if self._agg_mode == self._ONE_BUILT_IN:
+                # pass in attribute values as an array
+                initializer_template = "{{ {values} }}"
+            elif self._agg_mode == self._MULTI_UDA:
+                # pass in attribute values individually
+                initializer_template = "{values}"
 
             if len(self.grouping_list) == 1:
-                produce_template = ct("""%(hashname)s->\
-                forall_entries<&%(pipeline_sync)s>\
-                ([=](std::pair<const int64_t,int64_t>& %(mapping_var_name)s) {
-                    %(output_tuple_type)s %(output_tuple_name)s(\
-                    {%(mapping_var_name)s.first, %(mapping_var_name)s.second});
-                    %(inner_code)s
-                    });
-                    """)
-            elif len(self.grouping_list) == 2:
-                produce_template = ct("""%(hashname)s->\
-                forall_entries<&%(pipeline_sync)s>\
-                ([=](std::pair<const std::pair<int64_t,int64_t>,int64_t>& \
-                %(mapping_var_name)s) {
-                    %(output_tuple_type)s %(output_tuple_name)s(\
-                    {%(mapping_var_name)s.first.first,\
-                    %(mapping_var_name)s.first.second,\
-                    %(mapping_var_name)s.second});
-                    %(inner_code)s
-                    });
-                    """)
-        else:
-            op = self.aggregate_list[0].__class__.__name__
-            # translations for Grappa::reduce predefined ops
-            coll_op = {'COUNT': 'COLL_ADD',
-                       'SUM': 'COLL_ADD',
-                       'MAX': 'COLL_MAX',
-                       'MIN': 'COLL_MIN'}[op]
-            produce_template = ct("""auto %(output_tuple_name)s_tmp = \
-            reduce<int64_t, \
-            counter, \
-            %(coll_op)s, \
-            &get_count>\
-            (%(hashname)s);
+                initializer = initializer_template.format(values="%(mapping_var_name)s.first, %(mapping_var_name)s.second");
 
-            %(output_tuple_type)s %(output_tuple_name)s;
-            %(output_tuple_name)s.set(0, %(output_tuple_name)s_tmp);
+                produce_template = """%(hashname)s->\
+                forall_entries<&%(pipeline_sync)s>\
+                ([=](std::pair<const int64_t,%(emit_type)s>& %(mapping_var_name)s) {{
+                    %(output_tuple_type)s %(output_tuple_name)s({initializer});
+                    %(inner_code)s
+                    }});
+                    """.format(initializer=initializer)
+
+            elif len(self.grouping_list) == 2:
+                initializer = initializer_template.format(values="""%(mapping_var_name)s.first.first,
+                    %(mapping_var_name)s.first.second,
+                    %(mapping_var_name)s.second""")
+
+                produce_template = """%(hashname)s->\
+                forall_entries<&%(pipeline_sync)s>\
+                ([=](std::pair<const std::pair<int64_t,int64_t>,%(emit_type)s>& \
+                %(mapping_var_name)s) {{
+                    %(output_tuple_type)s %(output_tuple_name)s({initializer});
+                    %(inner_code)s
+                    }});
+                    """.format(initializer=initializer)
+        else:
+            if self._agg_mode == self._ONE_BUILT_IN:
+                template_args = "{state_type}, counter, &{update_func}, &get_count".format(state_type=state_type,
+                                                                                           update_func=update_func)
+                output_template = """%(output_tuple_type)s %(output_tuple_name)s;
+                %(output_tuple_name)s.set(0, %(output_tuple_name)s_tmp);"""
+
+            elif self._agg_mode == self._MULTI_UDA:
+                template_args = "{state_type}, &{update_func}".format(state_type=state_type,
+                                                                      update_func=update_func)
+                output_template = """%(output_tuple_type)s %(output_tuple_name)s(%(output_tuple_name)s_tmp, true);"""
+
+            produce_template = """auto %(output_tuple_name)s_tmp = \
+            reduce<%(template_args)s>(%(hashname)s);
+
+            {output_template}
             %(inner_code)s
-            """)
+            """.format(output_template=output_template)
+
 
         pipeline_sync = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
@@ -701,52 +734,126 @@ class GrappaGroupBy(algebra.GroupBy, GrappaOperator):
 
         inp_sch = self.input.scheme()
 
+        all_decls = []
+        all_inits = []
+
+        # compile update statements
+        def compile_assignments(assgns):
+            state_var_update_template = "auto {assignment};"
+            state_var_updates = []
+            state_vars = []
+            decls = []
+            inits = []
+
+            for a in assgns:
+                state_name, update_exp = a
+                # doesn't have to use inputTuple.name, but it will for simplicity
+                rhs = self.language().compile_expression(update_exp,
+                                                         tupleref=inputTuple,
+                                                         state_scheme=self.state_scheme)
+                # combine lhs, rhs with assignment
+                code = "{lhs} = {rhs}".format(lhs=state_name, rhs=rhs[0])
+
+                decls += rhs[1]
+                inits += rhs[2]
+
+                state_var_updates.append(
+                    state_var_update_template.format(assignment=code))
+                state_vars.append(state_name)
+
+            return state_var_updates, state_vars, decls, inits
+
+        update_updates, update_state_vars, update_decls, update_inits = compile_assignments(self.updaters)
+        init_updates, init_state_vars, init_decls, init_inits = compile_assignments(self.inits)
+        assert set(update_state_vars) == set(init_state_vars), "Initialized and update state vars are not the same (may not need to be?)"
+        all_decls += update_decls + init_decls
+        all_inits += update_inits + init_inits
+
+        if self._agg_mode == self._MULTI_UDA:
+            state_tuple_decl = self.state_tuple.generateDefinition()
+            update_def = readtemplate('update_definition').format(
+                state_type=self.state_tuple.getTupleTypename(),
+                input_type=inputTuple.getTupleTypename(),
+                input_tuple_name=inputTuple.name,
+                state_var_updates=emitlist(update_updates),
+                state_vars=','.join(update_state_vars),
+                name=self.func_name)
+            init_def = readtemplate('init_definition').format(
+                state_type=self.state_tuple.getTupleTypename(),
+                state_var_updates=emitlist(init_updates),
+                state_vars=','.join(init_state_vars),
+                name=self.func_name)
+
+            all_decls += [update_def, init_def]
+
+        # form code to fill in the materialize template
+        if self._agg_mode == self._ONE_BUILT_IN:
+            init_func = "Aggregates::Zero"
+
+            if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
+                # no value needed for Zero-input aggregate,
+                # but just provide the first column
+                valpos = 0
+            elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
+                # get value positions from aggregated attributes
+                valpos = self.aggregate_list[0].input.get_position(self.scheme())
+            else:
+                assert False, "only support Unary or Zeroary aggregates"
+
+            update_val = "{tuple_name}.get({valpos})".format(tuple_name=inputTuple.name,
+                                                             valpos=valpos)
+            input_type = "int64_t"
+
+        elif self._agg_mode == self._MULTI_UDA:
+            init_func = "{name}_init".format(name=self.func_name)
+            update_val = "{tuple_name}".format(tuple_name=inputTuple.name)
+            input_type = inputTuple.getTupleTypename()
+
         if self.useKey:
+
             if len(self.grouping_list) == 1:
                 materialize_template = ct("""%(hashname)s->update\
-                <&%(pipeline_sync)s, int64_t, \
-                &Aggregates::%(op)s<int64_t,int64_t>,0>(\
+                <&%(pipeline_sync)s, %(input_type)s, \
+                &%(update_func)s,&%(init_func)s>(\
                 %(tuple_name)s.get(%(keypos)s),\
-                %(tuple_name)s.get(%(valpos)s));
+                %(update_val)s);
           """)
                 # make key from grouped attributes
                 keypos = self.grouping_list[0].get_position(inp_sch)
 
             elif len(self.grouping_list) == 2:
                 materialize_template = ct("""%(hashname)s->update\
-                <&%(pipeline_sync)s, int64_t, \
-                &Aggregates::%(op)s<int64_t,int64_t>,0>(\
+                <&%(pipeline_sync)s, %(input_type)s, \
+                &%(update_func)s,&%(init_func)s>(\
                 std::pair<int64_t,int64_t>(\
                 %(tuple_name)s.get(%(key1pos)s),\
                 %(tuple_name)s.get(%(key2pos)s)),\
-                %(tuple_name)s.get(%(valpos)s));
+                %(update_val)s);
           """)
                 # make key from grouped attribute
                 key1pos = self.grouping_list[0].get_position(inp_sch)
                 key2pos = self.grouping_list[1].get_position(inp_sch)
         else:
-            # TODO: use optimization for few keys
-            # right now it uses key=0
-            materialize_template = ct("""%(hashname)s->count = \
-            Aggregates::%(op)s<int64_t, int64_t>(%(hashname)s->count, \
-                                      %(tuple_name)s.get(%(valpos)s));
-            """)
+            if self._agg_mode == self._ONE_BUILT_IN:
+                materialize_template = """%(hashname)s->count = \
+                %(update_func)s(%(hashname)s->count, \
+                                          %(update_val)s);
+                """
+            elif self._agg_mode == self._MULTI_UDA:
+                materialize_template = """
+                auto %(hashname)s_local_ptr = %(hashname)s.localize();
+                *%(hashname)s_local_ptr = \
+                %(update_func)s(*%(hashname)s_local_ptr, %(update_val)s);
+                """
 
         hashname = self._hashname
         tuple_name = inputTuple.name
         pipeline_sync = state.getPipelineProperty("global_syncname")
 
-        if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
-            # no value needed for Zero-input aggregate,
-            # but just provide the first column
-            valpos = 0
-        elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
-            # get value positions from aggregated attributes
-            valpos = self.aggregate_list[0].input.get_position(self.scheme())
-        else:
-            assert False, "only support Unary or Zeroary aggregates"
+        state.addDeclarations(all_decls)
+        state.addInitializers(all_inits)
 
-        op = self.aggregate_list[0].__class__.__name__
+        update_func = self.update_func
 
         code = materialize_template % locals()
         return code

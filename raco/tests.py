@@ -81,6 +81,12 @@ class ExpressionTest(unittest.TestCase):
             def visit_NamedAttributeRef(self, named):
                 pass
 
+            def visit_NamedStateAttributeRef(self, named):
+                pass
+
+            def visit_Case(self, caseExpr):
+                pass
+
             def visit_DIVIDE(self, binaryExpr):
                 pass
 
