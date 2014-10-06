@@ -118,6 +118,16 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         STORE(J, OUTPUT);
         """, "two_key_hash_join_swap")
 
+    def test_three_way_three_key_hash_join(self):
+        self.check_sub_tables("""
+        R3 = SCAN(%(R3)s);
+        T3 = SCAN(%(T3)s);
+        S3 = SCAN(%(S3)s);
+        J = [from R3, T3, S3 where R3.a=T3.a and R3.b=T3.b and R3.c=T3.c
+         and R3.a=S3.a and R3.b=S3.b and R3.c=S3.c emit R3.c, T3.c, S3.c];
+        STORE(J, OUTPUT);
+        """, "three_way_three_key_hash_join")
+
 
 if __name__ == '__main__':
     unittest.main()
