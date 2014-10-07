@@ -1,0 +1,18 @@
+/*
+=====================================
+  Scan(%(name)s)
+=====================================
+*/
+
+printf("%(resultsym)s = Scan(%(name)s)\n");
+
+struct relationInfo %(resultsym)s_val;
+
+#ifdef __MTA__
+  //binary_inhale("%(name)s", &%(resultsym)s_val);
+  inhale("%(name)s", &%(resultsym)s_val);
+#else
+  inhale("%(name)s", &%(resultsym)s_val);
+#endif // __MTA__
+
+struct relationInfo *%(resultsym)s = &%(resultsym)s_val;
