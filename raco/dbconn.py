@@ -1,4 +1,3 @@
-
 """Maintain a connection to a SQL database.
 
 This class translates between raco's internal data types and sqlalchemy's
@@ -8,7 +7,7 @@ representation.
 import collections
 
 from sqlalchemy import (Column, Table, MetaData, Integer, String, DateTime,
-                        Float, Boolean, create_engine, select, func)
+                        Float, Boolean, create_engine, select, text)
 
 from raco.scheme import Scheme
 import raco.types as types
@@ -89,3 +88,8 @@ class DBConnection(object):
         except:
             if not ignore_failure:
                 raise
+
+    def get_sql_output(self, sql):
+        """Retrieve the result of a query as a bag (Counter)."""
+        s = text(sql)
+        return collections.Counter(tuple(t) for t in self.engine.execute(s))

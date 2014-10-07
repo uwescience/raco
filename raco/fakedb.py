@@ -423,3 +423,6 @@ class FakeDatabase(Catalog):
 
     def myriadifference(self, op):
         return self.difference(op)
+
+    def myriaqueryscan(self, op):
+        return self.tables.get_sql_output(op.sql).elements()

@@ -1,4 +1,5 @@
 from collections import Counter
+import sqlalchemy
 import unittest
 
 import raco.algebra as algebra
@@ -33,8 +34,10 @@ class SQLTestCase(unittest.TestCase):
 
     def setUp(self):
         # SQLAlchemy
-        self.db = SQLCatalog()
-        self.db.add_table(self.emp_key, self.emp_schema, self.emp_table)
+        self.db = SQLCatalog(sqlalchemy.
+                             create_engine('sqlite:///:memory:', echo=True))
+        self.db.add_table(self.emp_key, self.emp_schema)
+        self.db.add_tuples(self.emp_key, self.emp_schema, self.emp_table)
         # MyriaL
         self.parser = parser.Parser()
         self.processor = interpreter.StatementProcessor(self.db)
