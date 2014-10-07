@@ -1,12 +1,12 @@
           // can be just the necessary schema
-  class %(tupletypename)s {
+  class {{tupletypename}} {
     // Invariant: data stored in _fields is always in the representation
     // specified by _scheme.
 
     public:
-    static std::tuple<%(fieldtypes)s> _scheme;
+    static std::tuple<{{ fieldtypes | join(',') }}> _scheme;
 
-    void * _fields[%(numfields)s];
+    void * _fields[{{numfields}}];
 
     template <int field>
     typename std::tuple_element<field,decltype(_scheme)>::type get() const {
@@ -21,28 +21,33 @@
     }
 
     static constexpr int numFields() {
-      return %(numfields)s;
+      return {{numfields}};
     }
 
-    %(tupletypename)s () {
+    {{tupletypename}} () {
       // no-op
     }
 
-    %(tupletypename)s (const decltype(_fields)& data) {
+    {{tupletypename}} (const decltype(_fields)& data) {
       std::memcpy(&_fields, &data, sizeof(_fields));
     }
 
     // shamelessly terrible disambiguation: one solution is named factory methods
-    %(tupletypename)s (std::vector<int64_t> vals, bool ignore1, bool ignore2) {
+    {{tupletypename}} (std::vector<int64_t> vals, bool ignore1, bool ignore2) {
       std::memcpy(&_fields, &vals[0], sizeof(_fields));
     }
 
     // use the tuple schema to interpret the input stream
-    static %(tupletypename)s fromIStream(std::istream& ss) {
-        decltype(%(tupletypename)s::_scheme) _t;
-        %(stream_reads)s
+    static {{tupletypename}} fromIStream(std::istream& ss) {
+        decltype({{tupletypename}}::_scheme) _t;
 
-        %(tupletypename)s _ret;
+        ss
+        {% for i in range(numfields) %}
+            >> std::get<{{i}}>(_t)
+        {% endfor %}
+        ;
+
+        {{tupletypename}} _ret;
         TupleUtils::assign<0, decltype(_scheme)>(_ret._fields, _t);
         return _ret;
     }
@@ -55,37 +60,37 @@
 
     // note not typesafe!!
     template <typename T1, typename T2>
-    static %(tupletypename)s create(const T1& t1, const T2& t2) {
+    static {{tupletypename}} create(const T1& t1, const T2& t2) {
       //TODO: format of assertion for type safe memcpy; fo this for each field
       //static_assert(!(std::is_integral<typename std::tuple_element<field,decltype(_fields)>::type>::value ^ std::is_integral<T>::value), "Type mismatch");
 
-        static_assert(%(tupletypename)s::numFields() == (T1::numFields() + T2::numFields()), "lhs and rhs must have equal number of fields");
-        %(tupletypename)s t;
+        static_assert({{tupletypename}}::numFields() == (T1::numFields() + T2::numFields()), "lhs and rhs must have equal number of fields");
+        {{tupletypename}} t;
         std::memcpy(&(t._fields), &(t1._fields), T1::numFields()*sizeof(int64_t));
         std::memcpy(((char*)&(t._fields))+T1::numFields()*sizeof(int64_t), &(t2._fields), T2::numFields()*sizeof(int64_t));
         return t;
     }
 
     template <typename T>
-    static %(tupletypename)s create(const T& from) {
-      static_assert(%(tupletypename)s::numFields() == T::numFields(), "constructor only works on same num fields");
-      %(tupletypename)s t;
+    static {{tupletypename}} create(const T& from) {
+      static_assert({{tupletypename}}::numFields() == T::numFields(), "constructor only works on same num fields");
+      {{tupletypename}} t;
       std::memcpy(&(t._fields), &(from._fields), from.numFields()*sizeof(int64_t));
       return t;
     }
 
     template <typename Tuple, typename T>
-    %(tupletypename)s (const Tuple& v0, const T& from) {
+    {{tupletypename}} (const Tuple& v0, const T& from) {
         constexpr size_t v0_size = std::tuple_size<Tuple>::value;
         constexpr int from_size = T::numFields();
-        static_assert(%(tupletypename)s::numFields() == (v0_size + from_size), "constructor only works on same number of total fields");
+        static_assert({{tupletypename}}::numFields() == (v0_size + from_size), "constructor only works on same number of total fields");
         TupleUtils::assign<0, decltype(_scheme)>(_fields, v0);
         std::memcpy(((char*)&_fields)+v0_size*sizeof(int64_t), &(from._fields), from_size*sizeof(int64_t));
     }
 
     template <typename Tuple>
-    %(tupletypename)s (const Tuple& v0) {
-        static_assert(%(tupletypename)s::numFields() == (std::tuple_size<Tuple>::value), "constructor only works on same number of total fields");
+    {{tupletypename}} (const Tuple& v0) {
+        static_assert({{tupletypename}}::numFields() == (std::tuple_size<Tuple>::value), "constructor only works on same number of total fields");
         TupleUtils::assign<0, decltype(_scheme)>(_fields, v0);
     }
 
@@ -101,12 +106,12 @@
       return o;
     }
 
-    %(additional_code)s
-  } %(after_def_code)s;
+    {{additional_code}}
+  } {{after_def_code}};
 
-  std::ostream& operator<< (std::ostream& o, const %(tupletypename)s& t) {
+  std::ostream& operator<< (std::ostream& o, const {{tupletypename}}& t) {
     return t.dump(o);
   }
 
-  std::tuple<%(fieldtypes)s> %(tupletypename)s::_scheme;
+  std::tuple<{{ fieldtypes | join(',') }}> {{tupletypename}}::_scheme;
 

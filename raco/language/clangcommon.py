@@ -2,6 +2,7 @@ import abc
 import itertools
 import re
 import os.path
+import jinja2
 
 from raco import algebra
 from raco import expression
@@ -10,7 +11,6 @@ from raco.algebra import gensym
 from raco.expression import UnnamedAttributeRef
 from raco.language import Language
 from raco.pipelines import Pipelined
-from raco.utility import emitlist
 from raco import types
 
 import logging
@@ -47,13 +47,23 @@ def readtemplate(grouppath, fname):
 
 class CBaseLanguage(Language):
 
+    @staticmethod
+    def __get_env_for_template_library__(library):
+        return jinja2.Environment(loader=jinja2.PackageLoader('raco.language',
+                                                              library))
+
+    @classmethod
+    @abc.abstractmethod
+    def cgenv(cls):
+        pass
+
     @classmethod
     def body(cls, compileResult):
         queryexec = compileResult.getExecutionCode()
         initialized = compileResult.getInitCode()
         declarations = compileResult.getDeclCode()
         resultsym = "__result__"
-        return cls.base_template() % locals()
+        return cls.base_template().render(locals())
 
     @classmethod
     @abc.abstractmethod
@@ -211,6 +221,8 @@ class CBaseLanguage(Language):
             list(itertools.chain.from_iterable(when_inits)) + else_compiled[2]
 
 
+_cgenv = CBaseLanguage.__get_env_for_template_library__('cbase_templates')
+
 # TODO:
 # The following is actually a staged materialized tuple ref.
 # we should also add a staged reference tuple ref that
@@ -256,16 +268,14 @@ class StagedTupleRef:
             position=position, name=self.name)
 
     def generateDefinition(self):
-        template = readtemplate('c_templates', 'materialized_tuple_ref')
+        template = _cgenv.get_template('materialized_tuple_ref.cpp')
+
         numfields = len(self.scheme)
 
-        fieldtypes = ','.join([CBaseLanguage.typename(t)
-                               for t in self.scheme.get_types()])
+        fieldtypes = [CBaseLanguage.typename(t) for t in self.scheme.get_types()]
 
-        stream_reads = "ss" + emitlist([' >> std::get<{i}>(_t)'.format(i=i)
-                                        for i in range(numfields)]) + ";"
-        stream_sets = emitlist(["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)
-                                for i in range(numfields)])
+        # stream_sets = emitlist(["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)
+        #                        for i in range(numfields)])
 
         additional_code = self.__additionalDefinitionCode__()
         after_def_code = self.__afterDefinitionCode__()
@@ -273,7 +283,7 @@ class StagedTupleRef:
         tupletypename = self.getTupleTypename()
         relsym = self.relsym
 
-        code = template % locals()
+        code = template.render(locals())
         return code
 
     def __additionalDefinitionCode__(self):
@@ -289,10 +299,7 @@ class CSelect(Pipelined, algebra.Select):
         self.input.produce(state)
 
     def consume(self, t, src, state):
-        basic_select_template = """if (%(conditioncode)s) {
-      %(inner_code_compiled)s
-    }
-    """
+        basic_select_template = _cgenv.get_template('select.cpp')
 
         condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
 
@@ -305,7 +312,7 @@ class CSelect(Pipelined, algebra.Select):
 
         inner_code_compiled = self.parent().consume(t, self, state)
 
-        code = basic_select_template % locals()
+        code = basic_select_template.render(locals())
         return code
 
 
@@ -319,10 +326,7 @@ class CUnionAll(Pipelined, algebra.Union):
         self.left.produce(state)
 
     def consume(self, t, src, state):
-        union_template = """
-        %(unified_tuple_typename)s %(unified_tuple_name)s = \
-        %(unified_tuple_typename)s::create(%(src_tuple_name)s);
-                        %(inner_plan_compiled)s"""
+        union_template = _cgenv.get_template('union.cpp')
 
         unified_tuple_typename = self.unifiedTupleType.getTupleTypename()
         unified_tuple_name = self.unifiedTupleType.name
@@ -330,7 +334,7 @@ class CUnionAll(Pipelined, algebra.Union):
 
         inner_plan_compiled = \
             self.parent().consume(self.unifiedTupleType, self, state)
-        return union_template % locals()
+        return union_template.render(locals())
 
 
 class CApply(Pipelined, algebra.Apply):
@@ -348,15 +352,13 @@ class CApply(Pipelined, algebra.Apply):
     def consume(self, t, src, state):
         code = ""
 
-        assignment_template = """
-        %(dst_set_func)s(%(src_expr_compiled)s);
-        """
+        assignment_template = _cgenv.get_template('assignment.cpp')
 
         dst_name = self.newtuple.name
         dst_type_name = self.newtuple.getTupleTypename()
 
         # declaration of tuple instance
-        code += """%(dst_type_name)s %(dst_name)s;""" % locals()
+        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
 
         for dst_fieldnum, src_label_expr in enumerate(self.emitters):
             dst_set_func = self.newtuple.set_func_code(dst_fieldnum)
@@ -371,8 +373,7 @@ class CApply(Pipelined, algebra.Apply):
             state.addInitializers(expr_inits)
             state.addDeclarations(expr_decls)
 
-            print locals()
-            code += assignment_template % locals()
+            code += assignment_template.render(locals())
 
         innercode = self.parent().consume(self.newtuple, self, state)
         code += innercode
@@ -395,24 +396,21 @@ class CProject(Pipelined, algebra.Project):
     def consume(self, t, src, state):
         code = ""
 
-        assignment_template = """
-        %(dst_set_func)s(%(src_val)s);
-        """
+        assignment_template = _cgenv.get_template('assignment.cpp')
 
         dst_name = self.newtuple.name
         dst_type_name = self.newtuple.getTupleTypename()
 
         # declaration of tuple instance
-        code += """%(dst_type_name)s %(dst_name)s;
-        """ % locals()
+        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
 
         for dst_fieldnum, src_expr in enumerate(self.columnlist):
             if isinstance(src_expr, UnnamedAttributeRef):
-                src_val = t.get_code(src_expr.position)
+                src_expr_compiled = t.get_code(src_expr.position)
                 dst_set_func = t.set_func_code(dst_fieldnum)
             else:
                 assert False, "Unsupported Project expression"
-            code += assignment_template % locals()
+            code += assignment_template.render(locals())
 
         innercode = self.parent().consume(self.newtuple, self, state)
         code += innercode
@@ -455,7 +453,7 @@ class CFileScan(Pipelined, algebra.Scan):
             resultsym = gensym()
 
             name = str(self.relation_key).split(':')[2]
-            fscode = self.__compileme__(resultsym, name)
+            fstemplate, fsbindings = self.__compileme__(resultsym, name)
             state.saveExpr(self, resultsym)
 
             stagedTuple = self.new_tuple_ref(resultsym, self.scheme())
@@ -472,7 +470,7 @@ class CFileScan(Pipelined, algebra.Scan):
             # now that we have the type, format this in;
             state.setPipelineProperty('type', 'scan')
             state.setPipelineProperty('source', self.__class__)
-            state.addPipeline(fscode % {"result_type": tuple_type})
+            state.addPipeline(fstemplate.render(fsbindings, result_type=tuple_type))
 
         # no return value used because parent is a new pipeline
         self.parent().consume(resultsym, self, state)
@@ -491,10 +489,10 @@ class CFileScan(Pipelined, algebra.Scan):
         # self.trace("// Original query position of %s: term %s (%s)" % tup)
 
         if isinstance(self.relation_key, catalog.ASCIIFile):
-            code = self.__get_ascii_scan_template__() % locals()
+            template = self.__get_ascii_scan_template__()
         else:
-            code = self.__get_binary_scan_template__() % locals()
-        return code
+            template = self.__get_binary_scan_template__()
+        return template, locals()
 
     def __str__(self):
         return "%s(%s)" % (self.opname(), self.relation_key)
