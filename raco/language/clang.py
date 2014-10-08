@@ -34,7 +34,7 @@ class CStagedTupleRef(StagedTupleRef):
 
 
 class CC(CBaseLanguage):
-    _cgenv = CBaseLanguage.__get_env_for_template_library__('c_templates')
+    _cgenv = CBaseLanguage.__get_env_for_template_libraries__('c_templates')
 
     @classmethod
     def cgenv(cls):
@@ -51,7 +51,7 @@ class CC(CBaseLanguage):
         if True:
             inner_code = code
             timing_template = \
-                CC._cgenv.get_template('pipeline_timing_template.cpp')
+                CC._cgenv.get_template('clang_pipeline_timing.cpp')
 
             code = timing_template.render(locals())
 
@@ -59,7 +59,7 @@ class CC(CBaseLanguage):
 
     @staticmethod
     def group_wrap(ident, grpcode, attrs):
-        timing_template = CC._cgenv.get_template('group_timing_template.cpp')
+        timing_template = CC._cgenv.get_template('clang_group_timing.cpp')
 
         code = timing_template.render(locals())
         return code

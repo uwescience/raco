@@ -19,10 +19,6 @@ _LOG = logging.getLogger(__name__)
 import itertools
 
 
-def readtemplate(fname):
-    return clangcommon.readtemplate("grappa_templates", fname)
-
-
 class GrappaStagedTupleRef(StagedTupleRef):
 
     def __afterDefinitionCode__(self):
@@ -32,7 +28,11 @@ class GrappaStagedTupleRef(StagedTupleRef):
 
 
 class GrappaLanguage(CBaseLanguage):
-    _base_template = readtemplate("base_query")
+    _cgenv = CBaseLanguage.__get_env_for_template_libraries__('grappa_templates')
+
+    @classmethod
+    def cgenv(cls):
+        return cls._cgenv
 
     @classmethod
     def base_template(cls):
@@ -53,15 +53,7 @@ class GrappaLanguage(CBaseLanguage):
 
     @staticmethod
     def group_wrap(ident, grpcode, attrs):
-        pipeline_template = ct("""
-        Grappa::Metrics::reset();
-        auto start_%(ident)s = walltime();
-        %(grpcode)s
-        auto end_%(ident)s = walltime();
-        auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
-        %(timer_metric)s += runtime_%(ident)s;
-        VLOG(1) << "pipeline group %(ident)s: " << runtime_%(ident)s << " s";
-        """)
+        timing_template = GrappaLanguage.cgenv().get_template('grappa_group_timing.cpp')
 
         timer_metric = None
         if attrs['type'] == 'in_memory':
@@ -69,7 +61,9 @@ class GrappaLanguage(CBaseLanguage):
         elif attrs['type'] == 'scan':
             timer_metric = "saved_scan_runtime"
 
-        code = pipeline_template % locals()
+        code = emitlist("Grappa::Metrics::reset();",
+                        timing_template.render(locals()))
+
         return code
 
     @staticmethod
@@ -79,17 +73,8 @@ class GrappaLanguage(CBaseLanguage):
         # timing code
         if True:
             inner_code = code
-            timing_template = ct("""auto start_%(ident)s = walltime();
-            VLOG(1) << "timestamp %(ident)s start " << std::setprecision(15)\
-             << start_%(ident)s;
-            %(inner_code)s
-            auto end_%(ident)s = walltime();
-            auto runtime_%(ident)s = end_%(ident)s - start_%(ident)s;
-            VLOG(1) << "pipeline %(ident)s: " << runtime_%(ident)s << " s";
-            VLOG(1) << "timestamp %(ident)s end " << std::setprecision(15)\
-             << end_%(ident)s;
-            """)
-            code = timing_template % locals()
+            timing_template = GrappaLanguage.cgenv().get_template('grappa_pipeline_timing.cpp')
+            code = timing_template.render(locals())
 
         dependences = attrs.get('dependences', set())
         assert isinstance(dependences, set)

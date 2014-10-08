@@ -48,9 +48,17 @@ def readtemplate(grouppath, fname):
 class CBaseLanguage(Language):
 
     @staticmethod
-    def __get_env_for_template_library__(library):
-        return jinja2.Environment(loader=jinja2.PackageLoader('raco.language',
-                                                              library))
+    def __get_env_for_template_libraries__(*libraries):
+        """
+        create a Jinja2 Environment with loaders for provided
+         libraries and base C templates
+
+        @param libraries: env will load templates from these libraries in order
+        @return: a jinja2.Environment
+        """
+        child_loaders = [jinja2.PackageLoader('raco.language', l) for l in libraries]
+        loaders = child_loaders + [jinja2.PackageLoader('raco.language', 'cbase_templates')]
+        return jinja2.Environment(loader=jinja2.ChoiceLoader(loaders))
 
     @classmethod
     @abc.abstractmethod
@@ -221,7 +229,7 @@ class CBaseLanguage(Language):
             list(itertools.chain.from_iterable(when_inits)) + else_compiled[2]
 
 
-_cgenv = CBaseLanguage.__get_env_for_template_library__('cbase_templates')
+_cgenv = CBaseLanguage.__get_env_for_template_libraries__()
 
 # TODO:
 # The following is actually a staged materialized tuple ref.
