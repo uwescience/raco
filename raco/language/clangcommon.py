@@ -473,7 +473,7 @@ class CFileScan(Pipelined, algebra.Scan):
 
             rel_decl_template = self.__get_relation_decl_template__(name)
             if rel_decl_template:
-                state.addDeclarations([rel_decl_template % locals()])
+                state.addDeclarations([rel_decl_template.render(locals())])
 
             # now that we have the type, format this in;
             state.setPipelineProperty('type', 'scan')

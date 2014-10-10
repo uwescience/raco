@@ -437,19 +437,15 @@ class CSelect(clangcommon.CSelect, CCOperator):
 
 
 class CFileScan(clangcommon.CFileScan, CCOperator):
-    ascii_scan_template = CC.cgenv().get_template('ascii_scan.cpp')
-
-    # TODO binary input
-    binary_scan_template = CC.cgenv().get_template('ascii_scan.cpp')
-
     def __get_ascii_scan_template__(self):
-        return self.ascii_scan_template
+        return CC.cgenv().get_template('ascii_scan.cpp')
 
     def __get_binary_scan_template__(self):
-        return self.binary_scan_template
+        # TODO binary input
+        return CC.cgenv().get_template('ascii_scan.cpp')
 
     def __get_relation_decl_template__(self, name):
-        return """std::vector<%(tuple_type)s> %(resultsym)s;"""
+        return CC.cgenv().get_template('relation_declaration.cpp')
 
 
 class CStore(clangcommon.BaseCStore, CCOperator):
