@@ -7,6 +7,7 @@ import copy
 import operator
 import math
 from raco.expression import StateVar
+from functools import reduce
 
 
 # BEGIN Code to generate variables names
@@ -38,6 +39,7 @@ class SchemaError(Exception):
 
 
 class Operator(Printable):
+
     """Operator base class"""
     __metaclass__ = ABCMeta
 
@@ -177,7 +179,9 @@ class Operator(Printable):
 
 
 class ZeroaryOperator(Operator):
+
     """Operator with no arguments"""
+
     def __init__(self):
         Operator.__init__(self)
 
@@ -204,7 +208,9 @@ class ZeroaryOperator(Operator):
 
 
 class UnaryOperator(Operator):
+
     """Operator with one argument"""
+
     def __init__(self, input):
         self.input = input
         Operator.__init__(self)
@@ -239,7 +245,9 @@ class UnaryOperator(Operator):
 
 
 class BinaryOperator(Operator):
+
     """Operator with two arguments"""
+
     def __init__(self, left, right):
         self.left = left
         self.right = right
@@ -276,7 +284,9 @@ class BinaryOperator(Operator):
 
 
 class NaryOperator(Operator):
+
     """Operator with N arguments.  e.g., multi-way joins in one step."""
+
     def __init__(self, args=None):
         Operator.__init__(self)
 
@@ -312,7 +322,9 @@ class NaryOperator(Operator):
 
 
 class NaryJoin(NaryOperator):
+
     """Logical Nary Join operator"""
+
     def __init__(self, children=None, conditions=None, output_columns=None):
         # TODO: conditions is not actually an expression, it's a list of
         # pairs of UnnamedAttributeRefs that represent equijoins. This is
@@ -355,7 +367,9 @@ class NaryJoin(NaryOperator):
 
 
 class Union(BinaryOperator):
+
     """Set union."""
+
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
 
@@ -373,7 +387,9 @@ class Union(BinaryOperator):
 
 
 class UnionAll(BinaryOperator):
+
     """Bag union."""
+
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
 
@@ -392,6 +408,7 @@ class UnionAll(BinaryOperator):
 
 
 class Intersection(BinaryOperator):
+
     """Set intersection."""
 
     def __init__(self, left=None, right=None):
@@ -408,6 +425,7 @@ class Intersection(BinaryOperator):
 
 
 class Difference(BinaryOperator):
+
     """Set difference"""
 
     def __init__(self, left=None, right=None):
@@ -426,6 +444,7 @@ class Difference(BinaryOperator):
 
 
 class CompositeBinaryOperator(BinaryOperator):
+
     """Join-like operations whose output schema combines its input schemas."""
 
     @abstractmethod
@@ -445,7 +464,9 @@ class CompositeBinaryOperator(BinaryOperator):
 
 
 class CrossProduct(CompositeBinaryOperator):
+
     """Logical Cross Product operator"""
+
     def __init__(self, left=None, right=None):
         BinaryOperator.__init__(self, left, right)
 
@@ -470,7 +491,9 @@ class CrossProduct(CompositeBinaryOperator):
 
 
 class Join(CompositeBinaryOperator):
+
     """Logical Join operator"""
+
     def __init__(self, condition=None, left=None, right=None):
         self.condition = condition
         BinaryOperator.__init__(self, left, right)
@@ -538,6 +561,7 @@ def resolve_attribute_name(user_name, scheme, sexpr, index):
 
 
 class Apply(UnaryOperator):
+
     def __init__(self, emitters=None, input=None):
         """Create new attributes from expressions with optional rename.
 
@@ -672,7 +696,9 @@ class StatefulApply(UnaryOperator):
 
 # TODO: Non-scheme-mutating operators
 class Distinct(UnaryOperator):
+
     """Remove duplicates from the child operator"""
+
     def __init__(self, input=None):
         UnaryOperator.__init__(self, input)
 
@@ -689,6 +715,7 @@ class Distinct(UnaryOperator):
 
 
 class Limit(UnaryOperator):
+
     def __init__(self, count=None, input=None):
         UnaryOperator.__init__(self, input)
         self.count = count
@@ -716,7 +743,9 @@ class Limit(UnaryOperator):
 
 
 class Select(UnaryOperator):
+
     """Logical selection operator"""
+
     def __init__(self, condition=None, input=None):
         self.condition = condition
         UnaryOperator.__init__(self, input)
@@ -756,7 +785,9 @@ class Select(UnaryOperator):
 
 
 class Project(UnaryOperator):
+
     """Logical projection operator"""
+
     def __init__(self, columnlist=None, input=None):
         self.columnlist = columnlist
         UnaryOperator.__init__(self, input)
@@ -796,6 +827,7 @@ class Project(UnaryOperator):
 
 
 class GroupBy(UnaryOperator):
+
     """Logical GroupBy operator
 
     :param grouping_list: A list of expressions in a "group by" clause
@@ -886,8 +918,10 @@ class GroupBy(UnaryOperator):
 
 
 class OrderBy(UnaryOperator):
+
     """ Logical Sort operator
     """
+
     def __init__(self, input=None, sort_columns=None, ascending=None):
         UnaryOperator.__init__(self, input)
         self.sort_columns = sort_columns
@@ -914,7 +948,9 @@ class OrderBy(UnaryOperator):
 
 
 class ProjectingJoin(Join):
+
     """Logical Projecting Join operator"""
+
     def __init__(self, condition=None, left=None, right=None,
                  output_columns=None):
         self.output_columns = output_columns
@@ -958,7 +994,7 @@ class ProjectingJoin(Join):
 
         combined = left_sch + right_sch
         return scheme.Scheme([get_col(p.get_position(combined),
-                              left_sch, right_sch)
+                                      left_sch, right_sch)
                               for p in self.output_columns])
 
     def add_equijoin_condition(self, col0, col1):
@@ -967,7 +1003,9 @@ class ProjectingJoin(Join):
 
 
 class Shuffle(UnaryOperator):
+
     """Send the input to the specified servers"""
+
     def __init__(self, child=None, columnlist=None):
         UnaryOperator.__init__(self, child)
         self.columnlist = columnlist
@@ -985,7 +1023,9 @@ class Shuffle(UnaryOperator):
 
 
 class HyperCubeShuffle(UnaryOperator):
+
     """HyperCube Shuffle for multiway join"""
+
     def __init__(self, child=None, hashed_columns=None,
                  mapped_hc_dims=None, hyper_cube_dims=None,
                  cell_partition=None):
@@ -1018,7 +1058,9 @@ class HyperCubeShuffle(UnaryOperator):
 
 
 class Collect(UnaryOperator):
+
     """Send input to one server"""
+
     def __init__(self, child=None, server=None):
         UnaryOperator.__init__(self, child)
         self.server = server
@@ -1035,7 +1077,9 @@ class Collect(UnaryOperator):
 
 
 class Broadcast(UnaryOperator):
+
     """Send input to all servers"""
+
     def num_tuples(self):
         return self.input.num_tuples()
 
@@ -1044,7 +1088,9 @@ class Broadcast(UnaryOperator):
 
 
 class PartitionBy(UnaryOperator):
+
     """Send input to a server indicated by a hash of specified columns."""
+
     def __init__(self, columnlist=None, input=None):
         self.columnlist = columnlist
         UnaryOperator.__init__(self, input)
@@ -1072,6 +1118,7 @@ class PartitionBy(UnaryOperator):
 
 
 class Fixpoint(Operator):
+
     def __init__(self, body=None):
         self.body = body
 
@@ -1103,6 +1150,7 @@ class Fixpoint(Operator):
 
 
 class State(ZeroaryOperator):
+
     """A placeholder operator for a recursive plan"""
 
     def __init__(self, name, fixpoint):
@@ -1118,6 +1166,7 @@ class State(ZeroaryOperator):
 
 
 class Store(UnaryOperator):
+
     """Store output to a relational table.
 
     relation_key is a string of the form "program:user:relation".
@@ -1144,6 +1193,7 @@ class Store(UnaryOperator):
 
 
 class Dump(UnaryOperator):
+
     """Echo input to standard out; only useful for standalone raco."""
 
     def num_tuples(self):
@@ -1154,6 +1204,7 @@ class Dump(UnaryOperator):
 
 
 class EmptyRelation(ZeroaryOperator):
+
     """Relation with no tuples."""
 
     def __init__(self, _scheme=None):
@@ -1178,6 +1229,7 @@ class EmptyRelation(ZeroaryOperator):
 
 
 class SingletonRelation(ZeroaryOperator):
+
     """Relation with a single empty tuple.
 
     Used for constructing table literals.
@@ -1199,6 +1251,7 @@ class SingletonRelation(ZeroaryOperator):
 
 
 class FileScan(ZeroaryOperator):
+
     """Load table data from a file."""
 
     def __init__(self, path=None, _scheme=None):
@@ -1237,6 +1290,7 @@ class FileScan(ZeroaryOperator):
 
 
 class Scan(ZeroaryOperator):
+
     """Logical Scan operator."""
 
     def __init__(self, relation_key=None, _scheme=None, cardinality=None):
@@ -1294,10 +1348,12 @@ class Scan(ZeroaryOperator):
 
 
 class StoreTemp(UnaryOperator):
+
     """Store an input relation to a "temporary" relation.
 
     Temporary relations exist for the lifetime of a query.
     """
+
     def __init__(self, name=None, input=None):
         UnaryOperator.__init__(self, input)
         self.name = name
@@ -1322,10 +1378,12 @@ class StoreTemp(UnaryOperator):
 
 
 class AppendTemp(UnaryOperator):
+
     """Append an input relation to a "temporary" relation.
 
     Temporary relations exist for the lifetime of a query.
     """
+
     def __init__(self, name=None, input=None):
         UnaryOperator.__init__(self, input)
         self.name = name
@@ -1350,6 +1408,7 @@ class AppendTemp(UnaryOperator):
 
 
 class ScanTemp(ZeroaryOperator):
+
     """Read the contents of a temporary relation."""
 
     def __init__(self, name=None, _scheme=None):
@@ -1382,7 +1441,9 @@ class ScanTemp(ZeroaryOperator):
 
 
 class Parallel(NaryOperator):
+
     """Execute a set of independent plans in parallel."""
+
     def __init__(self, ops=None):
         NaryOperator.__init__(self, ops)
 
@@ -1398,7 +1459,9 @@ class Parallel(NaryOperator):
 
 
 class Sequence(NaryOperator):
+
     """Execute a sequence of plans in serial order."""
+
     def __init__(self, ops=None):
         NaryOperator.__init__(self, ops)
 
@@ -1417,6 +1480,7 @@ class Sequence(NaryOperator):
 
 
 class DoWhile(NaryOperator):
+
     def __init__(self, ops=None):
         """Repeatedly execute a sequence of plans until a termination
         condition.

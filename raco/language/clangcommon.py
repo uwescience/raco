@@ -14,10 +14,12 @@ from raco.utility import emitlist
 from raco import types
 
 import logging
+from functools import reduce
 _LOG = logging.getLogger(__name__)
 
 
 class CodeTemplate:
+
     def __init__(self, s):
         self.string = s
 
@@ -40,10 +42,11 @@ def readtemplate(grouppath, fname):
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  grouppath)
 
-    return file(os.path.join(template_path, fname+'.template')).read()
+    return file(os.path.join(template_path, fname + '.template')).read()
 
 
 class CBaseLanguage(Language):
+
     @classmethod
     def body(cls, compileResult):
         queryexec = compileResult.getExecutionCode()
@@ -86,8 +89,10 @@ class CBaseLanguage(Language):
     @staticmethod
     def _extract_code_decl_init(args):
         codes = [c for c, _, _ in args]
-        decls_combined = reduce(lambda sofar, x: sofar + x, [d for _, d, _ in args])
-        inits_combined = reduce(lambda sofar, x: sofar + x, [i for _, _, i in args])
+        decls_combined = reduce(lambda sofar, x: sofar + x,
+                                [d for _, d, _ in args])
+        inits_combined = reduce(lambda sofar, x: sofar + x,
+                                [i for _, _, i in args])
         return codes, decls_combined, inits_combined
 
     @classmethod
@@ -102,7 +107,8 @@ class CBaseLanguage(Language):
     def function_call(cls, name, *args):
         codes, decls, inits = cls._extract_code_decl_init(list(args))
         argscode = ",".join(["{0}".format(d) for d in codes])
-        code = "{name}({argscode})".format(name=name.lower(), argscode=argscode)
+        code = "{name}({argscode})".format(
+            name=name.lower(), argscode=argscode)
         return code, decls, inits
 
     @classmethod
@@ -113,14 +119,16 @@ class CBaseLanguage(Language):
             types.DOUBLE_TYPE: 'double'
         }.get(raco_type)
 
-        assert n is not None, "Clang does not yet support type {type}".format(type=n)
+        assert n is not None, \
+            "Clang does not yet support type {type}".format(type=n)
         return n
 
     @classmethod
     def cast(cls, castto, inputexpr):
         inputcode, decls, inits = inputexpr
         typen = cls.typename(castto)
-        code = "(({typename}){expr})".format(typename=typen, expr=inputcode)
+        code = "(({typename}){expr})".format(
+            typename=typen, expr=inputcode)
         return code, decls, inits
 
     @classmethod
@@ -132,14 +140,16 @@ class CBaseLanguage(Language):
                 Use helper function unnamed." % expr)
         if isinstance(expr, expression.UnnamedAttributeRef):
             tupleref = kwargs.get('tupleref')
-            assert tupleref is not None, "Cannot compile {0} without a tupleref".format(expr)
+            assert tupleref is not None, \
+                "Cannot compile {0} without a tupleref".format(expr)
 
             position = expr.position
             assert position >= 0
             return tupleref.get_code(position), [], []
         if isinstance(expr, expression.NamedStateAttributeRef):
             state_scheme = kwargs.get('state_scheme')
-            assert state_scheme is not None, "Cannot compile {0} without a state_scheme".format(expr)
+            assert state_scheme is not None, \
+                "Cannot compile {0} without a state_scheme".format(expr)
 
             position = expr.get_position(None, state_scheme)
             code = StagedTupleRef.get_code_with_name(position, "state")
@@ -161,12 +171,14 @@ class CBaseLanguage(Language):
         }}
         """
 
-        return cls._conditional_(when_compiled, else_compiled, if_template, else_template, "else")
+        return cls._conditional_(when_compiled, else_compiled,
+                                 if_template, else_template, "else")
 
     @classmethod
     def limits(cls, side, typ):
-        return "std::numeric_limits<{type}>::{side}()".format(type=cls.typename(typ),
-                                                              side=side)
+        return "std::numeric_limits<{type}>::{side}()".format(
+            type=cls.typename(typ),
+            side=side)
 
     @classmethod
     def conditional(cls, when_compiled, else_compiled):
@@ -174,26 +186,29 @@ class CBaseLanguage(Language):
 
         else_template = """: {then}"""
 
-        return cls._conditional_(when_compiled, else_compiled, if_template, else_template, ":")
+        return cls._conditional_(when_compiled, else_compiled,
+                                 if_template, else_template, ":")
 
     @classmethod
-    def _conditional_(cls, when_compiled, else_compiled, if_template, else_template, else_joiner):
+    def _conditional_(cls, when_compiled, else_compiled,
+                      if_template, else_template, else_joiner):
         def by_pairs(l):
             assert len(l) % 2 == 0, "must be even length"
             for i in range(0, len(l), 2):
-                yield l[i], l[i+1]
+                yield l[i], l[i + 1]
 
         flatten_when_then = list(itertools.chain.from_iterable(when_compiled))
         when_exec, when_decls, when_inits = zip(*flatten_when_then)
 
-        code = else_joiner.join([if_template.format(cond=cond, then=then) for (cond, then) in by_pairs(when_exec)])
+        code = else_joiner.join([if_template.format(cond=cond, then=then)
+                                 for (cond, then) in by_pairs(when_exec)])
 
         if else_compiled is not None:
             code += else_template.format(then=else_compiled[0])
 
         return code, \
-               list(itertools.chain.from_iterable(when_decls))+else_compiled[1], \
-               list(itertools.chain.from_iterable(when_inits))+else_compiled[2]
+            list(itertools.chain.from_iterable(when_decls)) + else_compiled[1], \
+            list(itertools.chain.from_iterable(when_inits)) + else_compiled[2]
 
 
 # TODO:
@@ -237,16 +252,20 @@ class StagedTupleRef:
         return StagedTupleRef.get_code_with_name(position, self.name)
 
     def set_func_code(self, position):
-        return "{name}.set<{position}>".format(position=position, name=self.name)
+        return "{name}.set<{position}>".format(
+            position=position, name=self.name)
 
     def generateDefinition(self):
         template = readtemplate('c_templates', 'materialized_tuple_ref')
         numfields = len(self.scheme)
 
-        fieldtypes = ','.join([CBaseLanguage.typename(t) for t in self.scheme.get_types()])
+        fieldtypes = ','.join([CBaseLanguage.typename(t)
+                               for t in self.scheme.get_types()])
 
-        stream_reads = "ss" + emitlist([' >> std::get<{i}>(_t)'.format(i=i) for i in range(numfields)]) + ";"
-        stream_sets = emitlist(["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i) for i in range(numfields)])
+        stream_reads = "ss" + emitlist([' >> std::get<{i}>(_t)'.format(i=i)
+                                        for i in range(numfields)]) + ";"
+        stream_sets = emitlist(["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)
+                                for i in range(numfields)])
 
         additional_code = self.__additionalDefinitionCode__()
         after_def_code = self.__afterDefinitionCode__()
@@ -265,6 +284,7 @@ class StagedTupleRef:
 
 
 class CSelect(Pipelined, algebra.Select):
+
     def produce(self, state):
         self.input.produce(state)
 
@@ -278,7 +298,8 @@ class CSelect(Pipelined, algebra.Select):
 
         # compile the predicate into code
         conditioncode, cond_decls, cond_inits = \
-            self.language().compile_expression(condition_as_unnamed, tupleref=t)
+            self.language().compile_expression(
+                condition_as_unnamed, tupleref=t)
         state.addInitializers(cond_inits)
         state.addDeclarations(cond_decls)
 
@@ -289,6 +310,7 @@ class CSelect(Pipelined, algebra.Select):
 
 
 class CUnionAll(Pipelined, algebra.Union):
+
     def produce(self, state):
         self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
         state.addDeclarations([self.unifiedTupleType.generateDefinition()])
@@ -312,6 +334,7 @@ class CUnionAll(Pipelined, algebra.Union):
 
 
 class CApply(Pipelined, algebra.Apply):
+
     def produce(self, state):
         # declare a single new type for project
         # TODO: instead do mark used-columns?
@@ -343,7 +366,8 @@ class CApply(Pipelined, algebra.Apply):
             src_expr_unnamed = expression.ensure_unnamed(src_expr, self.input)
 
             src_expr_compiled, expr_decls, expr_inits = \
-                self.language().compile_expression(src_expr_unnamed, tupleref=t)
+                self.language().compile_expression(
+                    src_expr_unnamed, tupleref=t)
             state.addInitializers(expr_inits)
             state.addDeclarations(expr_decls)
 
@@ -357,6 +381,7 @@ class CApply(Pipelined, algebra.Apply):
 
 
 class CProject(Pipelined, algebra.Project):
+
     def produce(self, state):
         # declare a single new type for project
         # TODO: instead do mark used-columns?
@@ -497,6 +522,7 @@ from raco import rules
 
 
 class BreakHashJoinConjunction(rules.Rule):
+
     """A rewrite rule for turning HashJoin(a=c and b=d)
     into select(b=d)[HashJoin(a=c)]"""
 
@@ -535,6 +561,7 @@ EMIT_FILE = 'file'
 
 
 class BaseCStore(Pipelined, algebra.Store):
+
     def __init__(self, emit_print, relation_key, plan):
         super(BaseCStore, self).__init__(relation_key, plan)
         self.emit_print = emit_print
@@ -567,7 +594,9 @@ class BaseCStore(Pipelined, algebra.Store):
 
 
 class StoreToBaseCStore(rules.Rule):
+
     """A rule to store tuples into emit_print"""
+
     def __init__(self, emit_print, subclass):
         self.emit_print = emit_print
         assert issubclass(subclass, BaseCStore), \
@@ -586,6 +615,7 @@ class StoreToBaseCStore(rules.Rule):
 
 
 class BaseCGroupby(Pipelined, algebra.GroupBy):
+
     def __get_initial_value__(self, index, cached_inp_sch=None):
         if cached_inp_sch is None:
             cached_inp_sch = self.input.scheme()
@@ -593,6 +623,13 @@ class BaseCGroupby(Pipelined, algebra.GroupBy):
         op = self.aggregate_list[index].__class__.__name__
 
         # min, max need special values; default to 0 as initial value
-        initial_value = {'MAX': self.language().limits('min', self.aggregate_list[index].typeof(cached_inp_sch, None)),
-                         'MIN': self.language().limits('max', self.aggregate_list[index].typeof(cached_inp_sch, None))}.get(op, 0)
+        initial_value = {
+            'MAX': self.language().limits('min',
+                                          self.aggregate_list[index].typeof(
+                                              cached_inp_sch, None)),
+            'MIN': self.language().limits('max',
+                                          self.aggregate_list[index].typeof(
+                                              cached_inp_sch, None))
+        }.get(op, 0)
+
         return initial_value

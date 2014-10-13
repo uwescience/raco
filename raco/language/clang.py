@@ -23,6 +23,7 @@ def readtemplate(fname):
 
 
 class CStagedTupleRef(StagedTupleRef):
+
     def __additionalDefinitionCode__(self):
         constructor_template = """
     public:
@@ -138,6 +139,7 @@ from raco.algebra import UnaryOperator
 
 
 class CMemoryScan(algebra.UnaryOperator, CCOperator):
+
     def produce(self, state):
         self.input.produce(state)
 
@@ -214,20 +216,30 @@ class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
                 declr_template = """std::unordered_map<%(keytype)s,%(valtype)s> \
                 %(hashname)s;
           """
-                keytype = self.language().typename(self.grouping_list[0].typeof(inp_sch, None))
+                keytype = self.language().typename(
+                    self.grouping_list[0].typeof(
+                        inp_sch,
+                        None))
             elif len(self.grouping_list) == 2:
                 declr_template = """std::unordered_map<\
                 std::pair<%(keytypes)s>, %(valtype)s, pairhash> \
                 %(hashname)s;
                 """
-                keytypes = ','.join([self.language().typename(g.typeof(inp_sch, None)) for g in self.grouping_list])
+                keytypes = ','.join(
+                    [self.language().typename(g.typeof(inp_sch, None))
+                     for g in self.grouping_list])
 
         else:
-            initial_value = self.__get_initial_value__(0, cached_inp_sch=inp_sch)
+            initial_value = self.__get_initial_value__(
+                0,
+                cached_inp_sch=inp_sch)
             declr_template = """%(valtype)s %(hashname)s = %(initial_value)s;
             """
 
-        valtype = self.language().typename(self.aggregate_list[0].input.typeof(inp_sch, None))
+        valtype = self.language().typename(
+            self.aggregate_list[0].input.typeof(
+                inp_sch,
+                None))
 
         self.hashname = self.__genHashName__()
         hashname = self.hashname
@@ -265,13 +277,15 @@ class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
                 produce_template = """for (auto it=%(hashname)s.begin(); \
                 it!=%(hashname)s.end(); it++) {
                 %(output_tuple_type)s %(output_tuple_name)s(\
-                std::make_tuple(it->first.first, it->first.second, it->second));
+                std::make_tuple(\
+                it->first.first, it->first.second, it->second));
                 %(inner_code)s
                 }
                 """
         else:
             produce_template = """{
-            %(output_tuple_type)s %(output_tuple_name)s(std::make_tuple(%(hashname)s));
+            %(output_tuple_type)s %(output_tuple_name)s(\
+            std::make_tuple(%(hashname)s));
             %(inner_code)s
             }
             """
@@ -407,9 +421,15 @@ class CHashJoin(algebra.Join, CCOperator):
             keyval = t.get_code(self.right_keypos)
 
             if self.rightCondIsRightAttr:
-                keytype = self.language().typename(self.condition.right.typeof(my_sch, None))
+                keytype = self.language().typename(
+                    self.condition.right.typeof(
+                        my_sch,
+                        None))
             else:
-                keytype = self.language().typename(self.condition.left.typeof(my_sch, None))
+                keytype = self.language().typename(
+                    self.condition.left.typeof(
+                        my_sch,
+                        None))
 
             in_tuple_type = t.getTupleTypename()
             in_tuple_name = t.name
@@ -488,7 +508,6 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
     auto %(resultsym)s = tuplesFromAscii<%%(result_type)s>("%(name)s");
     """
 
-
     def __get_ascii_scan_template__(self):
         return self.ascii_scan_template
 
@@ -510,7 +529,8 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         state.addPreCode(schemafile)
         state.addPreCode(opentuple)
 
-        loggings = emitlist([self.language().log_file_unquoted("{0}".format(t.get_code(i))) for i in range(len(t.scheme))])
+        loggings = emitlist([self.language().log_file_unquoted(
+            "{0}".format(t.get_code(i))) for i in range(len(t.scheme))])
         code += loggings
 
         code += "logfile << '\\n';"
@@ -530,6 +550,7 @@ class CStore(clangcommon.BaseCStore, CCOperator):
 
 
 class MemoryScanOfFileScan(rules.Rule):
+
     """A rewrite rule for making a scan into
     materialization in memory then memory scan"""
 
@@ -562,6 +583,7 @@ def clangify(emit_print):
 
 
 class CCAlgebra(Algebra):
+
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         """ To store results into a file or onto console """
         self.emit_print = emit_print

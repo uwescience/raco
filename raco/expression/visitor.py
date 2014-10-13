@@ -1,6 +1,7 @@
 import abc
 from abc import abstractmethod
-from raco.expression.function import UnaryFunction, BinaryFunction, NaryFunction
+from raco.expression.function import UnaryFunction, \
+    BinaryFunction, NaryFunction
 
 
 class ExpressionVisitor(object):
@@ -129,6 +130,7 @@ class ExpressionVisitor(object):
 
 
 class SimpleExpressionVisitor(ExpressionVisitor):
+
     @abstractmethod
     def visit_unary(self, unaryexpr):
         pass

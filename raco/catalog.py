@@ -5,7 +5,9 @@ from raco.scheme import Scheme
 from ast import literal_eval
 import os
 
+
 class Relation(object):
+
     def __init__(self, name, sch):
         self.name = name
         self._scheme = sch
@@ -45,7 +47,9 @@ class Catalog(object):
 # Some useful Catalog implementations
 
 class FakeCatalog(Catalog):
+
     """ fake catalog, should only be used in test """
+
     def __init__(self, num_servers, child_sizes=None):
         self.num_servers = num_servers
         # default sizes
@@ -68,6 +72,7 @@ class FakeCatalog(Catalog):
 
 
 class FromFileCatalog(Catalog):
+
     """ Catalog that is created from a python file.
     Format of file is a dictionary of schemas.
 
@@ -103,13 +108,17 @@ class FromFileCatalog(Catalog):
             self.catalog = dict([(k, parse(v)) for k, v in cat.iteritems()])
         elif isinstance(cat, list):
             name = os.path.splitext(os.path.basename(fname))[0]
-            self.catalog = {'public:adhoc:{0}'.format(name): (cat, DEFAULT_CARDINALITY,)}
+            self.catalog = {
+                'public:adhoc:{0}'.format(name): (
+                    cat,
+                    DEFAULT_CARDINALITY,
+                )}
         else:
             error()
 
     def get_scheme(self, rel_key):
         return Scheme(self.__get_catalog_entry__(rel_key)[0])
-    
+
     def get_keys(self):
         return self.catalog.keys()
 

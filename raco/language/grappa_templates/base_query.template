@@ -10,6 +10,7 @@ using namespace Grappa;
 #include <vector>
 #include <iomanip>
 #include <cstring>
+#include <limits>
 
 // query library
 #include "relation_io.hpp"
