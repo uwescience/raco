@@ -6,9 +6,9 @@
 #include <iostream>
 #include <cstdlib>
 
-void CHECK(bool cond) {
+void CHECK(bool cond, std::string s) {
   if (!cond) {
-    std::cerr << "assertion failed" << std::endl;
+    std::cerr << "assertion failed: " << s << std::endl;
     exit(1);
   }
 }
@@ -17,11 +17,11 @@ void CHECK(bool cond) {
 template< typename Tuple >
 void convert2bin_withTuple( std::string fn, uint64_t burn=0, int add_id=0) {
   std::ifstream infile(fn, std::ifstream::in);
-  CHECK( infile.is_open() );// << fn << " failed to open";
+  CHECK( infile.is_open(),  fn + " failed to open");
   
   std::string outpath = fn+".bin";
   std::ofstream outfile(outpath, std::ios_base::out | std::ios_base::binary );
-  CHECK( outfile.is_open() );// << outpath << " failed to open";
+  CHECK( outfile.is_open(),  outpath + " failed to open");
   
   int64_t linenum = 0;
   while( infile.good() ) {
