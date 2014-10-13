@@ -1,0 +1,35 @@
+-- arbitrarily favor new value in case of tie
+def pickval(value, arg, _value, _arg):
+    case when value >= _value then arg
+        else _arg end;
+
+uda ArgMax(outcome, lprob) {
+   -- init
+   [0 as _outcome, 0 as _lprob];
+   
+   -- update
+   [pickval(lprob, outcome, _lprob, _outcome),
+    pickval(lprob, lprob, _lprob, _lprob)];
+
+   -- output
+   [_lprob, _outcome];
+};
+
+
+CondP = SCAN(conditionals);
+
+-- calculate probability of outcomes
+Poe = select input_sp.id as inputId, 
+      sum(CondP.lp) as lprob, 
+      CondP.outcome as outcome 
+from CondP, input_sp
+where
+CondP.index=input_sp.index
+and CondP.value=input_sp.value;
+-- double join!
+--group by CondP.outcome, input_sp.id;
+
+-- select the max probability outcome
+classes = select inputId, ArgMax(outcome, lprob) from Poe;
+
+store(classes, classified);
