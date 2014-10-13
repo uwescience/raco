@@ -161,7 +161,8 @@ class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
 
     def __init__(self, *args):
         super(CGroupBy, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/groupby'.format(CC._template_path))
+        self._cgenv = clangcommon.prepend_template_relpath(
+            self.language().cgenv(), '{0}/groupby'.format(CC._template_path))
 
     @classmethod
     def __genHashName__(cls):
@@ -189,13 +190,15 @@ class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
 
         if self.useMap:
             if len(self.grouping_list) == 1:
-                declr_template = self._cgenv.get_template('1key_declaration.cpp')
+                declr_template = self._cgenv.get_template(
+                    '1key_declaration.cpp')
                 keytype = self.language().typename(
                     self.grouping_list[0].typeof(
                         inp_sch,
                         None))
             elif len(self.grouping_list) == 2:
-                declr_template = self._cgenv.get_template('2key_declaration.cpp')
+                declr_template = self._cgenv.get_template(
+                    '2key_declaration.cpp')
                 keytypes = ','.join(
                     [self.language().typename(g.typeof(inp_sch, None))
                      for g in self.grouping_list])
@@ -307,7 +310,8 @@ class CHashJoin(algebra.Join, CCOperator):
 
     def __init__(self, *args):
         super(CHashJoin, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/hashjoin'.format(CC._template_path))
+        self._cgenv = clangcommon.prepend_template_relpath(
+            self.language().cgenv(), '{0}/hashjoin'.format(CC._template_path))
 
     def produce(self, state):
         if not isinstance(self.condition, expression.EQ):

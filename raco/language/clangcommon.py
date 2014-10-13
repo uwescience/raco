@@ -19,8 +19,9 @@ _LOG = logging.getLogger(__name__)
 
 
 def prepend_loader(env, loader):
-    #newenv = env.overlay(loader=jinja2.ChoiceLoader([loader, env.loader]))
-    newenv = jinja2.Environment(loader=jinja2.ChoiceLoader([loader, env.loader]))
+    newenv = env.overlay(loader=jinja2.ChoiceLoader([loader, env.loader]))
+    # newenv = jinja2.Environment(
+    #    loader=jinja2.ChoiceLoader([loader, env.loader]))
     return newenv
 
 
@@ -39,8 +40,10 @@ class CBaseLanguage(Language):
         @param libraries: env will load templates from these libraries in order
         @return: a jinja2.Environment
         """
-        child_loaders = [jinja2.PackageLoader('raco.language', l) for l in libraries]
-        loaders = child_loaders + [jinja2.PackageLoader('raco.language', 'cbase_templates')]
+        child_loaders = [
+            jinja2.PackageLoader('raco.language', l) for l in libraries]
+        loaders = child_loaders + \
+            [jinja2.PackageLoader('raco.language', 'cbase_templates')]
 
         return jinja2.Environment(loader=jinja2.ChoiceLoader(loaders))
 
@@ -219,6 +222,8 @@ _cgenv = CBaseLanguage.__get_env_for_template_libraries__()
 # The following is actually a staged materialized tuple ref.
 # we should also add a staged reference tuple ref that
 # just has relationsymbol and row
+
+
 class StagedTupleRef:
     nextid = 0
 
@@ -264,9 +269,11 @@ class StagedTupleRef:
 
         numfields = len(self.scheme)
 
-        fieldtypes = [CBaseLanguage.typename(t) for t in self.scheme.get_types()]
+        fieldtypes = [CBaseLanguage.typename(t)
+                      for t in self.scheme.get_types()]
 
-        # stream_sets = emitlist(["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)
+        # stream_sets = emitlist(
+        # ["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)
         #                        for i in range(numfields)])
 
         additional_code = self.__additionalDefinitionCode__()
@@ -462,7 +469,8 @@ class CFileScan(Pipelined, algebra.Scan):
             # now that we have the type, format this in;
             state.setPipelineProperty('type', 'scan')
             state.setPipelineProperty('source', self.__class__)
-            state.addPipeline(fstemplate.render(fsbindings, result_type=tuple_type))
+            state.addPipeline(
+                fstemplate.render(fsbindings, result_type=tuple_type))
 
         # no return value used because parent is a new pipeline
         self.parent().consume(resultsym, self, state)

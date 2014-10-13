@@ -20,7 +20,8 @@ import itertools
 
 
 def define_cl_arg(type, name, default_value, description):
-    return GrappaLanguage.cgenv().get_template('define_cl_arg.cpp').render(locals())
+    return GrappaLanguage.cgenv().get_template(
+        'define_cl_arg.cpp').render(locals())
 
 
 class GrappaStagedTupleRef(StagedTupleRef):
@@ -58,7 +59,8 @@ class GrappaLanguage(CBaseLanguage):
 
     @staticmethod
     def group_wrap(ident, grpcode, attrs):
-        timing_template = GrappaLanguage.cgenv().get_template('grappa_group_timing.cpp')
+        timing_template = GrappaLanguage.cgenv().get_template(
+            'grappa_group_timing.cpp')
         inner_code = grpcode
 
         timer_metric = None
@@ -68,7 +70,7 @@ class GrappaLanguage(CBaseLanguage):
             timer_metric = "saved_scan_runtime"
 
         code = emitlist(["Grappa::Metrics::reset();",
-                        timing_template.render(locals())])
+                         timing_template.render(locals())])
 
         return code
 
@@ -81,7 +83,8 @@ class GrappaLanguage(CBaseLanguage):
             First wrapper is innermost
 
             @param code the initial code to wrap
-            @param wrappers tuple of format (template, bindings). The template must include {{inner_code}}
+            @param wrappers tuple of format (template, bindings).
+            The template must include {{inner_code}}
             """
             current_result = code
             for template, bindings in wrappers:
@@ -93,7 +96,8 @@ class GrappaLanguage(CBaseLanguage):
 
         wrappers = []
 
-        timing_template = GrappaLanguage.cgenv().get_template('grappa_pipeline_timing.cpp')
+        timing_template = GrappaLanguage.cgenv().get_template(
+            'grappa_pipeline_timing.cpp')
         wrappers.append((timing_template, locals()))
 
         dependences = attrs.get('dependences', set())
@@ -120,7 +124,8 @@ class GrappaLanguage(CBaseLanguage):
     def compile_stringliteral(cls, st):
         sid = cls.newstringident()
         decl = """int64_t %s;""" % (sid)
-        lookup_init = GrappaLanguage.cgenv().get_template('string_index_lookup.cpp').render(locals())
+        lookup_init = GrappaLanguage.cgenv().get_template(
+            'string_index_lookup.cpp').render(locals())
         build_init = """
         string_index = build_string_index("sp2bench_1m.index.medium");
         """
@@ -158,9 +163,11 @@ def create_pipeline_synchronization(state):
 
     # true = tracked by gce user metrics
 
-    global_sync_decl = GrappaLanguage.cgenv().get_template('sync_declaration.cpp').render(locals())
+    global_sync_decl = GrappaLanguage.cgenv().get_template(
+        'sync_declaration.cpp').render(locals())
 
-    gce_metric_template = GrappaLanguage.cgenv().get_template('gce_app_metric.cpp')
+    gce_metric_template = GrappaLanguage.cgenv().get_template(
+        'gce_app_metric.cpp')
 
     pipeline_id = state.getCurrentPipelineId()
     gce_metric_def = gce_metric_template.render(locals())
@@ -203,7 +210,8 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         global_syncname = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
 
-        memory_scan_template = self.language().cgenv().get_template('memory_scan.cpp')
+        memory_scan_template = self.language().cgenv().get_template(
+            'memory_scan.cpp')
 
         stagedTuple = state.lookupTupleDef(inputsym)
         tuple_type = stagedTuple.getTupleTypename()
@@ -243,7 +251,9 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
 
     def __init__(self, *args):
         super(GrappaSymmetricHashJoin, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/symmetrichashjoin'.format(GrappaLanguage._template_path))
+        self._cgenv = clangcommon.prepend_template_relpath(
+            self.language().cgenv(),
+            '{0}/symmetrichashjoin'.format(GrappaLanguage._template_path))
 
     def produce(self, state):
         self.symBase = self.__genBaseName__()
@@ -378,7 +388,9 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
     def __init__(self, *args):
         super(GrappaShuffleHashJoin, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/shufflehashjoin'.format(GrappaLanguage._template_path))
+        self._cgenv = clangcommon.prepend_template_relpath(
+            self.language().cgenv(),
+            '{0}/shufflehashjoin'.format(GrappaLanguage._template_path))
 
     def produce(self, state):
         left_sch = self.left.scheme()
@@ -542,7 +554,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
     def __init__(self, *args):
         super(GrappaGroupBy, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/groupby'.format(GrappaLanguage._template_path))
+        self._cgenv = clangcommon.prepend_template_relpath(
+            self.language().cgenv(),
+            '{0}/groupby'.format(GrappaLanguage._template_path))
 
     def produce(self, state):
         self._agg_mode = None
@@ -635,18 +649,22 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                 # need to force type in make_tuple
                 initializer_list += \
                     ["std::make_tuple({{mapping_var_name}}.second)"]
-                produce_template = self._cgenv.get_template('one_built_in_scan.cpp')
+                produce_template = self._cgenv.get_template(
+                    'one_built_in_scan.cpp')
             elif self._agg_mode == self._MULTI_UDA:
                 # pass in attribute values individually
                 initializer_list += ["{{mapping_var_name}}.second"]
-                produce_template = self._cgenv.get_template('multi_uda_scan.cpp')
+                produce_template = self._cgenv.get_template(
+                    'multi_uda_scan.cpp')
 
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
-                produce_template = self._cgenv.get_template('one_built_in_0key_output.cpp')
+                produce_template = self._cgenv.get_template(
+                    'one_built_in_0key_output.cpp')
 
             elif self._agg_mode == self._MULTI_UDA:
-                produce_template = self._cgenv.get_template('multi_uda_0key_output.cpp')
+                produce_template = self._cgenv.get_template(
+                    'multi_uda_0key_output.cpp')
 
         pipeline_sync = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
@@ -715,13 +733,14 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         if self._agg_mode == self._MULTI_UDA:
             state_tuple_decl = self.state_tuple.generateDefinition()
-            update_def = self._cgenv.get_template('update_definition.cpp').render(
-                state_type=self.state_tuple.getTupleTypename(),
-                input_type=inputTuple.getTupleTypename(),
-                input_tuple_name=inputTuple.name,
-                update_updates=update_updates,
-                update_state_vars=update_state_vars,
-                name=self.func_name)
+            update_def = self._cgenv.get_template(
+                'update_definition.cpp').render(
+                    state_type=self.state_tuple.getTupleTypename(),
+                    input_type=inputTuple.getTupleTypename(),
+                    input_tuple_name=inputTuple.name,
+                    update_updates=update_updates,
+                    update_state_vars=update_state_vars,
+                    name=self.func_name)
             init_def = self._cgenv.get_template('init_definition.cpp').render(
                 state_type=self.state_tuple.getTupleTypename(),
                 init_updates=init_updates,
@@ -762,9 +781,11 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             materialize_template = self._cgenv.get_template('nkey_update.cpp')
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
-                materialize_template = self._cgenv.get_template('one_built_in_0key_update.cpp')
+                materialize_template = self._cgenv.get_template(
+                    'one_built_in_0key_update.cpp')
             elif self._agg_mode == self._MULTI_UDA:
-                materialize_template = self._cgenv.get_template('multi_uda_0key_update.cpp')
+                materialize_template = self._cgenv.get_template(
+                    'multi_uda_0key_update.cpp')
 
         hashname = self._hashname
         tuple_name = inputTuple.name
@@ -780,7 +801,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
 
 def wait_statement(name):
-    return GrappaLanguage.cgenv().get_template('wait_statement.cpp').render(name=name)
+    return GrappaLanguage.cgenv().get_template(
+        'wait_statement.cpp').render(name=name)
 
 
 def get_pipeline_task_name(state):
@@ -802,7 +824,9 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
     def __init__(self, *args):
         super(GrappaHashJoin, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/hashjoin'.format(GrappaLanguage._template_path))
+        self._cgenv = clangcommon.prepend_template_relpath(
+            self.language().cgenv(),
+            '{0}/hashjoin'.format(GrappaLanguage._template_path))
 
     @classmethod
     def __aggregate_val__(cls, tuple, cols):
@@ -955,6 +979,7 @@ class GrappaProject(clangcommon.CProject, GrappaOperator):
 
 
 class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
+
     def __get_ascii_scan_template__(self):
         _LOG.warn("binary/ascii is command line choice")
         return self._language.cgenv().get_template('file_scan.cpp')
@@ -973,11 +998,14 @@ class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
         my_sch = self.scheme()
 
         filename = (str(self.relation_key).split(":")[2])
-        outputnamedecl = define_cl_arg('string', '{0}.bin'.format(filename), "Output File")
+        outputnamedecl = define_cl_arg(
+            'string', '{0}.bin'.format(filename), "Output File")
 
         state.addDeclarations([outputnamedecl])
         names = [x.encode('UTF8') for x in my_sch.get_names()]
-        schemefile = 'writeSchema("{s}", FLAGS_output_file+".scheme");\n'.format(s=zip(names, my_sch.get_types()))
+        schemefile = \
+            'writeSchema("{s}", FLAGS_output_file+".scheme");\n'.format(s=zip(
+                names, my_sch.get_types()))
         state.addPreCode(schemefile)
         resultfile = 'writeTuplesUnordered(&result, FLAGS_output_file+".bin");'
         state.addPipelineFlushCode(resultfile)
