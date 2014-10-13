@@ -18,31 +18,14 @@ from functools import reduce
 _LOG = logging.getLogger(__name__)
 
 
-class CodeTemplate:
-
-    def __init__(self, s):
-        self.string = s
-
-    @classmethod
-    def __format_template__(cls, s):
-        """
-        Format code template string
-        """
-        return re.sub(r'[^\S\r\n]+', ' ', s)
-
-    def __mod__(self, other):
-        return (self.__format_template__(self.string)) % other
+def prepend_loader(env, loader):
+    #newenv = env.overlay(loader=jinja2.ChoiceLoader([loader, env.loader]))
+    newenv = jinja2.Environment(loader=jinja2.ChoiceLoader([loader, env.loader]))
+    return newenv
 
 
-def ct(s):
-    return CodeTemplate(s)
-
-
-def readtemplate(grouppath, fname):
-    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 grouppath)
-
-    return file(os.path.join(template_path, fname + '.template')).read()
+def prepend_template_relpath(env, relpath):
+    return prepend_loader(env, jinja2.PackageLoader('raco.language', relpath))
 
 
 class CBaseLanguage(Language):
@@ -58,6 +41,7 @@ class CBaseLanguage(Language):
         """
         child_loaders = [jinja2.PackageLoader('raco.language', l) for l in libraries]
         loaders = child_loaders + [jinja2.PackageLoader('raco.language', 'cbase_templates')]
+
         return jinja2.Environment(loader=jinja2.ChoiceLoader(loaders))
 
     @classmethod

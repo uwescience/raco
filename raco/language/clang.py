@@ -6,7 +6,7 @@ from raco import expression
 from raco.language import clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.language.clangcommon import StagedTupleRef, ct, CBaseLanguage
+from raco.language.clangcommon import StagedTupleRef, CBaseLanguage
 from raco.utility import emitlist
 
 from raco.algebra import gensym
@@ -18,14 +18,11 @@ _LOG = logging.getLogger(__name__)
 import itertools
 
 
-def readtemplate(fname):
-    return clangcommon.readtemplate("c_templates", fname)
-
-
 class CStagedTupleRef(StagedTupleRef):
 
     def __additionalDefinitionCode__(self):
-        constructor_template = CC.cgenv().get_template('materialized_tuple_ref_additional.cpp')
+        constructor_template = CC.cgenv().get_template(
+            'materialized_tuple_ref_additional.cpp')
 
         numfields = len(self.scheme)
 
@@ -34,7 +31,8 @@ class CStagedTupleRef(StagedTupleRef):
 
 
 class CC(CBaseLanguage):
-    _cgenv = CBaseLanguage.__get_env_for_template_libraries__('c_templates')
+    _template_path = 'c_templates'
+    _cgenv = CBaseLanguage.__get_env_for_template_libraries__(_template_path)
 
     @classmethod
     def cgenv(cls):
@@ -60,6 +58,7 @@ class CC(CBaseLanguage):
     @staticmethod
     def group_wrap(ident, grpcode, attrs):
         timing_template = CC._cgenv.get_template('clang_group_timing.cpp')
+        inner_code = grpcode
 
         code = timing_template.render(locals())
         return code
@@ -85,7 +84,8 @@ class CC(CBaseLanguage):
     @classmethod
     def compile_stringliteral(cls, s):
         sid = cls.newstringident()
-        lookup_init = cls.cgenv().get_template('string_index_lookup.cpp').render(name=sid, st=s)
+        lookup_init = cls.cgenv().get_template(
+            'string_index_lookup.cpp').render(name=sid, st=s)
         build_init = """
         string_index = build_string_index("sp2bench_1m.index");
         """
@@ -124,7 +124,8 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
         # now generate the scan from memory
 
         # TODO: generate row variable to avoid naming conflict for nested scans
-        memory_scan_template = self.language().cgenv().get_template('memory_scan.cpp')
+        memory_scan_template = self.language().cgenv().get_template(
+            'memory_scan.cpp')
 
         stagedTuple = state.lookupTupleDef(inputsym)
         tuple_type = stagedTuple.getTupleTypename()
@@ -158,14 +159,15 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
 class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
     _i = 0
 
+    def __init__(self, *args):
+        super(CGroupBy, self).__init__(*args)
+        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/groupby'.format(CC._template_path))
+
     @classmethod
     def __genHashName__(cls):
         name = "group_hash_%03d" % cls._i
         cls._i += 1
         return name
-
-    def __get_template__(self, name):
-        return self.language().cgenv().get_template('groupby/{0}'.format(name))
 
     def produce(self, state):
         assert len(self.grouping_list) <= 2, \
@@ -187,13 +189,13 @@ class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
 
         if self.useMap:
             if len(self.grouping_list) == 1:
-                declr_template = self.__get_template__('1key_declaration.cpp')
+                declr_template = self._cgenv.get_template('1key_declaration.cpp')
                 keytype = self.language().typename(
                     self.grouping_list[0].typeof(
                         inp_sch,
                         None))
             elif len(self.grouping_list) == 2:
-                declr_template = self.__get_template__('2key_declaration.cpp')
+                declr_template = self._cgenv.get_template('2key_declaration.cpp')
                 keytypes = ','.join(
                     [self.language().typename(g.typeof(inp_sch, None))
                      for g in self.grouping_list])
@@ -202,7 +204,7 @@ class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
             initial_value = self.__get_initial_value__(
                 0,
                 cached_inp_sch=inp_sch)
-            declr_template = self.__get_template__('0key_declaration.cpp')
+            declr_template = self._cgenv.get_template('0key_declaration.cpp')
 
         valtype = self.language().typename(
             self.aggregate_list[0].input.typeof(
@@ -234,11 +236,11 @@ class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
 
         if self.useMap:
             if len(self.grouping_list) == 1:
-                produce_template = self.__get_template__('1key_scan.cpp')
+                produce_template = self._cgenv.get_template('1key_scan.cpp')
             elif len(self.grouping_list) == 2:
-                produce_template = self.__get_template__('2key_scan.cpp')
+                produce_template = self._cgenv.get_template('2key_scan.cpp')
         else:
-            produce_template = self.__get_template__('0key_scan.cpp')
+            produce_template = self._cgenv.get_template('0key_scan.cpp')
 
         output_tuple = CStagedTupleRef(gensym(), my_sch)
         output_tuple_name = output_tuple.name
@@ -253,11 +255,14 @@ class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
     def consume(self, inputTuple, fromOp, state):
         if self.useMap:
             if len(self.grouping_list) == 1:
-                materialize_template = self.__get_template__('1key_materialize.cpp')
+                materialize_template = self._cgenv.get_template(
+                    '1key_materialize.cpp')
             elif len(self.grouping_list) == 2:
-                materialize_template = self.__get_template__('2key_materialize.cpp')
+                materialize_template = self._cgenv.get_template(
+                    '2key_materialize.cpp')
         else:
-            materialize_template = self.__get_template__('0key_materialize.cpp')
+            materialize_template = self._cgenv.get_template(
+                '0key_materialize.cpp')
 
         hashname = self.hashname
         tuple_name = inputTuple.name
@@ -300,8 +305,9 @@ class CHashJoin(algebra.Join, CCOperator):
         cls._i += 1
         return name
 
-    def __get_template__(self, name):
-        return self.language().cgenv().get_template('hashjoin/{0}'.format(name))
+    def __init__(self, *args):
+        super(CHashJoin, self).__init__(*args)
+        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/hashjoin'.format(CC._template_path))
 
     def produce(self, state):
         if not isinstance(self.condition, expression.EQ):
@@ -356,9 +362,9 @@ class CHashJoin(algebra.Join, CCOperator):
         if src.childtag == "right":
             my_sch = self.scheme()
 
-            declr_template = self.__get_template__("hash_declaration.cpp")
+            declr_template = self._cgenv.get_template("hash_declaration.cpp")
 
-            right_template = self.__get_template__("insert_materialize.cpp")
+            right_template = self._cgenv.get_template("insert_materialize.cpp")
 
             hashname = self._hashname
             keypos = self.right_keypos
@@ -388,7 +394,7 @@ class CHashJoin(algebra.Join, CCOperator):
             return code
 
         if src.childtag == "left":
-            left_template = self.__get_template__("lookup.cpp")
+            left_template = self._cgenv.get_template("lookup.cpp")
 
             hashname = self._hashname
             keyname = t.name
@@ -437,6 +443,7 @@ class CSelect(clangcommon.CSelect, CCOperator):
 
 
 class CFileScan(clangcommon.CFileScan, CCOperator):
+
     def __get_ascii_scan_template__(self):
         return CC.cgenv().get_template('ascii_scan.cpp')
 

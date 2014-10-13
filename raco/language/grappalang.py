@@ -7,7 +7,7 @@ from raco import expression
 from raco.language import Algebra
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.language.clangcommon import StagedTupleRef, ct, CBaseLanguage
+from raco.language.clangcommon import StagedTupleRef, CBaseLanguage
 from raco.language import clangcommon
 from raco.utility import emitlist
 
@@ -32,7 +32,8 @@ class GrappaStagedTupleRef(StagedTupleRef):
 
 
 class GrappaLanguage(CBaseLanguage):
-    _cgenv = CBaseLanguage.__get_env_for_template_libraries__('grappa_templates')
+    _template_path = 'grappa_templates'
+    _cgenv = CBaseLanguage.__get_env_for_template_libraries__(_template_path)
 
     @classmethod
     def cgenv(cls):
@@ -240,11 +241,9 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         name = "dhash_%s" % self.symBase
         return name
 
-    def __get_template__(self, name):
-        # TODO: refactor: might try adding it as the first ChoiceLoader loader instead
-        # pros: this keeps consistency in how you access templates, we could even integrate with GrappaOperator
-        # pros: allows shared templates, e.g. for different hash join algorithms
-        return self.language().cgenv().get_template("symmetrichashjoin/"+name)
+    def __init__(self, *args):
+        super(GrappaSymmetricHashJoin, self).__init__(*args)
+        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/symmetrichashjoin'.format(GrappaLanguage._template_path))
 
     def produce(self, state):
         self.symBase = self.__genBaseName__()
@@ -254,9 +253,9 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
              of a single attribute: %s" % self.condition
             raise ValueError(msg)
 
-        init_template = self.__get_template__('hash_init.cpp')
+        init_template = self._cgenv.get_template('hash_init.cpp')
 
-        declr_template = self.__get_template__('hash_declaration.cpp')
+        declr_template = self._cgenv.get_template('hash_declaration.cpp')
 
         my_sch = self.scheme()
         left_sch = self.left.scheme()
@@ -302,7 +301,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         self.left.produce(state)
 
     def consume(self, t, src, state):
-        access_template = self.__get_template__('hash_insert_lookup.cpp')
+        access_template = self._cgenv.get_template('hash_insert_lookup.cpp')
 
         hashname = self._hashname
         keyname = t.name
@@ -377,8 +376,9 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         name = "hashjoin_reducer_%s" % self.symBase
         return name
 
-    def __get_template__(self, name):
-        return self.language().cgenv().get_template('shufflehashjoin/'+name)
+    def __init__(self, *args):
+        super(GrappaShuffleHashJoin, self).__init__(*args)
+        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/shufflehashjoin'.format(GrappaLanguage._template_path))
 
     def produce(self, state):
         left_sch = self.left.scheme()
@@ -437,7 +437,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
             # TODO: really want this addInitializers to be addPreCode
             # TODO: *for all pipelines that use this hashname*
-            init_template = self.__get_template__('hash_init.cpp')
+            init_template = self._cgenv.get_template('hash_init.cpp')
 
             state.addInitializers([init_template.render(locals())])
             self.right.produce(state)
@@ -458,7 +458,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
         # now that Relation is produced, produce its contents by iterating over
         # the join result
-        iterate_template = self.__get_template__('result_scan.cpp')
+        iterate_template = self._cgenv.get_template('result_scan.cpp')
 
         hashname = self._hashname
 
@@ -474,11 +474,11 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         # reduce is a single self contained pipeline.
         # future hashjoin implementations may pipeline out of it
         # by passing a continuation to reduceExecute
-        reduce_template = self.__get_template__('reduce.cpp')
+        reduce_template = self._cgenv.get_template('reduce.cpp')
 
         state.addPreCode(reduce_template.render(locals()))
 
-        delete_template = self.__get_template__('delete.cpp')
+        delete_template = self._cgenv.get_template('delete.cpp')
 
         state.addPostCode(delete_template.render(locals()))
 
@@ -521,7 +521,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         # intra-pipeline sync
         global_syncname = state.getPipelineProperty('global_syncname')
 
-        mat_template = self.__get_template__('materialize.cpp')
+        mat_template = self._cgenv.get_template('materialize.cpp')
 
         # materialization point
         code = mat_template.render(locals())
@@ -540,8 +540,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         cls._i += 1
         return name
 
-    def __get_template__(self, name):
-        return self.language().cgenv().get_template('groupby/'+name)
+    def __init__(self, *args):
+        super(GrappaGroupBy, self).__init__(*args)
+        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/groupby'.format(GrappaLanguage._template_path))
 
     def produce(self, state):
         self._agg_mode = None
@@ -591,7 +592,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         hashname = self._hashname
 
         if self.useKey:
-            init_template = self.__get_template__('withkey_init.cpp')
+            init_template = self._cgenv.get_template('withkey_init.cpp')
             valtype = state_type
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
@@ -605,7 +606,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                     "symmetric_global_alloc<{state_tuple_type}>()".format(
                         state_tuple_type=self.state_tuple.getTupleTypename())
 
-            init_template = self.__get_template__('withoutkey_init.cpp')
+            init_template = self._cgenv.get_template('withoutkey_init.cpp')
             initializer = no_key_state_initializer
 
         state.addInitializers([init_template.render(locals())])
@@ -628,24 +629,24 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             elif self._agg_mode == self._MULTI_UDA:
                 emit_type = self.state_tuple.getTupleTypename()
 
-            initializer_list = ["%(mapping_var_name)s.first"]
+            initializer_list = ["{{mapping_var_name}}.first"]
 
             if self._agg_mode == self._ONE_BUILT_IN:
                 # need to force type in make_tuple
                 initializer_list += \
-                    ["std::make_tuple(%(mapping_var_name)s.second)"]
-                produce_template = self.__get_template__('one_built_in_scan.cpp')
+                    ["std::make_tuple({{mapping_var_name}}.second)"]
+                produce_template = self._cgenv.get_template('one_built_in_scan.cpp')
             elif self._agg_mode == self._MULTI_UDA:
                 # pass in attribute values individually
-                initializer_list += ["%(mapping_var_name)s.second"]
-                produce_template = self.__get_template__('multi_uda_scan.cpp')
+                initializer_list += ["{{mapping_var_name}}.second"]
+                produce_template = self._cgenv.get_template('multi_uda_scan.cpp')
 
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
-                produce_template = self.__get_template__('one_built_in_0key_output.cpp')
+                produce_template = self._cgenv.get_template('one_built_in_0key_output.cpp')
 
             elif self._agg_mode == self._MULTI_UDA:
-                produce_template = self.__get_template__('multi_uda_0key_output.cpp')
+                produce_template = self._cgenv.get_template('multi_uda_0key_output.cpp')
 
         pipeline_sync = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
@@ -714,14 +715,14 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         if self._agg_mode == self._MULTI_UDA:
             state_tuple_decl = self.state_tuple.generateDefinition()
-            update_def = self.__get_template__('update_definition.cpp').render(
+            update_def = self._cgenv.get_template('update_definition.cpp').render(
                 state_type=self.state_tuple.getTupleTypename(),
                 input_type=inputTuple.getTupleTypename(),
                 input_tuple_name=inputTuple.name,
                 update_updates=update_updates,
                 update_state_vars=update_state_vars,
                 name=self.func_name)
-            init_def = self.__get_template__('init_definition.cpp').render(
+            init_def = self._cgenv.get_template('init_definition.cpp').render(
                 state_type=self.state_tuple.getTupleTypename(),
                 init_updates=init_updates,
                 init_state_vars=init_state_vars,
@@ -758,12 +759,12 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             keygets = ','.join([inputTuple.get_code(g.get_position(inp_sch))
                                 for g in self.grouping_list])
 
-            materialize_template = self.__get_template__('nkey_update.cpp')
+            materialize_template = self._cgenv.get_template('nkey_update.cpp')
         else:
             if self._agg_mode == self._ONE_BUILT_IN:
-                materialize_template = self.__get_template__('one_built_in_0key_update.cpp')
+                materialize_template = self._cgenv.get_template('one_built_in_0key_update.cpp')
             elif self._agg_mode == self._MULTI_UDA:
-                materialize_template = self.__get_template__('multi_uda_0key_update.cpp')
+                materialize_template = self._cgenv.get_template('multi_uda_0key_update.cpp')
 
         hashname = self._hashname
         tuple_name = inputTuple.name
@@ -799,8 +800,9 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         cls._i += 1
         return name
 
-    def __get_template__(self, name):
-        return self.language().cgenv().get_template('hashjoin/'+name)
+    def __init__(self, *args):
+        super(GrappaHashJoin, self).__init__(*args)
+        self._cgenv = clangcommon.prepend_template_relpath(self.language().cgenv(), '{0}/hashjoin'.format(GrappaLanguage._template_path))
 
     @classmethod
     def __aggregate_val__(cls, tuple, cols):
@@ -814,7 +816,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
                 for c in cols]))
 
     def produce(self, state):
-        declr_template = self.__get_template__('hash_declaration.cpp')
+        declr_template = self._cgenv.get_template('hash_declaration.cpp')
 
         self.right.childtag = "right"
         self.rightTupleTypeRef = None  # may remain None if CSE succeeds
@@ -847,7 +849,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             hashdeclr = declr_template.render(locals())
             state.addDeclarationsUnresolved([hashdeclr])
 
-            init_template = self.__get_template__('hash_init.cpp')
+            init_template = self._cgenv.get_template('hash_init.cpp')
 
             state.addInitializers([init_template.render(locals())])
             self.right.produce(state)
@@ -869,7 +871,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
 
     def consume(self, t, src, state):
         if src.childtag == "right":
-            right_template = self.__get_template__('insert_materialize.cpp')
+            right_template = self._cgenv.get_template('insert_materialize.cpp')
 
             hashname = self._hashname
             keyname = t.name
@@ -890,7 +892,7 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
             return code
 
         if src.childtag == "left":
-            left_template = self.__get_template__('lookup.cpp')
+            left_template = self._cgenv.get_template('lookup.cpp')
 
             # add a dependence on the right pipeline
             state.addToPipelinePropertySet('dependences', self.right_syncname)
