@@ -1,8 +1,6 @@
 {% extends '0key_output.cpp' %}
 
-{% block templateargs %}
-{{state_type}}, counter, &{{update_func}}, &get_count
-{% endblock %}
+{% block templateargs %}{{state_type}}, counter, &{{update_func}}, &get_count{% endblock %}
 
 {% block output %}
 {{output_tuple_type}} {{output_tuple_name}};
