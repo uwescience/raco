@@ -10,6 +10,7 @@ if __name__ == "__main__":
     parser.add_argument("-a", dest='avg_cols', type=int, required=True, help='number of timbre average columns')
     parser.add_argument("-c", dest='cov_cols', type=int, required=True, help='number of timbre covariance columns')
     parser.add_argument("--no-id", dest='id', action='store_false', default=True, help='include an id [default=true]')
+    parser.add_argument("--no-y", dest='y', action='store_false', default=True, help='include an id [default=true]')
     parser.add_argument("--input", dest='inputtype', help="test or train", required=True)
 
     opt = parser.parse_args(sys.argv[1:])
@@ -21,7 +22,8 @@ if __name__ == "__main__":
     if opt.id:
       sch.append(('id', 'LONG_TYPE',))
 
-    sch.append(('year', 'LONG_TYPE',))
+    if opt.y:
+      sch.append(('y', 'LONG_TYPE',))
 
     for i in range(opt.avg_cols):
         sch.append(('x{0}'.format(i), 'DOUBLE_TYPE',))
