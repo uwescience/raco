@@ -116,7 +116,7 @@ class FromFileCatalog(Catalog):
     @classmethod
     def print_cat(cls, ffc1, ffc2):
         cpy = ffc1.catalog.copy()
-        for k,v in ffc2.catalog:
+        for k,v in ffc2.catalog.iteritems():
             cpy[k] = v
         print cpy
 
