@@ -196,6 +196,7 @@ class CompileState:
             scan_linearize_wrap + mem_linearize_wrap + flush_linearized
 
         # substitute all lazily resolved symbols
+        print linearized
         resolved = linearized % self.resolving_symbols
 
         return resolved

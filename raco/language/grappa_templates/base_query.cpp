@@ -8,15 +8,16 @@ using namespace Grappa;
 
 // stl
 #include <vector>
-#include <unordered_map>
 #include <iomanip>
+#include <cstring>
+#include <limits>
 
 // query library
 #include "relation_io.hpp"
 #include "MatchesDHT.hpp"
 #include "DoubleDHT.hpp"
 #include "MapReduce.hpp"
-#include "HashJoin.hpp"
+//#include "HashJoin.hpp"
 #include "DHT_symmetric.hpp"
 #include "Aggregates.hpp"
 #include "utils.h"
@@ -35,21 +36,24 @@ using namespace Grappa;
 
 DEFINE_uint64( nt, 30, "hack: number of tuples"); 
 
+template <typename T>
 struct counter {
-  int64_t count;
-  static GlobalAddress<counter> create() {
-    auto res = symmetric_global_alloc<counter>();
-    on_all_cores([res] {
-        res->count = 0;
+  T count;
+  static GlobalAddress<counter<T>> create(T init) {
+    auto res = symmetric_global_alloc<counter<T>>();
+    on_all_cores([res, init] {
+        res->count = init;
         });           
     return res;
   }
 } GRAPPA_BLOCK_ALIGNED;
-int64_t get_count(GlobalAddress<counter> p) { 
+
+template <typename T>
+T get_count(GlobalAddress<counter<T>> p) {
   return p->count;                           
 }
 
-%(declarations)s
+{{declarations}}
 
 StringIndex string_index;
 void init( ) {
@@ -60,13 +64,13 @@ void query() {
     double saved_scan_runtime = 0, saved_init_runtime = 0;
     start = walltime();
 
-     %(initialized)s
+     {{initialized}}
 
     end = walltime();
     init_runtime += (end-start);
     saved_init_runtime += (end-start);
 
-    %(queryexec)s
+    {{queryexec}}
 
     // since reset the stats after scan, need to set these again
     scan_runtime = saved_scan_runtime;

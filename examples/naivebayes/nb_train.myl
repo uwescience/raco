@@ -1,0 +1,31 @@
+input = SCAN(trainingdata);
+
+-- an alternation operation like an unpivot
+-- may be unnecessary if input already comes in a sparse format
+--input_sp0 = select input.id as id, input.x0 as value, 0 as index, y from input;
+--input_sp1 = select input.id as id, input.x1 as value, 1 as index, y from input;
+--input_sp2 = select input.id as id, input.x2 as value, 2 as index, y from input;
+--input_sp3 = select input.id as id, input.x3 as value, 3 as index, y from input;
+--input_sp4 = select input.id as id, input.x4 as value, 4 as index, y from input;
+input_sp0 = select input.x0 as value, 0 as index, y from input;
+input_sp1 = select input.x1 as value, 1 as index, y from input;
+input_sp2 = select input.x2 as value, 2 as index, y from input;
+input_sp3 = select input.x3 as value, 3 as index, y from input;
+input_sp4 = select input.x4 as value, 4 as index, y from input;
+input_sp01 = UNIONALL(input_sp0, input_sp1);
+input_sp02 = UNIONALL(input_sp01, input_sp2);
+input_sp03 = UNIONALL(input_sp02, input_sp3);
+input_sp = UNIONALL(input_sp03, input_sp4);
+
+freq_o = select y as outcome, count(y) as freq from input_sp;
+
+freq_e_o = select y as outcome, index, value, count(y) as freq from input_sp;
+
+condp = select freq_e_o.index, 
+        -LOG(float(freq_e_o.freq) / freq_o.freq) as lp, 
+        freq_e_o.outcome as outcome,
+        freq_e_o.value as value
+from freq_o, freq_e_o
+where freq_e_o.outcome = freq_o.outcome;
+
+STORE(condp, OUTPUT);

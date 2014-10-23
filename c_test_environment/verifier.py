@@ -1,9 +1,19 @@
 import re
 import sys
+import nose
+
+doublepat = re.compile(r'-?\d+[.]\d+')
+def parse_number(number):
+    if doublepat.match(number):
+        n = float(number)
+        assert n < pow(2, 40), "decimal place rounding based comparison will be unsound for very large numbers"
+        return round(n, 5)
+    else:
+        return int(number) 
+
 
 def verify(testout, expected, ordered):
-    numpat = re.compile(r'(\d+)')
-    tuplepat = re.compile(r'Materialized')
+    tuplepat = re.compile(r'Materialized\(([-\d,. ]+)\)')
     test = ({}, [])
     expect = ({}, [])
 
@@ -23,8 +33,11 @@ def verify(testout, expected, ordered):
             m = tuplepat.search(line)
             if m:
                 tlist = []
-                for number in numpat.finditer(line, m.end()):
-                    tlist.append(int(number.group(0)))
+                for number in m.group(1).split(','):
+                    if number=='':
+                        # last one
+                        break
+                    tlist.append(parse_number(number))
 
                 t = tuple(tlist)
                 addTuple(test, t)
@@ -32,8 +45,8 @@ def verify(testout, expected, ordered):
     with open(expected, 'r') as file:
         for line in file.readlines():
             tlist = []
-            for number in numpat.finditer(line):
-                tlist.append(int(number.group(0)))
+            for number in line.split():
+                tlist.append(parse_number(number))
 
             t = tuple(tlist)
             addTuple(expect, t)

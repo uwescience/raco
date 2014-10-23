@@ -1,0 +1,16 @@
+-- arbitrarily favor new value in case of tie
+def pickval(value, arg, _value, _arg):
+    case when value >= _value then arg
+        else _arg end;
+
+uda ArgMax(outcome, lprob) {
+   -- init
+   [0 as _outcome, 0 as _lprob];
+   
+   -- update
+   [pickval(lprob, outcome, _lprob, _outcome),
+    pickval(lprob, lprob, _lprob, _lprob)];
+
+   -- output
+   [_lprob, _outcome];
+};

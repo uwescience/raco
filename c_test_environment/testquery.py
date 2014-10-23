@@ -102,16 +102,28 @@ class GrappalangRunner(PlatformRunner):
 
         envir = os.environ.copy()
 
-        # cpp -> exe 
-        # TODO: may need to force configure: try touch on a CMakelists file, which seems to tell cmake to reconfigure 
+        # cpp -> exe
+
+        # call configure only if a previous version does not exist
+        # (i.e., the cmake target likely does not exist yet)
+        need_configure = not os.path.isfile(
+            os.path.join(
+                envir['GRAPPA_HOME'],
+                'build/Make+Release/applications/join',
+                "{0}.exe".format(gname)))
+
         subprocess.check_call(['cp', '%s.cpp' % gname, envir['GRAPPA_HOME']+'/applications/join'], env=envir)
-        subprocess.check_call(['./grappa_detect_new_files.sh'], env=envir)
+
+        if need_configure:
+            subprocess.check_call(['./grappa_detect_new_files.sh'], env=envir)
+
         with Chdir(envir['GRAPPA_HOME']) as grappa_dir:
           # make at base in case the cpp file is new;
           # i.e. cmake must generate the target
           with Chdir('build/Make+Release') as makedir:
             print os.getcwd()
-            subprocess.check_call(['bin/distcc_make', '-j'], env=envir)
+            #subprocess.check_call(['bin/distcc_make', '-j'], env=envir)
+            subprocess.check_call(['make', '-j', '8'], env=envir)
 
             # subprocess.check_call(['bin/distcc_make',
             #                        '-j24',
@@ -120,9 +132,9 @@ class GrappalangRunner(PlatformRunner):
           with Chdir('build/Make+Release/applications/join') as appdir:
             # build the grappa application
             print os.getcwd()
-            print subprocess.check_call(['make', '-j', '%s.exe' % gname],
-                                        env=envir)
-            
+
+            print subprocess.check_call(['make', '-j', '8', '%s.exe' % gname], env=envir)
+
             # subprocess.check_call(['../../bin/distcc_make',
             #                        '-j24',
             #                        '%s.exe' % gname,

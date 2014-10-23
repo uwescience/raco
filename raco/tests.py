@@ -2,6 +2,7 @@ import unittest
 from raco import RACompiler
 import raco.expression as e
 import raco.expression.boolean
+from raco.expression.visitor import ExpressionVisitor
 
 
 class ExpressionTest(unittest.TestCase):
@@ -31,7 +32,7 @@ class ExpressionTest(unittest.TestCase):
         self.assertEqual(e2any, False)
 
     def test_visitor(self):
-        class EvalVisitor(raco.expression.ExpressionVisitor):
+        class EvalVisitor(ExpressionVisitor):
             def __init__(self):
                 self.stack = []
 
@@ -81,6 +82,12 @@ class ExpressionTest(unittest.TestCase):
             def visit_NamedAttributeRef(self, named):
                 pass
 
+            def visit_NamedStateAttributeRef(self, named):
+                pass
+
+            def visit_Case(self, caseExpr):
+                pass
+
             def visit_DIVIDE(self, binaryExpr):
                 pass
 
@@ -97,6 +104,18 @@ class ExpressionTest(unittest.TestCase):
                 pass
 
             def visit_TIMES(self, binaryExpr):
+                pass
+
+            def visit_BinaryFunction(self, expr):
+                pass
+
+            def visit_UnaryFunction(self, expr):
+                pass
+
+            def visit_CAST(self, expr):
+                pass
+
+            def visit_NaryFunction(self, expr):
                 pass
 
         v = EvalVisitor()

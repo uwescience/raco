@@ -1,12 +1,12 @@
 // Precount_select: Use buckets to track the number of matches
 // Use buckets to copy into the result array
-#include <stdio.h>
-#include <stdlib.h>     // for exit()
+#include <cstdio>
+#include <cstdlib>     // for exit()
 #include <fcntl.h>      // for open()
 #include <unistd.h>     // for close()
 #include <sys/stat.h>   // for fstat()
 #include <ctype.h>      // for isdigit()
-#include <string.h>
+#include <cstring>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -33,6 +33,7 @@ typedef uint64_t uint64;
 
 #include <unordered_map>
 #include <vector>
+#include <limits>
 #endif
 
 #include "io_util.h"
@@ -93,7 +94,7 @@ inline bool equals(struct relationInfo *left, uint64 leftrow, uint64 leftattribu
   return leftval == rightval;
 }
 
-%(declarations)s
+{{declarations}}
 
 StringIndex string_index;
 void init( ) {
@@ -107,23 +108,23 @@ void query(struct relationInfo *resultInfo)
   double start = timer();
 
   uint64 resultcount = 0;
-  struct relationInfo %(resultsym)s_val;
-  struct relationInfo *%(resultsym)s = &%(resultsym)s_val;
+  struct relationInfo {{resultsym}}_val;
+  struct relationInfo *{{resultsym}} = &{{resultsym}}_val;
 
 
   // -----------------------------------------------------------
   // Fill in query here
   // -----------------------------------------------------------
-  %(initialized)s
+  {{initialized}}
 
 
- %(queryexec)s
+ {{queryexec}}
 
 
   // return final result
-  resultInfo->tuples = %(resultsym)s->tuples;
-  resultInfo->fields = %(resultsym)s->fields;
-  resultInfo->relation = %(resultsym)s->relation;
+  resultInfo->tuples = {{resultsym}}->tuples;
+  resultInfo->fields = {{resultsym}}->fields;
+  resultInfo->relation = {{resultsym}}->relation;
 
 }
 
