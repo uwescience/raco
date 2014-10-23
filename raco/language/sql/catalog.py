@@ -3,7 +3,7 @@ A RACO language to compile expressions to SQL.
 """
 
 from sqlalchemy import (Column, Table, MetaData, Integer, String,
-                        Float, create_engine, select, func)
+                        Float, Boolean, DateTime, create_engine, select, func)
 
 import raco.algebra as algebra
 from raco.catalog import Catalog
@@ -14,25 +14,27 @@ import raco.types as types
 
 type_to_raco = {Integer: types.LONG_TYPE,
                 String: types.STRING_TYPE,
-                Float: types.FLOAT_TYPE}
+                Float: types.FLOAT_TYPE,
+                Boolean: types.BOOLEAN_TYPE,
+                DateTime: types.DATETIME_TYPE}
 
 
 raco_to_type = {types.LONG_TYPE: Integer,
                 types.INT_TYPE: Integer,
                 types.STRING_TYPE: String,
                 types.FLOAT_TYPE: Float,
-                types.DOUBLE_TYPE: Float}
+                types.DOUBLE_TYPE: Float,
+                types.BOOLEAN_TYPE: Boolean,
+                types.DATETIME_TYPE: DateTime}
 
 
 class SQLCatalog(Catalog):
     def __init__(self, engine=None):
-        if not engine:
-            self.engine = create_engine('sqlite:///:memory:', echo=True)
-        else:
-            self.engine = engine
+        self.engine = engine
         self.metadata = MetaData()
 
-    def get_num_servers(self):
+    @staticmethod
+    def get_num_servers():
         """ Return number of servers in myria deployment """
         return 1
 
@@ -46,10 +48,14 @@ class SQLCatalog(Catalog):
         return scheme.Scheme((c.name, type_to_raco[type(c.type)])
                              for c in table.columns)
 
-    def add_table(self, name, schema, tuples=None):
+    def add_table(self, name, schema):
         columns = [Column(n, raco_to_type[t](), nullable=False)
                    for n, t in schema.attributes]
-        table = Table(name, self.metadata, *columns)
+        # Adds the table to the metadata
+        Table(name, self.metadata, *columns)
+
+    def add_tuples(self, name, schema, tuples=None):
+        table = self.metadata.tables[name]
         table.create(self.engine)
         if tuples:
             tuples = [{n: v for n, v in zip(schema.get_names(), tup)}
@@ -69,9 +75,11 @@ class SQLCatalog(Catalog):
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_attribute_ref(self, cols, expr, input_scheme):
-        print cols
-        print expr
+        if isinstance(expr, expression.NamedAttributeRef):
+            expr = expression.toUnnamed(expr, input_scheme)
+
         if isinstance(expr, expression.UnnamedAttributeRef):
+            # Not an elif since the first may actually turn into a UARef
             return cols[expr.position]
 
         raise NotImplementedError("expression {} to sql".format(type(expr)))
@@ -79,6 +87,8 @@ class SQLCatalog(Catalog):
     def _convert_zeroary_expr(self, cols, expr, input_scheme):
         if isinstance(expr, expression.COUNTALL):
             return func.count(cols[0])
+        if isinstance(expr, expression.Literal):
+            return expr.value
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_unary_expr(self, cols, expr, input_scheme):
@@ -112,6 +122,8 @@ class SQLCatalog(Catalog):
 
     def _get_zeroary_sql(self, plan):
         if isinstance(plan, algebra.Scan):
+            if str(plan.relation_key) not in self.metadata.tables:
+                self.add_table(str(plan.relation_key), plan.scheme())
             return self.metadata.tables[str(plan.relation_key)].select()
         raise NotImplementedError("convert {op} to sql".format(op=type(plan)))
 
