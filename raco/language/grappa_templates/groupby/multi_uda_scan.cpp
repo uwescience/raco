@@ -1,5 +1,3 @@
 {% extends 'scan.cpp' %}
 
-{% block initializer %}
-{{ initializer_list|join(',') }}
-{% endblock %}
+{% block initializer %}{{ super() }}, std::make_tuple({{mapping_var_name}}.second){% endblock %}

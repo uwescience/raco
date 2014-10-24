@@ -636,17 +636,12 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             elif self._agg_mode == self._MULTI_UDA:
                 emit_type = self.state_tuple.getTupleTypename()
 
-            initializer_list = ["{{mapping_var_name}}.first"]
-
             if self._agg_mode == self._ONE_BUILT_IN:
                 # need to force type in make_tuple
-                initializer_list += \
-                    ["std::make_tuple({{mapping_var_name}}.second)"]
                 produce_template = self._cgenv.get_template(
                     'one_built_in_scan.cpp')
             elif self._agg_mode == self._MULTI_UDA:
                 # pass in attribute values individually
-                initializer_list += ["{{mapping_var_name}}.second"]
                 produce_template = self._cgenv.get_template(
                     'multi_uda_scan.cpp')
 
