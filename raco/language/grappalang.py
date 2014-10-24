@@ -236,7 +236,22 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         return UnaryOperator.__eq__(self, other)
 
 
-class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
+class GrappaJoin(algebra.Join, GrappaOperator):
+
+    @classmethod
+    def __aggregate_val__(cls, tuple, cols):
+        return "std::make_tuple({0})".format(
+            ','.join([tuple.get_code(p) for p in cols]))
+
+    @classmethod
+    def __aggregate_type__(cls, sch, cols):
+        return "std::tuple<{0}>".format(
+            ','.join([cls.language().typename(
+                expression.UnnamedAttributeRef(c).typeof(sch, None))
+                      for c in cols]))
+
+
+class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
     _i = 0
 
     @classmethod
@@ -258,17 +273,13 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
     def produce(self, state):
         self.symBase = self.__genBaseName__()
 
-        if not isinstance(self.condition, expression.EQ):
-            msg = "The C compiler can only handle equi-join conditions\
-             of a single attribute: %s" % self.condition
-            raise ValueError(msg)
-
         init_template = self._cgenv.get_template('hash_init.cpp')
 
         declr_template = self._cgenv.get_template('hash_declaration.cpp')
 
         my_sch = self.scheme()
         left_sch = self.left.scheme()
+        right_sch = self.right.scheme()
 
         # declaration of hash map
         self._hashname = self.__getHashName__()
@@ -277,7 +288,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         left_in_tuple_type = self.leftTypeRef.getPlaceholder()
         self.rightTypeRef = state.createUnresolvedSymbol()
         right_in_tuple_type = self.rightTypeRef.getPlaceholder()
-        hashdeclr = declr_template % locals()
+        hashdeclr = declr_template.render(locals())
 
         state.addDeclarationsUnresolved([hashdeclr])
 
@@ -285,23 +296,10 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
         out_tuple_type_def = self.outTuple.generateDefinition()
         state.addDeclarations([out_tuple_type_def])
 
-        # find the attribute that corresponds to the right child
-        self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(left_sch)
-        self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(left_sch)
-        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
-
-        if self.rightCondIsRightAttr:
-            self.keypos = self.condition.right.position \
-                - len(left_sch)
-            self.keytype = self.language().typename(
-                self.condition.right.typeof(my_sch, None))
-        else:
-            self.keypos = self.condition.left.position \
-                - len(left_sch)
-            self.keytype = self.language().typename(self.condition.left.typeof(
-                my_sch, None))
+        self.leftcols, self.rightcols = \
+            algebra.convertcondition(self.condition,
+                                     len(left_sch),
+                                     left_sch + right_sch)
 
         self.right.childtag = "right"
         state.addInitializers([init_template.render(locals())])
@@ -330,10 +328,9 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
             self.right_in_tuple_type = t.getTupleTypename()
             state.resolveSymbol(self.rightTypeRef, self.right_in_tuple_type)
 
-            keypos = self.keypos
-            keyval = t.get_code(keypos)
-
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
+
+            keyval = self.__aggregate_val__(t, self.rightcols)
 
             other_tuple_type = self.leftTypeRef.getPlaceholder()
             left_type = other_tuple_type
@@ -351,12 +348,7 @@ class GrappaSymmetricHashJoin(algebra.Join, GrappaOperator):
             left_in_tuple_type = t.getTupleTypename()
             state.resolveSymbol(self.leftTypeRef, left_in_tuple_type)
 
-            if self.rightCondIsRightAttr:
-                keypos = self.condition.left.position
-            else:
-                keypos = self.condition.right.position
-
-            keyval = t.get_code(keypos)
+            keyval = self.__aggregate_val__(t, self.leftcols)
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
@@ -813,7 +805,7 @@ def get_pipeline_task_name(state):
     return name
 
 
-class GrappaHashJoin(algebra.Join, GrappaOperator):
+class GrappaHashJoin(GrappaJoin, GrappaOperator):
     _i = 0
 
     @classmethod
@@ -827,17 +819,6 @@ class GrappaHashJoin(algebra.Join, GrappaOperator):
         self._cgenv = clangcommon.prepend_template_relpath(
             self.language().cgenv(),
             '{0}/hashjoin'.format(GrappaLanguage._template_path))
-
-    @classmethod
-    def __aggregate_val__(cls, tuple, cols):
-        return "std::make_tuple({0})".format(
-            ','.join([tuple.get_code(p) for p in cols]))
-
-    def __aggregate_type__(cls, sch, cols):
-        return "std::tuple<{0}>".format(
-            ','.join([cls.language().typename(
-                expression.UnnamedAttributeRef(c).typeof(sch, None))
-                for c in cols]))
 
     def produce(self, state):
         declr_template = self._cgenv.get_template('hash_declaration.cpp')
