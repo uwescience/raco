@@ -281,8 +281,14 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         left_sch = self.left.scheme()
         right_sch = self.right.scheme()
 
+        self.leftcols, self.rightcols = \
+            algebra.convertcondition(self.condition,
+                                     len(left_sch),
+                                     left_sch + right_sch)
+
         # declaration of hash map
         self._hashname = self.__getHashName__()
+        keytype = self.__aggregate_type__(my_sch, self.rightcols)
         hashname = self._hashname
         self.leftTypeRef = state.createUnresolvedSymbol()
         left_in_tuple_type = self.leftTypeRef.getPlaceholder()
@@ -295,11 +301,6 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         self.outTuple = GrappaStagedTupleRef(gensym(), my_sch)
         out_tuple_type_def = self.outTuple.generateDefinition()
         state.addDeclarations([out_tuple_type_def])
-
-        self.leftcols, self.rightcols = \
-            algebra.convertcondition(self.condition,
-                                     len(left_sch),
-                                     left_sch + right_sch)
 
         self.right.childtag = "right"
         state.addInitializers([init_template.render(locals())])
