@@ -768,8 +768,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         if self.useKey:
             numkeys = len(self.grouping_list)
-            keygets = ','.join([inputTuple.get_code(g.get_position(inp_sch))
-                                for g in self.grouping_list])
+            keygets = [inputTuple.get_code(g.get_position(inp_sch))
+                                for g in self.grouping_list]
 
             materialize_template = self._cgenv.get_template('nkey_update.cpp')
         else:
