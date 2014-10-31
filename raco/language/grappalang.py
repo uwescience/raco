@@ -248,7 +248,7 @@ class GrappaJoin(algebra.Join, GrappaOperator):
         return "std::tuple<{0}>".format(
             ','.join([cls.language().typename(
                 expression.UnnamedAttributeRef(c).typeof(sch, None))
-                      for c in cols]))
+                for c in cols]))
 
 
 class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
@@ -764,7 +764,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         if self.useKey:
             numkeys = len(self.grouping_list)
             keygets = [inputTuple.get_code(g.get_position(inp_sch))
-                                for g in self.grouping_list]
+                       for g in self.grouping_list]
 
             materialize_template = self._cgenv.get_template('nkey_update.cpp')
         else:

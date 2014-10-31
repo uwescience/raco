@@ -47,7 +47,8 @@ class CBaseLanguage(Language):
 
         # StrictUndefined makes uses of the result of render() fail when
         # a template variable is undefined, which is most useful for debugging
-        return jinja2.Environment(undefined=jinja2.StrictUndefined, loader=jinja2.ChoiceLoader(loaders))
+        return jinja2.Environment(
+            undefined=jinja2.StrictUndefined, loader=jinja2.ChoiceLoader(loaders))
 
     @classmethod
     @abc.abstractmethod
