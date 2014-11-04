@@ -71,21 +71,30 @@ def compile(expr):
     exprcode = []
 
     # TODO, actually use Parallel[Store...]]? Right now assumes it
-    if isinstance(expr, (algebra.Sequence, algebra.Parallel)):
+    if isinstance(expr, algebra.Parallel):
         assert len(expr.children()) == 1, "expected single expression only"
         store_expr = expr.children()[0]
+        assert isinstance(store_expr, algebra.Store)
+        assert len(store_expr.children()) == 1, "expected single expr only"
+
+        lang = store_expr.language()
+
+        if isinstance(store_expr, Pipelined):
+            body = lang.body(store_expr.compilePipeline())
+        else:
+            body = lang.body(expr)
+        exprcode.append(emit(body))
+
+    elif isinstance(expr, algebra.Sequence):
+        store_expr = expr.children()
+        lang = store_expr[-1].language()
+        for sub_expr in expr.children():
+            if isinstance(sub_expr, Pipelined):
+                body = lang.body(sub_expr.compilePipeline())
+            else:
+                body = lang.body(sub_expr)
+            exprcode.append(emit(body))
     else:
         store_expr = expr
 
-    assert isinstance(store_expr, algebra.Store)
-    assert len(store_expr.children()) == 1, "expected single expression only"
-
-    lang = store_expr.language()
-
-    if isinstance(store_expr, Pipelined):
-        body = lang.body(store_expr.compilePipeline())
-    else:
-        body = lang.body(expr)
-
-    exprcode.append(emit(body))
     return emit(*exprcode)

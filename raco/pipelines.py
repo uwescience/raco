@@ -196,7 +196,7 @@ class CompileState:
             scan_linearize_wrap + mem_linearize_wrap + flush_linearized
 
         # substitute all lazily resolved symbols
-        print linearized
+
         resolved = linearized % self.resolving_symbols
 
         return resolved
@@ -291,5 +291,4 @@ class Pipelined(object):
         self.produce(state)
 
         # state.addCode( self.language().log("Evaluating subplan %s" % self) )
-
         return state
