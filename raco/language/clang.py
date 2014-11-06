@@ -491,6 +491,33 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         return code
 
 
+class CDoWhile(algebra.DoWhile, CCOperator):
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        code = ''
+        return code
+
+
+class CScanTemp(algebra.ScanTemp, CCOperator):
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        code = ''
+        return code
+
+
+class CStoreTemp(algebra.StoreTemp, CCOperator):
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        code = ""
+        return code
+
+
 class MemoryScanOfFileScan(rules.Rule):
 
     """A rewrite rule for making a scan into
@@ -516,6 +543,10 @@ def clangify(emit_print):
         rules.OneToOne(algebra.GroupBy, CGroupBy),
         rules.OneToOne(algebra.Project, CProject),
         rules.OneToOne(algebra.UnionAll, CUnionAll),
+        rules.OneToOne(algebra.StoreTemp, CStoreTemp),
+        rules.OneToOne(algebra.ScanTemp, CScanTemp),
+        rules.OneToOne(algebra.Sequence, CSequence),
+        rules.OneToOne(algebra.DoWhile, CDoWhile),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, CStore),

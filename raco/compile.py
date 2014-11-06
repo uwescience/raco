@@ -84,17 +84,23 @@ def compile(expr):
         else:
             body = lang.body(expr)
         exprcode.append(emit(body))
-
     elif isinstance(expr, algebra.Sequence):
-        store_expr = expr.children()
-        lang = store_expr[-1].language()
-        for sub_expr in expr.children():
-            if isinstance(sub_expr, Pipelined):
-                body = lang.body(sub_expr.compilePipeline())
-            else:
-                body = lang.body(sub_expr)
-            exprcode.append(emit(body))
+        lang = expr.children()[0].language()
+        if isinstance(expr, Pipelined):
+            body = lang.body(expr.compilePipeline())
+        else:
+            body = lang.body(expr)
+        exprcode.append(emit(body))
     else:
         store_expr = expr
+        assert isinstance(store_expr, algebra.Store)
+        assert len(store_expr.children()) == 1, "expected single expr only"
+
+        lang = store_expr.language()
+        if isinstance(store_expr, Pipelined):
+            body = lang.body(store_expr.compilePipeline())
+        else:
+            body = lang.body(expr)
+        exprcode.append(emit(body))
 
     return emit(*exprcode)
