@@ -5,6 +5,10 @@ import sys
 from raco.catalog import FromFileCatalog
 from raco.language.clangcommon import StagedTupleRef
 
+"""
+given a schema, creates a C++ program to convert csv data to a binary format
+"""
+
 template = """
 #include <tuple>
 #include <string>
