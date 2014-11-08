@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <algorithm>
 
 
 #include <iostream>
@@ -48,23 +49,13 @@ void COUNT_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, K1 k
   slot += 1;
 }
 
-template <typename T>
-static T MIN(T a, T b) {
-  return (a<b) ? a : b;
-}
-
-template <typename T>
-static T MAX(T a, T b) {
-  return (a>b) ? a : b;
-}
-
 template <typename K, typename V>
 void MIN_insert(std::unordered_map<K, V >& hash, K key, V val) {
   auto got = hash.find(key);
   if (got==hash.end()) {
     hash[key] = val;
   } else {
-    hash[key] = MIN(got->second, val);  
+    hash[key] = std::min(got->second, val);  
   }
 }
 
@@ -74,7 +65,7 @@ void MAX_insert(std::unordered_map<K, V >& hash, K key, V val) {
   if (got==hash.end()) {
     hash[key] = val;
   } else {
-    hash[key] = MAX(got->second, val);  
+    hash[key] = std::max(got->second, val);  
   }
 }
 
@@ -85,7 +76,7 @@ void MIN_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, K1 key
   if (got==hash.end()) {
     hash[key] = val;
   } else {
-    hash[key] = MIN(got->second, val);  
+    hash[key] = std::min(got->second, val);  
   }
 }
 
@@ -96,7 +87,7 @@ void MAX_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, K1 key
   if (got==hash.end()) {
     hash[key] = val;
   } else {
-    hash[key] = MAX(got->second, val);  
+    hash[key] = std::max(got->second, val);  
   }
 }
 
@@ -115,13 +106,13 @@ void COUNT_insert(V& var, V val) {
 // one key
 template <typename V>
 void MIN_insert(V& var, V val) {
-  var = MIN(var, val);
+  var = std::min(var, val);
 }
 
 // one key
 template <typename V>
 void MAX_insert(V& var, V val) {
-  var = MAX(var, val);
+  var = std::max(var, val);
 }
 
 template <typename T, typename K>
