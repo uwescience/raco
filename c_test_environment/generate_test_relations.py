@@ -6,6 +6,7 @@ def get_name(basename, fields):
     return basename+str(fields)
 
 def generate_random_int(basename, fields, tuples, datarange):
+    random.seed(1)
     fn = get_name(basename, fields)
     with open(fn, 'w') as f:
         print "generating %s" % (os.path.abspath(fn))
@@ -22,6 +23,7 @@ def generate_random_double(basename, fields, tuples, datarange):
     """
      First attribute is integer and the rest are doubles
     """
+    random.seed(1)
     fn = get_name(basename, fields)
     with open(fn, 'w') as f:
         print "generating %s" % (os.path.abspath(fn))
@@ -38,6 +40,7 @@ def generate_random_double(basename, fields, tuples, datarange):
 
 
 def generate_last_sequential(basename, fields, tuples, datarange):
+    random.seed(1)
     fn = get_name(basename, fields)
     with open(fn, 'w') as f:
         print "generating %s" % (os.path.abspath(fn))
