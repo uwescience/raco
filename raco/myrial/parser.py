@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 import collections
 import sys
 
@@ -39,9 +41,12 @@ binops = {
     '>': sexpr.GT,
     '<': sexpr.LT,
     '>=': sexpr.GTEQ,
+    u'≥': sexpr.GTEQ,
     '<=': sexpr.LTEQ,
+    u'≤': sexpr.LTEQ,
     '!=': sexpr.NEQ,
     '<>': sexpr.NEQ,
+    u'≠': sexpr.NEQ,
     '==': sexpr.EQ,
     '=': sexpr.EQ,
     'AND': sexpr.AND,
@@ -850,9 +855,12 @@ class Parser(object):
                    | sexpr GT sexpr
                    | sexpr LT sexpr
                    | sexpr GE sexpr
+                   | sexpr GE2 sexpr
                    | sexpr LE sexpr
+                   | sexpr LE2 sexpr
                    | sexpr NE sexpr
                    | sexpr NE2 sexpr
+                   | sexpr NE3 sexpr
                    | sexpr EQ sexpr
                    | sexpr EQUALS sexpr
                    | sexpr AND sexpr
