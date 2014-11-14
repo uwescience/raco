@@ -127,7 +127,7 @@ class CBaseLanguage(Language):
     def cast(cls, castto, inputexpr):
         inputcode, decls, inits = inputexpr
         typen = cls.typename(castto)
-        code = "(({typename}){expr})".format(
+        code = "(static_cast<{typename}>({expr}))".format(
             typename=typen, expr=inputcode)
         return code, decls, inits
 
