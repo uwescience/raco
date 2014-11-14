@@ -65,16 +65,16 @@ void printrelation(struct relationInfo *R);
 
 
 template<typename T>
-std::vector<T> tuplesFromAscii(const char *path) {
+std::vector<T> * tuplesFromAscii(const char *path) {
   std::string pathst(path);
   std::ifstream testfile(pathst, std::ifstream::in);
 
-  std::vector<T> tuples;
+  std::vector<T> tuples = new std::vector<T>();
     
   std::string line;
   while (std::getline(testfile,line)) {
     std::istringstream ss(line);
-    tuples.push_back(T::fromIStream(ss)); 
+    tuples->push_back(T::fromIStream(ss)); 
   }
   
   return tuples;
