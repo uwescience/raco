@@ -9,14 +9,14 @@
 #include "utils.h"
 
 template <typename K, typename V>
-void insert(std::unordered_map<K, std::vector<V>* >& hash, K key, V val) {
+void insert(std::unordered_map<K, std::vector<V> >& hash, K key, V val) {
   auto r = hash.find(key);
   if (r != hash.end()) {
-    (r->second)->push_back(val);
+    (r->second).push_back(val);
   } else {
     // TODO can we use the iterator r to insert
-    std::vector<V> * newvec = new std::vector<V>();
-    newvec->push_back(val);
+    std::vector<V> newvec;
+    newvec.push_back(val);
     hash[key] = newvec;
   }
 }
@@ -116,12 +116,12 @@ void MAX_insert(V& var, V val) {
 }
 
 template <typename T, typename K>
-std::vector<T>& lookup(std::unordered_map<K, std::vector<T>* >& hash, K key) {
+std::vector<T>& lookup(std::unordered_map<K, std::vector<T> >& hash, K key) {
   static std::vector<T> emptyResult;
 
   auto r = hash.find(key);
   if (r != hash.end()) {
-    return *(r->second);
+    return r->second;
   } else {
     return emptyResult;
   }

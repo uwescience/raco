@@ -410,7 +410,7 @@ class CHashJoin(algebra.Join, CCOperator):
             my_sch = self.scheme()
 
             declr_template = """std::unordered_map\
-            <%(keytype)s, std::vector<%(in_tuple_type)s>* > %(hashname)s;
+            <%(keytype)s, std::vector<%(in_tuple_type)s> > %(hashname)s;
             """
 
             right_template = """insert(%(hashname)s, %(keyval)s, %(in_tuple_name)s);
