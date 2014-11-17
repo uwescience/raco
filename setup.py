@@ -28,7 +28,7 @@ def find_packages(path=".", base="", exclude=None):
 ###
 
 setup(name='raco',
-      version='1.0.0',
+      version='1.1.0',
       description='Relational Algebra COmpiler',
       author='Bill Howe, Andrew Whitaker, Daniel Halperin',
       author_email='raco@cs.washington.edu',
