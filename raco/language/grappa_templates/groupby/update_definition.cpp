@@ -2,5 +2,5 @@
     {% for u in update_updates %}
     {{ u }}
     {% endfor %}
-    return {{state_type}}(std::make_tuple({{ update_state_vars|join(',') }));
+    return {{state_type}}(std::make_tuple({{ update_state_vars|join(',') }}));
 }

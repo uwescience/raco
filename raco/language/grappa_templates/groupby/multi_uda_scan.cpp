@@ -1,5 +1,3 @@
 {% extends 'scan.cpp' %}
 
-{% block initializer %}
-{{ initializer_list|join(',') }}
-{% endblock %}
+{% block initializer %}{{ super() }}, {{mapping_var_name}}.second{% endblock %}
