@@ -545,7 +545,6 @@ def clangify(emit_print):
         rules.OneToOne(algebra.UnionAll, CUnionAll),
         rules.OneToOne(algebra.StoreTemp, CStoreTemp),
         rules.OneToOne(algebra.ScanTemp, CScanTemp),
-        rules.OneToOne(algebra.Sequence, CSequence),
         rules.OneToOne(algebra.DoWhile, CDoWhile),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
