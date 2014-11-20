@@ -14,49 +14,10 @@ from raco import types
 
 from raco.myrial.exceptions import *
 from raco.expression import NestedAggregateException
+from raco.fake_data import FakeData
 
 
-class TestQueryFunctions(myrial_test.MyrialTestCase):
-
-    emp_table = collections.Counter([
-        # id dept_id name salary
-        (1, 2, "Bill Howe", 25000),
-        (2, 1, "Dan Halperin", 90000),
-        (3, 1, "Andrew Whitaker", 5000),
-        (4, 2, "Shumo Chu", 5000),
-        (5, 1, "Victor Almeida", 25000),
-        (6, 3, "Dan Suciu", 90000),
-        (7, 1, "Magdalena Balazinska", 25000)])
-
-    emp_schema = scheme.Scheme([("id", types.INT_TYPE),
-                                ("dept_id", types.INT_TYPE),
-                                ("name", types.STRING_TYPE),
-                                ("salary", types.LONG_TYPE)])
-
-    emp_key = "public:adhoc:employee"
-
-    dept_table = collections.Counter([
-        (1, "accounting", 5),
-        (2, "human resources", 2),
-        (3, "engineering", 2),
-        (4, "sales", 7)])
-
-    dept_schema = scheme.Scheme([("id", types.LONG_TYPE),
-                                 ("name", types.STRING_TYPE),
-                                 ("manager", types.LONG_TYPE)])
-
-    dept_key = "public:adhoc:department"
-
-    numbers_table = collections.Counter([
-        (1, 3),
-        (2, 5),
-        (3, -2),
-        (16, -4.3)])
-
-    numbers_schema = scheme.Scheme([("id", types.LONG_TYPE),
-                                    ("val", types.DOUBLE_TYPE)])
-
-    numbers_key = "public:adhoc:numbers"
+class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
     def setUp(self):
         super(TestQueryFunctions, self).setUp()
@@ -126,7 +87,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     """
 
     salary_expected_result = collections.Counter(
-        [x for x in emp_table.elements() if x[3] > 25000])
+        [x for x in FakeData.emp_table.elements() if x[3] > 25000])
 
     def test_bag_comp_filter_large_salary_by_name(self):
         query = TestQueryFunctions.salary_filter_query % (self.emp_key,
@@ -1244,6 +1205,52 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         with self.assertRaises(DuplicateVariableException):
             self.check_result(query, collections.Counter())
+
+    def test_nary_udf(self):
+        query = """
+        DEF Foo(a,b): [a + b, a - b];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[1] + t[3], t[3] - t[1])
+                                        for t in self.emp_table])
+        self.check_result(query, expected)
+
+    def test_nary_udf_name_count(self):
+        query = """
+        DEF Foo(a,b): [a + b, a - b];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y, z]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalColumnNamesException):
+            self.check_result(query, None)
+
+    def test_nary_udf_illegal_nesting(self):
+        query = """
+        DEF Foo(x): [x + 3, x - 3];
+        DEF Bar(a,b): [Foo(x), Foo(b)];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Bar(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    def test_nary_udf_illegal_wildcard(self):
+        query = """
+        DEF Foo(x): [x + 3, *];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalWildcardException):
+            self.check_result(query, None)
 
     def test_triangle_udf(self):
         query = """
