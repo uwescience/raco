@@ -151,15 +151,20 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
         super(MyriaLPlatformTestHarness, self).setUp()
 
         self.tables = {}
-        for name in ['R', 'S', 'T']:
+        for name in ['R', 'S', 'T', 'I', 'D']:
             for width in [1, 2, 3]:
                 tablename = "%s%d" % (name, width)
                 fullname = "public:adhoc:%s" % tablename
                 self.tables[tablename] = fullname
 
-                one = [("a", types.INT_TYPE)]
-                two = one + [("b", types.INT_TYPE)]
-                three = two + [("c", types.INT_TYPE)]
+                if name == 'D':
+                    rest_type = types.DOUBLE_TYPE
+                else:
+                    rest_type = types.LONG_TYPE
+
+                one = [("a", types.LONG_TYPE)]
+                two = one + [("b", rest_type)]
+                three = two + [("c", rest_type)]
                 # ingest fake data; data is already generated separately for now
                 if width == 1:
                     self.db.ingest(fullname, Counter(), scheme.Scheme(one))
@@ -460,6 +465,33 @@ class MyriaLPlatformTests(object):
         P = [FROM J2 WHERE $0>1 and $3>2 and $6>3 EMIT $0, $8];
         STORE(P, OUTPUT);
         """, "two_join_switch", SwapJoinSides=True)
+
+    def test_select_double(self):
+        q = self.myrial_from_sql(["D3"], "select_double")
+        self.check(q, "select_double")
+
+    def test_aggregate_double(self):
+        self.check_sub_tables("""
+        D2 = SCAN(%(D2)s);
+        out = select a, SUM(b) from D2;
+        STORE(out, OUTPUT);
+        """, "aggregate_double")
+
+    def test_aggregate_of_binop_double(self):
+        self.check_sub_tables("""
+        D3 = SCAN(%(D3)s);
+        out = select a, MAX(b-c) from D3;
+        STORE(out, OUTPUT);
+        """, "aggregate_of_binop_double")
+
+    def test_aggregate_of_binop_no_key_union_double(self):
+        self.check_sub_tables("""
+        D3 = SCAN(%(D3)s);
+        ma = select MAX(b-c) from D3;
+        mi = select MIN(c-b) from D3;
+        out = UNIONALL(ma, mi);
+        STORE(out, OUTPUT);
+        """, "aggregate_of_binop_no_key_union_double")
 
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""

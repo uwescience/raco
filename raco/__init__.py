@@ -6,6 +6,7 @@ LOG = logging.getLogger(__name__)
 
 
 class RACompiler(object):
+
     """Thin wrapper interface for lower level functions parse, optimize,
     compile"""
 

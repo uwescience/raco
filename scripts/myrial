@@ -5,6 +5,8 @@ import argparse
 import os
 import json
 import sys
+import logging
+
 
 from raco.catalog import FromFileCatalog
 import raco.myrial.interpreter as interpreter
@@ -13,6 +15,8 @@ from raco.fakedb import FakeDatabase
 from raco import algebra
 from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
+from raco.language.grappalang import GrappaAlgebra
+from raco.compile import compile
 
 
 def print_pretty_plan(plan, indent=0):
@@ -51,6 +55,11 @@ def parse_options(args):
                        help="Encode plan as Python repr", action='store_true')
     group.add_argument('-f', dest='standalone', action='store_true',
                        help='Execute the program in standalone mode')
+    group.add_argument('-c', dest='clang', action='store_true',
+                       help='Output physical plan for grappalang and source program')
+    arg_parser.add_argument('-v', dest='verbose', action='store_true',
+                       help='Turn on verbose DEBUG logging')
+    arg_parser.add_argument('--catalog', dest="catalog_path", default=None, help="[Optional] path to catalog file")
     arg_parser.add_argument('file',
                             help='File containing MyriaL source program')
 
@@ -61,8 +70,15 @@ def parse_options(args):
 def main(args):
     opt = parse_options(args)
 
+    if opt.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+
     # Search for a catalog definition file
-    catalog_path = os.path.join(os.path.dirname(opt.file), 'catalog.py')
+    if opt.catalog_path is not None:
+        catalog_path = opt.catalog_path
+    else:
+        catalog_path = os.path.join(os.path.dirname(opt.file), 'catalog.py')
+
     if os.path.exists(catalog_path):
         catalog = FromFileCatalog.load_from_file(catalog_path)
     else:
@@ -95,6 +111,13 @@ def main(args):
             elif opt.repr:
                 pp = processor.get_physical_plan()
                 print repr(pp)
+            elif opt.clang:
+                pp = processor.get_physical_plan(target_alg=GrappaAlgebra())
+                print_pretty_plan(pp)
+                c = compile(pp)
+                fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
+                with open(fname, 'w') as f:
+                    f.write(c)
             else:
                 print_pretty_plan(processor.get_physical_plan())
 

@@ -1,5 +1,6 @@
 *.exe
 *.o
+*.a
 R1
 R2
 R3
@@ -9,6 +10,9 @@ S3
 T1
 T2
 T3
+I1
+I2
+I3
 *.dot
 *.cpp
 sp2b.100t*
@@ -26,3 +30,4 @@ log*.rb
 *.cpp.*
 test.txt
 *store
+importTestData.sql
