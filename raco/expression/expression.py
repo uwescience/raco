@@ -3,13 +3,12 @@ An expression language for Raco: functions, booleans, aggregates, etc.
 
 Most non-trivial operators and functions are in separate files in this package.
 """
+from abc import ABCMeta, abstractmethod
+import logging
 
 from raco.utility import Printable
 from raco import types
 
-from abc import ABCMeta, abstractmethod
-
-import logging
 LOG = logging.getLogger(__name__)
 
 
@@ -317,6 +316,7 @@ class Literal(ZeroaryOperator):
 
 
 class StringLiteral(Literal):
+
     def __str__(self):
         return '"{val}"'.format(val=self.value)
 
@@ -368,7 +368,7 @@ class NamedAttributeRef(AttributeRef):
         return hash(self.name)
 
     def __eq__(self, other):
-        return type(self) == type(other) and self.name == other.name
+        return isinstance(self, type(other)) and self.name == other.name
 
     def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
@@ -522,6 +522,7 @@ class TIMES(BinaryOperator):
 
 
 class CAST(UnaryOperator):
+
     def __init__(self, _type, input):
         """Initialize a cast operator.
 
@@ -674,174 +675,13 @@ class Case(Expression):
                 "Case expresssions must resolve to a single type")
         return types[0]
 
+    def accept(self, visitor):
+        """
+        For post-order stateful visitors
+        """
+        for w in self.when_tuples:
+            w[0].accept(visitor)
+            w[1].accept(visitor)
 
-import abc
-
-
-class ExpressionVisitor(object):
-    # TODO: make this more complete for kinds of expressions
-
-    __metaclass__ = abc.ABCMeta
-
-    def visit(self, expr):
-        # use expr to dispatch to appropriate visit_* method
-        typename = type(expr).__name__
-        dispatchTo = getattr(self, "visit_%s" % (typename,))
-        return dispatchTo(expr)
-
-    @abc.abstractmethod
-    def visit_NOT(self, unaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_AND(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_OR(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_EQ(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_NEQ(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_GT(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_LT(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_GTEQ(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_LTEQ(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_NamedAttributeRef(self, named):
-        return
-
-    @abc.abstractmethod
-    def visit_UnnamedAttributeRef(self, unnamed):
-        return
-
-    @abc.abstractmethod
-    def visit_StringLiteral(self, stringLiteral):
-        return
-
-    @abc.abstractmethod
-    def visit_NumericLiteral(self, numericLiteral):
-        return
-
-    @abc.abstractmethod
-    def visit_DIVIDE(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_PLUS(self, binaryExpr):
-        return
-
-    @abstractmethod
-    def visit_MINUS(self, binaryExpr):
-        return
-
-    @abstractmethod
-    def visit_IDIVIDE(self, binaryExpr):
-        return
-
-    @abstractmethod
-    def visit_TIMES(self, binaryExpr):
-        return
-
-    @abstractmethod
-    def visit_NEG(self, unaryExpr):
-        return
-
-
-class SimpleExpressionVisitor(ExpressionVisitor):
-    @abstractmethod
-    def visit_unary(self, unaryexpr):
-        pass
-
-    @abstractmethod
-    def visit_binary(self, binaryexpr):
-        pass
-
-    @abstractmethod
-    def visit_zeroary(self, zeroaryexpr):
-        pass
-
-    def visit_literal(self, literalexpr):
-        pass
-
-    @abstractmethod
-    def visit_nary(self, naryexpr):
-        pass
-
-    def visit_attr(self, attr):
-        pass
-
-    def visit_NOT(self, unaryExpr):
-        self.visit_unary(unaryExpr)
-
-    def visit_AND(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_OR(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_EQ(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_NEQ(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_GT(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_LT(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_GTEQ(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_LTEQ(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_NamedAttributeRef(self, named):
-        self.visit_attr(named)
-
-    def visit_UnnamedAttributeRef(self, unnamed):
-        self.visit_attr(unnamed)
-
-    def visit_StringLiteral(self, stringLiteral):
-        self.visit_literal(stringLiteral)
-
-    def visit_NumericLiteral(self, numericLiteral):
-        self.visit_literal(numericLiteral)
-
-    def visit_DIVIDE(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_PLUS(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_MINUS(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_IDIVIDE(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_TIMES(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_NEG(self, unaryExpr):
-        self.visit_unary(unaryExpr)
+        self.else_expr.accept(visitor)
+        visitor.visit(self)

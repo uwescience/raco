@@ -1,13 +1,14 @@
 from raco import algebra
 from raco import expression
-from expression import (accessed_columns, UnnamedAttributeRef,
-                        to_unnamed_recursive)
+from .expression import (accessed_columns, UnnamedAttributeRef,
+                         to_unnamed_recursive)
 
 from abc import ABCMeta, abstractmethod
 import itertools
 
 
 class Rule(object):
+
     """Argument is an expression tree
 
     Returns a possibly modified expression tree"""
@@ -23,11 +24,13 @@ class Rule(object):
 
 
 class CrossProduct2Join(Rule):
+
     """A rewrite rule for removing Cross Product"""
+
     def fire(self, expr):
         if isinstance(expr, algebra.CrossProduct):
             return algebra.Join(expression.EQ(expression.NumericLiteral(1),
-                                expression.NumericLiteral(1)),
+                                              expression.NumericLiteral(1)),
                                 expr.left, expr.right)
         return expr
 
@@ -36,7 +39,9 @@ class CrossProduct2Join(Rule):
 
 
 class removeProject(Rule):
+
     """A rewrite rule for removing Projections"""
+
     def fire(self, expr):
         if isinstance(expr, algebra.Project):
             return expr.input
@@ -47,6 +52,7 @@ class removeProject(Rule):
 
 
 class OneToOne(Rule):
+
     def __init__(self, opfrom, opto):
         self.opfrom = opfrom
         self.opto = opto
@@ -63,6 +69,7 @@ class OneToOne(Rule):
 
 
 class JoinToProjectingJoin(Rule):
+
     """A rewrite rule for turning every Join into a ProjectingJoin"""
 
     def fire(self, expr):
@@ -203,7 +210,9 @@ class DedupGroupBy(Rule):
 
 
 class DistinctToGroupBy(Rule):
+
     """Turns a distinct into an empty GroupBy"""
+
     def fire(self, expr):
         if isinstance(expr, algebra.Distinct):
             in_scheme = expr.scheme()
@@ -217,7 +226,9 @@ class DistinctToGroupBy(Rule):
 
 
 class EmptyGroupByToDistinct(Rule):
+
     """Turns a GroupBy with no aggregates into a Distinct"""
+
     def fire(self, expr):
         if isinstance(expr, algebra.GroupBy) and len(expr.aggregate_list) == 0:
             # We can turn an empty GroupBy into a Distinct. However,
@@ -240,9 +251,11 @@ class EmptyGroupByToDistinct(Rule):
 
 
 class CountToCountall(Rule):
+
     """Since Raco does not support NULLs at the moment, it is safe to always
     map COUNT to COUNTALL."""
     # TODO fix when we have NULL support.
+
     def fire(self, expr):
         if not isinstance(expr, algebra.GroupBy):
             return expr
@@ -264,6 +277,7 @@ class CountToCountall(Rule):
 
 
 class RemoveTrivialSequences(Rule):
+
     def fire(self, expr):
         if not isinstance(expr, algebra.Sequence):
             return expr
@@ -275,6 +289,7 @@ class RemoveTrivialSequences(Rule):
 
 
 class SplitSelects(Rule):
+
     """Replace AND clauses with multiple consecutive selects."""
 
     def fire(self, op):
@@ -296,6 +311,7 @@ class SplitSelects(Rule):
 
 
 class PushSelects(Rule):
+
     """Push selections."""
 
     @staticmethod
@@ -402,6 +418,7 @@ class PushSelects(Rule):
 
 
 class MergeSelects(Rule):
+
     """Merge consecutive Selects into a single conjunctive selection."""
 
     def fire(self, op):
@@ -419,6 +436,7 @@ class MergeSelects(Rule):
 
 
 class PushApply(Rule):
+
     """Many Applies in MyriaL are added to select fewer columns from the
     input. In some  of these cases, we can do less work in the children by
     preventing them from producing columns we will then immediately drop.
@@ -512,6 +530,7 @@ class PushApply(Rule):
 
 
 class ProjectToDistinctColumnSelect(Rule):
+
     def fire(self, expr):
         # If not a Project, who cares?
         if not isinstance(expr, algebra.Project):
@@ -526,6 +545,7 @@ class ProjectToDistinctColumnSelect(Rule):
 
 
 class RemoveUnusedColumns(Rule):
+
     """For operators that construct new tuples (e.g., GroupBy or Join), we are
     guaranteed that any columns from an input tuple that are ignored (neither
     used internally nor to produce the output columns) cannot be used higher
@@ -605,6 +625,7 @@ class RemoveUnusedColumns(Rule):
 
 
 class ProjectingJoinToProjectOfJoin(Rule):
+
     """Turn ProjectingJoin to Project of a Join.
     This is useful to take advantage of the column selection
     optimizations and then remove ProjectingJoin for
@@ -624,6 +645,7 @@ class ProjectingJoinToProjectOfJoin(Rule):
 
 
 class RemoveNoOpApply(Rule):
+
     """Remove Apply operators that have no effect."""
 
     def fire(self, op):
@@ -657,10 +679,21 @@ class RemoveNoOpApply(Rule):
 
 class SwapJoinSides(Rule):
     # swaps the inputs to a join
+
     def fire(self, expr):
         # don't allow swap-created join to be swapped
-        if isinstance(expr, algebra.Join) and not hasattr(expr, '__swapped__'):
-            assert type(expr) is algebra.Join
+        if (isinstance(expr, algebra.Join) or
+            isinstance(expr, algebra.CrossProduct)) \
+                and not hasattr(expr, '__swapped__'):
+
+            assert (
+                isinstance(
+                    expr,
+                    algebra.Join)) or (
+                isinstance(
+                    expr,
+                    algebra.CrossProduct))
+
             # An apply will undo the effect of the swap on the scheme,
             # so above operators won't be affected
             left_sch = expr.left.scheme()
@@ -675,13 +708,17 @@ class SwapJoinSides(Rule):
                               for i in range(rightlen)]
             emitters = emitters_left + emitters_right
 
-            # reindex the expression
-            index_map = dict([(oldpos, attr[1].position)
-                              for (oldpos, attr) in enumerate(emitters)])
+            if isinstance(expr, algebra.Join):
+                # reindex the expression
+                index_map = dict([(oldpos, attr[1].position)
+                                  for (oldpos, attr) in enumerate(emitters)])
 
-            expression.reindex_expr(expr.condition, index_map)
+                expression.reindex_expr(expr.condition, index_map)
 
-            newjoin = algebra.Join(expr.condition, expr.right, expr.left)
+                newjoin = algebra.Join(expr.condition, expr.right, expr.left)
+            else:
+                newjoin = algebra.CrossProduct(expr.right, expr.left)
+
             newjoin.__swapped__ = True
 
             return algebra.Apply(emitters=emitters, input=newjoin)

@@ -7,6 +7,7 @@ from raco.language import clangcommon, Algebra
 from raco import rules
 from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, ct, CBaseLanguage
+from raco.utility import emitlist
 
 from raco.algebra import gensym
 
@@ -15,57 +16,39 @@ import logging
 _LOG = logging.getLogger(__name__)
 
 import itertools
-import os.path
-
-
-template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "c_templates")
 
 
 def readtemplate(fname):
-    return file(os.path.join(template_path, fname)).read()
-
-
-template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "c_templates")
-
-base_template = readtemplate("base_query.template")
-twopass_select_template = readtemplate("precount_select.template")
-hashjoin_template = readtemplate("hashjoin.template")
-filteringhashjoin_template = ""
-filtering_nestedloop_join_chain_template = ""
-# =readtemplate("filtering_nestedloop_join_chain.template")
-ascii_scan_template = readtemplate("ascii_scan.template")
-binary_scan_template = readtemplate("binary_scan.template")
+    return clangcommon.readtemplate("c_templates", fname)
 
 
 class CStagedTupleRef(StagedTupleRef):
+
     def __additionalDefinitionCode__(self):
         constructor_template = """
     public:
-    %(tupletypename)s (relationInfo * rel, int row) {
-      %(copies)s
+    static %(tupletypename)s fromRelationInfo(relationInfo * rel, int row) {
+      %(tupletypename)s _t;
+      for (int i=0; i<%(numfields)s; i++) {
+         _t._fields[i] = *(void**)(&(rel->relation[row*rel->fields+i]));
+         }
+      return _t;
     }
     """
 
-        copytemplate = """_fields[%(fieldnum)s] = \
-        rel->relation[row*rel->fields + %(fieldnum)s];
-    """
-
         copies = ""
-        # TODO: actually list the trimmed schema offsets
-        for i in range(0, len(self.scheme)):
-            fieldnum = i
-            copies += copytemplate % locals()
+        numfields = len(self.scheme)
 
         tupletypename = self.getTupleTypename()
         return constructor_template % locals()
 
 
 class CC(CBaseLanguage):
-    @staticmethod
-    def base_template():
-        return base_template
+    _base_template = readtemplate("base_query")
+
+    @classmethod
+    def base_template(cls):
+        return cls._base_template
 
     @staticmethod
     def pipeline_wrap(ident, code, attrs):
@@ -156,6 +139,7 @@ from raco.algebra import UnaryOperator
 
 
 class CMemoryScan(algebra.UnaryOperator, CCOperator):
+
     def produce(self, state):
         self.input.produce(state)
 
@@ -166,9 +150,7 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
         # now generate the scan from memory
 
         # TODO: generate row variable to avoid naming conflict for nested scans
-        memory_scan_template = """for (uint64_t i : %(inputsym)s->range()) {
-          %(tuple_type)s %(tuple_name)s(%(inputsym)s, i);
-
+        memory_scan_template = """for (auto %(tuple_name)s : %(inputsym)s) {
           %(inner_plan_compiled)s
        } // end scan over %(inputsym)s
        """
@@ -202,7 +184,7 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
         return UnaryOperator.__eq__(self, other)
 
 
-class CGroupBy(algebra.GroupBy, CCOperator):
+class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
     _i = 0
 
     @classmethod
@@ -226,21 +208,38 @@ class CGroupBy(algebra.GroupBy, CCOperator):
                 A rule should create Apply[GroupBy]""" \
                 % self.__class__.__name__
 
+        inp_sch = self.input.scheme()
         self.useMap = len(self.grouping_list) > 0
 
         if self.useMap:
             if len(self.grouping_list) == 1:
-                declr_template = """std::unordered_map<int64_t, int64_t> \
+                declr_template = """std::unordered_map<%(keytype)s,%(valtype)s> \
                 %(hashname)s;
           """
+                keytype = self.language().typename(
+                    self.grouping_list[0].typeof(
+                        inp_sch,
+                        None))
             elif len(self.grouping_list) == 2:
                 declr_template = """std::unordered_map<\
-                std::pair<int64_t, int64_t>, int64_t, pairhash> \
+                std::pair<%(keytypes)s>, %(valtype)s, pairhash> \
                 %(hashname)s;
                 """
+                keytypes = ','.join(
+                    [self.language().typename(g.typeof(inp_sch, None))
+                     for g in self.grouping_list])
+
         else:
-            declr_template = """int64_t %(hashname)s;
+            initial_value = self.__get_initial_value__(
+                0,
+                cached_inp_sch=inp_sch)
+            declr_template = """%(valtype)s %(hashname)s = %(initial_value)s;
             """
+
+        valtype = self.language().typename(
+            self.aggregate_list[0].input.typeof(
+                inp_sch,
+                None))
 
         self.hashname = self.__genHashName__()
         hashname = self.hashname
@@ -270,7 +269,7 @@ class CGroupBy(algebra.GroupBy, CCOperator):
                 produce_template = """for (auto it=%(hashname)s.begin(); \
                 it!=%(hashname)s.end(); it++) {
                 %(output_tuple_type)s %(output_tuple_name)s(\
-                {it->first, it->second});
+                std::make_tuple(it->first, it->second));
                 %(inner_code)s
                 }
                 """
@@ -278,13 +277,15 @@ class CGroupBy(algebra.GroupBy, CCOperator):
                 produce_template = """for (auto it=%(hashname)s.begin(); \
                 it!=%(hashname)s.end(); it++) {
                 %(output_tuple_type)s %(output_tuple_name)s(\
-                {it->first.first, it->first.second, it->second});
+                std::make_tuple(\
+                it->first.first, it->first.second, it->second));
                 %(inner_code)s
                 }
                 """
         else:
             produce_template = """{
-            %(output_tuple_type)s %(output_tuple_name)s({ %(hashname)s });
+            %(output_tuple_type)s %(output_tuple_name)s(\
+            std::make_tuple(%(hashname)s));
             %(inner_code)s
             }
             """
@@ -303,15 +304,15 @@ class CGroupBy(algebra.GroupBy, CCOperator):
         if self.useMap:
             if len(self.grouping_list) == 1:
                 materialize_template = """%(op)s_insert(%(hashname)s, \
-                %(tuple_name)s, %(key1pos)s, %(valpos)s);
+                %(key1val)s, %(val)s);
                 """
             elif len(self.grouping_list) == 2:
                 materialize_template = """%(op)s_insert(%(hashname)s, \
-                %(tuple_name)s, %(key1pos)s, %(key2pos)s, %(valpos)s);
+                %(key1val)s, %(key2val)s, %(val)s);
                 """
         else:
             materialize_template = """%(op)s_insert(%(hashname)s, \
-            %(tuple_name)s, %(valpos)s);
+            %(val)s);
             """
 
         hashname = self.hashname
@@ -322,10 +323,11 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             inp_sch = self.input.scheme()
 
             key1pos = self.grouping_list[0].get_position(inp_sch)
+            key1val = inputTuple.get_code(key1pos)
 
             if len(self.grouping_list) == 2:
-                key2pos = self.grouping_list[1].get_position(
-                    inp_sch)
+                key2pos = self.grouping_list[1].get_position(inp_sch)
+                key2val = inputTuple.get_code(key2pos)
 
         if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
             # no value needed for Zero-input aggregate,
@@ -336,6 +338,8 @@ class CGroupBy(algebra.GroupBy, CCOperator):
             valpos = self.aggregate_list[0].input.get_position(self.scheme())
         else:
             assert False, "only support Unary or Zeroary aggregates"
+
+        val = inputTuple.get_code(valpos)
 
         op = self.aggregate_list[0].__class__.__name__
 
@@ -403,19 +407,32 @@ class CHashJoin(algebra.Join, CCOperator):
 
     def consume(self, t, src, state):
         if src.childtag == "right":
+            my_sch = self.scheme()
+
             declr_template = """std::unordered_map\
-            <int64_t, std::vector<%(in_tuple_type)s>* > %(hashname)s;
+            <%(keytype)s, std::vector<%(in_tuple_type)s> > %(hashname)s;
             """
 
-            right_template = """insert(%(hashname)s, %(keyname)s, %(keypos)s);
+            right_template = """insert(%(hashname)s, %(keyval)s, %(in_tuple_name)s);
             """
 
             hashname = self._hashname
-            keyname = t.name
-
             keypos = self.right_keypos
+            keyval = t.get_code(self.right_keypos)
+
+            if self.rightCondIsRightAttr:
+                keytype = self.language().typename(
+                    self.condition.right.typeof(
+                        my_sch,
+                        None))
+            else:
+                keytype = self.language().typename(
+                    self.condition.left.typeof(
+                        my_sch,
+                        None))
 
             in_tuple_type = t.getTupleTypename()
+            in_tuple_name = t.name
 
             # declaration of hash map
             hashdeclr = declr_template % locals()
@@ -429,17 +446,17 @@ class CHashJoin(algebra.Join, CCOperator):
         if src.childtag == "left":
             left_template = """
           for (auto %(right_tuple_name)s : \
-          lookup(%(hashname)s, %(keyname)s.get(%(keypos)s))) {
+          lookup(%(hashname)s, %(keyval)s)) {
             auto %(out_tuple_name)s = \
-            combine<%(out_tuple_type)s> (%(keyname)s, %(right_tuple_name)s);
+            %(out_tuple_type)s::create(%(keyname)s, %(right_tuple_name)s);
          %(inner_plan_compiled)s
       }
       """
             hashname = self._hashname
             keyname = t.name
             keytype = t.getTupleTypename()
-
             keypos = self.left_keypos
+            keyval = t.get_code(keypos)
 
             right_tuple_name = gensym()
 
@@ -482,11 +499,23 @@ class CSelect(clangcommon.CSelect, CCOperator):
 
 
 class CFileScan(clangcommon.CFileScan, CCOperator):
+    ascii_scan_template = """
+    auto %(resultsym)s = tuplesFromAscii<%%(result_type)s>("%(name)s");
+    """
+
+    # TODO binary input
+    binary_scan_template = """
+    auto %(resultsym)s = tuplesFromAscii<%%(result_type)s>("%(name)s");
+    """
+
     def __get_ascii_scan_template__(self):
-        return ascii_scan_template
+        return self.ascii_scan_template
 
     def __get_binary_scan_template__(self):
-        return binary_scan_template
+        return self.binary_scan_template
+
+    def __get_relation_decl_template__(self, name):
+        return """std::vector<%(tuple_type)s> %(resultsym)s;"""
 
 
 class CStore(clangcommon.BaseCStore, CCOperator):
@@ -499,13 +528,13 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         schemafile = self.write_schema(self.scheme())
         state.addPreCode(schemafile)
         state.addPreCode(opentuple)
-        code += "int logi = 0;\n"
-        code += "for (logi = 0; logi < %s.numFields() - 1; logi++) {\n" \
-                % (t.name)
-        code += self.language().log_file_unquoted("%s.get(logi)" % t.name)
-        code += "}\n "
-        code += "logfile << %s.get(logi);\n" % (t.name)
+
+        loggings = emitlist([self.language().log_file_unquoted(
+            "{0}".format(t.get_code(i))) for i in range(len(t.scheme))])
+        code += loggings
+
         code += "logfile << '\\n';"
+
         state.addPostCode('logfile.close();')
 
         return code
@@ -521,6 +550,7 @@ class CStore(clangcommon.BaseCStore, CCOperator):
 
 
 class MemoryScanOfFileScan(rules.Rule):
+
     """A rewrite rule for making a scan into
     materialization in memory then memory scan"""
 
@@ -553,6 +583,7 @@ def clangify(emit_print):
 
 
 class CCAlgebra(Algebra):
+
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         """ To store results into a file or onto console """
         self.emit_print = emit_print

@@ -1,0 +1,47 @@
+-- arbitrarily favor new value in case of tie
+def pickval(value, arg, _value, _arg):
+    case when value >= _value then arg
+        else _arg end;
+
+uda ArgMax(outcome, lprob) {
+   -- init
+   [0 as _outcome, 0 as _lprob];
+   
+   -- update
+   [pickval(lprob, outcome, _lprob, _outcome),
+    pickval(lprob, lprob, _lprob, _lprob)];
+
+   -- output
+   [_lprob, _outcome];
+};
+
+
+input = SCAN(testdata);
+CondP = SCAN(conditionals);
+
+-- an alternation operation like an unpivot
+-- may be unnecessary if input already comes in a sparse format
+input_sp0 = select input.id as id, input.x0 as value, 0 as index from input;
+input_sp1 = select input.id as id, input.x1 as value, 1 as index from input;
+input_sp2 = select input.id as id, input.x2 as value, 2 as index from input;
+input_sp3 = select input.id as id, input.x3 as value, 3 as index from input;
+input_sp4 = select input.id as id, input.x4 as value, 4 as index from input;
+input_sp01 = UNIONALL(input_sp0, input_sp1);
+input_sp02 = UNIONALL(input_sp01, input_sp2);
+input_sp03 = UNIONALL(input_sp02, input_sp3);
+input_sp = UNIONALL(input_sp03, input_sp4);
+
+-- calculate probability of outcomes
+Poe = select input_sp.id as inputId, 
+      sum(CondP.lp) as lprob, 
+      CondP.outcome as outcome 
+from CondP, input_sp
+where
+CondP.index=input_sp.index
+and CondP.value=input_sp.value;
+--group by CondP.outcome, input_sp.id;
+
+-- select the max probability outcome
+classes = select inputId, ArgMax(outcome, lprob) from Poe;
+
+store(classes, OUTPUT);

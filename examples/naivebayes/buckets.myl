@@ -1,0 +1,11 @@
+input = SCAN(testdata);
+
+discrete = select id, 
+x0/10 as x0, 
+x1/10 as x1, 
+x2/10 as x2, 
+x3/10 as x3, 
+x4/10 as x4 
+from input;
+
+store(discrete, OUTPUT);
