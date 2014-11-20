@@ -500,12 +500,14 @@ class CSelect(clangcommon.CSelect, CCOperator):
 
 class CFileScan(clangcommon.CFileScan, CCOperator):
     ascii_scan_template = """
-    auto& %(resultsym)s = *(tuplesFromAscii<%%(result_type)s>("%(name)s"));
+    std::vector<%%(result_type)s> %(resultsym)s;
+    tuplesFromAscii<%%(result_type)s>("%(name)s", %(resultsym)s);
     """
 
     # TODO binary input
     binary_scan_template = """
-    auto& %(resultsym)s = *(tuplesFromAscii<%%(result_type)s>("%(name)s"));
+    std::vector<%%(result_type)s> %(resultsym)s;
+    tuplesFromAscii<%%(result_type)s>("%(name)s", %(resultsym)s);
     """
 
     def __get_ascii_scan_template__(self):
