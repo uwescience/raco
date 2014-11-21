@@ -23,7 +23,7 @@ def hack_plan(alg, plan):
         alg.set_join_type(GrappaShuffleHashJoin)
 
 
-def emitCode(query, name, algType, plan=None, emit_print=None):
+def emitCode(query, name, algType, plan=None, emit_print=None, dir='.'):
     if emit_print is not None:
         alg = algType(emit_print)
     else:
@@ -60,7 +60,7 @@ def emitCode(query, name, algType, plan=None, emit_print=None):
     code += comment("Query " + query)
     code += compile(dlog.physicalplan)
 
-    fname = name+'.cpp'
+    fname = '{dir}/{name}.cpp'.format(dir=dir, name=name)
     with open(fname, 'w') as f:
         f.write(code)
 
