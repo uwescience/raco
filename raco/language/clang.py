@@ -493,28 +493,30 @@ class CStore(clangcommon.BaseCStore, CCOperator):
 
 class CDoWhile(algebra.DoWhile, CCOperator):
     def produce(self, state):
-        self.input.produce(state)
+        pass
 
     def consume(self, t, src, state):
         code = ''
         return code
 
 
-class CScanTemp(algebra.ScanTemp, CCOperator):
+class CStoreTemp(clangcommon.CStoreTemp, CCOperator):
+    pass
+
+
+class CScanTemp(clangcommon.CScanTemp, CCOperator):
+    pass
+
+
+class CSequence(algebra.Sequence, CCOperator):
     def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
-        code = ''
-        return code
-
-
-class CStoreTemp(algebra.StoreTemp, CCOperator):
-    def produce(self, state):
-        self.input.produce(state)
+        for child in self.args:
+            child.produce(state)
 
     def consume(self, t, src, state):
         code = ""
+        innercode = self.parent().consume(self.newtuple, self, state)
+        code += innercode
         return code
 
 
@@ -546,6 +548,7 @@ def clangify(emit_print):
         rules.OneToOne(algebra.StoreTemp, CStoreTemp),
         rules.OneToOne(algebra.ScanTemp, CScanTemp),
         rules.OneToOne(algebra.DoWhile, CDoWhile),
+        rules.OneToOne(algebra.Sequence, CSequence),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, CStore),
