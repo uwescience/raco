@@ -1,6 +1,6 @@
 from raco import algebra
 import raco.language as language
-from .pipelines import Pipelined
+from .pipelines import Pipelined, CompileState
 from raco.utility import emit
 import raco.viz as viz
 import os
@@ -70,37 +70,27 @@ def compile(expr):
     algebra.reset()
     exprcode = []
 
-    # TODO, actually use Parallel[Store...]]? Right now assumes it
-    if isinstance(expr, algebra.Parallel):
-        assert len(expr.children()) == 1, "expected single expression only"
-        store_expr = expr.children()[0]
-        assert isinstance(store_expr, algebra.Store)
-        assert len(store_expr.children()) == 1, "expected single expr only"
-
-        lang = store_expr.language()
-
-        if isinstance(store_expr, Pipelined):
-            body = lang.body(store_expr.compilePipeline())
-        else:
-            body = lang.body(expr)
-        exprcode.append(emit(body))
-    elif isinstance(expr, algebra.Sequence):
+    if isinstance(expr, algebra.Sequence):
         lang = expr.children()[0].language()
-        if isinstance(expr, Pipelined):
-            print 'pipelined'
-            body = lang.body(expr.compilePipeline())
-        else:
-            body = lang.body(expr)
+        state = CompileState(lang)
+        print 'sequence'
+        for sub_expr in expr.children():
+            if isinstance(sub_expr, Pipelined):
+                body = lang.body(sub_expr.compilePipeline(state))
+            else:
+                body = lang.body(sub_expr)
         exprcode.append(emit(body))
     else:
-        # TODO fix?
+        # TODO, actually use Parallel[Store...]]? Right now assumes it
+        assert isinstance(expr, algebra.Parallel)
         store_expr = expr
         assert isinstance(store_expr, algebra.Store)
         assert len(store_expr.children()) == 1, "expected single expr only"
 
         lang = store_expr.language()
+        state = CompileState(lang)
         if isinstance(store_expr, Pipelined):
-            body = lang.body(store_expr.compilePipeline())
+            body = lang.body(store_expr.compilePipeline(state))
         else:
             body = lang.body(expr)
         exprcode.append(emit(body))

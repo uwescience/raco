@@ -508,18 +508,6 @@ class CScanTemp(clangcommon.CScanTemp, CCOperator):
     pass
 
 
-class CSequence(algebra.Sequence, CCOperator):
-    def produce(self, state):
-        for child in self.args:
-            child.produce(state)
-
-    def consume(self, t, src, state):
-        code = ""
-        innercode = self.parent().consume(self.newtuple, self, state)
-        code += innercode
-        return code
-
-
 class MemoryScanOfFileScan(rules.Rule):
 
     """A rewrite rule for making a scan into
@@ -548,7 +536,6 @@ def clangify(emit_print):
         rules.OneToOne(algebra.StoreTemp, CStoreTemp),
         rules.OneToOne(algebra.ScanTemp, CScanTemp),
         rules.OneToOne(algebra.DoWhile, CDoWhile),
-        rules.OneToOne(algebra.Sequence, CSequence),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, CStore),

@@ -280,10 +280,8 @@ class Pipelined(object):
         """Denotation for consuming a tuple"""
         return
 
-    def compilePipeline(self):
+    def compilePipeline(self, state):
         self.__markAllParents__()
-
-        state = CompileState(self.language())
 
         state.addCode(
             self.language().comment("Compiled subplan for %s" % self))

@@ -445,13 +445,6 @@ class CScanTemp(Pipelined, algebra.ScanTemp):
 
     def consume(self, t, src, state):
         code = ""
-        assignment_template = _cgenv.get_template('assignment.cpp')
-
-        dst_name = self.newtuple.name
-        dst_type_name = self.newtuple.getTupleTypename()
-
-        # declaration of tuple instance
-        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
         return code
 
 from raco.algebra import ZeroaryOperator
