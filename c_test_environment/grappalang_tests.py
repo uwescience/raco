@@ -16,10 +16,10 @@ from emitcode import emitCode
 
 class DatalogGrappaTest(unittest.TestCase, DatalogPlatformTest):
     def check(self, query, name):
-        emitCode(query, 'grappa_%s' % name, GrappaAlgebra, dir='c_test_environment')
-        # TODO actually be able to check the query
-        raise SkipTest(query)
         with Chdir("c_test_environment") as d:
+            emitCode(query, 'grappa_%s' % name, GrappaAlgebra)
+            # TODO actually be able to check the query
+            raise SkipTest(query)
             checkquery(name, GrappalangRunner())
 
     def check_file(self, query, name):
