@@ -436,18 +436,42 @@ class CStoreTemp(Pipelined, algebra.StoreTemp):
 
         # declaration of tuple instance
         code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
+        dst_set_func = self.newtuple.set_func_code(dst_fieldnum)
+        src_label, src_expr = src_label_expr
+        code += assignment_template.render(locals())
+
+        innercode = self.parent().consume(self.newtuple, self, state)
+        code += innercode
+
+        print 'storetemp'
+        print code
         return code
+
+from raco.algebra import ZeroaryOperator
 
 
 class CScanTemp(Pipelined, algebra.ScanTemp):
     def produce(self, state):
-        pass
+        return None
 
     def consume(self, t, src, state):
-        code = ""
-        return code
+        memory_scan_template = self.language().cgenv().get_template(
+            'memory_scan.cpp')
 
-from raco.algebra import ZeroaryOperator
+        stagedTuple = state.lookupTupleDef(t)
+        tuple_type = stagedTuple.getTupleTypename()
+        # TODO set name to compilestatemap
+        tuple_name = stagedTuple.name
+
+        inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
+
+        code = memory_scan_template.render(locals())
+        state.setPipelineProperty("type", "in_memory")
+        state.addPipeline(code)
+        print 'scantemp'
+        print code
+
+        return None
 
 
 class CFileScan(Pipelined, algebra.Scan):
