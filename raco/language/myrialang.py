@@ -174,6 +174,15 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
         }
 
 
+class MyriaLimit(algebra.Limit, MyriaOperator):
+    def compileme(self, inputid):
+        return {
+            "opType": "Limit",
+            "argChild": inputid,
+            "numTuples": self.count,
+        }
+
+
 class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
     def compileme(self, leftid, rightid):
         return {
@@ -850,6 +859,18 @@ def check_shuffle_xor(exp):
     return False
 
 
+class CollectBeforeLimit(rules.Rule):
+    """Similar to a decomposable GroupBy, rewrite Limit as
+    Limit[Collect[Limit]]"""
+    def fire(self, exp):
+        if exp.__class__ == algebra.Limit:
+            return MyriaLimit(exp.count,
+                              algebra.Collect(
+                                  MyriaLimit(exp.count, exp.input)))
+
+        return exp
+
+
 class ShuffleBeforeSetop(rules.Rule):
     def fire(self, exp):
         if not isinstance(exp, (algebra.Difference, algebra.Intersection)):
@@ -1428,7 +1449,8 @@ left_deep_tree_shuffle_logic = [
     ShuffleBeforeSetop(),
     ShuffleBeforeJoin(),
     BroadcastBeforeCross(),
-    ShuffleAfterSingleton()
+    ShuffleAfterSingleton(),
+    CollectBeforeLimit(),
 ]
 
 # 7. distributed groupby

@@ -602,7 +602,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        result = self.execute_query(query, skip_json=True)
+        result = self.execute_query(query)
         self.assertEquals(len(result), 3)
 
     def test_sql_limit(self):
@@ -611,7 +611,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        result = self.execute_query(query, skip_json=True)
+        result = self.execute_query(query)
         self.assertEquals(len(result), 3)
 
     def test_table_literal_boolean(self):
