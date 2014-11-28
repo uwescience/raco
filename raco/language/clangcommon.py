@@ -429,13 +429,14 @@ class CStoreTemp(Pipelined, algebra.StoreTemp):
 
     def consume(self, t, src, state):
         code = ""
+        # TODO set name to compilestatemap
         dst_type_name = t.getTupleTypename()
+        state.saveTupleDef("temp", t)
 
         vecdecl = "std::vector<%s> temp;\n" % (dst_type_name)
         state.addDeclarations([vecdecl])
 
         code += "temp.push_back(%s);\n" % (t.name)
-        print 'storetemp'
         return code
 
 from raco.algebra import ZeroaryOperator
@@ -443,25 +444,18 @@ from raco.algebra import ZeroaryOperator
 
 class CScanTemp(Pipelined, algebra.ScanTemp):
     def produce(self, state):
-        resultsym = gensym()
-        state.saveExpr(self, resultsym)
-        self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
-        state.addDeclarations([self.newtuple.generateDefinition()])
-
-        stagedTuple = self.newtuple
+        inputsym = "temp"
+        stagedTuple = state.lookupTupleDef("temp")
         tuple_type = stagedTuple.getTupleTypename()
-        # TODO set name to compilestatemap
         tuple_name = stagedTuple.name
 
         memory_scan_template = self.language().cgenv().get_template(
             'memory_scan.cpp')
-        inputsym = "temp"
         inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
 
         code = memory_scan_template.render(locals())
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
-        #self.parent().consume(stagedTuple, self, state)
 
     def consume(self, t, src, state):
         return ''

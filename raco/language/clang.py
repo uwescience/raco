@@ -472,7 +472,6 @@ class CStore(clangcommon.BaseCStore, CCOperator):
 
         loggings = emitlist([self.language().log_file_unquoted(
             "{0}".format(t.get_code(i))) for i in range(len(t.scheme))])
-        print loggings
         code += loggings
 
         code += "logfile << '\\n';"
