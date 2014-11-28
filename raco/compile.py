@@ -73,8 +73,6 @@ def compile(expr):
     if isinstance(expr, algebra.Sequence):
         lang = expr.children()[0].language()
         state = CompileState(lang)
-        print 'sequence'
-
         for sub_expr in expr.children():
             if isinstance(sub_expr, Pipelined):
                 body = lang.body(sub_expr.compilePipeline(state))
