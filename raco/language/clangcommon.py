@@ -429,22 +429,13 @@ class CStoreTemp(Pipelined, algebra.StoreTemp):
 
     def consume(self, t, src, state):
         code = ""
-        assignment_template = _cgenv.get_template('assignment.cpp')
+        dst_type_name = t.getTupleTypename()
 
-        dst_name = self.newtuple.name
-        dst_type_name = self.newtuple.getTupleTypename()
+        vecdecl = "std::vector<%s> temp;\n" % (dst_type_name)
+        state.addDeclarations([vecdecl])
 
-        # declaration of tuple instance
-        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
-        dst_set_func = self.newtuple.set_func_code(dst_fieldnum)
-        src_label, src_expr = src_label_expr
-        code += assignment_template.render(locals())
-
-        innercode = self.parent().consume(self.newtuple, self, state)
-        code += innercode
-
+        code += "temp.push_back(%s);\n" % (t.name)
         print 'storetemp'
-        print code
         return code
 
 from raco.algebra import ZeroaryOperator
@@ -452,26 +443,28 @@ from raco.algebra import ZeroaryOperator
 
 class CScanTemp(Pipelined, algebra.ScanTemp):
     def produce(self, state):
-        return None
+        resultsym = gensym()
+        state.saveExpr(self, resultsym)
+        self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
+        state.addDeclarations([self.newtuple.generateDefinition()])
 
-    def consume(self, t, src, state):
-        memory_scan_template = self.language().cgenv().get_template(
-            'memory_scan.cpp')
-
-        stagedTuple = state.lookupTupleDef(t)
+        stagedTuple = self.newtuple
         tuple_type = stagedTuple.getTupleTypename()
         # TODO set name to compilestatemap
         tuple_name = stagedTuple.name
 
+        memory_scan_template = self.language().cgenv().get_template(
+            'memory_scan.cpp')
+        inputsym = "temp"
         inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
 
         code = memory_scan_template.render(locals())
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
-        print 'scantemp'
-        print code
+        #self.parent().consume(stagedTuple, self, state)
 
-        return None
+    def consume(self, t, src, state):
+        return ''
 
 
 class CFileScan(Pipelined, algebra.Scan):
