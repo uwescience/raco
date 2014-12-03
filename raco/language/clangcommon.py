@@ -432,11 +432,13 @@ class CStoreTemp(Pipelined, algebra.StoreTemp):
         # TODO set name to compilestatemap
         dst_type_name = t.getTupleTypename()
         state.saveTupleDef(self.name, t)
+        dst_name = gensym()
+        state.saveTempDef(self.name, dst_name)
 
-        vecdecl = "std::vector<%s> temp;\n" % (dst_type_name)
+        vecdecl = "std::vector<%s> %s;\n" % (dst_type_name, dst_name)
         state.addDeclarations([vecdecl])
 
-        code += "temp.push_back(%s);\n" % (t.name)
+        code += "%s.push_back(%s);\n" % (dst_name, t.name)
         return code
 
 from raco.algebra import ZeroaryOperator
@@ -444,7 +446,7 @@ from raco.algebra import ZeroaryOperator
 
 class CScanTemp(Pipelined, algebra.ScanTemp):
     def produce(self, state):
-        inputsym = "temp"
+        inputsym = state.lookupTempDef(self.name)
         stagedTuple = state.lookupTupleDef(self.name)
         tuple_type = stagedTuple.getTupleTypename()
         tuple_name = stagedTuple.name

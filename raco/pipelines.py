@@ -45,6 +45,7 @@ class CompileState:
         self.current_pipeline_properties = {}
         self.current_pipeline_precode = []
         self.current_pipeline_postcode = []
+        self.temp_storage_mapping = {}
 
         self.main_wait_statements = set()
 
@@ -221,6 +222,12 @@ class CompileState:
 
     def saveTupleDef(self, sym, tupledef):
         self.tupledefs[sym] = tupledef
+
+    def saveTempDef(self, sym, tupledef):
+        self.temp_storage_mapping[sym] = tupledef
+
+    def lookupTempDef(self, sym):
+        return self.temp_storage_mapping[sym]
 
     def getCurrentPipelineId(self):
         return self.pipeline_count
