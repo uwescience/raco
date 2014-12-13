@@ -781,8 +781,10 @@ def check_shuffle_xor(exp):
 
     Note that we assume that inputs are shuffled in a compatible way.
     """
-    left_shuffle = isinstance(exp.left, algebra.Shuffle)
-    right_shuffle = isinstance(exp.right, algebra.Shuffle)
+    left_shuffle = isinstance(exp.left, (algebra.Shuffle,
+                                         algebra.HyperCubeShuffle))
+    right_shuffle = isinstance(exp.right, (algebra.Shuffle,
+                                           algebra.HyperCubeShuffle))
 
     if left_shuffle and right_shuffle:
         return True

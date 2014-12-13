@@ -1,0 +1,6 @@
+A = empty(i: int, j: int, a: int);
+B = empty(j: int, k: int, b: int);
+AB = [from A, B
+      where A.j = B.j
+      emit i, k, sum(a*b) as ab];
+store(AB, AB);

@@ -2,6 +2,7 @@
 
 {
     'public:adhoc:edges': [('src','LONG_TYPE'), ('dst', 'LONG_TYPE')],
+    'public:adhoc:TwitterK': [('followee','LONG_TYPE'), ('follower', 'LONG_TYPE')],
     'public:adhoc:vertices': [('id','LONG_TYPE')],
     'public:adhoc:points': [('id','LONG_TYPE'), ('x','DOUBLE_TYPE'), ('y', 'DOUBLE_TYPE')],
     'public:adhoc:sc_points': [('id', 'LONG_TYPE'), ('v', 'DOUBLE_TYPE')],

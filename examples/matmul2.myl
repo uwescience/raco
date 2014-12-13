@@ -1,0 +1,6 @@
+A = scan(TwitterK);
+B = scan(TwitterK);
+AB = [from A, B
+      where A.$1 = B.$0
+      emit A.$0 as i, B.$1 as k, count(*) as ab];
+store(AB, AB);
