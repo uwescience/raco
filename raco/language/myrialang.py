@@ -245,6 +245,14 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
         }
 
 
+class MyriaSink(algebra.Sink, MyriaOperator):
+    def compileme(self, inputid):
+        return {
+            "opType": "SinkRoot",
+            "argChild": inputid,
+        }
+
+
 class MyriaAppendTemp(algebra.AppendTemp, MyriaOperator):
     def compileme(self, inputid):
         return {
@@ -1356,6 +1364,7 @@ myriafy = [
     rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
     rules.OneToOne(algebra.Difference, MyriaDifference),
     rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
+    rules.OneToOne(algebra.Sink, MyriaSink),
 ]
 
 # 9. break communication boundary
@@ -1602,7 +1611,8 @@ def compile_to_json(raw_query, logical_plan, physical_plan,
     string and passed along unchanged."""
 
     # Store/StoreTemp is a reasonable physical plan... for now.
-    if isinstance(physical_plan, (algebra.Store, algebra.StoreTemp)):
+    root_ops = (algebra.Store, algebra.StoreTemp, algebra.Sink)
+    if isinstance(physical_plan, root_ops):
         physical_plan = algebra.Parallel([physical_plan])
 
     subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)

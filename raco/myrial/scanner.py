@@ -15,7 +15,7 @@ word_operators = ['AND', 'OR', 'NOT']
 
 builtins = ['EMPTY', 'WORKER_ID', 'SCAN', 'COUNTALL', 'COUNT', 'STORE',
             'DIFF', 'CROSS', 'JOIN', 'UNIONALL', 'INTERSECT', 'DISTINCT',
-            'LIMIT']
+            'LIMIT', 'SINK']
 
 
 # identifiers with special meaning; case-insensitive

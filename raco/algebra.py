@@ -1440,6 +1440,22 @@ class ScanTemp(ZeroaryOperator):
                                                 sch=self._scheme)
 
 
+class Sink(UnaryOperator):
+
+    """ Throw the tuples in an relation on the floor."""
+    def __init__(self, input=None):
+        UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def shortStr(self):
+        return "{op}".format(op=self.opname())
+
+    def __repr__(self):
+        return "{op}({pl!r})".format(op=self.opname(), pl=self.input)
+
+
 class Parallel(NaryOperator):
 
     """Execute a set of independent plans in parallel."""
