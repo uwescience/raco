@@ -94,6 +94,16 @@ def compile_expr(op, child_scheme, state_scheme):
                 'outputType': op._type
             }
         }
+    elif isinstance(op, expression.SUBSTR):
+        children = []
+        op.operands[1] = expression.CAST(types.INT_TYPE, op.operands[1])
+        op.operands[2] = expression.CAST(types.INT_TYPE, op.operands[2])
+        for operand in op.operands:
+            children.append(compile_expr(operand, child_scheme, state_scheme))
+        return {
+            'type': op.opname(),
+            'children': children
+        }
 
     ####
     # Everything below here is compiled automatically
