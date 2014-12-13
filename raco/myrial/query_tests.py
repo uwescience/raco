@@ -2613,6 +2613,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
 
+    def test_sink(self):
+        query = """
+        ZERO = [0];
+        A = [from ZERO emit *];
+        SINK(A);
+        """
+        self.execute_query(query)
+
     def test_string_cast(self):
         query = """
         emp = SCAN(%s);
