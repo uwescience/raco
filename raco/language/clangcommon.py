@@ -421,24 +421,6 @@ class CProject(Pipelined, algebra.Project):
         return code
 
 
-class CDoWhile(Pipelined, algebra.DoWhile):
-    def produce(self, state):
-        num_ops = len(self.args)
-        for index in range(num_ops):
-            self.args[index].produce(state)
-
-    def consume(self, t, src, state):
-        code = ''
-        dowhile_template = self.language().cgenv().get_template('dowhile.cpp')
-        num_ops = len(self.args)
-        temp_name = self.children()[0].name
-        temp_name = state.lookupTempDef(temp_name)
-        inner_code = ''
-        while_condition = '0'
-        code = dowhile_template.render(locals())
-        return code
-
-
 from raco.algebra import ZeroaryOperator
 
 
