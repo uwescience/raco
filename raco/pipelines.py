@@ -227,7 +227,10 @@ class CompileState:
         self.temp_storage_mapping[sym] = tupledef
 
     def lookupTempDef(self, sym):
-        return self.temp_storage_mapping[sym]
+        if sym in self.temp_storage_mapping:
+            return self.temp_storage_mapping[sym]
+        else:
+            return None
 
     def getCurrentPipelineId(self):
         return self.pipeline_count

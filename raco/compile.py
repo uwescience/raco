@@ -81,7 +81,7 @@ def compile(expr):
         exprcode.append(emit(body))
     else:
         # TODO, actually use Parallel[Store...]]? Right now assumes it
-        assert isinstance(expr, algebra.Parallel)
+        # assert isinstance(expr, algebra.Parallel)
         store_expr = expr
         assert isinstance(store_expr, algebra.Store)
         assert len(store_expr.children()) == 1, "expected single expr only"

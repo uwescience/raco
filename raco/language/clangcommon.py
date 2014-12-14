@@ -421,46 +421,25 @@ class CProject(Pipelined, algebra.Project):
         return code
 
 
-class CStoreTemp(Pipelined, algebra.StoreTemp):
+class CDoWhile(Pipelined, algebra.DoWhile):
     def produce(self, state):
-        self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
-        state.addDeclarations([self.newtuple.generateDefinition()])
-        self.input.produce(state)
+        num_ops = len(self.args)
+        for index in range(num_ops):
+            self.args[index].produce(state)
 
     def consume(self, t, src, state):
-        code = ""
-        # TODO set name to compilestatemap
-        dst_type_name = t.getTupleTypename()
-        state.saveTupleDef(self.name, t)
-        dst_name = gensym()
-        state.saveTempDef(self.name, dst_name)
-
-        vecdecl = "std::vector<%s> %s;\n" % (dst_type_name, dst_name)
-        state.addDeclarations([vecdecl])
-
-        code += "%s.push_back(%s);\n" % (dst_name, t.name)
+        code = ''
+        dowhile_template = self.language().cgenv().get_template('dowhile.cpp')
+        num_ops = len(self.args)
+        temp_name = self.children()[0].name
+        temp_name = state.lookupTempDef(temp_name)
+        inner_code = ''
+        while_condition = '0'
+        code = dowhile_template.render(locals())
         return code
 
+
 from raco.algebra import ZeroaryOperator
-
-
-class CScanTemp(Pipelined, algebra.ScanTemp):
-    def produce(self, state):
-        inputsym = state.lookupTempDef(self.name)
-        stagedTuple = state.lookupTupleDef(self.name)
-        tuple_type = stagedTuple.getTupleTypename()
-        tuple_name = stagedTuple.name
-
-        memory_scan_template = self.language().cgenv().get_template(
-            'memory_scan.cpp')
-        inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
-
-        code = memory_scan_template.render(locals())
-        state.setPipelineProperty("type", "in_memory")
-        state.addPipeline(code)
-
-    def consume(self, t, src, state):
-        return ''
 
 
 class CFileScan(Pipelined, algebra.Scan):
