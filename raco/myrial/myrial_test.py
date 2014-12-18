@@ -1,13 +1,13 @@
 import json
 import unittest
 
-from raco.language.myrialang import compile_to_json
+from raco.language.myrialang import compile_to_json, MyriaStore, MyriaSink
 import raco.fakedb
-from raco.language.myrialang import MyriaLeftDeepTreeAlgebra
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.viz
 from raco.replace_with_repr import replace_with_repr
+from raco import relation_key
 
 
 class MyrialTestCase(unittest.TestCase):
@@ -67,6 +67,28 @@ class MyrialTestCase(unittest.TestCase):
         self.db.evaluate(plan)
 
         return self.db.get_table(output)
+
+    def evaluate_sink_query(self, query):
+        """Run a test with query containing sink operator"""
+        plan = self.get_plan(query)
+
+        sink_count = [1]     # see https://www.python.org/dev/peps/pep-3104/
+
+        def replace_sink_with_store(_op):
+            rel_key = relation_key.RelationKey.from_string(
+                "public:adhoc:sink_{}".format(sink_count[0]))
+            new_op = _op
+            if isinstance(_op, MyriaSink):
+                new_op = MyriaStore(
+                    plan=_op.input,
+                    relation_key=rel_key)
+                sink_count[0] += 1
+            new_op.apply(replace_sink_with_store)
+            return new_op
+
+        new_plan = replace_sink_with_store(plan)
+        print new_plan
+        self.db.evaluate(new_plan)
 
     def check_result(self, query, expected, test_logical=False,
                      skip_json=False, output='OUTPUT', scheme=None):

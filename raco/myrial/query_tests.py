@@ -2619,7 +2619,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         A = [from ZERO emit *];
         SINK(A);
         """
-        self.execute_query(query)
+        self.evaluate_sink_query(query)
 
     def test_string_cast(self):
         query = """
