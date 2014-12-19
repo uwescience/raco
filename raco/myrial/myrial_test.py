@@ -87,7 +87,6 @@ class MyrialTestCase(unittest.TestCase):
             return new_op
 
         new_plan = replace_sink_with_store(plan)
-        print new_plan
         self.db.evaluate(new_plan)
 
     def check_result(self, query, expected, test_logical=False,
