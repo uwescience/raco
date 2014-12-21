@@ -364,6 +364,26 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_table('OUTPUT')
         self.assertEquals(result, self.expected2)
 
+    def test_hyper_cube_tie_breaking_heuristic(self):
+        query = """
+        T = SCAN(public:adhoc:Z);
+        U = [FROM T AS T1, T AS T2, T AS T3, T AS T4
+             WHERE T1.dst=T2.src AND T2.dst=T3.src AND
+                   T3.dst=T4.src AND T4.dst=T1.src
+             EMIT T1.src AS x, T3.dst AS y];
+        STORE(U, OUTPUT);
+        """
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp, hypercube=True)
+
+        def get_max_dim_size(_op):
+            if isinstance(_op, MyriaHyperShuffleProducer):
+                yield max(_op.hyper_cube_dimensions)
+
+        # the max hypercube dim size will be 8, e.g (1, 8, 1, 8) without
+        # tie breaking heuristic, now it is (2, 4, 2, 4)
+        self.assertTrue(max(pp.postorder(get_max_dim_size)) <= 4)
+
     def test_naryjoin_merge(self):
         query = """
         T1 = scan(public:adhoc:Z);
