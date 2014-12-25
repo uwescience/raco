@@ -377,6 +377,7 @@ class CApply(Pipelined, algebra.Apply):
             state.addDeclarations(expr_decls)
 
             code += assignment_template.render(locals())
+        print self.parent()
 
         innercode = self.parent().consume(self.newtuple, self, state)
         code += innercode

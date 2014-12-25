@@ -74,7 +74,16 @@ def compile(expr):
         lang = expr.children()[0].language()
         state = CompileState(lang)
         for sub_expr in expr.children():
-            if isinstance(sub_expr, Pipelined):
+            if isinstance(sub_expr, algebra.DoWhile):
+                state.addCode("do {\n")
+                num_child = len(sub_expr.children()) - 1
+                for index in range(num_child):
+                    lang.body(sub_expr.children()[index].compilePipeline(state))
+                condition = lang.body(
+                    sub_expr.children()[num_child].compilePipeline(state))
+#                print condition
+                state.addCode("} while (0);\n")
+            elif isinstance(sub_expr, Pipelined):
                 body = lang.body(sub_expr.compilePipeline(state))
             else:
                 body = lang.body(sub_expr)

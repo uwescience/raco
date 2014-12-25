@@ -491,24 +491,6 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         return code
 
 
-class CDoWhile(algebra.DoWhile, CCOperator):
-    def produce(self, state):
-        num_ops = len(self.args)
-        for index in range(num_ops):
-            self.args[index].produce(state)
-
-    def consume(self, t, src, state):
-        code = ''
-        dowhile_template = self.language().cgenv().get_template('do_while.cpp')
-        num_ops = len(self.args)
-        temp_name = self.children()[0].name
-        temp_name = state.lookupTempDef(temp_name)
-        inner_code = ''
-        while_condition = '0'
-        code = dowhile_template.render(locals())
-        return code
-
-
 class CStoreTemp(algebra.StoreTemp, CCOperator):
     def produce(self, state):
         if not state.lookupTempDef(self.name):
@@ -576,7 +558,6 @@ def clangify(emit_print):
         rules.OneToOne(algebra.UnionAll, CUnionAll),
         rules.OneToOne(algebra.StoreTemp, CStoreTemp),
         rules.OneToOne(algebra.ScanTemp, CScanTemp),
-        rules.OneToOne(algebra.DoWhile, CDoWhile),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, CStore),
