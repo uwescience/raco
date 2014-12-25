@@ -333,7 +333,7 @@ class PushSelects(Rule):
 
         :param op: The root of an operator tree
         :type op: raco.algebra.Operator
-        :type cond: The selection condition
+        :param cond: The selection condition
         :type cond: raco.expression.expression
 
         :return: A (possibly modified) operator.
@@ -345,24 +345,35 @@ class PushSelects(Rule):
             return op
         elif isinstance(op, algebra.CompositeBinaryOperator):
             # Joins and cross-products; consider conversion to an equijoin
-            left_len = len(op.left.scheme())
-            accessed = accessed_columns(cond)
-            in_left = [col < left_len for col in accessed]
-            if all(in_left):
-                # Push the select into the left sub-tree.
-                op.left = PushSelects.descend_tree(op.left, cond)
-                return op
-            elif not any(in_left):
-                # Push into right subtree; rebase column indexes
-                expression.rebase_expr(cond, left_len)
-                op.right = PushSelects.descend_tree(op.right, cond)
-                return op
-            else:
-                # Selection includes both children; attempt to create an
-                # equijoin condition
-                cols = PushSelects.is_column_equality_comparison(cond)
-                if cols:
-                    return op.add_equijoin_condition(cols[0], cols[1])
+            # Expressions containing random do not commute across joins
+            has_random = False
+            queue = [cond];
+            while queue:
+                child = queue.pop(0);
+                if isinstance(child, expression.function.RANDOM):
+                    has_random = True
+                    break
+                for c in child.get_children():
+                    queue.append(c)
+            if not has_random:
+                left_len = len(op.left.scheme())
+                accessed = accessed_columns(cond)
+                in_left = [col < left_len for col in accessed]
+                if all(in_left):
+                    # Push the select into the left sub-tree.
+                    op.left = PushSelects.descend_tree(op.left, cond)
+                    return op
+                elif not any(in_left):
+                    # Push into right subtree; rebase column indexes
+                    expression.rebase_expr(cond, left_len)
+                    op.right = PushSelects.descend_tree(op.right, cond)
+                    return op
+                else:
+                    # Selection includes both children; attempt to create an
+                    # equijoin condition
+                    cols = PushSelects.is_column_equality_comparison(cond)
+                    if cols:
+                        return op.add_equijoin_condition(cols[0], cols[1])
         elif isinstance(op, algebra.Apply):
             # Convert accessed to a list from a set to ensure consistent order
             accessed = list(accessed_columns(cond))
