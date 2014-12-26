@@ -79,10 +79,11 @@ def compile(expr):
                 num_child = len(sub_expr.children()) - 1
                 for index in range(num_child):
                     lang.body(sub_expr.children()[index].compilePipeline(state))
-                condition = lang.body(
-                    sub_expr.children()[num_child].compilePipeline(state))
-#                print condition
-                state.addCode("} while (0);\n")
+                condition = sub_expr.children()[num_child].compilePipeline(
+                    state)
+                print condition
+                state.addCode("} while (0")
+                state.addCode(");\n")
             elif isinstance(sub_expr, Pipelined):
                 body = lang.body(sub_expr.compilePipeline(state))
             else:
