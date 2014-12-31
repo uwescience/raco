@@ -347,9 +347,9 @@ class PushSelects(Rule):
             # Joins and cross-products; consider conversion to an equijoin
             # Expressions containing random do not commute across joins
             has_random = False
-            queue = [cond];
+            queue = [cond]
             while queue:
-                child = queue.pop(0);
+                child = queue.pop(0)
                 if isinstance(child, expression.function.RANDOM):
                     has_random = True
                     break
