@@ -359,9 +359,10 @@ class CApply(Pipelined, algebra.Apply):
 
         dst_name = self.newtuple.name
         dst_type_name = self.newtuple.getTupleTypename()
-
         # declaration of tuple instance
-        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
+        if self.parent() is not None:
+            code += _cgenv.get_template('tuple_declaration.cpp').render(
+                locals())
 
         for dst_fieldnum, src_label_expr in enumerate(self.emitters):
             dst_set_func = self.newtuple.set_func_code(dst_fieldnum)
@@ -378,7 +379,11 @@ class CApply(Pipelined, algebra.Apply):
 
             code += assignment_template.render(locals())
 
-        if self.parent() is not None:
+        if self.parent() is None:
+            state.saveExpr(self, dst_name)
+            conditiondecl = "%s %s;\n" % (dst_type_name, dst_name)
+            state.addDeclarations([conditiondecl])
+        else:
             innercode = self.parent().consume(self.newtuple, self, state)
             code += innercode
         return code

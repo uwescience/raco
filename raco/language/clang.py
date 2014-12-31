@@ -500,15 +500,20 @@ class CStoreTemp(algebra.StoreTemp, CCOperator):
 
     def consume(self, t, src, state):
         code = ""
-        dst_type_name = t.getTupleTypename()
-        state.saveTupleDef(self.name, t)
-        dst_name = gensym()
-        state.saveTempDef(self.name, dst_name)
-
-        vecdecl = "std::vector<%s> %s;\n" % (dst_type_name, dst_name)
-        state.addDeclarations([vecdecl])
-
+        if not state.lookupTempDef(self.name):
+            dst_name = self.newtuple.name
+            dst_type_name = t.getTupleTypename()
+        else:
+            dst_name = state.lookupTempDef(self.name)
+            dst_type_name = state.lookupTupleDef(self.name).getTupleTypename()
+        print dst_type_name
         code += "%s.push_back(%s);\n" % (dst_name, t.name)
+        if not state.lookupTempDef(self.name):
+            state.saveTupleDef(self.name, t)
+            state.saveTempDef(self.name, dst_name)
+            vecdecl = "std::vector<%s> %s;\n" % (dst_type_name, dst_name)
+            state.addDeclarations([vecdecl])
+
         return code
 
 

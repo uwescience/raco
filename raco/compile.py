@@ -76,13 +76,13 @@ def compile(expr):
         for sub_expr in expr.children():
             if isinstance(sub_expr, algebra.DoWhile):
                 state.addCode("do {\n")
-                num_child = len(sub_expr.children()) - 1
-                for index in range(num_child):
-                    lang.body(sub_expr.children()[index].compilePipeline(state))
-                condition = sub_expr.children()[num_child].compilePipeline(
-                    state)
-                print condition
-                state.addCode("} while (0")
+                num_child = len(sub_expr.children())
+                for i in range(num_child):
+                    lang.body(sub_expr.children()[i].compilePipeline(state))
+                condition = state.lookupExpr(
+                    sub_expr.children()[num_child - 1])
+                state.addCode("} while (")
+                state.addCode(condition + ".get<0>()")
                 state.addCode(");\n")
             elif isinstance(sub_expr, Pipelined):
                 body = lang.body(sub_expr.compilePipeline(state))
