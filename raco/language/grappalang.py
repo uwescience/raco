@@ -986,7 +986,7 @@ class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
         state.addDeclarations([outputnamedecl])
         names = [x.encode('UTF8') for x in my_sch.get_names()]
         schemefile = \
-            'writeSchema("{s}", FLAGS_output_file+".scheme");\n'.format(s=zip(
+            'writeSchema("{s}", FLAGS_output_file+".schema");\n'.format(s=zip(
                 names, my_sch.get_types()))
         state.addPreCode(schemefile)
         resultfile = 'writeTuplesUnordered(&result, FLAGS_output_file+".bin");'

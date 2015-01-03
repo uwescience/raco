@@ -1,4 +1,3 @@
-
 import abc
 from raco.utility import emitlist
 from algebra import gensym, Operator
@@ -138,6 +137,7 @@ class CompileState:
     def addPostCode(self, c):
         self.current_pipeline_postcode.append(c)
 
+    # code is placed at the very end of the file
     def addPipelineFlushCode(self, c):
         self.flush_pipelines.append(c)
 
@@ -184,6 +184,7 @@ class CompileState:
         mem_linearized = \
             emitlist(self.pipelines) + emitlist(self.main_wait_statements)
         flush_linearized = emitlist(self.flush_pipelines)
+
         scan_linearize_wrap = self.language.group_wrap(gensym(),
                                                        scan_linearized,
                                                        {'type': 'scan'})
