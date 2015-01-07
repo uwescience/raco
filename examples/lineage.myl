@@ -1,0 +1,110 @@
+--algorithm overview:
+--Given a set of seed papers, compute a reachability table for the entire graph using a do-while loop.
+--    Where new reachable pairs of nodes are found, added to the delta variable
+--    only if they haven't already been found, and then added to the table
+--    reachable at the beginning of the next loop.
+--  The loop terminates when no new pairs of connected nodes are found.
+--
+--Then this reachability information is used to find all common ancestors of nodes.
+--which are filtered first according to depth, and then according to the date
+--until only one "least common ancestor" is left for each pair.
+
+-- Paper id, and year it was published
+papers = [from scan(nodes_jstor) as p emit $0 as id, $1 as year];
+
+-- Citation links where p1 cites p2
+c = [from scan(links_jstor) as c emit $0 as p1, $1 as p2];
+
+-- Keep only non-anachronisms from c
+c = select c.*
+    from c, papers p, papers q
+    where c.p1 = p.id and c.p2 = q.id and p.year >= q.year;
+
+-- A UDA for choosing ancestors
+-- .. a helper function to implement our arg{min depth, max year}
+def pickval(old_depth, old_year, old_ca, old_val, new_depth, new_year, new_ca, new_val):
+    case when new_depth < old_depth then new_val
+         when new_depth = old_depth and new_year > old_year then new_val
+         when new_depth = old_depth and new_year = old_year and new_ca < old_ca then new_val
+         else old_val end;
+-- .. actually the UDA
+uda shallowest_lca(ca, y, d1, d2) {
+    [-1 as rca, 1000000 as ry, 1000 as rd1, 1000 as rd2];
+    [pickval(greater(rd1, rd2), ry, rca, rca, greater(d1, d2), y, ca, ca),
+     pickval(greater(rd1, rd2), ry, rca, ry, greater(d1, d2), y, ca, y),
+     pickval(greater(rd1, rd2), ry, rca, rd1, greater(d1, d2), y, ca, d1),
+     pickval(greater(rd1, rd2), ry, rca, rd2, greater(d1, d2), y, ca, d2)];
+    [rca, ry, rd1, rd2];
+};
+-- .. the decomposable form of the UDA
+--uda* shallowest_lca {shallowest_lca, shallowest_lca};
+
+-- Candidate nodes for all-pairs LCA
+seeds = [from scan(dhalperi:lineage:top_papers_jstor) as seeds emit $0 as id];
+
+-- A simple counter for the current traversal depth
+depth = [1 as d];
+
+-- Paper p1 cites p2 transitively with d citation hops.
+reachable = empty(p1: int, p2: int, d: int);
+
+-- Delta holds newly reachable papers found this iteration.
+-- Intitially: delta is anything from the citation graph where
+-- the citing paper is in the seeds.
+delta = [from c, seeds
+         where c.p1 = seeds.id
+         emit c.p1, c.p2, 1 as d];
+
+-- The actual results of the algorithm. Two papers and their common
+-- ancestor, plus the citation depths to the common ancestor, and
+-- the year of the common ancestor.
+answers = [from delta r1, delta r2, papers p
+           where r1.p2 = r2.p2
+             and r1.p1 < r2.p1
+             and p.id = r1.p2
+           emit r1.p1 as p1, r2.p1 as p2, r1.p2 as ca, p.year as cayear, 1 as d1, 1 as d2];
+answers = [from answers emit p1, p2, shallowest_lca(ca, cayear, d1, d2) as [ca, cayear, d1, d2]];
+
+store(answers, dhalperi:lineage:top_all);
+
+-- See if we have found new, better ancestors
+def pick_min(id1, id2, val1, val2): case when id1 < id2 then val1 else val2 end;
+def pick_max(id1, id2, val1, val2): case when id1 > id2 then val1 else val2 end;
+
+do
+  --increment the loop counter
+  depth = select d + 1 as d from depth;
+
+  --add the delta into the reachable collection
+  reachable = reachable + delta;
+
+  -- Walk one citation hop forward from delta
+  new = select delta.p1, c.p2 from c, delta where c.p1 = delta.p2;
+  new = distinct(new);
+
+  --take only pairs of papers where a path was not already found
+  r = select r.p1, r.p2 from reachable r;
+  delta = select dif.p1, dif.p2, depth.d from diff(new, r) as dif, depth;
+
+  new_answers_minus_year =
+  [from delta r1, reachable r2, depth
+   where r1.p2 = r2.p2 and r1.p1 != r2.p1
+   emit pick_min(r1.p1, r2.p1, r1.p1, r2.p1) as p1,
+        pick_max(r1.p1, r2.p1, r1.p1, r2.p1) as p2,
+        r1.p2 as ca,
+        pick_min(r1.p1, r2.p1, depth.d, r2.d) as d1,
+        pick_max(r1.p1, r2.p1, depth.d, r2.d) as d2]
+  + [from delta r1, delta r2, depth
+     where r1.p2 = r2.p2
+       and r1.p1 < r2.p1
+     emit r1.p1 as p1, r2.p1 as p2, r1.p2 as ca, depth.d as d1, depth.d as d2];
+  new_answers =
+  [from new_answers_minus_year na, papers p where na.ca = p.id
+   emit p1, p2, ca, year as cayear, d1, d2];
+
+  answers = [from answers + new_answers as x emit p1, p2, shallowest_lca(ca, cayear, d1, d2) as [ca, cayear, d1, d2]];
+
+--loop breaks when the delta is empty: no new reachable papers were found
+while (select count(*) > 0 from delta);
+
+store(answers, dhalperi:lineage:top_all_answers);
