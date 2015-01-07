@@ -348,7 +348,9 @@ class CApply(Pipelined, algebra.Apply):
 
         # always does an assignment to new tuple
         self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
-        state.addDeclarations([self.newtuple.generateDefinition()])
+        if self.parent() is not None and not isinstance(
+                self.parent(), algebra.StoreTemp):
+            state.addDeclarations([self.newtuple.generateDefinition()])
 
         self.input.produce(state)
 
@@ -356,13 +358,20 @@ class CApply(Pipelined, algebra.Apply):
         code = ""
 
         assignment_template = _cgenv.get_template('assignment.cpp')
-
         dst_name = self.newtuple.name
-        dst_type_name = self.newtuple.getTupleTypename()
+
         # declaration of tuple instance
-        if self.parent() is not None:
-            code += _cgenv.get_template('tuple_declaration.cpp').render(
-                locals())
+        if self.parent() is not None and not isinstance(
+                self.parent(), algebra.StoreTemp):
+            dst_type_name = self.newtuple.getTupleTypename()
+        else:
+            dst_type_name = state.lookupTupleDef(
+                self.children()[0].name).getTupleTypename()
+        code += _cgenv.get_template('tuple_declaration.cpp').render(
+            locals())
+
+        print self
+        print dst_type_name
 
         for dst_fieldnum, src_label_expr in enumerate(self.emitters):
             dst_set_func = self.newtuple.set_func_code(dst_fieldnum)
@@ -386,6 +395,7 @@ class CApply(Pipelined, algebra.Apply):
         else:
             innercode = self.parent().consume(self.newtuple, self, state)
             code += innercode
+        state.saveTupleDef(dst_name, t)
         return code
 
 

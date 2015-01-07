@@ -506,7 +506,6 @@ class CStoreTemp(algebra.StoreTemp, CCOperator):
         else:
             dst_name = state.lookupTempDef(self.name)
             dst_type_name = state.lookupTupleDef(self.name).getTupleTypename()
-        print dst_type_name
         code += "%s.push_back(%s);\n" % (dst_name, t.name)
         if not state.lookupTempDef(self.name):
             state.saveTupleDef(self.name, t)
