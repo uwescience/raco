@@ -143,8 +143,18 @@ class ExpressionProcessor(object):
             if isinstance(sub_expr, raco.expression.Unbox):
                 rex = sub_expr.relational_expression
                 if rex not in from_args:
-                    unbox_op = self.evaluate(rex)
-                    from_args[rex] = unbox_op
+                    # TODO this check seems very strange.
+                    #  1) rex is a string -- look up its symbol above
+                    #  2) rex is not in that table, so it's an alias or other
+                    #     expression. Evaluate it.
+                    #  which missed 3) rex is a string but not in the table,
+                    #     it's a typo. Evaluating leads to weird error, so
+                    #     make sure it's an expression by proxy to it's a tuple
+                    if type(rex) is tuple:
+                        unbox_op = self.evaluate(rex)
+                        from_args[rex] = unbox_op
+                    else:
+                        raise NoSuchRelationException(rex)
 
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehension.
