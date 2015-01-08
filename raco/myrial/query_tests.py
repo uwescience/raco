@@ -1107,6 +1107,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):  # noqa
             self.check_result(query, collections.Counter())
 
+    def test_bad_alias(self):
+        query = """
+        y = empty(a:int);
+        z = [from y s      -- bug: extra s
+             emit y.a];
+        store(z, debug);
+        """
+
+        with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):  # noqa
+            self.check_result(query, collections.Counter())
+
     def test_scan_error(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id, !!!FROG(val)];
