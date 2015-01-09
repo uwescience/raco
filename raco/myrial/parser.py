@@ -818,7 +818,7 @@ class Parser(object):
     @staticmethod
     def p_sexpr_id_dot_ref(p):
         'sexpr : unreserved_id DOT column_ref'
-        p[0] = sexpr.Unbox(p[1], p[3])
+        p[0] = sexpr.DottedRef(p[1], p[3])
 
     @staticmethod
     def p_sexpr_group(p):
