@@ -658,7 +658,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         query = """
         emp = SCAN(%s);
         dept = SCAN(%s);
-        out = [FROM emp WHERE id > *COUNTALL(dept) EMIT emp.id];
+        out = [FROM emp, COUNTALL(dept) as size WHERE id > *size EMIT emp.id];
         STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
