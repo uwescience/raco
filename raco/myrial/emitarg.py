@@ -95,6 +95,9 @@ class NaryEmitArg(EmitArg):
     def get_statemods(self):
         return self.statemods
 
+    def __repr__(self):
+        return 'NaryEmitArg(%r)' % self.sexprs
+
 
 def expand_relation(relation_name, symbols):
     """Expand a given relation into a list of column mappings."""
@@ -119,6 +122,9 @@ class TableWildcardEmitArg(EmitArg):
     def expand(self, symbols):
         return expand_relation(self.relation_name, symbols)
 
+    def __repr__(self):
+        return 'TableWildcardEmitArg(%s)' % self.relation_name
+
 
 class FullWildcardEmitArg(EmitArg):
     """Emit all columns from the input.
@@ -134,3 +140,7 @@ class FullWildcardEmitArg(EmitArg):
         for relation_name in symbols:
             cols.extend(expand_relation(relation_name, symbols))
         return cols
+
+    def __repr__(self):
+        return 'FullWildcardEmitArg()'
+
