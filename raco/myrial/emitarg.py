@@ -1,5 +1,5 @@
 
-from raco.expression import Unbox, UnnamedAttributeRef, NamedAttributeRef
+from raco.expression import DottedRef, UnnamedAttributeRef, NamedAttributeRef
 from raco.myrial.exceptions import ColumnIndexOutOfBounds
 
 
@@ -38,7 +38,7 @@ def resolve_attribute_index(idx, symbols):
     raise ColumnIndexOutOfBounds(str(idx))
 
 
-def resolve_unbox(sx, symbols):
+def resolve_dotted_ref(sx, symbols):
     """Resolve a column name given an unbox expression.
 
     e.g. [FROM A EMIT A.some_column]
@@ -47,7 +47,7 @@ def resolve_unbox(sx, symbols):
         return sx.field
     else:
         assert isinstance(sx.field, int)
-        op = symbols[sx.table_name]
+        op = symbols[sx.table_alias]
         scheme = op.scheme()
         return scheme.getName(sx.field)
 
@@ -67,8 +67,8 @@ def get_column_name(name, sx, symbols):
         return sx.name
     elif isinstance(sx, UnnamedAttributeRef):
         return resolve_attribute_index(sx.position, symbols)
-    elif isinstance(sx, Unbox):
-        return resolve_unbox(sx, symbols)
+    elif isinstance(sx, DottedRef):
+        return resolve_dotted_ref(sx, symbols)
     else:
         return name
 
@@ -104,7 +104,7 @@ def expand_relation(relation_name, symbols):
     scheme = op.scheme()
 
     colnames = [x[0] for x in iter(scheme)]
-    return [(colname, Unbox(relation_name, colname))
+    return [(colname, DottedRef(relation_name, colname))
             for colname in colnames]
 
 

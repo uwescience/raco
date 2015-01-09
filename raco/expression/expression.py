@@ -568,8 +568,7 @@ class DottedRef(ZeroaryOperator):
     def __init__(self, table_alias, field):
         """Initialize an DottedRef expression.
 
-        :param table_alias: The name of a table alias, as given in the from
-        clause.
+        :param table_alias: The name of a table alias (a string).
         :param field: The column name/index within the relation.
         """
         assert isinstance(table_alias, str)
@@ -596,8 +595,10 @@ class DottedRef(ZeroaryOperator):
             op=self.opname(), re=self.table_alias, f=self.field)
 
 
-class Unbox(ZeroaryOperator):
-
+class Unbox(DottedRef):
+    """Unbox expressions act as a DottedRef, but also implicitly add their
+    target argument to the FROM clause.
+    """
     def __init__(self, table_name, field):
         """Initialize an unbox expression.
 
@@ -605,9 +606,10 @@ class Unbox(ZeroaryOperator):
         :param field: An optional column name/index within the relation.
         If None, the system uses index 0.
         """
-        assert isinstance(table_name, str)
+        DottedRef.__init__(self, table_name, field or 0)
+
+        # Name == Alias for unbox expressions
         self.table_name = table_name
-        self.field = field
 
     def evaluate(self, _tuple, scheme, state=None):
         """Raise an error on attempted evaluation.
