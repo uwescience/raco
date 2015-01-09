@@ -562,6 +562,40 @@ class NEG(UnaryOperator):
         return input_type
 
 
+class DottedRef(ZeroaryOperator):
+    """A DottedRef represents a reference to a column from a given table."""
+
+    def __init__(self, table_alias, field):
+        """Initialize an DottedRef expression.
+
+        :param table_alias: The name of a table alias, as given in the from
+        clause.
+        :param field: The column name/index within the relation.
+        """
+        assert isinstance(table_alias, str)
+        self.table_alias = table_alias
+        self.field = field
+
+    def evaluate(self, _tuple, scheme, state=None):
+        """Raise an error on attempted evaluation.
+
+        DottedRef expressions are not "evaluated" in the usual sense.  Rather,
+        they are replaced with raw attribute references during compilation.
+        """
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        raise NotImplementedError()  # See above comment
+
+    def __repr__(self):
+        return "{op}({re!r}, {f!r})".format(
+            op=self.opname(), re=self.table_alias, f=self.field)
+
+    def __str__(self):
+        return "{op}({re}.{f})".format(
+            op=self.opname(), re=self.table_alias, f=self.field)
+
+
 class Unbox(ZeroaryOperator):
 
     def __init__(self, table_name, field):
@@ -579,7 +613,7 @@ class Unbox(ZeroaryOperator):
         """Raise an error on attempted evaluation.
 
         Unbox expressions are not "evaluated" in the usual sense.  Rather, they
-        are replaced with raw attribute references at evaluation time.
+        are replaced with raw attribute references during compilation.
         """
         raise NotImplementedError()
 
