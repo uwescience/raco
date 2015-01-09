@@ -47,7 +47,7 @@ def resolve_unbox(sx, symbols):
         return sx.field
     else:
         assert isinstance(sx.field, int)
-        op = symbols[sx.relational_expression]
+        op = symbols[sx.table_name]
         scheme = op.scheme()
         return scheme.getName(sx.field)
 

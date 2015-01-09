@@ -153,7 +153,6 @@ class ExpressionProcessor(object):
                 if name not in from_args:
                     from_args[name] = self.__lookup_symbol(name)
 
-
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehension.
 
