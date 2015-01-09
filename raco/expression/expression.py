@@ -564,15 +564,15 @@ class NEG(UnaryOperator):
 
 class Unbox(ZeroaryOperator):
 
-    def __init__(self, relational_expression, field):
+    def __init__(self, table_name, field):
         """Initialize an unbox expression.
 
-        relational_expression is a Myrial AST that evaluates to a relation.
-
-        field is an optional column name/index within the relation.  If None,
-        the system uses index 0.
+        :param table_name: The name of a table (a string).
+        :param field: An optional column name/index within the relation.
+        If None, the system uses index 0.
         """
-        self.relational_expression = relational_expression
+        assert isinstance(table_name, str)
+        self.table_name = table_name
         self.field = field
 
     def evaluate(self, _tuple, scheme, state=None):
@@ -588,11 +588,11 @@ class Unbox(ZeroaryOperator):
 
     def __repr__(self):
         return "{op}({re!r}, {f!r})".format(
-            op=self.opname(), re=self.relational_expression, f=self.field)
+            op=self.opname(), re=self.table_name, f=self.field)
 
     def __str__(self):
         return "{op}({re}.{f})".format(
-            op=self.opname(), re=self.relational_expression,
+            op=self.opname(), re=self.table_name,
             f=self.field or "$0")
 
 
