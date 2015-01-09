@@ -77,6 +77,9 @@ class ExpressionProcessor(object):
         return method(*expr[1:])
 
     def __lookup_symbol(self, _id):
+        if _id not in self.symbols:
+            raise NoSuchRelationException(_id)
+
         self.uses_set.add(_id)
         return copy.deepcopy(self.symbols[_id])
 
