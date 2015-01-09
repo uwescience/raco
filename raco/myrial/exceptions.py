@@ -154,3 +154,11 @@ class SchemaMismatchException(MyrialCompileException):
 
     def __str__(self):
         return "Incompatible input schemas for %s operation" % self.op_name
+
+
+class NoSuchRelationException(MyrialCompileException):
+    def __init__(self, relname):
+        self.relname = relname
+
+    def __str__(self):
+        return "No such relation: %s" % self.relname
