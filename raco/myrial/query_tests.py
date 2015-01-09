@@ -1144,7 +1144,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
     def test_relation_scope_error2(self):
@@ -1154,7 +1154,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
     def test_parse_error(self):
