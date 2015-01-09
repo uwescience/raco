@@ -1001,7 +1001,7 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_unbox(p):
-        'sexpr : TIMES expression optional_column_ref'
+        'sexpr : TIMES unreserved_id optional_column_ref'
         p[0] = sexpr.Unbox(p[2], p[3])
 
     @staticmethod
