@@ -143,4 +143,3 @@ class FullWildcardEmitArg(EmitArg):
 
     def __repr__(self):
         return 'FullWildcardEmitArg()'
-

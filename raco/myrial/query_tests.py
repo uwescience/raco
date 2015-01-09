@@ -1104,7 +1104,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):  # noqa
+        with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
     def test_bad_alias(self):
@@ -1115,7 +1115,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         store(z, debug);
         """
 
-        with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):  # noqa
+        with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
     def test_scan_error(self):

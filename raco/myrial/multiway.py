@@ -3,8 +3,7 @@
 from raco import algebra
 from raco import expression
 from raco.expression.statevar import *
-
-from raco.myrial.exceptions import ColumnIndexOutOfBounds
+from raco.myrial.exceptions import *
 
 
 def rewrite_statemods(statemods, from_args, base_offsets):
@@ -41,6 +40,8 @@ def rewrite_refs(sexpr, from_args, base_offsets):
 
         if not isinstance(sexpr, expression.DottedRef):
             return sexpr
+        elif sexpr.table_alias not in from_args:
+            raise NoSuchRelationException(sexpr.table_alias)
         else:
             op = from_args[sexpr.table_alias]
             scheme = op.scheme()
