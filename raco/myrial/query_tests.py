@@ -1118,6 +1118,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
+    def test_bad_alias_wildcard(self):
+        query = """
+        y = empty(a:int);
+        z = [from y s -- bug: errant s
+             emit y.*];
+        store(z, debug);
+        """
+
+        with self.assertRaises(NoSuchRelationException):
+            self.check_result(query, collections.Counter())
+
     def test_scan_error(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT id, !!!FROG(val)];

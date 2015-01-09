@@ -1,6 +1,6 @@
 
 from raco.expression import DottedRef, UnnamedAttributeRef, NamedAttributeRef
-from raco.myrial.exceptions import ColumnIndexOutOfBounds
+from raco.myrial.exceptions import *
 
 
 class EmitArg(object):
@@ -101,7 +101,8 @@ class NaryEmitArg(EmitArg):
 
 def expand_relation(relation_name, symbols):
     """Expand a given relation into a list of column mappings."""
-    assert relation_name in symbols
+    if relation_name not in symbols:
+        raise NoSuchRelationException(relation_name)
 
     op = symbols[relation_name]
     scheme = op.scheme()
