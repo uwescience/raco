@@ -667,11 +667,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
              x[0] > len(self.dept_table)])
         self.check_result(query, expected)
 
-    def test_unbox_inline_table_literal(self):
+    def test_inline_table_literal(self):
         query = """
         emp = SCAN(%s);
         dept = SCAN(%s);
-        out = [FROM emp WHERE id > *[1,2,3].$2 EMIT emp.id];
+        out = [FROM emp, [1,2,3] as tl WHERE id > tl.$2 EMIT emp.id];
         STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
