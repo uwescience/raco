@@ -42,7 +42,7 @@ def rewrite_refs(sexpr, from_args, base_offsets):
         if not isinstance(sexpr, expression.Unbox):
             return sexpr
         else:
-            op = from_args[sexpr.relational_expression]
+            op = from_args[sexpr.table_name]
             scheme = op.scheme()
 
             debug_info = None
@@ -57,7 +57,7 @@ def rewrite_refs(sexpr, from_args, base_offsets):
                 offset = scheme.getPosition(sexpr.field)
                 debug_info = sexpr.field
 
-            offset += base_offsets[sexpr.relational_expression]
+            offset += base_offsets[sexpr.table_name]
             return expression.UnnamedAttributeRef(offset, debug_info)
 
     def recursive_eval(sexpr):

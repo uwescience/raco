@@ -139,22 +139,20 @@ class ExpressionProcessor(object):
         return op
 
     def extract_unbox_args(self, from_args, sexpr):
+        """Extract unbox arguments from a scalar expression.
+
+        :param from_args: An ordered dictionary that maps from a
+        relation alias (string) to an instance of raco.algebra.Operator.
+        :param sexpr: A scalar expression (raco.expression.Expresssion)
+        instance.
+        """
         for sub_expr in sexpr.walk():
             if isinstance(sub_expr, raco.expression.Unbox):
-                rex = sub_expr.relational_expression
-                if rex not in from_args:
-                    # TODO this check seems very strange.
-                    #  1) rex is a string -- look up its symbol above
-                    #  2) rex is not in that table, so it's an alias or other
-                    #     expression. Evaluate it.
-                    #  which missed 3) rex is a string but not in the table,
-                    #     it's a typo. Evaluating leads to weird error, so
-                    #     make sure it's an expression by proxy to it's a tuple
-                    if type(rex) is tuple:
-                        unbox_op = self.evaluate(rex)
-                        from_args[rex] = unbox_op
-                    else:
-                        raise NoSuchRelationException(rex)
+                name = sub_expr.table_name
+                assert isinstance(name, str)
+                if name not in from_args:
+                    from_args[name] = self.__lookup_symbol(name)
+
 
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehension.
@@ -178,6 +176,7 @@ class ExpressionProcessor(object):
         from_args = collections.OrderedDict()
 
         for _id, expr in from_clause:
+            assert isinstance(_id, str)
             if expr:
                 from_args[_id] = self.evaluate(expr)
             else:
