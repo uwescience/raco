@@ -327,6 +327,19 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
         self.check_result(query, self.join_expected)
 
+    def test_explicit_join_twocols(self):
+        query = """
+        query = [1 as dept_id, 25000 as salary];
+        emp = SCAN({emp});
+        out = JOIN(query, (dept_id, salary), emp, (dept_id, salary));
+        out2 = [FROM out EMIT name];
+        STORE(out2, OUTPUT);
+        """.format(emp=self.emp_key)
+
+        expected = collections.Counter([('Victor Almeida',),
+                                        ('Magdalena Balazinska',)])
+        self.check_result(query, expected)
+
     def test_bagcomp_join_via_names(self):
         query = """
         out = [FROM SCAN(%s) E, SCAN(%s) AS D WHERE E.dept_id == D.id
@@ -346,6 +359,19 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
+
+    def test_two_column_join(self):
+        query = """
+        D = [1 as dept_id, 25000 as salary];
+        out = [FROM D, SCAN({emp}) E
+               WHERE E.dept_id == D.dept_id AND E.salary == D.salary
+               EMIT E.name AS emp_name];
+        STORE(out, OUTPUT);
+        """.format(emp=self.emp_key)
+
+        expected = collections.Counter([('Victor Almeida',),
+                                        ('Magdalena Balazinska',)])
+        self.check_result(query, expected)
 
     def test_join_with_select(self):
         query = """
