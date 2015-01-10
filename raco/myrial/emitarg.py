@@ -124,7 +124,7 @@ class TableWildcardEmitArg(EmitArg):
         return expand_relation(self.relation_name, symbols)
 
     def __repr__(self):
-        return 'TableWildcardEmitArg(%s)' % self.relation_name
+        return 'TableWildcardEmitArg(%r)' % self.relation_name
 
 
 class FullWildcardEmitArg(EmitArg):
