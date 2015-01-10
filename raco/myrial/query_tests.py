@@ -1107,6 +1107,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
+    def test_bad_relation_name(self):
+        query = """
+        y = empty(a:int);
+        z = [from s y      -- bug: s does not exist
+             emit y.a];
+        store(z, debug);
+        """
+
+        with self.assertRaises(NoSuchRelationException):
+            self.check_result(query, collections.Counter())
+
     def test_bad_alias(self):
         query = """
         y = empty(a:int);
@@ -1121,7 +1132,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_bad_alias_wildcard(self):
         query = """
         y = empty(a:int);
-        z = [from y s -- bug: errant s
+        z = [from y s      -- bug: errant s
              emit y.*];
         store(z, debug);
         """
