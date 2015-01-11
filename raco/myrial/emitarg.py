@@ -1,6 +1,6 @@
 
-from raco.expression import Unbox, UnnamedAttributeRef, NamedAttributeRef
-from raco.myrial.exceptions import ColumnIndexOutOfBounds
+from raco.expression import DottedRef, UnnamedAttributeRef, NamedAttributeRef
+from raco.myrial.exceptions import *
 
 
 class EmitArg(object):
@@ -38,7 +38,7 @@ def resolve_attribute_index(idx, symbols):
     raise ColumnIndexOutOfBounds(str(idx))
 
 
-def resolve_unbox(sx, symbols):
+def resolve_dotted_ref(sx, symbols):
     """Resolve a column name given an unbox expression.
 
     e.g. [FROM A EMIT A.some_column]
@@ -47,7 +47,7 @@ def resolve_unbox(sx, symbols):
         return sx.field
     else:
         assert isinstance(sx.field, int)
-        op = symbols[sx.relational_expression]
+        op = symbols[sx.table_alias]
         scheme = op.scheme()
         return scheme.getName(sx.field)
 
@@ -67,8 +67,8 @@ def get_column_name(name, sx, symbols):
         return sx.name
     elif isinstance(sx, UnnamedAttributeRef):
         return resolve_attribute_index(sx.position, symbols)
-    elif isinstance(sx, Unbox):
-        return resolve_unbox(sx, symbols)
+    elif isinstance(sx, DottedRef):
+        return resolve_dotted_ref(sx, symbols)
     else:
         return name
 
@@ -95,16 +95,20 @@ class NaryEmitArg(EmitArg):
     def get_statemods(self):
         return self.statemods
 
+    def __repr__(self):
+        return 'NaryEmitArg(%r)' % self.sexprs
+
 
 def expand_relation(relation_name, symbols):
     """Expand a given relation into a list of column mappings."""
-    assert relation_name in symbols
+    if relation_name not in symbols:
+        raise NoSuchRelationException(relation_name)
 
     op = symbols[relation_name]
     scheme = op.scheme()
 
     colnames = [x[0] for x in iter(scheme)]
-    return [(colname, Unbox(relation_name, colname))
+    return [(colname, DottedRef(relation_name, colname))
             for colname in colnames]
 
 
@@ -118,6 +122,9 @@ class TableWildcardEmitArg(EmitArg):
 
     def expand(self, symbols):
         return expand_relation(self.relation_name, symbols)
+
+    def __repr__(self):
+        return 'TableWildcardEmitArg(%r)' % self.relation_name
 
 
 class FullWildcardEmitArg(EmitArg):
@@ -134,3 +141,6 @@ class FullWildcardEmitArg(EmitArg):
         for relation_name in symbols:
             cols.extend(expand_relation(relation_name, symbols))
         return cols
+
+    def __repr__(self):
+        return 'FullWildcardEmitArg()'

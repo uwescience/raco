@@ -562,24 +562,24 @@ class NEG(UnaryOperator):
         return input_type
 
 
-class Unbox(ZeroaryOperator):
+class DottedRef(ZeroaryOperator):
+    """A DottedRef represents a reference to a column from a given table."""
 
-    def __init__(self, relational_expression, field):
-        """Initialize an unbox expression.
+    def __init__(self, table_alias, field):
+        """Initialize an DottedRef expression.
 
-        relational_expression is a Myrial AST that evaluates to a relation.
-
-        field is an optional column name/index within the relation.  If None,
-        the system uses index 0.
+        :param table_alias: The name of a table alias (a string).
+        :param field: The column name/index within the relation.
         """
-        self.relational_expression = relational_expression
+        assert isinstance(table_alias, str)
+        self.table_alias = table_alias
         self.field = field
 
     def evaluate(self, _tuple, scheme, state=None):
         """Raise an error on attempted evaluation.
 
-        Unbox expressions are not "evaluated" in the usual sense.  Rather, they
-        are replaced with raw attribute references at evaluation time.
+        DottedRef expressions are not "evaluated" in the usual sense.  Rather,
+        they are replaced with raw attribute references during compilation.
         """
         raise NotImplementedError()
 
@@ -588,11 +588,47 @@ class Unbox(ZeroaryOperator):
 
     def __repr__(self):
         return "{op}({re!r}, {f!r})".format(
-            op=self.opname(), re=self.relational_expression, f=self.field)
+            op=self.opname(), re=self.table_alias, f=self.field)
 
     def __str__(self):
         return "{op}({re}.{f})".format(
-            op=self.opname(), re=self.relational_expression,
+            op=self.opname(), re=self.table_alias, f=self.field)
+
+
+class Unbox(DottedRef):
+    """Unbox expressions act as a DottedRef, but also implicitly add their
+    target argument to the FROM clause.
+    """
+    def __init__(self, table_name, field):
+        """Initialize an unbox expression.
+
+        :param table_name: The name of a table (a string).
+        :param field: An optional column name/index within the relation.
+        If None, the system uses index 0.
+        """
+        DottedRef.__init__(self, table_name, field or 0)
+
+        # Name == Alias for unbox expressions
+        self.table_name = table_name
+
+    def evaluate(self, _tuple, scheme, state=None):
+        """Raise an error on attempted evaluation.
+
+        Unbox expressions are not "evaluated" in the usual sense.  Rather, they
+        are replaced with raw attribute references during compilation.
+        """
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        raise NotImplementedError()  # See above comment
+
+    def __repr__(self):
+        return "{op}({re!r}, {f!r})".format(
+            op=self.opname(), re=self.table_name, f=self.field)
+
+    def __str__(self):
+        return "{op}({re}.{f})".format(
+            op=self.opname(), re=self.table_name,
             f=self.field or "$0")
 
 

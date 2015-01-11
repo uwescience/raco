@@ -27,10 +27,6 @@ class InvalidStatementException(Exception):
     pass
 
 
-class NoSuchRelationException(Exception):
-    pass
-
-
 def get_unnamed_ref(column_ref, scheme, offset=0):
     """Convert a string or int into an attribute ref on the new table"""  # noqa
     if isinstance(column_ref, int):
@@ -77,6 +73,9 @@ class ExpressionProcessor(object):
         return method(*expr[1:])
 
     def __lookup_symbol(self, _id):
+        if _id not in self.symbols:
+            raise NoSuchRelationException(_id)
+
         self.uses_set.add(_id)
         return copy.deepcopy(self.symbols[_id])
 
@@ -139,12 +138,19 @@ class ExpressionProcessor(object):
         return op
 
     def extract_unbox_args(self, from_args, sexpr):
+        """Extract unbox arguments from a scalar expression.
+
+        :param from_args: An ordered dictionary that maps from a
+        relation alias (string) to an instance of raco.algebra.Operator.
+        :param sexpr: A scalar expression (raco.expression.Expresssion)
+        instance.
+        """
         for sub_expr in sexpr.walk():
             if isinstance(sub_expr, raco.expression.Unbox):
-                rex = sub_expr.relational_expression
-                if rex not in from_args:
-                    unbox_op = self.evaluate(rex)
-                    from_args[rex] = unbox_op
+                name = sub_expr.table_name
+                assert isinstance(name, str)
+                if name not in from_args:
+                    from_args[name] = self.__lookup_symbol(name)
 
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehension.
@@ -168,6 +174,7 @@ class ExpressionProcessor(object):
         from_args = collections.OrderedDict()
 
         for _id, expr in from_clause:
+            assert isinstance(_id, str)
             if expr:
                 from_args[_id] = self.evaluate(expr)
             else:

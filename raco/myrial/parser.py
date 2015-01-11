@@ -816,14 +816,9 @@ class Parser(object):
         p[0] = sexpr.UnnamedAttributeRef(p[2])
 
     @staticmethod
-    def p_sexpr_id_dot_id(p):
-        'sexpr : unreserved_id DOT unreserved_id'
-        p[0] = sexpr.Unbox(p[1], p[3])
-
-    @staticmethod
-    def p_sexpr_id_dot_pos(p):
-        'sexpr : unreserved_id DOT DOLLAR INTEGER_LITERAL'
-        p[0] = sexpr.Unbox(p[1], p[4])
+    def p_sexpr_id_dot_ref(p):
+        'sexpr : unreserved_id DOT column_ref'
+        p[0] = sexpr.DottedRef(p[1], p[3])
 
     @staticmethod
     def p_sexpr_group(p):
@@ -1006,7 +1001,7 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_unbox(p):
-        'sexpr : TIMES expression optional_column_ref'
+        'sexpr : TIMES unreserved_id optional_column_ref'
         p[0] = sexpr.Unbox(p[2], p[3])
 
     @staticmethod
