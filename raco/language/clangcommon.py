@@ -361,17 +361,17 @@ class CApply(Pipelined, algebra.Apply):
         dst_name = self.newtuple.name
 
         # declaration of tuple instance
-        if self.parent() is not None and not isinstance(
-                self.parent(), algebra.StoreTemp):
-            dst_type_name = self.newtuple.getTupleTypename()
+        if self.parent() is not None:
+            if not isinstance(self.parent(), algebra.StoreTemp):
+                dst_type_name = self.newtuple.getTupleTypename()
+            else:
+                dst_type_name = state.lookupTupleDef(
+                    self.children()[0].name).getTupleTypename()
+            code += _cgenv.get_template('tuple_declaration.cpp').render(
+                locals())
         else:
             dst_type_name = state.lookupTupleDef(
                 self.children()[0].name).getTupleTypename()
-        code += _cgenv.get_template('tuple_declaration.cpp').render(
-            locals())
-
-        print self
-        print dst_type_name
 
         for dst_fieldnum, src_label_expr in enumerate(self.emitters):
             dst_set_func = self.newtuple.set_func_code(dst_fieldnum)

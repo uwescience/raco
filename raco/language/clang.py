@@ -501,17 +501,23 @@ class CStoreTemp(algebra.StoreTemp, CCOperator):
     def consume(self, t, src, state):
         code = ""
         if not state.lookupTempDef(self.name):
-            dst_name = self.newtuple.name
+            dst_name = gensym()
             dst_type_name = t.getTupleTypename()
         else:
             dst_name = state.lookupTempDef(self.name)
             dst_type_name = state.lookupTupleDef(self.name).getTupleTypename()
-        code += "%s.push_back(%s);\n" % (dst_name, t.name)
+
+        code += "temp.push_back(%s);\n" % (t.name)
+        state.addPostCode("%s = temp;\n" % (dst_name))
+        state.addPostCode("temp.clear();\n")
+
         if not state.lookupTempDef(self.name):
             state.saveTupleDef(self.name, t)
             state.saveTempDef(self.name, dst_name)
             vecdecl = "std::vector<%s> %s;\n" % (dst_type_name, dst_name)
+            vecdecl2 = "std::vector<%s> temp;\n" % (dst_type_name)
             state.addDeclarations([vecdecl])
+            state.addDeclarations([vecdecl2])
 
         return code
 
