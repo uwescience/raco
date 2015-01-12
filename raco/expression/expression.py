@@ -571,7 +571,7 @@ class DottedRef(ZeroaryOperator):
         :param table_alias: The name of a table alias (a string).
         :param field: The column name/index within the relation.
         """
-        assert isinstance(table_alias, str)
+        assert isinstance(table_alias, basestring)
         self.table_alias = table_alias
         self.field = field
 

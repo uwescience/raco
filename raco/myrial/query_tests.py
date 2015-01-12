@@ -316,6 +316,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
          ('Dan Suciu', 'engineering'),
          ('Magdalena Balazinska', 'accounting')])
 
+    def test_explicit_join_unicode(self):
+        query = u"""
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        out = JOIN(emp, dept_id, dept, id);
+        out2 = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
+        STORE(out2, OUTPUT);
+        """ % (self.emp_key, self.dept_key)
+
+        self.check_result(query, self.join_expected)
+
     def test_explicit_join(self):
         query = """
         emp = SCAN(%s);

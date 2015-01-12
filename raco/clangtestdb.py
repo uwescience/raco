@@ -23,7 +23,7 @@ class ClangTestDatabase(Catalog):
 
     def ingest(self, rel_key, contents, scheme):
         '''Directly load raw data into the database'''
-        if isinstance(rel_key, str):
+        if isinstance(rel_key, basestring):
             rel_key = relation_key.RelationKey.from_string(rel_key)
         assert isinstance(rel_key, relation_key.RelationKey)
 
@@ -35,7 +35,7 @@ class ClangTestDatabase(Catalog):
         self.tables[rel_key] = scheme
 
     def get_scheme(self, rel_key):
-        if isinstance(rel_key, str):
+        if isinstance(rel_key, basestring):
             rel_key = relation_key.RelationKey.from_string(rel_key)
 
         assert isinstance(rel_key, relation_key.RelationKey)
