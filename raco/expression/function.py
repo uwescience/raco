@@ -4,6 +4,7 @@ Functions (unary and binary) for use in Raco.
 
 import math
 import md5
+import random
 
 from .expression import (ZeroaryOperator, UnaryOperator, BinaryOperator,
                          NaryOperator, types, check_is_numeric, check_type,
@@ -49,6 +50,20 @@ class WORKERID(ZeroaryOperator):
 
     def typeof(self, scheme, state_scheme):
         return types.LONG_TYPE
+
+
+class RANDOM(ZeroaryOperator):
+    def __str__(self):
+        return "%s" % self.__class__.__name__
+
+    def __repr__(self):
+        return "{op}()".format(op=self.opname())
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return random.random()
+
+    def typeof(self, scheme, state_scheme):
+        return types.DOUBLE_TYPE
 
 
 class UnaryDoubleFunction(UnaryFunction):
