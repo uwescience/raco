@@ -148,7 +148,7 @@ class ExpressionProcessor(object):
         for sub_expr in sexpr.walk():
             if isinstance(sub_expr, raco.expression.Unbox):
                 name = sub_expr.table_name
-                assert isinstance(name, str)
+                assert isinstance(name, basestring)
                 if name not in from_args:
                     from_args[name] = self.__lookup_symbol(name)
 
@@ -174,7 +174,7 @@ class ExpressionProcessor(object):
         from_args = collections.OrderedDict()
 
         for _id, expr in from_clause:
-            assert isinstance(_id, str)
+            assert isinstance(_id, basestring)
             if expr:
                 from_args[_id] = self.evaluate(expr)
             else:
