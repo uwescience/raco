@@ -8,9 +8,9 @@ def triangleArea(a,b): (a*b)/2;
 R = [from Foo emit triangleArea(x,y) as area];
 
 apply RunningMean(value) {
-      [0 as c, 0 as s];
-      [c + 1 as c, s + value as s];
-      s / c;
+      init: [0 as c, 0 as s];
+      update: [c + 1 as c, s + value as s];
+      emit: s / c;
 };
 
 -- number of allowed standard deviations

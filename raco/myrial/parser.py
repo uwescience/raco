@@ -411,14 +411,24 @@ class Parser(object):
             p[0] = [p[1]]
 
     @staticmethod
-    def p_statefunc_emit_list(p):
-        """statefunc_emit_list : LBRACKET sexpr_list RBRACKET SEMI
-                               | sexpr SEMI
+    def p_statefunc_init_clause(p):
+        """statefunc_init_clause : INIT COLON table_literal SEMI"""
+        p[0] = p[3]
+
+    @staticmethod
+    def p_statefunc_update_clause(p):
+        """statefunc_update_clause : UPDATE COLON LBRACKET sexpr_list RBRACKET SEMI"""  # noqa
+        p[0] = p[4]
+
+    @staticmethod
+    def p_statefunc_emit_clause(p):
+        """statefunc_emit_clause : EMIT COLON LBRACKET sexpr_list RBRACKET SEMI
+                               | EMIT COLON sexpr SEMI
                                | empty"""
-        if len(p) == 5:
-            p[0] = p[2]
-        elif len(p) == 3:
-            p[0] = (p[1],)
+        if len(p) == 7:
+            p[0] = p[4]
+        elif len(p) == 5:
+            p[0] = (p[3],)
         else:
             p[0] = None
 
@@ -434,26 +444,32 @@ class Parser(object):
     @staticmethod
     def p_uda(p):
         'uda : UDA unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI statefunc_emit_list RBRACE SEMI'  # noqa
+        statefunc_init_clause \
+        statefunc_update_clause \
+        statefunc_emit_clause \
+        RBRACE SEMI'
 
         name = p[2]
         args = p[4]
         inits = p[7]
-        updates = p[10]
-        emits = p[13]
+        updates = p[8]
+        emits = p[9]
         Parser.add_state_func(p, name, args, inits, updates, emits, True)
         p[0] = None
 
     @staticmethod
     def p_apply(p):
         'apply : APPLY unreserved_id LPAREN optional_arg_list RPAREN LBRACE \
-        table_literal SEMI LBRACKET sexpr_list RBRACKET SEMI statefunc_emit_list RBRACE SEMI'  # noqa
+        statefunc_init_clause \
+        statefunc_update_clause \
+        statefunc_emit_clause \
+        RBRACE SEMI'
 
         name = p[2]
         args = p[4]
         inits = p[7]
-        updates = p[10]
-        emits = p[13]
+        updates = p[8]
+        emits = p[9]
         Parser.add_state_func(p, name, args, inits, updates, emits, False)
         p[0] = None
 

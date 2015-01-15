@@ -1480,9 +1480,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_illegal_init(self):
         query = """
         uda Foo(x,y) {
-            [0 as A, *];
-            [A + x, A + y];
-             A;
+            init: [0 as A, *];
+            update: [A + x, A + y];
+            emit: A;
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, Foo(salary, id)];
@@ -1495,9 +1495,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_illegal_update(self):
         query = """
         uda Foo(x,y) {
-            [0 as A, 1 as B];
-            [A + x + y, *];
-             A + B;
+            init: [0 as A, 1 as B];
+            update: [A + x + y, *];
+            emit: A + B;
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, Foo(salary, id)];
@@ -1510,14 +1510,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_nested_emitter(self):
         query = """
         uda Foo(x) {
-            [0 as A];
-            [A + x];
-            [A];
+            init: [0 as A];
+            update: [A + x];
+            emit: [A];
         };
         uda Bar(x) {
-            [0 as B];
-            [B + x];
-            Foo(B);
+            init: [0 as B];
+            update: [B + x];
+            emit: Foo(B);
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
@@ -1530,14 +1530,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_nested_init(self):
         query = """
         uda Foo(x) {
-            [0 as A];
-            [A + x];
-            [A];
+            init: [0 as A];
+            update: [A + x];
+            emit: [A];
         };
         uda Bar(x) {
-            [Foo(0) as B];
-            [B + x];
-            B;
+            init: [Foo(0) as B];
+            update: [B + x];
+            emit: B;
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
@@ -1550,14 +1550,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_nested_update(self):
         query = """
         uda Foo(x) {
-            [0 as A];
-            [A + x];
-            [A];
+            init: [0 as A];
+            update: [A + x];
+            emit: [A];
         };
         uda Bar(x) {
-            [0 as B];
-            [Foo(B)];
-            B;
+            init: [0 as B];
+            update: [Foo(B)];
+            emit: B;
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
@@ -1570,9 +1570,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_unary_emit_arg_list(self):
         query = """
         uda MyAvg(val) {
-            [0 as _sum, 0 as _count];
-            [_sum + val, _count + 1];
-            [_sum / _count];
+            init: [0 as _sum, 0 as _count];
+            update: [_sum + val, _count + 1];
+            emit: [_sum / _count];
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, MyAvg(salary)];
@@ -1589,11 +1589,12 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         """UDA to compute the second largest element in a collection."""
         query = """
         uda SecondMax(val) {
-            [0 as _max, 0 as second_max];
-            [case when val > _max then val else _max end,
-             case when val > _max then _max when val > second_max then val
-             else second_max end];
-             second_max;
+            init: [0 as _max, 0 as second_max];
+            update: [case when val > _max then val else _max end,
+                     case when val > _max then _max
+                          when val > second_max then val
+                          else second_max end];
+            emit: second_max;
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, SecondMax(salary)];
@@ -1612,10 +1613,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_multi_invocation_uda(self):
         query = """
         uda MaxDivMin(val) {
-            [9999999 as _min, 0 as _max];
-            [case when val < _min then val else _min end,
-             case when val > _max then val else _max end];
-             _max / _min;
+            init:   [9999999 as _min, 0 as _max];
+            update: [case when val < _min then val else _min end,
+                     case when val > _max then val else _max end];
+            emit:   _max / _min;
         };
 
         out = [FROM SCAN(%s) AS X EMIT
@@ -1641,14 +1642,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_multiple_uda(self):
         query = """
         uda MyMax1(val) {
-            [0 as _max];
-            [case when val > _max then val else _max end];
-             _max;
+            init:   [0 as _max];
+            update: [case when val > _max then val else _max end];
+            emit:   _max;
         };
         uda MyMax2(val) {
-            [0 as _max];
-            [case when val > _max then val else _max end];
-             _max;
+            init:   [0 as _max];
+            update: [case when val > _max then val else _max end];
+            emit:   _max;
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, MyMax1(salary), MyMax2(id)];
@@ -1670,8 +1671,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_no_emit_clause(self):
         query = """
         uda MyCount() {
-            [0 as _count];
-            [_count + 1];
+            init: [0 as _count];
+            update: [_count + 1];
         };
         out = [FROM SCAN(%s) AS X EMIT dept_id, MyCount()];
         STORE(out, OUTPUT);
@@ -1682,8 +1683,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_no_emit_clause_many_cols(self):
         query = """
         uda MyAggs(x) {
-            [0 as _count, 0 as _sum, 0 as _sumsq];
-            [_count + 1, _sum + x, _sumsq + x*x];
+            init: [0 as _count, 0 as _sum, 0 as _sumsq];
+            update: [_count + 1, _sum + x, _sumsq + x*x];
         };
         out = [FROM SCAN(%s) AS X EMIT MyAggs(salary) as [a, b, c]];
         STORE(out, OUTPUT);
@@ -1699,8 +1700,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         # order used by Python is correct by chance.
         query = """
         uda MyAggs(x) {
-            [0 as _count, 0 as _sumsq, 0 as _sum];
-            [_count + 1, _sumsq + x*x, _sum + x];
+            init: [0 as _count, 0 as _sumsq, 0 as _sum];
+            update: [_count + 1, _sumsq + x*x, _sum + x];
         };
         out = [FROM SCAN(%s) AS X EMIT MyAggs(salary) as [a, b, c]];
         STORE(out, OUTPUT);
@@ -1716,9 +1717,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         query = """
         def foo(x, y): x + y;
         uda max2(x, y) {
-            [0 as _max];
-            [case when foo(x, y) > _max then foo(x, y) else _max end];
-            _max;
+            init: [0 as _max];
+            update: [case when foo(x, y) > _max then foo(x, y) else _max end];
+            emit: _max;
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
@@ -1739,9 +1740,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         query = """
         def foo(x, y): x + y;
         uda max2(x, y) {
-            [0 as _max];
-            [case when foo(x, y) > _max then foo(x, y) else _max end];
-            _max;
+            init: [0 as _max];
+            update: [case when foo(x, y) > _max then foo(x, y) else _max end];
+            emit: _max;
         };
 
         inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
@@ -1764,9 +1765,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         query = """
         def foo(x, y): x + y;
         uda max2(x, y) {
-            [0 as _max];
-            [case when foo(x, y) > _max then foo(x, y) else _max end];
-            _max;
+            init: [0 as _max];
+            update: [case when foo(x, y) > _max then foo(x, y) else _max end];
+            emit: _max;
         };
 
         inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
@@ -1789,9 +1790,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         query = """
         def foo(x, y): x + y;
         uda max2(x, y) {
-            [0 as _max];
-            [case when foo(x, y) > _max then foo(x, y) else _max end];
-            _max;
+            init: [0 as _max];
+            update: [case when foo(x, y) > _max then foo(x, y) else _max end];
+            emit: _max;
         };
 
         inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)
@@ -1822,9 +1823,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
         query = """
         uda SumCountMean(x) {
-          [0 as _sum, 0 as _count];
-          [_sum + x, _count + 1];
-          [_sum, _count, _sum/_count];
+          init: [0 as _sum, 0 as _count];
+          update: [_sum + x, _count + 1];
+          emit: [_sum, _count, _sum/_count];
         };
         out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary) %s,
                dept_id+3, max(id) as max_id];
@@ -1872,9 +1873,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_bad_column_name_length(self):
         query = """
         uda Fubar(x, y, z) {
-          [0 as Q];
-          [Q + 1];
-          [1,2,3];
+          init: [0 as Q];
+          update: [Q + 1];
+          emit: [1,2,3];
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, Fubar(1, salary, id)
@@ -1888,15 +1889,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_init_tuple_valued(self):
         query = """
         uda Foo(x) {
-          [0 as Q];
-          [Q + 1];
-          [1,2,3];
+          init: [0 as Q];
+          update: [Q + 1];
+          emit: [1,2,3];
         };
 
         uda Bar(x) {
-          [Foo(0) as [A, B, C]];
-          [Q * 8];
-          [1,2,3];
+          init: [Foo(0) as [A, B, C]];
+          update: [Q * 8];
+          emit: [1,2,3];
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
@@ -1909,15 +1910,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_update_tuple_valued(self):
         query = """
         uda Foo(x) {
-          [0 as Q];
-          [Q + 1];
-          [1,2,3];
+          init: [0 as Q];
+          update: [Q + 1];
+          emit: [1,2,3];
         };
 
         uda Bar(x) {
-          [0 as Q];
-          [Foo(Q + 1)];
-          [1,2,3];
+          init: [0 as Q];
+          update: [Foo(Q + 1)];
+          emit: [1,2,3];
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
@@ -1930,15 +1931,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_uda_result_tuple_valued(self):
         query = """
         uda Foo(x) {
-          [0 as Q];
-          [Q + 1];
-          [1,2,3];
+          init: [0 as Q];
+          update: [Q + 1];
+          emit: [1,2,3];
         };
 
         uda Bar(x) {
-          [0 as Q];
-          [Q + 2];
-          [1,2,Foo(3)];
+          init: [0 as Q];
+          update: [Q + 2];
+          emit: [1,2,Foo(3)];
         };
 
         out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
@@ -1953,9 +1954,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         by itself in an emit expression."""
         query = """
         uda SumCountMean(x) {
-          [0 as _sum, 0 as _count];
-          [_sum + x, _count + 1];
-          [_sum, _count, _sum/_count];
+          init: [0 as _sum, 0 as _count];
+          update: [_sum + x, _count + 1];
+          emit: [_sum, _count, _sum/_count];
         };
         out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary) + 5];
         STORE(out, OUTPUT);
@@ -1966,18 +1967,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
     __DECOMPOSED_UDA = """
         uda LogicalAvg(x) {
-          [0 as _sum, 0 as _count];
-          [_sum + x, _count + 1];
-          float(_sum); -- Note bogus return value
+          init: [0 as _sum, 0 as _count];
+          update: [_sum + x, _count + 1];
+          emit: float(_sum); -- Note bogus return value
         };
         uda LocalAvg(x) {
-          [0 as _sum, 0 as _count];
-          [_sum + x, _count + 1];
+          init: [0 as _sum, 0 as _count];
+          update: [_sum + x, _count + 1];
         };
         uda RemoteAvg(_local_sum, _local_count) {
-          [0 as _sum, 0 as _count];
-          [_sum + _local_sum, _count + _local_count];
-          [_sum/_count];
+          init: [0 as _sum, 0 as _count];
+          update: [_sum + _local_sum, _count + _local_count];
+          emit: [_sum/_count];
         };
         uda* LogicalAvg {LocalAvg, RemoteAvg};
     """
@@ -1988,12 +1989,12 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
                 when salary = _salary and id > _id then val
                 else _val end;
         uda ArgMax(id, dept_id, name, salary) {
-          [0 as _id, 0 as _dept_id, "" as _name, 0 as _salary];
-          [pickval(id, salary, id, _id, _salary, _id),
+          init: [0 as _id, 0 as _dept_id, "" as _name, 0 as _salary];
+          update: [pickval(id, salary, id, _id, _salary, _id),
            pickval(id, salary, dept_id, _id, _salary, _dept_id),
            pickval(id, salary, name, _id, _salary, _name),
            pickval(id, salary, salary, _id, _salary, _salary)];
-          [_id, _dept_id, _name, _salary];
+          emit: [_id, _dept_id, _name, _salary];
         };
     """
 
@@ -2003,14 +2004,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
                 when salary = _salary and id > _id then val
                 else _val end;
         uda ArgMax(id, dept_id, name, salary) {
-          [0 as _id, 0 as _dept_id, "" as _name, 0 as _salary];
-          [pickval(id, salary, greater(id, id), _id, _salary, _id),
-           pickval(id, salary, lesser(dept_id, dept_id), _id, _salary,
-                   _dept_id),
-           pickval(id, salary, case when name="" then name else name end, _id,
-                   _salary, _name),
+          init: [0 as _id, 0 as _dept_id, "" as _name, 0 as _salary];
+          update: [pickval(id, salary, greater(id, id), _id, _salary, _id),
+                   pickval(id, salary, lesser(dept_id, dept_id), _id, _salary,
+                           _dept_id),
+                   pickval(id, salary,
+                           case when name="" then name else name end,
+                           _id, _salary, _name),
            pickval(id, salary, salary * 1, _id, _salary, _salary)];
-          [_id, _dept_id, _name, _salary];
+          emit: [_id, _dept_id, _name, _salary];
         };
     """
 
@@ -2042,8 +2044,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
         query = """
         uda Sum2(x, y) {
-          [0 as sum_x, 0 as sum_y];
-          [sum_x + x, sum_y + y];
+          init : [0 as sum_x, 0 as sum_y];
+          UPDATE : [sum_x + x, sum_y + y];
         };
         uda* Sum2 {Sum2, Sum2};
         out = [FROM SCAN(%s) AS X EMIT
@@ -2318,13 +2320,13 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
         query = """
         uda MySumBroken(x) {
-          [0 as _sum];
-          [_sum + x];
-          17; -- broken
+          init: [0 as _sum];
+          update: [_sum + x];
+          emit: 17; -- broken
         };
         uda MySum(x) {
-          [0 as _sum];
-          [_sum + x];
+          init: [0 as _sum];
+          update: [_sum + x];
         };
         uda* MySumBroken {MySum, MySum};
 
@@ -2343,13 +2345,13 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
         query = """
         uda MySumBroken(x) {
-          [0 as _sum];
-          [_sum + x];
-          17; -- broken
+          init: [0 as _sum];
+          update: [_sum + x];
+          emit: 17; -- broken
         };
         uda MySum(x) {
-          [0 as _sum];
-          [_sum + x];
+          init: [0 as _sum];
+          update: [_sum + x];
         };
         uda* MySumBroken {MySum, MySum};
 
@@ -2372,8 +2374,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_duplicate_decomposable_uda(self):
         query = """
         uda Agg1(x) {
-          [0 as _sum];
-          [_sum + x];
+          init: [0 as _sum];
+          update: [_sum + x];
         };
 
         uda* Agg1 {Agg1, Agg1};
@@ -2386,12 +2388,12 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_decomposable_uda_type_check_fail1(self):
         query = """
         uda Logical(x) {
-          [0 as _sum];
-          [_sum + x];
+          init: [0 as _sum];
+          update: [_sum + x];
         };
         uda Local(x, y) {
-          [0 as _sum];
-          [_sum + x];
+          init: [0 as _sum];
+          update: [_sum + x];
         };
         uda* Logical {Local, Logical};
         """
@@ -2402,12 +2404,12 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_decomposable_uda_type_check_fail2(self):
         query = """
         uda Logical(x) {
-          [0 as _sum];
-          [_sum + x];
+          INIT : [0 as _sum];
+          uPDaTE : [_sum + x];
         };
         uda Remote(x, y) {
-          [0 as _sum];
-          [_sum + x];
+          init :[0 as _sum];
+          update :[_sum + x];
         };
         uda* Logical {Logical, Remote};
         """
@@ -2418,13 +2420,13 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_decomposable_uda_type_check_fail3(self):
         query = """
         uda Logical(x) {
-          [0 as _sum];
-          [_sum + x];
+          init: [0 as _sum];
+          update: [_sum + x];
         };
         uda Remote(x) {
-          [0 as _sum];
-          [_sum + x];
-          [1, 2, 3];
+          init: [0 as _sum];
+          update: [_sum + x];
+          emit: [1, 2, 3];
         };
         uda* Logical {Logical, Remote};
         """
@@ -2435,9 +2437,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {
-            [0 AS _count, 0 AS _sum];
-            [_count + 1, _sum + value];
-            _sum / _count;
+            init: [0 AS _count, 0 AS _sum];
+            update: [_count + 1, _sum + value];
+            emit: _sum / _count;
         };
         out = [FROM SCAN(%s) AS X EMIT id, RunningMean(X.salary)];
         STORE(out, OUTPUT);
@@ -2456,9 +2458,9 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_sapply_multi_invocation(self):
         query = """
         APPLY RunningSum(x) {
-            [0 AS _sum];
-            [_sum + x];
-            _sum;
+            init: [0 AS _sum];
+            update: [_sum + x];
+            emit: _sum;
         };
         out = [FROM SCAN(%s) AS X
                EMIT id, RunningSum(X.salary), RunningSum(id)];

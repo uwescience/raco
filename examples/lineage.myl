@@ -29,12 +29,12 @@ def pickval(old_depth, old_year, old_ca, old_val, new_depth, new_year, new_ca, n
          else old_val end;
 -- .. actually the UDA
 uda shallowest_lca(ca, y, d1, d2) {
-    [-1 as rca, 1000000 as ry, 1000 as rd1, 1000 as rd2];
-    [pickval(greater(rd1, rd2), ry, rca, rca, greater(d1, d2), y, ca, ca),
+    init: [-1 as rca, 1000000 as ry, 1000 as rd1, 1000 as rd2];
+    update: [pickval(greater(rd1, rd2), ry, rca, rca, greater(d1, d2), y, ca, ca),
      pickval(greater(rd1, rd2), ry, rca, ry, greater(d1, d2), y, ca, y),
      pickval(greater(rd1, rd2), ry, rca, rd1, greater(d1, d2), y, ca, d1),
      pickval(greater(rd1, rd2), ry, rca, rd2, greater(d1, d2), y, ca, d2)];
-    [rca, ry, rd1, rd2];
+    emit: [rca, ry, rd1, rd2];
 };
 -- .. the decomposable form of the UDA
 --uda* shallowest_lca {shallowest_lca, shallowest_lca};

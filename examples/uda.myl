@@ -1,17 +1,17 @@
 -- test with user-defined aggregate
 uda LogicalAvg(x) {
-  [0 as _sum, 0 as _count];
-  [_sum + x, _count + 1];
-  _sum / _count;
+  init: [0 as _sum, 0 as _count];
+  update: [_sum + x, _count + 1];
+  emit: _sum / _count;
 };
 uda LocalAvg(x) {
-  [0 as _sum, 0 as _count];
-  [_sum + x, _count + 1];
+  init: [0 as _sum, 0 as _count];
+  update: [_sum + x, _count + 1];
 };
 uda RemoteAvg(_local_sum, _local_count) {
-  [0 as _sum, 0 as _count];
-  [_sum + _local_sum, _count + _local_count];
-  [_sum/_count];
+  init: [0 as _sum, 0 as _count];
+  update: [_sum + _local_sum, _count + _local_count];
+  emit: [_sum/_count];
 };
 uda* LogicalAvg {LocalAvg, RemoteAvg};
 
