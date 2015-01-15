@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: UTF-8 -*-
 
 import ply.lex as lex
 
@@ -25,10 +26,11 @@ reserved = (keywords + types + comprehension_keywords
 # Token types; required by ply to have this variable name
 
 tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
-          'TIMES', 'DIVIDE', 'IDIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ', 'NE',
-          'NE2', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
-          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL', 'LBRACE',
-          'RBRACE'] + reserved
+          'TIMES', 'DIVIDE', 'IDIVIDE', 'LT', 'GT', 'GE', 'GE2', 'LE', 'LE2',
+          'EQ', 'NE', 'NE2', 'NE3', 'COMMA', 'SEMI', 'EQUALS', 'COLON',
+          'DOLLAR', 'ID',
+          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL',
+          'LBRACE', 'RBRACE'] + reserved
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('
@@ -47,10 +49,13 @@ t_IDIVIDE = r'//'
 t_LT = r'<'
 t_GT = r'>'
 t_LE = r'<='
+t_LE2 = u'≤'
 t_GE = r'>='
+t_GE2 = u'≥'
 t_EQ = r'=='
 t_NE = r'!='
 t_NE2 = r'<>'
+t_NE3 = u'≠'
 
 t_DOT = r'\.'
 t_COMMA = r','

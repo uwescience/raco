@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 
 import collections
 import math
@@ -119,10 +120,32 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
             [x for x in self.emp_table.elements() if 2 * x[1] >= x[0]])
         self.check_result(query, expected)
 
+    def test_bag_comp_filter_column_compare_ge2(self):
+        query = u"""
+        emp = SCAN(%s);
+        out = [FROM emp WHERE 2 * $1 ≥ $0 EMIT *];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if 2 * x[1] >= x[0]])
+        self.check_result(query, expected)
+
     def test_bag_comp_filter_column_compare_le(self):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $1 <= 2 * $0 EMIT *];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[1] <= 2 * x[0]])
+        self.check_result(query, expected)
+
+    def test_bag_comp_filter_column_compare_le2(self):
+        query = u"""
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $1 ≤ 2 * $0 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -178,6 +201,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $0 // $1 <> $1 EMIT *];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[0] / x[1] != x[1]])
+        self.check_result(query, expected)
+
+    def test_bag_comp_filter_column_compare_ne3(self):
+        query = u"""
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $0 // $1 ≠ $1 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 

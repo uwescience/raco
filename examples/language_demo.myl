@@ -25,6 +25,9 @@ bc = [from emp emit emp.*];
 out = [from emp where $0 * 2 == $1 emit *];
 out = [from emp where $0 // $1 <> $1 emit *];
 
+-- Unicode math operators ≤, ≥, ≠
+out = [from emp where $0 ≤ $1 and $0 ≠ $1 and $1 ≥ $0 emit *];
+
 do
     mean = [from Good emit avg(v) as val];
     -- foo bar
