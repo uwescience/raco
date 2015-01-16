@@ -62,13 +62,13 @@ class FakeDatabase(Catalog):
 
     def ingest(self, rel_key, contents, scheme):
         """Directly load raw data into the database"""
-        if isinstance(rel_key, str):
+        if isinstance(rel_key, basestring):
             rel_key = relation_key.RelationKey.from_string(rel_key)
         assert isinstance(rel_key, relation_key.RelationKey)
         self.tables.add_table(rel_key, scheme, contents.elements())
 
     def get_scheme(self, rel_key):
-        if isinstance(rel_key, str):
+        if isinstance(rel_key, basestring):
             rel_key = relation_key.RelationKey.from_string(rel_key)
 
         assert isinstance(rel_key, relation_key.RelationKey)
@@ -82,7 +82,7 @@ class FakeDatabase(Catalog):
         :type rel_key: relation_key.RelationKey
         :returns: A collections.Counter instance containing tuples.
         """
-        if isinstance(rel_key, str):
+        if isinstance(rel_key, basestring):
             rel_key = relation_key.RelationKey.from_string(rel_key)
         assert isinstance(rel_key, relation_key.RelationKey)
         return self.tables.get_table(rel_key)

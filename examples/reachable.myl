@@ -9,6 +9,6 @@ DO
                               EMIT Edge.dst AS addr]);
     Delta = DIFF(NewlyReachable, Reachable);
     Reachable = UNIONALL(Delta, Reachable);
-WHILE [*COUNTALL(Delta) > 0];
+WHILE [FROM COUNTALL(Delta) AS size EMIT *size > 0];
 
 STORE(Reachable, OUTPUT);
