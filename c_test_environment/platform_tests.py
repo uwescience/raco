@@ -503,7 +503,7 @@ class MyriaLPlatformTests(object):
         out = [FROM j2 WHERE $0 = $5 EMIT $0, $1, $3];
         STORE(out, OUTPUT);
         """, "directed_triangles", join_type='symmetric_hash')
-    
+
     def test_shuffle_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
@@ -514,6 +514,15 @@ class MyriaLPlatformTests(object):
         out = [FROM j2 WHERE $0 = $5 EMIT $0, $1, $3];
         STORE(out, OUTPUT);
         """, "directed_triangles", join_type='shuffle_hash')
+
+    def test_simple_do_while(self):
+        self.check_sub_tables("""
+        x = SCAN(%(R2)s);
+        do
+        x = [FROM x emit x.$0*2 as val, x.$1+1 as exp];
+        while [FROM x emit x.exp < 5];
+        STORE(x, OUTPUT);
+        """, "simple_do_while")
 
     def test_q2(self):
         """
