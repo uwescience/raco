@@ -66,7 +66,7 @@ EXPRESSIONS_CASE = {
                                      NumericLiteral(0)),
                              LEN(NamedAttributeRef('str'))
                              ])),
-    'flip': Function(['p'], GREATER(RANDOM(), NamedAttributeRef('p')))
+    'flip': Function(['p'], LT(RANDOM(), NamedAttributeRef('p')))
 }
 
 

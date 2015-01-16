@@ -3,7 +3,8 @@ A RACO language to compile expressions to SQL.
 """
 
 from sqlalchemy import (Column, Table, MetaData, Integer, String,
-                        Float, Boolean, DateTime, create_engine, select, func)
+                        Float, Boolean, DateTime, select, func,
+                        literal)
 
 import raco.algebra as algebra
 from raco.catalog import Catalog
@@ -88,7 +89,8 @@ class SQLCatalog(Catalog):
         if isinstance(expr, expression.COUNTALL):
             return func.count(cols[0])
         if isinstance(expr, expression.Literal):
-            return expr.value
+            return literal(expr.value,
+                           raco_to_type[expr.typeof(input_scheme, None)])
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_unary_expr(self, cols, expr, input_scheme):
@@ -139,7 +141,7 @@ class SQLCatalog(Catalog):
         elif isinstance(plan, algebra.Apply):
             clause = [self._convert_expr(cols, e, input_sch).label(name)
                       for (name, e) in plan.emitters]
-            return select(clause)
+            return select(clause, from_obj=input)
 
         elif isinstance(plan, algebra.GroupBy):
             a = [self._convert_expr(cols, e, input_sch)

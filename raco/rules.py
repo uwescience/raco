@@ -1,7 +1,7 @@
 from raco import algebra
 from raco import expression
 from .expression import (accessed_columns, UnnamedAttributeRef,
-                         to_unnamed_recursive)
+                         to_unnamed_recursive, RANDOM)
 
 from abc import ABCMeta, abstractmethod
 import itertools
@@ -346,15 +346,7 @@ class PushSelects(Rule):
         elif isinstance(op, algebra.CompositeBinaryOperator):
             # Joins and cross-products; consider conversion to an equijoin
             # Expressions containing random do not commute across joins
-            has_random = False
-            queue = [cond]
-            while queue:
-                child = queue.pop(0)
-                if isinstance(child, expression.function.RANDOM):
-                    has_random = True
-                    break
-                for c in child.get_children():
-                    queue.append(c)
+            has_random = any(isinstance(e, RANDOM) for e in cond.walk())
             if not has_random:
                 left_len = len(op.left.scheme())
                 accessed = accessed_columns(cond)
