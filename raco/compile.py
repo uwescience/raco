@@ -83,6 +83,8 @@ def compile(expr):
                     sub_expr.children()[num_child - 1])
                 state.addCode("} while (")
                 state.addCode(condition + ".get<0>()")
+                condition_init = [condition + ".set<0>(1);"]
+                state.addInitializers(condition_init)
                 state.addCode(");\n")
             elif isinstance(sub_expr, Pipelined):
                 body = lang.body(sub_expr.compilePipeline(state))
