@@ -386,7 +386,8 @@ class CApply(Pipelined, algebra.Apply):
             state.addInitializers(expr_inits)
             state.addDeclarations(expr_decls)
             if self.parent() is None:
-                src_expr_compiled = "( " + dst_name + ".get<0>() ) && " \
+                state.addPreCode(dst_name + ".set<0>(0);\n")
+                src_expr_compiled = "( " + dst_name + ".get<0>() ) || " \
                                     + src_expr_compiled
             code += assignment_template.render(locals())
 
