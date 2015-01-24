@@ -69,7 +69,6 @@ def compile(expr):
     # TODO: Fix this
     algebra.reset()
     exprcode = []
-
     if isinstance(expr, algebra.Sequence):
         lang = expr.children()[0].language()
         state = CompileState(lang)

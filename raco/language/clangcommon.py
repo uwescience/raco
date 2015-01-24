@@ -368,8 +368,15 @@ class CApply(Pipelined, algebra.Apply):
             if not isinstance(self.parent(), algebra.StoreTemp):
                 dst_type_name = self.newtuple.getTupleTypename()
             else:
-                dst_type_name = state.lookupTupleDef(
-                    self.children()[0].name).getTupleTypename()
+                dst_type_name = None
+                c = self.children()
+                while (dst_type_name is None):
+                    for child in c:
+                        if isinstance(child, algebra.ScanTemp):
+                            dst_type_name = state.lookupTupleDef(
+                                child.name).getTupleTypename()
+                        else:
+                            c = child.children()
             code += _cgenv.get_template('tuple_declaration.cpp').render(
                 locals())
 
