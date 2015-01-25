@@ -804,3 +804,24 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
         self.assertEquals(result, expected)
+
+    def test_no_push_when_random(self):
+        """Selection with RANDOM() doesn't push through joins"""
+        query = """
+        r = scan({x});
+        s = scan({y});
+        t = [from r,s where random()*10 > .3 emit *];
+        store(t, OUTPUT);
+        """.format(x=self.x_key, y=self.y_key)
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, Select), 1)
+        self.assertEquals(self.get_count(lp, CrossProduct), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertEquals(self.get_count(pp, Select), 1)
+        self.assertEquals(self.get_count(pp, CrossProduct), 1)
+        # The selection should happen after the cross product
+        for op in pp.walk():
+            if isinstance(op, Select):
+                self.assertTrue(isinstance(op.input, CrossProduct))

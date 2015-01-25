@@ -2622,6 +2622,26 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
                                         in self.emp_table.elements()])
         self.check_result(query, expected)
 
+    def test_flip_zero(self):
+        """flip(0) should always evaluate to false"""
+        query = """
+        X = [FROM SCAN(%s) AS X WHERE flip(0) EMIT *];
+        STORE(X, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter()
+        self.check_result(query, expected)
+
+    def test_flip_one(self):
+        """flip(1) should always evaluate to true"""
+        query = """
+        X = [FROM SCAN(%s) AS X WHERE flip(1) EMIT *];
+        STORE(X, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(self.emp_table.elements())
+        self.check_result(query, expected)
+
     def test_substr(self):
         query = """
         ZERO = [0];

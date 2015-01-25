@@ -65,7 +65,8 @@ EXPRESSIONS_CASE = {
                                            NamedAttributeRef('length')),
                                      NumericLiteral(0)),
                              LEN(NamedAttributeRef('str'))
-                             ]))
+                             ])),
+    'flip': Function(['p'], LT(RANDOM(), NamedAttributeRef('p')))
 }
 
 
@@ -95,7 +96,7 @@ def one_to_one_function(func_name):
 # must match the corresponding function class in raco.expression.function
 ONE_TO_ONE_FUNCS = ['ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT',
                     'TAN', 'LEN', 'POW', 'MAX', 'MIN', 'SUM', 'AVG', 'STDEV',
-                    'COUNTALL', 'MD5']
+                    'COUNTALL', 'MD5', 'RANDOM']
 
 ONE_TO_ONE_EXPRS = {k.lower(): one_to_one_function(k) for k in ONE_TO_ONE_FUNCS}  # noqa
 
