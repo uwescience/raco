@@ -66,8 +66,13 @@ class GrappaLanguage(CBaseLanguage):
         timer_metric = None
         if attrs['type'] == 'in_memory':
             timer_metric = "in_memory_runtime"
+            # only trace in_memory
+            tracing_on = "Grappa::Metrics::start_tracing();"
+            tracing_off = "Grappa::Metrics::stop_tracing();"
         elif attrs['type'] == 'scan':
             timer_metric = "saved_scan_runtime"
+            tracing_on = ""
+            tracing_off = ""
 
         code = emitlist(["Grappa::Metrics::reset();",
                          timing_template.render(locals())])

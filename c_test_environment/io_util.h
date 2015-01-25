@@ -70,13 +70,14 @@ std::vector<T> tuplesFromAscii(const char *path) {
   std::ifstream testfile(pathst, std::ifstream::in);
 
   std::vector<T> tuples;
-    
+
   std::string line;
   while (std::getline(testfile,line)) {
     std::istringstream ss(line);
     tuples.push_back(T::fromIStream(ss)); 
   }
-  
+
+  // rely on RVO to avoid content copy
   return tuples;
 }
     

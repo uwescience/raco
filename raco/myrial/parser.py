@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 import collections
 import sys
 
@@ -39,9 +41,12 @@ binops = {
     '>': sexpr.GT,
     '<': sexpr.LT,
     '>=': sexpr.GTEQ,
+    u'≥': sexpr.GTEQ,
     '<=': sexpr.LTEQ,
+    u'≤': sexpr.LTEQ,
     '!=': sexpr.NEQ,
     '<>': sexpr.NEQ,
+    u'≠': sexpr.NEQ,
     '==': sexpr.EQ,
     '=': sexpr.EQ,
     'AND': sexpr.AND,
@@ -816,14 +821,9 @@ class Parser(object):
         p[0] = sexpr.UnnamedAttributeRef(p[2])
 
     @staticmethod
-    def p_sexpr_id_dot_id(p):
-        'sexpr : unreserved_id DOT unreserved_id'
-        p[0] = sexpr.Unbox(p[1], p[3])
-
-    @staticmethod
-    def p_sexpr_id_dot_pos(p):
-        'sexpr : unreserved_id DOT DOLLAR INTEGER_LITERAL'
-        p[0] = sexpr.Unbox(p[1], p[4])
+    def p_sexpr_id_dot_ref(p):
+        'sexpr : unreserved_id DOT column_ref'
+        p[0] = sexpr.DottedRef(p[1], p[3])
 
     @staticmethod
     def p_sexpr_group(p):
@@ -850,9 +850,12 @@ class Parser(object):
                    | sexpr GT sexpr
                    | sexpr LT sexpr
                    | sexpr GE sexpr
+                   | sexpr GE2 sexpr
                    | sexpr LE sexpr
+                   | sexpr LE2 sexpr
                    | sexpr NE sexpr
                    | sexpr NE2 sexpr
+                   | sexpr NE3 sexpr
                    | sexpr EQ sexpr
                    | sexpr EQUALS sexpr
                    | sexpr AND sexpr
@@ -1006,7 +1009,7 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_unbox(p):
-        'sexpr : TIMES expression optional_column_ref'
+        'sexpr : TIMES unreserved_id optional_column_ref'
         p[0] = sexpr.Unbox(p[2], p[3])
 
     @staticmethod

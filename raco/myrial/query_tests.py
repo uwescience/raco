@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 
 import collections
 import math
@@ -119,10 +120,32 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
             [x for x in self.emp_table.elements() if 2 * x[1] >= x[0]])
         self.check_result(query, expected)
 
+    def test_bag_comp_filter_column_compare_ge2(self):
+        query = u"""
+        emp = SCAN(%s);
+        out = [FROM emp WHERE 2 * $1 ≥ $0 EMIT *];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if 2 * x[1] >= x[0]])
+        self.check_result(query, expected)
+
     def test_bag_comp_filter_column_compare_le(self):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $1 <= 2 * $0 EMIT *];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[1] <= 2 * x[0]])
+        self.check_result(query, expected)
+
+    def test_bag_comp_filter_column_compare_le2(self):
+        query = u"""
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $1 ≤ 2 * $0 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -178,6 +201,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $0 // $1 <> $1 EMIT *];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[0] / x[1] != x[1]])
+        self.check_result(query, expected)
+
+    def test_bag_comp_filter_column_compare_ne3(self):
+        query = u"""
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $0 // $1 ≠ $1 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -316,6 +350,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
          ('Dan Suciu', 'engineering'),
          ('Magdalena Balazinska', 'accounting')])
 
+    def test_explicit_join_unicode(self):
+        query = u"""
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        out = JOIN(emp, dept_id, dept, id);
+        out2 = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
+        STORE(out2, OUTPUT);
+        """ % (self.emp_key, self.dept_key)
+
+        self.check_result(query, self.join_expected)
+
     def test_explicit_join(self):
         query = """
         emp = SCAN(%s);
@@ -326,6 +371,19 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
+
+    def test_explicit_join_twocols(self):
+        query = """
+        query = [1 as dept_id, 25000 as salary];
+        emp = SCAN({emp});
+        out = JOIN(query, (dept_id, salary), emp, (dept_id, salary));
+        out2 = [FROM out EMIT name];
+        STORE(out2, OUTPUT);
+        """.format(emp=self.emp_key)
+
+        expected = collections.Counter([('Victor Almeida',),
+                                        ('Magdalena Balazinska',)])
+        self.check_result(query, expected)
 
     def test_bagcomp_join_via_names(self):
         query = """
@@ -346,6 +404,19 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
+
+    def test_two_column_join(self):
+        query = """
+        D = [1 as dept_id, 25000 as salary];
+        out = [FROM D, SCAN({emp}) E
+               WHERE E.dept_id == D.dept_id AND E.salary == D.salary
+               EMIT E.name AS emp_name];
+        STORE(out, OUTPUT);
+        """.format(emp=self.emp_key)
+
+        expected = collections.Counter([('Victor Almeida',),
+                                        ('Magdalena Balazinska',)])
+        self.check_result(query, expected)
 
     def test_join_with_select(self):
         query = """
@@ -658,7 +729,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         query = """
         emp = SCAN(%s);
         dept = SCAN(%s);
-        out = [FROM emp WHERE id > *COUNTALL(dept) EMIT emp.id];
+        out = [FROM emp, COUNTALL(dept) as size WHERE id > *size EMIT emp.id];
         STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
@@ -667,11 +738,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
              x[0] > len(self.dept_table)])
         self.check_result(query, expected)
 
-    def test_unbox_inline_table_literal(self):
+    def test_inline_table_literal(self):
         query = """
         emp = SCAN(%s);
         dept = SCAN(%s);
-        out = [FROM emp WHERE id > *[1,2,3].$2 EMIT emp.id];
+        out = [FROM emp, [1,2,3] as tl WHERE id > tl.$2 EMIT emp.id];
         STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
@@ -1104,7 +1175,40 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):  # noqa
+        with self.assertRaises(NoSuchRelationException):
+            self.check_result(query, collections.Counter())
+
+    def test_bad_relation_name(self):
+        query = """
+        y = empty(a:int);
+        z = [from s y      -- bug: s does not exist
+             emit y.a];
+        store(z, debug);
+        """
+
+        with self.assertRaises(NoSuchRelationException):
+            self.check_result(query, collections.Counter())
+
+    def test_bad_alias(self):
+        query = """
+        y = empty(a:int);
+        z = [from y s      -- bug: extra s
+             emit y.a];
+        store(z, debug);
+        """
+
+        with self.assertRaises(NoSuchRelationException):
+            self.check_result(query, collections.Counter())
+
+    def test_bad_alias_wildcard(self):
+        query = """
+        y = empty(a:int);
+        z = [from y s      -- bug: errant s
+             emit y.*];
+        store(z, debug);
+        """
+
+        with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
     def test_scan_error(self):
@@ -1122,7 +1226,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
     def test_relation_scope_error2(self):
@@ -1132,7 +1236,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
     def test_parse_error(self):

@@ -136,7 +136,7 @@ class CBaseLanguage(Language):
     def cast(cls, castto, inputexpr):
         inputcode, decls, inits = inputexpr
         typen = cls.typename(castto)
-        code = "(({typename}){expr})".format(
+        code = "(static_cast<{typename}>({expr}))".format(
             typename=typen, expr=inputcode)
         return code, decls, inits
 
@@ -578,8 +578,6 @@ class BreakHashJoinConjunction(rules.Rule):
 clang_push_select = [
     rules.SplitSelects(),
     rules.PushSelects(),
-    # We don't want to merge selects because it doesn't really
-    # help and it (maybe) creates HashJoin(conjunction)
     rules.MergeSelects()
 ]
 

@@ -12,5 +12,8 @@
                                       ('Day', 'LONG_TYPE'),
                                       ('File_Id', 'LONG_TYPE'),
                                       ('chl_small', 'DOUBLE_TYPE'),
-                                      ('pe', 'DOUBLE_TYPE')]
+                                      ('pe', 'DOUBLE_TYPE')],
+    'public:adhoc:nodes_jstor' : [('paper_id', 'LONG_TYPE'), ('year','LONG_TYPE')],
+    'public:adhoc:links_jstor' : [('p1', 'LONG_TYPE'), ('p2','LONG_TYPE')],
+    'dhalperi:lineage:top_papers_jstor' : [('paper_id', 'LONG_TYPE')],
 }

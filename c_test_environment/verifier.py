@@ -2,6 +2,10 @@ import re
 import sys
 import nose
 
+"""
+Checks two query outputs for equality
+"""
+
 doublepat = re.compile(r'-?\d+[.]\d+')
 def parse_number(number):
     if doublepat.match(number):

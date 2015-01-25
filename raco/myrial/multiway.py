@@ -3,12 +3,11 @@
 from raco import algebra
 from raco import expression
 from raco.expression.statevar import *
-
-from raco.myrial.exceptions import ColumnIndexOutOfBounds
+from raco.myrial.exceptions import *
 
 
 def rewrite_statemods(statemods, from_args, base_offsets):
-    """Convert Unbox expressions contained inside statemod variables.
+    """Convert DottedRef expressions contained inside statemod variables.
 
     :param statemods: A list of StateVar instances
     :param from_args: A map from relation name to Operator
@@ -21,7 +20,7 @@ def rewrite_statemods(statemods, from_args, base_offsets):
 
 
 def rewrite_refs(sexpr, from_args, base_offsets):
-    """Convert all Unbox expressions into raw indexes."""
+    """Convert all DottedRef expressions into raw indexes."""
 
     def rewrite_node(sexpr):
         # Push unboxing into the state variables of distributed aggregates
@@ -39,10 +38,12 @@ def rewrite_refs(sexpr, from_args, base_offsets):
                             ds.get_finalizer()))
                 return sexpr
 
-        if not isinstance(sexpr, expression.Unbox):
+        if not isinstance(sexpr, expression.DottedRef):
             return sexpr
+        elif sexpr.table_alias not in from_args:
+            raise NoSuchRelationException(sexpr.table_alias)
         else:
-            op = from_args[sexpr.relational_expression]
+            op = from_args[sexpr.table_alias]
             scheme = op.scheme()
 
             debug_info = None
@@ -57,7 +58,7 @@ def rewrite_refs(sexpr, from_args, base_offsets):
                 offset = scheme.getPosition(sexpr.field)
                 debug_info = sexpr.field
 
-            offset += base_offsets[sexpr.relational_expression]
+            offset += base_offsets[sexpr.table_alias]
             return expression.UnnamedAttributeRef(offset, debug_info)
 
     def recursive_eval(sexpr):

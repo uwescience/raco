@@ -94,6 +94,16 @@ def compile_expr(op, child_scheme, state_scheme):
                 'outputType': op._type
             }
         }
+    elif isinstance(op, expression.SUBSTR):
+        children = []
+        op.operands[1] = expression.CAST(types.INT_TYPE, op.operands[1])
+        op.operands[2] = expression.CAST(types.INT_TYPE, op.operands[2])
+        for operand in op.operands:
+            children.append(compile_expr(operand, child_scheme, state_scheme))
+        return {
+            'type': op.opname(),
+            'children': children
+        }
 
     ####
     # Everything below here is compiled automatically
@@ -888,10 +898,13 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         toVisit = deque()
         toVisit.append(tuple([1 for _ in conditions]))
         min_work_load = None
+        opt_dim_sizes = [0] * len(conditions)
         while len(toVisit) > 0:
             dim_sizes = toVisit.pop()
-            if ((this.workload(dim_sizes, child_sizes, r_index) <
-                    min_work_load) or (min_work_load is None)):
+            workload = this.workload(dim_sizes, child_sizes, r_index)
+            if ((workload < min_work_load) or (
+                workload == min_work_load and max(dim_sizes) < max(
+                    opt_dim_sizes)) or (min_work_load is None)):
                 min_work_load = this.workload(
                     dim_sizes, child_sizes, r_index)
                 opt_dim_sizes = dim_sizes

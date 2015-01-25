@@ -5,6 +5,10 @@ import sys
 from raco.catalog import FromFileCatalog
 from raco.language.clangcommon import StagedTupleRef
 
+"""
+given a schema, creates a C++ program to convert csv data to a binary format
+"""
+
 template = """
 #include <tuple>
 #include <string>
@@ -19,7 +23,7 @@ template = """
 
 {definition}
 
-int main(int argc, char** argv) {{
+int main(int argc, char * const argv[]) {{
     if (argc < 4) {{
         std::cerr << "usage: " << argv[0] << " [file] [burns] [add_id?]" << std::endl;
         exit(1);

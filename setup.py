@@ -28,13 +28,13 @@ def find_packages(path=".", base="", exclude=None):
 ###
 
 setup(name='raco',
-      version='1.0.0',
+      version='1.1.0',
       description='Relational Algebra COmpiler',
       author='Bill Howe, Andrew Whitaker, Daniel Halperin',
       author_email='raco@cs.washington.edu',
       url='https://github.com/uwescience/raco',
       packages=find_packages(exclude=['clang']),
       package_data={'': ['c_templates/*.template','grappa_templates/*.template']},
-      install_requires=['networkx', 'ply', 'pyparsing', 'SQLAlchemy'],
+      install_requires=['networkx', 'ply', 'pyparsing', 'SQLAlchemy', 'jinja2'],
       scripts=['scripts/myrial']
       )

@@ -29,12 +29,16 @@ Requires Python 2.7 or higher 2.x
 
 For development use:
 
-    pip install -r requirements-dev.txt
-    python setup.py develop
+```bash
+pip install -r requirements-dev.txt
+python setup.py develop
+```
 
 For normal use:
 
-    python setup.py install
+```bash
+python setup.py install
+```
 
 
 # Run tests
@@ -50,14 +54,14 @@ Note that the commands below run the `myrial` utility from the included `scripts
 
 
 ### Parse a Myrial program
-```
+```bash
 % python scripts/myrial -p examples/sigma-clipping-v0.myl
 [('ASSIGN', 'Good', ('SCAN', 'public:adhoc:sc_points')), ('ASSIGN', 'N', ('TABLE', (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c04fd0>,))), ('DOWHILE', [('ASSIGN', 'mean', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c450>,))), ('ASSIGN', 'std', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c4d0>,))), ('ASSIGN', 'NewBad', ('BAGCOMP', [('Good', None)], (ABS((Good.v - Unbox)) > (Unbox * Unbox)), (<raco.myrial.emitarg.FullWildcardEmitArg object at 0x101c1c410>,))), ('ASSIGN', 'Good', ('DIFF', ('ALIAS', 'Good'), ('ALIAS', 'NewBad'))), ('ASSIGN', 'continue', ('BAGCOMP', [('NewBad', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c8d0>,)))], ('ALIAS', 'continue')), ('DUMP', 'Good')]
 ```
 
 ### Show the logical plan of a Myrial program
 
-```
+```bash
 % python scripts/myrial -l examples/sigma-clipping-v0.myl
 Sequence
     StoreTemp(Good)[Scan(public:adhoc:sc_points)]
@@ -75,7 +79,7 @@ Sequence
 
 ### Show the Myria physical plan of a Myrial program
 
-```
+```bash
 % python scripts/myrial examples/sigma-clipping-v0.myl 
 Sequence
     StoreTemp(Good)[MyriaScan(public:adhoc:sc_points)]
@@ -110,7 +114,7 @@ PYTHONPATH=examples python c_test_environment/clang_tests.py
 ```
 
 ### Compile a datalog query into C++, then run it
-```
+```bash
 cd examples
 ./clog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
 ./clog.sh "A(a,b) :- R1(a),R2(a,b), a<3 A(a,b) :- S1(a), S2(a,b) B(x,y,z) :- A(x,y), A(y,z)" "complex-query"
@@ -132,7 +136,7 @@ PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_
 
 3. try queries:
 
-```
+```bash
 cd examples
 ./grappalog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
 ```

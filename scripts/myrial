@@ -16,6 +16,7 @@ from raco import algebra
 from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
 from raco.language.grappalang import GrappaAlgebra
+from raco.language.logical import OptLogicalAlgebra
 from raco.compile import compile
 
 
@@ -46,6 +47,9 @@ def parse_options(args):
                        help="Generate AST (parse tree)", action='store_true')
     group.add_argument('-l', dest='logical',
                        help="Generate logical plan", action='store_true')
+    group.add_argument('-L', dest='opt_logical',
+                       help="Generate optimized logical plan",
+                       action='store_true')
     group.add_argument('-d', dest='dot',
                        help="Generate dot output for logical plan",
                        action='store_true')
@@ -111,6 +115,9 @@ def main(args):
             elif opt.repr:
                 pp = processor.get_physical_plan()
                 print repr(pp)
+            elif opt.opt_logical:
+                print_pretty_plan(processor.get_physical_plan(
+                    target_alg=OptLogicalAlgebra()))
             elif opt.clang:
                 pp = processor.get_physical_plan(target_alg=GrappaAlgebra())
                 print_pretty_plan(pp)

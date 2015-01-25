@@ -49,6 +49,14 @@ class TestQuery(SQLTestCase):
         expected = Counter((x[0], x[0]) for x in self.emp_table)
         self.execute(query, expected)
 
+    def test_bug_380(self):
+        query = """emp = scan({emp});
+        x = [from emp emit 3 as test];
+        store(x, OUTPUT);""".format(emp=self.emp_key)
+
+        expected = Counter([(3,) for _ in self.emp_table])
+        self.execute(query, expected)
+
     def test_count_query(self):
         query = """x = countall(scan({emp}));
         store(x, OUTPUT);""".format(emp=self.emp_key)
