@@ -351,7 +351,6 @@ class CApply(Pipelined, algebra.Apply):
         if self.parent() is not None and not isinstance(
                 self.parent(), algebra.StoreTemp):
             state.addDeclarations([self.newtuple.generateDefinition()])
-
         self.input.produce(state)
 
     def consume(self, t, src, state):
@@ -442,7 +441,7 @@ class CProject(Pipelined, algebra.Project):
 
         innercode = self.parent().consume(self.newtuple, self, state)
         code += innercode
-
+        print code
         return code
 
 

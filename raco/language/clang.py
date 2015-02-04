@@ -518,7 +518,7 @@ class CStoreTemp(algebra.StoreTemp, CCOperator):
             vecdecl2 = "std::vector<%s> temp;\n" % (dst_type_name)
             state.addDeclarations([vecdecl])
             state.addDeclarations([vecdecl2])
-
+        print code
         return code
 
 
@@ -534,6 +534,23 @@ class CScanTemp(algebra.ScanTemp, CCOperator):
         inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
 
         code = memory_scan_template.render(locals())
+        state.setPipelineProperty("type", "in_memory")
+        state.addPipeline(code)
+
+    def consume(self, t, src, state):
+        return ''
+
+
+class CSingletonRelation(algebra.SingletonRelation, CCOperator):
+    def produce(self, state):
+        resultsym = gensym()
+        state.saveExpr(self, resultsym)
+
+        stagedTuple = self.new_tuple_ref(resultsym, self.scheme())
+        state.saveTupleDef(resultsym, stagedTuple)
+
+        state.setPipelineProperty("type", "singleton")
+        code = self.parent().consume(stagedTuple, self, state)
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
 
@@ -570,6 +587,7 @@ def clangify(emit_print):
         rules.OneToOne(algebra.ScanTemp, CScanTemp),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
+        rules.OneToOne(algebra.SingletonRelation, CSingletonRelation),
         clangcommon.StoreToBaseCStore(emit_print, CStore),
 
         clangcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
