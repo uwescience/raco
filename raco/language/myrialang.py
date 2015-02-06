@@ -1290,6 +1290,30 @@ class PushIntoSQL(rules.Rule):
             return expr
 
 
+class InsertSplit(rules.Rule):
+    """Inserts an algebra.Split operator in every fragment that has multiple
+    heavy-weight operators."""
+    heavy_ops = (algebra.Store, algebra.StoreTemp,
+                 algebra.CrossProduct, algebra.Join, algebra.GroupBy)
+
+    def insert_split_before_heavy(self, op):
+        """Walk the tree starting from op and insert a split when we
+        encounter a heavyweight operator."""
+        if isinstance(op, MyriaAlgebra.fragment_leaves):
+            return op
+
+        if isinstance(op, InsertSplit.heavy_ops):
+            return algebra.Split(op)
+
+        return op.apply(self.insert_split_before_heavy)
+
+    def fire(self, op):
+        if isinstance(op, InsertSplit.heavy_ops):
+            return op.apply(self.insert_split_before_heavy)
+
+        return op
+
+
 class MergeToNaryJoin(rules.Rule):
     """Merge consecutive binary join into a single multiway join
     Note: this code assumes that the binary joins form a left deep tree
@@ -1444,7 +1468,9 @@ class MyriaAlgebra(Algebra):
         MyriaBroadcastConsumer,
         MyriaHyperShuffleConsumer,
         MyriaScan,
-        MyriaScanTemp
+        MyriaScanTemp,
+        MyriaEmptyRelation,
+        MyriaSingleton
     )
 
 
@@ -1477,6 +1503,12 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             [AddAppendTemp()],
             break_communication
         ]
+
+        if kwargs.get('add_splits', True):
+            compile_grps_sequence.append([InsertSplit()])
+        # Even when false, plans may already include (manually added) Splits,
+        # so we always need BreakSplit
+        compile_grps_sequence.append([BreakSplit()])
 
         rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
         return list(itertools.chain(*rule_grps_sequence))
@@ -1523,6 +1555,13 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             [AddAppendTemp()],
             break_communication
         ]
+
+        if kwargs.get('add_splits', True):
+            compile_grps_sequence.append([InsertSplit()])
+        # Even when false, plans may already include (manually added) Splits,
+        # so we always need BreakSplit
+        compile_grps_sequence.append([BreakSplit()])
+
         rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
         return list(itertools.chain(*rule_grps_sequence))
 
