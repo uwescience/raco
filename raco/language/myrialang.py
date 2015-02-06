@@ -541,6 +541,47 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
+class MyriaSplitProducer(algebra.UnaryOperator, MyriaOperator):
+    """A Myria SplitProducer"""
+
+    def __init__(self, input):
+        algebra.UnaryOperator.__init__(self, input)
+
+    def shortStr(self):
+        return self.opname()
+
+    def __repr__(self):
+        return "{op}({inp!r})".format(op=self.opname(), inp=self.input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def compileme(self, inputid):
+        return {
+            "opType": "LocalMultiwayProducer",
+            "argChild": inputid
+        }
+
+
+class MyriaSplitConsumer(algebra.UnaryOperator, MyriaOperator):
+    """A Myria SplitConsumer"""
+
+    def __init__(self, input):
+        algebra.UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def shortStr(self):
+        return self.opname()
+
+    def compileme(self, inputid):
+        return {
+            'opType': 'LocalMultiwayConsumer',
+            'argOperatorId': inputid
+        }
+
+
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleProducer"""
 
@@ -770,6 +811,16 @@ class BreakBroadcast(rules.Rule):
 
         producer = MyriaBroadcastProducer(expr.input)
         consumer = MyriaBroadcastConsumer(producer)
+        return consumer
+
+
+class BreakSplit(rules.Rule):
+    def fire(self, expr):
+        if not isinstance(expr, algebra.Split):
+            return expr
+
+        producer = MyriaSplitProducer(expr.input)
+        consumer = MyriaSplitConsumer(producer)
         return consumer
 
 
@@ -1378,6 +1429,7 @@ break_communication = [
     BreakShuffle(),
     BreakCollect(),
     BreakBroadcast(),
+    BreakSplit(),
 ]
 
 
@@ -1386,6 +1438,7 @@ class MyriaAlgebra(Algebra):
     language = MyriaLanguage
 
     fragment_leaves = (
+        MyriaSplitConsumer,
         MyriaShuffleConsumer,
         MyriaCollectConsumer,
         MyriaBroadcastConsumer,
