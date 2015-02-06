@@ -1577,6 +1577,10 @@ def compile_fragment(frag_root):
 
 
 def compile_plan(plan_op):
+    """Given a root operator in the Myria backend (MyriaX?) physical algebra,
+    produce the dictionary encoding of the physical plan, in other words, a
+    nested collection of Java QueryPlan operators."""
+
     subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
     if not isinstance(plan_op, subplan_ops):
         plan_op = algebra.Parallel([plan_op])
