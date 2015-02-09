@@ -1294,7 +1294,8 @@ class InsertSplit(rules.Rule):
     """Inserts an algebra.Split operator in every fragment that has multiple
     heavy-weight operators."""
     heavy_ops = (algebra.Store, algebra.StoreTemp,
-                 algebra.CrossProduct, algebra.Join, algebra.GroupBy)
+                 algebra.CrossProduct, algebra.Join, algebra.NaryJoin,
+                 algebra.GroupBy, algebra.OrderBy)
 
     def insert_split_before_heavy(self, op):
         """Walk the tree starting from op and insert a split when we
