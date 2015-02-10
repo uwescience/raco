@@ -348,6 +348,9 @@ class CApply(Pipelined, algebra.Apply):
 
         # always does an assignment to new tuple
         self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
+        #if isinstance(self.parent(), algebra.StoreTemp):
+            #print state.lookupTupleDef(self.parent())
+            #self.newtuple = state.lookupTupleDef(self.parent().name())
         if self.parent() is not None and not isinstance(
                 self.parent(), algebra.StoreTemp):
             state.addDeclarations([self.newtuple.generateDefinition()])
@@ -358,7 +361,6 @@ class CApply(Pipelined, algebra.Apply):
 
         assignment_template = _cgenv.get_template('assignment.cpp')
         dst_name = self.newtuple.name
-
         # declaration of tuple instance
         if self.parent() is None:
             dst_type_name = state.lookupTupleDef(
@@ -366,10 +368,12 @@ class CApply(Pipelined, algebra.Apply):
         else:
             if not isinstance(self.parent(), algebra.StoreTemp):
                 dst_type_name = self.newtuple.getTupleTypename()
+            elif isinstance(self.children()[0], algebra.SingletonRelation):
+                dst_type_name = state.lookupTupleDef(self.parent().name).getTupleTypename()
             else:
                 dst_type_name = None
                 c = self.children()
-                while (dst_type_name is None):
+                while (dst_type_name is None and c):
                     for child in c:
                         if isinstance(child, algebra.ScanTemp):
                             dst_type_name = state.lookupTupleDef(
@@ -378,7 +382,6 @@ class CApply(Pipelined, algebra.Apply):
                             c = child.children()
             code += _cgenv.get_template('tuple_declaration.cpp').render(
                 locals())
-
         for dst_fieldnum, src_label_expr in enumerate(self.emitters):
             dst_set_func = self.newtuple.set_func_code(dst_fieldnum)
             src_label, src_expr = src_label_expr
@@ -396,7 +399,6 @@ class CApply(Pipelined, algebra.Apply):
                 src_expr_compiled = "( " + dst_name + ".get<0>() ) || " \
                                     + src_expr_compiled
             code += assignment_template.render(locals())
-
         if self.parent() is None:
             state.saveExpr(self, dst_name)
             conditiondecl = "%s %s;\n" % (dst_type_name, dst_name)
@@ -603,7 +605,6 @@ class BaseCStore(Pipelined, algebra.Store):
             code += self.language().log_unquoted("%s" % t.name, 2)
         elif self.emit_print == EMIT_FILE:
             code += self.__file_code__(t, state)
-
         return code
 
     @abc.abstractmethod

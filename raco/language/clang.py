@@ -494,31 +494,27 @@ class CStore(clangcommon.BaseCStore, CCOperator):
 class CStoreTemp(algebra.StoreTemp, CCOperator):
     def produce(self, state):
         if not state.lookupTempDef(self.name):
-            self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
+            resultsym = gensym()
+            self.newtuple = self.new_tuple_ref(resultsym, self.scheme())
             state.addDeclarations([self.newtuple.generateDefinition()])
+            state.saveTupleDef(self.name, self.newtuple)
+            state.saveTempDef(self.name, resultsym)
+            state.saveExpr(self, self.newtuple)
+            dst_type_name = self.newtuple.getTupleTypename()
+            vecdecl = "std::vector<%s> %s;\n" % (dst_type_name, resultsym)
+            vecdecl2 = "std::vector<%s> temp;\n" % (dst_type_name)
+            state.addDeclarations([vecdecl])
+            state.addDeclarations([vecdecl2])
         self.input.produce(state)
 
     def consume(self, t, src, state):
         code = ""
-        if not state.lookupTempDef(self.name):
-            dst_name = gensym()
-            dst_type_name = t.getTupleTypename()
-        else:
-            dst_name = state.lookupTempDef(self.name)
-            dst_type_name = state.lookupTupleDef(self.name).getTupleTypename()
+        dst_name = state.lookupTempDef(self.name)
 
         code += "temp.push_back(%s);\n" % (t.name)
         state.addPostCode("%s = temp;\n" % (dst_name))
         state.addPostCode("temp.clear();\n")
 
-        if not state.lookupTempDef(self.name):
-            state.saveTupleDef(self.name, t)
-            state.saveTempDef(self.name, dst_name)
-            vecdecl = "std::vector<%s> %s;\n" % (dst_type_name, dst_name)
-            vecdecl2 = "std::vector<%s> temp;\n" % (dst_type_name)
-            state.addDeclarations([vecdecl])
-            state.addDeclarations([vecdecl2])
-        print code
         return code
 
 
@@ -528,7 +524,6 @@ class CScanTemp(algebra.ScanTemp, CCOperator):
         stagedTuple = state.lookupTupleDef(self.name)
         tuple_type = stagedTuple.getTupleTypename()
         tuple_name = stagedTuple.name
-
         memory_scan_template = CC.cgenv().get_template(
             'memory_scan.cpp')
         inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
@@ -545,10 +540,9 @@ class CSingletonRelation(algebra.SingletonRelation, CCOperator):
     def produce(self, state):
         resultsym = gensym()
         state.saveExpr(self, resultsym)
-
         stagedTuple = self.new_tuple_ref(resultsym, self.scheme())
+        state.addDeclarations([stagedTuple.generateDefinition()])
         state.saveTupleDef(resultsym, stagedTuple)
-
         state.setPipelineProperty("type", "singleton")
         code = self.parent().consume(stagedTuple, self, state)
         state.setPipelineProperty("type", "in_memory")
