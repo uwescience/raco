@@ -7,6 +7,9 @@ weight: 1
 
 # Setup
 
+Myria Source Code:
+git clone https://github.com/uwescience/myria.git
+
 #Preparing to use
 
 #### 0. Build the Myria jar
