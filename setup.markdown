@@ -132,3 +132,18 @@ B. If there was an error in any query, ingesting data, etc., then the cluster wi
        ./stop_all_by_force <deployment.cfg>
     
    This will go to all the nodes, find the master/worker processes under your username, and kill them.
+   
+   
+# Recompiling changes
+
+After changing the source code, follow these steps to compile and launch your updated Myria instance.
+
+A. Recompile the Myria jar file buy running `./gradlew jar` in the Myria source directory.
+
+B. Stop any services currently connected to the running Myria instance (like myria-web). Leaving a service connected to Myria before shutting down may prevent the worker processes from stopping. 
+
+C. Shutdown any currently running Myria instance with `curl -i localhost:8753/server/shutdown` or the methods above. 
+
+D. Update Myria from the `myriadeploy\` directory with `./update_myria_jar_only.py <deployment.cfg>`
+
+E. Launch the cluster with `./launch_cluster.sh <deployment.cfg>` as above. The newly compiled Myria instance should now be running.
