@@ -43,9 +43,21 @@ Install `ssh-copy-id` if you don't have it on your machine.
 
 #### 0. Create an updated deployment configuration file
 
-Edit the template in `deployment.cfg.sample`
+Edit the template in `deployment.cfg.sample`.
 
     cp deployment.cfg.sample deployment.cfg
+    
+A. If using sqlite as the storage backend, 
+
+B. If using [PostgreSQL](www.postgresql.org) as the storage backend, deployment.cfg.postgres shows an example config file. In addition, take these steps:
+
+- Install postgres
+- Myria connects to postgres through port 5401 rather than the default. Change the port on which postgres listens in the `postgresql.conf` file, and make sure postgres is restarted.
+- Create a `uwdb` role which Myria will use to manage the tables stored in postgres.
+
+    `create role uwdb with superuser;`
+    
+    `alter role uwdb with login;`
     
 #### 1. Setup the cluster directories and catalogs and copy to nodes
 
