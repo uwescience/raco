@@ -554,19 +554,27 @@ class CSingletonRelation(algebra.SingletonRelation, CCOperator):
 
 class CCrossProduct(algebra.CrossProduct, CCOperator):
     def produce(self, state):
-        print self.left
-        print self.right
-        #if self.right.num_tuples == 1:
-            #self.right.childtag = "singleton"
-        #else:
-            #self.left.childtag = "singleton"
         state.saveExpr(self.right, gensym())
         state.saveExpr(self.left, gensym())
-        self.right.produce(state)
         self.left.produce(state)
+        self.right.produce(state)
 
     def consume(self, t, src, state):
         code = ""
+        if self.right.num_tuples == 1:
+            scantuple = self.left
+            singleton = self.right
+        else:
+            scantuple = self.right
+            singleton = self.left
+        print scantuple, singleton
+        # tuple_type = stagedTuple.getTupleTypename()
+        # tuple_name = stagedTuple.name
+        # memory_scan_template = CC.cgenv().get_template(
+        #    'memory_scan.cpp')
+        # inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
+        # code = memory_scan_template.render(locals())
+        # inside memory scan combine left and right?
         return code
 
 
