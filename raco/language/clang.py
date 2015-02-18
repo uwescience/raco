@@ -552,6 +552,24 @@ class CSingletonRelation(algebra.SingletonRelation, CCOperator):
         return ''
 
 
+class CCrossProduct(algebra.CrossProduct, CCOperator):
+    def produce(self, state):
+        print self.left
+        print self.right
+        #if self.right.num_tuples == 1:
+            #self.right.childtag = "singleton"
+        #else:
+            #self.left.childtag = "singleton"
+        state.saveExpr(self.right, gensym())
+        state.saveExpr(self.left, gensym())
+        self.right.produce(state)
+        self.left.produce(state)
+
+    def consume(self, t, src, state):
+        code = ""
+        return code
+
+
 class MemoryScanOfFileScan(rules.Rule):
 
     """A rewrite rule for making a scan into
@@ -582,6 +600,7 @@ def clangify(emit_print):
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
         rules.OneToOne(algebra.SingletonRelation, CSingletonRelation),
+        rules.OneToOne(algebra.CrossProduct, CCrossProduct),
         clangcommon.StoreToBaseCStore(emit_print, CStore),
 
         clangcommon.BreakHashJoinConjunction(CSelect, CHashJoin)

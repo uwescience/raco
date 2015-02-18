@@ -348,9 +348,6 @@ class CApply(Pipelined, algebra.Apply):
 
         # always does an assignment to new tuple
         self.newtuple = self.new_tuple_ref(gensym(), self.scheme())
-        #if isinstance(self.parent(), algebra.StoreTemp):
-            #print state.lookupTupleDef(self.parent())
-            #self.newtuple = state.lookupTupleDef(self.parent().name())
         if self.parent() is not None and not isinstance(
                 self.parent(), algebra.StoreTemp):
             state.addDeclarations([self.newtuple.generateDefinition()])
@@ -369,7 +366,8 @@ class CApply(Pipelined, algebra.Apply):
             if not isinstance(self.parent(), algebra.StoreTemp):
                 dst_type_name = self.newtuple.getTupleTypename()
             elif isinstance(self.children()[0], algebra.SingletonRelation):
-                dst_type_name = state.lookupTupleDef(self.parent().name).getTupleTypename()
+                dst_type_name = state.lookupTupleDef(
+                    self.parent().name).getTupleTypename()
             else:
                 dst_type_name = None
                 c = self.children()
