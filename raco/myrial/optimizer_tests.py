@@ -8,7 +8,7 @@ from raco.expression import StateVar
 
 from raco.language.myrialang import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
-    MyriaBroadcastConsumer, MyriaQueryScan)
+    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer)
 from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -103,7 +103,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, CrossProduct), 1)
 
         pp = self.logical_to_physical(lp)
-        self.assertIsInstance(pp.input, Join)
+        self.assertIsInstance(pp.input, MyriaSplitConsumer)
+        self.assertIsInstance(pp.input.input.input, Join)
         self.assertEquals(self.get_count(pp, Select), 2)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
 
@@ -144,9 +145,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(lp, GroupBy), 1)
 
         pp = self.logical_to_physical(lp)
-        self.assertIsInstance(pp.input, GroupBy)
-        # GroupBy.CollectProducer.CollectConsumer.GroupBy.Apply
-        apply = pp.input.input.input.input.input
+        self.assertIsInstance(pp.input.input.input, GroupBy)
+        # SplitC.SplitP.GroupBy.CollectP.CollectC.GroupBy.Apply
+        apply = pp.input.input.input.input.input.input.input
         self.assertIsInstance(apply, Apply)
         self.assertEquals(self.get_count(pp, Apply), 1)
         self.assertEquals(len(apply.scheme()), 1)
@@ -172,7 +173,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                           len(lp.input.input.scheme()))
 
         pp = self.logical_to_physical(lp)
-        proj_join = pp.input
+        self.assertIsInstance(pp.input, MyriaSplitConsumer)
+        proj_join = pp.input.input.input
         self.assertIsInstance(proj_join, ProjectingJoin)
         self.assertEquals(1, len(proj_join.scheme()))
         self.assertEquals(2, len(proj_join.left.scheme()))
@@ -231,7 +233,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertIsInstance(lp.input, Select)
 
         pp = self.logical_to_physical(lp)
-        self.assertIsInstance(pp.input, GroupBy)
+        self.assertIsInstance(pp.input, MyriaSplitConsumer)
+        self.assertIsInstance(pp.input.input.input, GroupBy)
         self.assertEquals(self.get_count(pp, Select), 1)
 
         self.db.evaluate(pp)
@@ -284,7 +287,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp)
 
         # non-equijoin conditions should get pushed separately below the join
-        self.assertIsInstance(pp.input, Join)
+        self.assertIsInstance(pp.input, MyriaSplitConsumer)
+        self.assertIsInstance(pp.input.input.input, Join)
         self.assertEquals(self.get_count(pp, CrossProduct), 0)
         self.assertEquals(self.get_count(pp, Select), 2)
 
@@ -824,4 +828,5 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # The selection should happen after the cross product
         for op in pp.walk():
             if isinstance(op, Select):
-                self.assertTrue(isinstance(op.input, CrossProduct))
+                self.assertIsInstance(op.input, MyriaSplitConsumer)
+                self.assertIsInstance(op.input.input.input, CrossProduct)

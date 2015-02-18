@@ -1087,6 +1087,18 @@ class Broadcast(UnaryOperator):
         return self.opname()
 
 
+class Split(UnaryOperator):
+    """An in-memory pipeline between two operators. Typically used in
+    multi-threaded systems for IPC between threads executing different
+    operator subtrees."""
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def shortStr(self):
+        return self.opname()
+
+
 class PartitionBy(UnaryOperator):
 
     """Send input to a server indicated by a hash of specified columns."""

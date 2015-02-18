@@ -367,6 +367,12 @@ class FakeDatabase(Catalog):
     def myriahypershuffleproducer(self, op):
         return self.evaluate(op.input)
 
+    def myriasplitconsumer(self, op):
+        return self.evaluate(op.input)
+
+    def myriasplitproducer(self, op):
+        return self.evaluate(op.input)
+
     def myriastore(self, op):
         return self.store(op)
 

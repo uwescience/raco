@@ -541,6 +541,47 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
+class MyriaSplitProducer(algebra.UnaryOperator, MyriaOperator):
+    """A Myria SplitProducer"""
+
+    def __init__(self, input):
+        algebra.UnaryOperator.__init__(self, input)
+
+    def shortStr(self):
+        return self.opname()
+
+    def __repr__(self):
+        return "{op}({inp!r})".format(op=self.opname(), inp=self.input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def compileme(self, inputid):
+        return {
+            "opType": "LocalMultiwayProducer",
+            "argChild": inputid
+        }
+
+
+class MyriaSplitConsumer(algebra.UnaryOperator, MyriaOperator):
+    """A Myria SplitConsumer"""
+
+    def __init__(self, input):
+        algebra.UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def shortStr(self):
+        return self.opname()
+
+    def compileme(self, inputid):
+        return {
+            'opType': 'LocalMultiwayConsumer',
+            'argOperatorId': inputid
+        }
+
+
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleProducer"""
 
@@ -770,6 +811,16 @@ class BreakBroadcast(rules.Rule):
 
         producer = MyriaBroadcastProducer(expr.input)
         consumer = MyriaBroadcastConsumer(producer)
+        return consumer
+
+
+class BreakSplit(rules.Rule):
+    def fire(self, expr):
+        if not isinstance(expr, algebra.Split):
+            return expr
+
+        producer = MyriaSplitProducer(expr.input)
+        consumer = MyriaSplitConsumer(producer)
         return consumer
 
 
@@ -1239,6 +1290,31 @@ class PushIntoSQL(rules.Rule):
             return expr
 
 
+class InsertSplit(rules.Rule):
+    """Inserts an algebra.Split operator in every fragment that has multiple
+    heavy-weight operators."""
+    heavy_ops = (algebra.Store, algebra.StoreTemp,
+                 algebra.CrossProduct, algebra.Join, algebra.NaryJoin,
+                 algebra.GroupBy, algebra.OrderBy)
+
+    def insert_split_before_heavy(self, op):
+        """Walk the tree starting from op and insert a split when we
+        encounter a heavyweight operator."""
+        if isinstance(op, MyriaAlgebra.fragment_leaves):
+            return op
+
+        if isinstance(op, InsertSplit.heavy_ops):
+            return algebra.Split(op)
+
+        return op.apply(self.insert_split_before_heavy)
+
+    def fire(self, op):
+        if isinstance(op, InsertSplit.heavy_ops):
+            return op.apply(self.insert_split_before_heavy)
+
+        return op
+
+
 class MergeToNaryJoin(rules.Rule):
     """Merge consecutive binary join into a single multiway join
     Note: this code assumes that the binary joins form a left deep tree
@@ -1378,6 +1454,7 @@ break_communication = [
     BreakShuffle(),
     BreakCollect(),
     BreakBroadcast(),
+    BreakSplit(),
 ]
 
 
@@ -1386,12 +1463,15 @@ class MyriaAlgebra(Algebra):
     language = MyriaLanguage
 
     fragment_leaves = (
+        MyriaSplitConsumer,
         MyriaShuffleConsumer,
         MyriaCollectConsumer,
         MyriaBroadcastConsumer,
         MyriaHyperShuffleConsumer,
         MyriaScan,
-        MyriaScanTemp
+        MyriaScanTemp,
+        MyriaEmptyRelation,
+        MyriaSingleton
     )
 
 
@@ -1424,6 +1504,12 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             [AddAppendTemp()],
             break_communication
         ]
+
+        if kwargs.get('add_splits', True):
+            compile_grps_sequence.append([InsertSplit()])
+        # Even when false, plans may already include (manually added) Splits,
+        # so we always need BreakSplit
+        compile_grps_sequence.append([BreakSplit()])
 
         rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
         return list(itertools.chain(*rule_grps_sequence))
@@ -1470,6 +1556,13 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             [AddAppendTemp()],
             break_communication
         ]
+
+        if kwargs.get('add_splits', True):
+            compile_grps_sequence.append([InsertSplit()])
+        # Even when false, plans may already include (manually added) Splits,
+        # so we always need BreakSplit
+        compile_grps_sequence.append([BreakSplit()])
+
         rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
         return list(itertools.chain(*rule_grps_sequence))
 
@@ -1577,6 +1670,10 @@ def compile_fragment(frag_root):
 
 
 def compile_plan(plan_op):
+    """Given a root operator in the Myria backend (MyriaX?) physical algebra,
+    produce the dictionary encoding of the physical plan, in other words, a
+    nested collection of Java QueryPlan operators."""
+
     subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile)
     if not isinstance(plan_op, subplan_ops):
         plan_op = algebra.Parallel([plan_op])
