@@ -329,6 +329,13 @@ class FakeDatabase(Catalog):
         self.tables.add_table(op.relation_key, scheme, self.evaluate(op.input))
         return None
 
+    def sink(self, op):
+        scheme = op.input.scheme()
+        self.tables.add_table(
+            relation_key.RelationKey("OUTPUT"),
+            scheme, self.evaluate(op.input))
+        return None
+
     def dump(self, op):
         for tpl in self.evaluate(op.input):
             print ','.join(tpl)
@@ -346,6 +353,9 @@ class FakeDatabase(Catalog):
 
     def myriascan(self, op):
         return self.scan(op)
+
+    def myriasink(self, op):
+        return self.sink(op)
 
     def myriascantemp(self, op):
         return self.scantemp(op)
