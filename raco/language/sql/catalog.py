@@ -151,6 +151,9 @@ class SQLCatalog(Catalog):
             return select(clause, from_obj=input)
 
         elif isinstance(plan, algebra.GroupBy):
+            if len(plan.grouping_list) > 0:
+                raise NotImplementedError(
+                    "convert aggregate with grouping to sql -- Myria faster")
             a = [self._convert_expr(cols, e, input_sch)
                  for e in plan.aggregate_list]
             g = [self._convert_expr(cols, e, input_sch)
