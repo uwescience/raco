@@ -94,8 +94,9 @@ class TestQuery(SQLTestCase):
         z = [from x emit dept_id, max(salary) as max_salary];
         store(z, OUTPUT);""".format(emp=self.emp_key)
 
-        d = defaultdict(int)
-        for _, dept_id, _, salary in self.emp_table:
-            d[dept_id] = max(d[dept_id], salary)
-        expected = Counter(d.items())
-        self.execute(query, expected)
+        with self.assertRaises(NotImplementedError):
+            d = defaultdict(int)
+            for _, dept_id, _, salary in self.emp_table:
+                d[dept_id] = max(d[dept_id], salary)
+            expected = Counter(d.items())
+            self.execute(query, expected)
