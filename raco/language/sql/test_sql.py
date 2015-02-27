@@ -76,17 +76,22 @@ class TestQuery(SQLTestCase):
                            if d < d2)
         self.execute(query, expected)
 
-    def test_join_query(self):
+    def test_join_multi_agg_query(self):
         query = """x = scan({emp});
         y = scan({emp});
-        z = [from x,y where x.salary = y.salary emit count(*) as cnt];
+        z = [from x,y where x.salary = y.salary
+             emit count(*) as cnt, max(x.salary) as max_sal,
+                  min(x.salary) as min_sal];
         store(z, OUTPUT);""".format(emp=self.emp_key)
 
-        size = len([1
-                    for (_, _, _, d) in self.emp_table
-                    for (_, _, _, d2) in self.emp_table
-                    if d == d2])
-        expected = Counter([(size,)])
+        join = [(1, d)
+                for (_, _, _, d) in self.emp_table
+                for (_, _, _, d2) in self.emp_table
+                if d == d2]
+        size = len(join)
+        max_sal = max([d for (_, d) in join])
+        min_sal = min([d for (_, d) in join])
+        expected = Counter([(size, max_sal, min_sal)])
         self.execute(query, expected)
 
     def test_complex_agg_query(self):
@@ -94,8 +99,38 @@ class TestQuery(SQLTestCase):
         z = [from x emit dept_id, max(salary) as max_salary];
         store(z, OUTPUT);""".format(emp=self.emp_key)
 
-        d = defaultdict(int)
-        for _, dept_id, _, salary in self.emp_table:
-            d[dept_id] = max(d[dept_id], salary)
-        expected = Counter(d.items())
+        with self.assertRaises(NotImplementedError):
+            d = defaultdict(int)
+            for _, dept_id, _, salary in self.emp_table:
+                d[dept_id] = max(d[dept_id], salary)
+            expected = Counter(d.items())
+            self.execute(query, expected)
+
+    def test_case_query(self):
+        query = """x = scan({emp});
+        z = [from x emit dept_id, case when salary < 20000 then "small"
+                                       else "large" end as salary_type];
+        store(z, OUTPUT);""".format(emp=self.emp_key)
+
+        def case(salary):
+            if salary < 20000:
+                return 'small'
+            return 'large'
+        expected = Counter([(b, case(d)) for a, b, c, d in self.emp_table])
+        self.execute(query, expected)
+
+    def test_multi_case_query(self):
+        query = """x = scan({emp});
+        z = [from x emit dept_id, case when salary < 20000 then "small"
+                                       when salary < 50000 then "medium"
+                                       else "large" end as salary_type];
+        store(z, OUTPUT);""".format(emp=self.emp_key)
+
+        def case(salary):
+            if salary < 20000:
+                return 'small'
+            if salary < 50000:
+                return 'medium'
+            return 'large'
+        expected = Counter([(b, case(d)) for a, b, c, d in self.emp_table])
         self.execute(query, expected)

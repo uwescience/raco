@@ -4,7 +4,7 @@ A RACO language to compile expressions to SQL.
 
 from sqlalchemy import (Column, Table, MetaData, Integer, String,
                         Float, Boolean, DateTime, select, func,
-                        literal)
+                        literal, case)
 
 import raco.algebra as algebra
 from raco.catalog import Catalog
@@ -73,6 +73,13 @@ class SQLCatalog(Catalog):
         if isinstance(expr, expression.BinaryOperator):
             return self._convert_binary_expr(cols, expr, input_scheme)
 
+        if isinstance(expr, expression.Case):
+            conv = lambda e: self._convert_expr(cols, e, input_scheme)
+            conditions = [(conv(when), conv(then))
+                          for when, then in expr.when_tuples]
+            else_result = conv(expr.else_expr)
+            return case(conditions, else_=else_result)
+
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_attribute_ref(self, cols, expr, input_scheme):
@@ -97,6 +104,8 @@ class SQLCatalog(Catalog):
         input = self._convert_expr(cols, expr.input, input_scheme)
         if isinstance(expr, expression.MAX):
             return func.max(input)
+        if isinstance(expr, expression.MIN):
+            return func.min(input)
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_binary_expr(self, cols, expr, input_scheme):
@@ -144,6 +153,9 @@ class SQLCatalog(Catalog):
             return select(clause, from_obj=input)
 
         elif isinstance(plan, algebra.GroupBy):
+            if len(plan.grouping_list) > 0:
+                raise NotImplementedError(
+                    "convert aggregate with grouping to sql -- Myria faster")
             a = [self._convert_expr(cols, e, input_sch)
                  for e in plan.aggregate_list]
             g = [self._convert_expr(cols, e, input_sch)
