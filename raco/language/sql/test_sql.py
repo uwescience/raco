@@ -76,17 +76,22 @@ class TestQuery(SQLTestCase):
                            if d < d2)
         self.execute(query, expected)
 
-    def test_join_query(self):
+    def test_join_multi_agg_query(self):
         query = """x = scan({emp});
         y = scan({emp});
-        z = [from x,y where x.salary = y.salary emit count(*) as cnt];
+        z = [from x,y where x.salary = y.salary
+             emit count(*) as cnt, max(x.salary) as max_sal,
+                  min(x.salary) as min_sal];
         store(z, OUTPUT);""".format(emp=self.emp_key)
 
-        size = len([1
-                    for (_, _, _, d) in self.emp_table
-                    for (_, _, _, d2) in self.emp_table
-                    if d == d2])
-        expected = Counter([(size,)])
+        join = [(1, d)
+                for (_, _, _, d) in self.emp_table
+                for (_, _, _, d2) in self.emp_table
+                if d == d2]
+        size = len(join)
+        max_sal = max([d for (_, d) in join])
+        min_sal = min([d for (_, d) in join])
+        expected = Counter([(size, max_sal, min_sal)])
         self.execute(query, expected)
 
     def test_complex_agg_query(self):
