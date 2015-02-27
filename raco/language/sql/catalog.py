@@ -4,7 +4,7 @@ A RACO language to compile expressions to SQL.
 
 from sqlalchemy import (Column, Table, MetaData, Integer, String,
                         Float, Boolean, DateTime, select, func,
-                        literal)
+                        literal, case)
 
 import raco.algebra as algebra
 from raco.catalog import Catalog
@@ -72,6 +72,13 @@ class SQLCatalog(Catalog):
             return self._convert_unary_expr(cols, expr, input_scheme)
         if isinstance(expr, expression.BinaryOperator):
             return self._convert_binary_expr(cols, expr, input_scheme)
+
+        if isinstance(expr, expression.Case):
+            conv = lambda e: self._convert_expr(cols, e, input_scheme)
+            conditions = [(conv(when), conv(then))
+                          for when, then in expr.when_tuples]
+            else_result = conv(expr.else_expr)
+            return case(conditions, else_=else_result)
 
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
