@@ -355,7 +355,6 @@ class CApply(Pipelined, algebra.Apply):
 
     def consume(self, t, src, state):
         code = ""
-
         assignment_template = _cgenv.get_template('assignment.cpp')
         dst_name = self.newtuple.name
         # declaration of tuple instance
@@ -392,11 +391,13 @@ class CApply(Pipelined, algebra.Apply):
                     src_expr_unnamed, tupleref=t)
             state.addInitializers(expr_inits)
             state.addDeclarations(expr_decls)
+
             if self.parent() is None:
                 state.addPreCode(dst_name + ".set<0>(0);\n")
                 src_expr_compiled = "( " + dst_name + ".get<0>() ) || " \
                                     + src_expr_compiled
             code += assignment_template.render(locals())
+
         if self.parent() is None:
             state.saveExpr(self, dst_name)
             conditiondecl = "%s %s;\n" % (dst_type_name, dst_name)

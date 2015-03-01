@@ -567,28 +567,31 @@ class CSingletonRelation(algebra.SingletonRelation, CCOperator):
 
 class CCrossProduct(algebra.CrossProduct, CCOperator):
     def produce(self, state):
-        state.saveExpr(self.right, gensym())
-        state.saveExpr(self.left, gensym())
+        stagedTuple = self.new_tuple_ref(gensym(), self.scheme())
+        state.addDeclarations([stagedTuple.generateDefinition()])
+        state.saveTupleDef(self.left, stagedTuple)
+        state.saveTupleDef(self.right, stagedTuple)
         self.left.produce(state)
         self.right.produce(state)
 
     def consume(self, t, src, state):
         code = ""
-        if self.right.num_tuples == 1:
-            scantuple = self.left
-            singleton = self.right
+        if src == self.left:
+            stagedTuple = state.lookupTupleDef(self.right)
         else:
-            scantuple = self.right
-            singleton = self.left
-        print scantuple, singleton
-        # tuple_type = stagedTuple.getTupleTypename()
-        # tuple_name = stagedTuple.name
-        # memory_scan_template = CC.cgenv().get_template(
-        #    'memory_scan.cpp')
-        # inner_plan_compiled = self.parent().consume(stagedTuple, self, state)
-        # code = memory_scan_template.render(locals())
-        # inside memory scan combine left and right?
-        return code
+            stagedTuple = state.lookupTupleDef(self.left)
+
+        code = self.parent().consume(stagedTuple, self, state)
+        if self.right.num_tuples == 1:
+            code += "auto %s = %s::create(%s, %s);\n" % (
+                stagedTuple, stagedTuple, t.name, "")
+        else:
+            code += "auto %s = %s::create(%s, %s);\n" % (
+                stagedTuple, stagedTuple, "", t.name)
+        print t.name, t.getTupleTypename()
+        code += "for (auto %s : %s) {\n" % ("", t)
+        code += "auto %s = %s::create(%s, %s);\n"
+        return ""
 
 
 class MemoryScanOfFileScan(rules.Rule):
