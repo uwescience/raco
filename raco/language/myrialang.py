@@ -1127,6 +1127,17 @@ class BroadcastBeforeCross(rules.Rule):
         return expr
 
 
+class ShuffleAfterSingleton(rules.Rule):
+    def fire(self, expr):
+        if isinstance(expr, MyriaSingleton):
+            return expr
+
+        if isinstance(expr, algebra.SingletonRelation):
+            return algebra.Shuffle(MyriaSingleton(), [UnnamedAttributeRef(0)])
+
+        return expr
+
+
 class DecomposeGroupBy(rules.Rule):
     """Convert a logical group by into a two-phase group by.
 
@@ -1416,7 +1427,8 @@ class GetCardinalities(rules.Rule):
 left_deep_tree_shuffle_logic = [
     ShuffleBeforeSetop(),
     ShuffleBeforeJoin(),
-    BroadcastBeforeCross()
+    BroadcastBeforeCross(),
+    ShuffleAfterSingleton()
 ]
 
 # 7. distributed groupby
