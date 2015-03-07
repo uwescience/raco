@@ -94,6 +94,9 @@ class ExpressionTest(unittest.TestCase):
             def visit_IDIVIDE(self, binaryExpr):
                 pass
 
+            def visit_MOD(self, binaryExpr):
+                pass
+
             def visit_MINUS(self, binaryExpr):
                 pass
 

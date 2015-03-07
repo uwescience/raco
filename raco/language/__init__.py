@@ -157,7 +157,11 @@ class CompileExpressionVisitor(ExpressionVisitor):
 
     def visit_IDIVIDE(self, binaryexpr):
         left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator="/"))
+        self.stack.append(self.combine([left, right], operator="//"))
+
+    def visit_MOD(self, binaryexpr):
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
+        self.stack.append(self.combine([left, right], operator="%"))
 
     def visit_TIMES(self, binaryexpr):
         left, right = self.__visit_BinaryOperator__(binaryexpr)
