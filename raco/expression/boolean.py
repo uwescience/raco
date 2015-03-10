@@ -25,7 +25,7 @@ class BinaryBooleanOperator(BooleanExpression, BinaryOperator):
     def typeof(self, scheme, state_scheme):
         lt = self.left.typeof(scheme, state_scheme)
         check_type(lt, raco.types.BOOLEAN_TYPE)
-        rt = self.left.typeof(scheme, state_scheme)
+        rt = self.right.typeof(scheme, state_scheme)
         check_type(rt, raco.types.BOOLEAN_TYPE)
         return raco.types.BOOLEAN_TYPE
 
