@@ -332,6 +332,10 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "apply")
 
+    def test_idivide(self):
+        q = self.myrial_from_sql(['T2'], "idivide")
+        self.check(q, "idivide")
+
     def test_apply_and_self_join(self):
         q = self.myrial_from_sql(['T3'], "apply_and_self_join")
         self.check(q, "apply_and_self_join")
