@@ -106,6 +106,11 @@ class CBaseLanguage(Language):
 
     @classmethod
     def expression_combine(cls, args, operator="&&"):
+        # special case for integer divide. C doesn't have this syntax
+        # Rely on automatic conversion from float to int
+        if operator == "//":
+            operator = "/"
+
         opstr = " %s " % operator
         codes, decls, inits = cls._extract_code_decl_init(args)
         conjunc = opstr.join(["(%s)" % c for c in codes])
