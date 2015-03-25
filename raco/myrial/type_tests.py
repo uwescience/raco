@@ -126,6 +126,22 @@ class TypeTests(MyrialTestCase):
         schema = Scheme([('y', types.LONG_TYPE)])
         self.check_scheme(query, schema)
 
+    def test_mod(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT clong % cint AS y];
+        STORE(X, OUTPUT);
+        """
+        schema = Scheme([('y', types.LONG_TYPE)])
+        self.check_scheme(query, schema)
+
+    def test_invalid_mod(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cdate % cint];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
     def test_neg(self):
         query = """
         X = [FROM SCAN(public:adhoc:mytable) AS X EMIT -cstring];
