@@ -513,6 +513,19 @@ class IDIVIDE(BinaryOperator):
         return types.LONG_TYPE
 
 
+class MOD(BinaryOperator):
+    literals = ["%"]
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return int(self.left.evaluate(_tuple, scheme, state) %
+                   self.right.evaluate(_tuple, scheme, state))
+
+    def typeof(self, scheme, state_scheme):
+        check_is_numeric(self.left.typeof(scheme, state_scheme))
+        check_is_numeric(self.right.typeof(scheme, state_scheme))
+        return types.LONG_TYPE
+
+
 class TIMES(BinaryOperator):
     literals = ["*"]
 
