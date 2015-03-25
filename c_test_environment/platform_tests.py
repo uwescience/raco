@@ -333,7 +333,7 @@ class MyriaLPlatformTests(object):
         """, "apply")
 
     def test_idivide(self):
-        q = self.myrial_from_sql(['T2'], "idivide")
+        q = self.myrial_from_sql(['T2'], "idivide").replace("/", "//")
         self.check(q, "idivide")
 
     def test_apply_and_self_join(self):
