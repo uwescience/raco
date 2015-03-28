@@ -468,7 +468,7 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         state.addPreCode(self.__write_schema(self.scheme()))
         state.addPreCode(CC.cgenv().get_template("output_stream_open.cpp").render(locals()))
 
-        code = "{0}.toOStream({1})".format(output_stream_symbol)
+        code = "{0}.toOStream({1})".format(t.name, output_stream_symbol)
 
         state.addPostCode(CC.cgenv().get_template("output_stream_close.cpp").render(output_stream_symbol))
 
