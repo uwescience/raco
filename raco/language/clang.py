@@ -470,7 +470,7 @@ class CStore(clangcommon.BaseCStore, CCOperator):
 
         code = "{0}.toOStream({1})".format(output_stream_symbol)
 
-        state.addPostCode(CC.cgenv().get_template("output_stream_close.cpp").render(output_stream_symbol)
+        state.addPostCode(CC.cgenv().get_template("output_stream_close.cpp").render(output_stream_symbol))
 
         return code
 
