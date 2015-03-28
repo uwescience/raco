@@ -1,2 +1,2 @@
-{{output_stream_symbol}}.open({{filename}});
+{{output_stream_symbol}}.open("{{filename}}");
 
