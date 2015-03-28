@@ -462,31 +462,29 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
 class CStore(clangcommon.BaseCStore, CCOperator):
 
     def __file_code__(self, t, state):
-        code = ""
-        state.addPreCode('std::ofstream logfile;\n')
-        resultfile = str(self.relation_key).split(":")[2]
-        opentuple = 'logfile.open("%s");\n' % resultfile
-        schemafile = self.write_schema(self.scheme())
-        state.addPreCode(schemafile)
-        state.addPreCode(opentuple)
+        output_stream_symbol = "outputfile"
+        filename = str(self.relation_key).split(":")[2]
+        state.addPreCode(CC.cgenv().get_template("output_stream_decl.cpp").render(output_stream_symbol=output_stream_symbol))
+        state.addPreCode(self.__write_schema(self.scheme()))
+        state.addPreCode(CC.cgenv().get_template("output_stream_open.cpp").render(locals()))
 
-        loggings = emitlist([self.language().log_file_unquoted(
-            "{0}".format(t.get_code(i))) for i in range(len(t.scheme))])
-        code += loggings
+        code = "{0}.toOStream({1})".format(output_stream_symbol)
 
-        code += "logfile << '\\n';"
-
-        state.addPostCode('logfile.close();')
+        state.addPostCode(CC.cgenv().get_template("output_stream_close.cpp").render(output_stream_symbol)
 
         return code
 
-    def write_schema(self, scheme):
+    def __write_schema(self, scheme):
+        output_stream_symbol = "out_scheme_file"
         schemafile = 'schema/' + str(self.relation_key).split(":")[2]
-        code = 'logfile.open("%s");\n' % schemafile
+        code = CC.cgenv().get_template("output_stream_decl.cpp").render(output_stream_symbol=output_stream_symbol)
+        code += CC.cgenv().get_template("output_stream_open.cpp").render(output_stream_symbol=output_stream_symbol, filename=schemafile)
         names = [x.encode('UTF8') for x in scheme.get_names()]
-        code += self.language().log_file("%s" % names)
-        code += self.language().log_file("%s" % scheme.get_types())
-        code += 'logfile.close();'
+
+        code += CC.cgenv().get_template("output_stream_write.cpp").render(output_stream_symbol=output_stream_symbol, stringval="{0}".format(names))
+        code += CC.cgenv().get_template("output_stream_write.cpp").render(output_stream_symbol=output_stream_symbol, stringval="{0}".format(scheme.get_types()))
+
+        code += CC.cgenv().get_template("output_stream_close.cpp").render(output_stream_symbol=output_stream_symbol)
         return code
 
 
