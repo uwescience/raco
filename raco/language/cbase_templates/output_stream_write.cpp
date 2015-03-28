@@ -1,2 +1,2 @@
-{{output_stream_symbol}} << "{{stringval}}";
+{{output_stream_symbol}} << "{{stringval}}" << std::endl;
 
