@@ -61,6 +61,7 @@ class CBaseLanguage(Language):
         queryexec = compileResult.getExecutionCode()
         initialized = compileResult.getInitCode()
         declarations = compileResult.getDeclCode()
+        cleanups = compileResult.getCleanupCode()
         resultsym = "__result__"
         return cls.base_template().render(locals())
 

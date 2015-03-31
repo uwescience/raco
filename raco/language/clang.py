@@ -463,14 +463,21 @@ class CStore(clangcommon.BaseCStore, CCOperator):
 
     def __file_code__(self, t, state):
         output_stream_symbol = "outputfile"
+        count_symbol = "_result_count"
         filename = str(self.relation_key).split(":")[2]
-        state.addPreCode(CC.cgenv().get_template("output_stream_decl.cpp").render(output_stream_symbol=output_stream_symbol))
-        state.addPreCode(self.__write_schema(self.scheme()))
-        state.addPreCode(CC.cgenv().get_template("output_stream_open.cpp").render(locals()))
+        count_filename = filename+".count"
+        count_decl = CC.cgenv().get_template("groupby/0key_declaration.cpp").render(valtype="uint64_t", hashname=count_symbol, initial_value=0)
+        stream_decl = CC.cgenv().get_template("output_stream_decl.cpp").render(output_stream_symbol=output_stream_symbol)
+        stream_open = CC.cgenv().get_template("output_stream_open.cpp").render(locals())
+        scheme_write = self.__write_schema(self.scheme())
+        state.addInitializers([count_decl, stream_decl, stream_open, scheme_write])
 
         code = "{0}.toOStreamAscii({1});\n".format(t.name, output_stream_symbol)
+        code += "{0}++;\n".format(count_symbol)
 
-        state.addPostCode(CC.cgenv().get_template("output_stream_close.cpp").render(output_stream_symbol=output_stream_symbol))
+        stream_close = CC.cgenv().get_template("output_stream_close.cpp").render(output_stream_symbol=output_stream_symbol)
+        write_count = CC.cgenv().get_template("write_count.cpp").render(filename=count_filename, count_symbol=count_symbol)
+        state.addCleanups([stream_close, write_count])
 
         return code
 
