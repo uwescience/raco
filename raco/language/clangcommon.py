@@ -127,9 +127,7 @@ class CBaseLanguage(Language):
             types.LONG_TYPE: 'int64_t',
             types.BOOLEAN_TYPE: 'bool',
             types.DOUBLE_TYPE: 'double',
-
-            # strings are indexed as ints
-            types.STRING_TYPE: 'int64_t'
+            types.STRING_TYPE: 'std::string'
         }.get(raco_type)
 
         assert n is not None, \
@@ -263,13 +261,13 @@ class StagedTupleRef:
 
     @staticmethod
     def get_code_with_name(position, name):
-        return "{name}.get<{position}>()".format(position=position, name=name)
+        return "{name}.f{position}".format(position=position, name=name)
 
     def get_code(self, position):
         return StagedTupleRef.get_code_with_name(position, self.name)
 
     def set_func_code(self, position):
-        return "{name}.set<{position}>".format(
+        return "{name}.f{position}".format(
             position=position, name=self.name)
 
     def generateDefinition(self):
@@ -284,8 +282,8 @@ class StagedTupleRef:
         # ["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)
         #                        for i in range(numfields)])
 
-        additional_code = self.__additionalDefinitionCode__()
-        after_def_code = self.__afterDefinitionCode__()
+        additional_code = self.__additionalDefinitionCode__(numfields, fieldtypes)
+        after_def_code = self.__afterDefinitionCode__(numfields, fieldtypes)
 
         tupletypename = self.getTupleTypename()
         relsym = self.relsym
@@ -293,10 +291,10 @@ class StagedTupleRef:
         code = template.render(locals())
         return code
 
-    def __additionalDefinitionCode__(self):
+    def __additionalDefinitionCode__(self, numfields, fieldtypes):
         return ""
 
-    def __afterDefinitionCode__(self):
+    def __afterDefinitionCode__(self, numfields, fieldtypes):
         return ""
 
 

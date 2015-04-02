@@ -8,6 +8,7 @@
 #include <ctype.h>      // for isdigit()
 #include <cstring>
 #include <errno.h>
+#include <algorithm>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>

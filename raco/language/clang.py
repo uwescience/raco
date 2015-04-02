@@ -20,11 +20,9 @@ import itertools
 
 class CStagedTupleRef(StagedTupleRef):
 
-    def __additionalDefinitionCode__(self):
+    def __additionalDefinitionCode__(self, numfields, fieldtypes):
         constructor_template = CC.cgenv().get_template(
             'materialized_tuple_ref_additional.cpp')
-
-        numfields = len(self.scheme)
 
         tupletypename = self.getTupleTypename()
         return constructor_template.render(locals())
@@ -83,15 +81,7 @@ class CC(CBaseLanguage):
 
     @classmethod
     def compile_stringliteral(cls, s):
-        sid = cls.newstringident()
-        lookup_init = cls.cgenv().get_template(
-            'string_index_lookup.cpp').render(name=sid, st=s)
-        build_init = """
-        string_index = build_string_index("sp2bench.index");
-        """
-        return """(%s)""" % sid, [], [build_init, lookup_init]
-        # raise ValueError("String Literals not supported\
-        # in C language: %s" % s)
+        return '("%s")' % s, [], []
 
 
 class CCOperator(Pipelined, algebra.Operator):
