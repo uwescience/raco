@@ -6,18 +6,21 @@ import nose
 Checks two query outputs for equality
 """
 
-doublepat = re.compile(r'-?\d+[.]\d+')
-def parse_number(number):
-    if doublepat.match(number):
-        n = float(number)
+doublepat = re.compile(r'^-?\d+[.]\d+$')
+intpat = re.compile(r'^-?\d+$')
+def parse_value(value):
+    if doublepat.match(value):
+        n = float(value)
         assert n < pow(2, 40), "decimal place rounding based comparison will be unsound for very large numbers"
         return round(n, 5)
+    elif intpat.match(value):
+        return int(value)
     else:
-        return int(number) 
+        return value
 
 
 def verify(testout, expected, ordered):
-    tuplepat = re.compile(r'Materialized\(([-\d,. ]+)\)')
+    tuplepat = re.compile(r'Materialized\(([-\dA-Z,. ]+)\)')
     test = ({}, [])
     expect = ({}, [])
 
@@ -41,7 +44,7 @@ def verify(testout, expected, ordered):
                     if number=='':
                         # last one
                         break
-                    tlist.append(parse_number(number))
+                    tlist.append(parse_value(number))
 
                 t = tuple(tlist)
                 addTuple(test, t)
@@ -50,7 +53,7 @@ def verify(testout, expected, ordered):
         for line in file.readlines():
             tlist = []
             for number in line.split():
-                tlist.append(parse_number(number))
+                tlist.append(parse_value(number))
 
             t = tuple(tlist)
             addTuple(expect, t)

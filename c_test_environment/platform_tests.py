@@ -151,7 +151,7 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
         super(MyriaLPlatformTestHarness, self).setUp()
 
         self.tables = {}
-        for name in ['R', 'S', 'T', 'I', 'D']:
+        for name in ['R', 'S', 'T', 'I', 'D', 'C']:
             for width in [1, 2, 3]:
                 tablename = "%s%d" % (name, width)
                 fullname = "public:adhoc:%s" % tablename
@@ -159,6 +159,8 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
 
                 if name == 'D':
                     rest_type = types.DOUBLE_TYPE
+                elif name == 'C':
+                    rest_type = types.STRING_TYPE
                 else:
                     rest_type = types.LONG_TYPE
 
@@ -469,6 +471,10 @@ class MyriaLPlatformTests(object):
     def test_select_double(self):
         q = self.myrial_from_sql(["D3"], "select_double")
         self.check(q, "select_double")
+
+    def test_select_string(self):
+        q = self.myrial_from_sql(["C3"], "select_string")
+        self.check(q, "select_string")
 
     def test_aggregate_double(self):
         self.check_sub_tables("""
