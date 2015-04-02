@@ -87,7 +87,7 @@ class CC(CBaseLanguage):
         lookup_init = cls.cgenv().get_template(
             'string_index_lookup.cpp').render(name=sid, st=s)
         build_init = """
-        string_index = build_string_index("sp2bench_1m.index");
+        string_index = build_string_index("sp2bench.index");
         """
         return """(%s)""" % sid, [], [build_init, lookup_init]
         # raise ValueError("String Literals not supported\
