@@ -16,9 +16,18 @@
       // no-op
     }
 
-    template <typename OT>
-    {{tupletypename}} (const OT& other) {
-      std::memcpy(this, &other, sizeof({{tupletypename}}));
+    //template <typename OT>
+    //{{tupletypename}} (const OT& other) {
+    //  std::memcpy(this, &other, sizeof({{tupletypename}}));
+    //}
+    {{tupletypename}} ({% for ft in fieldtypes %}
+                               const {{ft}}& a{{loop.index-1}}
+                               {% if not loop.last %},{% endif %}
+                       {% endfor %}
+                       ) {
+        {% for i in range(numfields) %}
+            f{{i}} = a{{i}};
+        {% endfor %}
     }
 
     // shamelessly terrible disambiguation: one solution is named factory methods

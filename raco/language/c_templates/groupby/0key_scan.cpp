@@ -1,4 +1,4 @@
 {
-    {{output_tuple_type}} {{output_tuple_name}}(std::make_tuple({{hashname}}));
+    {{output_tuple_type}} {{output_tuple_name}}({{hashname}});
     {{inner_code}}
 }
