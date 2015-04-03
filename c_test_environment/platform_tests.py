@@ -476,6 +476,14 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(["C3"], "select_string")
         self.check(q, "select_string")
 
+    def test_join_string_val(self):
+        q = self.myrial_from_sql(["C2", "T2"], "join_string_val")
+        self.check(q, "join_string_val")
+
+    def test_join_string_key(self):
+        q = self.myrial_from_sql(["C3", "C3"], "join_string_key")
+        self.check(q, "join_string_key")
+
     def test_aggregate_double(self):
         self.check_sub_tables("""
         D2 = SCAN(%(D2)s);

@@ -81,7 +81,7 @@ class CC(CBaseLanguage):
 
     @classmethod
     def compile_stringliteral(cls, s):
-        return '("%s")' % s, [], []
+        return '(%s)' % s, [], []
 
 
 class CCOperator(Pipelined, algebra.Operator):
@@ -377,6 +377,7 @@ class CHashJoin(algebra.Join, CCOperator):
 
             in_tuple_type = t.getTupleTypename()
             in_tuple_name = t.name
+            self.right_tuple = t
 
             # declaration of hash map
             hashdeclr = declr_template.render(locals())
@@ -403,7 +404,14 @@ class CHashJoin(algebra.Join, CCOperator):
             out_tuple_type = outTuple.getTupleTypename()
             out_tuple_name = outTuple.name
 
-            state.addDeclarations([out_tuple_type_def])
+            type1 = keytype
+            type1numfields = len(t.scheme)
+            type2 = self.right_tuple.getTupleTypename()
+            type2numfields = len(self.right_tuple.scheme)
+            result_type = out_tuple_type
+            combine_function_def = self._cgenv.get_template("materialized_tuple_create_two.cpp").render(locals())
+
+            state.addDeclarations([out_tuple_type_def, combine_function_def])
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
