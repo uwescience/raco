@@ -491,6 +491,13 @@ class MyriaLPlatformTests(object):
         STORE(P, OUTPUT);
         """, "groupby_string_key")
 
+    def test_groupby_string_multi_key(self):
+        self.check_sub_tables("""
+        C3 = SCAN(%(C3)s);
+        P = [FROM C3 EMIT SUM($0), $1, $2];
+        STORE(P, OUTPUT);
+        """, "groupby_string_multi_key")
+
     def test_aggregate_double(self):
         self.check_sub_tables("""
         D2 = SCAN(%(D2)s);
