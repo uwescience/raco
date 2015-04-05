@@ -406,8 +406,11 @@ class PushSelects(Rule):
     def fire(self, op):
         if not isinstance(op, algebra.Select):
             return op
-        if op.has_been_pushed:
-            return op
+        if has_attr(op, has_been_pushed):
+          if op.has_been_pushed:
+              return op
+          else:
+             op.has_been_pushed = False
 
         new_op = PushSelects.descend_tree(op.input, op.condition)
 
