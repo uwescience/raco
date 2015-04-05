@@ -17,6 +17,8 @@ from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
 from raco.language.grappalang import GrappaAlgebra
 from raco.language.logical import OptLogicalAlgebra
+from raco.language.sparql import SPARQLAlgebra
+
 from raco.compile import compile
 
 
@@ -61,6 +63,8 @@ def parse_options(args):
                        help='Execute the program in standalone mode')
     group.add_argument('-c', dest='clang', action='store_true',
                        help='Output physical plan for grappalang and source program')
+    group.add_argument('-s', dest='sparql', action='store_true',
+                       help='Output an attempt at a SPARQL translation of the input program')
     arg_parser.add_argument('-v', dest='verbose', action='store_true',
                        help='Turn on verbose DEBUG logging')
     arg_parser.add_argument('--catalog', dest="catalog_path", default=None, help="[Optional] path to catalog file")
@@ -86,7 +90,7 @@ def main(args):
     if os.path.exists(catalog_path):
         catalog = FromFileCatalog.load_from_file(catalog_path)
     else:
-        catalog = FromFileCatalog({})
+        catalog = FromFileCatalog({},"")
 
     _parser = parser.Parser()
     processor = interpreter.StatementProcessor(catalog, True)
@@ -118,6 +122,11 @@ def main(args):
             elif opt.opt_logical:
                 print_pretty_plan(processor.get_physical_plan(
                     target_alg=OptLogicalAlgebra()))
+            elif opt.sparql:
+                c = compile(processor.get_physical_plan(
+                    target_alg=SPARQLAlgebra()))
+                #c = processor.get_physical_plan(target_alg=SPARQLAlgebra())
+                print c
             elif opt.clang:
                 pp = processor.get_physical_plan(target_alg=GrappaAlgebra())
                 print_pretty_plan(pp)
