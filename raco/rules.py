@@ -406,7 +406,7 @@ class PushSelects(Rule):
     def fire(self, op):
         if not isinstance(op, algebra.Select):
             return op
-        if has_attr(op, has_been_pushed):
+        if hasattr(op, "has_been_pushed"):
           if op.has_been_pushed:
               return op
           else:
