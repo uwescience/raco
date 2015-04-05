@@ -101,6 +101,10 @@ class ExpressionVisitor(object):
         return
 
     @abstractmethod
+    def visit_MOD(self, binaryExpr):
+        return
+
+    @abstractmethod
     def visit_TIMES(self, binaryExpr):
         return
 
@@ -207,6 +211,9 @@ class SimpleExpressionVisitor(ExpressionVisitor):
         self.visit_binary(binaryExpr)
 
     def visit_IDIVIDE(self, binaryExpr):
+        self.visit_binary(binaryExpr)
+
+    def visit_MOD(self, binaryExpr):
         self.visit_binary(binaryExpr)
 
     def visit_TIMES(self, binaryExpr):

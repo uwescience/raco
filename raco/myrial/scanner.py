@@ -26,9 +26,9 @@ reserved = (keywords + types + comprehension_keywords
 # Token types; required by ply to have this variable name
 
 tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
-          'TIMES', 'DIVIDE', 'IDIVIDE', 'LT', 'GT', 'GE', 'GE2', 'LE', 'LE2',
-          'EQ', 'NE', 'NE2', 'NE3', 'COMMA', 'SEMI', 'EQUALS', 'COLON',
-          'DOLLAR', 'ID',
+          'TIMES', 'DIVIDE', 'IDIVIDE', 'MOD', 'LT', 'GT', 'GE', 'GE2',
+          'LE', 'LE2', 'EQ', 'NE', 'NE2', 'NE3', 'COMMA', 'SEMI', 'EQUALS',
+          'COLON', 'DOLLAR', 'ID',
           'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL',
           'LBRACE', 'RBRACE'] + reserved
 
@@ -45,6 +45,7 @@ t_MINUS = r'-'
 t_TIMES = r'\*'
 t_DIVIDE = r'/'
 t_IDIVIDE = r'//'
+t_MOD = r'%'
 
 t_LT = r'<'
 t_GT = r'>'
