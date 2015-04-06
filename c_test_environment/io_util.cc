@@ -275,3 +275,10 @@ RangeIter RangeIterable::begin() {
 RangeIter RangeIterable::end() {
   return RangeIter(num, true);
 }
+
+void write_count(const char* path, uint64_t count) {
+  std::ofstream o;
+  o.open(path);
+  o << count << std::endl;
+  o.close();
+}

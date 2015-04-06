@@ -71,6 +71,7 @@ void query(struct relationInfo *resultInfo)
 
  {{queryexec}}
 
+  {{cleanups}}
 
   // return final result
   resultInfo->tuples = {{resultsym}}->tuples;

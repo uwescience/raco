@@ -58,6 +58,11 @@
        }
     }
 
+    void toOStreamAscii(std::ostream& os) const {
+        TupleUtils::str(os, (void**)_fields, _scheme);
+        os << std::endl;
+    }
+
     // note not typesafe!!
     template <typename T1, typename T2>
     static {{tupletypename}} create(const T1& t1, const T2& t2) {

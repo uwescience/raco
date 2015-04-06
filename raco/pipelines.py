@@ -30,6 +30,7 @@ class CompileState:
         self.scan_pipelines = []
         self.flush_pipelines = []
         self.initializers = []
+        self.cleanups = []
         self.pipeline_count = 0
 
         # { expression => symbol for materialized result }
@@ -104,6 +105,9 @@ class CompileState:
     def addInitializers(self, i):
         self.initializers += i
 
+    def addCleanups(self, i):
+        self.cleanups += i
+
     def addMainWaitStatement(self, c):
         self.main_wait_statements.add(c)
 
@@ -158,6 +162,24 @@ class CompileState:
                 return True
 
         code = emitlist(filter(f, self.initializers))
+        return code % self.resolving_symbols
+
+    def getCleanupCode(self):
+        # cleanups is a set.
+        # If this ever becomes a bottleneck when declarations are strings,
+        # as in clang, then resort to at least symbol name deduping.
+        # TODO: better would be to mark elements of self.cleanups as
+        # TODO: "do dedup" or "don't dedup"
+        s = set()
+
+        def f(x):
+            if x in s:
+                return False
+            else:
+                s.add(x)
+                return True
+
+        code = emitlist(filter(f, self.cleanups))
         return code % self.resolving_symbols
 
     def getDeclCode(self):

@@ -981,7 +981,10 @@ class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
 
         filename = (str(self.relation_key).split(":")[2])
         outputnamedecl = define_cl_arg(
-            'string', '{0}.bin'.format(filename), "Output File")
+            'string',
+            'output_file_{0}'.format(filename),
+            '"{0}.bin"'.format(filename),
+            "Output File")
 
         state.addDeclarations([outputnamedecl])
         names = [x.encode('UTF8') for x in my_sch.get_names()]
