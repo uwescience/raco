@@ -1,15 +1,13 @@
-import itertools
 import logging
-from collections import defaultdict, deque
-from operator import mul
 
 import raco.rules
 
 from raco import algebra
 from raco.scheme import Scheme
 from raco.language import Language, Algebra
-from raco.expression import UnnamedAttributeRef, NamedAttributeRef, AttributeRef
-from raco.language import CompileExpressionVisitor
+from raco.expression import UnnamedAttributeRef, \
+    NamedAttributeRef, \
+    AttributeRef
 
 LOGGER = logging.getLogger(__name__)
 
@@ -58,7 +56,8 @@ class SPARQLUnionAll(algebra.UnionAll, SPARQLOperator):
 class SPARQLScan(algebra.Scan, SPARQLOperator):
 
     def renameattrs(self):
-        """Make attribute names globally unique so they can be used as SPARQL variables"""
+        """Make attribute names globally unique so they
+        can be used as SPARQL variables"""
         global counter
         c = counter
         counter = counter + 1
@@ -85,10 +84,12 @@ class SPARQLScan(algebra.Scan, SPARQLOperator):
 class SPARQLSelect(algebra.Select, SPARQLOperator):
 
     def compile(self):
-        # This is pretty bad: passing information to compile_expression by way of class instance variable
+        # This is pretty bad: passing information to compile_expression
+        # by way of class instance variable
         # The right thing to do seems to be to arrange for every
         # AttributeRef to hold a pointer to the operator
-        # whose result is being referenced.  This way, if you have an AttributeRef in hand,
+        # whose result is being referenced.  This way, if
+        # you have an AttributeRef in hand,
         # you know you can do something useful with it.
         self.language.currentop = self
         filterexpr = self.language.compile_expression(self.condition)
