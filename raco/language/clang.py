@@ -468,9 +468,9 @@ class CStore(clangcommon.BaseCStore, CCOperator):
         count_filename = filename + ".count"
         count_decl = \
             CC.cgenv().get_template("groupby/0key_declaration.cpp").render(
-            valtype="uint64_t",
-            hashname=count_symbol,
-            initial_value=0)
+                valtype="uint64_t",
+                hashname=count_symbol,
+                initial_value=0)
         stream_decl = CC.cgenv().get_template("output_stream_decl.cpp").render(
             output_stream_symbol=output_stream_symbol)
         stream_open = CC.cgenv().get_template(
@@ -486,7 +486,7 @@ class CStore(clangcommon.BaseCStore, CCOperator):
 
         stream_close = \
             CC.cgenv().get_template("output_stream_close.cpp").render(
-            output_stream_symbol=output_stream_symbol)
+                output_stream_symbol=output_stream_symbol)
         write_count = CC.cgenv().get_template("write_count.cpp").render(
             filename=count_filename,
             count_symbol=count_symbol)
