@@ -102,6 +102,11 @@ class CompileExpressionVisitor(ExpressionVisitor):
         left = self.stack.pop()
         return left, right
 
+    def appendbinop(self, binaryexpr, languageop):
+        left, right = self.__visit_BinaryOperator__(binaryexpr)
+        val = self.combine([left, right], operator=languageop)
+        self.stack.append(val)
+
     def visit_NOT(self, unaryexpr):
         inputexpr = self.stack.pop()
         self.stack.append(self.language.negation(inputexpr))
@@ -115,28 +120,22 @@ class CompileExpressionVisitor(ExpressionVisitor):
         self.stack.append(self.language.disjunction(left, right))
 
     def visit_EQ(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.EQ))
+        self.appendbinop(binaryexpr, self.language.EQ)
 
     def visit_NEQ(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.NEQ))
+        self.appendbinop(binaryexpr, self.language.NEQ)
 
     def visit_GT(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.GT))
+        self.appendbinop(binaryexpr, self.language.GT)
 
     def visit_LT(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.LT))
+        self.appendbinop(binaryexpr, self.language.LT)
 
     def visit_GTEQ(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.GTEQ))
+        self.appendbinop(binaryexpr, self.language.GTEQ)
 
     def visit_LTEQ(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.LTEQ))
+        self.appendbinop(binaryexpr, self.language.LTEQ)
 
     def visit_NamedAttributeRef(self, named):
         self.stack.append(
@@ -158,28 +157,22 @@ class CompileExpressionVisitor(ExpressionVisitor):
         self.stack.append(self.language.compile_stringliteral(stringliteral))
 
     def visit_DIVIDE(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.DIVIDE))
+        self.appendbinop(binaryexpr, self.language.DIVIDE)
 
     def visit_PLUS(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.PLUS))
+        self.appendbinop(binaryexpr, self.language.PLUS)
 
     def visit_MINUS(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.MINUS))
+        self.appendbinop(binaryexpr, self.language.MINUS)
 
     def visit_IDIVIDE(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.IDIVIDE))
+        self.appendbinop(binaryexpr, self.language.IDIVIDE)
 
     def visit_MOD(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.MOD))
+        self.appendbinop(binaryexpr, self.language.MOD)
 
     def visit_TIMES(self, binaryexpr):
-        left, right = self.__visit_BinaryOperator__(binaryexpr)
-        self.stack.append(self.combine([left, right], operator=self.language.TIMES))
+        self.appendbinop(binaryexpr, self.language.TIMES)
 
     def visit_NEG(self, unaryexpr):
         inputexpr = self.stack.pop()
