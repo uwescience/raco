@@ -1,0 +1,16 @@
+R1 = scan(public:adhoc:sp2bench);
+
+Q1 = SELECT
+    T3.object AS yr
+FROM
+    Triples T1
+    JOIN Triples T2     ON T1.subject=T2.subject
+    JOIN Triples T3     ON T1.subject=T3.subject
+WHERE
+    T1.predicate='rdf:type'
+    AND T2.predicate='dc:title'
+    AND T3.predicate='dcterms:issued'
+    AND T1.object='bench:Journal'
+    AND T2.object='"Journal 1 (1940)"^^xsd:string';
+
+store(Q1, Q1);

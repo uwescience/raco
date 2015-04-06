@@ -1,0 +1,13 @@
+R1 = scan(public:adhoc:sp2bench);
+
+Q3 = SELECT
+    T1.subject AS article
+FROM
+    Triples T1
+    JOIN Triples T2     ON T1.subject=T2.subject
+WHERE
+    T1.predicate='rdf:type'
+    AND T2.predicate='swrc:pages'
+    AND T2.object='bench:Article';
+
+store(Q3, Q3);
