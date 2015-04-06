@@ -66,7 +66,6 @@ class SPARQLScan(algebra.Scan, SPARQLOperator):
 
     def copy(self, other):
       # Python 3.0 cleans this crap up
-      print super(self.__class__, self).__class__
       super(self.__class__, self).copy(other)
       self.renameattrs()
 
