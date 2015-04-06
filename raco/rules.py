@@ -409,8 +409,8 @@ class PushSelects(Rule):
         if hasattr(op, "has_been_pushed"):
             if op.has_been_pushed:
                 return op
-            else:
-                 op.has_been_pushed = False
+        else:
+            op.has_been_pushed = False
 
         new_op = PushSelects.descend_tree(op.input, op.condition)
 
