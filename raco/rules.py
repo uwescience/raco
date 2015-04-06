@@ -159,6 +159,7 @@ class SimpleGroupBy(Rule):
 
 
 class DedupGroupBy(Rule):
+
     """When a GroupBy computes redundant fields, replace this duplicate
     computation by a single computation plus a duplicating Apply."""
 

@@ -1,20 +1,19 @@
-import itertools
 import logging
-from collections import defaultdict, deque
-from operator import mul
 
 import raco.rules
 
 from raco import algebra
 from raco.scheme import Scheme
 from raco.language import Language, Algebra
-from raco.expression import UnnamedAttributeRef, NamedAttributeRef, AttributeRef
-from raco.language import CompileExpressionVisitor
+from raco.expression import UnnamedAttributeRef, \
+    NamedAttributeRef, \
+    AttributeRef
 
 LOGGER = logging.getLogger(__name__)
 
 # for gensym
 counter = 0
+
 
 class SPARQLLanguage(Language):
     EQ = "="
@@ -35,28 +34,35 @@ class SPARQLLanguage(Language):
     def compile_stringliteral(cls, value):
         return str(value).replace('"', '')
 
+
 class SPARQLOperator(object):
     language = SPARQLLanguage
 
+
 class SPARQLUnionAll(algebra.UnionAll, SPARQLOperator):
+
     def compile(self):
         return """
-      { 
-      %s 
-      } 
-      UNION 
       {
-      %s 
+      %s
+      }
+      UNION
+      {
+      %s
       }
       """ % (self.left.compile(), self.right.compile())
 
+
 class SPARQLScan(algebra.Scan, SPARQLOperator):
+
     def renameattrs(self):
-        """Make attribute names globally unique so they can be used as SPARQL variables"""
+        """Make attribute names globally unique so they
+        can be used as SPARQL variables"""
         global counter
         c = counter
         counter = counter + 1
-        self._scheme = Scheme([("%s%s" % (n, c), typ) for n, typ in self._scheme])
+        self._scheme = Scheme([("%s%s" % (n, c), typ)
+                               for n, typ in self._scheme])
 
     def __init__(self, *args):
         # Python 3.0 cleans this crap up
@@ -71,29 +77,38 @@ class SPARQLScan(algebra.Scan, SPARQLOperator):
 
     def compile(self):
         names = self.scheme().get_names()
-        triplepattern = " ".join(["?%s" % n for n in names]) 
+        triplepattern = " ".join(["?%s" % n for n in names])
         return "%s ." % (triplepattern)
 
+
 class SPARQLSelect(algebra.Select, SPARQLOperator):
+
     def compile(self):
-        # This is pretty bad: passing information to compile_expression by way of class instance variable
-        # The right thing to do seems to be to arrange for every 
+        # This is pretty bad: passing information to compile_expression
+        # by way of class instance variable
+        # The right thing to do seems to be to arrange for every
         # AttributeRef to hold a pointer to the operator
-        # whose result is being referenced.  This way, if you have an AttributeRef in hand,
+        # whose result is being referenced.  This way, if
+        # you have an AttributeRef in hand,
         # you know you can do something useful with it.
         self.language.currentop = self
         filterexpr = self.language.compile_expression(self.condition)
         return """%s
-    FILTER (%s) ."""% (self.input.compile(), filterexpr)
+    FILTER (%s) .""" % (self.input.compile(), filterexpr)
+
 
 class SPARQLStore(algebra.Store, SPARQLOperator):
+
     def compile(self):
         return """%s""" % (self.input.compile())
+
 
 class SPARQLStoreTemp(SPARQLStore):
     pass
 
+
 class SPARQLJoin(algebra.Join, SPARQLOperator):
+
     def compile(self):
         leftc = self.left.compile()
         rightc = self.right.compile()
@@ -109,25 +124,30 @@ class SPARQLJoin(algebra.Join, SPARQLOperator):
         FILTER (%s)
         """ % (self.left.compile(), self.right.compile(), joincond)
 
+
 class SPARQLApply(algebra.Apply, SPARQLOperator):
+
     """Represents a simple apply operator"""
 
     def compile(self):
         child_scheme = self.input.scheme()
         self.language.currentop = self.input
+
         def formatemitter(name, exp):
             e = self.language.compile_expression(exp)
             if isinstance(exp, AttributeRef):
                 return "%s" % e
             else:
                 return "%s as ?%s" % (e, name)
-        emitters = ", ".join([formatemitter(name, exp) for (name, exp) in self.emitters])
+        emitters = ", ".join([formatemitter(name, exp)
+                              for (name, exp) in self.emitters])
         return """
-  SELECT %s 
+  SELECT %s
   {
    %s
   }
   """ % (emitters, self.input.compile())
+
 
 class SPARQLAlgebra(Algebra):
 

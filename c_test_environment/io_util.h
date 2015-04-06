@@ -80,6 +80,8 @@ std::vector<T> tuplesFromAscii(const char *path) {
   // rely on RVO to avoid content copy
   return tuples;
 }
+
+void write_count(const char* path, uint64_t count);
     
 
 #define ZAPPA
