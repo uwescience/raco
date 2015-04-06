@@ -61,6 +61,7 @@ class CBaseLanguage(Language):
         queryexec = compileResult.getExecutionCode()
         initialized = compileResult.getInitCode()
         declarations = compileResult.getDeclCode()
+        cleanups = compileResult.getCleanupCode()
         resultsym = "__result__"
         return cls.base_template().render(locals())
 
@@ -130,7 +131,10 @@ class CBaseLanguage(Language):
         n = {
             types.LONG_TYPE: 'int64_t',
             types.BOOLEAN_TYPE: 'bool',
-            types.DOUBLE_TYPE: 'double'
+            types.DOUBLE_TYPE: 'double',
+
+            # strings are indexed as ints
+            types.STRING_TYPE: 'int64_t'
         }.get(raco_type)
 
         assert n is not None, \

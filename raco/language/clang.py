@@ -87,7 +87,7 @@ class CC(CBaseLanguage):
         lookup_init = cls.cgenv().get_template(
             'string_index_lookup.cpp').render(name=sid, st=s)
         build_init = """
-        string_index = build_string_index("sp2bench_1m.index");
+        string_index = build_string_index("sp2bench.index");
         """
         return """(%s)""" % sid, [], [build_init, lookup_init]
         # raise ValueError("String Literals not supported\
@@ -462,31 +462,58 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
 class CStore(clangcommon.BaseCStore, CCOperator):
 
     def __file_code__(self, t, state):
-        code = ""
-        state.addPreCode('std::ofstream logfile;\n')
-        resultfile = str(self.relation_key).split(":")[2]
-        opentuple = 'logfile.open("%s");\n' % resultfile
-        schemafile = self.write_schema(self.scheme())
-        state.addPreCode(schemafile)
-        state.addPreCode(opentuple)
+        output_stream_symbol = "outputfile"
+        count_symbol = "_result_count"
+        filename = str(self.relation_key).split(":")[2]
+        count_filename = filename + ".count"
+        count_decl = \
+            CC.cgenv().get_template("groupby/0key_declaration.cpp").render(
+                valtype="uint64_t",
+                hashname=count_symbol,
+                initial_value=0)
+        stream_decl = CC.cgenv().get_template("output_stream_decl.cpp").render(
+            output_stream_symbol=output_stream_symbol)
+        stream_open = CC.cgenv().get_template(
+            "output_stream_open.cpp").render(locals())
+        scheme_write = self.__write_schema(self.scheme())
+        state.addInitializers(
+            [count_decl, stream_decl, stream_open, scheme_write])
 
-        loggings = emitlist([self.language().log_file_unquoted(
-            "{0}".format(t.get_code(i))) for i in range(len(t.scheme))])
-        code += loggings
+        code = "{0}.toOStreamAscii({1});\n".format(
+            t.name,
+            output_stream_symbol)
+        code += "{0}++;\n".format(count_symbol)
 
-        code += "logfile << '\\n';"
-
-        state.addPostCode('logfile.close();')
+        stream_close = \
+            CC.cgenv().get_template("output_stream_close.cpp").render(
+                output_stream_symbol=output_stream_symbol)
+        write_count = CC.cgenv().get_template("write_count.cpp").render(
+            filename=count_filename,
+            count_symbol=count_symbol)
+        state.addCleanups([stream_close, write_count])
 
         return code
 
-    def write_schema(self, scheme):
+    def __write_schema(self, scheme):
+        output_stream_symbol = "out_scheme_file"
         schemafile = 'schema/' + str(self.relation_key).split(":")[2]
-        code = 'logfile.open("%s");\n' % schemafile
+        code = CC.cgenv().get_template("output_stream_decl.cpp").render(
+            output_stream_symbol=output_stream_symbol)
+        code += CC.cgenv().get_template("output_stream_open.cpp").render(
+            output_stream_symbol=output_stream_symbol,
+            filename=schemafile)
         names = [x.encode('UTF8') for x in scheme.get_names()]
-        code += self.language().log_file("%s" % names)
-        code += self.language().log_file("%s" % scheme.get_types())
-        code += 'logfile.close();'
+
+        code += CC.cgenv().get_template("output_stream_write.cpp").render(
+            output_stream_symbol=output_stream_symbol,
+            stringval="{0}".format(names))
+        code += CC.cgenv().get_template("output_stream_write.cpp").render(
+            output_stream_symbol=output_stream_symbol,
+            stringval="{0}".format(
+                scheme.get_types()))
+
+        code += CC.cgenv().get_template("output_stream_close.cpp").render(
+            output_stream_symbol=output_stream_symbol)
         return code
 
 

@@ -1,2 +1,2 @@
-DEFINE_{{type}}({{name}}, {{default_value}}, {{description}});
+DEFINE_{{type}}({{name}}, {{default_value}}, "{{description}}");
 
