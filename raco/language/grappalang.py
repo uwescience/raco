@@ -127,7 +127,7 @@ class GrappaLanguage(CBaseLanguage):
 
     @classmethod
     def compile_stringliteral(cls, st):
-        st = CBaseLanguage.__c_stringify(st)
+        st = cls.__c_stringify(st)
         sid = cls.newstringident()
         decl = """int64_t %s;""" % (sid)
         lookup_init = GrappaLanguage.cgenv().get_template(
