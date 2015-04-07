@@ -83,7 +83,7 @@ class CC(CBaseLanguage):
 
     @classmethod
     def compile_stringliteral(cls, s):
-        s = cls.__c_stringify(s)
+        s = cls.c_stringify(s)
         sid = cls.newstringident()
         lookup_init = cls.cgenv().get_template(
             'string_index_lookup.cpp').render(name=sid, st=s)

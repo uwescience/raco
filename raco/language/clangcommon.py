@@ -31,7 +31,7 @@ def prepend_template_relpath(env, relpath):
 
 class CBaseLanguage(Language):
     @classmethod
-    def __c_stringify(cls, st):
+    def c_stringify(cls, st):
         """ turn " in the string into \" since C ' are chars
         """
         return '"{0}"'.format(st.value.replace('"', '\\"'))
