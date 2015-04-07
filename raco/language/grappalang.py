@@ -132,7 +132,7 @@ class GrappaLanguage(CBaseLanguage):
         lookup_init = GrappaLanguage.cgenv().get_template(
             'string_index_lookup.cpp').render(locals())
         build_init = """
-        string_index = build_string_index("sp2bench_1m.index.medium");
+        string_index = build_string_index("sp2bench.index");
         """
 
         return """(%s)""" % sid, [decl], [build_init, lookup_init]
