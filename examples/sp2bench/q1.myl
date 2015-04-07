@@ -13,6 +13,6 @@ WHERE
   AND T2.predicate="<http://purl.org/dc/elements/1.1/title>"
   AND T3.predicate="<http://purl.org/dc/terms/issued>"
   AND T1.object="<http://localhost/vocabulary/bench/Journal>"
-  AND T2.object="'Journal 1 (1940)'^^xsd:string";
+  AND T2.object='"Journal 1 (1940)"^^xsd:string';
 
 store(Q1, Q1);
