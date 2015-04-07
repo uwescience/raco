@@ -30,6 +30,11 @@ def prepend_template_relpath(env, relpath):
 
 
 class CBaseLanguage(Language):
+    @staticmethod
+    def __c_stringify(str):
+        """ turn " in the string into \" since C ' are chars
+        """
+        return '"{0}"'.format(str.value.replace('"', '\\"'))
 
     @staticmethod
     def __get_env_for_template_libraries__(*libraries):
