@@ -983,7 +983,7 @@ class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
         outputnamedecl = define_cl_arg(
             'string',
             'output_file',
-            '"{0}.bin"'.format(filename),
+            '"{0}"'.format(filename),
             "Output File")
 
         state.addDeclarations([outputnamedecl])
