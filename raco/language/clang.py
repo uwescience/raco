@@ -496,7 +496,7 @@ class CStore(clangcommon.BaseCStore, CCOperator):
 
     def __write_schema(self, scheme):
         output_stream_symbol = "out_scheme_file"
-        schemafile = str(self.relation_key).split(":")[2]+".scheme"
+        schemafile = str(self.relation_key).split(":")[2] + ".scheme"
         code = CC.cgenv().get_template("output_stream_decl.cpp").render(
             output_stream_symbol=output_stream_symbol)
         code += CC.cgenv().get_template("output_stream_open.cpp").render(
