@@ -7,8 +7,8 @@ FROM
     Triples T2
 WHERE
     T1.subject=T2.subject 
-    AND T1.predicate="rdf:type"
-    AND T2.predicate="swrc:pages"
-    AND T2.object="bench:Article";
+    AND T1.predicate="<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>"
+    AND T2.predicate="<http://swrc.ontoware.org/ontology#pages>"
+    AND T2.object="<http://localhost/vocabulary/bench/Article>";
 
 store(Q3, Q3);
