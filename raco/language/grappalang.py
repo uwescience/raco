@@ -132,7 +132,7 @@ class GrappaLanguage(CBaseLanguage):
         lookup_init = GrappaLanguage.cgenv().get_template(
             'string_index_lookup.cpp').render(locals())
         build_init = """
-        string_index = build_string_index("sp2bench_1m.index.medium");
+        string_index = build_string_index("sp2bench.index");
         """
 
         return """(%s)""" % sid, [decl], [build_init, lookup_init]
@@ -982,8 +982,8 @@ class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
         filename = (str(self.relation_key).split(":")[2])
         outputnamedecl = define_cl_arg(
             'string',
-            'output_file_{0}'.format(filename),
-            '"{0}.bin"'.format(filename),
+            'output_file',
+            '"{0}"'.format(filename),
             "Output File")
 
         state.addDeclarations([outputnamedecl])

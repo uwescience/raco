@@ -39,10 +39,22 @@ def generate_tuple_class(rel_key, cat):
    tupleref = StagedTupleRef(None, sch)
    definition = tupleref.generateDefinition()
    outfnbase = rel_key.split(':')[2]
-   with open("{0}_convert.cpp".format(outfnbase), 'w') as outf:
+   cpp_name = "{0}.convert.cpp".format(outfnbase)
+   with open(cpp_name, 'w') as outf:
        outf.write(template.format(definition=definition, typ=tupleref.getTupleTypename()))
 
    subprocess.check_output(["make", "{fn}.convert".format(fn=outfnbase)])
+   return cpp_name
+
+
+def generate_tuple_class_from_file(name, catpath):
+    cat = FromFileCatalog.load_from_file(catpath)
+
+    if name is not None:
+        rel_key = "public:adhoc:{0}".format(name)
+        return cat, rel_key, generate_tuple_class(rel_key, cat)
+    else:
+        return cat, [(n, generate_tuple_class(n, cat)) for n in cat.get_keys()]
 
 
 if __name__ == "__main__":
@@ -52,11 +64,5 @@ if __name__ == "__main__":
     p.add_argument("-c", dest="catpath", help="path of catalog file, see FromFileCatalog for format", required=True)
 
     args = p.parse_args(sys.argv[1:])
+    generate_tuple_class_from_file(args.name, args.catpath)
    
-    cat = FromFileCatalog.load_from_file(args.catpath)
-
-    if args.name is not None:
-      generate_tuple_class("public:adhoc:{0}".format(args.name), cat)
-    else:
-      for n in cat.get_keys():
-        generate_tuple_class(n, cat)
