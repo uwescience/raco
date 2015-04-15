@@ -360,6 +360,9 @@ class FakeDatabase(Catalog):
     def myriascantemp(self, op):
         return self.scantemp(op)
 
+    def myrialimit(self, op):
+        return self.limit(op)
+
     def myriasymmetrichashjoin(self, op):
         return self.projectingjoin(op)
 

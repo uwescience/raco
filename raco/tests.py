@@ -94,6 +94,11 @@ class ExpressionTest(unittest.TestCase):
             def visit_IDIVIDE(self, binaryExpr):
                 pass
 
+            def visit_MOD(self, binaryExpr):
+                right = self.stack.pop()
+                left = self.stack.pop()
+                self.stack.append(left % right)
+
             def visit_MINUS(self, binaryExpr):
                 pass
 
@@ -135,6 +140,11 @@ class ExpressionTest(unittest.TestCase):
                    e.NOT(e.NEQ(e.NumericLiteral(4), e.NumericLiteral(4))))
         ex.accept(v)
         self.assertEqual(v.stack.pop(), True)
+
+        v = EvalVisitor()
+        ex = e.MOD(e.NumericLiteral(7), e.NumericLiteral(4))
+        ex.accept(v)
+        self.assertEqual(v.stack.pop(), 3)
 
         v = EvalVisitor()
         ex = e.NumericLiteral(0xC0FFEE)
