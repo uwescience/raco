@@ -101,7 +101,7 @@ Sequence
 ### Visualize a Myria plan as a graph
 Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
-# C++ and Grappa output
+# C++ and Grappa output (Radish)
 There is also Grappa output for Raco.
 
 ### Run the myriaL -> Grappa tests
@@ -113,6 +113,9 @@ There is also Grappa output for Raco.
 ```bash
 PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_myrial_tests.MyriaLGrappaTest
 ```
+
+### Visualize a Radish plan as a graph
+Pass the `-c` option to `scripts/myrial`. Output omitted for brevity.
 
 # Authors and contact information
 
