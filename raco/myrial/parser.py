@@ -555,8 +555,13 @@ class Parser(object):
 
     @staticmethod
     def p_expression_load(p):
-        'expression :  LOAD LPAREN STRING_LITERAL COMMA column_def_list RPAREN'
-        p[0] = ('LOAD', p[3], scheme.Scheme(p[5]))
+        """expression : LOAD LPAREN STRING_LITERAL COMMA column_def_list RPAREN
+                      | LOAD LPAREN STRING_LITERAL COMMA column_def_list SEMI option_list RPAREN"""
+        if len(p) == 9:
+            opts = dict(p[7])
+        else:
+            opts = {}
+        p[0] = ('LOAD', p[3], scheme.Scheme(p[5]), opts)
 
     @staticmethod
     def p_relation_key(p):
@@ -579,6 +584,21 @@ class Parser(object):
     @staticmethod
     def p_column_def(p):
         'column_def : unreserved_id COLON type_name'
+        p[0] = (p[1], p[3])
+
+    @staticmethod
+    def p_option_list(p):
+        """option_list : option_list COMMA option
+                           | option"""
+        if len(p) == 4:
+            opts = p[1] + [p[3]]
+        else:
+            opts = [p[1]]
+        p[0] = opts
+
+    @staticmethod
+    def p_option(p):
+        'option : unreserved_id EQUALS string_arg'
         p[0] = (p[1], p[3])
 
     @staticmethod
