@@ -173,6 +173,7 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
             "table": self.name,
         }
 
+
 class MyriaFileScan(algebra.FileScan, MyriaOperator):
     def compileme(self):
         return dict({
@@ -183,6 +184,7 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
             },
             "schema": scheme_to_schema(self.scheme())
         }, **self.options)
+
 
 class MyriaLimit(algebra.Limit, MyriaOperator):
     def compileme(self, inputid):

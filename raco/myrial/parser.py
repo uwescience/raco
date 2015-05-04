@@ -556,7 +556,7 @@ class Parser(object):
     @staticmethod
     def p_expression_load(p):
         """expression : LOAD LPAREN STRING_LITERAL COMMA column_def_list RPAREN
-                      | LOAD LPAREN STRING_LITERAL COMMA column_def_list SEMI option_list RPAREN"""
+| LOAD LPAREN STRING_LITERAL COMMA column_def_list SEMI option_list RPAREN"""
         if len(p) == 9:
             opts = dict(p[7])
         else:
