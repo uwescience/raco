@@ -21,7 +21,8 @@ class StyleTest(unittest.TestCase):
 
     def test_style(self):
         "run flake8 with the right arguments and ensure all files pass"
-        check_output_and_print_stderr(['flake8', '--ignore=F', '--exclude=parsetab.py', 'raco'])
+        check_output_and_print_stderr([
+            'flake8', '--ignore=F', '--exclude=parsetab.py', 'raco'])
 
     def test_pylint(self):
         "run pylint -E to catch obvious errors"
