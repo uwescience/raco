@@ -1285,10 +1285,11 @@ class FileScan(ZeroaryOperator):
         return "%s(%s)" % (self.opname(), self.path)
 
     def __repr__(self):
-        return "{op}({path!r}, {sch!r}, {opt!r})".format(op=self.opname(),
-                                                path=self.path,
-                                                sch=self._scheme,
-                                                opt=self.options)
+        return "{op}({path!r}, {sch!r}, {opt!r})".format(
+            op=self.opname(),
+            path=self.path,
+            sch=self._scheme,
+            opt=self.options)
 
     def num_tuples(self):
         raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
