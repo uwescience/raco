@@ -598,8 +598,17 @@ class Parser(object):
 
     @staticmethod
     def p_option(p):
-        'option : unreserved_id EQUALS string_arg'
+        'option : unreserved_id EQUALS literal_arg'
         p[0] = (p[1], p[3])
+
+    @staticmethod
+    def p_literal_arg(p):
+        """literal_arg : STRING_LITERAL
+                       | INTEGER_LITERAL
+                       | FLOAT_LITERAL
+                       | TRUE
+                       | FALSE"""
+        p[0] = p[1]
 
     @staticmethod
     def p_type_name(p):
