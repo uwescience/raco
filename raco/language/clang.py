@@ -573,6 +573,9 @@ class CCAlgebra(Algebra):
         # rules.FreeMemory()
         # ]
 
+        # disable specified rules
+        rules.Rule.set_global_rule_flags(*kwargs.keys())
+
         # sequence that works for myrial
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
