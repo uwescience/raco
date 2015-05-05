@@ -436,6 +436,15 @@ class StatementProcessor(object):
     def get_json(self, **kwargs):
         lp = self.get_logical_plan()
         pps = self.get_physical_plan(**kwargs)
+
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
         return compile_to_json(str(lp), pps, pps, "myrial")
+
+    @classmethod
+    def get_json_from_physical_plan(cls, pp):
+        pps = pp
+
+        # TODO This is not correct. The first argument is the raw query string,
+        # not the string representation of the logical plan
+        return compile_to_json("NOT_SOURCED_FROM_LOGICAL_RA", pps, pps, "myrial")
