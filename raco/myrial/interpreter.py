@@ -447,4 +447,5 @@ class StatementProcessor(object):
 
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
-        return compile_to_json("NOT_SOURCED_FROM_LOGICAL_RA", pps, pps, "myrial")
+        return compile_to_json(
+            "NOT_SOURCED_FROM_LOGICAL_RA", pps, pps, "myrial")
