@@ -941,26 +941,26 @@ def indentby(code, level):
 
 
 # Basic selection like serial C++
-class GrappaSelect(clangcommon.CSelect, GrappaOperator):
+class GrappaSelect(clangcommon.CBaseSelect, GrappaOperator):
     pass
 
 
 # Basic apply like serial C++
-class GrappaApply(clangcommon.CApply, GrappaOperator):
+class GrappaApply(clangcommon.CBaseApply, GrappaOperator):
     pass
 
 
 # Basic duplication based bag union like serial C++
-class GrappaUnionAll(clangcommon.CUnionAll, GrappaOperator):
+class GrappaUnionAll(clangcommon.CBaseUnionAll, GrappaOperator):
     pass
 
 
 # Basic materialized copy based project like serial C++
-class GrappaProject(clangcommon.CProject, GrappaOperator):
+class GrappaProject(clangcommon.CBaseProject, GrappaOperator):
     pass
 
 
-class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
+class GrappaFileScan(clangcommon.CBaseFileScan, GrappaOperator):
 
     def __get_ascii_scan_template__(self):
         _LOG.warn("binary/ascii is command line choice")
@@ -974,7 +974,7 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
         return self._language.cgenv().get_template('relation_declaration.cpp')
 
 
-class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
+class GrappaStore(clangcommon.CBaseStore, GrappaOperator):
 
     def __file_code__(self, t, state):
         my_sch = self.scheme()

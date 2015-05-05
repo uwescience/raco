@@ -430,23 +430,23 @@ def indentby(code, level):
 
 # iteration  over table + insertion into hash table with filter
 
-class CUnionAll(clangcommon.CUnionAll, CCOperator):
+class CUnionAll(clangcommon.CBaseUnionAll, CCOperator):
     pass
 
 
-class CApply(clangcommon.CApply, CCOperator):
+class CApply(clangcommon.CBaseApply, CCOperator):
     pass
 
 
-class CProject(clangcommon.CProject, CCOperator):
+class CProject(clangcommon.CBaseProject, CCOperator):
     pass
 
 
-class CSelect(clangcommon.CSelect, CCOperator):
+class CSelect(clangcommon.CBaseSelect, CCOperator):
     pass
 
 
-class CFileScan(clangcommon.CFileScan, CCOperator):
+class CFileScan(clangcommon.CBaseFileScan, CCOperator):
 
     def __get_ascii_scan_template__(self):
         return CC.cgenv().get_template('ascii_scan.cpp')
@@ -459,7 +459,7 @@ class CFileScan(clangcommon.CFileScan, CCOperator):
         return CC.cgenv().get_template('relation_declaration.cpp')
 
 
-class CStore(clangcommon.BaseCStore, CCOperator):
+class CStore(clangcommon.CBaseStore, CCOperator):
 
     def __file_code__(self, t, state):
         output_stream_symbol = "outputfile"
