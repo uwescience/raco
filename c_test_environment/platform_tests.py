@@ -497,6 +497,14 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "aggregate_of_binop_no_key_union_double")
 
+    def test_turn_off_optimizations(self):
+        # just testing that it doesn't break anything
+        self.check_sub_tables("""
+        T1 = SCAN(%(T1)s);
+        out = [FROM T1 WHERE a>0 and a<10 EMIT a];
+        STORE(out, OUTPUT);
+        """, "select_conjunction", no_SplitSelects=True, no_MergeSelects=True, no_PushSelects=True)
+
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);

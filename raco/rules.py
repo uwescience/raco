@@ -21,7 +21,12 @@ class Rule(object):
     _flag_pattern = re.compile(r'no_([A-Za-z_]+)')  # e.g., no_MergeSelects
 
     def __call__(self, expr):
-        if not self._disabled:
+        if not hasattr(expr, '_disabled'):
+            self._disabled = self.__class__.__name__ in self._disabled_rules
+
+        if self._disabled:
+            return expr
+        else:
             return self.fire(expr)
 
     @classmethod
@@ -30,12 +35,6 @@ class Rule(object):
             mat = re.match(cls._flag_pattern, a)
             if mat:
                 cls._disabled_rules.add(mat.group(1))
-
-    def __init__(self):
-        self._disabled = False
-        if self.__class__.__name__ in self._disabled_rules:
-            self._disabled = True
-
 
     @abstractmethod
     def fire(self, expr):
