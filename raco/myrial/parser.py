@@ -589,8 +589,9 @@ class Parser(object):
 
     @staticmethod
     def p_file_parser_fun(p):
-        """file_parser_fun : file_parser_type LPAREN schema_fun COMMA option_list RPAREN
-                           | file_parser_type LPAREN schema_fun RPAREN"""
+        """file_parser_fun : file_parser_type LPAREN \
+   schema_fun COMMA option_list RPAREN
+ | file_parser_type LPAREN schema_fun RPAREN"""
         if len(p) == 7:
             schema, options = (p[3], p[5])
         else:
