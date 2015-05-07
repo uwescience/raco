@@ -22,11 +22,13 @@ class ClangProcessor:
         kwargs['logical'] = False
         return self.get_plan(query, **kwargs)
 
-    def write_source_code(self, query, basename, **kwargs):
+    def get_source_code(self, query, **kwargs):
         plan = self.get_physical_plan(query, kwargs)
 
         # generate code in the target language
-        code = raco.compile.compile(plan)
+        return raco.compile.compile(plan)
 
+    def write_source_code(self, query, basename, **kwargs):
+        code = self.get_source_code(query, kwargs)
         with open(basename+'.cpp', 'w') as f:
             f.write(code)
