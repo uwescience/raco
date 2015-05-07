@@ -2,6 +2,9 @@
 '''
 A notional raco-only script for executing a MyriaL query
 '''
+import raco
+
+from raco.convenience import executeMyriaQuery
 
 # Choose a backend target system
 from raco.backend.myriaX import MyriaConnection, LogicalAlgebra, ParallelAlgebra, MyriaAlgebra
@@ -87,4 +90,4 @@ T1 = scan(TwitterK);
 X = [from T1 emit T1.$0 where T1.$0 < 100];
 store(X, myresult);
 '''
-result = execute(connection, query)
+result = executeMyriaQuery(connection, query)
