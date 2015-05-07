@@ -50,9 +50,18 @@ while True:
   print status
   if connection.ready(status):
     break
-  
 
 # get the result, perhaps limited to 10000 records or something.
 result = connection.fetch("myresult")
   
   
+
+# Or if you just want to connect to Myria and get the result of a query in a few lines
+# ie should MyriaXConnection have default settings for calling raco.optimize?
+connection = myriaX.MyriaConnection(hostname='vega.cs.washington.edu', port=1776)
+query = '''
+T1 = scan(TwitterK);
+X = [from T1 emit T1.$0 where T1.$0 < 100];
+store(X, myresult);
+'''
+result = connection.execute(query)
