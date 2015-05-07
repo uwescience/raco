@@ -64,4 +64,4 @@ T1 = scan(TwitterK);
 X = [from T1 emit T1.$0 where T1.$0 < 100];
 store(X, myresult);
 '''
-result = connection.execute(query)
+result = execute(connection, query)
