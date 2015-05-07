@@ -4,7 +4,7 @@ A notional raco-only script for executing a MyriaL query
 '''
 
 # Choose a backend target system
-from raco.backend.myriaX import MyriaConnection, MyriaAlgebra
+from raco.backend.myriaX import MyriaConnection, LogicalAlgebra, ParallelAlgebra, MyriaAlgebra
 connection = myriaX.MyriaConnection(hostname='vega.cs.washington.edu', port=1776)
 
 # Choose a frontend language
@@ -30,10 +30,33 @@ logical_plan = processor.parse(query)
 catalog = connection.catalog() 
 
 # optimize the query to produce a physical plan
-physical_plan = raco.optimize(logical_plan
+# We do this in three steps: Logical -> Logical, Logical->Parallel, Parallel->Myria
+# We can have any number of IRs we wish.
+# Each IR can provide its own rules and cost function, or we can assume defaults
+# source is required, we can provide defaults for the other arguments
+# defaul catalog will just accept any consistent query
+# default rules will be the rules of the target Algebra
+# default costfunction will be the costfunction of the target Algebra
+#   (if no cost function is provided, maybe just apply rules greedily?)
+optimized_logical = raco.optimize(logical_plan
+                                 , target=LogicalAlgebra
+                                 , catalog=catalog
+                                 , rules=LogicalAlgebra.rules
+                                 , costfunction=LogicalAlgebra.costfunction
+                                 )
+                                 
+parallel_plan = raco.optimize(optimize_logical
+                             , target=ParallelAlgebra
+                             , catalog=catalog
+                             , rules=ParallelAlgebra.rules
+                             , costfunction=ParallelAlgebra.costfunction
+                             )
+                             
+physical_plan = raco.optimize(parallel_plan
                              , target=MyriaAlgebra
                              , catalog=catalog
-                             , rules=MyriaAlgbra.rules
+                             , rules=MyriaAlgebra.rules
+                             , costfunction=MyriaAlgebra.costfunction
                              )
 
 # manhandle with the physical plan here, if desired
