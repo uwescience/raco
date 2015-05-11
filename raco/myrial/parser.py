@@ -593,7 +593,7 @@ class Parser(object):
    schema_fun COMMA option_list RPAREN
  | file_parser_type LPAREN schema_fun RPAREN"""
         if len(p) == 7:
-            schema, options = (p[3], p[5])
+            schema, options = (p[3], dict(p[5]))
         else:
             schema, options = (p[3], {})
         p[0] = (schema, options)
@@ -611,7 +611,7 @@ class Parser(object):
             opts = p[1] + [p[3]]
         else:
             opts = [p[1]]
-        p[0] = dict(opts)
+        p[0] = opts
 
     @staticmethod
     def p_option(p):
