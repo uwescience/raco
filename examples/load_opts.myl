@@ -1,0 +1,2 @@
+t = load("https://s3-us-west-2.amazonaws.com/myria/public-adhoc-TwitterK.csv", csv(schema(column0:int, column1:int), skip=1));
+store(t, TwitterK2);

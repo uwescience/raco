@@ -354,6 +354,9 @@ class FakeDatabase(Catalog):
     def myriascan(self, op):
         return self.scan(op)
 
+    def myriafilescan(self, op):
+        return self.filescan(op)
+
     def myriasink(self, op):
         return self.sink(op)
 
