@@ -555,8 +555,9 @@ class Parser(object):
 
     @staticmethod
     def p_expression_load(p):
-        'expression :  LOAD LPAREN STRING_LITERAL COMMA column_def_list RPAREN'
-        p[0] = ('LOAD', p[3], scheme.Scheme(p[5]))
+        'expression : LOAD LPAREN STRING_LITERAL COMMA file_parser_fun RPAREN'
+        schema, options = p[5]
+        p[0] = ('LOAD', p[3], scheme.Scheme(schema), options)
 
     @staticmethod
     def p_relation_key(p):
@@ -580,6 +581,51 @@ class Parser(object):
     def p_column_def(p):
         'column_def : unreserved_id COLON type_name'
         p[0] = (p[1], p[3])
+
+    @staticmethod
+    def p_schema_fun(p):
+        'schema_fun : SCHEMA LPAREN column_def_list RPAREN'
+        p[0] = p[3]
+
+    @staticmethod
+    def p_file_parser_fun(p):
+        """file_parser_fun : file_parser_type LPAREN \
+   schema_fun COMMA option_list RPAREN
+ | file_parser_type LPAREN schema_fun RPAREN"""
+        if len(p) == 7:
+            schema, options = (p[3], p[5])
+        else:
+            schema, options = (p[3], {})
+        p[0] = (schema, options)
+
+    @staticmethod
+    def p_file_parser_type(p):
+        'file_parser_type : CSV'
+        p[0] = p[1]
+
+    @staticmethod
+    def p_option_list(p):
+        """option_list : option_list COMMA option
+                           | option"""
+        if len(p) == 4:
+            opts = p[1] + [p[3]]
+        else:
+            opts = [p[1]]
+        p[0] = dict(opts)
+
+    @staticmethod
+    def p_option(p):
+        'option : unreserved_id EQUALS literal_arg'
+        p[0] = (p[1], p[3])
+
+    @staticmethod
+    def p_literal_arg(p):
+        """literal_arg : STRING_LITERAL
+                       | INTEGER_LITERAL
+                       | FLOAT_LITERAL
+                       | TRUE
+                       | FALSE"""
+        p[0] = p[1]
 
     @staticmethod
     def p_type_name(p):
