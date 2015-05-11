@@ -45,6 +45,9 @@ python setup.py install
 
 To execute the tests, run `nosetests` in the root directory of the repository. See `nosetests -h` for more options or consult the [nose documentation](https://nose.readthedocs.org).
 
+#### Requirements for C++ backend tests
+- C++11 compiler
+- sqlite3
 
 # Example
 
@@ -98,29 +101,8 @@ Sequence
 ### Visualize a Myria plan as a graph
 Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
-# C++ and Grappa output
-There are also C++ and Grappa output for Raco.
-
-### Run the datalog -> C++ tests
-
-#### Requirements
-- C++11 compiler
-- sqlite3
-
-#### Run
-
-```bash
-PYTHONPATH=examples python c_test_environment/clang_tests.py
-```
-
-### Compile a datalog query into C++, then run it
-```bash
-cd examples
-./clog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
-./clog.sh "A(a,b) :- R1(a),R2(a,b), a<3 A(a,b) :- S1(a), S2(a,b) B(x,y,z) :- A(x,y), A(y,z)" "complex-query"
-```
-
-Available test tables are `{R,S,T}{1,2,3}` with that number of columns.
+# C++ and Grappa output (Radish)
+There is also Grappa output for Raco.
 
 ### Run the myriaL -> Grappa tests
 
@@ -132,14 +114,8 @@ Available test tables are `{R,S,T}{1,2,3}` with that number of columns.
 PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_myrial_tests.MyriaLGrappaTest
 ```
 
-### Compile a datalog query into Grappa, then run it
-
-3. try queries:
-
-```bash
-cd examples
-./grappalog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
-```
+### Visualize a Radish plan as a graph
+Pass the `-c` option to `scripts/myrial`.
 
 # Authors and contact information
 
