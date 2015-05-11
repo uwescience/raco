@@ -5,9 +5,10 @@ A notional raco-only script for executing a MyriaL query
 import raco
 
 from raco.convenience import executeMyriaQuery
+from raco.op.algebra import LogicalAlgebra
 
 # Choose a backend target system
-from raco.backend.myriaX import MyriaConnection, LogicalAlgebra, ParallelAlgebra, MyriaAlgebra
+from raco.backend.myriaX import MyriaConnection, MyriaAlgebra
 connection = myriaX.MyriaConnection(hostname='vega.cs.washington.edu', port=1776)
 
 # Choose a frontend language
@@ -47,15 +48,8 @@ optimized_logical = raco.optimize(logical_plan
                                  , rules=LogicalAlgebra.rules
                                  , costfunction=LogicalAlgebra.costfunction
                                  )
-                                 
-parallel_plan = raco.optimize(optimize_logical
-                             , target=ParallelAlgebra
-                             , catalog=catalog
-                             , rules=ParallelAlgebra.rules
-                             , costfunction=ParallelAlgebra.costfunction
-                             )
                              
-physical_plan = raco.optimize(parallel_plan
+physical_plan = raco.optimize(optimized_local
                              , target=MyriaAlgebra
                              , catalog=catalog
                              , rules=MyriaAlgebra.rules
