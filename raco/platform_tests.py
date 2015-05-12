@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from collections import Counter
 
+
 class DatalogPlatformTest(object):
     __metaclass__ = ABCMeta
 
@@ -48,13 +49,19 @@ class DatalogPlatformTest(object):
         self.check("A(a,b,c) :- R2(a,b), R2(b,c), R2(c,d)", "self_three_path"),
 
     def test_directed_triangles(self):
-        self.check("A(a,b,c) :- R2(a,b), S2(b,c), T2(c,a)", "directed_triangles"),
+        self.check(
+            "A(a,b,c) :- R2(a,b), S2(b,c), T2(c,a)",
+            "directed_triangles"),
 
     def test_directed_squares(self):
-        self.check("A(a,b,c,d) :- R2(a,b), S2(b,c), T2(c,d), R3(d,a,x)", "directed_squares"),
+        self.check(
+            "A(a,b,c,d) :- R2(a,b), S2(b,c), T2(c,d), R3(d,a,x)",
+            "directed_squares"),
 
     def test_select_then_join(self):
-        self.check("A(s1,s2,s3) :- T3(s1,s2,s3), R2(s3,s4), s1<s2, s4<9", "select_then_join"),
+        self.check(
+            "A(s1,s2,s3) :- T3(s1,s2,s3), R2(s3,s4), s1<s2, s4<9",
+            "select_then_join"),
 
     # TODO: All unions are currently treated as unionAll
     def test_union(self):
@@ -92,7 +99,9 @@ class DatalogPlatformTest(object):
     B(s1) :- A(s1,s2), A(s1,s3)""", "join_of_two_unions")
 
     def test_join_swap_indexing(self):
-        self.check("""A(a,h,y) :- T3(a,b,c), R3(x, y, z), S3(g,h,j), z=c, j=x""", "join_swap_indexing")
+        self.check(
+            """A(a,h,y) :- T3(a,b,c), R3(x, y, z), S3(g,h,j), z=c, j=x""",
+            "join_swap_indexing")
 
     def test_head_scalar_op(self):
         self.check("""A(a+b) :- R2(a,b)""", "head_scalar_op")
@@ -104,28 +113,39 @@ class DatalogPlatformTest(object):
         self.check("""A(COUNT(a)) :- R1(a)""", "aggregate_count")
 
     def test_aggregate_count_group_one(self):
-        self.check("""A(b, COUNT(a)) :- R2(a,b)""", "aggregate_count_group_one")
+        self.check(
+            """A(b, COUNT(a)) :- R2(a,b)""",
+            "aggregate_count_group_one")
 
     def test_aggregate_count_group_one_notgroup_one(self):
-        self.check("""A(b, COUNT(a)) :- R3(a,b,c)""", "aggregate_count_group_one_notgroup_one")
+        self.check(
+            """A(b, COUNT(a)) :- R3(a,b,c)""",
+            "aggregate_count_group_one_notgroup_one")
 
     def test_aggregate_count_group_one_notgroup_filtered_one(self):
-        self.check("""A(b, COUNT(a)) :- R3(a,b,c), c<5""", "aggregate_count_group_one_notgroup_filtered_one")
+        self.check(
+            """A(b, COUNT(a)) :- R3(a,b,c), c<5""",
+            "aggregate_count_group_one_notgroup_filtered_one")
 
     def test_aggregate_of_binop(self):
         self.check("""A(SUM(a+b)) :- R2(a,b)""", "aggregate_of_binop")
 
     def test_join_of_aggregate_of_join(self):
         self.check("""A(SUM(a), c) :- R2(a,b), T2(b,c)
-                      B(x, y) :- A(x, z), S2(z, y)""", "join_of_aggregate_of_join")
+                      B(x, y) :- A(x, z), S2(z, y)""",
+                   "join_of_aggregate_of_join")
 
     def test_common_index_allowed(self):
         """introduced for #250"""
-        self.check("""A(a,b,c,d) :- T2(a,b), R2(a,c), R2(a,d)""", "common_index_allowed")
+        self.check(
+            """A(a,b,c,d) :- T2(a,b), R2(a,c), R2(a,d)""",
+            "common_index_allowed")
 
     def test_common_index_disallowed(self):
         """introduced for #250"""
-        self.check("""A(a,b,c,d) :- T2(a,b), R2(a,c), R2(d,a)""", "common_index_disallowed")
+        self.check(
+            """A(a,b,c,d) :- T2(a,b), R2(a,c), R2(d,a)""",
+            "common_index_disallowed")
 
     def test_file_store(self):
         self.check_file("""store(a,b) :- R2(a,b)""", "store")
@@ -134,7 +154,9 @@ class DatalogPlatformTest(object):
         self.check_file("""few_col_store(a) :- R2(a,3)""", "few_col_store")
 
     def test_file_more_col_store(self):
-        self.check_file("""more_col_store(a,b,c) :- R2(a,b), S2(b,c), T2(c,a)""", "more_col_store")
+        self.check_file(
+            """more_col_store(a,b,c) :- R2(a,b), S2(b,c), T2(c,a)""",
+            "more_col_store")
 
     def test_file_no_tuple_store(self):
         self.check_file("""zero_store(a) :- R2(a,11)""", "zero_store")
@@ -165,7 +187,8 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
                 one = [("a", types.LONG_TYPE)]
                 two = one + [("b", rest_type)]
                 three = two + [("c", rest_type)]
-                # ingest fake data; data is already generated separately for now
+                # ingest fake data; data is already generated separately for
+                # now
                 if width == 1:
                     self.db.ingest(fullname, Counter(), scheme.Scheme(one))
                 elif width == 2:
@@ -181,7 +204,10 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
 class MyriaLPlatformTests(object):
 
     def myrial_from_sql(self, tables, name):
-        code = ["{t} = scan({tab});".format(t=t, tab=self.tables[t]) for t in tables]
+        code = [
+            "{t} = scan({tab});".format(
+                t=t,
+                tab=self.tables[t]) for t in tables]
 
         with open("c_test_environment/testqueries/%s.sql" % name) as f:
             code.append("out = %s" % f.read())
@@ -503,7 +529,10 @@ class MyriaLPlatformTests(object):
         T1 = SCAN(%(T1)s);
         out = [FROM T1 WHERE a>0 and a<10 EMIT a];
         STORE(out, OUTPUT);
-        """, "select_conjunction", no_SplitSelects=True, no_MergeSelects=True, no_PushSelects=True)
+        """, "select_conjunction",
+                              no_SplitSelects=True,
+                              no_MergeSelects=True,
+                              no_PushSelects=True)
 
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""
@@ -515,7 +544,7 @@ class MyriaLPlatformTests(object):
         out = [FROM j2 WHERE $0 = $5 EMIT $0, $1, $3];
         STORE(out, OUTPUT);
         """, "directed_triangles", join_type='symmetric_hash')
-    
+
     def test_shuffle_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
@@ -561,5 +590,13 @@ and T7.b = 1
 and T8.b = 1
 and T9.b = 1
 EMIT
-T1.a as inproc, T2.c as author, T3.c as booktitle, T4.c as title, T5.c as proc, T6.c as ee, T7.c as page, T8.c as url, T9.c as yr];
+T1.a as inproc,
+T2.c as author,
+T3.c as booktitle,
+T4.c as title,
+T5.c as proc,
+T6.c as ee,
+T7.c as page,
+T8.c as url,
+T9.c as yr];
 STORE(P,OUTPUT);""", "q2")

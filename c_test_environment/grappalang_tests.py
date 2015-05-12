@@ -7,7 +7,7 @@ import unittest
 from raco.language.grappalang import GrappaAlgebra
 
 from generate_test_relations import generate_default, need_generate
-from platform_tests import DatalogPlatformTest
+from raco.platform_tests import DatalogPlatformTest
 from testquery import checkquery, checkstore, GrappalangRunner
 
 sys.path.append('./examples')
