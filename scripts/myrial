@@ -17,12 +17,8 @@ from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
 from raco.language.grappalang import GrappaAlgebra
 from raco.language.logical import OptLogicalAlgebra
-<<<<<<< HEAD
 from raco.language.sparql import SPARQLAlgebra
-
-=======
 import raco.from_repr as from_repr
->>>>>>> master
 from raco.compile import compile
 
 
