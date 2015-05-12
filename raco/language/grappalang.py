@@ -1058,6 +1058,9 @@ class GrappaAlgebra(Algebra):
         # rules.FreeMemory()
         # ]
 
+        # disable specified rules
+        rules.Rule.set_global_rule_flags(*kwargs.keys())
+
         join_type = kwargs.get('join_type', GrappaHashJoin)
 
         # sequence that works for myrial

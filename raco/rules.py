@@ -1,3 +1,5 @@
+import re
+
 from raco import algebra
 from raco import expression
 from .expression import (accessed_columns, UnnamedAttributeRef,
@@ -15,8 +17,24 @@ class Rule(object):
 
     __metaclass__ = ABCMeta
 
+    _disabled_rules = set()
+    _flag_pattern = re.compile(r'no_([A-Za-z_]+)')  # e.g., no_MergeSelects
+
     def __call__(self, expr):
-        return self.fire(expr)
+        # if the rule is in the set of disabled, then don't allow it to fire
+        if self.__class__.__name__ in self._disabled_rules:
+            return expr
+        else:
+            return self.fire(expr)
+
+    @classmethod
+    def set_global_rule_flags(cls, *args):
+        # Automatically create a flag to disable any rule by name
+        # e.g., to disable MergeSelects, pass the arg "no_MergeSelects"
+        for a in args:
+            mat = re.match(cls._flag_pattern, a)
+            if mat:
+                cls._disabled_rules.add(mat.group(1))
 
     @abstractmethod
     def fire(self, expr):
