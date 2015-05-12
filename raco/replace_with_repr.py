@@ -6,6 +6,7 @@ from raco.scheme import *
 from raco.language.myrialang import *
 from raco.language.clang import *
 from raco.language.grappalang import *
+from raco.language.sparql import *
 
 # NOTES: relying on import * for eval is error prone due
 #        to namespace collisions
