@@ -1535,6 +1535,9 @@ class MyriaAlgebra(Algebra):
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
     def opt_rules(self, **kwargs):
+        # disable specified rules
+        rules.Rule.set_global_rule_flags(*kwargs.keys())
+
         opt_grps_sequence = [
             rules.remove_trivial_sequences,
             [
