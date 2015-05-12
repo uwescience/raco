@@ -1,0 +1,18 @@
+Triples = scan(public:adhoc:sp2bench);
+
+Q1 = SELECT
+    T3.object AS yr
+FROM 
+     Triples T1
+   , Triples T2     
+   , Triples T3     
+WHERE 
+      T1.subject=T3.subject
+  AND T1.subject=T2.subject
+  AND T1.predicate="<http://www.w3.org/1999/02/22-rdf-syntax-ns#/type>"
+  AND T2.predicate="<http://purl.org/dc/elements/1.1/title>"
+  AND T3.predicate="<http://purl.org/dc/terms/issued>"
+  AND T1.object="<http://localhost/vocabulary/bench/Journal>"
+  AND T2.object='"Journal 1 (1940)"^^xsd:string';
+
+store(Q1, Q1);

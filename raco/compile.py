@@ -85,7 +85,7 @@ def compile(expr):
     if isinstance(store_expr, Pipelined):
         body = lang.body(store_expr.compilePipeline())
     else:
-        body = lang.body(expr)
+        body = lang.body(store_expr)
 
     exprcode.append(emit(body))
     return emit(*exprcode)

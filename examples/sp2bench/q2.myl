@@ -1,0 +1,44 @@
+R1 = scan(public:adhoc:sp2bench);
+
+SELECT
+    T1.subject AS inproc,
+    T2.object AS author,
+    T3.val AS booktitle,
+    T4.val AS title,
+    T5.val AS proc,
+    T6.val AS ee,
+    T7.val AS page,
+    T8.val AS URL,
+    T9.val AS yr,    
+    AB.val AS abstract
+FROM
+    Triples T1
+    JOIN Triples T2     ON T1.subject=T2.subject
+    JOIN Triples T3     ON T1.subject=T3.subject
+    JOIN Triples T4     ON T1.subject=T4.subject
+    JOIN Triples T5     ON T1.subject=T5.subject
+    JOIN Triples T6     ON T1.subject=T6.subject
+    JOIN Triples T7     ON T1.subject=T7.subject
+    JOIN Triples T8     ON T1.subject=T8.subject
+    JOIN Triples T9     ON T1.subject=T9.subject
+    LEFT JOIN (
+        SELECT *
+        FROM
+            Triples T10
+        WHERE
+            T10.predicate='bench:abstract'
+    ) AB ON T1.subject=AB.subject
+WHERE
+    T1.predicate='rdf:type'
+    AND T2.predicate='dc:creator'
+    AND T3.predicate='bench:booktitle'
+    AND T4.predicate='dc:title'
+    AND T5.predicate='dcterms:partOf'
+    AND T6.predicate='rdfs:seeAlso'
+    AND T7.predicate='swrc:pages'
+    AND T8.predicate='foaf:homepage'
+    AND T9.predicate='dcterms:issued'
+    AND T1.object='bench:Inproceedings'
+ORDER BY T9.object;
+    AND T2.object='"Journal 1 (1940)"^^xsd:string';
+store(Q2, Q2);
