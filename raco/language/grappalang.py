@@ -133,7 +133,7 @@ class GrappaLanguage(CBaseLanguage):
         lookup_init = GrappaLanguage.cgenv().get_template(
             'string_index_lookup.cpp').render(locals())
         build_init = """
-        string_index = build_string_index("sp2bench_1m.index.medium");
+        string_index = build_string_index("sp2bench.index");
         """
 
         return """(%s)""" % sid, [decl], [build_init, lookup_init]
@@ -942,26 +942,26 @@ def indentby(code, level):
 
 
 # Basic selection like serial C++
-class GrappaSelect(clangcommon.CSelect, GrappaOperator):
+class GrappaSelect(clangcommon.CBaseSelect, GrappaOperator):
     pass
 
 
 # Basic apply like serial C++
-class GrappaApply(clangcommon.CApply, GrappaOperator):
+class GrappaApply(clangcommon.CBaseApply, GrappaOperator):
     pass
 
 
 # Basic duplication based bag union like serial C++
-class GrappaUnionAll(clangcommon.CUnionAll, GrappaOperator):
+class GrappaUnionAll(clangcommon.CBaseUnionAll, GrappaOperator):
     pass
 
 
 # Basic materialized copy based project like serial C++
-class GrappaProject(clangcommon.CProject, GrappaOperator):
+class GrappaProject(clangcommon.CBaseProject, GrappaOperator):
     pass
 
 
-class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
+class GrappaFileScan(clangcommon.CBaseFileScan, GrappaOperator):
 
     def __get_ascii_scan_template__(self):
         _LOG.warn("binary/ascii is command line choice")
@@ -975,7 +975,7 @@ class GrappaFileScan(clangcommon.CFileScan, GrappaOperator):
         return self._language.cgenv().get_template('relation_declaration.cpp')
 
 
-class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
+class GrappaStore(clangcommon.CBaseStore, GrappaOperator):
 
     def __file_code__(self, t, state):
         my_sch = self.scheme()
@@ -983,8 +983,8 @@ class GrappaStore(clangcommon.BaseCStore, GrappaOperator):
         filename = (str(self.relation_key).split(":")[2])
         outputnamedecl = define_cl_arg(
             'string',
-            'output_file_{0}'.format(filename),
-            '"{0}.bin"'.format(filename),
+            'output_file',
+            '"{0}"'.format(filename),
             "Output File")
 
         state.addDeclarations([outputnamedecl])
@@ -1058,6 +1058,9 @@ class GrappaAlgebra(Algebra):
         #     rules.OneToOne(algebra.Store, GrappaStore)
         # rules.FreeMemory()
         # ]
+
+        # disable specified rules
+        rules.Rule.set_global_rule_flags(*kwargs.keys())
 
         join_type = kwargs.get('join_type', GrappaHashJoin)
 

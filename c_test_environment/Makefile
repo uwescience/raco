@@ -22,7 +22,7 @@ TRILIBDEFS = -DTRILIBRARY
 
 #all: 
 
-%.convert: %_convert.cpp convert2bin.h
+%.convert: %.convert.cpp convert2bin.h
 	g++ -std=c++11 -o $@ $< 
 
 %.exe: %.o io_util.o counters_util.o strings.o

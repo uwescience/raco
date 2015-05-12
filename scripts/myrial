@@ -17,8 +17,12 @@ from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
 from raco.language.grappalang import GrappaAlgebra
 from raco.language.logical import OptLogicalAlgebra
+<<<<<<< HEAD
 from raco.language.sparql import SPARQLAlgebra
 
+=======
+import raco.from_repr as from_repr
+>>>>>>> master
 from raco.compile import compile
 
 
@@ -68,8 +72,9 @@ def parse_options(args):
     arg_parser.add_argument('-v', dest='verbose', action='store_true',
                        help='Turn on verbose DEBUG logging')
     arg_parser.add_argument('--catalog', dest="catalog_path", default=None, help="[Optional] path to catalog file")
+    arg_parser.add_argument('--plan', dest="from_repr", action='store_true', help="[Optional] input file is a plan as a python repr")
     arg_parser.add_argument('file',
-                            help='File containing MyriaL source program')
+                            help='File containing MyriaL source program (or a physical plan if using --plan)')
 
     ns = arg_parser.parse_args(args)
     return ns
@@ -95,49 +100,99 @@ def main(args):
     _parser = parser.Parser()
     processor = interpreter.StatementProcessor(catalog, True)
 
+    statement_list = None
+    plan_repr = None
     with open(opt.file) as fh:
         try:
-            statement_list = _parser.parse(fh.read())
+            inp = fh.read()
+            if opt.from_repr:
+                plan_repr = inp
+            else:
+                statement_list = _parser.parse(inp)
         except MyrialCompileException as ex:
             print 'MyriaL parse error: %s' % ex
             return 1
 
-        if opt.parse:
-            print statement_list
+    if opt.parse:
+        if statement_list == None:
+            print "No MyriaL given"
         else:
+            print statement_list
+    else:
+        if opt.from_repr:
+            pd = PhysicalPlanDispatch(from_repr=plan_repr)
+        else:
+            pd = PhysicalPlanDispatch(processor=processor)
             processor.evaluate(statement_list)
-            if opt.logical:
-                print_pretty_plan(processor.get_logical_plan())
-            elif opt.dot:
-                print operator_to_dot(processor.get_logical_plan())
-            elif opt.json:
-                print json.dumps(processor.get_json())
-            elif opt.standalone:
-                pp = processor.get_physical_plan()
-                db = FakeDatabase()
-                db.evaluate(pp)
-            elif opt.repr:
-                pp = processor.get_physical_plan()
-                print repr(pp)
-            elif opt.opt_logical:
-                print_pretty_plan(processor.get_physical_plan(
-                    target_alg=OptLogicalAlgebra()))
-            elif opt.sparql:
-                c = compile(processor.get_physical_plan(
-                    target_alg=SPARQLAlgebra()))
-                #c = processor.get_physical_plan(target_alg=SPARQLAlgebra())
-                print c
-            elif opt.clang:
-                pp = processor.get_physical_plan(target_alg=GrappaAlgebra())
-                print_pretty_plan(pp)
-                c = compile(pp)
-                fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
-                with open(fname, 'w') as f:
-                    f.write(c)
-            else:
-                print_pretty_plan(processor.get_physical_plan())
+
+        if opt.logical:
+            if opt.from_repr:
+                raise "Options logical and --plan are incompatible"
+            print_pretty_plan(processor.get_logical_plan())
+        elif opt.dot:
+            if opt.from_repr:
+                raise "Options dot and --plan are incompatible"
+            print operator_to_dot(processor.get_logical_plan())
+        elif opt.json:
+            ppj = pd.get_json()
+            print(json.dumps(ppj))
+        elif opt.standalone:
+            pp = pd.get_physical_plan()
+            db = FakeDatabase()
+            db.evaluate(pp)
+        elif opt.repr:
+            pp = pd.get_physical_plan()
+            print repr(pp)
+        elif opt.opt_logical:
+            if opt.from_repr:
+                raise "Options opt_logical and --plan are incompatible"
+            print_pretty_plan(processor.get_physical_plan(
+                target_alg=OptLogicalAlgebra()))
+        elif opt.clang:
+            pp = pd.get_physical_plan(target_alg=GrappaAlgebra())
+            print_pretty_plan(pp)
+            c = compile(pp)
+            fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
+            with open(fname, 'w') as f:
+                f.write(c)
+        elif opt.sparql:
+            pp = pd.get_physical_plan(target_alg=SPARQLAlgebra())
+            c = compile(pp)
+            print c
+        else:
+            print_pretty_plan(pd.get_physical_plan())
 
     return 0
+
+
+class PhysicalPlanDispatch(object):
+
+    def __init__(self, processor=None, from_repr=None):
+        if processor:
+            self.processor = processor
+            self.with_repr = None
+        elif from_repr:
+            self.processor = None
+            self.with_repr = from_repr
+        else:
+            raise "Requires processor or repr plan input"
+
+    def get_physical_plan(self, target_alg=None):
+        if self.with_repr:
+            return from_repr.plan_from_repr(self.with_repr)
+        else:
+            if target_alg is None:
+                return self.processor.get_physical_plan()
+            else:
+                return self.processor.get_physical_plan(target_alg=target_alg)
+
+    def get_json(self):
+        if self.with_repr:
+            return interpreter.StatementProcessor.get_json_from_physical_plan(self.get_physical_plan())
+        else:
+            return self.processor.get_json()
+
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

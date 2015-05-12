@@ -310,7 +310,7 @@ class StagedTupleRef:
         return ""
 
 
-class CSelect(Pipelined, algebra.Select):
+class CBaseSelect(Pipelined, algebra.Select):
 
     def produce(self, state):
         self.input.produce(state)
@@ -333,7 +333,7 @@ class CSelect(Pipelined, algebra.Select):
         return code
 
 
-class CUnionAll(Pipelined, algebra.Union):
+class CBaseUnionAll(Pipelined, algebra.Union):
 
     def produce(self, state):
         self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
@@ -354,7 +354,7 @@ class CUnionAll(Pipelined, algebra.Union):
         return union_template.render(locals())
 
 
-class CApply(Pipelined, algebra.Apply):
+class CBaseApply(Pipelined, algebra.Apply):
 
     def produce(self, state):
         # declare a single new type for project
@@ -398,7 +398,7 @@ class CApply(Pipelined, algebra.Apply):
         return code
 
 
-class CProject(Pipelined, algebra.Project):
+class CBaseProject(Pipelined, algebra.Project):
 
     def produce(self, state):
         # declare a single new type for project
@@ -438,7 +438,7 @@ class CProject(Pipelined, algebra.Project):
 from raco.algebra import ZeroaryOperator
 
 
-class CFileScan(Pipelined, algebra.Scan):
+class CBaseFileScan(Pipelined, algebra.Scan):
 
     @abc.abstractmethod
     def __get_ascii_scan_template__(self):
@@ -574,10 +574,10 @@ EMIT_CONSOLE = 'console'
 EMIT_FILE = 'file'
 
 
-class BaseCStore(Pipelined, algebra.Store):
+class CBaseStore(Pipelined, algebra.Store):
 
     def __init__(self, emit_print, relation_key, plan):
-        super(BaseCStore, self).__init__(relation_key, plan)
+        super(CBaseStore, self).__init__(relation_key, plan)
         self.emit_print = emit_print
 
     def produce(self, state):
@@ -613,8 +613,8 @@ class StoreToBaseCStore(rules.Rule):
 
     def __init__(self, emit_print, subclass):
         self.emit_print = emit_print
-        assert issubclass(subclass, BaseCStore), \
-            "%s is not a subclass of %s" % (subclass, BaseCStore)
+        assert issubclass(subclass, CBaseStore), \
+            "%s is not a subclass of %s" % (subclass, CBaseStore)
         self.subclass = subclass
 
     def fire(self, expr):
