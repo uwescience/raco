@@ -174,6 +174,18 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
         }
 
 
+class MyriaFileScan(algebra.FileScan, MyriaOperator):
+    def compileme(self):
+        return dict({
+            "opType": "FileScan",
+            "source": {
+                "dataType": "URI",
+                "uri": self.path,
+            },
+            "schema": scheme_to_schema(self.scheme())
+        }, **self.options)
+
+
 class MyriaLimit(algebra.Limit, MyriaOperator):
     def compileme(self, inputid):
         return {
@@ -1482,6 +1494,7 @@ myriafy = [
     rules.OneToOne(algebra.NaryJoin, MyriaLeapFrogJoin),
     rules.OneToOne(algebra.Scan, MyriaScan),
     rules.OneToOne(algebra.ScanTemp, MyriaScanTemp),
+    rules.OneToOne(algebra.FileScan, MyriaFileScan),
     rules.OneToOne(algebra.SingletonRelation, MyriaSingleton),
     rules.OneToOne(algebra.EmptyRelation, MyriaEmptyRelation),
     rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
@@ -1513,6 +1526,7 @@ class MyriaAlgebra(Algebra):
         MyriaHyperShuffleConsumer,
         MyriaScan,
         MyriaScanTemp,
+        MyriaFileScan,
         MyriaEmptyRelation,
         MyriaSingleton
     )
@@ -1521,6 +1535,9 @@ class MyriaAlgebra(Algebra):
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
     def opt_rules(self, **kwargs):
+        # disable specified rules
+        rules.Rule.set_global_rule_flags(*kwargs.keys())
+
         opt_grps_sequence = [
             rules.remove_trivial_sequences,
             [
@@ -1766,7 +1783,6 @@ def compile_to_json(raw_query, logical_plan, physical_plan,
     # raw_query must be a string
     if not isinstance(raw_query, basestring):
         raise ValueError("raw query must be a string")
-
     return {"rawQuery": raw_query,
             "logicalRa": str(logical_plan),
             "language": language,
