@@ -132,7 +132,7 @@ class CBaseLanguage(Language):
             types.LONG_TYPE: 'int64_t',
             types.BOOLEAN_TYPE: 'bool',
             types.DOUBLE_TYPE: 'double',
-            types.STRING_TYPE: 'std::string'
+            types.STRING_TYPE: 'std::array<char, MAX_STR_LEN>'
         }.get(raco_type)
 
         assert n is not None, \
@@ -282,6 +282,8 @@ class StagedTupleRef:
 
         fieldtypes = [CBaseLanguage.typename(t)
                       for t in self.scheme.get_types()]
+
+        string_type_name = CBaseLanguage.typename(types.STRING_TYPE)
 
         # stream_sets = emitlist(
         # ["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)

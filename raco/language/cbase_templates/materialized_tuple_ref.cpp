@@ -31,30 +31,36 @@
     }
 
     // shamelessly terrible disambiguation: one solution is named factory methods
-    {{tupletypename}} (std::vector<int64_t> vals, bool ignore1, bool ignore2) {
-        {% for i in range(numfields) %}
-            f{{i}} = vals[{{i}}];
-        {% endfor %}
-    }
+    //{{tupletypename}} (std::vector<int64_t> vals, bool ignore1, bool ignore2) {
+    //    {% for i in range(numfields) %}
+    //        f{{i}} = vals[{{i}}];
+    //    {% endfor %}
+    //}
 
     // use the tuple schema to interpret the input stream
     static {{tupletypename}} fromIStream(std::istream& ss) {
         {{tupletypename}} _ret;
 
-        ss
         {% for i in range(numfields) %}
-            >> _ret.f{{i}}
+            {% if fieldtypes[i] == string_type_name %}
+               {
+               std::string _temp;
+               ss >> _temp;
+               _ret.f{{i}} = to_array<MAX_STR_LEN, std::string>(_temp);
+               }
+            {% else %}
+               ss >> _ret.f{{i}};
+            {% endif %}
         {% endfor %}
-        ;
 
         return _ret;
     }
 
     void toOStream(std::ostream& os) const {
        {% for i in range(numfields) %}
-         {% if fieldtypes[i] == "std::string" %}
-            os.write(f{{i}}.c_str(), std::max(f{{i}}.size(), (size_t)256));
-            os.seekp(std::max(256-f{{i}}.size(), (size_t)0), std::ios_base::cur);
+         {% if fieldtypes[i] == string_type_name %}
+            os.write(f{{i}}.data(), (size_t)MAX_STR_LEN * sizeof(char));
+            os.seekp(std::max(MAX_STR_LEN-f{{i}}.size(), (size_t)0), std::ios_base::cur);
          {% else %}
             os.write((char*)&f{{i}}, sizeof({{fieldtypes[i]}}));
          {% endif %}
