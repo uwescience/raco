@@ -109,10 +109,26 @@ class FakeDatabase(Catalog):
         type_list = op.scheme().get_types()
 
         with open(op.path, 'r') as fh:
-            sample = fh.read(1024)
-            dialect = csv.Sniffer().sniff(sample)
-            fh.seek(0)
-            reader = csv.reader(fh, dialect)
+            if not op.options:
+                sample = fh.read(1024)
+                dialect = csv.Sniffer().sniff(sample)
+                fh.seek(0)
+                reader = csv.reader(fh, dialect)
+            else:
+                options = {
+                    'delimiter': ",",
+                    'quote': '"',
+                    'escape': None,
+                    'skip': 0}
+                options.update(op.options)
+                reader = csv.reader(
+                    fh,
+                    delimiter=options['delimiter'],
+                    quotechar=options['quote'],
+                    escapechar=options['escape'])
+                if options['skip']:
+                    for _ in xrange(options['skip']):
+                        next(fh)
             for row in reader:
                 pairs = zip(row, type_list)
                 cols = [types.parse_string(s, t) for s, t in pairs]
