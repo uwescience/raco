@@ -289,7 +289,9 @@ class StagedTupleRef:
         # ["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)
         #                        for i in range(numfields)])
 
-        additional_code = self.__additionalDefinitionCode__(numfields, fieldtypes)
+        additional_code = self.__additionalDefinitionCode__(
+            numfields,
+            fieldtypes)
         after_def_code = self.__afterDefinitionCode__(numfields, fieldtypes)
 
         tupletypename = self.getTupleTypename()
@@ -343,6 +345,14 @@ class CBaseUnionAll(Pipelined, algebra.Union):
         unified_tuple_typename = self.unifiedTupleType.getTupleTypename()
         unified_tuple_name = self.unifiedTupleType.name
         src_tuple_name = t.name
+
+        # add declaration for function to convert from one type to the other
+        type1 = t.getTupleTypename()
+        type1numfields = len(t.scheme)
+        convert_func_name = "create_" + gensym()
+        result_type = unified_tuple_typename
+        convert_func = _cgenv.get_template('materialized_tuple_create_one.cpp').render(locals())
+        state.addDeclarations([convert_func])
 
         inner_plan_compiled = \
             self.parent().consume(self.unifiedTupleType, self, state)

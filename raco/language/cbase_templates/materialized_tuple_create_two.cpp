@@ -1,4 +1,4 @@
-static {{result_type}} create(const {{type1}}& t1, const {{type2}}& t2) {
+static {{result_type}} {{append_func_name}}(const {{type1}}& t1, const {{type2}}& t2) {
     {{result_type}} t;
     {% for i in range(type1numfields) %}
         t.f{{i}} = t1.f{{i}};

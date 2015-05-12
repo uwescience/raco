@@ -334,19 +334,18 @@ class CHashJoin(algebra.Join, CCOperator):
 
         self.right.childtag = "right"
         # common index is defined by same right side and same key
-        hashsym = state.lookupExpr((self.right, self.right_keypos))
+        hashsym_and_type = state.lookupExpr((self.right, self.right_keypos))
 
-        if not hashsym:
+        if not hashsym_and_type:
             # if right child never bound then store hashtable symbol and
             # call right child produce
             self._hashname = self.__genHashName__()
             _LOG.debug("generate hashname %s for %s", self._hashname, self)
-            state.saveExpr((self.right, self.right_keypos), self._hashname)
             self.right.produce(state)
         else:
             # if found a common subexpression on right child then
             # use the same hashtable
-            self._hashname = hashsym
+            self._hashname, self.right_type = hashsym_and_type
             _LOG.debug("reuse hash %s for %s", self._hashname, self)
 
         self.left.childtag = "left"
@@ -377,7 +376,10 @@ class CHashJoin(algebra.Join, CCOperator):
 
             in_tuple_type = t.getTupleTypename()
             in_tuple_name = t.name
-            self.right_tuple = t
+            self.right_type = in_tuple_type
+
+            state.saveExpr((self.right, self.right_keypos), (self._hashname,
+                                                             self.right_type))
 
             # declaration of hash map
             hashdeclr = declr_template.render(locals())
@@ -406,10 +408,14 @@ class CHashJoin(algebra.Join, CCOperator):
 
             type1 = keytype
             type1numfields = len(t.scheme)
-            type2 = self.right_tuple.getTupleTypename()
-            type2numfields = len(self.right_tuple.scheme)
+            type2 = self.right_type
+            type2numfields = len(self.right.scheme())
+
+            append_func_name = "create_" + gensym()
+
             result_type = out_tuple_type
-            combine_function_def = self._cgenv.get_template("materialized_tuple_create_two.cpp").render(locals())
+            combine_function_def = self._cgenv.get_template(
+                "materialized_tuple_create_two.cpp").render(locals())
 
             state.addDeclarations([out_tuple_type_def, combine_function_def])
 

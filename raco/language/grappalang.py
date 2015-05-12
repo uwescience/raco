@@ -26,7 +26,7 @@ def define_cl_arg(type, name, default_value, description):
 
 class GrappaStagedTupleRef(StagedTupleRef):
 
-    def __afterDefinitionCode__(self):
+    def __afterDefinitionCode__(self, numfields, fieldtypes):
         # Grappa requires structures to be block aligned if they will be
         # iterated over with localizing forall
         return "GRAPPA_BLOCK_ALIGNED"
