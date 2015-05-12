@@ -351,7 +351,8 @@ class CBaseUnionAll(Pipelined, algebra.Union):
         type1numfields = len(t.scheme)
         convert_func_name = "create_" + gensym()
         result_type = unified_tuple_typename
-        convert_func = _cgenv.get_template('materialized_tuple_create_one.cpp').render(locals())
+        convert_func = _cgenv.get_template(
+            'materialized_tuple_create_one.cpp').render(locals())
         state.addDeclarations([convert_func])
 
         inner_plan_compiled = \
