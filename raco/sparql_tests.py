@@ -41,5 +41,3 @@ class SPARQLMyriaLTests(MyriaLPlatformTestHarness, SPARQLTests):
         # TODO pretty lenient tests: is it a non empty string?
         assert isinstance(sparql, ''.__class__)
         assert sparql != ''
-
-
