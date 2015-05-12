@@ -1,0 +1,14 @@
+Triples = scan(public:adhoc:sp2bench);
+
+Q4 = SELECT
+    T1.subject AS article
+FROM
+    Triples T1,
+    Triples T2
+WHERE
+    T1.subject=T2.subject
+    AND T1.predicate="rdf:type"
+    AND T2.predicate="swrc:month"
+    AND T2.object="bench:Article";
+
+store(Q4, Q4);

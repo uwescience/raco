@@ -96,7 +96,7 @@ def t_INTEGER_LITERAL(t):
 
 
 def t_STRING_LITERAL(t):
-    r'"([^\\\n"]|\\.)*"'
+    r'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
     t.value = t.value[1:-1].decode("string_escape")
     return t
 

@@ -177,6 +177,7 @@ class SimpleGroupBy(Rule):
 
 
 class DedupGroupBy(Rule):
+
     """When a GroupBy computes redundant fields, replace this duplicate
     computation by a single computation plus a duplicating Apply."""
 
@@ -424,8 +425,11 @@ class PushSelects(Rule):
     def fire(self, op):
         if not isinstance(op, algebra.Select):
             return op
-        if op.has_been_pushed:
-            return op
+        if hasattr(op, "has_been_pushed"):
+            if op.has_been_pushed:
+                return op
+        else:
+            op.has_been_pushed = False
 
         new_op = PushSelects.descend_tree(op.input, op.condition)
 

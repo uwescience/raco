@@ -1,0 +1,8 @@
+R1 = scan(public:adhoc:sp2bench);
+R2 = scan(public:adhoc:sp2bench);
+r = [FROM R1, R2 
+WHERE R1.subject = "<http://dbpedia.org/resource/Oscar_Cristi>"
+  AND R1.object = R2.subject
+EMIT R1.subject, R2.object, 4+1
+];
+store(r, predicates);
