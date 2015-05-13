@@ -63,7 +63,7 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         raise_skip_test(query)
 
         with Chdir("c_test_environment") as d:
-            checkquery(name, GrappalangRunner())
+            checkquery(name, GrappalangRunner(binary_input=False))
 
     def setUp(self):
         raise_skip_test()

@@ -20,7 +20,7 @@ class DatalogGrappaTest(unittest.TestCase, DatalogPlatformTest):
             emitCode(query, 'grappa_%s' % name, GrappaAlgebra)
             # TODO actually be able to check the query
             raise SkipTest(query)
-            checkquery(name, GrappalangRunner())
+            checkquery(name, GrappalangRunner(binary_input=False))
 
     def check_file(self, query, name):
         # TODO implement this function
