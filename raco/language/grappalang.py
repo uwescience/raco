@@ -554,7 +554,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
     def _init_func_for_op(self, op):
         r = {
-            aggregate.MAX: 'std::numeric_limits<{0}>::min',
+            aggregate.MAX: 'std::numeric_limits<{0}>::lowest',
             aggregate.MIN: 'std::numeric_limits<{0}>::max'
         }.get(op.__class__)
         if r is None:
