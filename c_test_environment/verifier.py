@@ -20,7 +20,7 @@ def parse_value(value):
 
 
 def verify(testout, expected, ordered):
-    tuplepat = re.compile(r'Materialized\(([-\dA-Z,. ]+)\)')
+    tuplepat = re.compile(r'Materialized\(([-\dA-Za-z,. ]+)\)')
     test = ({}, [])
     expect = ({}, [])
 

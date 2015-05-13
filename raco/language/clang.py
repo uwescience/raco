@@ -79,10 +79,6 @@ class CC(CBaseLanguage):
     def log_file_unquoted(code, level=0):
         return """logfile << %s << " ";\n """ % code
 
-    @classmethod
-    def compile_stringliteral(cls, s):
-        return '(%s)' % s, [], []
-
 
 class CCOperator(Pipelined, algebra.Operator):
     _language = CC

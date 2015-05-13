@@ -179,6 +179,10 @@ class CBaseLanguage(Language):
         assert False, "{expr} is unsupported attribute".format(expr=expr)
 
     @classmethod
+    def compile_stringliteral(cls, s):
+        return '(%s)' % s, [], []
+
+    @classmethod
     def ifelse(cls, when_compiled, else_compiled):
         if_template = """
         if ({cond}) {{

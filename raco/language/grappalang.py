@@ -125,21 +125,6 @@ class GrappaLanguage(CBaseLanguage):
 
         return apply_wrappers(plcode, wrappers)
 
-    @classmethod
-    def compile_stringliteral(cls, st):
-        st = cls.c_stringify(st)
-        sid = cls.newstringident()
-        decl = """int64_t %s;""" % (sid)
-        lookup_init = GrappaLanguage.cgenv().get_template(
-            'string_index_lookup.cpp').render(locals())
-        build_init = """
-        string_index = build_string_index("sp2bench.index");
-        """
-
-        return """(%s)""" % sid, [decl], [build_init, lookup_init]
-        # raise ValueError("String Literals not supported in
-        # C language: %s" % s)
-
 
 class GrappaOperator (Pipelined, algebra.Operator):
     _language = GrappaLanguage

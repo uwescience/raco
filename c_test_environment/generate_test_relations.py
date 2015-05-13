@@ -50,15 +50,20 @@ def generate_strings(basename, fields, tuples, datarange):
     fn = get_name(basename, fields)
     with open(fn, 'w') as f:
         print "generating %s" % (os.path.abspath(fn))
+        known_str = "coffee"
+        tuple_with_known = random.randint(0, tuples-1)
         for i in range(0, tuples):
             f.write(str(random.randint(0, datarange)))
             if 0 < (fields - 1):
                 f.write(' ')
             for j in range(1, fields):
-                strmax = 24
-                strlength = random.randint(1, strmax)
-                s = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(strlength))
-                f.write(s)
+                if i == tuple_with_known and j == 1:
+                    f.write(known_str)
+                else:
+                    strmax = 24
+                    strlength = random.randint(1, strmax)
+                    s = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(strlength))
+                    f.write(s)
                 if j < (fields - 1):
                     f.write(' ')
             f.write("\n")

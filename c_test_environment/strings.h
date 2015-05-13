@@ -57,3 +57,8 @@ std::ostream& operator<<(std::ostream& o, const std::array<char, N>& arr) {
   o << s;
   return o;
 }
+
+template <size_t N>
+bool operator==(const std::array<char, N>& arr, const std::string& str) {
+  return std::string(arr.data()).compare(str) == 0;
+}
