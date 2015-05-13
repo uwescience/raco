@@ -559,6 +559,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         }.get(op.__class__)
         if r is None:
             return 'Aggregates::Zero'
+        else:
+            return r
 
     def produce(self, state):
         self._agg_mode = None
