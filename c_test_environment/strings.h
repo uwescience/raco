@@ -38,7 +38,7 @@ namespace QueryUtils {
 // for array based strings
 #include <array>
 #include <cassert>
-#define MAX_STR_LEN 256
+#define MAX_STR_LEN 25
 
 #include <iostream>
 template<size_t N, class Iterable>
