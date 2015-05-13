@@ -89,8 +89,8 @@ from osutils import Chdir
 
 
 class GrappalangRunner(PlatformRunner):
-    def __init__(self):
-        pass
+    def __init__(self, binary_input=True):
+      self.binary_input = binary_input
 
     def run(self, name, tmppath):
         """
@@ -149,7 +149,7 @@ class GrappalangRunner(PlatformRunner):
                                        '--nnode=4',
                                        '--',
                                        '%s.exe' % gname,
-                                       '--bin=true',
+                                       '--bin={0}'.format(self.binary_input),
                                        '--vmodule=%s=2' % gname  # result out
                                        ],
                                         stderr=outf,
