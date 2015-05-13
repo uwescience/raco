@@ -1,0 +1,1 @@
+select * from C3 where b = "coffee";

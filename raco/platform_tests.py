@@ -528,6 +528,10 @@ class MyriaLPlatformTests(object):
         STORE(P, OUTPUT);
         """, "groupby_string_multi_key")
 
+    def test_select_string_literal(self):
+        q = self.myrial_from_sql(["C3"], "select_string_literal")
+        self.check(q, "select_string_literal")
+
     def test_aggregate_double(self):
         self.check_sub_tables("""
         D2 = SCAN(%(D2)s);
