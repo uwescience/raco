@@ -12,6 +12,15 @@
       return {{numfields}};
     }
 
+    static size_t fieldsSize() {
+        const {{tupletypename}} _t;
+        return
+        {% for i in range(numfields) %}
+        sizeof(_t.f{{i}}) +
+        {% endfor %}
+        0;
+    }
+
     {{tupletypename}} () {
       // no-op
     }
