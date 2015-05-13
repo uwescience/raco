@@ -1,7 +1,7 @@
 {% extends '0key_output.cpp' %}
 
 {% block templateargs %}
-{{state_type}}, &{{update_func}}
+{{state_type}}, &{{combine_func}}
 {% endblock %}
 
 {% block output %}

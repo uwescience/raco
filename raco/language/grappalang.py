@@ -3,6 +3,7 @@
 # where you plugin in the parallel shared memory language specific codegen
 
 from raco import algebra
+from raco.expression import aggregate
 from raco import expression
 from raco.language import Algebra
 from raco import rules
@@ -542,6 +543,13 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             self.language().cgenv(),
             '{0}/groupby'.format(GrappaLanguage._template_path))
 
+    def _combiner_for_builtin_update(self, update_op):
+        # put special cases where update_op != combiner_op
+        if update_op == aggregate.COUNT or update_op == aggregate.COUNTALL:
+            return aggregate.SUM
+        else:
+            return update_op
+
     def produce(self, state):
         self._agg_mode = None
         if len(self.aggregate_list) == 1 \
@@ -564,9 +572,14 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         if self._agg_mode == self._ONE_BUILT_IN:
             state_type = self.language().typename(
                 self.aggregate_list[0].input.typeof(inp_sch, None))
-            op = self.aggregate_list[0].__class__.__name__
+            op = self.aggregate_list[0]
+            up_op_name = op.__class__.__name__
+            co_op_name = self._combiner_for_builtin_update(
+                op).__class__.__name__
             self.update_func = "Aggregates::{op}<{type}, {type}>".format(
-                op=op, type=state_type)
+                op=up_op_name, type=state_type)
+            combine_func = "Aggregates::{op}<{type}, {type}>".format(
+                op=co_op_name, type=state_type)
         elif self._agg_mode == self._MULTI_UDA:
             # for now just name the aggregate after the first state variable
             self.func_name = self.updaters[0][0]
