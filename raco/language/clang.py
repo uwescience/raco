@@ -566,6 +566,10 @@ class CSingletonRelation(algebra.SingletonRelation, CCOperator):
 
 
 class CCrossProduct(algebra.CrossProduct, CCOperator):
+    def __init__(self):
+        super(CCrossProduct, self).__init__()
+        self.singleton = None
+
     def produce(self, state):
         stagedTuple = self.new_tuple_ref(gensym(), self.scheme())
         state.addDeclarations([stagedTuple.generateDefinition()])
@@ -573,25 +577,29 @@ class CCrossProduct(algebra.CrossProduct, CCOperator):
         state.saveTupleDef(self.right, stagedTuple)
         self.left.produce(state)
         self.right.produce(state)
+        c = self.left
+        while (self.singleton is None and c):
+            for child in c.children():
+                if isinstance(child, CSingletonRelation):
+                    self.singleton = self.left
+                else:
+                    c = child.children()
+        if self.singleton is None:
+            while (self.singleton is None and c):
+                for child in c.children():
+                    if isinstance(child, CSingletonRelation):
+                        self.singleton = self.right
+                    else:
+                        c = child.children()
+        assert self.singleton is not None, "Only cross product with singleton"
 
     def consume(self, t, src, state):
         code = ""
-        if src == self.left:
-            stagedTuple = state.lookupTupleDef(self.right)
+        if src == self.singleton:
+            pass
         else:
-            stagedTuple = state.lookupTupleDef(self.left)
-
-        code = self.parent().consume(stagedTuple, self, state)
-        if self.right.num_tuples == 1:
-            code += "auto %s = %s::create(%s, %s);\n" % (
-                stagedTuple, stagedTuple, t.name, "")
-        else:
-            code += "auto %s = %s::create(%s, %s);\n" % (
-                stagedTuple, stagedTuple, "", t.name)
-        print t.name, t.getTupleTypename()
-        code += "for (auto %s : %s) {\n" % ("", t)
-        code += "auto %s = %s::create(%s, %s);\n"
-        return ""
+            pass
+        return code
 
 
 class MemoryScanOfFileScan(rules.Rule):
@@ -626,7 +634,6 @@ def clangify(emit_print):
         rules.OneToOne(algebra.SingletonRelation, CSingletonRelation),
         rules.OneToOne(algebra.CrossProduct, CCrossProduct),
         clangcommon.StoreToBaseCStore(emit_print, CStore),
-
         clangcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
     ]
 
