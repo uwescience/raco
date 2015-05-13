@@ -39,6 +39,16 @@
         {% endfor %}
     }
 
+    {{tupletypename}}(const std::tuple<{% for ft in fieldtypes %}
+                                   {{ft}}
+                                   {% if not loop.last %},{% endif %}
+                                   {% endfor %}>& o) {
+
+        {% for i in range(numfields) %}
+            f{{i}} = std::get<{{i}}>(o);
+        {% endfor %}
+     }
+
     // shamelessly terrible disambiguation: one solution is named factory methods
     //{{tupletypename}} (std::vector<int64_t> vals, bool ignore1, bool ignore2) {
     //    {% for i in range(numfields) %}
