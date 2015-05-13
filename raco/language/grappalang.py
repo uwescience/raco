@@ -544,9 +544,11 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             '{0}/groupby'.format(GrappaLanguage._template_path))
 
     def _combiner_for_builtin_update(self, update_op):
-        # put special cases where update_op != combiner_op
-        if update_op == aggregate.COUNT or update_op == aggregate.COUNTALL:
-            return aggregate.SUM
+        # FIXME: should be using get_decomposable_state instead of this hack
+        # FIXME: need AVG and STDEV
+        if update_op.__class__ == aggregate.COUNT \
+                or update_op.__class__ == aggregate.COUNTALL:
+            return aggregate.SUM(update_op.input)
         else:
             return update_op
 
