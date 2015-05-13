@@ -43,7 +43,7 @@ namespace QueryUtils {
 #include <iostream>
 template<size_t N, class Iterable>
 std::array<char, N> to_array(const Iterable& x) {
-  assert(x.size() < N-1);
+  assert(x.size() <= N-1);
   std::array<char, N> d;
   std::copy(x.begin(), x.end(), d.data());
   *(d.data()+x.size()) = '\0'; // copy null terminator
