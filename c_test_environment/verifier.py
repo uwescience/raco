@@ -12,7 +12,7 @@ def parse_value(value):
     if doublepat.match(value):
         n = float(value)
         assert n < pow(2, 40), "decimal place rounding based comparison will be unsound for very large numbers"
-        return round(n, 5)
+        return round(n, 2)
     elif intpat.match(value):
         return int(value)
     else:
