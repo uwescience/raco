@@ -552,6 +552,14 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         else:
             return update_op
 
+    def _init_func_for_op(self, op):
+        r = {
+            aggregate.MAX: 'std::numeric_limits::min()',
+            aggregate.MIN: 'std::numeric_limits::max()'
+        }.get(op.__class__)
+        if r is None:
+            return 'Aggregates::Zero'
+
     def produce(self, state):
         self._agg_mode = None
         if len(self.aggregate_list) == 1 \
@@ -745,7 +753,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         # form code to fill in the materialize template
         if self._agg_mode == self._ONE_BUILT_IN:
-            init_func = "Aggregates::Zero"
+            init_func = self._init_func_for_op(self.aggregate_list[0])
 
             if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
                 # no value needed for Zero-input aggregate,
