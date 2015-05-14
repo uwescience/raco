@@ -1070,6 +1070,7 @@ def grappify(join_type, emit_print):
         rules.OneToOne(algebra.Union, GrappaUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, GrappaStore),
 
+        # Don't need this because we support two-key
         # clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
     ]
 
