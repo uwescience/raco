@@ -333,6 +333,14 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
             self.right_name = right_name
             valname = left_name
 
+            append_func_name, combine_function_def = \
+                GrappaStagedTupleRef.get_append(
+                    out_tuple_type,
+                    left_type, len(left_sch),
+                    right_type, len(t.scheme))
+
+            state.addDeclarations([combine_function_def])
+
             code = access_template.render(locals())
             return code
 
@@ -931,7 +939,17 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             out_tuple_type = outTuple.getTupleTypename()
             out_tuple_name = outTuple.name
 
-            state.addDeclarations([out_tuple_type_def])
+            type1 = input_tuple_type
+            type1numfields = len(t.scheme)
+            type2 = right_tuple_type
+            type2numfields = len(self.right.scheme())
+            append_func_name, combine_function_def = \
+                GrappaStagedTupleRef.get_append(
+                    out_tuple_type,
+                    type1, type1numfields,
+                    type2, type2numfields)
+
+            state.addDeclarations([out_tuple_type_def, combine_function_def])
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 

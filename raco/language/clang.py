@@ -406,12 +406,11 @@ class CHashJoin(algebra.Join, CCOperator):
             type1numfields = len(t.scheme)
             type2 = self.right_type
             type2numfields = len(self.right.scheme())
-
-            append_func_name = "create_" + gensym()
-
-            result_type = out_tuple_type
-            combine_function_def = self._cgenv.get_template(
-                "materialized_tuple_create_two.cpp").render(locals())
+            append_func_name, combine_function_def = \
+                CStagedTupleRef.get_append(
+                    out_tuple_type,
+                    type1, type1numfields,
+                    type2, type2numfields)
 
             state.addDeclarations([out_tuple_type_def, combine_function_def])
 

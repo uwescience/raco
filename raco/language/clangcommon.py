@@ -30,6 +30,7 @@ def prepend_template_relpath(env, relpath):
 
 
 class CBaseLanguage(Language):
+
     @classmethod
     def c_stringify(cls, st):
         """ turn " in the string into \" since C ' are chars
@@ -246,6 +247,17 @@ _cgenv = CBaseLanguage.__get_env_for_template_libraries__()
 
 class StagedTupleRef:
     nextid = 0
+
+    @staticmethod
+    def get_append(out_tuple_type, type1, type1numfields,
+                   type2, type2numfields):
+
+        append_func_name = "create_" + gensym()
+
+        result_type = out_tuple_type
+        combine_function_def = _cgenv.get_template(
+            "materialized_tuple_create_two.cpp").render(locals())
+        return append_func_name, combine_function_def
 
     @classmethod
     def genname(cls):
