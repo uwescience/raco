@@ -3,4 +3,3 @@
   {{out_tuple_type}} {{out_tuple_name}} = {{append_func_name}}({{left_name}}, {{right_name}});
   {{inner_plan_compiled}}
 });
-kk
