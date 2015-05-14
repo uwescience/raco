@@ -360,6 +360,14 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
             right_name = gensym()
             valname = right_name
 
+            append_func_name, combine_function_def = \
+                GrappaStagedTupleRef.get_append(
+                    out_tuple_type,
+                    left_type, len(t.scheme),
+                    right_type, len(self.right.scheme()))
+
+            state.addDeclarations([combine_function_def])
+
             code = access_template.render(locals())
             return code
 
