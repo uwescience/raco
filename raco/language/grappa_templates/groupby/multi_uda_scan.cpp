@@ -1,3 +1,4 @@
 {% extends 'scan.cpp' %}
 
-{% block initializer %}{{ super() }}, {{mapping_var_name}}.second{% endblock %}
+{# depends on materialized_tuple_ref constructor of std::tuple #}
+{% block initializer %}{{ super() }}, {{mapping_var_name}}.second.to_tuple(){% endblock %}

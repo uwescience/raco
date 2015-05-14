@@ -39,14 +39,45 @@
         {% endfor %}
     }
 
-    {{tupletypename}}(const std::tuple<{% for ft in fieldtypes %}
-                                   {{ft}}
-                                   {% if not loop.last %},{% endif %}
-                                   {% endfor %}>& o) {
+    {# list of types comma separated #}
+    {# TODO: uncomment when jinja 2.8 is released with support for set blocks
+    {% set types_comma %}
+        {% for ft in fieldtypes %}
+        {{ft}}
+        {% if not loop.last %},{% endif %}
+        {% endfor %}
+    {% endset %}
+    #}
 
+
+    {{tupletypename}}(const std::tuple<
+        {% for ft in fieldtypes %}
+        {{ft}}
+        {% if not loop.last %},{% endif %}
+        {% endfor %}
+            >& o) {
         {% for i in range(numfields) %}
             f{{i}} = std::get<{{i}}>(o);
         {% endfor %}
+     }
+
+     std::tuple<
+        {% for ft in fieldtypes %}
+        {{ft}}
+        {% if not loop.last %},{% endif %}
+        {% endfor %}
+     > to_tuple() {
+
+        std::tuple<
+        {% for ft in fieldtypes %}
+        {{ft}}
+        {% if not loop.last %},{% endif %}
+        {% endfor %}
+        > r;
+        {% for i in range(numfields) %}
+            std::get<{{i}}>(r) = f{{i}};
+        {% endfor %}
+        return r;
      }
 
     // shamelessly terrible disambiguation: one solution is named factory methods
