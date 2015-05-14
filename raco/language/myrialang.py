@@ -936,6 +936,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
     def __init__(self, catalog):
         assert isinstance(catalog, Catalog)
         self.catalog = catalog
+        super(HCShuffleBeforeNaryJoin, self).__init__()
 
     @staticmethod
     def reversed_index(child_schemes, conditions):
@@ -1324,6 +1325,7 @@ class AddAppendTemp(rules.Rule):
 class PushIntoSQL(rules.Rule):
     def __init__(self, dialect=None):
         self.dialect = dialect or postgresql.dialect()
+        super(PushIntoSQL, self).__init__()
 
     def fire(self, expr):
         if isinstance(expr, (algebra.Scan, algebra.ScanTemp)):
@@ -1442,6 +1444,7 @@ class GetCardinalities(rules.Rule):
     def __init__(self, catalog):
         assert isinstance(catalog, Catalog)
         self.catalog = catalog
+        super(GetCardinalities, self).__init__()
 
     def fire(self, expr):
         # if not Zeroary operator, who cares?
@@ -1535,9 +1538,6 @@ class MyriaAlgebra(Algebra):
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
     def opt_rules(self, **kwargs):
-        # disable specified rules
-        rules.Rule.set_global_rule_flags(*kwargs.keys())
-
         opt_grps_sequence = [
             rules.remove_trivial_sequences,
             [
@@ -1572,7 +1572,14 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
         compile_grps_sequence.append([BreakSplit()])
 
         rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
-        return list(itertools.chain(*rule_grps_sequence))
+
+        # flatten the rules lists
+        rule_list = list(itertools.chain(*rule_grps_sequence))
+
+        # disable specified rules
+        rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
+
+        return rule_list
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
@@ -1624,7 +1631,14 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
         compile_grps_sequence.append([BreakSplit()])
 
         rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
-        return list(itertools.chain(*rule_grps_sequence))
+
+        # flatten the rules lists
+        rule_list = list(itertools.chain(*rule_grps_sequence))
+
+        # disable specified rules
+        rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
+
+        return rule_list
 
     def __init__(self, catalog=None):
         self.catalog = catalog
