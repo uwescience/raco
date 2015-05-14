@@ -1535,9 +1535,6 @@ class MyriaAlgebra(Algebra):
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
     def opt_rules(self, **kwargs):
-        # disable specified rules
-        rules.Rule.set_global_rule_flags(*kwargs.keys())
-
         opt_grps_sequence = [
             rules.remove_trivial_sequences,
             [
@@ -1572,7 +1569,14 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
         compile_grps_sequence.append([BreakSplit()])
 
         rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
-        return list(itertools.chain(*rule_grps_sequence))
+
+        # flatten the rules lists
+        rule_list = list(itertools.chain(*rule_grps_sequence))
+
+        # disable specified rules
+        rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
+
+        return rule_list
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
@@ -1624,7 +1628,14 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
         compile_grps_sequence.append([BreakSplit()])
 
         rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
-        return list(itertools.chain(*rule_grps_sequence))
+
+        # flatten the rules lists
+        rule_list = list(itertools.chain(*rule_grps_sequence))
+
+        # disable specified rules
+        rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
+
+        return rule_list
 
     def __init__(self, catalog=None):
         self.catalog = catalog
