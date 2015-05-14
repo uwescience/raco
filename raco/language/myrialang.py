@@ -936,6 +936,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
     def __init__(self, catalog):
         assert isinstance(catalog, Catalog)
         self.catalog = catalog
+        super(HCShuffleBeforeNaryJoin, self).__init__()
 
     @staticmethod
     def reversed_index(child_schemes, conditions):
@@ -1324,6 +1325,7 @@ class AddAppendTemp(rules.Rule):
 class PushIntoSQL(rules.Rule):
     def __init__(self, dialect=None):
         self.dialect = dialect or postgresql.dialect()
+        super(PushIntoSQL, self).__init__()
 
     def fire(self, expr):
         if isinstance(expr, (algebra.Scan, algebra.ScanTemp)):
@@ -1442,6 +1444,7 @@ class GetCardinalities(rules.Rule):
     def __init__(self, catalog):
         assert isinstance(catalog, Catalog)
         self.catalog = catalog
+        super(GetCardinalities, self).__init__()
 
     def fire(self, expr):
         # if not Zeroary operator, who cares?

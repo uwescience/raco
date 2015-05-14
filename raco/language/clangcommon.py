@@ -545,6 +545,7 @@ class BreakHashJoinConjunction(rules.Rule):
     def __init__(self, select_clazz, join_clazz):
         self.select_clazz = select_clazz
         self.join_clazz = join_clazz
+        super(BreakHashJoinConjunction, self).__init__()
 
     def fire(self, expr):
         if isinstance(expr, self.join_clazz) \
@@ -616,6 +617,7 @@ class StoreToBaseCStore(rules.Rule):
         assert issubclass(subclass, CBaseStore), \
             "%s is not a subclass of %s" % (subclass, CBaseStore)
         self.subclass = subclass
+        super(StoreToBaseCStore, self).__init__()
 
     def fire(self, expr):
         if isinstance(expr, algebra.Store):

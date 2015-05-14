@@ -19,6 +19,9 @@ class Rule(object):
 
     _flag_pattern = re.compile(r'no_([A-Za-z_]+)')  # e.g., no_MergeSelects
 
+    def __init__(self):
+        self._disabled = False
+
     def __call__(self, expr):
         if self._disabled:
             return expr
@@ -76,6 +79,7 @@ class OneToOne(Rule):
     def __init__(self, opfrom, opto):
         self.opfrom = opfrom
         self.opto = opto
+        super(OneToOne, self).__init__()
 
     def fire(self, expr):
         if isinstance(expr, self.opfrom):
