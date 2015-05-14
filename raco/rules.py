@@ -29,6 +29,9 @@ class Rule(object):
 
     @classmethod
     def set_global_rule_flags(cls, *args):
+        # clear the disabled rules
+        cls._disabled_rules = set()
+
         # Automatically create a flag to disable any rule by name
         # e.g., to disable MergeSelects, pass the arg "no_MergeSelects"
         for a in args:
