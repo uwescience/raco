@@ -339,7 +339,8 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
                     left_type, len(left_sch),
                     right_type, len(t.scheme))
 
-            state.addDeclarations([combine_function_def])
+            # need to add later because requires left tuple type decl
+            self.right_combine_decl = combine_function_def
 
             code = access_template.render(locals())
             return code
@@ -366,7 +367,8 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
                     left_type, len(t.scheme),
                     right_type, len(self.right.scheme()))
 
-            state.addDeclarations([combine_function_def])
+            state.addDeclarations([self.right_combine_decl,
+                                   combine_function_def])
 
             code = access_template.render(locals())
             return code
