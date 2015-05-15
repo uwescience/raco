@@ -19,16 +19,18 @@ import raco.viz as viz
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
+def is_skipping():
+    return not ('RACO_GRAPPA_TESTS' in os.environ
+                and int(os.environ['RACO_GRAPPA_TESTS']) == 1)
 
 def raise_skip_test(query=None):
-  if 'RACO_GRAPPA_TESTS' in os.environ:
-    if int(os.environ['RACO_GRAPPA_TESTS']) == 1:
-        return
+     if not is_skipping():
+        return None
 
-  if query is not None:
-    raise SkipTest(query)
-  else:
-    raise SkipTest()
+     if query is not None:
+        raise SkipTest(query)
+     else:
+        raise SkipTest()
 
 
 class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
@@ -60,18 +62,19 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         with open(fname, 'w') as f:
             f.write(code)
 
+        #raise Exception()
         raise_skip_test(query)
 
         with Chdir("c_test_environment") as d:
             checkquery(name, GrappalangRunner())
 
     def setUp(self):
-        raise_skip_test()
         super(MyriaLGrappaTest, self).setUp()
-        with Chdir("c_test_environment") as d:
-            targetpath = os.path.join(os.environ.copy()['GRAPPA_HOME'], 'build/Make+Release/applications/join')
-            if need_generate(targetpath):
-                generate_default(targetpath)
+        if not is_skipping():
+            with Chdir("c_test_environment") as d:
+                targetpath = os.path.join(os.environ.copy()['GRAPPA_HOME'], 'build/Make+Release/applications/join')
+                if need_generate(targetpath):
+                    generate_default(targetpath)
 
     def _uda_def(self):
         uda_def_path = os.path.join("c_test_environment", "testqueries", "argmax.myl")

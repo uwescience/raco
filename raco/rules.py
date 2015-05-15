@@ -17,24 +17,29 @@ class Rule(object):
 
     __metaclass__ = ABCMeta
 
-    _disabled_rules = set()
     _flag_pattern = re.compile(r'no_([A-Za-z_]+)')  # e.g., no_MergeSelects
 
+    def __init__(self):
+        self._disabled = False
+
     def __call__(self, expr):
-        # if the rule is in the set of disabled, then don't allow it to fire
-        if self.__class__.__name__ in self._disabled_rules:
+        if self._disabled:
             return expr
         else:
             return self.fire(expr)
 
     @classmethod
-    def set_global_rule_flags(cls, *args):
+    def apply_disable_flags(cls, rule_list, *args):
+        disabled_rules = set()
         # Automatically create a flag to disable any rule by name
         # e.g., to disable MergeSelects, pass the arg "no_MergeSelects"
         for a in args:
             mat = re.match(cls._flag_pattern, a)
             if mat:
-                cls._disabled_rules.add(mat.group(1))
+                disabled_rules.add(mat.group(1))
+
+        for r in rule_list:
+            r._disabled = r.__class__.__name__ in disabled_rules
 
     @abstractmethod
     def fire(self, expr):
@@ -74,6 +79,7 @@ class OneToOne(Rule):
     def __init__(self, opfrom, opto):
         self.opfrom = opfrom
         self.opto = opto
+        super(OneToOne, self).__init__()
 
     def fire(self, expr):
         if isinstance(expr, self.opfrom):

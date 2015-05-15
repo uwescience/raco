@@ -1059,9 +1059,6 @@ class GrappaAlgebra(Algebra):
         # rules.FreeMemory()
         # ]
 
-        # disable specified rules
-        rules.Rule.set_global_rule_flags(*kwargs.keys())
-
         join_type = kwargs.get('join_type', GrappaHashJoin)
 
         # sequence that works for myrial
@@ -1077,4 +1074,10 @@ class GrappaAlgebra(Algebra):
         if kwargs.get('SwapJoinSides'):
             rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
-        return list(itertools.chain(*rule_grps_sequence))
+        # flatten the rules lists
+        rule_list = list(itertools.chain(*rule_grps_sequence))
+
+        # disable specified rules
+        rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
+
+        return rule_list
