@@ -1,5 +1,7 @@
 # Raco query frontend and middleware
 
+(This document is still a WIP)
+
 [Raco](https://github.com/uwescience/raco) parses query languages, optimizes query plans, and compiles plans to representations accepted by query processing systems.
 
 ## Command line usage
