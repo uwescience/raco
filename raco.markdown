@@ -31,12 +31,12 @@ TODO
 The (non-experimental) optimization of query plans is done with a heuristic rule-based planner.
 Raco provides many useful rules in `raco/rules.py`. `Rule` is the super class of all rules. 
 
-## How optimization works
+### How optimization works
 A physical algebra provides an implementation of `opt_rules`, which just returns an ordered list
 of rules to apply. The optimizer applies each rule breadth first to the entire query plan tree, in the order specified by the list.
 This algorithm is very simplistic, but it works out okay right now.
 
-## How to add a rule
+### How to add a rule
 1. first, just check that the rule you need or something very close doesn't already exist in `raco/rules.py` or one of the languages in `raco/language/*.py`. If it is a generic rule and you find it in one of the languages, please [submit a pull request]( moving it to `raco/rules.py`https://github.com/uwescience/raco/compare).
 2. If adding a rule, subclass `Rule` from `raco/rules.py`. You must implemented two methods: `_str_` and `fire`.
 `fire` checks if the rule is applicable to the given tree. If not then it should return the tree itself. If the rule does apply then `fire` should return a transformed tree. It is okay to mutate the input tree and return it: most of Raco's rules are currently doing this instead of keeping the input immutable and copying the whole tree.
