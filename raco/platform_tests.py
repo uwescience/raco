@@ -173,7 +173,7 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
         super(MyriaLPlatformTestHarness, self).setUp()
 
         self.tables = {}
-        for name in ['R', 'S', 'T', 'I', 'D']:
+        for name in ['R', 'S', 'T', 'I', 'D', 'C']:
             for width in [1, 2, 3]:
                 tablename = "%s%d" % (name, width)
                 fullname = "public:adhoc:%s" % tablename
@@ -181,6 +181,8 @@ class MyriaLPlatformTestHarness(myrial_test.MyrialTestCase):
 
                 if name == 'D':
                     rest_type = types.DOUBLE_TYPE
+                elif name == 'C':
+                    rest_type = types.STRING_TYPE
                 else:
                     rest_type = types.LONG_TYPE
 
@@ -499,6 +501,36 @@ class MyriaLPlatformTests(object):
     def test_select_double(self):
         q = self.myrial_from_sql(["D3"], "select_double")
         self.check(q, "select_double")
+
+    def test_select_string(self):
+        q = self.myrial_from_sql(["C3"], "select_string")
+        self.check(q, "select_string")
+
+    def test_join_string_val(self):
+        q = self.myrial_from_sql(["C2", "T2"], "join_string_val")
+        self.check(q, "join_string_val")
+
+    def test_join_string_key(self):
+        q = self.myrial_from_sql(["C3", "C3"], "join_string_key")
+        self.check(q, "join_string_key")
+
+    def test_groupby_string_key(self):
+        self.check_sub_tables("""
+        C2 = SCAN(%(C2)s);
+        P = [FROM C2 EMIT SUM($0), $1];
+        STORE(P, OUTPUT);
+        """, "groupby_string_key")
+
+    def test_groupby_string_multi_key(self):
+        self.check_sub_tables("""
+        C3 = SCAN(%(C3)s);
+        P = [FROM C3 EMIT SUM($0), $1, $2];
+        STORE(P, OUTPUT);
+        """, "groupby_string_multi_key")
+
+    def test_select_string_literal(self):
+        q = self.myrial_from_sql(["C3"], "select_string_literal")
+        self.check(q, "select_string_literal")
 
     def test_aggregate_double(self):
         self.check_sub_tables("""

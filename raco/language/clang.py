@@ -20,11 +20,9 @@ import itertools
 
 class CStagedTupleRef(StagedTupleRef):
 
-    def __additionalDefinitionCode__(self):
+    def __additionalDefinitionCode__(self, numfields, fieldtypes):
         constructor_template = CC.cgenv().get_template(
             'materialized_tuple_ref_additional.cpp')
-
-        numfields = len(self.scheme)
 
         tupletypename = self.getTupleTypename()
         return constructor_template.render(locals())
@@ -80,19 +78,6 @@ class CC(CBaseLanguage):
     @staticmethod
     def log_file_unquoted(code, level=0):
         return """logfile << %s << " ";\n """ % code
-
-    @classmethod
-    def compile_stringliteral(cls, s):
-        s = cls.c_stringify(s)
-        sid = cls.newstringident()
-        lookup_init = cls.cgenv().get_template(
-            'string_index_lookup.cpp').render(name=sid, st=s)
-        build_init = """
-        string_index = build_string_index("sp2bench.index");
-        """
-        return """(%s)""" % sid, [], [build_init, lookup_init]
-        # raise ValueError("String Literals not supported\
-        # in C language: %s" % s)
 
 
 class CCOperator(Pipelined, algebra.Operator):
@@ -345,19 +330,18 @@ class CHashJoin(algebra.Join, CCOperator):
 
         self.right.childtag = "right"
         # common index is defined by same right side and same key
-        hashsym = state.lookupExpr((self.right, self.right_keypos))
+        hashsym_and_type = state.lookupExpr((self.right, self.right_keypos))
 
-        if not hashsym:
+        if not hashsym_and_type:
             # if right child never bound then store hashtable symbol and
             # call right child produce
             self._hashname = self.__genHashName__()
             _LOG.debug("generate hashname %s for %s", self._hashname, self)
-            state.saveExpr((self.right, self.right_keypos), self._hashname)
             self.right.produce(state)
         else:
             # if found a common subexpression on right child then
             # use the same hashtable
-            self._hashname = hashsym
+            self._hashname, self.right_type = hashsym_and_type
             _LOG.debug("reuse hash %s for %s", self._hashname, self)
 
         self.left.childtag = "left"
@@ -388,6 +372,10 @@ class CHashJoin(algebra.Join, CCOperator):
 
             in_tuple_type = t.getTupleTypename()
             in_tuple_name = t.name
+            self.right_type = in_tuple_type
+
+            state.saveExpr((self.right, self.right_keypos), (self._hashname,
+                                                             self.right_type))
 
             # declaration of hash map
             hashdeclr = declr_template.render(locals())
@@ -414,7 +402,17 @@ class CHashJoin(algebra.Join, CCOperator):
             out_tuple_type = outTuple.getTupleTypename()
             out_tuple_name = outTuple.name
 
-            state.addDeclarations([out_tuple_type_def])
+            type1 = keytype
+            type1numfields = len(t.scheme)
+            type2 = self.right_type
+            type2numfields = len(self.right.scheme())
+            append_func_name, combine_function_def = \
+                CStagedTupleRef.get_append(
+                    out_tuple_type,
+                    type1, type1numfields,
+                    type2, type2numfields)
+
+            state.addDeclarations([out_tuple_type_def, combine_function_def])
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 

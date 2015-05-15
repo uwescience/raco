@@ -30,6 +30,7 @@ def prepend_template_relpath(env, relpath):
 
 
 class CBaseLanguage(Language):
+
     @classmethod
     def c_stringify(cls, st):
         """ turn " in the string into \" since C ' are chars
@@ -137,9 +138,7 @@ class CBaseLanguage(Language):
             types.LONG_TYPE: 'int64_t',
             types.BOOLEAN_TYPE: 'bool',
             types.DOUBLE_TYPE: 'double',
-
-            # strings are indexed as ints
-            types.STRING_TYPE: 'int64_t'
+            types.STRING_TYPE: 'std::array<char, MAX_STR_LEN>'
         }.get(raco_type)
 
         assert n is not None, \
@@ -179,6 +178,10 @@ class CBaseLanguage(Language):
             return code, [], []
 
         assert False, "{expr} is unsupported attribute".format(expr=expr)
+
+    @classmethod
+    def compile_stringliteral(cls, s):
+        return '(%s)' % s, [], []
 
     @classmethod
     def ifelse(cls, when_compiled, else_compiled):
@@ -245,6 +248,17 @@ _cgenv = CBaseLanguage.__get_env_for_template_libraries__()
 class StagedTupleRef:
     nextid = 0
 
+    @staticmethod
+    def get_append(out_tuple_type, type1, type1numfields,
+                   type2, type2numfields):
+
+        append_func_name = "create_" + gensym()
+
+        result_type = out_tuple_type
+        combine_function_def = _cgenv.get_template(
+            "materialized_tuple_create_two.cpp").render(locals())
+        return append_func_name, combine_function_def
+
     @classmethod
     def genname(cls):
         # use StagedTupleRef so everyone shares one mutable copy of nextid
@@ -273,13 +287,13 @@ class StagedTupleRef:
 
     @staticmethod
     def get_code_with_name(position, name):
-        return "{name}.get<{position}>()".format(position=position, name=name)
+        return "{name}.f{position}".format(position=position, name=name)
 
     def get_code(self, position):
         return StagedTupleRef.get_code_with_name(position, self.name)
 
     def set_func_code(self, position):
-        return "{name}.set<{position}>".format(
+        return "{name}.f{position}".format(
             position=position, name=self.name)
 
     def generateDefinition(self):
@@ -290,12 +304,16 @@ class StagedTupleRef:
         fieldtypes = [CBaseLanguage.typename(t)
                       for t in self.scheme.get_types()]
 
+        string_type_name = CBaseLanguage.typename(types.STRING_TYPE)
+
         # stream_sets = emitlist(
         # ["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)
         #                        for i in range(numfields)])
 
-        additional_code = self.__additionalDefinitionCode__()
-        after_def_code = self.__afterDefinitionCode__()
+        additional_code = self.__additionalDefinitionCode__(
+            numfields,
+            fieldtypes)
+        after_def_code = self.__afterDefinitionCode__(numfields, fieldtypes)
 
         tupletypename = self.getTupleTypename()
         relsym = self.relsym
@@ -303,10 +321,10 @@ class StagedTupleRef:
         code = template.render(locals())
         return code
 
-    def __additionalDefinitionCode__(self):
+    def __additionalDefinitionCode__(self, numfields, fieldtypes):
         return ""
 
-    def __afterDefinitionCode__(self):
+    def __afterDefinitionCode__(self, numfields, fieldtypes):
         return ""
 
 
@@ -348,6 +366,15 @@ class CBaseUnionAll(Pipelined, algebra.Union):
         unified_tuple_typename = self.unifiedTupleType.getTupleTypename()
         unified_tuple_name = self.unifiedTupleType.name
         src_tuple_name = t.name
+
+        # add declaration for function to convert from one type to the other
+        type1 = t.getTupleTypename()
+        type1numfields = len(t.scheme)
+        convert_func_name = "create_" + gensym()
+        result_type = unified_tuple_typename
+        convert_func = _cgenv.get_template(
+            'materialized_tuple_create_one.cpp').render(locals())
+        state.addDeclarations([convert_func])
 
         inner_plan_compiled = \
             self.parent().consume(self.unifiedTupleType, self, state)

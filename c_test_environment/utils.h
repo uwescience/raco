@@ -5,6 +5,7 @@
 #include <utility>
 #include <tuple>
 #include <cstring>
+#include <array>
 
 uint64_t identity_hash( int64_t k );
 
@@ -36,6 +37,20 @@ namespace std {
         return h1 ^ (h2 << 1);
       }
     };
+}
+
+namespace std {
+  template<size_t N>
+  struct hash<std::array<char, N>>
+  {
+      typedef std::array<char, N> argument_type;
+      typedef std::size_t result_type;
+
+      result_type operator()(argument_type const& s) const {
+        // use the std::hash for std::string
+        return std::hash<std::string>()(std::string(s.data()));
+      }
+  };
 }
 
 

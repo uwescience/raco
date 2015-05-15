@@ -3,6 +3,7 @@
 # where you plugin in the parallel shared memory language specific codegen
 
 from raco import algebra
+from raco.expression import aggregate
 from raco import expression
 from raco.language import Algebra
 from raco import rules
@@ -26,7 +27,7 @@ def define_cl_arg(type, name, default_value, description):
 
 class GrappaStagedTupleRef(StagedTupleRef):
 
-    def __afterDefinitionCode__(self):
+    def __afterDefinitionCode__(self, numfields, fieldtypes):
         # Grappa requires structures to be block aligned if they will be
         # iterated over with localizing forall
         return "GRAPPA_BLOCK_ALIGNED"
@@ -124,21 +125,6 @@ class GrappaLanguage(CBaseLanguage):
             wrappers.append((sync_template, locals()))
 
         return apply_wrappers(plcode, wrappers)
-
-    @classmethod
-    def compile_stringliteral(cls, st):
-        st = cls.c_stringify(st)
-        sid = cls.newstringident()
-        decl = """int64_t %s;""" % (sid)
-        lookup_init = GrappaLanguage.cgenv().get_template(
-            'string_index_lookup.cpp').render(locals())
-        build_init = """
-        string_index = build_string_index("sp2bench.index");
-        """
-
-        return """(%s)""" % sid, [decl], [build_init, lookup_init]
-        # raise ValueError("String Literals not supported in
-        # C language: %s" % s)
 
 
 class GrappaOperator (Pipelined, algebra.Operator):
@@ -347,6 +333,15 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
             self.right_name = right_name
             valname = left_name
 
+            append_func_name, combine_function_def = \
+                GrappaStagedTupleRef.get_append(
+                    out_tuple_type,
+                    left_type, len(left_sch),
+                    right_type, len(t.scheme))
+
+            # need to add later because requires left tuple type decl
+            self.right_combine_decl = combine_function_def
+
             code = access_template.render(locals())
             return code
 
@@ -365,6 +360,15 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
             left_name = keyname
             right_name = gensym()
             valname = right_name
+
+            append_func_name, combine_function_def = \
+                GrappaStagedTupleRef.get_append(
+                    out_tuple_type,
+                    left_type, len(t.scheme),
+                    right_type, len(self.right.scheme()))
+
+            state.addDeclarations([self.right_combine_decl,
+                                   combine_function_def])
 
             code = access_template.render(locals())
             return code
@@ -557,6 +561,25 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             self.language().cgenv(),
             '{0}/groupby'.format(GrappaLanguage._template_path))
 
+    def _combiner_for_builtin_update(self, update_op):
+        # FIXME: should be using get_decomposable_state instead of this hack
+        # FIXME: need AVG and STDEV
+        if update_op.__class__ == aggregate.COUNT \
+                or update_op.__class__ == aggregate.COUNTALL:
+            return aggregate.SUM(update_op.input)
+        else:
+            return update_op
+
+    def _init_func_for_op(self, op):
+        r = {
+            aggregate.MAX: 'std::numeric_limits<{0}>::lowest',
+            aggregate.MIN: 'std::numeric_limits<{0}>::max'
+        }.get(op.__class__)
+        if r is None:
+            return 'Aggregates::Zero'
+        else:
+            return r
+
     def produce(self, state):
         self._agg_mode = None
         if len(self.aggregate_list) == 1 \
@@ -579,9 +602,14 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         if self._agg_mode == self._ONE_BUILT_IN:
             state_type = self.language().typename(
                 self.aggregate_list[0].input.typeof(inp_sch, None))
-            op = self.aggregate_list[0].__class__.__name__
+            op = self.aggregate_list[0]
+            up_op_name = op.__class__.__name__
+            co_op_name = self._combiner_for_builtin_update(
+                op).__class__.__name__
             self.update_func = "Aggregates::{op}<{type}, {type}>".format(
-                op=op, type=state_type)
+                op=up_op_name, type=state_type)
+            combine_func = "Aggregates::{op}<{type}, {type}>".format(
+                op=co_op_name, type=state_type)
         elif self._agg_mode == self._MULTI_UDA:
             # for now just name the aggregate after the first state variable
             self.func_name = self.updaters[0][0]
@@ -745,7 +773,6 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         # form code to fill in the materialize template
         if self._agg_mode == self._ONE_BUILT_IN:
-            init_func = "Aggregates::Zero"
 
             if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
                 # no value needed for Zero-input aggregate,
@@ -761,6 +788,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             update_val = inputTuple.get_code(valpos)
             input_type = self.language().typename(
                 self.aggregate_list[0].input.typeof(inp_sch, None))
+
+            init_func = self._init_func_for_op(self.aggregate_list[0])\
+                .format(input_type)
 
         elif self._agg_mode == self._MULTI_UDA:
             init_func = "{name}_init".format(name=self.func_name)
@@ -919,7 +949,17 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             out_tuple_type = outTuple.getTupleTypename()
             out_tuple_name = outTuple.name
 
-            state.addDeclarations([out_tuple_type_def])
+            type1 = input_tuple_type
+            type1numfields = len(t.scheme)
+            type2 = right_tuple_type
+            type2numfields = len(self.right.scheme())
+            append_func_name, combine_function_def = \
+                GrappaStagedTupleRef.get_append(
+                    out_tuple_type,
+                    type1, type1numfields,
+                    type2, type2numfields)
+
+            state.addDeclarations([out_tuple_type_def, combine_function_def])
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
@@ -1030,6 +1070,7 @@ def grappify(join_type, emit_print):
         rules.OneToOne(algebra.Union, GrappaUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, GrappaStore),
 
+        # Don't need this because we support two-key
         # clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
     ]
 
