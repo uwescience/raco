@@ -15,15 +15,24 @@ scripts/myrial -h
 # generate a logical plan for a MyriaL query in examples/
 scripts/myrial -l examples/join.myl
 
+# see the physical plan, MyriaX is the default algebra to use
+scripts/myrial examples/join.myl
+
 # Raco requires a catalog for MyriaL queries. All of the example queries
 # use a catalog given in examples/catalog.py. See examples/catalog.py and raco/catalog.py for formatting information.
 # scripts/myrial automatically searches for a catalog.py in the same directory
 # as the provided query. You can also provide a custom path.
 scripts/myrial --catalog=examples/catalog.py -l examples/join.myl
 
-# (in next release) you will also be able to specify a url of a json catalog
+# (soon) you will also be able to specify a url of a json catalog
 # or the url of a myria instance
 TODO
+
+# get the JSON used to submit the query plan to MyriaX REST interface
+scripts/myrial -j example/join.myl
+
+# There is also a python string representation of the query plan. This is valid
+# python code that you can give back to Raco.
 
 ```
 
