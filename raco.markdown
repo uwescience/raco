@@ -54,6 +54,8 @@ This algorithm is very simplistic, but it works out okay right now.
 ### Example plan manipulation
 Adding a myriaX shuffle to a query in the MyMergerTree application.
 
+[vulcan.py catalog is here](https://gist.github.com/bmyerz/8fe4107eb8faff6221e8)
+
 ```python
 #imports
 from raco.catalog import FromFileCatalog
