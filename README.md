@@ -104,7 +104,8 @@ Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 # C++ and Grappa output (Radish)
 There is also Grappa output for Raco.
 
-### Run the myriaL -> Grappa tests
+### Run the full MyriaL -> Grappa tests
+The default tests (just running `nosetests`) include tests for translation from MyriaL to Grappa code but do no checking of whether the Grappa program correctly executes the query. To actually run the Grappa queries: 
 
 1. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
 2. set GRAPPA_HOME to root of Grappa
