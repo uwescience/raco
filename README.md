@@ -118,7 +118,8 @@ PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_
 ### Visualize a Radish plan as a graph
 Pass the `-c` option to `scripts/myrial`.
 
-# Using RACO, manipulation plans, adding optimizer Rules
+# More RACO,
+using Raco, manipulating plans, adding optimizer rules
 see [Raco in myria-docs](https://github.com/uwescience/myria-docs/blob/master/raco.markdown)
 
 # Authors and contact information
