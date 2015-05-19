@@ -20,7 +20,7 @@ Output languages include:
 * A Grappa algebra, Grappa source code
 * A pseudocode algebra
 * A Python algebra
-* SPARQL
+* SPARQL (partial)
 
 Users can of course author programs by directly instantiating one of the intermediate or output algebras as well as one of the source languages.
 
