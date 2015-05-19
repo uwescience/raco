@@ -15,11 +15,12 @@ Source languages include:
 Output languages include:
 
 * Logical relational algebra
-* The Myria physical algebra.
-* A pseudocode algebra
-* A Python algebra
+* The Myria physical algebra (in JSON)
 * A C++ algebra, C++ source code
 * A Grappa algebra, Grappa source code
+* A pseudocode algebra
+* A Python algebra
+* SPARQL
 
 Users can of course author programs by directly instantiating one of the intermediate or output algebras as well as one of the source languages.
 
