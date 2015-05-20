@@ -37,7 +37,7 @@ void convert2bin_withTuple( std::string fn, uint64_t burn=0, int add_id=0) {
       outfile.write((char*)&linenum, sizeof(int64_t));
     }
  
-    outfile.write((char*) &(t._fields), sizeof(int64_t)*Tuple::numFields()); 
+    outfile.write((char*) &(t.f0), Tuple::fieldsSize()); 
     linenum++;
   }
   infile.close();
