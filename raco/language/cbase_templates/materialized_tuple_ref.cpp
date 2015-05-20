@@ -95,11 +95,16 @@
             {% if fieldtypes[i] == string_type_name %}
                {
                std::string _temp;
-               ss >> _temp;
+               std::getline(ss, _temp, ',');
                _ret.f{{i}} = to_array<MAX_STR_LEN, std::string>(_temp);
                }
             {% else %}
+               {
                ss >> _ret.f{{i}};
+               //throw away the next delimiter
+               std::string _temp;
+               std::getline(ss, _temp, ',');
+               }
             {% endif %}
         {% endfor %}
 
