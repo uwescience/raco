@@ -27,7 +27,9 @@ uri = 'http://sampa-gw.cs.washington.edu:1337'
 
 import requests
 import json
-class TempConnection:
+class UploadConnection:
+    """ TODO MERGE WITH CLANGCONNECTION
+    """
     def __init__(self, hostname, port):
         self.hostname = hostname
         self.port = port
@@ -125,7 +127,7 @@ with open(schema_file, 'w') as csvfile:
 
 print "data for input in " + schema_file
 
-conn = TempConnection('localhost', '1337')
+conn = UploadConnection('localhost', '1337')
 conn.upload(schema_file, upload_files)
 
 print "successful upload of: " + schema_file + " and " + str(upload_files)
