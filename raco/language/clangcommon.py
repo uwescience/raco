@@ -141,8 +141,8 @@ class CBaseLanguage(Language):
     def typename(cls, raco_type, allow_subs=True):
         # if external indexing is on, make strings into ints
         if cls._external_indexing and \
-                        raco_type == types.STRING_TYPE and \
-                        allow_subs:
+                raco_type == types.STRING_TYPE and \
+                allow_subs:
             raco_type = types.LONG_TYPE
 
         n = {
