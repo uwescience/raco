@@ -19,6 +19,9 @@ import itertools
 
 
 class CStagedTupleRef(StagedTupleRef):
+    @classmethod
+    def _language(cls):
+        return CC
 
     def __additionalDefinitionCode__(self, numfields, fieldtypes):
         constructor_template = CC.cgenv().get_template(

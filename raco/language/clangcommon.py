@@ -248,6 +248,10 @@ _cgenv = CBaseLanguage.__get_env_for_template_libraries__()
 class StagedTupleRef:
     nextid = 0
 
+    @classmethod
+    def _language(cls):
+        return CBaseLanguage
+
     @staticmethod
     def get_append(out_tuple_type, type1, type1numfields,
                    type2, type2numfields):
@@ -301,10 +305,10 @@ class StagedTupleRef:
 
         numfields = len(self.scheme)
 
-        fieldtypes = [CBaseLanguage.typename(t)
+        fieldtypes = [self._language().typename(t)
                       for t in self.scheme.get_types()]
 
-        string_type_name = CBaseLanguage.typename(types.STRING_TYPE)
+        string_type_name = self._language().typename(types.STRING_TYPE)
 
         # stream_sets = emitlist(
         # ["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)
