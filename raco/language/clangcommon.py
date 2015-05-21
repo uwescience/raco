@@ -30,6 +30,11 @@ def prepend_template_relpath(env, relpath):
 
 
 class CBaseLanguage(Language):
+    _external_indexing = False
+
+    @classmethod
+    def set_external_indexing(cls, b):
+        cls._external_indexing = b
 
     @classmethod
     def c_stringify(cls, st):
@@ -133,7 +138,13 @@ class CBaseLanguage(Language):
         return code, decls, inits
 
     @classmethod
-    def typename(cls, raco_type):
+    def typename(cls, raco_type, allow_subs=True):
+        # if external indexing is on, make strings into ints
+        if cls._external_indexing and \
+                raco_type == types.STRING_TYPE and \
+                allow_subs:
+            raco_type = types.LONG_TYPE
+
         n = {
             types.LONG_TYPE: 'int64_t',
             types.BOOLEAN_TYPE: 'bool',
@@ -304,7 +315,8 @@ class StagedTupleRef:
         fieldtypes = [CBaseLanguage.typename(t)
                       for t in self.scheme.get_types()]
 
-        string_type_name = CBaseLanguage.typename(types.STRING_TYPE)
+        string_type_name = CBaseLanguage.typename(types.STRING_TYPE,
+                                                  allow_subs=False)
 
         # stream_sets = emitlist(
         # ["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)
