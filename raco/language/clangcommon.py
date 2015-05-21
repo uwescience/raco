@@ -30,6 +30,11 @@ def prepend_template_relpath(env, relpath):
 
 
 class CBaseLanguage(Language):
+    _external_indexing = False
+
+    @classmethod
+    def set_external_indexing(cls, b):
+        cls._external_indexing = b
 
     @classmethod
     def c_stringify(cls, st):
@@ -133,7 +138,13 @@ class CBaseLanguage(Language):
         return code, decls, inits
 
     @classmethod
-    def typename(cls, raco_type):
+    def typename(cls, raco_type, allow_subs=True):
+        # if external indexing is on, make strings into ints
+        if cls._external_indexing and \
+                        raco_type == types.STRING_TYPE and \
+                        allow_subs:
+            raco_type = types.LONG_TYPE
+
         n = {
             types.LONG_TYPE: 'int64_t',
             types.BOOLEAN_TYPE: 'bool',
@@ -248,10 +259,6 @@ _cgenv = CBaseLanguage.__get_env_for_template_libraries__()
 class StagedTupleRef:
     nextid = 0
 
-    @classmethod
-    def _language(cls):
-        return CBaseLanguage
-
     @staticmethod
     def get_append(out_tuple_type, type1, type1numfields,
                    type2, type2numfields):
@@ -305,10 +312,11 @@ class StagedTupleRef:
 
         numfields = len(self.scheme)
 
-        fieldtypes = [self._language().typename(t)
+        fieldtypes = [CBaseLanguage.typename(t)
                       for t in self.scheme.get_types()]
 
-        string_type_name = self._language().typename(types.STRING_TYPE)
+        string_type_name = CBaseLanguage.typename(types.STRING_TYPE,
+                                                  allow_subs=False)
 
         # stream_sets = emitlist(
         # ["_ret.set<{i}>(std::get<{i}>(_t));".format(i=i)

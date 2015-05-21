@@ -88,22 +88,23 @@
     //}
 
     // use the tuple schema to interpret the input stream
-    static {{tupletypename}} fromIStream(std::istream& ss) {
+    static {{tupletypename}} fromIStream(std::istream& ss, char delim=' ') {
         {{tupletypename}} _ret;
 
         {% for i in range(numfields) %}
             {% if fieldtypes[i] == string_type_name %}
                {
                std::string _temp;
-               std::getline(ss, _temp, ',');
+               std::getline(ss, _temp, delim);
                _ret.f{{i}} = to_array<MAX_STR_LEN, std::string>(_temp);
                }
             {% else %}
                {
+               // use operator>> to parse into proper numeric type
                ss >> _ret.f{{i}};
                //throw away the next delimiter
                std::string _temp;
-               std::getline(ss, _temp, ',');
+               std::getline(ss, _temp, delim);
                }
             {% endif %}
         {% endfor %}
