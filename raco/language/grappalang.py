@@ -11,6 +11,7 @@ from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, CBaseLanguage
 from raco.language import clangcommon
 from raco.utility import emitlist
+from raco import types
 
 from raco.algebra import gensym
 
@@ -26,7 +27,6 @@ def define_cl_arg(type, name, default_value, description):
 
 
 class GrappaStagedTupleRef(StagedTupleRef):
-
     def __afterDefinitionCode__(self, numfields, fieldtypes):
         # Grappa requires structures to be block aligned if they will be
         # iterated over with localizing forall
@@ -57,6 +57,24 @@ class GrappaLanguage(CBaseLanguage):
             log_str = "VLOG(%s)" % (level)
 
         return """%(log_str)s << %(code)s;\n""" % locals()
+
+    @classmethod
+    def compile_stringliteral(cls, st):
+        if cls._external_indexing:
+            st = cls.c_stringify(st)
+            sid = cls.newstringident()
+            decl = """int64_t %s;""" % (sid)
+            lookup_init = GrappaLanguage.cgenv().get_template(
+                'string_index_lookup.cpp').render(locals())
+            build_init = """
+            string_index = build_string_index("sp2bench.index");
+            """
+
+            return """(%s)""" % sid, [decl], [build_init, lookup_init]
+            # raise ValueError("String Literals not supported in
+            # C language: %s" % s)
+        else:
+            return super(GrappaLanguage, cls).compile_stringliteral(st)
 
     @staticmethod
     def group_wrap(ident, grpcode, attrs):
@@ -1114,6 +1132,10 @@ class GrappaAlgebra(Algebra):
 
         if kwargs.get('SwapJoinSides'):
             rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
+
+        # set external indexing on (replacing strings with ints)
+        if kwargs.get('external_indexing'):
+            CBaseLanguage.set_external_indexing(True)
 
         # flatten the rules lists
         rule_list = list(itertools.chain(*rule_grps_sequence))

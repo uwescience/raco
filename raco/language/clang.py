@@ -19,7 +19,6 @@ import itertools
 
 
 class CStagedTupleRef(StagedTupleRef):
-
     def __additionalDefinitionCode__(self, numfields, fieldtypes):
         constructor_template = CC.cgenv().get_template(
             'materialized_tuple_ref_additional.cpp')
@@ -585,6 +584,10 @@ class CCAlgebra(Algebra):
 
         if kwargs.get('SwapJoinSides'):
             rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
+
+        # set external indexing on (replacing strings with ints)
+        if kwargs.get('external_indexing'):
+            CBaseLanguage.set_external_indexing(True)
 
         # flatten the rules lists
         rule_list = list(itertools.chain(*rule_grps_sequence))
