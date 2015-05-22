@@ -97,6 +97,19 @@ class ExpressionProcessor(object):
         return raco.algebra.Scan(rel_key, scheme,
                                  self.catalog.num_tuples(rel_key))
 
+    def samplescan(self, rel_key, samp_size, is_WR):
+        assert isinstance(rel_key, relation_key.RelationKey)
+        try:
+            scheme = self.catalog.get_scheme(rel_key)
+        except KeyError:
+            if not self.use_dummy_schema:
+                raise NoSuchRelationException(rel_key)
+
+            # Create a dummy schema suitable for emitting plans
+            scheme = raco.scheme.DummyScheme()
+
+        return raco.algebra.SampleScan(rel_key, scheme, samp_size, is_WR)
+
     def load(self, path, scheme, options):
         return raco.algebra.FileScan(path, scheme, options)
 

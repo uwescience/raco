@@ -554,6 +554,16 @@ class Parser(object):
         p[0] = ('SCAN', p[3])
 
     @staticmethod
+    def p_expression_samplewrscan(p):
+        'expression : SAMPLEWRSCAN LPAREN relation_key COMMA INTEGER_LITERAL RPAREN'  # noqa
+        p[0] = ('SAMPLESCAN', p[3], p[5], True)
+
+    @staticmethod
+    def p_expression_sampleworscan(p):
+        'expression : SAMPLEWORSCAN LPAREN relation_key COMMA INTEGER_LITERAL RPAREN'  # noqa
+        p[0] = ('SAMPLESCAN', p[3], p[5], False)
+
+    @staticmethod
     def p_expression_load(p):
         'expression : LOAD LPAREN STRING_LITERAL COMMA file_parser_fun RPAREN'
         schema, options = p[5]

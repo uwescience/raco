@@ -1006,9 +1006,10 @@ class Shuffle(UnaryOperator):
 
     """Send the input to the specified servers"""
 
-    def __init__(self, child=None, columnlist=None):
+    def __init__(self, child=None, columnlist=None, raw_value_shuffle=False):
         UnaryOperator.__init__(self, child)
         self.columnlist = columnlist
+        self.raw_value_shuffle = raw_value_shuffle
 
     def num_tuples(self):
         return self.input.num_tuples()
@@ -1019,6 +1020,7 @@ class Shuffle(UnaryOperator):
 
     def copy(self, other):
         self.columnlist = other.columnlist
+        self.raw_value_shuffle = other.raw_value_shuffle
         UnaryOperator.copy(self, other)
 
 
@@ -1357,6 +1359,38 @@ class Scan(ZeroaryOperator):
         if hasattr(other, "originalterm"):
             self.originalterm = other.originalterm
         ZeroaryOperator.copy(self, other)
+
+    def scheme(self):
+        """Scheme of the result, which is just the scheme of the relation."""
+        return self._scheme
+
+
+class SampleScan(ZeroaryOperator):
+
+    """Logical Sample Operator"""
+
+    def __init__(self, relation_key, _scheme, sample_size, with_replacement):
+        self.relation_key = relation_key
+        self._scheme = _scheme
+        self.sample_size = sample_size
+        self.with_replacement = with_replacement
+        self.sample_type = "WR" if self.with_replacement else "WoR"
+        ZeroaryOperator.__init__(self)
+
+    def __repr__(self):
+        return "{op}{type}({rel}, {size})".format(op=self.opname(),
+                                                  type=self.sample_type,
+                                                  rel=self.relation_key,
+                                                  size=self.sample_size)
+
+    def shortStr(self):
+        return "{op}{type}({rel}, {size})".format(op=self.opname(),
+                                                  type=self.sample_type,
+                                                  rel=self.relation_key,
+                                                  size=self.sample_size)
+
+    def num_tuples(self):
+        return self.sample_size
 
     def scheme(self):
         """Scheme of the result, which is just the scheme of the relation."""

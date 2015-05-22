@@ -4,11 +4,12 @@ from collections import defaultdict, deque
 from operator import mul
 from sqlalchemy.dialects import postgresql
 
-from raco import algebra, expression, rules
+from raco import algebra, expression, rules, scheme
 from raco.algebra import convertcondition
 from raco.catalog import Catalog
 from raco.language import Language, Algebra
 from raco.language.sql.catalog import SQLCatalog
+from raco.expression import WORKERID, COUNTALL
 from raco.expression import UnnamedAttributeRef
 from raco.expression.aggregate import (rebase_local_aggregate_output,
                                        rebase_finalizer)
@@ -614,11 +615,17 @@ class MyriaSplitConsumer(algebra.UnaryOperator, MyriaOperator):
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleProducer"""
 
-    def __init__(self, input, hash_columns):
+    def __init__(self, input, hash_columns, is_raw_val=False):
         algebra.UnaryOperator.__init__(self, input)
+        # RawValue shuffle can only be performed on a single column
+        if is_raw_val and len(hash_columns) != 1:
+            raise ValueError("Can only RawValue shuffle on a single column.")
         self.hash_columns = hash_columns
+        self.is_raw_val = is_raw_val
 
     def shortStr(self):
+        if self.is_raw_val:
+            return "%s(%s)" % (self.opname(), self.hash_columns[0])
         hash_string = ','.join([str(x) for x in self.hash_columns])
         return "%s(h(%s))" % (self.opname(), hash_string)
 
@@ -632,7 +639,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     def compileme(self, inputid):
         if len(self.hash_columns) == 1:
             pf = {
-                "type": "SingleFieldHash",
+                "type": "RawValue" if self.is_raw_val else "SingleFieldHash",
                 "index": self.hash_columns[0].position
             }
         else:
@@ -796,12 +803,102 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
         }
 
 
+class MyriaSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
+    """A Myria SamplingDistribution operator"""
+    def __init__(self, input, sample_size, with_replacement):
+        algebra.UnaryOperator.__init__(self, input)
+        self.sample_size = sample_size
+        self.with_replacement = with_replacement
+        self.sample_type = "WR" if self.with_replacement else "WoR"
+
+    def __repr__(self):
+        return "{op}{type}{size}({inp})".format(op=self.opname(),
+                                                inp=self.input,
+                                                type=self.sample_type,
+                                                size=self.sample_size)
+
+    def shortStr(self):
+        return "{op}{type}({size})".format(op=self.opname(),
+                                           type=self.sample_type,
+                                           size=self.sample_size)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def scheme(self):
+        return self.input.scheme() + scheme.Scheme([('SampleSize',
+                                                     types.LONG_TYPE)])
+
+    def compileme(self, inputid):
+        return {
+            "opType": "SamplingDistribution",
+            "argChild": inputid,
+            "sampleSize": self.sample_size,
+            "isWithReplacement": self.with_replacement
+        }
+
+
+class MyriaSample(algebra.BinaryOperator, MyriaOperator):
+    """A Myria Sample operator"""
+    def __init__(self, left, right, sample_size, with_replacement):
+        algebra.BinaryOperator.__init__(self, left, right)
+        # with_replacement and sample_size are just used for displaying.
+        self.with_replacement = with_replacement
+        self.sample_size = sample_size
+
+    def shortStr(self):
+        samp_type = "WR" if self.with_replacement else "WoR"
+        return "{op}{type}({size})".format(op=self.opname(),
+                                           type=samp_type,
+                                           size=self.sample_size)
+
+    def num_tuples(self):
+        return self.sample_size
+
+    def scheme(self):
+        """The right operator is the one sampled from."""
+        return self.right.scheme()
+
+    def compileme(self, leftid, rightid):
+        return {
+            "opType": "Sample",
+            "argChild1": leftid,
+            "argChild2": rightid,
+        }
+
+
+class AddSampleOperators(rules.Rule):
+    """Converts logical SampleScan to the sequence of physical operators."""
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.SampleScan):
+            samp_size = expr.sample_size
+            is_WR = expr.with_replacement
+            # Each worker computes (WorkerID, LocalCount).
+            scan_r = MyriaScan(expr.relation_key, expr.scheme())
+            cnt_all = MyriaGroupBy(input=scan_r, aggregate_list=[COUNTALL()])
+            apply_wid = MyriaApply([('WorkerID', WORKERID()),
+                                    ('WorkerCount', UnnamedAttributeRef(0))],
+                                   cnt_all)
+            # Master collects the counts and generates a distribution.
+            collect = MyriaCollect(apply_wid)
+            samp_dist = MyriaSamplingDistribution(collect, samp_size, is_WR)
+            # Master sends out how much each worker should sample.
+            shuff = MyriaShuffle(samp_dist, [UnnamedAttributeRef(0)], True)
+            # Workers perform actual sampling.
+            samp = MyriaSample(shuff, scan_r, samp_size, is_WR)
+            return samp
+        else:
+            return expr
+
+
 class BreakShuffle(rules.Rule):
     def fire(self, expr):
         if not isinstance(expr, MyriaShuffle):
             return expr
 
-        producer = MyriaShuffleProducer(expr.input, expr.columnlist)
+        producer = MyriaShuffleProducer(expr.input, expr.columnlist,
+                                        expr.raw_value_shuffle)
         consumer = MyriaShuffleConsumer(producer)
         return consumer
 
@@ -1553,6 +1650,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             left_deep_tree_shuffle_logic,
             distributed_group_by,
             [rules.PushApply()],
+            [AddSampleOperators()],
         ]
 
         if kwargs.get('push_sql', False):
