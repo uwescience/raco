@@ -803,13 +803,12 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
         }
 
 
-class MyriaSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
+class MyriaCalculateSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
     """A Myria SamplingDistribution operator"""
-    def __init__(self, input, sample_size, with_replacement):
+    def __init__(self, input, sample_size, sample_type):
         algebra.UnaryOperator.__init__(self, input)
         self.sample_size = sample_size
-        self.with_replacement = with_replacement
-        self.sample_type = "WR" if self.with_replacement else "WoR"
+        self.sample_type = sample_type
 
     def __repr__(self):
         return "{op}{type}{size}({inp})".format(op=self.opname(),
@@ -830,26 +829,26 @@ class MyriaSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
                                                      types.LONG_TYPE)])
 
     def compileme(self, inputid):
+        is_with_replacement = True if self.sample_type == 'WR' else False
         return {
             "opType": "SamplingDistribution",
             "argChild": inputid,
             "sampleSize": self.sample_size,
-            "isWithReplacement": self.with_replacement
+            "isWithReplacement": is_with_replacement
         }
 
 
 class MyriaSample(algebra.BinaryOperator, MyriaOperator):
     """A Myria Sample operator"""
-    def __init__(self, left, right, sample_size, with_replacement):
+    def __init__(self, left, right, sample_size, sample_type):
         algebra.BinaryOperator.__init__(self, left, right)
-        # with_replacement and sample_size are just used for displaying.
-        self.with_replacement = with_replacement
+        # sample_size and sample_type are just used for displaying.
         self.sample_size = sample_size
+        self.sample_type = sample_type
 
     def shortStr(self):
-        samp_type = "WR" if self.with_replacement else "WoR"
         return "{op}{type}({size})".format(op=self.opname(),
-                                           type=samp_type,
+                                           type=self.sample_type,
                                            size=self.sample_size)
 
     def num_tuples(self):
@@ -867,13 +866,13 @@ class MyriaSample(algebra.BinaryOperator, MyriaOperator):
         }
 
 
-class AddSampleOperators(rules.Rule):
+class LogicalSampleToDistributedSample(rules.Rule):
     """Converts logical SampleScan to the sequence of physical operators."""
 
     def fire(self, expr):
         if isinstance(expr, algebra.SampleScan):
             samp_size = expr.sample_size
-            is_WR = expr.with_replacement
+            samp_type = expr.sample_type
             # Each worker computes (WorkerID, LocalCount).
             scan_r = MyriaScan(expr.relation_key, expr.scheme())
             cnt_all = MyriaGroupBy(input=scan_r, aggregate_list=[COUNTALL()])
@@ -882,11 +881,12 @@ class AddSampleOperators(rules.Rule):
                                    cnt_all)
             # Master collects the counts and generates a distribution.
             collect = MyriaCollect(apply_wid)
-            samp_dist = MyriaSamplingDistribution(collect, samp_size, is_WR)
+            samp_dist = MyriaCalculateSamplingDistribution(collect, samp_size,
+                                                           samp_type)
             # Master sends out how much each worker should sample.
             shuff = MyriaShuffle(samp_dist, [UnnamedAttributeRef(0)], True)
             # Workers perform actual sampling.
-            samp = MyriaSample(shuff, scan_r, samp_size, is_WR)
+            samp = MyriaSample(shuff, scan_r, samp_size, samp_type)
             return samp
         else:
             return expr
@@ -1650,7 +1650,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             left_deep_tree_shuffle_logic,
             distributed_group_by,
             [rules.PushApply()],
-            [AddSampleOperators()],
+            [LogicalSampleToDistributedSample()],
         ]
 
         if kwargs.get('push_sql', False):

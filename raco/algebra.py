@@ -1369,12 +1369,11 @@ class SampleScan(ZeroaryOperator):
 
     """Logical Sample Operator"""
 
-    def __init__(self, relation_key, _scheme, sample_size, with_replacement):
+    def __init__(self, relation_key, _scheme, sample_size, sample_type):
         self.relation_key = relation_key
         self._scheme = _scheme
         self.sample_size = sample_size
-        self.with_replacement = with_replacement
-        self.sample_type = "WR" if self.with_replacement else "WoR"
+        self.sample_type = sample_type
         ZeroaryOperator.__init__(self)
 
     def __repr__(self):

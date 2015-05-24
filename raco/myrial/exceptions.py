@@ -162,3 +162,11 @@ class NoSuchRelationException(MyrialCompileException):
 
     def __str__(self):
         return "No such relation: %s" % self.relname
+
+
+class InvalidSamplingTypeException(MyrialCompileException):
+    def __init__(self, samp_type):
+        self.samp_type = samp_type
+
+    def __str__(self):
+        return "Invalid Sampling Type: %s" % self.samp_type
