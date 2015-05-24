@@ -1,0 +1,11 @@
+-- Sample from relation with-replacement
+T1 = SAMPLESCAN(public:adhoc:employee, 1, WR);
+
+-- Sample from relation without-replacement
+T2 = SAMPLESCAN(public:adhoc:employee, 1, WoR);
+
+-- Uses With-Replacement sampling if no sample type specified
+T3 = SAMPLESCAN(public:adhoc:employee, 1);
+
+AllSamples = [FROM T1, T2, T3 EMIT *];
+Store(AllSamples, samplescanquery);

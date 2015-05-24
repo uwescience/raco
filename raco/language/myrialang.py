@@ -827,10 +827,11 @@ class MyriaCalculateSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
         self.sample_type = sample_type
 
     def __repr__(self):
-        return "{op}{type}{size}({inp})".format(op=self.opname(),
-                                                inp=self.input,
-                                                type=self.sample_type,
-                                                size=self.sample_size)
+        return "{op}({inp!r}, {size!r}, {type!r})".format(
+            op=self.opname(),
+            inp=self.input,
+            type=self.sample_type,
+            size=self.sample_size)
 
     def shortStr(self):
         return "{op}{type}({size})".format(op=self.opname(),
@@ -861,6 +862,14 @@ class MyriaSample(algebra.BinaryOperator, MyriaOperator):
         # sample_size and sample_type are just used for displaying.
         self.sample_size = sample_size
         self.sample_type = sample_type
+
+    def __repr__(self):
+        return "{op}({left!r}, {right!r}, {size!r}, {type!r})".format(
+            op=self.opname(),
+            left=self.left,
+            right=self.right,
+            type=self.sample_type,
+            size=self.sample_size)
 
     def shortStr(self):
         return "{op}{type}({size})".format(op=self.opname(),
@@ -900,7 +909,8 @@ class LogicalSampleToDistributedSample(rules.Rule):
             samp_dist = MyriaCalculateSamplingDistribution(collect, samp_size,
                                                            samp_type)
             # Master sends out how much each worker should sample.
-            shuff = MyriaShuffle(samp_dist, [UnnamedAttributeRef(0)], True)
+            shuff = MyriaShuffle(samp_dist, [UnnamedAttributeRef(0)],
+                                 ShuffleType.IdentityHash)
             # Workers perform actual sampling.
             samp = MyriaSample(shuff, scan_r, samp_size, samp_type)
             return samp
