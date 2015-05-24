@@ -1006,10 +1006,10 @@ class Shuffle(UnaryOperator):
 
     """Send the input to the specified servers"""
 
-    def __init__(self, child=None, columnlist=None, raw_value_shuffle=False):
+    def __init__(self, child=None, columnlist=None, shuffle_type=None):
         UnaryOperator.__init__(self, child)
         self.columnlist = columnlist
-        self.raw_value_shuffle = raw_value_shuffle
+        self.shuffle_type = shuffle_type
 
     def num_tuples(self):
         return self.input.num_tuples()
@@ -1020,7 +1020,7 @@ class Shuffle(UnaryOperator):
 
     def copy(self, other):
         self.columnlist = other.columnlist
-        self.raw_value_shuffle = other.raw_value_shuffle
+        self.shuffle_type = other.shuffle_type
         UnaryOperator.copy(self, other)
 
 

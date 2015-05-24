@@ -612,19 +612,28 @@ class MyriaSplitConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
+class ShuffleType(object):
+    """Enum of supported shuffling types."""
+    SingleFieldHash, MultiFieldHash, IdentityHash = range(3)
+
+
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleProducer"""
 
-    def __init__(self, input, hash_columns, is_raw_val=False):
+    def __init__(self, input, hash_columns, shuffle_type=None):
         algebra.UnaryOperator.__init__(self, input)
-        # RawValue shuffle can only be performed on a single column
-        if is_raw_val and len(hash_columns) != 1:
-            raise ValueError("Can only RawValue shuffle on a single column.")
         self.hash_columns = hash_columns
-        self.is_raw_val = is_raw_val
+        # If no specified shuffle type, it's a single/multi field hash.
+        if shuffle_type is None:
+            if len(self.hash_columns) == 1:
+                self.shuffle_type = ShuffleType.SingleFieldHash
+            else:
+                self.shuffle_type = ShuffleType.MultiFieldHash
+        else:
+            self.shuffle_type = shuffle_type
 
     def shortStr(self):
-        if self.is_raw_val:
+        if self.shuffle_type == ShuffleType.IdentityHash:
             return "%s(%s)" % (self.opname(), self.hash_columns[0])
         hash_string = ','.join([str(x) for x in self.hash_columns])
         return "%s(h(%s))" % (self.opname(), hash_string)
@@ -637,16 +646,23 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         return self.input.num_tuples()
 
     def compileme(self, inputid):
-        if len(self.hash_columns) == 1:
+        if self.shuffle_type == ShuffleType.SingleFieldHash:
             pf = {
-                "type": "RawValue" if self.is_raw_val else "SingleFieldHash",
+                "type": "SingleFieldHash",
                 "index": self.hash_columns[0].position
             }
-        else:
+        elif self.shuffle_type == ShuffleType.MultiFieldHash:
             pf = {
                 "type": "MultiFieldHash",
                 "indexes": [x.position for x in self.hash_columns]
             }
+        elif self.shuffle_type == ShuffleType.IdentityHash:
+            pf = {
+                "type": "RawValue",
+                "index": self.hash_columns[0].position
+            }
+        else:
+            raise ValueError("Invalid ShuffleType")
 
         return {
             "opType": "ShuffleProducer",
@@ -898,7 +914,7 @@ class BreakShuffle(rules.Rule):
             return expr
 
         producer = MyriaShuffleProducer(expr.input, expr.columnlist,
-                                        expr.raw_value_shuffle)
+                                        expr.shuffle_type)
         consumer = MyriaShuffleConsumer(producer)
         return consumer
 
