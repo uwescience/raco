@@ -107,7 +107,12 @@ class FakeDatabase(Catalog):
         return self.tables.get_table(op.relation_key).elements()
 
     def calculatesamplingdistribution(self, op):
-        return (t + (op.sample_size, op.sample_type) for t in
+        if op.is_pct:
+            tup_cnt = sum(t[1] for t in list(self.evaluate(op.input)))
+            sample_size = int(round(tup_cnt * (op.sample_size / 100.0)))
+        else:
+            sample_size = op.sample_size
+        return (t + (sample_size, op.sample_type) for t in
                 self.evaluate(op.input))
 
     def sample(self, op):

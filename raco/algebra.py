@@ -1369,24 +1369,29 @@ class SampleScan(ZeroaryOperator):
 
     """Logical Sample Operator"""
 
-    def __init__(self, relation_key, _scheme, sample_size, sample_type):
+    def __init__(self, relation_key, _scheme, sample_size, is_pct,
+                 sample_type):
         self.relation_key = relation_key
         self._scheme = _scheme
         self.sample_size = sample_size
+        self.is_pct = is_pct
         self.sample_type = sample_type
         ZeroaryOperator.__init__(self)
 
     def __repr__(self):
-        return "{op}{type}({rel}, {size})".format(op=self.opname(),
-                                                  type=self.sample_type,
-                                                  rel=self.relation_key,
-                                                  size=self.sample_size)
+        return "{op}({rk!r}, {s!r}, {p!r}, {t!r})".format(op=self.opname(),
+                                                          rk=self.relation_key,
+                                                          s=self.sample_size,
+                                                          p=self.is_pct,
+                                                          t=self.sample_type)
 
     def shortStr(self):
-        return "{op}{type}({rel}, {size})".format(op=self.opname(),
-                                                  type=self.sample_type,
-                                                  rel=self.relation_key,
-                                                  size=self.sample_size)
+        pct = '%' if self.is_pct else ''
+        return "{op}{type}({rel}, {size}{pct})".format(op=self.opname(),
+                                                       type=self.sample_type,
+                                                       rel=self.relation_key,
+                                                       size=self.sample_size,
+                                                       pct=pct)
 
     def num_tuples(self):
         return self.sample_size
