@@ -658,7 +658,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
             }
         elif self.shuffle_type == ShuffleType.IdentityHash:
             pf = {
-                "type": "RawValue",
+                "type": "IdentityHash",
                 "index": self.hash_columns[0].position
             }
         else:
