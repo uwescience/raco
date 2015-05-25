@@ -622,15 +622,16 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
     def __init__(self, input, hash_columns, shuffle_type=None):
         algebra.UnaryOperator.__init__(self, input)
-        self.hash_columns = hash_columns
         # If no specified shuffle type, it's a single/multi field hash.
         if shuffle_type is None:
-            if len(self.hash_columns) == 1:
-                self.shuffle_type = ShuffleType.SingleFieldHash
-            else:
-                self.shuffle_type = ShuffleType.MultiFieldHash
-        else:
-            self.shuffle_type = shuffle_type
+            shuffle_type = ShuffleType.SingleFieldHash if len(
+                hash_columns) == 1 else ShuffleType.MultiFieldHash
+        # Single field ShuffleTypes must have only one hash_column.
+        if shuffle_type in (ShuffleType.IdentityHash,
+                            ShuffleType.SingleFieldHash):
+            assert len(hash_columns) == 1
+        self.shuffle_type = shuffle_type
+        self.hash_columns = hash_columns
 
     def shortStr(self):
         if self.shuffle_type == ShuffleType.IdentityHash:
