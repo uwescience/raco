@@ -6,6 +6,7 @@ from sqlalchemy.dialects import postgresql
 
 from raco import algebra, expression, rules, scheme
 from raco.algebra import convertcondition
+from raco.algebra import Shuffle
 from raco.catalog import Catalog
 from raco.language import Language, Algebra
 from raco.language.sql.catalog import SQLCatalog
@@ -612,11 +613,6 @@ class MyriaSplitConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
-class ShuffleType(object):
-    """Enum of supported shuffling types."""
-    SingleFieldHash, MultiFieldHash, IdentityHash = range(3)
-
-
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     """A Myria ShuffleProducer"""
 
@@ -624,17 +620,17 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         algebra.UnaryOperator.__init__(self, input)
         # If no specified shuffle type, it's a single/multi field hash.
         if shuffle_type is None:
-            shuffle_type = ShuffleType.SingleFieldHash if len(
-                hash_columns) == 1 else ShuffleType.MultiFieldHash
+            shuffle_type = Shuffle.ShuffleType.SingleFieldHash if len(
+                hash_columns) == 1 else Shuffle.ShuffleType.MultiFieldHash
         # Single field ShuffleTypes must have only one hash_column.
-        if shuffle_type in (ShuffleType.IdentityHash,
-                            ShuffleType.SingleFieldHash):
+        if shuffle_type in (Shuffle.ShuffleType.IdentityHash,
+                            Shuffle.ShuffleType.SingleFieldHash):
             assert len(hash_columns) == 1
         self.shuffle_type = shuffle_type
         self.hash_columns = hash_columns
 
     def shortStr(self):
-        if self.shuffle_type == ShuffleType.IdentityHash:
+        if self.shuffle_type == Shuffle.ShuffleType.IdentityHash:
             return "%s(%s)" % (self.opname(), self.hash_columns[0])
         hash_string = ','.join([str(x) for x in self.hash_columns])
         return "%s(h(%s))" % (self.opname(), hash_string)
@@ -647,17 +643,17 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         return self.input.num_tuples()
 
     def compileme(self, inputid):
-        if self.shuffle_type == ShuffleType.SingleFieldHash:
+        if self.shuffle_type == Shuffle.ShuffleType.SingleFieldHash:
             pf = {
                 "type": "SingleFieldHash",
                 "index": self.hash_columns[0].position
             }
-        elif self.shuffle_type == ShuffleType.MultiFieldHash:
+        elif self.shuffle_type == Shuffle.ShuffleType.MultiFieldHash:
             pf = {
                 "type": "MultiFieldHash",
                 "indexes": [x.position for x in self.hash_columns]
             }
-        elif self.shuffle_type == ShuffleType.IdentityHash:
+        elif self.shuffle_type == Shuffle.ShuffleType.IdentityHash:
             pf = {
                 "type": "IdentityHash",
                 "index": self.hash_columns[0].position
@@ -922,7 +918,7 @@ class LogicalSampleToDistributedSample(rules.Rule):
                                                            is_pct, samp_type)
             # Master sends out how much each worker should sample.
             shuff = MyriaShuffle(samp_dist, [UnnamedAttributeRef(0)],
-                                 ShuffleType.IdentityHash)
+                                 Shuffle.ShuffleType.IdentityHash)
             # Workers perform actual sampling.
             samp = MyriaSample(shuff, scan_r, samp_size, is_pct, samp_type)
             return samp

@@ -1023,6 +1023,10 @@ class Shuffle(UnaryOperator):
         self.shuffle_type = other.shuffle_type
         UnaryOperator.copy(self, other)
 
+    class ShuffleType(object):
+        """Enum of supported shuffling types."""
+        SingleFieldHash, MultiFieldHash, IdentityHash = range(3)
+
 
 class HyperCubeShuffle(UnaryOperator):
 
