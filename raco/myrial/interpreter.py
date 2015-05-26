@@ -102,7 +102,8 @@ class ExpressionProcessor(object):
         """Sample a base relation."""
         assert isinstance(rel_key, relation_key.RelationKey)
         if samp_type not in ('WR', 'WoR'):
-            raise MyrialCompileException()
+            raise MyrialCompileException(
+                "Invalid Sampling Type: %s" % samp_type)
         scheme = self._get_scan_scheme(rel_key)
         return raco.algebra.SampleScan(rel_key, scheme, samp_size, is_pct,
                                        samp_type)
