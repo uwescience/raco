@@ -554,6 +554,24 @@ class Parser(object):
         p[0] = ('SCAN', p[3])
 
     @staticmethod
+    def p_expression_samplescan(p):
+        """expression : SAMPLESCAN LPAREN relation_key COMMA INTEGER_LITERAL RPAREN
+                      | SAMPLESCAN LPAREN relation_key COMMA INTEGER_LITERAL MOD RPAREN
+                      | SAMPLESCAN LPAREN relation_key COMMA FLOAT_LITERAL MOD RPAREN
+                      | SAMPLESCAN LPAREN relation_key COMMA INTEGER_LITERAL COMMA string_arg RPAREN
+                      | SAMPLESCAN LPAREN relation_key COMMA INTEGER_LITERAL MOD COMMA string_arg RPAREN
+                      | SAMPLESCAN LPAREN relation_key COMMA FLOAT_LITERAL MOD COMMA string_arg RPAREN"""  # noqa
+        if len(p) in (7, 8):
+            # Default if no sample type specified
+            samp_type = 'WR'
+        elif len(p) == 9:
+            samp_type = p[7]
+        else:
+            samp_type = p[8]
+        is_pct = p[6] == '%'
+        p[0] = ('SAMPLESCAN', p[3], p[5], is_pct, samp_type)
+
+    @staticmethod
     def p_expression_load(p):
         'expression : LOAD LPAREN STRING_LITERAL COMMA file_parser_fun RPAREN'
         schema, options = p[5]

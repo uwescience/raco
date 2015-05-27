@@ -2,6 +2,7 @@
 import collections
 import itertools
 import csv
+import random
 
 from raco.dbconn import DBConnection
 from raco import relation_key, types
@@ -104,6 +105,30 @@ class FakeDatabase(Catalog):
     def scan(self, op):
         assert isinstance(op.relation_key, relation_key.RelationKey)
         return self.tables.get_table(op.relation_key).elements()
+
+    def calculatesamplingdistribution(self, op):
+        if op.is_pct:
+            tup_cnt = sum(t[1] for t in list(self.evaluate(op.input)))
+            sample_size = int(round(tup_cnt * (op.sample_size / 100.0)))
+        else:
+            sample_size = op.sample_size
+        return (t + (sample_size, op.sample_type) for t in
+                self.evaluate(op.input))
+
+    def sample(self, op):
+        sample_info = list(self.evaluate(op.left))
+        assert len(sample_info) == 1
+        sample_type = sample_info[0][3]
+        sample_size = sample_info[0][2]
+        tuples = list(self.evaluate(op.right))
+        if sample_type == 'WR':
+            # Add unique index to make them appear like different tuples.
+            sample = [(i,) + random.choice(tuples) for i in range(sample_size)]
+        elif sample_type == 'WoR':
+            sample = random.sample(tuples, sample_size)
+        else:
+            raise ValueError("Invalid sample type")
+        return iter(sample)
 
     def filescan(self, op):
         type_list = op.scheme().get_types()
@@ -369,6 +394,12 @@ class FakeDatabase(Catalog):
 
     def myriascan(self, op):
         return self.scan(op)
+
+    def myriacalculatesamplingdistribution(self, op):
+        return self.calculatesamplingdistribution(op)
+
+    def myriasample(self, op):
+        return self.sample(op)
 
     def myriafilescan(self, op):
         return self.filescan(op)
