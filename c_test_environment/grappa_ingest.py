@@ -138,7 +138,7 @@ elif args.storage in ['row_ascii', 'row_json']:
     if args.splits:
         num_tuples = subprocess.check_output("wc -l {0}/part-* "
                                              "| tail -n 1 "
-                                             "| awk {{print $1}}".format(inputf)
+                                             "| awk '{{print $1}}'".format(inputf)
                                              , shell=True)
     else:
         num_tuples = subprocess.check_output("wc -l {0} | awk '{{print $1}}'".format(inputf), shell=True)
