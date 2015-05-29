@@ -14,6 +14,8 @@ p = argparse.ArgumentParser(prog=sys.argv[0])
 p.add_argument("-i", dest="input_file", required=True, help="input file")
 p.add_argument("-c", dest="catalog_path", help="path of catalog file, see FromFileCatalog for format", required=True)
 p.add_argument("-s", dest="system", help="clang or grappa", default="clang")
+p.add_argument("--host", dest="host", help="hostname of server", default="localhost")
+p.add_argument("--port", dest="port", help="port server is listening on", default=1337)
 p.add_argument("--external-string-index", dest="ext_index", action="store_true", help="Create string external string index that is deprecated after raco@40640adff89e1c1aade007a998b335b623ff22aa")
 p.add_argument("--storage", dest="storage", default="binary", help="binary, row_ascii, row_json")
 args = p.parse_args(sys.argv[1:])
@@ -22,7 +24,7 @@ catalogfile = args.catalog_path
 system = args.system
 
 
-uri = 'http://sampa-gw.cs.washington.edu:1337'
+uri = 'http://{h}:{p}'.format(h=args.host, p=args.port)
 
 
 import requests
@@ -127,7 +129,7 @@ with open(schema_file, 'w') as csvfile:
 
 print "data for input in " + schema_file
 
-conn = UploadConnection('localhost', '1337')
+conn = UploadConnection(args.host, args.port)
 conn.upload(schema_file, upload_files)
 
 print "successful upload of: " + schema_file + " and " + str(upload_files)
