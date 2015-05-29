@@ -14,6 +14,8 @@ p = argparse.ArgumentParser(prog=sys.argv[0])
 p.add_argument("-i", dest="input_file", required=True, help="input file")
 p.add_argument("-c", dest="catalog_path", help="path of catalog file, see FromFileCatalog for format", required=True)
 p.add_argument("-s", dest="system", help="clang or grappa", default="clang")
+p.add_argument("--splits", dest="splits", action="store_true", help="input file is base directory of file splits (e.g. hdfs)")
+p.add_argument("--softlink-data", dest="softlink_data", action="store_true", help="data file softlinked rather than copied")
 p.add_argument("--host", dest="host", help="hostname of server", default="localhost")
 p.add_argument("--port", dest="port", help="port server is listening on", default=1337)
 p.add_argument("--external-string-index", dest="ext_index", action="store_true", help="Create string external string index that is deprecated after raco@40640adff89e1c1aade007a998b335b623ff22aa")
@@ -42,10 +44,27 @@ class UploadConnection:
         return requests.Session().post(requrl, data=json.dumps(json_obj),
                                        headers=headers)
 
-    def upload(self, schemafile, files):
+    def _get_upload_path(self):
         # get upload location
         r = requests.get(self.url + '/uploadLocation')
         path = r.json()['dir']
+        return path
+
+    def softlink(self, files):
+        if len(files) == 0:
+            return
+
+        assert self.hostname == 'localhost', "softlink currently supported " \
+                                "only for localhost"
+
+        path = self._get_upload_path()
+
+        for f in file:
+            subprocess.check_call('ln -s {target} {name}'.format(
+                target=f, name=path+'/'+os.path.basename(f)))
+
+    def upload(self, schemafile, files):
+        path = self._get_upload_path()
 
         # copy the files to the server
         files_str = ' '.join(files + [schemafile])
@@ -68,8 +87,15 @@ def task_message(s):
     print "{0}...".format(s)
 
 upload_files = []
+link_files = []
+def add_data_file(f):
+    if args.softlink_data:
+        link_files.append(f)
+    else:
+        upload_files.append(f)
 
 if args.ext_index:
+    assert not args.splits, "--splits and --external-string-indexing not currently compatible"
     task_message("indexing")
     datafile, indexfile = indexing(inputf)
     upload_files.append(indexfile)
@@ -77,6 +103,8 @@ else:
     datafile = inputf
 
 if args.storage == 'binary':
+    assert not args.splits, "--splits and --storage=binary not currently compatible"
+
     # TODO: have an option to use Grappa to index the strings
     # see $GRAPPA_HOME/build/Make+Release/applications/join/convert2bin.exe
 
@@ -100,15 +128,22 @@ if args.storage == 'binary':
 
     num_tuples = re.search("rows: (\d+)", convert_stdout).group(1)
 
-    upload_files.append(datafile+'.bin')
+    add_data_file(datafile+'.bin')
 
 
 elif args.storage in ['row_ascii', 'row_json']:
     cat = FromFileCatalog.load_from_file(catalogfile)
     rel_key = cat.get_keys()[0]
-    num_tuples = subprocess.check_output("wc -l {0} | awk '{{print $1}}'".format(inputf), shell=True)
 
-    upload_files.append(datafile)
+    if args.splits:
+        num_tuples = subprocess.check_output("wc -l {0}/part-* "
+                                             "| tail -n 1 "
+                                             "| awk {{print $1}}".format(inputf)
+                                             , shell=True)
+    else:
+        num_tuples = subprocess.check_output("wc -l {0} | awk '{{print $1}}'".format(inputf), shell=True)
+
+    add_data_file(datafile)
 
 else:
     raise Exception("Invalid storage format {0}".format(args.storage))
@@ -131,6 +166,7 @@ print "data for input in " + schema_file
 
 conn = UploadConnection(args.host, args.port)
 conn.upload(schema_file, upload_files)
+conn.softlink(link_files)
 
 print "successful upload of: " + schema_file + " and " + str(upload_files)
 
