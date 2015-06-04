@@ -60,7 +60,7 @@ class UploadConnection:
 
         path = self._get_upload_path()
 
-        for f in file:
+        for f in files:
             subprocess.check_call('ln -s {target} {name}'.format(
                 target=f, name=path+'/'+os.path.basename(f)))
 
