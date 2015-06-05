@@ -4,7 +4,7 @@ from raco.relation_key import RelationKey
 from raco.scheme import Scheme
 from ast import literal_eval
 import os
-
+import json
 
 class Relation(object):
 
@@ -133,6 +133,30 @@ class FromFileCatalog(Catalog):
     def load_from_file(cls, path):
         with open(path) as fh:
             return cls(literal_eval(fh.read()), path)
+
+    @classmethod
+    def scheme_write_to_file(cls, path, new_rel_key, new_rel_schema):
+        new_schema_entry = literal_eval(new_rel_schema)
+        col_names = new_schema_entry['columnNames']
+        col_types = new_schema_entry['columnTypes']
+        columns = zip(col_names, col_types)
+
+        if(os.path.isfile(path)):
+            schema_read = open(path, 'r')
+            s = schema_read.read()
+            schema_read.close()
+
+            schema_write = open(path, 'w')
+            current_dict = literal_eval(s)
+            current_dict[new_rel_key] = columns
+            json.dump(current_dict, schema_write)
+            schema_write.close()
+        else: 
+            with open(path, 'w+') as fh:
+                d = {}
+                d[new_rel_key] = columns
+                json.dump(d, fh)
+            fh.close()
 
     def get_num_servers(self):
         return 1
