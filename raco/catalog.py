@@ -6,6 +6,7 @@ from ast import literal_eval
 import os
 import json
 
+
 class Relation(object):
 
     def __init__(self, name, sch):
@@ -151,7 +152,7 @@ class FromFileCatalog(Catalog):
             current_dict[new_rel_key] = columns
             json.dump(current_dict, schema_write)
             schema_write.close()
-        else: 
+        else:
             with open(path, 'w+') as fh:
                 d = {}
                 d[new_rel_key] = columns
