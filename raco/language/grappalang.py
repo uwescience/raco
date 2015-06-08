@@ -11,7 +11,6 @@ from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, CBaseLanguage
 from raco.language import clangcommon
 from raco.utility import emitlist
-from raco import types
 
 from raco.algebra import gensym
 
@@ -619,7 +618,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         if self._agg_mode == self._ONE_BUILT_IN:
             state_type = self.language().typename(
-                self.aggregate_list[0].input.typeof(inp_sch, None))
+                self.aggregate_list[0].typeof(inp_sch, None))
             op = self.aggregate_list[0]
             up_op_name = op.__class__.__name__
             co_op_name = self._combiner_for_builtin_update(
