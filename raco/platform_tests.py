@@ -532,6 +532,20 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(["C3"], "select_string_literal")
         self.check(q, "select_string_literal")
 
+    def test_aggregate_string(self):
+       self.check_sub_tables("""
+       C3 = SCAN(%(C3)s);
+       P = [FROM C3 EMIT $0, COUNT($1)];
+       STORE(P, OUTPUT);
+       """, "aggregate_string")
+
+    def test_countstar_string(self):
+        self.check_sub_tables("""
+       C3 = SCAN(%(C3)s);
+       P = [FROM C3 EMIT COUNT($1)];
+       STORE(P, OUTPUT);
+       """, "countstar_string")
+
     def test_aggregate_double(self):
         self.check_sub_tables("""
         D2 = SCAN(%(D2)s);
