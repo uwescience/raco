@@ -3,18 +3,29 @@ Functions (unary and binary) for use in Raco.
 """
 
 import math
+import md5
+import random
 
-from .expression import *
+from .expression import (ZeroaryOperator, UnaryOperator, BinaryOperator,
+                         NaryOperator, types, check_is_numeric, check_type,
+                         TypeSafetyViolation)
 
 
 class UnaryFunction(UnaryOperator):
     def __str__(self):
         return "%s(%s)" % (self.__class__.__name__, self.input)
 
+    def __repr__(self):
+        return "{op}({inp!r})".format(op=self.opname(), inp=self.input)
+
 
 class BinaryFunction(BinaryOperator):
     def __str__(self):
         return "%s(%s, %s)" % (self.__class__.__name__, self.left, self.right)
+
+    def __repr__(self):
+        return "{op}({l!r}, {r!r})".format(op=self.opname(), l=self.left,
+                                           r=self.right)
 
 
 class NaryFunction(NaryOperator):
@@ -23,16 +34,36 @@ class NaryFunction(NaryOperator):
             (self.__class__.__name__,
              ",".join([str(op) for op in self.operands]))
 
+    def __repr__(self):
+        return "{op}({ch!r})".format(op=self.opname(), ch=self.operands)
+
 
 class WORKERID(ZeroaryOperator):
     def __str__(self):
         return "%s" % self.__class__.__name__
+
+    def __repr__(self):
+        return "{op}()".format(op=self.opname())
 
     def evaluate(self, _tuple, scheme, state=None):
         return 0
 
     def typeof(self, scheme, state_scheme):
         return types.LONG_TYPE
+
+
+class RANDOM(ZeroaryOperator):
+    def __str__(self):
+        return "%s" % self.__class__.__name__
+
+    def __repr__(self):
+        return "{op}()".format(op=self.opname())
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return random.random()
+
+    def typeof(self, scheme, state_scheme):
+        return types.DOUBLE_TYPE
 
 
 class UnaryDoubleFunction(UnaryFunction):
@@ -88,6 +119,17 @@ class SQRT(UnaryDoubleFunction):
 class TAN(UnaryDoubleFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return math.tan(self.input.evaluate(_tuple, scheme, state))
+
+
+class MD5(UnaryFunction):
+    def typeof(self, scheme, state_scheme):
+        return types.LONG_TYPE
+
+    def evaluate(self, _tuple, scheme, state=None):
+        """Preserve 64 bits of the md5 hash function."""
+        m = md5.new()
+        m.update(str(self.input.evaluate(_tuple, scheme, state)))
+        return int(m.hexdigest(), 16) >> 64
 
 
 class POW(BinaryFunction):

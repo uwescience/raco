@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+
+import raco.rules
+import raco.language.myrialang
+
+import inspect
+
+for r in raco.rules.Rule.__subclasses__():
+    # skip one to ones
+    if r.__name__ != "OneToOne":
+        num_args = len(inspect.getargspec(r.__init__).args) - 1
+        try:
+            instance = r(*[None for i in range(num_args)])
+            print instance
+        except Exception as e:
+            print "Could not print rule named", r.__name__
+            # uncomment for debugging rule printing
+            # raise e
+    

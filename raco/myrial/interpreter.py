@@ -7,11 +7,12 @@ import raco.algebra
 import raco.expression
 import raco.catalog
 import raco.scheme
-from raco.language import MyriaLeftDeepTreeAlgebra, MyriaHyperCubeAlgebra
-from raco.algebra import LogicalAlgebra
-from raco.myrialang import compile_to_json
+from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
+                                     MyriaHyperCubeAlgebra)
+from raco.language.myrialang import compile_to_json
 from raco.compile import optimize
 from raco import relation_key
+from raco.expression import StateVar
 
 import collections
 import copy
@@ -33,7 +34,6 @@ class NoSuchRelationException(Exception):
 class NoConnectionForLanguage(Exception):
     pass
 
-
 def get_unnamed_ref(column_ref, scheme, offset=0):
     """Convert a string or int into an attribute ref on the new table"""  # noqa
     if isinstance(column_ref, int):
@@ -45,7 +45,7 @@ def get_unnamed_ref(column_ref, scheme, offset=0):
 
 def check_binop_compatability(op_name, left, right):
     """Check whether the arguments to an operation are compatible."""
-    # Todo: check for type compatibilty here?
+    # Todo: check for type compatibility here?
     # https://github.com/uwescience/raco/issues/213
     if len(left.scheme()) != len(right.scheme()):
         raise SchemaMismatchException(op_name)
@@ -67,7 +67,7 @@ class ExpressionProcessor(object):
         self.connection_table = connection_table
         self.use_dummy_schema = use_dummy_schema
 
-        # Variables accesed by the current operation
+        # Variables accessed by the current operation
         self.uses_set = set()
 
     def get_and_clear_uses_set(self):
@@ -82,28 +82,43 @@ class ExpressionProcessor(object):
         return method(*expr[1:])
 
     def __lookup_symbol(self, _id):
+        if _id not in self.symbols:
+            raise NoSuchRelationException(_id)
+
         self.uses_set.add(_id)
         return copy.deepcopy(self.symbols[_id])
 
     def alias(self, _id):
         return self.__lookup_symbol(_id)
 
-    def scan(self, rel_key):
-        """Scan a database table."""
-        assert isinstance(rel_key, relation_key.RelationKey)
+    def _get_scan_scheme(self, rel_key):
         try:
-            scheme = self.catalog.get_scheme(rel_key)
+            return self.catalog.get_scheme(rel_key)
         except KeyError:
             if not self.use_dummy_schema:
                 raise NoSuchRelationException(rel_key)
-
             # Create a dummy schema suitable for emitting plans
-            scheme = raco.scheme.DummyScheme()
+            return raco.scheme.DummyScheme()
 
-        return raco.algebra.Scan(rel_key, scheme)
+    def scan(self, rel_key):
+        """Scan a database table."""
+        assert isinstance(rel_key, relation_key.RelationKey)
+        scheme = self._get_scan_scheme(rel_key)
+        return raco.algebra.Scan(rel_key, scheme,
+                                 self.catalog.num_tuples(rel_key))
 
-    def load(self, path, scheme):
-        return raco.algebra.FileScan(path, scheme)
+    def samplescan(self, rel_key, samp_size, is_pct, samp_type):
+        """Sample a base relation."""
+        assert isinstance(rel_key, relation_key.RelationKey)
+        if samp_type not in ('WR', 'WoR'):
+            raise MyrialCompileException(
+                "Invalid Sampling Type: %s" % samp_type)
+        scheme = self._get_scan_scheme(rel_key)
+        return raco.algebra.SampleScan(rel_key, scheme, samp_size, is_pct,
+                                       samp_type)
+
+    def load(self, path, scheme, options):
+        return raco.algebra.FileScan(path, scheme, options)
 
     def table(self, emit_clause):
         """Emit a single-row table literal."""
@@ -143,12 +158,19 @@ class ExpressionProcessor(object):
         return op
 
     def extract_unbox_args(self, from_args, sexpr):
+        """Extract unbox arguments from a scalar expression.
+
+        :param from_args: An ordered dictionary that maps from a
+        relation alias (string) to an instance of raco.algebra.Operator.
+        :param sexpr: A scalar expression (raco.expression.Expresssion)
+        instance.
+        """
         for sub_expr in sexpr.walk():
             if isinstance(sub_expr, raco.expression.Unbox):
-                rex = sub_expr.relational_expression
-                if rex not in from_args:
-                    unbox_op = self.evaluate(rex)
-                    from_args[rex] = unbox_op
+                name = sub_expr.table_name
+                assert isinstance(name, basestring)
+                if name not in from_args:
+                    from_args[name] = self.__lookup_symbol(name)
 
     def bagcomp(self, from_clause, where_clause, emit_clause):
         """Evaluate a bag comprehension.
@@ -172,6 +194,7 @@ class ExpressionProcessor(object):
         from_args = collections.OrderedDict()
 
         for _id, expr in from_clause:
+            assert isinstance(_id, basestring)
             if expr:
                 from_args[_id] = self.evaluate(expr)
             else:
@@ -202,7 +225,10 @@ class ExpressionProcessor(object):
         new_schema_length = len(op.scheme())
         implicit_group_by_cols = range(orig_schema_length, new_schema_length)
 
-        # rewrite clauses in terms of the new schema
+        ################################################
+        # Compile away unbox expressions in where, emit clauses
+        ################################################
+
         if where_clause:
             where_clause = multiway.rewrite_refs(where_clause, from_args, info)
             # Extract the type of there where clause to force type safety
@@ -213,11 +239,12 @@ class ExpressionProcessor(object):
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
                      for (name, sexpr) in emit_args]
 
-        statemods = [(name, init, multiway.rewrite_refs(update, from_args, info))  # noqa
-                     for name, init, update in statemods]
+        statemods = multiway.rewrite_statemods(statemods, from_args, info)
 
-        if any([raco.expression.isaggregate(ex) for name, ex in emit_args]):
-            return groupby.groupby(op, emit_args, implicit_group_by_cols)
+        if any(raco.expression.expression_contains_aggregate(ex)
+               for name, ex in emit_args):
+            return groupby.groupby(op, emit_args, implicit_group_by_cols,
+                                   statemods)
         else:
             if statemods:
                 return raco.algebra.StatefulApply(emit_args, statemods, op)
@@ -295,7 +322,7 @@ class ExpressionProcessor(object):
 
 
 class StatementProcessor(object):
-    '''Evaluate a list of statements'''
+    """Evaluate a list of statements"""
 
     def __init__(self, catalog, use_dummy_schema=False):
         # Map from identifiers (aliases) to raco.algebra.Operation instances
@@ -311,7 +338,7 @@ class StatementProcessor(object):
         self.cfg = ControlFlowGraph()
 
     def evaluate(self, statements):
-        '''Evaluate a list of statements'''
+        """Evaluate a list of statements"""
         for statement in statements:
             # Switch on the first tuple entry
             method = getattr(self, statement[0].lower())
@@ -355,7 +382,7 @@ class StatementProcessor(object):
         self.symbols[_id] = raco.algebra.ScanTemp(_id, child_op.scheme())
 
     def assign(self, _id, expr):
-        '''Map a variable to the value of an expression.'''
+        """Map a variable to the value of an expression."""
         self.__do_assignment(_id, expr)
 
     def store(self, _id, rel_key, how_partitioned):
@@ -369,6 +396,14 @@ class StatementProcessor(object):
             col_list = [get_unnamed_ref(a, scheme) for a in how_partitioned]
             child_op = raco.algebra.Shuffle(child_op, col_list)
         op = raco.algebra.Store(rel_key, child_op)
+
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, None, uses_set)
+
+    def sink(self, _id):
+        alias_expr = ("ALIAS", _id)
+        child_op = self.ep.evaluate(alias_expr)
+        op = raco.algebra.Sink(child_op)
 
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, None, uses_set)
@@ -398,6 +433,7 @@ class StatementProcessor(object):
         # loop
         self.cfg.add_edge(last_op_id, first_op_id)
 
+<<<<<<< HEAD
     def connect(self, lang, connstring):
         self.connection_table[lang.lower()] = connstring
 
@@ -418,26 +454,44 @@ class StatementProcessor(object):
         self.cfg.add_op(op, None, set())
 
     def get_logical_plan(self):
+=======
+    def get_logical_plan(self, **kwargs):
+>>>>>>> 56e87c5b7a70b76f0e97bb90d14b86a6e245d102
         """Return an operator representing the logical query plan."""
-        return self.cfg.get_logical_plan()
+        return self.cfg.get_logical_plan(
+            dead_code_elimination=kwargs.get('dead_code_elimination', True),
+            apply_chaining=kwargs.get('apply_chaining', True))
 
-    def get_physical_plan(self, multiway_join=False):
+    def __get_physical_plan_for__(self, target_phys_algebra, **kwargs):
+        logical_plan = self.get_logical_plan(**kwargs)
+
+        kwargs['target'] = target_phys_algebra
+        return optimize(logical_plan, **kwargs)
+
+    def get_physical_plan(self, **kwargs):
         """Return an operator representing the physical query plan."""
+        target_phys_algebra = kwargs.get('target_alg')
+        if target_phys_algebra is None:
+            if kwargs.get('multiway_join', False):
+                target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog)
+            else:
+                target_phys_algebra = MyriaLeftDeepTreeAlgebra()
 
-        # TODO: Get rid of the dummy label argument here.
-        # Return first (only) plan; strip off dummy label.
-        logical_plan = self.get_logical_plan()
-        if multiway_join:
-            target_phys_algebra = MyriaHyperCubeAlgebra(self.catalog)
-        else:
-            target_phys_algebra = MyriaLeftDeepTreeAlgebra()
-        return optimize(logical_plan,
-                        target=target_phys_algebra,
-                        source=LogicalAlgebra)
+        return self.__get_physical_plan_for__(target_phys_algebra, **kwargs)
 
-    def get_json(self, multiway_join=False):
+    def get_json(self, **kwargs):
         lp = self.get_logical_plan()
-        pps = self.get_physical_plan(multiway_join)
+        pps = self.get_physical_plan(**kwargs)
+
         # TODO This is not correct. The first argument is the raw query string,
         # not the string representation of the logical plan
-        return compile_to_json(str(lp), pps, pps)
+        return compile_to_json(str(lp), pps, pps, "myrial")
+
+    @classmethod
+    def get_json_from_physical_plan(cls, pp):
+        pps = pp
+
+        # TODO This is not correct. The first argument is the raw query string,
+        # not the string representation of the logical plan
+        return compile_to_json(
+            "NOT_SOURCED_FROM_LOGICAL_RA", pps, pps, "myrial")

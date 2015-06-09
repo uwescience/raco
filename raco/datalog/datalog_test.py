@@ -3,8 +3,9 @@ import json
 
 import raco.fakedb
 from raco import RACompiler
-from raco.language import MyriaLeftDeepTreeAlgebra, MyriaHyperCubeAlgebra
-from raco.myrialang import compile_to_json
+from raco.language.myrialang import (compile_to_json,
+                                     MyriaLeftDeepTreeAlgebra,
+                                     MyriaHyperCubeAlgebra)
 from raco.catalog import FakeCatalog
 
 
@@ -27,19 +28,15 @@ class DatalogTestCase(unittest.TestCase):
             plan = dlog.logicalplan
         else:
             if algebra == MyriaLeftDeepTreeAlgebra:
-                dlog.optimize(
-                    target=MyriaLeftDeepTreeAlgebra(),
-                    eliminate_common_subexpressions=False)
+                dlog.optimize(MyriaLeftDeepTreeAlgebra())
             else:
-                dlog.optimize(
-                    target=MyriaHyperCubeAlgebra(FakeCatalog(64)),
-                    eliminate_common_subexpressions=False)
+                dlog.optimize(MyriaHyperCubeAlgebra(FakeCatalog(64)))
             plan = dlog.physicalplan
 
             if not skip_json:
                 # test whether we can generate json without errors
                 json_string = json.dumps(compile_to_json(
-                    query, dlog.logicalplan, dlog.physicalplan))
+                    query, dlog.logicalplan, dlog.physicalplan, "datalog"))
                 assert json_string
 
         self.db.evaluate(plan)

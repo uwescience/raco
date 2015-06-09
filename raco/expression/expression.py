@@ -3,13 +3,12 @@ An expression language for Raco: functions, booleans, aggregates, etc.
 
 Most non-trivial operators and functions are in separate files in this package.
 """
+from abc import ABCMeta, abstractmethod
+import logging
 
 from raco.utility import Printable
 from raco import types
 
-from abc import ABCMeta, abstractmethod
-
-import logging
 LOG = logging.getLogger(__name__)
 
 
@@ -38,7 +37,7 @@ class Expression(Printable):
         :param scheme: The schema of the relation corresponding to this
         expression
         :param state_scheme: The schema of the state corresponding to this
-        expression; this is None except for teh StatefulApply operator.
+        expression; this is None except for the StatefulApply operator.
         :return: A string from among types.type_names.
         """
 
@@ -51,10 +50,14 @@ class Expression(Printable):
 
     @abstractmethod
     def evaluate(self, _tuple, scheme, state=None):
-        '''Evaluate an expression in the context of a given tuple and schema.
+        """Evaluate an expression in the context of a given tuple and schema.
 
         This is used for unit tests written against the fake database.
-        '''
+        """
+
+    @abstractmethod
+    def get_children(self):
+        """Return a list of child expressions."""
 
     def __copy__(self):
         raise RuntimeError("Shallow copy not supported for expressions")
@@ -116,13 +119,16 @@ class ZeroaryOperator(Expression):
         return "%s" % self.opstr()
 
     def __repr__(self):
-        return self.__str__()
+        return "{op}()".format(op=self.opname())
 
     def apply(self, f):
         pass
 
     def walk(self):
         yield self
+
+    def get_children(self):
+        return []
 
 
 class UnaryOperator(Expression):
@@ -140,7 +146,7 @@ class UnaryOperator(Expression):
         return "%s%s" % (self.opstr(), self.input)
 
     def __repr__(self):
-        return self.__str__()
+        return "{op}({inp!r})".format(op=self.opname(), inp=self.input)
 
     def postorder(self, f):
         for x in self.input.postorder(f):
@@ -163,6 +169,9 @@ class UnaryOperator(Expression):
     def typeof(self, scheme, state_scheme):
         return self.input.typeof(scheme, state_scheme)
 
+    def get_children(self):
+        return [self.input]
+
 
 class BinaryOperator(Expression):
 
@@ -181,7 +190,8 @@ class BinaryOperator(Expression):
         return "(%s %s %s)" % (self.left, self.opstr(), self.right)
 
     def __repr__(self):
-        return self.__str__()
+        return "{op}({l!r}, {r!r})".format(op=self.opname(), l=self.left,
+                                           r=self.right)
 
     def postorder(self, f):
         for x in self.left.postorder(f):
@@ -223,6 +233,9 @@ class BinaryOperator(Expression):
             raise TypeSafetyViolation("Can't combine %s, %s for %s" % (
                 left_type, right_type, self.__class__))
 
+    def get_children(self):
+        return [self.left, self.right]
+
 
 class NaryOperator(Expression):
 
@@ -240,9 +253,6 @@ class NaryOperator(Expression):
     def __str__(self):
         return "(%s %s)" % \
             (self.opstr(), " ".join([str(i) for i in self.operands]))
-
-    def __repr__(self):
-        return self.__str__()
 
     def postorder(self, f):
         for op in self.operands:
@@ -267,6 +277,9 @@ class NaryOperator(Expression):
             op.accept(visitor)
         visitor.visit(self)
 
+    def get_children(self):
+        return self.operands
+
 
 class Literal(ZeroaryOperator):
 
@@ -283,9 +296,6 @@ class Literal(ZeroaryOperator):
     def vars():
         return []
 
-    def __repr__(self):
-        return str(self.value)
-
     def __str__(self):
         return str(self.value)
 
@@ -298,13 +308,24 @@ class Literal(ZeroaryOperator):
     def apply(self, f):
         pass
 
+    def get_children(self):
+        return []
+
+    def __repr__(self):
+        return "{op}({val!r})".format(op=self.opname(), val=self.value)
+
 
 class StringLiteral(Literal):
+
     def __str__(self):
         return '"{val}"'.format(val=self.value)
 
 
 class NumericLiteral(Literal):
+    pass
+
+
+class BooleanLiteral(Literal):
     pass
 
 
@@ -328,23 +349,26 @@ class AttributeRef(Expression):
     def typeof(self, scheme, state_scheme):
         return scheme.getType(self.get_position(scheme, state_scheme))
 
+    def get_children(self):
+        return []
+
 
 class NamedAttributeRef(AttributeRef):
 
     def __init__(self, attributename):
         self.name = attributename
 
-    def __repr__(self):
-        return "%s" % (self.name)
-
     def __str__(self):
         return "%s" % (self.name)
+
+    def __repr__(self):
+        return "{op}({att!r})".format(op=self.opname(), att=self.name)
 
     def __hash__(self):
         return hash(self.name)
 
     def __eq__(self, other):
-        return type(self) == type(other) and self.name == other.name
+        return isinstance(self, type(other)) and self.name == other.name
 
     def get_position(self, scheme, state_scheme=None):
         return scheme.getPosition(self.name)
@@ -352,14 +376,19 @@ class NamedAttributeRef(AttributeRef):
 
 class UnnamedAttributeRef(AttributeRef):
 
-    def __init__(self, position):
+    def __init__(self, position, debug_info=None):
+        self.debug_info = debug_info
         self.position = position
 
-    def __repr__(self):
-        return "$%s" % (self.position)
-
     def __str__(self):
-        return "$%s" % (self.position)
+        if not self.debug_info:
+            return "${pos}".format(pos=self.position)
+        return "{dbg}".format(dbg=self.debug_info)
+
+    def __repr__(self):
+        return "{op}({pos!r}, {dbg!r})".format(op=self.opname(),
+                                               pos=self.position,
+                                               dbg=self.debug_info)
 
     def __eq__(self, other):
         return (other.__class__ == self.__class__
@@ -380,6 +409,7 @@ class UnnamedAttributeRef(AttributeRef):
 
 
 class StateRef(Expression):
+    __metaclass__ = ABCMeta
 
     @abstractmethod
     def get_position(self, scheme, state_scheme):
@@ -389,17 +419,23 @@ class StateRef(Expression):
     def apply(self, f):
         pass
 
+    def get_children(self):
+        return []
+
 
 class UnnamedStateAttributeRef(StateRef):
 
     def __init__(self, position):
         self.position = position
 
-    def __repr__(self):
-        return "$%s" % (self.position)
-
     def __str__(self):
         return "$%s" % (self.position)
+
+    def __repr__(self):
+        return "{op}({pos!r})".format(op=self.opname(), pos=self.position)
+
+    def get_position(self, scheme, state_scheme):
+        return self.position
 
     def evaluate(self, _tuple, scheme, state):
         return state.values[self.position]
@@ -414,11 +450,11 @@ class NamedStateAttributeRef(StateRef):
     def __init__(self, attributename):
         self.name = attributename
 
-    def __repr__(self):
-        return "%s" % (self.name)
-
     def __str__(self):
         return "%s" % (self.name)
+
+    def __repr__(self):
+        return "{op}({att!r})".format(op=self.opname(), att=self.name)
 
     def evaluate(self, _tuple, scheme, state):
         return state.values[self.get_position(scheme, state.scheme)]
@@ -477,6 +513,19 @@ class IDIVIDE(BinaryOperator):
         return types.LONG_TYPE
 
 
+class MOD(BinaryOperator):
+    literals = ["%"]
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return int(self.left.evaluate(_tuple, scheme, state) %
+                   self.right.evaluate(_tuple, scheme, state))
+
+    def typeof(self, scheme, state_scheme):
+        check_is_numeric(self.left.typeof(scheme, state_scheme))
+        check_is_numeric(self.right.typeof(scheme, state_scheme))
+        return types.LONG_TYPE
+
+
 class TIMES(BinaryOperator):
     literals = ["*"]
 
@@ -486,6 +535,7 @@ class TIMES(BinaryOperator):
 
 
 class CAST(UnaryOperator):
+
     def __init__(self, _type, input):
         """Initialize a cast operator.
 
@@ -498,6 +548,10 @@ class CAST(UnaryOperator):
 
     def __str__(self):
         return "%s(%s, %s)" % (self.opstr(), self._type, self.input)
+
+    def __repr__(self):
+        return "{op}({t!r}, {inp!r})".format(op=self.opname(), t=self._type,
+                                             inp=self.input)
 
     def evaluate(self, _tuple, scheme, state=None):
         pytype = types.reverse_python_type_map[self.typeof(None, None)]
@@ -521,29 +575,74 @@ class NEG(UnaryOperator):
         return input_type
 
 
-class Unbox(ZeroaryOperator):
+class DottedRef(ZeroaryOperator):
+    """A DottedRef represents a reference to a column from a given table."""
 
-    def __init__(self, relational_expression, field):
-        """Initialize an unbox expression.
+    def __init__(self, table_alias, field):
+        """Initialize an DottedRef expression.
 
-        relational_expression is a Myrial AST that evaluates to a relation.
-
-        field is an optional column name/index within the relation.  If None,
-        the system uses index 0.
+        :param table_alias: The name of a table alias (a string).
+        :param field: The column name/index within the relation.
         """
-        self.relational_expression = relational_expression
+        assert isinstance(table_alias, basestring)
+        self.table_alias = table_alias
         self.field = field
 
     def evaluate(self, _tuple, scheme, state=None):
         """Raise an error on attempted evaluation.
 
-        Unbox expressions are not "evaluated" in the usual sense.  Rather, they
-        are replaced with raw attribute references at evaluation time.
+        DottedRef expressions are not "evaluated" in the usual sense.  Rather,
+        they are replaced with raw attribute references during compilation.
         """
         raise NotImplementedError()
 
     def typeof(self, scheme, state_scheme):
         raise NotImplementedError()  # See above comment
+
+    def __repr__(self):
+        return "{op}({re!r}, {f!r})".format(
+            op=self.opname(), re=self.table_alias, f=self.field)
+
+    def __str__(self):
+        return "{op}({re}.{f})".format(
+            op=self.opname(), re=self.table_alias, f=self.field)
+
+
+class Unbox(DottedRef):
+    """Unbox expressions act as a DottedRef, but also implicitly add their
+    target argument to the FROM clause.
+    """
+    def __init__(self, table_name, field):
+        """Initialize an unbox expression.
+
+        :param table_name: The name of a table (a string).
+        :param field: An optional column name/index within the relation.
+        If None, the system uses index 0.
+        """
+        DottedRef.__init__(self, table_name, field or 0)
+
+        # Name == Alias for unbox expressions
+        self.table_name = table_name
+
+    def evaluate(self, _tuple, scheme, state=None):
+        """Raise an error on attempted evaluation.
+
+        Unbox expressions are not "evaluated" in the usual sense.  Rather, they
+        are replaced with raw attribute references during compilation.
+        """
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        raise NotImplementedError()  # See above comment
+
+    def __repr__(self):
+        return "{op}({re!r}, {f!r})".format(
+            op=self.opname(), re=self.table_name, f=self.field)
+
+    def __str__(self):
+        return "{op}({re}.{f})".format(
+            op=self.opname(), re=self.table_name,
+            f=self.field or "$0")
 
 
 class Case(Expression):
@@ -592,6 +691,10 @@ class Case(Expression):
         for x in self.else_expr.walk():
             yield x
 
+    def get_children(self):
+        test_exprs, result_exprs = zip(*self.when_tuples)
+        return list(test_exprs) + list(result_exprs) + [self.else_expr]
+
     def to_binary(self):
         """Convert n-ary case statements to a binary case statement."""
         assert len(self.when_tuples) > 0
@@ -608,7 +711,9 @@ class Case(Expression):
         return "CASE(%s ELSE %s)" % (' '.join(when_strs), self.else_expr)
 
     def __repr__(self):
-        return self.__str__()
+        return "{op}({wt!r}, {els!r})".format(op=self.opname(),
+                                              wt=self.when_tuples,
+                                              els=self.else_expr)
 
     def typeof(self, scheme, state_scheme):
         all_exprs = [res_expr for test_expr, res_expr in self.when_tuples]
@@ -619,174 +724,13 @@ class Case(Expression):
                 "Case expresssions must resolve to a single type")
         return types[0]
 
+    def accept(self, visitor):
+        """
+        For post-order stateful visitors
+        """
+        for w in self.when_tuples:
+            w[0].accept(visitor)
+            w[1].accept(visitor)
 
-import abc
-
-
-class ExpressionVisitor:
-    # TODO: make this more complete for kinds of expressions
-
-    __metaclass__ = abc.ABCMeta
-
-    def visit(self, expr):
-        # use expr to dispatch to appropriate visit_* method
-        typename = type(expr).__name__
-        dispatchTo = getattr(self, "visit_%s" % (typename,))
-        return dispatchTo(expr)
-
-    @abc.abstractmethod
-    def visit_NOT(self, unaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_AND(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_OR(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_EQ(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_NEQ(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_GT(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_LT(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_GTEQ(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_LTEQ(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_NamedAttributeRef(self, named):
-        return
-
-    @abc.abstractmethod
-    def visit_UnnamedAttributeRef(self, unnamed):
-        return
-
-    @abc.abstractmethod
-    def visit_StringLiteral(self, stringLiteral):
-        return
-
-    @abc.abstractmethod
-    def visit_NumericLiteral(self, numericLiteral):
-        return
-
-    @abc.abstractmethod
-    def visit_DIVIDE(self, binaryExpr):
-        return
-
-    @abc.abstractmethod
-    def visit_PLUS(self, binaryExpr):
-        return
-
-    @abstractmethod
-    def visit_MINUS(self, binaryExpr):
-        return
-
-    @abstractmethod
-    def visit_IDIVIDE(self, binaryExpr):
-        return
-
-    @abstractmethod
-    def visit_TIMES(self, binaryExpr):
-        return
-
-    @abstractmethod
-    def visit_NEG(self, unaryExpr):
-        return
-
-
-class SimpleExpressionVisitor(ExpressionVisitor):
-    @abstractmethod
-    def visit_unary(self, unaryexpr):
-        pass
-
-    @abstractmethod
-    def visit_binary(self, binaryexpr):
-        pass
-
-    @abstractmethod
-    def visit_zeroary(self, zeroaryexpr):
-        pass
-
-    def visit_literal(self, literalexpr):
-        pass
-
-    @abstractmethod
-    def visit_nary(self, naryexpr):
-        pass
-
-    def visit_attr(self, attr):
-        pass
-
-    def visit_NOT(self, unaryExpr):
-        self.visit_unary(unaryExpr)
-
-    def visit_AND(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_OR(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_EQ(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_NEQ(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_GT(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_LT(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_GTEQ(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_LTEQ(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_NamedAttributeRef(self, named):
-        self.visit_attr(named)
-
-    def visit_UnnamedAttributeRef(self, unnamed):
-        self.visit_attr(unnamed)
-
-    def visit_StringLiteral(self, stringLiteral):
-        self.visit_literal(stringLiteral)
-
-    def visit_NumericLiteral(self, numericLiteral):
-        self.visit_literal(numericLiteral)
-
-    def visit_DIVIDE(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_PLUS(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_MINUS(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_IDIVIDE(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_TIMES(self, binaryExpr):
-        self.visit_binary(binaryExpr)
-
-    def visit_NEG(self, unaryExpr):
-        self.visit_unary(unaryExpr)
+        self.else_expr.accept(visitor)
+        visitor.visit(self)

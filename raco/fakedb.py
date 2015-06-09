@@ -2,59 +2,79 @@
 import collections
 import itertools
 import csv
+import random
 
+from raco.dbconn import DBConnection
 from raco import relation_key, types
 from raco.algebra import StoreTemp, DEFAULT_CARDINALITY
 from raco.catalog import Catalog
-from raco.expression import AND, EQ
+from raco.expression import AND, EQ, BuiltinAggregateExpression
 
 debug = False
+
+
+class State(object):
+    def __init__(self, op_scheme, state_scheme, init_exprs):
+        self.scheme = state_scheme
+        self.op_scheme = op_scheme
+        self.values = [x.evaluate(None, op_scheme, None)
+                       for (_, x) in init_exprs]
+
+    def update(self, tpl, update_exprs):
+        new_vals = [expr.evaluate(tpl, self.op_scheme, self)
+                    for (_, expr) in update_exprs]
+        self.values = new_vals
+
+    def __str__(self):
+        return 'State(%s)' % self.values
 
 
 class FakeDatabase(Catalog):
     """An in-memory implementation of relational algebra operators"""
 
     def __init__(self):
-        # Map from relation keys to tuples of (Bag, scheme.Scheme)
-        self.tables = {}
+        # Persistent tables, identified by RelationKey
+        self.tables = DBConnection()
 
-        # Map from relation names to bags; schema is tracked by the runtime.
-        self.temp_tables = {}
+        # Temporary tables, identified by string name
+        self.temp_tables = DBConnection()
 
     def get_num_servers(self):
         return 1
 
     def num_tuples(self, rel_key):
-        return DEFAULT_CARDINALITY
+        try:
+            return self.tables.num_tuples(rel_key)
+        except KeyError:
+            return DEFAULT_CARDINALITY
 
     def evaluate(self, op):
-        '''Evaluate a relational algebra operation.
+        """Evaluate a relational algebra operation.
 
         For "query-type" operators, return a tuple iterator.
         For store queries, the return value is None.
-        '''
+        """
         method = getattr(self, op.opname().lower())
         return method(op)
 
     def evaluate_to_bag(self, op):
-        '''Return a bag (collections.Counter instance) for the operation'''
+        """Return a bag (collections.Counter instance) for the operation"""
         return collections.Counter(self.evaluate(op))
 
     def ingest(self, rel_key, contents, scheme):
-        '''Directly load raw data into the database'''
-        if isinstance(rel_key, str):
+        """Directly load raw data into the database"""
+        if isinstance(rel_key, basestring):
             rel_key = relation_key.RelationKey.from_string(rel_key)
         assert isinstance(rel_key, relation_key.RelationKey)
-        self.tables[rel_key] = (contents, scheme)
+        self.tables.add_table(rel_key, scheme, contents.elements())
 
     def get_scheme(self, rel_key):
-        if isinstance(rel_key, str):
+        if isinstance(rel_key, basestring):
             rel_key = relation_key.RelationKey.from_string(rel_key)
 
         assert isinstance(rel_key, relation_key.RelationKey)
 
-        (_, scheme) = self.tables[rel_key]
-        return scheme
+        return self.tables.get_scheme(rel_key)
 
     def get_table(self, rel_key):
         """Retrieve the contents of table.
@@ -63,14 +83,16 @@ class FakeDatabase(Catalog):
         :type rel_key: relation_key.RelationKey
         :returns: A collections.Counter instance containing tuples.
         """
-        if isinstance(rel_key, str):
+        if isinstance(rel_key, basestring):
             rel_key = relation_key.RelationKey.from_string(rel_key)
         assert isinstance(rel_key, relation_key.RelationKey)
-        (contents, scheme) = self.tables[rel_key]
-        return contents
+        return self.tables.get_table(rel_key)
 
     def get_temp_table(self, key):
-        return self.temp_tables[key]
+        return self.temp_tables.get_table(key)
+
+    def delete_temp_table(self, key):
+        self.temp_tables.delete_table(key)
 
     def dump_all(self):
         for key, val in self.tables.iteritems():
@@ -82,17 +104,56 @@ class FakeDatabase(Catalog):
 
     def scan(self, op):
         assert isinstance(op.relation_key, relation_key.RelationKey)
-        (bag, _) = self.tables[op.relation_key]
-        return bag.elements()
+        return self.tables.get_table(op.relation_key).elements()
+
+    def calculatesamplingdistribution(self, op):
+        if op.is_pct:
+            tup_cnt = sum(t[1] for t in list(self.evaluate(op.input)))
+            sample_size = int(round(tup_cnt * (op.sample_size / 100.0)))
+        else:
+            sample_size = op.sample_size
+        return (t + (sample_size, op.sample_type) for t in
+                self.evaluate(op.input))
+
+    def sample(self, op):
+        sample_info = list(self.evaluate(op.left))
+        assert len(sample_info) == 1
+        sample_type = sample_info[0][3]
+        sample_size = sample_info[0][2]
+        tuples = list(self.evaluate(op.right))
+        if sample_type == 'WR':
+            # Add unique index to make them appear like different tuples.
+            sample = [(i,) + random.choice(tuples) for i in range(sample_size)]
+        elif sample_type == 'WoR':
+            sample = random.sample(tuples, sample_size)
+        else:
+            raise ValueError("Invalid sample type")
+        return iter(sample)
 
     def filescan(self, op):
         type_list = op.scheme().get_types()
 
         with open(op.path, 'r') as fh:
-            sample = fh.read(1024)
-            dialect = csv.Sniffer().sniff(sample)
-            fh.seek(0)
-            reader = csv.reader(fh, dialect)
+            if not op.options:
+                sample = fh.read(1024)
+                dialect = csv.Sniffer().sniff(sample)
+                fh.seek(0)
+                reader = csv.reader(fh, dialect)
+            else:
+                options = {
+                    'delimiter': ",",
+                    'quote': '"',
+                    'escape': None,
+                    'skip': 0}
+                options.update(op.options)
+                reader = csv.reader(
+                    fh,
+                    delimiter=options['delimiter'],
+                    quotechar=options['quote'],
+                    escapechar=options['escape'])
+                if options['skip']:
+                    for _ in xrange(options['skip']):
+                        next(fh)
             for row in reader:
                 pairs = zip(row, type_list)
                 cols = [types.parse_string(s, t) for s, t in pairs]
@@ -123,18 +184,16 @@ class FakeDatabase(Catalog):
         child_it = self.evaluate(op.input)
         scheme = op.input.scheme()
 
-        State = collections.namedtuple('State', ['scheme', 'values'])
-        state = State(op.state_scheme, [expr.evaluate(None, scheme, None)
-                      for (_, expr) in op.inits])
+        state = State(scheme, op.state_scheme, op.inits)
 
         def make_tuple(input_tuple, state):
-            for i, new_state in enumerate(
-                    [colexpr.evaluate(input_tuple, scheme, state)
-                     for (_, colexpr) in op.updaters]):
-                state.values[i] = new_state
-            ls = [colexpr.evaluate(input_tuple, scheme, state)
-                  for (_, colexpr) in op.emitters]
-            return tuple(ls)
+            # Update state variables
+            state.update(input_tuple, op.updaters)
+
+            # Extract a result for each emit expression
+            return tuple([colexpr.evaluate(input_tuple, scheme, state)
+                          for (_, colexpr) in op.emitters])
+
         return (make_tuple(t, state) for t in child_it)
 
     def join(self, op):
@@ -146,6 +205,11 @@ class FakeDatabase(Catalog):
 
         # Return tuples that match on the join conditions
         return (tpl for tpl in p2 if op.condition.evaluate(tpl, op.scheme()))
+
+    def projectingjoin(self, op):
+        # standard join, projecting the output columns
+        return (tuple(t[x.position] for x in op.output_columns)
+                for t in self.join(op))
 
     def naryjoin(self, op):
         def eval_conditions(conditions, tpl):
@@ -212,9 +276,10 @@ class FakeDatabase(Catalog):
 
     def groupby(self, op):
         child_it = self.evaluate(op.input)
+        input_scheme = op.input.scheme()
 
         def process_grouping_columns(_tuple):
-            ls = [sexpr.evaluate(_tuple, op.input.scheme()) for
+            ls = [sexpr.evaluate(_tuple, input_scheme) for
                   sexpr in op.grouping_list]
             return tuple(ls)
 
@@ -232,8 +297,23 @@ class FakeDatabase(Catalog):
 
         # resolve aggregate functions
         for key, tuples in results.iteritems():
-            agg_fields = [agg_expr.evaluate_aggregate(
-                tuples, op.input.scheme()) for agg_expr in op.aggregate_list]
+            state = State(input_scheme, op.state_scheme, op.inits)
+            for tpl in tuples:
+                state.update(tpl, op.updaters)
+
+            # For now, built-in aggregates are handled differently than UDA
+            # aggregates.  TODO: clean this up!
+
+            agg_fields = []
+            for expr in op.aggregate_list:
+                if isinstance(expr, BuiltinAggregateExpression):
+                    # Old-style aggregate: pass all tuples to the eval func
+                    agg_fields.append(
+                        expr.evaluate_aggregate(tuples, input_scheme))
+                else:
+                    # UDA-style aggregate: evaluate a normal expression that
+                    # can reference only the state tuple
+                    agg_fields.append(expr.evaluate(None, None, state))
             yield(key + tuple(agg_fields))
 
     def sequence(self, op):
@@ -286,10 +366,15 @@ class FakeDatabase(Catalog):
     def store(self, op):
         assert isinstance(op.relation_key, relation_key.RelationKey)
 
-        # Materialize the result
-        bag = self.evaluate_to_bag(op.input)
         scheme = op.input.scheme()
-        self.tables[op.relation_key] = (bag, scheme)
+        self.tables.add_table(op.relation_key, scheme, self.evaluate(op.input))
+        return None
+
+    def sink(self, op):
+        scheme = op.input.scheme()
+        self.tables.add_table(
+            relation_key.RelationKey("OUTPUT"),
+            scheme, self.evaluate(op.input))
         return None
 
     def dump(self, op):
@@ -298,23 +383,38 @@ class FakeDatabase(Catalog):
         return None
 
     def storetemp(self, op):
-        bag = self.evaluate_to_bag(op.input)
-        self.temp_tables[op.name] = bag
+        scheme = op.input.scheme()
+        self.temp_tables.add_table(op.name, scheme, self.evaluate(op.input))
+
+    def appendtemp(self, op):
+        self.temp_tables.append_table(op.name, self.evaluate(op.input))
 
     def scantemp(self, op):
-        bag = self.temp_tables[op.name]
-        return bag.elements()
+        return self.temp_tables.get_table(op.name).elements()
 
     def myriascan(self, op):
         return self.scan(op)
 
+    def myriacalculatesamplingdistribution(self, op):
+        return self.calculatesamplingdistribution(op)
+
+    def myriasample(self, op):
+        return self.sample(op)
+
+    def myriafilescan(self, op):
+        return self.filescan(op)
+
+    def myriasink(self, op):
+        return self.sink(op)
+
     def myriascantemp(self, op):
         return self.scantemp(op)
 
+    def myrialimit(self, op):
+        return self.limit(op)
+
     def myriasymmetrichashjoin(self, op):
-        # standard join, projecting the output columns
-        return (tuple(t[x.position] for x in op.output_columns)
-                for t in self.join(op))
+        return self.projectingjoin(op)
 
     def myrialeapfrogjoin(self, op):
         # standard naryjoin, projecting the output columns
@@ -330,11 +430,20 @@ class FakeDatabase(Catalog):
     def myriahypershuffleproducer(self, op):
         return self.evaluate(op.input)
 
+    def myriasplitconsumer(self, op):
+        return self.evaluate(op.input)
+
+    def myriasplitproducer(self, op):
+        return self.evaluate(op.input)
+
     def myriastore(self, op):
         return self.store(op)
 
     def myriastoretemp(self, op):
         return self.storetemp(op)
+
+    def myriaappendtemp(self, op):
+        return self.appendtemp(op)
 
     def myriaapply(self, op):
         return self.apply(op)
@@ -383,3 +492,6 @@ class FakeDatabase(Catalog):
 
     def myriadifference(self, op):
         return self.difference(op)
+
+    def myriaqueryscan(self, op):
+        return self.tables.get_sql_output(op.sql).elements()

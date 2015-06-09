@@ -1,6 +1,6 @@
 
-import raco.expression as sexpr
-from raco.myrial.exceptions import ColumnIndexOutOfBounds
+from raco.expression import DottedRef, UnnamedAttributeRef, NamedAttributeRef
+from raco.myrial.exceptions import *
 
 
 class EmitArg(object):
@@ -38,7 +38,7 @@ def resolve_attribute_index(idx, symbols):
     raise ColumnIndexOutOfBounds(str(idx))
 
 
-def resolve_unbox(sx, symbols):
+def resolve_dotted_ref(sx, symbols):
     """Resolve a column name given an unbox expression.
 
     e.g. [FROM A EMIT A.some_column]
@@ -47,46 +47,68 @@ def resolve_unbox(sx, symbols):
         return sx.field
     else:
         assert isinstance(sx.field, int)
-        op = symbols[sx.relational_expression]
+        op = symbols[sx.table_alias]
         scheme = op.scheme()
         return scheme.getName(sx.field)
 
 
-class SingletonEmitArg(EmitArg):
-    """An emit arg that defines a single column.
+def get_column_name(name, sx, symbols):
+    """Create a  column name; generate a name if none was provided.
 
-    e.g.: [FROM Emp EMIT double_salary = salary * 2]"""
+    :param name: The name supplied by the user, or None if no name provided.
+    :param sx: The Expression that defines the output
+    :param symbols: A mapping from relation name to Operator instances
+    """
 
-    def __init__(self, column_name, sexpr, statemods):
-        self.column_name = column_name
-        self.sexpr = sexpr
+    if name:
+        return name
+
+    if isinstance(sx, NamedAttributeRef):
+        return sx.name
+    elif isinstance(sx, UnnamedAttributeRef):
+        return resolve_attribute_index(sx.position, symbols)
+    elif isinstance(sx, DottedRef):
+        return resolve_dotted_ref(sx, symbols)
+    else:
+        return name
+
+
+class NaryEmitArg(EmitArg):
+    """An emit arg that defines one or more columns."""
+
+    def __init__(self, column_names, sexprs, statemods):
+        assert column_names is None or len(column_names) == len(sexprs)
+        assert len(sexprs) >= 1
+
+        self.column_names = column_names
+        self.sexprs = sexprs
         self.statemods = statemods
 
     def expand(self, symbols):
-        colname = self.column_name
-        # Try to concoct a column name for simple attribute references.
-        if colname is None:
-            if isinstance(self.sexpr, sexpr.NamedAttributeRef):
-                colname = self.sexpr.name
-            elif isinstance(self.sexpr, sexpr.UnnamedAttributeRef):
-                colname = resolve_attribute_index(self.sexpr.position, symbols)
-            elif isinstance(self.sexpr, sexpr.Unbox):
-                colname = resolve_unbox(self.sexpr, symbols)
-        return [(colname, self.sexpr)]
+        names = self.column_names
+        if not names:
+            names = [None] * len(self.sexprs)
+
+        return [(get_column_name(n, x, symbols), x)
+                for n, x in zip(names, self.sexprs)]
 
     def get_statemods(self):
         return self.statemods
 
+    def __repr__(self):
+        return 'NaryEmitArg(%r)' % self.sexprs
+
 
 def expand_relation(relation_name, symbols):
     """Expand a given relation into a list of column mappings."""
-    assert relation_name in symbols
+    if relation_name not in symbols:
+        raise NoSuchRelationException(relation_name)
 
     op = symbols[relation_name]
     scheme = op.scheme()
 
     colnames = [x[0] for x in iter(scheme)]
-    return [(colname, sexpr.Unbox(relation_name, colname))
+    return [(colname, DottedRef(relation_name, colname))
             for colname in colnames]
 
 
@@ -100,6 +122,9 @@ class TableWildcardEmitArg(EmitArg):
 
     def expand(self, symbols):
         return expand_relation(self.relation_name, symbols)
+
+    def __repr__(self):
+        return 'TableWildcardEmitArg(%r)' % self.relation_name
 
 
 class FullWildcardEmitArg(EmitArg):
@@ -116,3 +141,6 @@ class FullWildcardEmitArg(EmitArg):
         for relation_name in symbols:
             cols.extend(expand_relation(relation_name, symbols))
         return cols
+
+    def __repr__(self):
+        return 'FullWildcardEmitArg()'

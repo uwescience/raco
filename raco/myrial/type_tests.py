@@ -12,11 +12,11 @@ from raco import types
 class TypeTests(MyrialTestCase):
     schema = Scheme(
         [("clong", types.LONG_TYPE),
-         ("cint", "INT_TYPE"),
+         ("cint", types.INT_TYPE),
          ("cstring", types.STRING_TYPE),
          ("cfloat", types.DOUBLE_TYPE),
-         ("cbool", "BOOLEAN_TYPE"),
-         ("cdate", "DATETIME_TYPE")])
+         ("cbool", types.BOOLEAN_TYPE),
+         ("cdate", types.DATETIME_TYPE)])
 
     def setUp(self):
         super(TypeTests, self).setUp()
@@ -70,9 +70,25 @@ class TypeTests(MyrialTestCase):
         with self.assertRaises(TypeSafetyViolation):
             self.check_scheme(query, None)
 
-    def test_invalid_or(self):
+    def test_invalid_or_both_bad(self):
         query = """
         X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat OR cdate];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_or_right_bad(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cbool OR cdate];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
+
+    def test_invalid_or_left_bad(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cfloat OR cbool];
         STORE(X, OUTPUT);
         """
         with self.assertRaises(TypeSafetyViolation):
@@ -125,6 +141,22 @@ class TypeTests(MyrialTestCase):
         """
         schema = Scheme([('y', types.LONG_TYPE)])
         self.check_scheme(query, schema)
+
+    def test_mod(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT clong % cint AS y];
+        STORE(X, OUTPUT);
+        """
+        schema = Scheme([('y', types.LONG_TYPE)])
+        self.check_scheme(query, schema)
+
+    def test_invalid_mod(self):
+        query = """
+        X = [FROM SCAN(public:adhoc:mytable) AS X EMIT cdate % cint];
+        STORE(X, OUTPUT);
+        """
+        with self.assertRaises(TypeSafetyViolation):
+            self.check_scheme(query, None)
 
     def test_neg(self):
         query = """

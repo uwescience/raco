@@ -1,0 +1,20 @@
+-- test with user-defined aggregate
+uda LogicalAvg(x) {
+  [0 as _sum, 0 as _count];
+  [_sum + x, _count + 1];
+  _sum / _count;
+};
+uda LocalAvg(x) {
+  [0 as _sum, 0 as _count];
+  [_sum + x, _count + 1];
+};
+uda RemoteAvg(_local_sum, _local_count) {
+  [0 as _sum, 0 as _count];
+  [_sum + _local_sum, _count + _local_count];
+  [_sum/_count];
+};
+uda* LogicalAvg {LocalAvg, RemoteAvg};
+
+out = [FROM SCAN(public:adhoc:employee) AS X EMIT dept_id,
+       LogicalAvg(salary) + LogicalAvg($0)];
+STORE(out, OUTPUT);

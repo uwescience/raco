@@ -1,0 +1,18 @@
+-- Sample from relation with-replacement
+T1 = samplescan(public:adhoc:employee, 1, WR);
+T2 = samplescan(public:adhoc:employee, 1.5%, WR);
+
+-- Sample from relation without-replacement
+T3 = samplescan(public:adhoc:employee, 1, WoR);
+T4 = samplescan(public:adhoc:employee, .5%, WoR);
+
+-- Uses With-Replacement sampling if no sample type specified
+T5 = samplescan(public:adhoc:employee, 1);
+T6 = samplescan(public:adhoc:employee, 1%);
+
+T = unionall(T1, T2);
+T = unionall(T, T3);
+T = unionall(T, T4);
+T = unionall(T, T5);
+T = unionall(T, T6);
+Store(T, samplescanquery);

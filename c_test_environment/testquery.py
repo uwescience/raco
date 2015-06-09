@@ -3,7 +3,7 @@ import subprocess
 import sys
 import sqlite3
 import csv
-from verifier import verify
+from verifier import verify, verify_store
 import osutils
 
 def testdbname():
@@ -89,8 +89,8 @@ from osutils import Chdir
 
 
 class GrappalangRunner(PlatformRunner):
-    def __init__(self):
-        pass
+    def __init__(self, binary_input=True):
+      self.binary_input = binary_input
 
     def run(self, name, tmppath):
         """
@@ -103,34 +103,53 @@ class GrappalangRunner(PlatformRunner):
         envir = os.environ.copy()
 
         # cpp -> exe
-        subprocess.check_call(['cp', '%s.cpp' % gname, envir['GRAPPA_HOME']+'/applications/join'], env=envir)
-        with Chdir(envir['GRAPPA_HOME']) as grappa_dir:
 
+        # call configure only if a previous version does not exist
+        # (i.e., the cmake target likely does not exist yet)
+        need_configure = not os.path.isfile(
+            os.path.join(
+                envir['GRAPPA_HOME'],
+                'build/Make+Release/applications/join',
+                "{0}.exe".format(gname)))
+
+        subprocess.check_call(['cp', '%s.cpp' % gname, envir['GRAPPA_HOME']+'/applications/join'], env=envir)
+
+        if need_configure:
+            subprocess.check_call(['./grappa_detect_new_files.sh'], env=envir)
+
+        with Chdir(envir['GRAPPA_HOME']) as grappa_dir:
           # make at base in case the cpp file is new;
           # i.e. cmake must generate the target
           with Chdir('build/Make+Release') as makedir:
             print os.getcwd()
-            subprocess.check_call(['bin/distcc_make',
+            #subprocess.check_call(['bin/distcc_make', '-j'], env=envir)
+            subprocess.check_call(['make', '-j', '8'], env=envir)
+
+            """subprocess.check_call(['bin/distcc_make',
                                    '-j24'
                                    ], env=envir)
+                                   """
 
           with Chdir('build/Make+Release/applications/join') as appdir:
             # build the grappa application
             print os.getcwd()
-            subprocess.check_call(['../../bin/distcc_make',
-                                   '-j24',
-                                   '%s.exe' % gname,
-                                   ], env=envir)
+            print subprocess.check_call(['make', '-j', '8', '%s.exe' % gname], env=envir)
+
+            # subprocess.check_call(['../../bin/distcc_make',
+            #                        '-j24',
+            #                        '%s.exe' % gname,
+            #                        ], env=envir)
+
 
             # run the application
             testoutfn = "%s/%s.out" % (tmppath, gname)
             with open(testoutfn, 'w') as outf:
                 subprocess.check_call(['../../bin/grappa_srun',
-                                       '--ppn=4',
-                                       '--nnode=2',
+                                       '--ppn=8',
+                                       '--nnode=4',
                                        '--',
                                        '%s.exe' % gname,
-                                       '--bin=false',
+                                       '--bin={0}'.format(self.binary_input),
                                        '--vmodule=%s=2' % gname  # result out
                                        ],
                                         stderr=outf,
@@ -185,6 +204,24 @@ def checkquery(name, testplatform, trustedplatform=SqliteRunner("testqueries"), 
 
     print "test: %s" % (name)
     verify(testoutfn, expectedfn, False)
+
+
+def checkstore(name, testplatform, trustedplatform=SqliteRunner("testqueries"), tmppath="tmp"):  # noqa
+
+    """
+    @param name: name of query
+    @param tmppath: existing directory for temporary files
+    """
+
+    osutils.mkdir_p(tmppath)
+    abstmppath = os.path.abspath(tmppath)
+    testplatform.run(name, abstmppath)
+    trustedplatform.run(name, abstmppath)
+    testoutfn = name
+    expectedfn = "%s/%s.sqlite.csv" %(abstmppath, name)
+
+    print "test: %s" % (name)
+    verify_store(testoutfn, expectedfn, False)
 
 
 import argparse

@@ -1,9 +1,13 @@
 from abc import abstractmethod, ABCMeta
 from raco.algebra import DEFAULT_CARDINALITY
 from raco.relation_key import RelationKey
+from raco.scheme import Scheme
+from ast import literal_eval
+import os
 
 
 class Relation(object):
+
     def __init__(self, name, sch):
         self.name = name
         self._scheme = sch
@@ -32,12 +36,20 @@ class Catalog(object):
         """ Return number of servers in myria deployment """
 
     @abstractmethod
+    def get_scheme(self, rel_key):
+        """ Return scheme of tuples of rel_key """
+
+    @abstractmethod
     def num_tuples(self, rel_key):
         """ Return number of tuples of rel_key """
 
 
+# Some useful Catalog implementations
+
 class FakeCatalog(Catalog):
+
     """ fake catalog, should only be used in test """
+
     def __init__(self, num_servers, child_sizes=None):
         self.num_servers = num_servers
         # default sizes
@@ -54,3 +66,84 @@ class FakeCatalog(Catalog):
         if rel_key in self.cached:
             return self.cached[rel_key]
         return DEFAULT_CARDINALITY
+
+    def get_scheme(self, rel_key):
+        raise NotImplementedError()
+
+
+class FromFileCatalog(Catalog):
+
+    """ Catalog that is created from a python file.
+    Format of file is a dictionary of schemas.
+
+    {'relation1' : [('a', 'LONG_TYPE'), ('b', 'STRING_TYPE')],
+     'relation2' : [('y', 'STRING_TYPE'), ('z', 'DATETIME_TYPE')]}
+
+     Or there can be an optional cardinality for any relation
+    {'relation1' : ([('a', 'LONG_TYPE'), ('b', 'STRING_TYPE')], 10),
+     'relation2' : [('y', 'STRING_TYPE'), ('z', 'DATETIME_TYPE')]}
+
+     Or it can be a single relation, using filename as basename
+     [('a', 'LONG_TYPE'), ('b', 'STRING_TYPE')]
+
+     see raco.types for allowed types
+    """
+
+    def __init__(self, cat, fname):
+        self.catalog = {}
+
+        def error():
+            assert False, """Unexpected catalog file format. \
+                    See raco.catalog.FromFileCatalog"""
+
+        if isinstance(cat, dict):
+            def parse(v):
+                if isinstance(v, tuple):
+                    return v
+                elif isinstance(v, list):
+                    return v, DEFAULT_CARDINALITY
+                else:
+                    error()
+
+            self.catalog = dict([(k, parse(v)) for k, v in cat.iteritems()])
+        elif isinstance(cat, list):
+            name = os.path.splitext(os.path.basename(fname))[0]
+            self.catalog = {
+                'public:adhoc:{0}'.format(name): (
+                    cat,
+                    DEFAULT_CARDINALITY,
+                )}
+        else:
+            error()
+
+    def get_scheme(self, rel_key):
+        return Scheme(self.__get_catalog_entry__(rel_key)[0])
+
+    def get_keys(self):
+        return self.catalog.keys()
+
+    @classmethod
+    def print_cat(cls, ffc1, ffc2):
+        cpy = ffc1.catalog.copy()
+        for k, v in ffc2.catalog.iteritems():
+            cpy[k] = v
+        print cpy
+
+    @classmethod
+    def load_from_file(cls, path):
+        with open(path) as fh:
+            return cls(literal_eval(fh.read()), path)
+
+    def get_num_servers(self):
+        return 1
+
+    def __get_catalog_entry__(self, rel_key):
+        e = self.catalog.get(str(rel_key))
+        if e is None:
+            raise Exception(
+                "relation {r} not found in catalog".format(r=rel_key))
+
+        return e
+
+    def num_tuples(self, rel_key):
+        return self.__get_catalog_entry__(rel_key)[1]

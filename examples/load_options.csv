@@ -1,0 +1,4 @@
+this file uses the pipe character ("|") as field delimiter and the tilde ("~") as the quote character
+the percent character ("%") is used to escape the field delimiter
+1|foo|~abc|def~|1.0
+2|bar|ghi%|jkl|2.0

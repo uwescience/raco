@@ -1,9 +1,14 @@
 from raco import algebra
-from pipelines import Pipelined
+import raco.language as language
+from .pipelines import Pipelined
 from raco.utility import emit
+import raco.viz as viz
+import os
+from raco.utility import colored
 
 import logging
 LOG = logging.getLogger(__name__)
+
 
 """
 Apply rules to an expression
@@ -13,30 +18,50 @@ target algebra
 """
 
 
+class PlanWriter():
+
+    def __init__(self, template="wip-%02d.physical.dot", limit=20):
+        self.ind = 0
+        self.template = template
+        self.limit = limit
+        self.enabled = os.environ.get('RACO_OPTIMIZER_GRAPHS') in \
+            ['true', 'True', 't', 'T', '1', 'yes', 'y']
+
+    def write_if_enabled(self, plan, title):
+        if self.enabled:
+            with open(self.template % self.ind, 'w') as dwf:
+                dwf.write(viz.operator_to_dot(plan, title=title))
+
+        self.ind += 1
+
+
 def optimize_by_rules(expr, rules):
+    writer = PlanWriter()
+    writer.write_if_enabled(expr, "before rules")
+
     for rule in rules:
-        def recursiverule(expr):
-            newexpr = rule(expr)
-            LOG.debug("apply rule %s\n--- %s => %s", rule, expr, newexpr)
-            newexpr.apply(recursiverule)
-            return newexpr
+        def recursiverule(e):
+            newe = rule(e)
+            writer.write_if_enabled(newe, str(rule))
+
+            LOG.debug("apply rule %s\n" +
+                      colored("  -", "red") + " %s" + "\n" +
+                      colored("  +", "green") + " %s", rule, e, newe)
+            newe.apply(recursiverule)
+
+            return newe
         expr = recursiverule(expr)
+
     return expr
 
 
-def optimize(expr, target, source, eliminate_common_subexpressions=False):
+def optimize(expr, target, **kwargs):
     """Fire the rule-based optimizer on an expression.  Fire all rules in the
-    source algebra (logical) and the target algebra (physical)"""
-
+    target algebra."""
     assert isinstance(expr, algebra.Operator)
+    assert isinstance(target, language.Algebra), type(target)
 
-    def opt(expr):
-        so = optimize_by_rules(expr, source.opt_rules())
-        newexpr = optimize_by_rules(so, target.opt_rules())
-        if eliminate_common_subexpressions:
-            newexpr = common_subexpression_elimination(newexpr)
-        return newexpr
-    return opt(expr)
+    return optimize_by_rules(expr, target.opt_rules(**kwargs))
 
 
 def compile(expr):
@@ -46,55 +71,21 @@ def compile(expr):
     exprcode = []
 
     # TODO, actually use Parallel[Store...]]? Right now assumes it
-    assert isinstance(expr, algebra.Parallel), "expected Parallel toplevel only"  # noqa
-    assert len(expr.children()) == 1, "expected single expression only"
-    store_expr = expr.children()[0]
-    assert isinstance(store_expr, algebra.Store)
-    assert len(store_expr.children()) == 1, "expected single expression only"  # noqa
-
-    only_expr = store_expr.children()[0]
-
-    lang = only_expr.language
-
-    if isinstance(only_expr, Pipelined):
-        body = lang.body(only_expr.compilePipeline())
+    if isinstance(expr, (algebra.Sequence, algebra.Parallel)):
+        assert len(expr.children()) == 1, "expected single expression only"
+        store_expr = expr.children()[0]
     else:
-        body = lang.body(expr)
+        store_expr = expr
+
+    assert isinstance(store_expr, algebra.Store)
+    assert len(store_expr.children()) == 1, "expected single expression only"
+
+    lang = store_expr.language()
+
+    if isinstance(store_expr, Pipelined):
+        body = lang.body(store_expr.compilePipeline())
+    else:
+        body = lang.body(store_expr)
 
     exprcode.append(emit(body))
     return emit(*exprcode)
-
-
-def search(expr, tofind):
-    """yield a sequence of subexpressions equal to tofind"""
-    def match(node):
-        if node == tofind:
-            yield node
-    for x in expr.preorder(match):
-        yield x
-
-
-def common_subexpression_elimination(expr):
-    """remove redundant subexpressions"""
-    def id(expr):
-        yield expr
-    eqclasses = []
-    allfound = []
-    for x in expr.preorder(id):
-        if x not in allfound:
-            found = [x for x in search(expr, x)]
-            eqclasses.append((x, found))
-            allfound += found
-
-    def replace(expr):
-        for witness, ec in eqclasses:
-            if expr in ec:
-                expr.apply(replace)
-                # record the fact that we eliminated the redundant branches
-                if witness != expr:
-                    # witness.trace("replaces", expr)
-                    for k, v in expr.gettrace():
-                        witness.trace(k, v)
-                return witness
-
-    return expr.apply(replace)

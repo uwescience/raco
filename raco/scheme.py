@@ -14,7 +14,7 @@ class DummyScheme(object):
 
 
 class Scheme(object):
-    '''Add an attribute to the scheme.'''
+    """Add an attribute to the scheme."""
     salt = "1"
 
     def __init__(self, attributes=None):
@@ -26,9 +26,8 @@ class Scheme(object):
             self.addAttribute(n, t)
 
     def addAttribute(self, name, _type):
-        if _type not in raco.types.ALL_TYPES:
-            print 'Invalid type name: %s' % str(_type)
-            assert False
+        assert _type in raco.types.ALL_TYPES, \
+            'Invalid type name: %s' % str(_type)
         _type = raco.types.map_type(_type)
 
         if name in self.asdict:
@@ -44,6 +43,10 @@ class Scheme(object):
         """Return a list of the types in this scheme."""
         return [_type for name, _type in self.attributes]
 
+    def get_names(self):
+        """Return a list of the names in this scheme."""
+        return [name for name, _type in self.attributes]
+
     def typecheck(self, tup):
         rmap = raco.types.reverse_python_type_map
         try:
@@ -54,6 +57,9 @@ class Scheme(object):
 
     def __eq__(self, other):
         return self.attributes == other.attributes
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def getPosition(self, name):
         return self.asdict[name][0]
@@ -66,18 +72,6 @@ class Scheme(object):
             return self[name][1]
         else:
             return self.asdict[name][1]
-
-    def subScheme(self, attributes):
-        """Return a scheme consisting of only the provided attribute names"""
-        return Scheme([(n, self.getType(n)) for n in attributes])
-
-    def subsumes(self, names):
-        """Does this scheme contain all the names in the list?"""
-        return all([n in self.asdict.keys() for n in names])
-
-    def contains(self, names):
-        """deprecated.  use subsumes"""
-        return self.contains(names)
 
     def resolve(self, attrref):
         """return the name and type of the attribute reference, resolved
@@ -97,22 +91,12 @@ class Scheme(object):
         else:
             return attr in self.asdict
 
-    def project(self, tup, subscheme):
-        """Return a tuple corresponding to the subscheme corresponding to the
-        values in tup"""
-        return (tup[self.getPosition(n)] for n, t in subscheme.attributes)
-
-    def rename(self, name1, name2):
-        try:
-            i, t = self.asdict.pop(name1)
-            self.attributes[i] = (name2, t)
-            self.asdict[name2] = (i, t)
-        except KeyError:
-            pass
-
     def __str__(self):
         """Pretty print the scheme"""
         return str(self.attributes)
+
+    def __repr__(self):
+        return "Scheme({att!r})".format(att=self.attributes)
 
     def __len__(self):
         """Return the number of attributes in the scheme"""
@@ -128,13 +112,6 @@ class Scheme(object):
         newsch = Scheme(self.attributes)
         for (n, t) in other:
             newsch.addAttribute(n, t)
-        return newsch
-
-    def __sub__(self, other):
-        newsch = Scheme()
-        for (n, t) in self:
-            if n not in other:
-                newsch.addAttribute(n, t)
         return newsch
 
 

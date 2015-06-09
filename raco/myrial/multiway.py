@@ -2,19 +2,51 @@
 
 from raco import algebra
 from raco import expression
-from raco.myrial.exceptions import ColumnIndexOutOfBounds
+from raco.expression.statevar import *
+from raco.myrial.exceptions import *
+
+
+def rewrite_statemods(statemods, from_args, base_offsets):
+    """Convert DottedRef expressions contained inside statemod variables.
+
+    :param statemods: A list of StateVar instances
+    :param from_args: A map from relation name to Operator
+    :param base_offsets: A map from relation name to initial column offsets
+    :return: An updated list of StateVar instances
+    """
+    assert all(isinstance(sm, StateVar) for sm in statemods)
+    return [StateVar(name, init, rewrite_refs(update, from_args, base_offsets))
+            for name, init, update in statemods]
 
 
 def rewrite_refs(sexpr, from_args, base_offsets):
-    """Convert all Unbox expressions into raw indexes."""
+    """Convert all DottedRef expressions into raw indexes."""
 
     def rewrite_node(sexpr):
-        if not isinstance(sexpr, expression.Unbox):
+        # Push unboxing into the state variables of distributed aggregates
+        if isinstance(sexpr, expression.AggregateExpression):
+            if sexpr.is_decomposable():
+                ds = sexpr.get_decomposable_state()
+                lsms = rewrite_statemods(ds.get_local_statemods(), from_args, base_offsets)  # noqa
+                rsms = rewrite_statemods(ds.get_remote_statemods(), from_args, base_offsets)  # noqa
+
+                if lsms or rsms:
+                    sexpr.set_decomposable_state(
+                        expression.DecomposableAggregateState(
+                            ds.get_local_emitters(), lsms,
+                            ds.get_remote_emitters(), rsms,
+                            ds.get_finalizer()))
+                return sexpr
+
+        if not isinstance(sexpr, expression.DottedRef):
             return sexpr
+        elif sexpr.table_alias not in from_args:
+            raise NoSuchRelationException(sexpr.table_alias)
         else:
-            op = from_args[sexpr.relational_expression]
+            op = from_args[sexpr.table_alias]
             scheme = op.scheme()
 
+            debug_info = None
             if not sexpr.field:
                 offset = 0
             elif isinstance(sexpr.field, int):
@@ -22,10 +54,12 @@ def rewrite_refs(sexpr, from_args, base_offsets):
                     raise ColumnIndexOutOfBounds(str(sexpr))
                 offset = sexpr.field
             else:
+                assert isinstance(sexpr.field, basestring)
                 offset = scheme.getPosition(sexpr.field)
+                debug_info = sexpr.field
 
-            offset += base_offsets[sexpr.relational_expression]
-            return expression.UnnamedAttributeRef(offset)
+            offset += base_offsets[sexpr.table_alias]
+            return expression.UnnamedAttributeRef(offset, debug_info)
 
     def recursive_eval(sexpr):
         """Rewrite a node and all its descendents"""

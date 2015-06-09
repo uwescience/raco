@@ -1,6 +1,9 @@
+# -*- coding: UTF-8 -*-
 
 import collections
 import math
+import md5
+from nose.tools import nottest
 
 import raco.algebra
 import raco.fakedb
@@ -11,49 +14,11 @@ import raco.myrial.myrial_test as myrial_test
 from raco import types
 
 from raco.myrial.exceptions import *
+from raco.expression import NestedAggregateException
+from raco.fake_data import FakeData
 
 
-class TestQueryFunctions(myrial_test.MyrialTestCase):
-
-    emp_table = collections.Counter([
-        # id dept_id name salary
-        (1, 2, "Bill Howe", 25000),
-        (2, 1, "Dan Halperin", 90000),
-        (3, 1, "Andrew Whitaker", 5000),
-        (4, 2, "Shumo Chu", 5000),
-        (5, 1, "Victor Almeida", 25000),
-        (6, 3, "Dan Suciu", 90000),
-        (7, 1, "Magdalena Balazinska", 25000)])
-
-    emp_schema = scheme.Scheme([("id", types.INT_TYPE),
-                                ("dept_id", types.INT_TYPE),
-                                ("name", types.STRING_TYPE),
-                                ("salary", types.LONG_TYPE)])
-
-    emp_key = "public:adhoc:employee"
-
-    dept_table = collections.Counter([
-        (1, "accounting", 5),
-        (2, "human resources", 2),
-        (3, "engineering", 2),
-        (4, "sales", 7)])
-
-    dept_schema = scheme.Scheme([("id", types.LONG_TYPE),
-                                 ("name", types.STRING_TYPE),
-                                 ("manager", types.LONG_TYPE)])
-
-    dept_key = "public:adhoc:department"
-
-    numbers_table = collections.Counter([
-        (1, 3),
-        (2, 5),
-        (3, -2),
-        (16, -4.3)])
-
-    numbers_schema = scheme.Scheme([("id", types.LONG_TYPE),
-                                    ("val", types.DOUBLE_TYPE)])
-
-    numbers_key = "public:adhoc:numbers"
+class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
     def setUp(self):
         super(TestQueryFunctions, self).setUp()
@@ -123,7 +88,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
     """
 
     salary_expected_result = collections.Counter(
-        [x for x in emp_table.elements() if x[3] > 25000])
+        [x for x in FakeData.emp_table.elements() if x[3] > 25000])
 
     def test_bag_comp_filter_large_salary_by_name(self):
         query = TestQueryFunctions.salary_filter_query % (self.emp_key,
@@ -155,10 +120,32 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [x for x in self.emp_table.elements() if 2 * x[1] >= x[0]])
         self.check_result(query, expected)
 
+    def test_bag_comp_filter_column_compare_ge2(self):
+        query = u"""
+        emp = SCAN(%s);
+        out = [FROM emp WHERE 2 * $1 ≥ $0 EMIT *];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if 2 * x[1] >= x[0]])
+        self.check_result(query, expected)
+
     def test_bag_comp_filter_column_compare_le(self):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $1 <= 2 * $0 EMIT *];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[1] <= 2 * x[0]])
+        self.check_result(query, expected)
+
+    def test_bag_comp_filter_column_compare_le2(self):
+        query = u"""
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $1 ≤ 2 * $0 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -214,6 +201,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         out = [FROM emp WHERE $0 // $1 <> $1 EMIT *];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(
+            [x for x in self.emp_table.elements() if x[0] / x[1] != x[1]])
+        self.check_result(query, expected)
+
+    def test_bag_comp_filter_column_compare_ne3(self):
+        query = u"""
+        emp = SCAN(%s);
+        out = [FROM emp WHERE $0 // $1 ≠ $1 EMIT *];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
@@ -352,6 +350,17 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
          ('Dan Suciu', 'engineering'),
          ('Magdalena Balazinska', 'accounting')])
 
+    def test_explicit_join_unicode(self):
+        query = u"""
+        emp = SCAN(%s);
+        dept = SCAN(%s);
+        out = JOIN(emp, dept_id, dept, id);
+        out2 = [FROM out EMIT $2 AS emp_name, $5 AS dept_name];
+        STORE(out2, OUTPUT);
+        """ % (self.emp_key, self.dept_key)
+
+        self.check_result(query, self.join_expected)
+
     def test_explicit_join(self):
         query = """
         emp = SCAN(%s);
@@ -362,6 +371,19 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % (self.emp_key, self.dept_key)
 
         self.check_result(query, self.join_expected)
+
+    def test_explicit_join_twocols(self):
+        query = """
+        query = [1 as dept_id, 25000 as salary];
+        emp = SCAN({emp});
+        out = JOIN(query, (dept_id, salary), emp, (dept_id, salary));
+        out2 = [FROM out EMIT name];
+        STORE(out2, OUTPUT);
+        """.format(emp=self.emp_key)
+
+        expected = collections.Counter([('Victor Almeida',),
+                                        ('Magdalena Balazinska',)])
+        self.check_result(query, expected)
 
     def test_bagcomp_join_via_names(self):
         query = """
@@ -383,6 +405,19 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         self.check_result(query, self.join_expected)
 
+    def test_two_column_join(self):
+        query = """
+        D = [1 as dept_id, 25000 as salary];
+        out = [FROM D, SCAN({emp}) E
+               WHERE E.dept_id == D.dept_id AND E.salary == D.salary
+               EMIT E.name AS emp_name];
+        STORE(out, OUTPUT);
+        """.format(emp=self.emp_key)
+
+        expected = collections.Counter([('Victor Almeida',),
+                                        ('Magdalena Balazinska',)])
+        self.check_result(query, expected)
+
     def test_join_with_select(self):
         query = """
         out = [FROM SCAN(%s) AS D, SCAN(%s) E
@@ -393,6 +428,31 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         expected = collections.Counter([('Andrew Whitaker', 'accounting'),
                                         ('Shumo Chu', 'human resources')])
+        self.check_result(query, expected)
+
+    def test_join_with_reordering(self):
+        # Try both FROM orders of the query and verify they both get the
+        # correct answer.
+        query = """
+        out = [FROM SCAN({d}) AS D, SCAN({e}) E
+               WHERE E.dept_id == D.id AND E.salary < 6000
+               EMIT E.name, D.id];
+        STORE(out, OUTPUT);
+        """.format(d=self.dept_key, e=self.emp_key)
+
+        expected = collections.Counter([('Andrew Whitaker', 1),
+                                        ('Shumo Chu', 2)])
+        self.check_result(query, expected)
+        # Swap E and D
+        query = """
+        out = [FROM SCAN({e}) E, SCAN({d}) AS D
+               WHERE E.dept_id == D.id AND E.salary < 6000
+               EMIT E.name, D.id];
+        STORE(out, OUTPUT);
+        """.format(d=self.dept_key, e=self.emp_key)
+
+        expected = collections.Counter([('Andrew Whitaker', 1),
+                                        ('Shumo Chu', 2)])
         self.check_result(query, expected)
 
     def test_sql_join(self):
@@ -542,7 +602,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        result = self.execute_query(query, skip_json=True)
+        result = self.execute_query(query)
         self.assertEquals(len(result), 3)
 
     def test_sql_limit(self):
@@ -551,8 +611,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        result = self.execute_query(query, skip_json=True)
+        result = self.execute_query(query)
         self.assertEquals(len(result), 3)
+
+    def test_table_literal_boolean(self):
+        query = """
+        X = [truE as MyTrue, FaLse as MyFalse];
+        Y = [FROM scan(%s) as E, X where X.MyTrue emit *];
+        STORE(Y, OUTPUT);
+        """ % self.emp_key
+
+        res = [x + (True, False) for x in self.emp_table]
+        self.check_result(query, collections.Counter(res))
 
     def test_table_literal_scalar_expression(self):
         query = """
@@ -659,7 +729,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         emp = SCAN(%s);
         dept = SCAN(%s);
-        out = [FROM emp WHERE id > *COUNTALL(dept) EMIT emp.id];
+        out = [FROM emp, COUNTALL(dept) as size WHERE id > *size EMIT emp.id];
         STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
@@ -668,11 +738,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              x[0] > len(self.dept_table)])
         self.check_result(query, expected)
 
-    def test_unbox_inline_table_literal(self):
+    def test_inline_table_literal(self):
         query = """
         emp = SCAN(%s);
         dept = SCAN(%s);
-        out = [FROM emp WHERE id > *[1,2,3].$2 EMIT emp.id];
+        out = [FROM emp, [1,2,3] as tl WHERE id > tl.$2 EMIT emp.id];
         STORE(out, OUTPUT);
         """ % (self.emp_key, self.dept_key)
 
@@ -681,10 +751,11 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              x[0] > 3])
         self.check_result(query, expected)
 
-    def __aggregate_expected_result(self, apply_func):
+    def __aggregate_expected_result(self, apply_func, grouping_col=1,
+                                    agg_col=3):
         result_dict = collections.defaultdict(list)
         for t in self.emp_table.elements():
-            result_dict[t[1]].append(t[3])
+            result_dict[t[grouping_col]].append(t[agg_col])
 
         tuples = [(key, apply_func(values)) for key, values in
                   result_dict.iteritems()]
@@ -729,6 +800,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             return sum / cnt
 
         self.check_result(query, self.__aggregate_expected_result(avg))
+        self.check_result(query, self.__aggregate_expected_result(avg),
+                          test_logical=True)
 
     def test_stdev(self):
         query = """
@@ -740,6 +813,10 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         tp = res.elements().next()
         self.assertAlmostEqual(tp[0], 34001.8006726)
 
+        res = self.execute_query(query, test_logical=True)
+        tp = res.elements().next()
+        self.assertAlmostEqual(tp[0], 34001.8006726)
+
     def test_count(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT dept_id, COUNT(salary)];
@@ -747,6 +824,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
+        self.check_result(query, self.__aggregate_expected_result(len),
+                          test_logical=True)
 
     def test_countall(self):
         query = """
@@ -755,6 +834,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
+        self.check_result(query, self.__aggregate_expected_result(len),
+                          test_logical=True)
 
     def test_count_star(self):
         query = """
@@ -763,6 +844,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
+        self.check_result(query, self.__aggregate_expected_result(len),
+                          test_logical=True)
 
     def test_count_star_sql(self):
         query = """
@@ -771,6 +854,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         self.check_result(query, self.__aggregate_expected_result(len))
+        self.check_result(query, self.__aggregate_expected_result(len),
+                          test_logical=True)
 
     def test_max_reversed(self):
         query = """
@@ -781,6 +866,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         ex = self.__aggregate_expected_result(max)
         ex = collections.Counter([(y, x) for (x, y) in ex])
         self.check_result(query, ex)
+        self.check_result(query, ex, test_logical=True)
 
     def test_compound_aggregate(self):
         query = """
@@ -800,6 +886,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         expected = collections.Counter(tuples)
         self.check_result(query, expected)
+        self.check_result(query, expected, test_logical=True)
 
     def test_aggregate_with_unbox(self):
         query = """
@@ -820,6 +907,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         expected = collections.Counter(tuples)
         self.check_result(query, expected)
+        self.check_result(query, expected, test_logical=True)
 
     def test_nary_groupby(self):
         query = """
@@ -911,7 +999,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.groupby.InvalidAttributeRefException):  # noqa
+        with self.assertRaises(raco.myrial.groupby.NonGroupedAccessException):  # noqa
             self.check_result(query, None)
 
     def test_nested_aggregates_are_illegal(self):
@@ -921,7 +1009,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        with self.assertRaises(raco.myrial.groupby.NestedAggregateException):
+        with self.assertRaises(NestedAggregateException):
             self.check_result(query, collections.Counter())
 
     def test_standalone_countall(self):
@@ -1055,6 +1143,21 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
             [(a, math.tan(b)) for a, b in self.numbers_table.elements()])
         self.check_result(query, expected)
 
+    def test_md5(self):
+        query = """
+        out = [FROM SCAN(%s) AS X EMIT id, md5(name)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        def md5_as_long(x):
+            m = md5.new()
+            m.update(x)
+            return int(m.hexdigest(), 16) >> 64
+
+        expected = collections.Counter(
+            [(x[0], md5_as_long(x[2])) for x in self.emp_table.elements()])
+        self.check_result(query, expected)
+
     def test_pow(self):
         query = """
         THREE = [3];
@@ -1072,7 +1175,40 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(raco.myrial.interpreter.NoSuchRelationException):  # noqa
+        with self.assertRaises(NoSuchRelationException):
+            self.check_result(query, collections.Counter())
+
+    def test_bad_relation_name(self):
+        query = """
+        y = empty(a:int);
+        z = [from s y      -- bug: s does not exist
+             emit y.a];
+        store(z, debug);
+        """
+
+        with self.assertRaises(NoSuchRelationException):
+            self.check_result(query, collections.Counter())
+
+    def test_bad_alias(self):
+        query = """
+        y = empty(a:int);
+        z = [from y s      -- bug: extra s
+             emit y.a];
+        store(z, debug);
+        """
+
+        with self.assertRaises(NoSuchRelationException):
+            self.check_result(query, collections.Counter())
+
+    def test_bad_alias_wildcard(self):
+        query = """
+        y = empty(a:int);
+        z = [from y s      -- bug: errant s
+             emit y.*];
+        store(z, debug);
+        """
+
+        with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
     def test_scan_error(self):
@@ -1090,7 +1226,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
     def test_relation_scope_error2(self):
@@ -1100,7 +1236,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         STORE(out, OUTPUT);
         """
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(NoSuchRelationException):
             self.check_result(query, collections.Counter())
 
     def test_parse_error(self):
@@ -1173,6 +1309,52 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
 
         with self.assertRaises(DuplicateVariableException):
             self.check_result(query, collections.Counter())
+
+    def test_nary_udf(self):
+        query = """
+        DEF Foo(a,b): [a + b, a - b];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter([(t[0], t[1] + t[3], t[3] - t[1])
+                                        for t in self.emp_table])
+        self.check_result(query, expected)
+
+    def test_nary_udf_name_count(self):
+        query = """
+        DEF Foo(a,b): [a + b, a - b];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y, z]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalColumnNamesException):
+            self.check_result(query, None)
+
+    def test_nary_udf_illegal_nesting(self):
+        query = """
+        DEF Foo(x): [x + 3, x - 3];
+        DEF Bar(a,b): [Foo(x), Foo(b)];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Bar(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    def test_nary_udf_illegal_wildcard(self):
+        query = """
+        DEF Foo(x): [x + 3, *];
+
+        out = [FROM SCAN(%s) AS X EMIT id, Foo(salary, dept_id) as [x, y]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalWildcardException):
+            self.check_result(query, None)
 
     def test_triangle_udf(self):
         query = """
@@ -1329,11 +1511,966 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
              for t in self.emp_table])
         self.check_result(query, expected)
 
+    def test_uda_illegal_init(self):
+        query = """
+        uda Foo(x,y) {
+            [0 as A, *];
+            [A + x, A + y];
+             A;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Foo(salary, id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalWildcardException):
+            self.check_result(query, None)
+
+    def test_uda_illegal_update(self):
+        query = """
+        uda Foo(x,y) {
+            [0 as A, 1 as B];
+            [A + x + y, *];
+             A + B;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Foo(salary, id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(MyrialCompileException):
+            self.check_result(query, None)
+
+    def test_uda_nested_emitter(self):
+        query = """
+        uda Foo(x) {
+            [0 as A];
+            [A + x];
+            [A];
+        };
+        uda Bar(x) {
+            [0 as B];
+            [B + x];
+            Foo(B);
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedAggregateException):
+            self.check_result(query, None)
+
+    def test_uda_nested_init(self):
+        query = """
+        uda Foo(x) {
+            [0 as A];
+            [A + x];
+            [A];
+        };
+        uda Bar(x) {
+            [Foo(0) as B];
+            [B + x];
+            B;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedAggregateException):
+            self.check_result(query, None)
+
+    def test_uda_nested_update(self):
+        query = """
+        uda Foo(x) {
+            [0 as A];
+            [A + x];
+            [A];
+        };
+        uda Bar(x) {
+            [0 as B];
+            [Foo(B)];
+            B;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedAggregateException):
+            self.check_result(query, None)
+
+    def test_uda_unary_emit_arg_list(self):
+        query = """
+        uda MyAvg(val) {
+            [0 as _sum, 0 as _count];
+            [_sum + val, _count + 1];
+            [_sum / _count];
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MyAvg(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        def agg_func(x):
+            return float(sum(x)) / len(x)
+
+        expected = self.__aggregate_expected_result(agg_func)
+        self.check_result(query, expected)
+
+    def test_second_max_uda(self):
+        """UDA to compute the second largest element in a collection."""
+        query = """
+        uda SecondMax(val) {
+            [0 as _max, 0 as second_max];
+            [case when val > _max then val else _max end,
+             case when val > _max then _max when val > second_max then val
+             else second_max end];
+             second_max;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SecondMax(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        def agg_func(x):
+            if len(x) < 2:
+                return 0
+            else:
+                return sorted(x, reverse=True)[1]
+
+        expected = self.__aggregate_expected_result(agg_func)
+        self.check_result(query, expected)
+
+    def test_multi_invocation_uda(self):
+        query = """
+        uda MaxDivMin(val) {
+            [9999999 as _min, 0 as _max];
+            [case when val < _min then val else _min end,
+             case when val > _max then val else _max end];
+             _max / _min;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT
+               MaxDivMin(id) + dept_id + MaxDivMin(salary), dept_id];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            max_salary = max(t[3] for t in tpls)
+            min_salary = min(t[3] for t in tpls)
+            max_id = max(t[0] for t in tpls)
+            min_id = min(t[0] for t in tpls)
+            results.append((k + float(max_salary) / min_salary +
+                            float(max_id) / min_id, k))
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_multiple_uda(self):
+        query = """
+        uda MyMax1(val) {
+            [0 as _max];
+            [case when val > _max then val else _max end];
+             _max;
+        };
+        uda MyMax2(val) {
+            [0 as _max];
+            [case when val > _max then val else _max end];
+             _max;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MyMax1(salary), MyMax2(id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            max_salary = max(t[3] for t in tpls)
+            max_id = max(t[0] for t in tpls)
+            results.append((k, max_salary, max_id))
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_uda_no_emit_clause(self):
+        query = """
+        uda MyCount() {
+            [0 as _count];
+            [_count + 1];
+        };
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MyCount()];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        self.check_result(query, self.__aggregate_expected_result(len))
+
+    def test_uda_no_emit_clause_many_cols(self):
+        query = """
+        uda MyAggs(x) {
+            [0 as _count, 0 as _sum, 0 as _sumsq];
+            [_count + 1, _sum + x, _sumsq + x*x];
+        };
+        out = [FROM SCAN(%s) AS X EMIT MyAggs(salary) as [a, b, c]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        c = len(list(self.emp_table.elements()))
+        s = sum(d for a, b, c, d in self.emp_table.elements())
+        sq = sum(d * d for a, b, c, d in self.emp_table.elements())
+        expected = collections.Counter([(c, s, sq)])
+        self.check_result(query, expected)
+
+        # Test with two different column orders in case the undefined
+        # order used by Python is correct by chance.
+        query = """
+        uda MyAggs(x) {
+            [0 as _count, 0 as _sumsq, 0 as _sum];
+            [_count + 1, _sumsq + x*x, _sum + x];
+        };
+        out = [FROM SCAN(%s) AS X EMIT MyAggs(salary) as [a, b, c]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        c = len(list(self.emp_table.elements()))
+        sq = sum(d * d for a, b, c, d in self.emp_table.elements())
+        s = sum(d for a, b, c, d in self.emp_table.elements())
+        expected = collections.Counter([(c, sq, s)])
+        self.check_result(query, expected)
+
+    def test_uda_with_udf(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k, max(t[3] + t[0] for t in tpls)))
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_uda_with_subsequent_project_0(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
+        out = [from inter emit $0];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k, max(t[3] + t[0] for t in tpls)))
+        results = [(t[0],) for t in results]
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_uda_with_subsequent_project_1(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)];
+        out = [from inter emit $1];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k, max(t[3] + t[0] for t in tpls)))
+        results = [(t[1],) for t in results]
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_uda_with_subsequent_project_2(self):
+        query = """
+        def foo(x, y): x + y;
+        uda max2(x, y) {
+            [0 as _max];
+            [case when foo(x, y) > _max then foo(x, y) else _max end];
+            _max;
+        };
+
+        inter = [FROM SCAN(%s) AS X EMIT dept_id, max2(salary, id)
+                                       , max2(dept_id, id)];
+        out = [from inter emit $1];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            results.append((k,
+                            max(t[3] + t[0] for t in tpls),
+                            max(t[1] + t[0] for t in tpls)))
+        results = [(t[1],) for t in results]
+
+        self.check_result(query, collections.Counter(results))
+
+    def __run_multiple_emitter_test(self, include_column_names):
+
+        if include_column_names:
+            names = " AS [mysum, mycount, myavg]"
+        else:
+            names = ""
+
+        query = """
+        uda SumCountMean(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+          [_sum, _count, _sum/_count];
+        };
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary) %s,
+               dept_id+3, max(id) as max_id];
+        STORE(out, OUTPUT);
+        """ % (self.emp_key, names)
+
+        d = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            d[t[1]].append(t)
+
+        results = []
+        for k, tpls in d.iteritems():
+            _sum = sum(x[3] for x in tpls)
+            _count = len(tpls)
+            _avg = float(_sum) / _count
+            _max_id = max(x[0] for x in tpls)
+            results.append((k, _sum, _count, _avg, k + 3, _max_id))
+
+        self.check_result(query, collections.Counter(results))
+
+    def test_uda_multiple_emitters_default_names(self):
+        self.__run_multiple_emitter_test(False)
+
+    def test_uda_multiple_emitters_provided_names(self):
+        self.__run_multiple_emitter_test(True)
+
+        scheme_actual = self.db.get_scheme('OUTPUT')
+        scheme_expected = scheme.Scheme([
+            ('dept_id', types.LONG_TYPE), ('mysum', types.LONG_TYPE),
+            ('mycount', types.LONG_TYPE), ('myavg', types.FLOAT_TYPE),
+            ('_COLUMN4_', types.LONG_TYPE), ('max_id', types.LONG_TYPE)])
+
+        self.assertEquals(scheme_actual, scheme_expected)
+
+    def test_emit_arg_bad_column_name_length(self):
+        query = """
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id AS [dept_id1, dept_id2]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalColumnNamesException):
+            self.check_result(query, None)
+
+    def test_uda_bad_column_name_length(self):
+        query = """
+        uda Fubar(x, y, z) {
+          [0 as Q];
+          [Q + 1];
+          [1,2,3];
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Fubar(1, salary, id)
+               AS [A, B, C, D]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(IllegalColumnNamesException):
+            self.check_result(query, None)
+
+    def test_uda_init_tuple_valued(self):
+        query = """
+        uda Foo(x) {
+          [0 as Q];
+          [Q + 1];
+          [1,2,3];
+        };
+
+        uda Bar(x) {
+          [Foo(0) as [A, B, C]];
+          [Q * 8];
+          [1,2,3];
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    def test_uda_update_tuple_valued(self):
+        query = """
+        uda Foo(x) {
+          [0 as Q];
+          [Q + 1];
+          [1,2,3];
+        };
+
+        uda Bar(x) {
+          [0 as Q];
+          [Foo(Q + 1)];
+          [1,2,3];
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    def test_uda_result_tuple_valued(self):
+        query = """
+        uda Foo(x) {
+          [0 as Q];
+          [Q + 1];
+          [1,2,3];
+        };
+
+        uda Bar(x) {
+          [0 as Q];
+          [Q + 2];
+          [1,2,Foo(3)];
+        };
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, Bar(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    def test_uda_multiple_emitters_nested(self):
+        """Test that we raise an Exception if a tuple-valued UDA doesn't appear
+        by itself in an emit expression."""
+        query = """
+        uda SumCountMean(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+          [_sum, _count, _sum/_count];
+        };
+        out = [FROM SCAN(%s) AS X EMIT dept_id, SumCountMean(salary) + 5];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(NestedTupleExpressionException):
+            self.check_result(query, None)
+
+    __DECOMPOSED_UDA = """
+        uda LogicalAvg(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+          float(_sum); -- Note bogus return value
+        };
+        uda LocalAvg(x) {
+          [0 as _sum, 0 as _count];
+          [_sum + x, _count + 1];
+        };
+        uda RemoteAvg(_local_sum, _local_count) {
+          [0 as _sum, 0 as _count];
+          [_sum + _local_sum, _count + _local_count];
+          [_sum/_count];
+        };
+        uda* LogicalAvg {LocalAvg, RemoteAvg};
+    """
+
+    __ARG_MAX_UDA = """
+        def pickval(id, salary, val, _id, _salary, _val):
+           case when salary > _salary then val
+                when salary = _salary and id > _id then val
+                else _val end;
+        uda ArgMax(id, dept_id, name, salary) {
+          [0 as _id, 0 as _dept_id, "" as _name, 0 as _salary];
+          [pickval(id, salary, id, _id, _salary, _id),
+           pickval(id, salary, dept_id, _id, _salary, _dept_id),
+           pickval(id, salary, name, _id, _salary, _name),
+           pickval(id, salary, salary, _id, _salary, _salary)];
+          [_id, _dept_id, _name, _salary];
+        };
+    """
+
+    __ARG_MAX_UDA_UNNECESSARY_EXPR = """
+        def pickval(id, salary, val, _id, _salary, _val):
+           case when salary > _salary then val
+                when salary = _salary and id > _id then val
+                else _val end;
+        uda ArgMax(id, dept_id, name, salary) {
+          [0 as _id, 0 as _dept_id, "" as _name, 0 as _salary];
+          [pickval(id, salary, greater(id, id), _id, _salary, _id),
+           pickval(id, salary, lesser(dept_id, dept_id), _id, _salary,
+                   _dept_id),
+           pickval(id, salary, case when name="" then name else name end, _id,
+                   _salary, _name),
+           pickval(id, salary, salary * 1, _id, _salary, _salary)];
+          [_id, _dept_id, _name, _salary];
+        };
+    """
+
+    def test_decomposable_average_uda(self):
+        """Test of a decomposed average UDA.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """%s
+        out = [FROM SCAN(%s) AS X EMIT dept_id, LogicalAvg(salary)];
+        STORE(out, OUTPUT);
+        """ % (TestQueryFunctions.__DECOMPOSED_UDA, self.emp_key)
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t[3])
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _cnt = len(vals)
+            _sum = sum(vals)
+            tuples.append((key, float(_sum) / _cnt))
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_nary_uda(self):
+
+        query = """
+        uda Sum2(x, y) {
+          [0 as sum_x, 0 as sum_y];
+          [sum_x + x, sum_y + y];
+        };
+        uda* Sum2 {Sum2, Sum2};
+        out = [FROM SCAN(%s) AS X EMIT
+               Sum2(id, salary) AS [id_sum, salary_sum]];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        id_sum = sum(t[0] for t in self.emp_table.elements())
+        salary_sum = sum(t[3] for t in self.emp_table.elements())
+
+        tuples = [(id_sum, salary_sum)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda(self):
+        """Test of an arg_max UDA.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, dept_id, name, salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_with_references(self):
+        """Test of an arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_with_functions(self):
+        """Test of an arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda(self):
+        """Test of a decomposable arg_max UDA.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, dept_id, name, salary)
+               as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+        """Test of an arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+
+    def test_decomposable_arg_max_uda_with_references(self):
+        """Test of a decomposable arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)
+               as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda_with_functions(self):
+        """Test of a decomposable arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_internal_exprs(self):
+        """Test of an arg_max UDA.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, dept_id, name, salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_internal_exprs_with_references(self):
+        """Test of an arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_arg_max_uda_internal_exprs_with_functions(self):
+        """Test of an arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda_internal_exprs(self):
+        """Test of a decomposable arg_max UDA.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, dept_id, name, salary)
+               as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+        """Test of an arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+
+    def test_decomposable_arg_max_uda_internal_exprs_with_references(self):
+        """Test of a decomposable arg_max UDA with named, unnamed, and dotted
+        attribute references.
+        """
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id, emp.dept_id, $2, emp.$3)
+               as [a, b, c, d]];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_arg_max_uda_internal_exprs_with_functions(self):
+        """Test of a decomposable arg_max UDA with expressions as inputs.
+        """
+
+        query = """
+        {arg}
+        uda* ArgMax {{ArgMax, ArgMax}};
+        emp = scan({emp});
+        out = [from emp emit ArgMax(id,
+                        greater(dept_id, dept_id),
+                        case when id=1 then name else name end,
+                        salary)];
+        store(out, OUTPUT);
+        """.format(arg=self.__ARG_MAX_UDA_UNNECESSARY_EXPR, emp=self.emp_key)
+
+        tuples = [(a, b, c, d) for (a, b, c, d) in self.emp_table
+                  if all(d > d1 or d == d1 and a >= a1
+                         for a1, b1, c1, d1 in self.emp_table)]
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_average_uda_repeated(self):
+        """Test of repeated invocations of decomposed UDAs."""
+
+        query = """%s
+        out = [FROM SCAN(%s) AS X EMIT dept_id,
+               LogicalAvg(salary) + LogicalAvg($0)];
+        STORE(out, OUTPUT);
+        """ % (TestQueryFunctions.__DECOMPOSED_UDA, self.emp_key)
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _cnt = len(vals)
+            _salary_sum = sum(t[3] for t in vals)
+            _id_sum = sum(t[0] for t in vals)
+            tuples.append((key, (float(_salary_sum) + float(_id_sum)) / _cnt))
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_decomposable_sum_uda(self):
+        """Test of a decomposed sum UDA.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """
+        uda MySumBroken(x) {
+          [0 as _sum];
+          [_sum + x];
+          17; -- broken
+        };
+        uda MySum(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* MySumBroken {MySum, MySum};
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MySumBroken(salary)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        self.check_result(query, self.__aggregate_expected_result(sum))
+
+    def test_decomposable_uda_with_builtin_agg(self):
+        """Test of a decomposed UDA + builtin aggregate.
+
+        Note that the logical aggregate returns a broken value, so
+        this test only passes if we decompose the aggregate properly.
+        """
+
+        query = """
+        uda MySumBroken(x) {
+          [0 as _sum];
+          [_sum + x];
+          17; -- broken
+        };
+        uda MySum(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* MySumBroken {MySum, MySum};
+
+        out = [FROM SCAN(%s) AS X EMIT dept_id, MySumBroken(salary), SUM(id)];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result_dict = collections.defaultdict(list)
+        for t in self.emp_table.elements():
+            result_dict[t[1]].append(t)
+
+        tuples = []
+        for key, vals in result_dict.iteritems():
+            _salary_sum = sum(t[3] for t in vals)
+            _id_sum = sum(t[0] for t in vals)
+            tuples.append((key, _salary_sum, _id_sum))
+
+        self.check_result(query, collections.Counter(tuples))
+
+    def test_duplicate_decomposable_uda(self):
+        query = """
+        uda Agg1(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+
+        uda* Agg1 {Agg1, Agg1};
+        uda* Agg1 {Agg1, Agg1};
+        """
+
+        with self.assertRaises(DuplicateFunctionDefinitionException):
+            self.check_result(query, None)
+
+    def test_decomposable_uda_type_check_fail1(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Local(x, y) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* Logical {Local, Logical};
+        """
+
+        with self.assertRaises(InvalidArgumentList):
+            self.check_result(query, None)
+
+    def test_decomposable_uda_type_check_fail2(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Remote(x, y) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda* Logical {Logical, Remote};
+        """
+
+        with self.assertRaises(InvalidArgumentList):
+            self.check_result(query, None)
+
+    def test_decomposable_uda_type_check_fail3(self):
+        query = """
+        uda Logical(x) {
+          [0 as _sum];
+          [_sum + x];
+        };
+        uda Remote(x) {
+          [0 as _sum];
+          [_sum + x];
+          [1, 2, 3];
+        };
+        uda* Logical {Logical, Remote};
+        """
+
+        with self.assertRaises(InvalidEmitList):
+            self.check_result(query, None)
+
     def test_running_mean_sapply(self):
         query = """
         APPLY RunningMean(value) {
             [0 AS _count, 0 AS _sum];
-            [_count + 1 AS _count, _sum + value AS _sum];
+            [_count + 1, _sum + value];
             _sum / _count;
         };
         out = [FROM SCAN(%s) AS X EMIT id, RunningMean(X.salary)];
@@ -1354,7 +2491,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         query = """
         APPLY RunningSum(x) {
             [0 AS _sum];
-            [_sum + x AS _sum];
+            [_sum + x];
             _sum;
         };
         out = [FROM SCAN(%s) AS X
@@ -1485,6 +2622,26 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
                                         in self.emp_table.elements()])
         self.check_result(query, expected)
 
+    def test_flip_zero(self):
+        """flip(0) should always evaluate to false"""
+        query = """
+        X = [FROM SCAN(%s) AS X WHERE flip(0) EMIT *];
+        STORE(X, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter()
+        self.check_result(query, expected)
+
+    def test_flip_one(self):
+        """flip(1) should always evaluate to true"""
+        query = """
+        X = [FROM SCAN(%s) AS X WHERE flip(1) EMIT *];
+        STORE(X, OUTPUT);
+        """ % self.emp_key
+
+        expected = collections.Counter(self.emp_table.elements())
+        self.check_result(query, expected)
+
     def test_substr(self):
         query = """
         ZERO = [0];
@@ -1580,6 +2737,14 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         with self.assertRaises(MyrialCompileException):
             self.check_result(query, None)
 
+    def test_sink(self):
+        query = """
+        ZERO = [0];
+        A = [from ZERO emit *];
+        SINK(A);
+        """
+        self.evaluate_sink_query(query)
+
     def test_string_cast(self):
         query = """
         emp = SCAN(%s);
@@ -1588,7 +2753,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """ % self.emp_key
 
         ex = collections.Counter((str(d),) for (i, d, n, s) in self.emp_table)
-        ex_scheme = scheme.Scheme([('foo', 'STRING_TYPE')])
+        ex_scheme = scheme.Scheme([('foo', types.STRING_TYPE)])
         self.check_result(query, ex)
 
     def test_float_cast(self):
@@ -1611,7 +2776,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase):
         """.format(rel=self.emp_key)
 
         physical_plan = self.get_physical_plan(query)
-        self.assertTrue(isinstance(physical_plan, raco.algebra.Sequence))
+        self.assertIsInstance(physical_plan, raco.algebra.Sequence)
         self.check_result(query, self.emp_table, output='OUTPUT')
         self.check_result(query, self.emp_table, output='OUTPUT2')
 

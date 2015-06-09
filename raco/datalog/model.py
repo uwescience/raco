@@ -1,14 +1,15 @@
-'''
+"""
 
 classes for representing and manipulating Datalog programs.
 
 In particular, they can be compiled to (iterative) relational algebra
 expressions.
-'''
+"""
 import networkx as nx
 from raco import expression
 import raco.algebra as algebra
-from raco import scheme
+from raco.expression.visitor import SimpleExpressionVisitor
+from raco.scheme import Scheme
 import raco.catalog
 import raco.myrial.groupby
 from raco.relation_key import RelationKey
@@ -124,7 +125,7 @@ class JoinSequence(object):
                   for t in self.terms]
 
         if not leaves:
-            return algebra.EmptyRelation(scheme.Scheme())
+            return algebra.EmptyRelation(Scheme())
 
         leftmost = leaves[0]
         pairs = zip(self.conditions, leaves[1:])
@@ -399,7 +400,7 @@ class Rule(object):
         try:
             scheme = plan.scheme()
         except AttributeError:
-            scheme = scheme.Scheme([make_attr(i, r, self.head.name) for i, r in enumerate(self.head.valuerefs)])  # noqa
+            scheme = Scheme([make_attr(i, r, self.head.name) for i, r in enumerate(self.head.valuerefs)])  # noqa
 
         # Helper function for the next two steps (TODO: move this to a method?)
         def findvar(variable):
@@ -409,7 +410,7 @@ class Rule(object):
                 raise SyntaxError(msg)
             return expression.UnnamedAttributeRef(scheme.getPosition(var))
 
-        class FindVarExpressionVisitor(expression.SimpleExpressionVisitor):
+        class FindVarExpressionVisitor(SimpleExpressionVisitor):
             def __init__(self):
                 self.stack = []
 
@@ -435,6 +436,13 @@ class Rule(object):
             def visit_nary(self, naryexpr):
                 raise NotImplementedError(
                     "TODO: implement findvar visit of nary expression")
+
+            def visit_attr(self, attr):
+                assert False, \
+                    "FindVar should not be used on expressions with attributes"
+
+            def visit_Case(self, caseExpr):
+                raise NotImplementedError("Case now implemented for Datalog?")
 
             def visit_Var(self, var):
                 asAttr = findvar(var)
@@ -475,7 +483,8 @@ class Rule(object):
 
         # If any of the expressions in the head are aggregate expression,
         # construct a group by
-        if any([expression.isaggregate(v) for v in self.head.valuerefs]):
+        if any(expression.expression_contains_aggregate(v)
+               for v in self.head.valuerefs):
             emit_clause = [(None, a_or_g) for a_or_g in columnlist]
             return raco.myrial.groupby.groupby(plan, emit_clause, [])
         elif any([not isinstance(e, Var) for e in self.head.valuerefs]):
@@ -485,12 +494,10 @@ class Rule(object):
             # we decided probably not in
             # https://github.com/uwescience/raco/pull/209
             plan = algebra.Apply([(None, e) for e in columnlist], plan)
-            plan = algebra.Project([expression.UnnamedAttributeRef(i)
-                                    for i, _ in enumerate(columnlist)],
-                                   plan)
         else:
             # otherwise, just build a Project
-            plan = algebra.Project(columnlist, plan)
+            plan = algebra.Apply(emitters=[(None, c) for c in columnlist],
+                                 input=plan)
 
         # If we found a cycle, the "root" of the plan is the fixpoint operator
         if self.fixpoint:
@@ -530,6 +537,9 @@ class Var(expression.Expression):
     def typeof(self, scheme, state_scheme):
         # WRONG: we should read this from a catalogue
         return raco.types.LONG_TYPE
+
+    def get_children(self):
+        return []
 
 
 class Term(object):
@@ -747,8 +757,8 @@ class Term(object):
         try:
             sch = plan.scheme()
         except algebra.RecursionError:
-            sch = scheme.Scheme([make_attr(i, r, term.name)
-                                 for i, r in enumerate(term.valuerefs)])
+            sch = Scheme([make_attr(i, r, term.name)
+                          for i, r in enumerate(term.valuerefs)])
 
         oldscheme = [name for (name, _) in sch]
         termscheme = [expr for expr in term.valuerefs]
@@ -790,8 +800,8 @@ class Term(object):
             plan = program.compileIDB(self.name)
             scan = self.renameIDB(plan)
         else:
-            sch = scheme.Scheme([make_attr(i, r, self.name)
-                                 for i, r in enumerate(self.valuerefs)])
+            sch = Scheme([make_attr(i, r, self.name)
+                          for i, r in enumerate(self.valuerefs)])
             rel_key = RelationKey.from_string(self.name)
             scan = algebra.Scan(rel_key, sch)
             scan.trace("originalterm", "%s (position %s)" % (self, self.originalorder))  # noqa

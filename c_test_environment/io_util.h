@@ -1,4 +1,9 @@
 #pragma once
+#include <string>
+#include <sstream>
+#include <sstream>
+#include <vector>
+#include <fstream>
 
 // How to use the I/O utilities:
 // 1) Inhale a particular file. Right now, expected to be a space separated
@@ -57,6 +62,27 @@ struct relationInfo *inhale(const char *path, struct relationInfo *relInfo);
 struct relationInfo *binary_inhale(const char *path, struct relationInfo *relInfo);
 
 void printrelation(struct relationInfo *R);
+
+
+template<typename T>
+std::vector<T> tuplesFromAscii(const char *path) {
+  std::string pathst(path);
+  std::ifstream testfile(pathst, std::ifstream::in);
+
+  std::vector<T> tuples;
+
+  std::string line;
+  while (std::getline(testfile,line)) {
+    std::istringstream ss(line);
+    tuples.push_back(T::fromIStream(ss)); 
+  }
+
+  // rely on RVO to avoid content copy
+  return tuples;
+}
+
+void write_count(const char* path, uint64_t count);
+    
 
 #define ZAPPA
 

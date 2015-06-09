@@ -1,12 +1,13 @@
 #!/usr/bin/python
+# -*- coding: UTF-8 -*-
 
 import ply.lex as lex
 
 import raco.myrial.exceptions
 
 keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
-            'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CONNECT',
-            'EXPORTMYRIATOSCIDB']
+            'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CSV', 'SCHEMA',
+            'UDA', 'TRUE', 'FALSE','CONNECT','EXPORTMYRIATOSCIDB']
 
 types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN']
 
@@ -16,7 +17,7 @@ word_operators = ['AND', 'OR', 'NOT']
 
 builtins = ['EMPTY', 'WORKER_ID', 'SCAN', 'COUNTALL', 'COUNT', 'STORE',
             'DIFF', 'CROSS', 'JOIN', 'UNIONALL', 'INTERSECT', 'DISTINCT',
-            'LIMIT']
+            'LIMIT', 'SINK', 'SAMPLESCAN']
 
 
 # identifiers with special meaning; case-insensitive
@@ -26,10 +27,11 @@ reserved = (keywords + types + comprehension_keywords
 # Token types; required by ply to have this variable name
 
 tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
-          'TIMES', 'DIVIDE', 'IDIVIDE', 'LT', 'GT', 'GE', 'LE', 'EQ', 'NE',
-          'NE2', 'COMMA', 'SEMI', 'EQUALS', 'COLON', 'DOLLAR', 'ID',
-          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL', 'LBRACE',
-          'RBRACE', 'PERCENT'] + reserved
+          'TIMES', 'DIVIDE', 'IDIVIDE', 'MOD', 'LT', 'GT', 'GE', 'GE2',
+          'LE', 'LE2', 'EQ', 'NE', 'NE2', 'NE3', 'COMMA', 'SEMI', 'EQUALS',
+          'COLON', 'DOLLAR', 'ID',
+          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL',
+          'LBRACE', 'RBRACE', 'PERCENT'] + reserved
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('
@@ -44,14 +46,18 @@ t_MINUS = r'-'
 t_TIMES = r'\*'
 t_DIVIDE = r'/'
 t_IDIVIDE = r'//'
+t_MOD = r'%'
 
 t_LT = r'<'
 t_GT = r'>'
 t_LE = r'<='
+t_LE2 = u'≤'
 t_GE = r'>='
+t_GE2 = u'≥'
 t_EQ = r'=='
 t_NE = r'!='
 t_NE2 = r'<>'
+t_NE3 = u'≠'
 
 t_DOT = r'\.'
 t_COMMA = r','
@@ -91,7 +97,11 @@ def t_INTEGER_LITERAL(t):
 
 
 def t_STRING_LITERAL(t):
+<<<<<<< HEAD
     r'"([^\\"]|\\.)*"'
+=======
+    r'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
+>>>>>>> 56e87c5b7a70b76f0e97bb90d14b86a6e245d102
     t.value = t.value[1:-1].decode("string_escape")
     return t
 

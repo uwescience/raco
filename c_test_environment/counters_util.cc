@@ -59,7 +59,9 @@ mallocCounterMemory(int numCounters) {
 #ifdef __MTA__
   int *counters = (int *)malloc(numCounters*(sizeof(int)*NUM_RT_COUNTERS));
   return counters;
-#endif // __MTA__
+#else // __MTA__
+  return NULL;
+#endif
 }
 
 void

@@ -1,0 +1,1 @@
+GRAPPA_DEFINE_METRIC({% block type %}{% endblock %}, {% block name %}{% endblock %}, {% block init %}{% endblock %});

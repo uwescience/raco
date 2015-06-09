@@ -1,22 +1,33 @@
 #!/usr/bin/env python
 
-"""Compile a Myrial program into a physical plan."""
-
-import raco.myrial.interpreter as interpreter
-import raco.myrial.parser as parser
-import raco.scheme
-import raco.catalog
-import raco.run_federated
-
-from raco.fakedb import FakeDatabase
-from raco import algebra
-from raco.viz import operator_to_dot
-from raco.myrial.exceptions import *
-
+"""Compile a MyriaL program into a physical plan."""
 import argparse
 import os
 import json
 import sys
+import logging
+
+
+from raco.catalog import FromFileCatalog
+import raco.myrial.interpreter as interpreter
+import raco.myrial.parser as parser
+<<<<<<< HEAD
+import raco.scheme
+import raco.catalog
+import raco.run_federated
+
+=======
+>>>>>>> 56e87c5b7a70b76f0e97bb90d14b86a6e245d102
+from raco.fakedb import FakeDatabase
+from raco import algebra
+from raco.viz import operator_to_dot
+from raco.myrial.exceptions import *
+from raco.language.grappalang import GrappaAlgebra
+from raco.language.logical import OptLogicalAlgebra
+from raco.language.sparql import SPARQLAlgebra
+import raco.from_repr as from_repr
+from raco.compile import compile
+
 
 def print_pretty_plan(plan, indent=0):
     if isinstance(plan, algebra.DoWhile):
@@ -37,70 +48,83 @@ def print_pretty_plan(plan, indent=0):
     else:
         print '%s%s' % (' ' * indent, plan)
 
+
 def parse_options(args):
-    parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group()
+    arg_parser = argparse.ArgumentParser()
+    group = arg_parser.add_mutually_exclusive_group()
     group.add_argument('-p', dest='parse',
-                        help="Generate AST (parse tree)", action='store_true')
+                       help="Generate AST (parse tree)", action='store_true')
     group.add_argument('-l', dest='logical',
-                        help="Generate logical plan", action='store_true')
+                       help="Generate logical plan", action='store_true')
+    group.add_argument('-L', dest='opt_logical',
+                       help="Generate optimized logical plan",
+                       action='store_true')
     group.add_argument('-d', dest='dot',
                        help="Generate dot output for logical plan",
                        action='store_true')
     group.add_argument('-j', dest='json',
-                        help="Encode plan as JSON", action='store_true')
+                       help="Encode plan as JSON", action='store_true')
+    group.add_argument('-r', dest='repr',
+                       help="Encode plan as Python repr", action='store_true')
     group.add_argument('-f', dest='standalone', action='store_true',
                        help='Execute the program in standalone mode')
     group.add_argument('-b', dest='federated', action='store_true',
                        help='Execute the program in federated mode')
+    group.add_argument('-c', dest='clang', action='store_true',
+                       help='Output physical plan for grappalang and source program')
+    group.add_argument('-s', dest='sparql', action='store_true',
+                       help='Output an attempt at a SPARQL translation of the input program')
+    arg_parser.add_argument('-v', dest='verbose', action='store_true',
+                       help='Turn on verbose DEBUG logging')
+    arg_parser.add_argument('--catalog', dest="catalog_path", default=None, help="[Optional] path to catalog file")
+    arg_parser.add_argument('--plan', dest="from_repr", action='store_true', help="[Optional] input file is a plan as a python repr")
+    arg_parser.add_argument('file',
+                            help='File containing MyriaL source program (or a physical plan if using --plan)')
 
-    parser.add_argument('file', help='File containing Myrial source program')
-
-    ns = parser.parse_args(args)
+    ns = arg_parser.parse_args(args)
     return ns
 
-class FakeCatalog(raco.catalog.Catalog):
-    def __init__(self, catalog):
-        self.catalog = catalog
-
-    def get_scheme(self, rel_key):
-        string_key = str(rel_key)
-        return raco.scheme.Scheme(self.catalog[string_key])
-
-    @classmethod
-    def load_from_file(cls, path):
-        with open(path) as fh:
-            return cls(eval(fh.read()))
-
-    def get_num_servers(self):
-        return 1
-
-    def num_tuples(self, rel_key):
-        return algebra.DEFAULT_CARDINALITY
 
 
 def main(args):
     opt = parse_options(args)
 
+    if opt.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+
     # Search for a catalog definition file
-    catalog_path = os.path.join(os.path.dirname(opt.file), 'catalog.py')
-    if os.path.exists(catalog_path):
-        catalog = FakeCatalog.load_from_file(catalog_path)
+    if opt.catalog_path is not None:
+        catalog_path = opt.catalog_path
     else:
-        catalog = FakeCatalog({})
+        catalog_path = os.path.join(os.path.dirname(opt.file), 'catalog.py')
+
+    if os.path.exists(catalog_path):
+        catalog = FromFileCatalog.load_from_file(catalog_path)
+    else:
+        catalog = FromFileCatalog({},"")
 
     _parser = parser.Parser()
     processor = interpreter.StatementProcessor(catalog, True)
 
+    statement_list = None
+    plan_repr = None
     with open(opt.file) as fh:
         try:
-            statement_list = _parser.parse(fh.read())
+            inp = fh.read()
+            if opt.from_repr:
+                plan_repr = inp
+            else:
+                statement_list = _parser.parse(inp)
         except MyrialCompileException as ex:
-            print 'Myrial parse error: %s' % ex
+            print 'MyriaL parse error: %s' % ex
             return 1
 
-        if opt.parse:
+    if opt.parse:
+        if statement_list == None:
+            print "No MyriaL given"
+        else:
             print statement_list
+<<<<<<< HEAD
         elif opt.federated:
             sys.path.append("./myria-python")
             sys.path.append("./SciDB-py")
@@ -119,22 +143,83 @@ def main(args):
             res = raco.run_federated.run(processor.get_logical_plan(), conn,
                                          scidbpy)
             print res
+=======
+    else:
+        if opt.from_repr:
+            pd = PhysicalPlanDispatch(from_repr=plan_repr)
+>>>>>>> 56e87c5b7a70b76f0e97bb90d14b86a6e245d102
         else:
+            pd = PhysicalPlanDispatch(processor=processor)
             processor.evaluate(statement_list)
-            if opt.logical:
-                print_pretty_plan(processor.get_logical_plan())
-            elif opt.dot:
-                print operator_to_dot(processor.get_logical_plan())
-            elif opt.json:
-                print json.dumps(processor.get_json())
-            elif opt.standalone:
-                pp = processor.get_physical_plan()
-                db = FakeDatabase()
-                db.evaluate(pp)
-            else:
-                print_pretty_plan(processor.get_physical_plan())
+
+        if opt.logical:
+            if opt.from_repr:
+                raise "Options logical and --plan are incompatible"
+            print_pretty_plan(processor.get_logical_plan())
+        elif opt.dot:
+            if opt.from_repr:
+                raise "Options dot and --plan are incompatible"
+            print operator_to_dot(processor.get_logical_plan())
+        elif opt.json:
+            ppj = pd.get_json()
+            print(json.dumps(ppj))
+        elif opt.standalone:
+            pp = pd.get_physical_plan()
+            db = FakeDatabase()
+            db.evaluate(pp)
+        elif opt.repr:
+            pp = pd.get_physical_plan()
+            print repr(pp)
+        elif opt.opt_logical:
+            if opt.from_repr:
+                raise "Options opt_logical and --plan are incompatible"
+            print_pretty_plan(processor.get_physical_plan(
+                target_alg=OptLogicalAlgebra()))
+        elif opt.clang:
+            pp = pd.get_physical_plan(target_alg=GrappaAlgebra())
+            print_pretty_plan(pp)
+            c = compile(pp)
+            fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
+            with open(fname, 'w') as f:
+                f.write(c)
+        elif opt.sparql:
+            pp = pd.get_physical_plan(target_alg=SPARQLAlgebra())
+            c = compile(pp)
+            print c
+        else:
+            print_pretty_plan(pd.get_physical_plan())
 
     return 0
+
+
+class PhysicalPlanDispatch(object):
+
+    def __init__(self, processor=None, from_repr=None):
+        if processor:
+            self.processor = processor
+            self.with_repr = None
+        elif from_repr:
+            self.processor = None
+            self.with_repr = from_repr
+        else:
+            raise "Requires processor or repr plan input"
+
+    def get_physical_plan(self, target_alg=None):
+        if self.with_repr:
+            return from_repr.plan_from_repr(self.with_repr)
+        else:
+            if target_alg is None:
+                return self.processor.get_physical_plan()
+            else:
+                return self.processor.get_physical_plan(target_alg=target_alg)
+
+    def get_json(self):
+        if self.with_repr:
+            return interpreter.StatementProcessor.get_json_from_physical_plan(self.get_physical_plan())
+        else:
+            return self.processor.get_json()
+
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

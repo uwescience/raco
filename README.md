@@ -10,16 +10,17 @@ Source languages include:
 
 * Datalog
 * SQL (Subset)
-* Myrial, the language for the UW Myria project
+* MyriaL, the language for the UW Myria project
 
 Output languages include:
 
 * Logical relational algebra
-* The Myria physical algebra.
-* A pseudocode algebra
-* A Python algebra
+* The Myria physical algebra (in JSON)
 * A C++ algebra, C++ source code
 * A Grappa algebra, Grappa source code
+* A pseudocode algebra
+* A Python algebra
+* SPARQL (partial)
 
 Users can of course author programs by directly instantiating one of the intermediate or output algebras as well as one of the source languages.
 
@@ -29,18 +30,25 @@ Requires Python 2.7 or higher 2.x
 
 For development use:
 
-    pip install -r requirements-dev.txt
-    python setup.py develop
+```bash
+pip install -r requirements-dev.txt
+python setup.py develop
+```
 
 For normal use:
 
-    python setup.py install
+```bash
+python setup.py install
+```
 
 
 # Run tests
 
 To execute the tests, run `nosetests` in the root directory of the repository. See `nosetests -h` for more options or consult the [nose documentation](https://nose.readthedocs.org).
 
+#### Requirements for C++ backend tests
+- C++11 compiler
+- sqlite3
 
 # Example
 
@@ -50,14 +58,14 @@ Note that the commands below run the `myrial` utility from the included `scripts
 
 
 ### Parse a Myrial program
-```
+```bash
 % python scripts/myrial -p examples/sigma-clipping-v0.myl
 [('ASSIGN', 'Good', ('SCAN', 'public:adhoc:sc_points')), ('ASSIGN', 'N', ('TABLE', (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c04fd0>,))), ('DOWHILE', [('ASSIGN', 'mean', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c450>,))), ('ASSIGN', 'std', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c4d0>,))), ('ASSIGN', 'NewBad', ('BAGCOMP', [('Good', None)], (ABS((Good.v - Unbox)) > (Unbox * Unbox)), (<raco.myrial.emitarg.FullWildcardEmitArg object at 0x101c1c410>,))), ('ASSIGN', 'Good', ('DIFF', ('ALIAS', 'Good'), ('ALIAS', 'NewBad'))), ('ASSIGN', 'continue', ('BAGCOMP', [('NewBad', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c8d0>,)))], ('ALIAS', 'continue')), ('DUMP', 'Good')]
 ```
 
 ### Show the logical plan of a Myrial program
 
-```
+```bash
 % python scripts/myrial -l examples/sigma-clipping-v0.myl
 Sequence
     StoreTemp(Good)[Scan(public:adhoc:sc_points)]
@@ -75,7 +83,7 @@ Sequence
 
 ### Show the Myria physical plan of a Myrial program
 
-```
+```bash
 % python scripts/myrial examples/sigma-clipping-v0.myl 
 Sequence
     StoreTemp(Good)[MyriaScan(public:adhoc:sc_points)]
@@ -94,47 +102,26 @@ Sequence
 ### Visualize a Myria plan as a graph
 Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
-# C++ and Grappa output
-There are also C++ and Grappa output for Raco.
+# C++ and Grappa output (Radish)
+There is also Grappa output for Raco.
 
-### Run the datalog -> C++ tests
-
-#### Requirements
-- C++11 compiler
-- sqlite3
-
-#### Run
-
-```bash
-PYTHONPATH=examples python c_test_environment/clang_tests.py
-```
-
-### Compile a datalog query into C++, then run it
-```
-cd examples
-./clog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
-./clog.sh "A(a,b) :- R1(a),R2(a,b), a<3 A(a,b) :- S1(a), S2(a,b) B(x,y,z) :- A(x,y), A(y,z)" "complex-query"
-```
-
-Available test tables are `{R,S,T}{1,2,3}` with that number of columns.
-
-### Run the datalog -> Grappa tests
+### Run the full MyriaL -> Grappa tests
+The default tests (just running `nosetests`) include tests for translation from MyriaL to Grappa code but do no checking of whether the Grappa program correctly executes the query. To actually run the Grappa queries: 
 
 1. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
 2. set GRAPPA_HOME to root of Grappa
-3. run tests:
+3. set RACO_HOME to root of raco
+4. run tests:
 ```bash
-python c_test_environment/grappalang_tests.py
+PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_myrial_tests.MyriaLGrappaTest
 ```
 
-### Compile a datalog query into Grappa, then run it
+### Visualize a Radish plan as a graph
+Pass the `-c` option to `scripts/myrial`.
 
-3. try queries:
-
-```
-cd examples
-./grappalog.sh "A(a,b) :- R2(a,b), T1(a)" "myqueryname"
-```
+# More Raco
+using Raco, manipulating plans, adding optimizer rules
+see [Raco in myria-docs](https://github.com/uwescience/myria-docs/blob/master/raco.markdown)
 
 # Authors and contact information
 

@@ -2,6 +2,7 @@ import unittest
 from raco import RACompiler
 import raco.expression as e
 import raco.expression.boolean
+from raco.expression.visitor import ExpressionVisitor
 
 
 class ExpressionTest(unittest.TestCase):
@@ -12,7 +13,7 @@ class ExpressionTest(unittest.TestCase):
                        e.ABS(e.NamedAttributeRef("salary")))
 
         def isAggregate(expr):
-            return isinstance(expr, e.AggregateExpression)
+            return isinstance(expr, e.BuiltinAggregateExpression)
 
         def classname(expr):
             return expr.__class__.__name__
@@ -31,7 +32,7 @@ class ExpressionTest(unittest.TestCase):
         self.assertEqual(e2any, False)
 
     def test_visitor(self):
-        class EvalVisitor(raco.expression.ExpressionVisitor):
+        class EvalVisitor(ExpressionVisitor):
             def __init__(self):
                 self.stack = []
 
@@ -81,11 +82,22 @@ class ExpressionTest(unittest.TestCase):
             def visit_NamedAttributeRef(self, named):
                 pass
 
+            def visit_NamedStateAttributeRef(self, named):
+                pass
+
+            def visit_Case(self, caseExpr):
+                pass
+
             def visit_DIVIDE(self, binaryExpr):
                 pass
 
             def visit_IDIVIDE(self, binaryExpr):
                 pass
+
+            def visit_MOD(self, binaryExpr):
+                right = self.stack.pop()
+                left = self.stack.pop()
+                self.stack.append(left % right)
 
             def visit_MINUS(self, binaryExpr):
                 pass
@@ -97,6 +109,18 @@ class ExpressionTest(unittest.TestCase):
                 pass
 
             def visit_TIMES(self, binaryExpr):
+                pass
+
+            def visit_BinaryFunction(self, expr):
+                pass
+
+            def visit_UnaryFunction(self, expr):
+                pass
+
+            def visit_CAST(self, expr):
+                pass
+
+            def visit_NaryFunction(self, expr):
                 pass
 
         v = EvalVisitor()
@@ -116,6 +140,11 @@ class ExpressionTest(unittest.TestCase):
                    e.NOT(e.NEQ(e.NumericLiteral(4), e.NumericLiteral(4))))
         ex.accept(v)
         self.assertEqual(v.stack.pop(), True)
+
+        v = EvalVisitor()
+        ex = e.MOD(e.NumericLiteral(7), e.NumericLiteral(4))
+        ex.accept(v)
+        self.assertEqual(v.stack.pop(), 3)
 
         v = EvalVisitor()
         ex = e.NumericLiteral(0xC0FFEE)
