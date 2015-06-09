@@ -97,11 +97,7 @@ def t_INTEGER_LITERAL(t):
 
 
 def t_STRING_LITERAL(t):
-<<<<<<< HEAD
-    r'"([^\\"]|\\.)*"'
-=======
     r'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
->>>>>>> 56e87c5b7a70b76f0e97bb90d14b86a6e245d102
     t.value = t.value[1:-1].decode("string_escape")
     return t
 
