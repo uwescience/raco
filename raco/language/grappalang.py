@@ -719,6 +719,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         state.addDeclarations([output_tuple.generateDefinition()])
 
         inner_code = self.parent().consume(output_tuple, self, state)
+        comment = self.language().comment("scan of " + str(self))
         code = produce_template.render(locals())
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
@@ -838,6 +839,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         update_func = self.update_func
 
+        comment = self.language().comment("insert of " + str(self))
+
         code = materialize_template.render(locals())
         return code
 
@@ -926,6 +929,7 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
 
     def consume(self, t, src, state):
         if src.childtag == "right":
+            comment = self.language().comment("right side of " + str(self))
             right_template = self._cgenv.get_template('insert_materialize.cpp')
 
             hashname = self._hashname
@@ -947,6 +951,7 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             return code
 
         if src.childtag == "left":
+            comment = self.language().comment("left side of " + str(self))
             left_template = self._cgenv.get_template('lookup.cpp')
 
             # add a dependence on the right pipeline
