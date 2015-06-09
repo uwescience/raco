@@ -1015,6 +1015,9 @@ class ExecScan(ZeroaryOperator):
         return (self.command == other.command and
                 self.connection == other.connection)
 
+    def num_tuples(self):
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+
     def shortStr(self):
         return "Exec(%s, %s, %s)" % (self.command, self.connection,
                                      self.scheme)
