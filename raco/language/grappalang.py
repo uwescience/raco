@@ -628,9 +628,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                 op).__class__.__name__
             self.update_func = \
                 "Aggregates::{op}<{state_type}, {input_type}>".format(
-                op=up_op_name,
-                state_type=state_type,
-                input_type=input_type)
+                    op=up_op_name,
+                    state_type=state_type,
+                    input_type=input_type)
             combine_func = "Aggregates::{op}<{type}, {type}>".format(
                 op=co_op_name, type=state_type)
         elif self._agg_mode == self._MULTI_UDA:
