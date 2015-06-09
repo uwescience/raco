@@ -533,7 +533,7 @@ class MyriaLPlatformTests(object):
         self.check(q, "select_string_literal")
 
     def test_aggregate_string(self):
-       self.check_sub_tables("""
+        self.check_sub_tables("""
        C3 = SCAN(%(C3)s);
        P = [FROM C3 EMIT $0, COUNT($1)];
        STORE(P, OUTPUT);

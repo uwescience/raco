@@ -26,6 +26,7 @@ def define_cl_arg(type, name, default_value, description):
 
 
 class GrappaStagedTupleRef(StagedTupleRef):
+
     def __afterDefinitionCode__(self, numfields, fieldtypes):
         # Grappa requires structures to be block aligned if they will be
         # iterated over with localizing forall
@@ -625,8 +626,11 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             up_op_name = op.__class__.__name__
             co_op_name = self._combiner_for_builtin_update(
                 op).__class__.__name__
-            self.update_func = "Aggregates::{op}<{state_type}, {input_type}>".format(
-                op=up_op_name, state_type=state_type, input_type=input_type)
+            self.update_func = \
+                "Aggregates::{op}<{state_type}, {input_type}>".format(
+                op=up_op_name,
+                state_type=state_type,
+                input_type=input_type)
             combine_func = "Aggregates::{op}<{type}, {type}>".format(
                 op=co_op_name, type=state_type)
         elif self._agg_mode == self._MULTI_UDA:
