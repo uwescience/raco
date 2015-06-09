@@ -34,6 +34,7 @@ class NoSuchRelationException(Exception):
 class NoConnectionForLanguage(Exception):
     pass
 
+
 def get_unnamed_ref(column_ref, scheme, offset=0):
     """Convert a string or int into an attribute ref on the new table"""  # noqa
     if isinstance(column_ref, int):
