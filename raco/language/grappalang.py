@@ -684,7 +684,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             mapping_var_name = gensym()
             if self._agg_mode == self._ONE_BUILT_IN:
                 emit_type = self.language().typename(
-                    self.aggregate_list[0].input.typeof(
+                    self.aggregate_list[0].typeof(
                         self.input.scheme(), None))
             elif self._agg_mode == self._MULTI_UDA:
                 emit_type = self.state_tuple.getTupleTypename()
