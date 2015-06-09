@@ -406,7 +406,7 @@ class CBaseApply(Pipelined, algebra.Apply):
         self.input.produce(state)
 
     def consume(self, t, src, state):
-        code = ""
+        code = self.language().comment(self.shortStr())
 
         assignment_template = _cgenv.get_template('assignment.cpp')
 
