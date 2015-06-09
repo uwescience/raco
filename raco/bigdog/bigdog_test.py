@@ -1,14 +1,13 @@
 import unittest
 
 from raco.scheme import Scheme
-from raco.language import FederatedAlgebra
-from raco.algebra import *
+from raco.algebra import Sequence, Scan, Join, Apply, Store, ExecScan
 from raco.expression import expression as e
 from raco.expression import boolean
 from raco.compile import optimize
 from raco.types import FLOAT_TYPE, INT_TYPE
 from raco.relation_key import RelationKey
-from raco.federatedlang import *
+from raco.language.federatedlang import FederatedAlgebra, RunMyria, RunAQL
 
 
 class BigdogTest(unittest.TestCase):
@@ -38,7 +37,7 @@ class BigdogTest(unittest.TestCase):
                                scheme=aqlscheme)
 
         seq = Sequence([myria_query, scidb_query])
-        exprs = optimize(seq, target=FederatedAlgebra(), source=LogicalAlgebra)
+        exprs = optimize(seq, target=FederatedAlgebra())
 
         self.assertIsInstance(exprs, Sequence)
         self.assertIsInstance(exprs.args[0], RunMyria)
