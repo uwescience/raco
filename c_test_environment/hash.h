@@ -35,15 +35,15 @@ void SUM_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, const 
   slot += val;
 }
 
-template <typename K, typename V>
-void COUNT_insert(std::unordered_map<K, V>& hash, const K& key, const V& val) {
+template <typename K, typename VIn, typename VOut>
+void COUNT_insert(std::unordered_map<K, VOut>& hash, const K& key, const VIn& val) {
   // NOTE: this method is only valid for 0 identity functions
   auto& slot = hash[key];
   slot += 1;
 }
 
-template <typename K1, typename K2, typename V>
-void COUNT_insert(std::unordered_map<std::pair<K1,K2>, V, pairhash >& hash, const K1& key1, const K2& key2, const V& val) {
+template <typename K1, typename K2, typename VIn, typename VOut>
+void COUNT_insert(std::unordered_map<std::pair<K1,K2>, VOut, pairhash >& hash, const K1& key1, const K2& key2, const VIn& val) {
   // NOTE: this method is only valid for 0 identity functions
   auto& slot = hash[std::pair<K1,K2>(key1, key2)];
   slot += 1;
@@ -98,8 +98,8 @@ void SUM_insert(V& var, const V& val) {
 }
 
 // one key
-template <typename V>
-void COUNT_insert(V& var, const V& val) {
+template <typename VIn, typename VOut>
+void COUNT_insert(VOut& var, const VIn& val) {
   var += 1;
 }
 
