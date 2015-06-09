@@ -59,7 +59,7 @@ def optimize(expr, target, **kwargs):
     """Fire the rule-based optimizer on an expression.  Fire all rules in the
     target algebra."""
     assert isinstance(expr, algebra.Operator)
-    assert isinstance(target, language.Algebra), type(target)
+    assert isinstance(target, language.Algebra), "%s:%s" % (target, type(target))
 
     return optimize_by_rules(expr, target.opt_rules(**kwargs))
 
