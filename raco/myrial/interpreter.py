@@ -433,7 +433,6 @@ class StatementProcessor(object):
         # loop
         self.cfg.add_edge(last_op_id, first_op_id)
 
-<<<<<<< HEAD
     def connect(self, lang, connstring):
         self.connection_table[lang.lower()] = connstring
 
@@ -453,10 +452,7 @@ class StatementProcessor(object):
             relkey, array_name, self.connection_table['afl'])
         self.cfg.add_op(op, None, set())
 
-    def get_logical_plan(self):
-=======
     def get_logical_plan(self, **kwargs):
->>>>>>> 56e87c5b7a70b76f0e97bb90d14b86a6e245d102
         """Return an operator representing the logical query plan."""
         return self.cfg.get_logical_plan(
             dead_code_elimination=kwargs.get('dead_code_elimination', True),
