@@ -1,11 +1,13 @@
 from raco.compile import optimize
-from raco.language import FederatedAlgebra
-from raco.algebra import LogicalAlgebra, Sequence, ExportMyriaToScidb
-from raco.federatedlang import *
+from raco.language.federatedlang import FederatedAlgebra
+from raco.algebra import Sequence, ExportMyriaToScidb
+from raco.language.federatedlang import *
+from raco.language.logical import OptLogicalAlgebra
 
 import logging
 import numpy as np
 import time
+
 
 def wait_for_completion(conn, query_id, repeats=10):
     for i in range(repeats):
@@ -17,6 +19,7 @@ def wait_for_completion(conn, query_id, repeats=10):
         time.sleep(1)
 
     raise Exception("Query failure")
+
 
 def run(logical_plan, myria_conn, scidb_conn_factory):
     seq_op = optimize(logical_plan, target=FederatedAlgebra(),
@@ -69,7 +72,6 @@ def run(logical_plan, myria_conn, scidb_conn_factory):
 
             sdb.query("store(build(<RecordName:int64>[i=0:0,1,0], %d), %s)" % (
                 val0, op.scidb_array_name))
-
 
     logging.info("Returning from federated query")
 
