@@ -4,7 +4,7 @@
         {{resultsym}} = reader.read( FLAGS_input_file_{{name}} + ".bin" );
     } else if (FLAGS_jsonsplits) {
         SplitsRelationFileReader<JSONRowParser<{{result_type}}>, {{result_type}}> reader;
-        {{resultsym}} = reader.read( FLAGS_input_file{{name}} );
+        {{resultsym}} = reader.read( FLAGS_input_file_{{name}} );
     } else {
         {{resultsym}}.data = readTuples<{{result_type}}>( FLAGS_input_file_{{name}}, FLAGS_nt);
         {{resultsym}}.numtuples = FLAGS_nt;
