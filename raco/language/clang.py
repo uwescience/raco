@@ -195,7 +195,7 @@ class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
             declr_template = self._cgenv.get_template('0key_declaration.cpp')
 
         valtype = self.language().typename(
-            self.aggregate_list[0].input.typeof(
+            self.aggregate_list[0].typeof(
                 inp_sch,
                 None))
 
