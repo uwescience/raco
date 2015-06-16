@@ -35,7 +35,7 @@ using namespace Grappa;
 
 
 DEFINE_uint64( nt, 30, "hack: number of tuples");
-DEFINE_string( jsonsplits, false, "interpret input file F as F/part-*,"
+DEFINE_bool( jsonsplits, false, "interpret input file F as F/part-*,"
                              "and containing json records")
 
 template <typename T>
