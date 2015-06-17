@@ -37,3 +37,17 @@ class TestFromFileCatalog(unittest.TestCase):
 
         with self.assertRaises(Exception):
             cut.get_scheme('D')
+
+    def test_schema_to_file(self):
+        rel_to_add = 'public:adhoc:test'
+        FromFileCatalog.scheme_write_to_file(
+            "{p}/test_write_catalog.py".format(p=test_file_path), rel_to_add,
+            "{'columnNames': ['grpID'], 'columnTypes': ['LONG_TYPE']}")
+
+        cut = FromFileCatalog.load_from_file(
+            "{p}/test_write_catalog.py".format(p=test_file_path))
+
+        self.assertEqual(cut.get_scheme(rel_to_add).get_names(),
+                         ['grpID'])
+        self.assertEqual(cut.get_scheme(rel_to_add).get_types(),
+                         ['LONG_TYPE'])
