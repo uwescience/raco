@@ -62,3 +62,16 @@ template <size_t N>
 bool operator==(const std::array<char, N>& arr, const std::string& str) {
   return std::string(arr.data()).compare(str) == 0;
 }
+
+template <size_t N>
+bool operator==(const std::string& str, const std::array<char, N>& arr) {
+  return arr == str;
+}
+
+// character arrays to be compared using string comparison semantics
+// rather than character-for-character equivalence
+template <size_t N>
+bool operator==(const std::array<char, N>& arr1, const std::array<char, N>& arr2) {
+  return std::string(arr1.data()).compare(std::string(arr2.data())) == 0;
+}
+
