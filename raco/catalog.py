@@ -136,22 +136,26 @@ class FromFileCatalog(Catalog):
             return cls(literal_eval(fh.read()), path)
 
     @classmethod
-    def scheme_write_to_file(cls, path, new_rel_key, new_rel_schema):
+    def scheme_write_to_file(cls, path, new_rel_key, new_rel_schema,
+                             append=True):
         new_schema_entry = literal_eval(new_rel_schema)
         col_names = new_schema_entry['columnNames']
         col_types = new_schema_entry['columnTypes']
         columns = zip(col_names, col_types)
 
-        if(os.path.isfile(path)):
-            schema_read = open(path, 'r')
-            s = schema_read.read()
-            schema_read.close()
+        if os.path.isfile(path):
+            if append:
+                schema_read = open(path, 'r')
+                s = schema_read.read()
+                schema_read.close()
 
-            schema_write = open(path, 'w')
-            current_dict = literal_eval(s)
-            current_dict[new_rel_key] = columns
-            json.dump(current_dict, schema_write)
-            schema_write.close()
+                schema_write = open(path, 'w')
+                current_dict = literal_eval(s)
+                current_dict[new_rel_key] = columns
+                json.dump(current_dict, schema_write)
+                schema_write.close()
+            else:
+                raise IOError("file {0} exists".format(path))
         else:
             with open(path, 'w+') as fh:
                 d = {}
