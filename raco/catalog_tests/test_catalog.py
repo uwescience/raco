@@ -8,6 +8,7 @@ test_file_path = "raco/catalog_tests"
 
 
 class TestFromFileCatalog(unittest.TestCase):
+
     def test_default_cardinality_relation(self):
         cut = FromFileCatalog.load_from_file(
             "{p}/default_cardinality_relation.py".format(p=test_file_path))
@@ -100,7 +101,7 @@ class TestFromFileCatalog(unittest.TestCase):
 
         with self.assertRaises(IOError):
             FromFileCatalog.scheme_write_to_file(
-                "{p}/test_write_catalog.py".format(p=test_file_path), rel_to_add,
+                "{p}/test_write_catalog.py".format(p=test_file_path),
+                rel_to_add,
                 "{'columnNames': ['grpID'], 'columnTypes': ['LONG_TYPE']}",
                 append=False)
-
