@@ -34,7 +34,9 @@ using namespace Grappa;
 #include "prng.h"
 
 
-DEFINE_uint64( nt, 30, "hack: number of tuples"); 
+DEFINE_uint64( nt, 30, "hack: number of tuples");
+DEFINE_bool( jsonsplits, false, "interpret input file F as F/part-*,"
+                             "and containing json records");
 
 template <typename T>
 struct counter {
