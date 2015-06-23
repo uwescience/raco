@@ -502,6 +502,10 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(["D3"], "select_double")
         self.check(q, "select_double")
 
+    def test_project_string(self):
+        q = self.myrial_from_sql(["C3"], "project_string")
+        self.check(q, "project_string")
+
     def test_select_string(self):
         q = self.myrial_from_sql(["C3"], "select_string")
         self.check(q, "select_string")
