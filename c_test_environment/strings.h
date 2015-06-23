@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstring>
 #include <string>
 #include <map>
 #include <vector>
@@ -47,7 +48,23 @@ std::array<char, N> to_array(const Iterable& x) {
   std::array<char, N> d;
   std::copy(x.begin(), x.end(), d.data());
   *(d.data()+x.size()) = '\0'; // copy null terminator
+  
+  // ensure normalization of std::arrays that are equal strings
+  if (x.size()+1 < N) {
+    std::memset(d.data() + x.size() + 1, 0, N - x.size());
+  }
+
   return d;
+}
+
+// utility to see full content of char array 
+template <size_t N>
+void dumps(std::ostream& o, const std::array<char, N>& arr) {
+  o << "[";
+  for (int i=0; i<N; i++) {
+    o << arr[i] << "|";
+  }
+  o << "]";
 }
 
 template <size_t N>
@@ -70,6 +87,10 @@ bool operator==(const std::string& str, const std::array<char, N>& arr) {
 
 // character arrays to be compared using string comparison semantics
 // rather than character-for-character equivalence
+// IMPORTANT: operator== for std::array does not always resolve
+//            to this function, e.g., when comparing std::tuples of std::arrays
+//            the built-in std::array operator== is used.
+//            So we are not currently relying on this == for Pred of unordered_map on tuples of arrays
 template <size_t N>
 bool operator==(const std::array<char, N>& arr1, const std::array<char, N>& arr2) {
   return std::string(arr1.data()).compare(std::string(arr2.data())) == 0;
