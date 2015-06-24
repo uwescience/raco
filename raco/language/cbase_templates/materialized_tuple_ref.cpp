@@ -12,13 +12,16 @@
       return {{numfields}};
     }
 
+    // size of all fields in struct removing only end padding
     static size_t fieldsSize() {
         const {{tupletypename}} _t;
         return
-        {% for i in range(numfields) %}
-        sizeof(_t.f{{i}}) +
-        {% endfor %}
-        0;
+
+        {% if numfields == 1 %}
+            sizeof(_t.f0);
+         {% else %}
+            ((char*)&_t.f{{numfields-1}}) + sizeof(_t.f{{numfields-1}}) - ((char*)&_t);
+         {% endif %}
     }
 
     {{tupletypename}} () {
