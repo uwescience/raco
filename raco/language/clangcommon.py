@@ -519,6 +519,8 @@ class CBaseFileScan(Pipelined, algebra.Scan):
             tuple_type = stagedTuple.getTupleTypename()
             state.addDeclarations([tuple_type_def])
 
+            colnames = self.scheme().get_names()
+
             rel_decl_template = self.__get_relation_decl_template__(name)
             if rel_decl_template:
                 state.addDeclarations([rel_decl_template.render(locals())])
