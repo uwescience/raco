@@ -262,6 +262,11 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         """
         return UnaryOperator.__eq__(self, other)
 
+    def __repr__(self):
+        return "{op}({inp!r}, {rep!r})".format(op=self.opname(),
+                                               inp=self.input,
+                                               rep=self.array_representation)
+
 
 class GrappaJoin(algebra.Join, GrappaOperator):
 
@@ -1081,6 +1086,12 @@ class GrappaFileScan(clangcommon.CBaseFileScan, GrappaOperator):
         }[self.array_representation]
 
         return self._language.cgenv().get_template(template_name)
+
+    def __repr__(self):
+        return "{op}({rep!r}, {rk!r}, {sch!r}, {card!r})".format(
+            rep=self.array_representation,
+            op=self.opname(), rk=self.relation_key, sch=self._scheme,
+            card=self._cardinality)
 
 
 class GrappaStore(clangcommon.CBaseStore, GrappaOperator):
