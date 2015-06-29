@@ -5,6 +5,6 @@ BinaryRelationFileReader<{{result_type}},
                            {{resultsym}} = reader.read( FLAGS_input_file_{{name}} + ".bin" );
                            } else {
 
-                           CHECK(false) << "only --bin=true supported for symmetric array repr"
+                           CHECK(false) << "only --bin=true supported for symmetric array repr";
 
                            }
