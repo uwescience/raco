@@ -20,6 +20,11 @@ _LOG = logging.getLogger(__name__)
 import itertools
 
 
+class _ARRAY_REPRESENTATION:
+    GLOBAL_ARRAY = 'global_array'
+    SYMMETRIC_ARRAY = 'symmetric_array'
+
+
 def define_cl_arg(type, name, default_value, description):
     return GrappaLanguage.cgenv().get_template(
         'define_cl_arg.cpp').render(locals())
@@ -191,6 +196,11 @@ def create_pipeline_synchronization(state):
 # TODO: replace with ScanTemp functionality?
 class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
 
+    def __init__(self, inp,
+                 representation=_ARRAY_REPRESENTATION.GLOBAL_ARRAY):
+        self.array_representation = representation
+        super(GrappaMemoryScan, self).__init__(inp)
+
     def num_tuples(self):
         return 10000  # placeholder
 
@@ -220,8 +230,15 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         global_syncname = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
 
+        # get template for the scan/iteration
+        memory_scan_template_name = {
+            _ARRAY_REPRESENTATION.GLOBAL_ARRAY:
+            'global_array_memory_scan.cpp',
+            _ARRAY_REPRESENTATION.SYMMETRIC_ARRAY:
+            'symmetric_array_memory_scan.cpp'
+        }[self.array_representation]
         memory_scan_template = self.language().cgenv().get_template(
-            'memory_scan.cpp')
+            memory_scan_template_name)
 
         stagedTuple = state.lookupTupleDef(inputsym)
         tuple_type = stagedTuple.getTupleTypename()
@@ -244,6 +261,11 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         @see FileScan.__eq__
         """
         return UnaryOperator.__eq__(self, other)
+
+    def __repr__(self):
+        return "{op}({inp!r}, {rep!r})".format(op=self.opname(),
+                                               inp=self.input,
+                                               rep=self.array_representation)
 
 
 class GrappaJoin(algebra.Join, GrappaOperator):
@@ -1031,16 +1053,45 @@ class GrappaProject(clangcommon.CBaseProject, GrappaOperator):
 
 class GrappaFileScan(clangcommon.CBaseFileScan, GrappaOperator):
 
+    def __init__(self, representation=_ARRAY_REPRESENTATION.GLOBAL_ARRAY,
+                 relation_key=None, _scheme=None, cardinality=None):
+        self.array_representation = representation
+        super(GrappaFileScan, self).__init__(
+            relation_key, _scheme, cardinality)
+
     def __get_ascii_scan_template__(self):
         _LOG.warn("binary/ascii is command line choice")
-        return self._language.cgenv().get_template('file_scan.cpp')
+        template_name = {
+            _ARRAY_REPRESENTATION.GLOBAL_ARRAY: 'file_scan.cpp',
+            _ARRAY_REPRESENTATION.SYMMETRIC_ARRAY:
+                'symmetric_array_file_scan.cpp'
+        }[self.array_representation]
+        return self._language.cgenv().get_template(template_name)
 
     def __get_binary_scan_template__(self):
         _LOG.warn("binary/ascii is command line choice")
-        return self._language.cgenv().get_template('file_scan.cpp')
+        template_name = {
+            _ARRAY_REPRESENTATION.GLOBAL_ARRAY: 'file_scan.cpp',
+            _ARRAY_REPRESENTATION.SYMMETRIC_ARRAY:
+                'symmetric_array_file_scan.cpp'
+        }[self.array_representation]
+        return self._language.cgenv().get_template(template_name)
 
     def __get_relation_decl_template__(self, name):
-        return self._language.cgenv().get_template('relation_declaration.cpp')
+        template_name = {
+            _ARRAY_REPRESENTATION.GLOBAL_ARRAY:
+                'global_array_relation_declaration.cpp',
+            _ARRAY_REPRESENTATION.SYMMETRIC_ARRAY:
+                'symmetric_array_relation_declaration.cpp'
+        }[self.array_representation]
+
+        return self._language.cgenv().get_template(template_name)
+
+    def __repr__(self):
+        return "{op}({rep!r}, {rk!r}, {sch!r}, {card!r})".format(
+            rep=self.array_representation,
+            op=self.opname(), rk=self.relation_key, sch=self._scheme,
+            card=self._cardinality)
 
 
 class GrappaStore(clangcommon.CBaseStore, GrappaOperator):
@@ -1069,26 +1120,34 @@ class GrappaStore(clangcommon.CBaseStore, GrappaOperator):
 
 class MemoryScanOfFileScan(rules.Rule):
 
+    def __init__(self, array_rep):
+        self._array_rep = array_rep
+        super(MemoryScanOfFileScan, self).__init__()
+
     """A rewrite rule for making a scan into materialization
      in memory then memory scan"""
 
     def fire(self, expr):
         if isinstance(expr, algebra.Scan) \
                 and not isinstance(expr, GrappaFileScan):
-            return GrappaMemoryScan(GrappaFileScan(expr.relation_key,
-                                                   expr.scheme()))
+            return GrappaMemoryScan(
+                GrappaFileScan(self._array_rep,
+                               expr.relation_key,
+                               expr.scheme()),
+                self._array_rep)
         return expr
 
     def __str__(self):
-        return "Scan => MemoryScan(FileScan)"
+        return "Scan => MemoryScan(FileScan) [{0}]".format(self._array_rep)
 
 
-def grappify(join_type, emit_print):
+def grappify(join_type, emit_print,
+             scan_array_repr):
     return [
         rules.ProjectingJoinToProjectOfJoin(),
 
         rules.OneToOne(algebra.Select, GrappaSelect),
-        MemoryScanOfFileScan(),
+        MemoryScanOfFileScan(scan_array_repr),
         rules.OneToOne(algebra.Apply, GrappaApply),
         rules.OneToOne(algebra.Join, join_type),
         rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
@@ -1129,6 +1188,8 @@ class GrappaAlgebra(Algebra):
         # ]
 
         join_type = kwargs.get('join_type', GrappaHashJoin)
+        scan_array_repr = kwargs.get('scan_array_repr',
+                                     _ARRAY_REPRESENTATION.GLOBAL_ARRAY)
 
         # sequence that works for myrial
         rule_grps_sequence = [
@@ -1137,7 +1198,7 @@ class GrappaAlgebra(Algebra):
             clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
-            grappify(join_type, self.emit_print)
+            grappify(join_type, self.emit_print, scan_array_repr)
         ]
 
         if kwargs.get('SwapJoinSides'):
