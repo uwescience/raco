@@ -25,15 +25,6 @@ using namespace Grappa;
 #include "strings.h"
 #include "relation.hpp"
 
-// graph gen
-#include "generator/make_graph.h"
-#include "generator/utils.h"
-#include "grappa/timer.h"
-#include "grappa/common.h"
-#include "grappa/graph.hpp"
-#include "prng.h"
-
-
 DEFINE_uint64( nt, 30, "hack: number of tuples");
 DEFINE_bool( jsonsplits, false, "interpret input file F as F/part-*,"
                              "and containing json records");
