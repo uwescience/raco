@@ -228,11 +228,8 @@ class MyriaLPlatformTests(object):
         """, "scan")
 
     def test_select(self):
-        self.check_sub_tables("""
-        T1 = SCAN(%(T1)s);
-        x = [FROM T1 WHERE a>5 EMIT a];
-        STORE(x, OUTPUT);
-        """, "select")
+        q = self.myrial_from_sql(['T1'], "select")
+        self.check(q, "select")
 
     def test_join(self):
         self.check_sub_tables("""
