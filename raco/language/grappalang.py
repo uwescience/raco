@@ -195,6 +195,7 @@ def create_pipeline_synchronization(state):
 
 # TODO: replace with ScanTemp functionality?
 class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
+
     def __init__(self, inp,
                  representation=_ARRAY_REPRESENTATION.GLOBAL_ARRAY):
         self.array_representation = representation
@@ -232,9 +233,9 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         # get template for the scan/iteration
         memory_scan_template_name = {
             _ARRAY_REPRESENTATION.GLOBAL_ARRAY:
-              'global_array_memory_scan.cpp',
+            'global_array_memory_scan.cpp',
             _ARRAY_REPRESENTATION.SYMMETRIC_ARRAY:
-              'symmetric_array_memory_scan.cpp'
+            'symmetric_array_memory_scan.cpp'
         }[self.array_representation]
         memory_scan_template = self.language().cgenv().get_template(
             memory_scan_template_name)
@@ -1046,6 +1047,7 @@ class GrappaProject(clangcommon.CBaseProject, GrappaOperator):
 
 
 class GrappaFileScan(clangcommon.CBaseFileScan, GrappaOperator):
+
     def __init__(self, representation=_ARRAY_REPRESENTATION.GLOBAL_ARRAY,
                  relation_key=None, _scheme=None, cardinality=None):
         self.array_representation = representation
