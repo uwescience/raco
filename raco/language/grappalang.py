@@ -1054,11 +1054,21 @@ class GrappaFileScan(clangcommon.CBaseFileScan, GrappaOperator):
 
     def __get_ascii_scan_template__(self):
         _LOG.warn("binary/ascii is command line choice")
-        return self._language.cgenv().get_template('file_scan.cpp')
+        template_name = {
+            _ARRAY_REPRESENTATION.GLOBAL_ARRAY: 'file_scan.cpp',
+            _ARRAY_REPRESENTATION.SYMMETRIC_ARRAY:
+                'symmetric_array_file_scan.cpp'
+        }[self.array_representation]
+        return self._language.cgenv().get_template(template_name)
 
     def __get_binary_scan_template__(self):
         _LOG.warn("binary/ascii is command line choice")
-        return self._language.cgenv().get_template('file_scan.cpp')
+        template_name = {
+            _ARRAY_REPRESENTATION.GLOBAL_ARRAY: 'file_scan.cpp',
+            _ARRAY_REPRESENTATION.SYMMETRIC_ARRAY:
+                'symmetric_array_file_scan.cpp'
+        }[self.array_representation]
+        return self._language.cgenv().get_template(template_name)
 
     def __get_relation_decl_template__(self, name):
         template_name = {
