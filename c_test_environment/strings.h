@@ -65,7 +65,7 @@ std::array<char, N> to_array(const Iterable& x) {
         return item++ < N-1;
         });
 
-    *(d.date() + std::min(x.size(), N-1)) = '\0'
+    *(d.data() + std::min(x.size(), N-1)) = '\0';
 
     // ensure normalization of std::arrays that are equal strings
     if (x.size()+1 < N) {
@@ -73,6 +73,7 @@ std::array<char, N> to_array(const Iterable& x) {
     }
 
     return d;
+  }
 }
 
 // utility to see full content of char array 
