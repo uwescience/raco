@@ -20,6 +20,7 @@ template = """
 #include <iostream>
 #include "convert2bin.h"
 #include "utils.h"
+#include "strings.h"
 
 {definition}
 
