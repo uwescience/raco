@@ -42,19 +42,37 @@ namespace QueryUtils {
 #define MAX_STR_LEN 25
 
 #include <iostream>
-template<size_t N, class Iterable>
+template<size_t N, class Iterable, bool truncate=false>
 std::array<char, N> to_array(const Iterable& x) {
-  assert(x.size() <= N-1);
-  std::array<char, N> d;
-  std::copy(x.begin(), x.end(), d.data());
-  *(d.data()+x.size()) = '\0'; // copy null terminator
-  
-  // ensure normalization of std::arrays that are equal strings
-  if (x.size()+1 < N) {
-    std::memset(d.data() + x.size() + 1, 0, N - x.size());
-  }
+  if (!truncate) {
+    assert(x.size() <= N-1);
+    std::array<char, N> d;
+    std::copy(x.begin(), x.end(), d.data());
+    *(d.data()+x.size()) = '\0'; // copy null terminator
+    
+    // ensure normalization of std::arrays that are equal strings
+    if (x.size()+1 < N) {
+      std::memset(d.data() + x.size() + 1, 0, N - x.size());
+    }
 
-  return d;
+    return d;
+  } else {
+    std::array<char, N> d;
+    uint64_t item = 0;
+
+    // only copy up to N-1 elements
+    std::copy_if(x.begin(), x.end(), d.data(), [&item](const char& c) {
+        return item++ < N-1;
+        });
+
+    *(d.date() + std::min(x.size(), N-1)) = '\0'
+
+    // ensure normalization of std::arrays that are equal strings
+    if (x.size()+1 < N) {
+      std::memset(d.data() + x.size() + 1, 0, N - x.size());
+    }
+
+    return d;
 }
 
 // utility to see full content of char array 
