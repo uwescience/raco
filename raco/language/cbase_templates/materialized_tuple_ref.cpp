@@ -99,7 +99,8 @@
                {
                std::string _temp;
                std::getline(ss, _temp, delim);
-               _ret.f{{i}} = to_array<MAX_STR_LEN, std::string>(_temp);
+               // beware; truncate= true, so unckecked truncation for stringlen >= MAX_STR_LEN!
+               _ret.f{{i}} = to_array<MAX_STR_LEN, std::string, true>(_temp);
                }
             {% else %}
                {
