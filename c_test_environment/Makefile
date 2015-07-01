@@ -3,7 +3,7 @@
 #CXX = clang++
 CXX=g++
 
-CFLAGS =-ggdb -std=c++11
+CFLAGS =-ggdb -std=c++11 -O3
 #-O3 #-m64 -Wno-deprecated -fPIC
 
 ifneq ($(shell uname), Darwin)
