@@ -20,6 +20,7 @@ using namespace Grappa;
 //#include "HashJoin.hpp"
 #include "DHT_symmetric.hpp"
 #include "Aggregates.hpp"
+#include "Iterators.hpp"
 #include "utils.h"
 #include "stats.h"
 #include "strings.h"
