@@ -21,6 +21,7 @@ p.add_argument("--host", dest="host", help="hostname of server", default="localh
 p.add_argument("--port", dest="port", help="port server is listening on", default=1337)
 p.add_argument("--external-string-index", dest="ext_index", action="store_true", help="Create string external string index that is deprecated after raco@40640adff89e1c1aade007a998b335b623ff22aa")
 p.add_argument("--storage", dest="storage", default="binary", help="binary, row_ascii, row_json")
+p.add_argument("--delim", dest="delim", default=' ', help="delimiter for ingesting ascii csv data")
 args = p.parse_args(sys.argv[1:])
 inputf = args.input_file
 catalogfile = args.catalog_path
@@ -122,8 +123,9 @@ if args.storage == 'binary':
     subprocess.check_call('make {0}'.format(convert_exe_name), shell=True)
 
     task_message("running binary converter")
-    convert_stdout = subprocess.check_output('./{exe} {file} {burns} {id}'.format(exe=convert_exe_name,
+    convert_stdout = subprocess.check_output('./{exe} {file} "{delim}" {burns} {id}'.format(exe=convert_exe_name,
                                                                file=datafile,
+                                                               delim=args.delim,
                                                                burns=0,
                                                                id=False), shell=True)
 
