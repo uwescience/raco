@@ -634,21 +634,19 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         inp_sch = self.input.scheme()
 
-        #raise Exception(str(self.input.scheme())+" "+str(self.aggregate_list)+" "+ str(self.grouping_list) +" "+ str(self.scheme()))
-
         # reconstruct the lost mapping of schema to aggregate expressions/grouping list
-        # TODO: support UnnamedAttributes as grouping attributes, but somehow need to find this mapping for them
-        def resolve_name(ref):
+        # TODO: doesn't this exist somewhere in raco?
+        def resolve_name(ref, sch):
             if isinstance(ref, expression.UnnamedAttributeRef)or isinstance(ref, expression.UnnamedAttributeRef):
-                return inp_sch.get_names()[ref.position]
+                return sch.get_names()[ref.position]
             else:
                 return ref.name
 
-        grouped_names = set([ref.name for ref in self.grouping_list])
-        aggregates_types = [ typ  # throw away the name because it is made up
+        grouped_names = set([resolve_name(ref, inp_sch) for ref in self.grouping_list])
+        aggregates_types = [typ  # throw away the name because it is made up
                                    for name, typ in self.scheme()
                                    if name not in grouped_names]
-        aggregates_names = [ resolve_name(a.input) for a in self.aggregate_list ]
+        aggregates_names = [resolve_name(a.input, inp_sch) for a in self.aggregate_list ]
         self.aggregates_schema = scheme.Scheme(zip(aggregates_names, aggregates_types))
 
         symbol = gensym()
