@@ -708,11 +708,24 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
         output_tuple_name = output_tuple.name
         output_tuple_type = output_tuple.getTupleTypename()
-        output_tuple_set_func = output_tuple.set_func_code(0)
+        output_tuple_set_func = output_tuple.set_func_code(0)  # UNUSED??
         state.addDeclarations([output_tuple.generateDefinition()])
 
         inner_code = self.parent().consume(output_tuple, self, state)
         comment = self.language().comment("scan of " + str(self))
+
+        # assign state type tuple to output type tuple
+        # For 0key case they should just be treated the same,
+        # i.e., self.state_tuple same as output_tuple for !self.useKey
+        # except for name
+        assignmentcode = ""
+        for i in range(0, len(output_tuple.scheme)):
+            d = output_tuple.set_func_code(i)
+            s = output_tuple.get_code_with_name(i, "{0}_tmp".format(output_tuple.name))
+            assignment_template = self._cgenv.get_template('assignment.cpp')
+            assignmentcode += assignment_template.render(
+                dst_set_func=d, src_expr_compiled=s)
+
         code = produce_template.render(locals())
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
