@@ -723,8 +723,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         inp_sch = self.input.scheme()
 
-        all_decls = []
-        all_inits = []
+        all_code_decls = []
+        all_code_inits = []
 
         class AggregateSetter:
             def __init__(self, name, expression):
@@ -868,14 +868,14 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                               "be an aggregate"
 
         all_updaters = [aggregate_to_updater(i, a) for i, a in enumerate(self.aggregate_list)]
-        all_inits = [aggregate_to_init(i, a) for i, a in enumerate(self.aggregate_list)]
+        all_initers = [aggregate_to_init(i, a) for i, a in enumerate(self.aggregate_list)]
         all_combiners = [aggregate_to_combiner(i, a) for i, a in enumerate(self.aggregate_list)]
         ########################
 
         update_updates, update_state_vars, update_decls, update_inits = \
             compile_assignments(all_updaters)
         init_updates, init_state_vars, init_decls, init_inits = \
-            compile_assignments(all_inits)
+            compile_assignments(all_initers)
         combine_updates, combine_state_vars, combine_decls, combine_inits = \
             compile_assignments(all_combiners)
         assert set(update_state_vars) == set(init_state_vars) and \
@@ -884,8 +884,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             {0} != {1} or {0} != {2}""".format(update_state_vars,
                                                init_state_vars,
                                                combine_state_vars)
-        all_decls += update_decls + init_decls + combine_decls
-        all_inits += update_inits + init_inits + combine_inits
+        all_code_decls += update_decls + init_decls + combine_decls
+        all_code_inits += update_inits + init_inits + combine_inits
 
         # generate the update and init function definitions
         state_tuple_decl = self.state_tuple.generateDefinition()
@@ -910,7 +910,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             combine_state_vars=combine_state_vars,
             name=self.func_name)
 
-        all_decls += [update_def, init_def, combine_def]
+        all_code_decls += [update_def, init_def, combine_def]
 
         # values for the materialize template (calling the update function)
         init_func = "{name}_init".format(name=self.func_name)
@@ -931,8 +931,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         tuple_name = inputTuple.name
         pipeline_sync = state.getPipelineProperty("global_syncname")
 
-        state.addDeclarations(all_decls)
-        state.addInitializers(all_inits)
+        state.addDeclarations(all_code_decls)
+        state.addInitializers(all_code_inits)
 
         update_func = self.update_func
 
