@@ -28,6 +28,50 @@ class BinaryFunction(BinaryOperator):
                                            r=self.right)
 
 
+class CustomBinaryFunction(BinaryFunction):
+
+    def __init__(self, name, typ, left, right):
+        self.name = name
+        self.typ = typ
+        super(CustomBinaryFunction, self).__init__(left, right)
+
+    def __repr__(self):
+        return "{op}({n!r}, {t!r}, {l!r}, {r!r})".format(op=self.opname(),
+                                                  n=self.name,
+                                                  t=self.typ,
+                                                  l=self.left,
+                                                  r=self.right)
+
+    def typeof(self, scheme, state_scheme):
+        return self.typ
+
+    literals = []
+
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplemented("Not intended for evaluation")
+
+
+class CustomZeroaryOperator(ZeroaryOperator):
+    def __init__(self, name, typ):
+        self.name = name
+        self.typ = typ
+        super(CustomZeroaryOperator, self).__init__()
+
+    def __str__(self):
+        return "%s(%s, %s)" % (self.__class__.__name__, self.left, self.right)
+
+    def __repr__(self):
+        return "{op}({n!r}, {t!r})".format(op=self.opname(),
+                                            n=self.name,
+                                            t=self.typ)
+
+    def typeof(self, scheme, state_scheme):
+        return self.typ
+
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplemented("Not intended for evaluation")
+
+
 class NaryFunction(NaryOperator):
     def __str__(self):
         return "%s(%s)" % \

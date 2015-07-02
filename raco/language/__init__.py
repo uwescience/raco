@@ -210,6 +210,14 @@ class CompileExpressionVisitor(ExpressionVisitor):
                 left,
                 right))
 
+    def visit_CustomBinaryFunction(self, expr):
+        left, right = self.__visit_BinaryOperator__(expr)
+        self.stack.append(
+            self.language.function_call(
+                expr.name,
+                left,
+                right, custom=True))
+
     def visit_NaryFunction(self, expr):
         arglist = []
         for _ in range(len(expr.operands)):
@@ -218,6 +226,10 @@ class CompileExpressionVisitor(ExpressionVisitor):
             self.language.function_call(
                 type(expr).__name__,
                 *arglist))
+
+    def visit_CustomZeroaryOperator(self, expr):
+        self.stack.append(
+            self.language.function_call(expr.name, custom=True))
 
     def visit_CAST(self, expr):
         inputexpr = self.stack.pop()

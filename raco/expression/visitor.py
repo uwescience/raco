@@ -17,8 +17,6 @@ class ExpressionVisitor(object):
         # E.g., instead of visit_SQRT, do visit_UnaryFunction
         if isinstance(expr, UnaryFunction):
             typename = UnaryFunction.__name__
-        elif isinstance(expr, BinaryFunction):
-            typename = BinaryFunction.__name__
         elif isinstance(expr, NaryFunction):
             typename = NaryFunction.__name__
         else:

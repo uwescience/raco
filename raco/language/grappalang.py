@@ -648,6 +648,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         state.addDeclarations([self.state_tuple.generateDefinition()])
         state_type = self.state_tuple.getTupleTypename()
         self.update_func = "{name}_update".format(name=self.func_name)
+        # combine_func currently just for 0key_output
+        combine_func = "{name}_combine".format(name=self.func_name)
 
         update_func = self.update_func
 
@@ -725,15 +727,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         all_inits = []
 
         class AggregateSetter:
-            UDA = 0
-            BUILTIN = 1
-
-            def __init__(self, type, name, expression, builtin_state=None, builtin_input=None):
-                self.type = type
+            def __init__(self, name, expression):
                 self.name = name
                 self.expression = expression
-                self.builtin_state = builtin_state
-                self.builtin_input = builtin_input
 
         # compile update statements
         def compile_assignments(assgns):
@@ -746,34 +742,13 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             for a in assgns:
                 # doesn't have to use inputTuple.name,
                 # but it will for simplicity
-                if a.type == AggregateSetter.UDA:
-                    # If it is a UDA, we need to compile the expression
-                    rhs = self.language().compile_expression(
-                        a.expression,
-                        # For resolving attributes of the consumed input tuple
-                        tupleref=inputTuple,
-                        # for resolving attributes of the state tuple
-                        state_scheme=self.aggregates_schema)
-                elif a.type == AggregateSetter.BUILTIN:
-                    # If it is a built-in then we already have the code
-                    # and there are no grappalang decls or inits
-
-                    if a.builtin_arg is not None:
-                        compiled_state, _d1, _i1 = self.language().compile_expression(a.builtin_state, state_scheme=self.aggregates_schema)
-                        compiled_input, _d2, _i2 = self.language().compile_expression(a.builtin_input, tupleref=inputTuple)
-                        _d = _d1 + _d2
-                        _i = _i1 + _i2
-
-                        expr = "{function}({compiled_state}, {compiled_input})".format(function=a.expression,
-                                                     compiled_arg=compiled_arg)
-                    else:
-                        compiled_arg, _d, _i = '', [], []
-                        expr = "{function}()".format(function=a.expression)
-
-
-                    rhs = expr, _d, _i
-                else:
-                    assert False, "No such type"
+                # If it is a UDA, we need to compile the expression
+                rhs = self.language().compile_expression(
+                    a.expression,
+                    # For resolving attributes of the consumed input tuple
+                    tupleref=inputTuple,
+                    # for resolving attributes of the state tuple
+                    state_scheme=self.aggregates_schema)
 
                 # combine lhs, rhs with assignment
                 code = "{lhs} = {rhs}".format(lhs=a.name, rhs=rhs[0])
@@ -798,7 +773,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                 assert isinstance(attr_ref, aggregate.NamedStateAttributeRef), \
                     "type(attr_ref)={0} but must be {1}".format(type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
                 name, expr = updaters_map[attr_ref.name]
-                return AggregateSetter(AggregateSetter.UDA, name, expr)
+                return AggregateSetter(name, expr)
             elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
                 # get update function
                 name = "_v{0}".format(index)
@@ -806,19 +781,24 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                     aggr.input.typeof(inp_sch, None))
                 op = aggr
                 up_op_name = op.__class__.__name__
-                co_op_name = self._combiner_for_builtin_update(
-                    op).__class__.__name__
                 state_type = self.language().typename(aggr.typeof(inp_sch, None))
                 update_func = \
                     "Aggregates::{op}<{state_type}, {input_type}>".format(
                         op=up_op_name,
                         state_type=state_type,
                         input_type=input_type)
-                #FIXME: need to combine UDA states properly!!!
-                combine_func = "Aggregates::{op}<{type}, {type}>".format(
-                    op=co_op_name, type=state_type)
-                return AggregateSetter(
-                    AggregateSetter.BUILTIN, name, update_func, aggr.input)
+
+                # create a class for this binary function so it can be compiled
+                update_as_expression = expression.CustomBinaryFunction(
+                    update_func,
+                    # get the output type
+                    self.aggregates_schema.get_types()[index],
+                    # get the aggregate result attribute (left)
+                    expression.NamedStateAttributeRef(self.aggregates_schema.get_names()[index]),
+                    # get the aggregate input attribute (right)
+                    aggr.input)
+
+                return AggregateSetter(name, update_as_expression)
             else:
                 assert False, "expected every element of aggregate_list to " \
                               "be an aggregate"
@@ -829,28 +809,83 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                 assert isinstance(attr_ref, aggregate.NamedStateAttributeRef), \
                     "type(attr_ref)={0} but must be {1}".format(type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
                 name, expr = inits_map[attr_ref.name]
-                return AggregateSetter(AggregateSetter.UDA, name, expr)
+                return AggregateSetter(name, expr)
             elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
                 name = "_v{0}".format(index)
                 input_type = self.language().typename(
                     aggr.input.typeof(inp_sch, None))
                 init_func = self._init_func_for_op(aggr) \
                     .format(input_type)
-                return AggregateSetter(AggregateSetter.BUILTIN, name, init_func)
+                return AggregateSetter(name, expression.CustomZeroaryOperator(
+                    init_func,
+                    # get the output type
+                    self.aggregates_schema.get_types()[index]))
+
+        def aggregate_to_combiner(index, aggr):
+            if isinstance(aggr, aggregate.UdaAggregateExpression):
+                # TODO: Support decomposable aggregate state, instead of
+                # TODO: just using the same function from self.updaters
+                attr_ref = aggr.input
+                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef), \
+                    "type(attr_ref)={0} but must be {1}".format(type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
+                name, expr = updaters_map[attr_ref.name]
+                return AggregateSetter(name, expr)
+            elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
+                # get combiner function
+                name = "_v{0}".format(index)
+
+                state_type = self.language().typename(aggr.typeof(inp_sch, None))
+
+                # hack to get the combiner function based on the aggregate
+                # TODO: support decomposable state
+                co_op_name = self._combiner_for_builtin_update(
+                    aggr).__class__.__name__
+
+                # type for left and right is state_type for combiner
+                this_combine_func = "Aggregates::{op}<{type}, {type}>".format(
+                    op=co_op_name, type=state_type)
+
+                attribute0 = expression.NamedStateAttributeRef(
+                    self.aggregates_schema.get_names()[index])
+                attribute0.tagged_state_id = 0
+                attribute1 = expression.NamedStateAttributeRef(
+                    self.aggregates_schema.get_names()[index])
+                attribute1.tagged_state_id = 1
+
+                # create a class for this binary function so it can be compiled
+                combine_as_expression = expression.CustomBinaryFunction(
+                    this_combine_func,
+                    # get the output type
+                    self.aggregates_schema.get_types()[index],
+                    # get the aggregate result attribute (left)
+                    attribute0,
+                    # get the aggregate input attribute (right)
+                    attribute1)
+
+                return AggregateSetter(name, combine_as_expression)
+            else:
+                assert False, "expected every element of aggregate_list to " \
+                              "be an aggregate"
 
         all_updaters = [aggregate_to_updater(i, a) for i, a in enumerate(self.aggregate_list)]
         all_inits = [aggregate_to_init(i, a) for i, a in enumerate(self.aggregate_list)]
+        all_combiners = [aggregate_to_combiner(i, a) for i, a in enumerate(self.aggregate_list)]
         ########################
 
         update_updates, update_state_vars, update_decls, update_inits = \
             compile_assignments(all_updaters)
         init_updates, init_state_vars, init_decls, init_inits = \
             compile_assignments(all_inits)
-        assert set(update_state_vars) == set(init_state_vars), \
+        combine_updates, combine_state_vars, combine_decls, combine_inits = \
+            compile_assignments(all_combiners)
+        assert set(update_state_vars) == set(init_state_vars) and \
+            set(update_state_vars) == set(combine_state_vars), \
             """Initialized and update state vars are not the same \
-            {0} != {1}""".format(update_state_vars, init_state_vars)
-        all_decls += update_decls + init_decls
-        all_inits += update_inits + init_inits
+            {0} != {1} or {0} != {2}""".format(update_state_vars,
+                                               init_state_vars,
+                                               combine_state_vars)
+        all_decls += update_decls + init_decls + combine_decls
+        all_inits += update_inits + init_inits + combine_inits
 
         # generate the update and init function definitions
         state_tuple_decl = self.state_tuple.generateDefinition()
@@ -867,8 +902,15 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             init_updates=init_updates,
             init_state_vars=init_state_vars,
             name=self.func_name)
+        # currently only needed for 0key reduce, since there is no key-based
+        # reduce in the grappalang streaming aggregate
+        combine_def = self._cgenv.get_template('combine_definition.cpp').render(
+            state_type = self.state_tuple.getTupleTypename(),
+            combine_updates=combine_updates,
+            combine_state_vars=combine_state_vars,
+            name=self.func_name)
 
-        all_decls += [update_def, init_def]
+        all_decls += [update_def, init_def, combine_def]
 
         # values for the materialize template (calling the update function)
         init_func = "{name}_init".format(name=self.func_name)
