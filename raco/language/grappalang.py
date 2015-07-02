@@ -650,7 +650,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                 assert isinstance(aggr, expression.UnaryOperator), \
                     "Not sure what to do with this aggregate type {0}".format(
                         aggr)
-                resolve_name(aggr.input)
+                resolve_name(aggr.input, sch)
 
         grouped_names = set([resolve_name(ref, inp_sch) for ref in self.grouping_list])
         aggregates_types = [typ  # throw away the name because it is made up
