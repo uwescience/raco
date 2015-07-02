@@ -644,8 +644,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         def resolve_input_name(aggr, sch):
             if isinstance(aggr, expression.ZeroaryOperator):
-                # there is no input
-                return None
+                # there is no input, make up a unique, unused name
+                return "dummy_{0}".format(gensym())
             else:
                 assert isinstance(aggr, expression.UnaryOperator), \
                     "Not sure what to do with this aggregate type {0}".format(
