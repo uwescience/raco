@@ -95,15 +95,14 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         """.format(UDA=self._uda_def()), "argmax_uda")
 
     def test_argmax_all_uda(self):
-        # Always skip until no-key UDA is properly supported with decomposable UDA
-        raise SkipTest()
-        self.check_sub_tables("""
-        {UDA}
-        I3 = SCAN(%(I3)s);
-        out = select ArgMax(b, c) from I3;
-        STORE(out, OUTPUT);
-        """.format(UDA=self._uda_def()), "argmax_all_uda")
-        # TODO only test decomposable argmax here, as the non decomposable no-key is less useful
+        with self.assertRaises(NotImplementedError):
+            self.check_sub_tables("""
+            {UDA}
+            I3 = SCAN(%(I3)s);
+            out = select ArgMax(b, c) from I3;
+            STORE(out, OUTPUT);
+            """.format(UDA=self._uda_def()), "argmax_all_uda")
+            # TODO only test decomposable argmax here, as the non decomposable no-key is less useful
 
     def test_builtin_and_UDA(self):
         self.check_sub_tables("""

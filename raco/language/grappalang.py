@@ -622,14 +622,15 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         self.useKey = len(self.grouping_list) > 0
         _LOG.debug("groupby uses keys? %s" % self.useKey)
 
-        assert self.useKey or \
+        if not(self.useKey or \
                all([not isinstance(exp, expression.UdaAggregateExpression)
-                    for exp in self.aggregate_list]), """Not supported:
+                    for exp in self.aggregate_list])):
+            raise NotImplementedError("""
                     UDAs with no groupby key. The reason is that we
                     need to support decomposable state for correctness
                     of a local aggregate and global combine strategy. This
                     is solved adhoc in specific important builtin cases
-                    like COUNT"""
+                    like COUNT""")
 
         inp_sch = self.input.scheme()
 

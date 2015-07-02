@@ -48,7 +48,7 @@ class CustomBinaryFunction(BinaryFunction):
     literals = []
 
     def evaluate(self, _tuple, scheme, state=None):
-        raise NotImplemented("Not intended for evaluation")
+        raise NotImplementedError("Not intended for evaluation")
 
 
 class CustomZeroaryOperator(ZeroaryOperator):
@@ -69,7 +69,7 @@ class CustomZeroaryOperator(ZeroaryOperator):
         return self.typ
 
     def evaluate(self, _tuple, scheme, state=None):
-        raise NotImplemented("Not intended for evaluation")
+        raise NotImplementedError("Not intended for evaluation")
 
 
 class NaryFunction(NaryOperator):
