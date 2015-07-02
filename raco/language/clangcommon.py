@@ -283,6 +283,12 @@ class StagedTupleRef:
         self.scheme = scheme
         self.__typename = None
 
+    def __str__(self):
+        return "Tuple{{name={name}, relsym={relsym}, scheme={scheme}}}".format(
+            name=self.name,
+            relsym=self.relsym,
+            scheme=self.scheme)
+
     def getTupleTypename(self):
         if self.__typename is None:
             fields = ""

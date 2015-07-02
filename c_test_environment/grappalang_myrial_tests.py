@@ -105,6 +105,22 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         """.format(UDA=self._uda_def()), "argmax_all_uda")
         # TODO only test decomposable argmax here, as the non decomposable no-key is less useful
 
+    def test_builtin_and_UDA(self):
+        self.check_sub_tables("""
+        {UDA}
+        I3 = SCAN(%(I3)s);
+        out = select a, ArgMax(b, c), SUM(b) from I3;
+        STORE(out, OUTPUT);
+        """.format(UDA=self._uda_def()), "builtin_and_UDA")
+
+    def test_multi_builtin(self):
+        self.check_sub_tables("""
+        I3 = SCAN(%(I3)s);
+        out = select c, MAX(a), SUM(b) from I3;
+        STORE(out, OUTPUT);
+        """, "multi_builtin")
+
+
     def test_two_key_hash_join(self):
         self.check_sub_tables("""
         R3 = SCAN(%(R3)s);
