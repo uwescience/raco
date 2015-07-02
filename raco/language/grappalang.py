@@ -622,6 +622,15 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         self.useKey = len(self.grouping_list) > 0
         _LOG.debug("groupby uses keys? %s" % self.useKey)
 
+        assert self.useKey or \
+               all([not isinstance(exp, expression.UdaAggregateExpression)
+                    for exp in self.aggregate_list]), """Not supported:
+                    UDAs with no groupby key. The reason is that we
+                    need to support decomposable state for correctness
+                    of a local aggregate and global combine strategy. This
+                    is solved adhoc in specific important builtin cases
+                    like COUNT"""
+
         inp_sch = self.input.scheme()
 
         #raise Exception(str(self.input.scheme())+" "+str(self.aggregate_list)+" "+ str(self.grouping_list) +" "+ str(self.scheme()))
@@ -897,9 +906,6 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             {0} != {1} or {0} != {2}""".format(update_state_vars,
                                                init_state_vars,
                                                combine_state_vars)
-        all_code_decls += update_decls + init_decls + combine_decls
-        all_code_inits += update_inits + init_inits + combine_inits
-
         # generate the update and init function definitions
         state_tuple_decl = self.state_tuple.generateDefinition()
         update_def = self._cgenv.get_template(
@@ -923,7 +929,16 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             combine_state_vars=combine_state_vars,
             name=self.func_name)
 
-        all_code_decls += [update_def, init_def, combine_def]
+        all_code_decls += [update_def, init_def]
+        all_code_decls += update_decls + init_decls
+        all_code_inits += update_inits + init_inits
+
+        if not self.useKey:
+            # if 0key then add the combiner codes, otherwise
+            # omit it because it may be invalid code
+            all_code_decls += [combine_def]
+            all_code_decls += combine_decls
+            all_code_inits += combine_inits
 
         # values for the materialize template (calling the update function)
         init_func = "{name}_init".format(name=self.func_name)
