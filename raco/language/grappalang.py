@@ -642,11 +642,21 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             else:
                 return ref.name
 
+        def resolve_input_name(aggr, sch):
+            if isinstance(aggr, expression.ZeroaryOperator):
+                # there is no input
+                return None
+            else:
+                assert isinstance(aggr, expression.UnaryOperator), \
+                    "Not sure what to do with this aggregate type {0}".format(
+                        aggr)
+                resolve_name(aggr.input)
+
         grouped_names = set([resolve_name(ref, inp_sch) for ref in self.grouping_list])
         aggregates_types = [typ  # throw away the name because it is made up
                                    for name, typ in self.scheme()
                                    if name not in grouped_names]
-        aggregates_names = [resolve_name(a.input, inp_sch) for a in self.aggregate_list ]
+        aggregates_names = [resolve_input_name(a, inp_sch) for a in self.aggregate_list ]
         self.aggregates_schema = scheme.Scheme(zip(aggregates_names, aggregates_types))
 
         symbol = gensym()
