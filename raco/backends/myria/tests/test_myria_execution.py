@@ -7,8 +7,8 @@ import raco.myrial.parser as parser
 
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra
 
-rest_url='https://rest.myria.cs.washington.edu:1776'
-execution_url='https://myria-web.appspot.com'
+rest_url = 'https://rest.myria.cs.washington.edu:1776'
+execution_url = 'https://myria-web.appspot.com'
 
 connection = MyriaConnection(rest_url=rest_url, execution_url=execution_url)
 

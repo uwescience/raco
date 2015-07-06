@@ -29,6 +29,7 @@ class TestQueryFunctions():
 
 
 class OperatorTest(unittest.TestCase):
+
     def setUp(self):
         self.db = raco.fakedb.FakeDatabase()
         self.db.ingest(TestQueryFunctions.emp_key,
@@ -98,7 +99,7 @@ class OperatorTest(unittest.TestCase):
 
         # test whether we can generate json without errors
         from raco.backends.myria import (compile_to_json,
-                                             MyriaLeftDeepTreeAlgebra)
+                                         MyriaLeftDeepTreeAlgebra)
         from compile import optimize
         import json
         json_string = json.dumps(compile_to_json("", None, optimize(store, MyriaLeftDeepTreeAlgebra())))  # noqa

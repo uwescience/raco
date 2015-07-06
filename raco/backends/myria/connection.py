@@ -22,6 +22,7 @@ POST = 'POST'
 # Enable or configure logging
 logging.basicConfig(level=logging.WARN)
 
+
 class MyriaConnection(object):
     """Contains a connection the Myria REST server."""
 

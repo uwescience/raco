@@ -10,7 +10,7 @@ from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
     MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer)
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
-                                     MyriaHyperCubeAlgebra)
+                                 MyriaHyperCubeAlgebra)
 from raco.compile import optimize
 from raco import relation_key
 from raco.catalog import FakeCatalog

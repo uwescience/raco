@@ -1,5 +1,6 @@
 import requests
 
+
 class MyriaError(Exception):
     def __init__(self, err=None):
         if isinstance(err, requests.Response):

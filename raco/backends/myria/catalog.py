@@ -2,6 +2,7 @@ from raco.catalog import Catalog
 import raco.scheme as scheme
 from .errors import MyriaError
 
+
 class MyriaCatalog(Catalog):
 
     def __init__(self, connection):
