@@ -3,9 +3,9 @@ from testquery import checkquery, checkstore
 from testquery import ClangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
-import raco.language.clang as clang
-import raco.language.clangcommon as clangcommon
-from raco.platform_tests import DatalogPlatformTest
+import raco.backends.clang as clang
+import raco.backends.clang.clangcommon as clangcommon
+from platform_tests import DatalogPlatformTest
 
 import sys
 sys.path.append('./examples')
