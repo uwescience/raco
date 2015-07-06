@@ -3,8 +3,8 @@ from testquery import checkquery
 from testquery import ClangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
-from raco.language.clang import CCAlgebra
-from raco.platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
+from raco.backends.clang import CCAlgebra
+from platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
 from raco.compile import compile
 
 import sys
