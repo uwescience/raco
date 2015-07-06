@@ -20,7 +20,6 @@ from raco import types
 
 LOGGER = logging.getLogger(__name__)
 
-
 def scheme_to_schema(s):
     if s:
         names, descrs = zip(*s.asdict.items())
