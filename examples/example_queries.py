@@ -1,5 +1,6 @@
-from raco.language import CCAlgebra, GrappaAlgebra
-from emitcode import emitCode
+from raco.backends.cpp import CCAlgebra
+from raco.backends.radish import GrappaAlgebra
+from raco.cpp_datalog_utils import emitCode
 import raco.rules as rules
 from raco.grappalang import GrappaShuffleHashJoin, GrappaSymmetricHashJoin, GrappaHashJoin
 

@@ -152,7 +152,7 @@ def main(args):
                 raise "Options opt_logical and --plan are incompatible"
             print_pretty_plan(processor.get_physical_plan(
                 target_alg=OptLogicalAlgebra(), **kwargs))
-        elif opt.clang:
+        elif opt.cpp:
             # some useful kwargs
             # scan_array_repr='symmetric_array'
             pp = pd.get_physical_plan(target_alg=GrappaAlgebra(), **kwargs)

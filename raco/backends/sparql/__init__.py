@@ -1,2 +1,2 @@
 # everything in sparql.py made public
-from sparl import *
+from sparql import *

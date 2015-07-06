@@ -11,7 +11,7 @@ from raco.platform_tests import DatalogPlatformTest
 from testquery import checkquery, checkstore, GrappalangRunner
 
 sys.path.append('./examples')
-from emitcode import emitCode
+from raco.cpp_datalog_utils import emitCode
 
 
 class DatalogGrappaTest(unittest.TestCase, DatalogPlatformTest):

@@ -1,5 +1,5 @@
-from emitcode import emitCode
-from raco.language import GrappaAlgebra
+from raco.cpp_datalog_utils import emitCode
+from raco.backends.radish import GrappaAlgebra
 import sys
 
 import logging

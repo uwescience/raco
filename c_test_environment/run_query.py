@@ -25,10 +25,10 @@ def parse_options(args):
     return ns
 
 
-from raco.language.clang import CCAlgebra
-from raco.language.grappalang import GrappaAlgebra
+from raco.backends.cpp import CCAlgebra
+from raco.backends.radish import GrappaAlgebra
 from raco.catalog import FromFileCatalog
-from raco.language.clangcommon import EMIT_FILE
+from raco.backends.cpp.cppcommon import EMIT_FILE
 from clang_processor import ClangProcessor
 
 
