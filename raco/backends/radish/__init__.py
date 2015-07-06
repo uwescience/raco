@@ -34,7 +34,7 @@ class GrappaStagedTupleRef(StagedTupleRef):
 
 
 class GrappaLanguage(CBaseLanguage):
-    _template_path = 'grappa_templates'
+    _template_path = 'radish/grappa_templates'
     _cgenv = CBaseLanguage.__get_env_for_template_libraries__(_template_path)
 
     @classmethod

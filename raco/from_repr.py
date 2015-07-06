@@ -1,9 +1,9 @@
 # import all the expressions and algebras
 
-from raco.language.myrialang import *
-from raco.language.clang import *
-from raco.language.clangcommon import *
-from raco.language.grappalang import *
+from raco.backends.myria import *
+from raco.backends.clang import *
+from raco.backends.clang.clangcommon import *
+from raco.backends.radish import *
 from raco.algebra import *
 from raco.scheme import *
 from raco.expression.expression import *

@@ -29,7 +29,7 @@ class CStagedTupleRef(StagedTupleRef):
 
 
 class CC(CBaseLanguage):
-    _template_path = 'c_templates'
+    _template_path = 'clang/c_templates'
     _cgenv = CBaseLanguage.__get_env_for_template_libraries__(_template_path)
 
     @classmethod

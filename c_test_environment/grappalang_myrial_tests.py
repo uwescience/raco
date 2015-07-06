@@ -5,7 +5,7 @@ from generate_test_relations import generate_default
 from generate_test_relations import need_generate
 from raco.backends.radish import GrappaAlgebra
 import raco.backends.radish as grappalang
-from platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
+from raco.platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
 from raco.compile import compile
 from nose.plugins.skip import SkipTest
 

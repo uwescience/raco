@@ -3,7 +3,7 @@ import collections
 import raco.scheme as scheme
 import raco.datalog.datalog_test as datalog_test
 from raco import types
-from raco.language.myrialang import MyriaHyperCubeAlgebra
+from raco.backends.myria import MyriaHyperCubeAlgebra
 
 
 class TestQueryFunctions(datalog_test.DatalogTestCase):

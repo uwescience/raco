@@ -18,7 +18,7 @@ from functools import reduce
 _LOG = logging.getLogger(__name__)
 
 
-PACKAGE_PATH = 'raco.backends.clang'
+PACKAGE_PATH = 'raco.backends'
 
 def prepend_loader(env, loader):
     newenv = env.overlay(loader=jinja2.ChoiceLoader([loader, env.loader]))
@@ -56,7 +56,7 @@ class CBaseLanguage(Language):
         child_loaders = [
             jinja2.PackageLoader(PACKAGE_PATH, l) for l in libraries]
         loaders = child_loaders + \
-            [jinja2.PackageLoader(PACKAGE_PATH, 'cbase_templates')]
+            [jinja2.PackageLoader(PACKAGE_PATH, 'clang/cbase_templates')]
 
         # StrictUndefined makes uses of the result of render() fail when
         # a template variable is undefined, which is most useful for debugging

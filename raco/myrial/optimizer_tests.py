@@ -6,10 +6,10 @@ from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.expression import StateVar
 
-from raco.language.myrialang import (
+from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
     MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer)
-from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
+from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
                                      MyriaHyperCubeAlgebra)
 from raco.compile import optimize
 from raco import relation_key

@@ -1,7 +1,7 @@
 import unittest
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
-from raco.language.myrialang import MyriaLeftDeepTreeAlgebra
+from raco.backends.myria import MyriaLeftDeepTreeAlgebra
 from raco.platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
 from raco.from_repr import plan_from_repr
 
