@@ -4,7 +4,7 @@ from osutils import Chdir
 import sys
 import unittest
 
-from raco.language.grappalang import GrappaAlgebra
+from raco.backends.radish import GrappaAlgebra
 
 from generate_test_relations import generate_default, need_generate
 from raco.platform_tests import DatalogPlatformTest

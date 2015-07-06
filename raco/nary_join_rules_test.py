@@ -3,7 +3,7 @@ import unittest
 import algebra
 from raco import RACompiler
 from raco.catalog import FakeCatalog
-from raco.language import myrialang
+from raco.backends import myria as myrialang
 
 
 class testNaryJoin(unittest.TestCase):

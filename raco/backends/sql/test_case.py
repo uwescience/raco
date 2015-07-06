@@ -4,7 +4,7 @@ import unittest
 
 import raco.algebra as algebra
 from raco.compile import optimize_by_rules
-from raco.language.logical import OptLogicalAlgebra
+from raco.backends.logical import OptLogicalAlgebra
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme as scheme

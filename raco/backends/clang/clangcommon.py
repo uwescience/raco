@@ -9,7 +9,7 @@ from raco import expression
 from raco import catalog
 from raco.algebra import gensym
 from raco.expression import UnnamedAttributeRef
-from raco.language import Language
+from raco.backends import Language
 from raco.pipelines import Pipelined
 from raco import types
 
@@ -17,6 +17,8 @@ import logging
 from functools import reduce
 _LOG = logging.getLogger(__name__)
 
+
+PACKAGE_PATH = 'raco.backends.clang'
 
 def prepend_loader(env, loader):
     newenv = env.overlay(loader=jinja2.ChoiceLoader([loader, env.loader]))
@@ -26,7 +28,7 @@ def prepend_loader(env, loader):
 
 
 def prepend_template_relpath(env, relpath):
-    return prepend_loader(env, jinja2.PackageLoader('raco.language', relpath))
+    return prepend_loader(env, jinja2.PackageLoader(PACKAGE_PATH, relpath))
 
 
 class CBaseLanguage(Language):
@@ -52,9 +54,9 @@ class CBaseLanguage(Language):
         @return: a jinja2.Environment
         """
         child_loaders = [
-            jinja2.PackageLoader('raco.language', l) for l in libraries]
+            jinja2.PackageLoader(PACKAGE_PATH, l) for l in libraries]
         loaders = child_loaders + \
-            [jinja2.PackageLoader('raco.language', 'cbase_templates')]
+            [jinja2.PackageLoader(PACKAGE_PATH, 'cbase_templates')]
 
         # StrictUndefined makes uses of the result of render() fail when
         # a template variable is undefined, which is most useful for debugging

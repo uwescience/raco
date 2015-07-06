@@ -1,8 +1,8 @@
 from raco import RACompiler
 from raco.compile import compile
 
-from raco.language.grappalang import GrappaSymmetricHashJoin
-from raco.language.grappalang import GrappaShuffleHashJoin
+from raco.backends.radish import GrappaSymmetricHashJoin
+from raco.backends.radish import GrappaShuffleHashJoin
 
 import raco.viz as viz
 

@@ -5,11 +5,11 @@
 from raco import algebra
 from raco.expression import aggregate
 from raco import expression
-from raco.language import Algebra
+from raco.backends import Algebra
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.language.clangcommon import StagedTupleRef, CBaseLanguage
-from raco.language import clangcommon
+from raco.backends.clang.clangcommon import StagedTupleRef, CBaseLanguage
+from raco.backends.clang import clangcommon
 from raco.utility import emitlist
 
 from raco.algebra import gensym

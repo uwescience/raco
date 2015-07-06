@@ -3,10 +3,10 @@ from raco.expression import *
 from raco.algebra import *
 from raco.relation_key import *
 from raco.scheme import *
-from raco.language.myrialang import *
-from raco.language.clang import *
-from raco.language.grappalang import *
-from raco.language.sparql import *
+from raco.backends.myria import *
+from raco.backends.clang import *
+from raco.backends.radish import *
+from raco.backends.sparql import *
 
 # NOTES: relying on import * for eval is error prone due
 #        to namespace collisions

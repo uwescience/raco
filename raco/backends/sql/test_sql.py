@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from raco.language.sql.test_case import SQLTestCase
+from raco.backends.sql.test_case import SQLTestCase
 
 import raco.scheme as scheme
 import raco.types as types
