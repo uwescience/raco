@@ -131,6 +131,10 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         STORE(J, OUTPUT);
         """, "three_way_three_key_hash_join")
 
+    def test_symmetric_array_repr(self):
+        q = self.myrial_from_sql(['T1'], "select")
+        self.check(q, "select", scan_array_repr='symmetric_array')
+
 
 if __name__ == '__main__':
     unittest.main()

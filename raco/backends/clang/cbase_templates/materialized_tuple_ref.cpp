@@ -12,13 +12,16 @@
       return {{numfields}};
     }
 
+    // size of all fields in struct removing only end padding
     static size_t fieldsSize() {
         const {{tupletypename}} _t;
         return
-        {% for i in range(numfields) %}
-        sizeof(_t.f{{i}}) +
-        {% endfor %}
-        0;
+
+        {% if numfields == 1 %}
+            sizeof(_t.f0);
+         {% else %}
+            ((char*)&_t.f{{numfields-1}}) + sizeof(_t.f{{numfields-1}}) - ((char*)&_t);
+         {% endif %}
     }
 
     {{tupletypename}} () {
@@ -113,14 +116,7 @@
     }
 
     void toOStream(std::ostream& os) const {
-       {% for i in range(numfields) %}
-         {% if fieldtypes[i] == string_type_name %}
-            os.write(f{{i}}.data(), (size_t)MAX_STR_LEN * sizeof(char));
-            os.seekp(std::max(MAX_STR_LEN-f{{i}}.size(), (size_t)0), std::ios_base::cur);
-         {% else %}
-            os.write((char*)&f{{i}}, sizeof({{fieldtypes[i]}}));
-         {% endif %}
-       {% endfor %}
+        os.write((char*)this, this->fieldsSize());
     }
 
     void toOStreamAscii(std::ostream& os) const {
