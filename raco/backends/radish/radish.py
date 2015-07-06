@@ -8,8 +8,8 @@ from raco import expression
 from raco.backends import Algebra
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.backends.clang.clangcommon import StagedTupleRef, CBaseLanguage
-from raco.backends.clang import clangcommon
+from raco.backends.cpp.cppcommon import StagedTupleRef, CBaseLanguage
+from raco.backends.cpp import cppcommon
 from raco.utility import emitlist
 
 from raco.algebra import gensym
@@ -298,7 +298,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
     def __init__(self, *args):
         super(GrappaSymmetricHashJoin, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(
+        self._cgenv = cppcommon.prepend_template_relpath(
             self.language().cgenv(),
             '{0}/symmetrichashjoin'.format(GrappaLanguage._template_path))
 
@@ -431,7 +431,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 
     def __init__(self, *args):
         super(GrappaShuffleHashJoin, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(
+        self._cgenv = cppcommon.prepend_template_relpath(
             self.language().cgenv(),
             '{0}/shufflehashjoin'.format(GrappaLanguage._template_path))
 
@@ -583,7 +583,7 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
         return code
 
 
-class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
+class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
     _i = 0
 
     _ONE_BUILT_IN = 0
@@ -597,7 +597,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
     def __init__(self, *args):
         super(GrappaGroupBy, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(
+        self._cgenv = cppcommon.prepend_template_relpath(
             self.language().cgenv(),
             '{0}/groupby'.format(GrappaLanguage._template_path))
 
@@ -896,7 +896,7 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
 
     def __init__(self, *args):
         super(GrappaHashJoin, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(
+        self._cgenv = cppcommon.prepend_template_relpath(
             self.language().cgenv(),
             '{0}/hashjoin'.format(GrappaLanguage._template_path))
 
@@ -1032,26 +1032,26 @@ def indentby(code, level):
 
 
 # Basic selection like serial C++
-class GrappaSelect(clangcommon.CBaseSelect, GrappaOperator):
+class GrappaSelect(cppcommon.CBaseSelect, GrappaOperator):
     pass
 
 
 # Basic apply like serial C++
-class GrappaApply(clangcommon.CBaseApply, GrappaOperator):
+class GrappaApply(cppcommon.CBaseApply, GrappaOperator):
     pass
 
 
 # Basic duplication based bag union like serial C++
-class GrappaUnionAll(clangcommon.CBaseUnionAll, GrappaOperator):
+class GrappaUnionAll(cppcommon.CBaseUnionAll, GrappaOperator):
     pass
 
 
 # Basic materialized copy based project like serial C++
-class GrappaProject(clangcommon.CBaseProject, GrappaOperator):
+class GrappaProject(cppcommon.CBaseProject, GrappaOperator):
     pass
 
 
-class GrappaFileScan(clangcommon.CBaseFileScan, GrappaOperator):
+class GrappaFileScan(cppcommon.CBaseFileScan, GrappaOperator):
 
     def __init__(self, representation=_ARRAY_REPRESENTATION.GLOBAL_ARRAY,
                  relation_key=None, _scheme=None, cardinality=None):
@@ -1094,7 +1094,7 @@ class GrappaFileScan(clangcommon.CBaseFileScan, GrappaOperator):
             card=self._cardinality)
 
 
-class GrappaStore(clangcommon.CBaseStore, GrappaOperator):
+class GrappaStore(cppcommon.CBaseStore, GrappaOperator):
 
     def __file_code__(self, t, state):
         my_sch = self.scheme()
@@ -1155,16 +1155,16 @@ def grappify(join_type, emit_print,
         rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll),
-        clangcommon.StoreToBaseCStore(emit_print, GrappaStore),
+        cppcommon.StoreToBaseCStore(emit_print, GrappaStore),
 
         # Don't need this because we support two-key
-        # clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
+        # cppcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
     ]
 
 
 class GrappaAlgebra(Algebra):
 
-    def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
+    def __init__(self, emit_print=cppcommon.EMIT_CONSOLE):
         self.emit_print = emit_print
 
     def opt_rules(self, **kwargs):
@@ -1195,7 +1195,7 @@ class GrappaAlgebra(Algebra):
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
             rules.simple_group_by,
-            clangcommon.clang_push_select,
+            cppcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
             grappify(join_type, self.emit_print, scan_array_repr)

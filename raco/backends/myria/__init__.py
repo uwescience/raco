@@ -1,2 +1,2 @@
-# everything in myrialang made public
-from myrialang import *
+# everything in myria made public
+from myria import *

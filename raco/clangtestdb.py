@@ -8,7 +8,7 @@ import csv
 class ClangTestDatabase(Catalog):
     """
     Interface for table metadata and ingest
-    for raco.clang query processor
+    for raco.cpp query processor
     """
 
     def __init__(self):

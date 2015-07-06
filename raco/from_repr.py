@@ -1,8 +1,8 @@
 # import all the expressions and algebras
 
 from raco.backends.myria import *
-from raco.backends.clang import *
-from raco.backends.clang.clangcommon import *
+from raco.backends.cpp import *
+from raco.backends.cpp.clangcommon import *
 from raco.backends.radish import *
 from raco.algebra import *
 from raco.scheme import *

@@ -4,7 +4,7 @@ from raco.algebra import *
 from raco.relation_key import *
 from raco.scheme import *
 from raco.backends.myria import *
-from raco.backends.clang import *
+from raco.backends.cpp import *
 from raco.backends.radish import *
 from raco.backends.sparql import *
 

@@ -4,11 +4,10 @@
 from raco import algebra
 from raco import expression
 from raco.backends import Algebra
-from raco.backends.clang import clangcommon, Algebra
+from raco.backends.cpp import cppcommon
 from raco import rules
 from raco.pipelines import Pipelined
-from raco.backends.clang.clangcommon import StagedTupleRef, CBaseLanguage
-from raco.utility import emitlist
+from raco.backends.cpp.cppcommon import StagedTupleRef, CBaseLanguage
 
 from raco.algebra import gensym
 
@@ -29,7 +28,7 @@ class CStagedTupleRef(StagedTupleRef):
 
 
 class CC(CBaseLanguage):
-    _template_path = 'clang/c_templates'
+    _template_path = 'cpp/c_templates'
     _cgenv = CBaseLanguage.__get_env_for_template_libraries__(_template_path)
 
     @classmethod
@@ -142,12 +141,12 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
         return UnaryOperator.__eq__(self, other)
 
 
-class CGroupBy(clangcommon.BaseCGroupby, CCOperator):
+class CGroupBy(cppcommon.BaseCGroupby, CCOperator):
     _i = 0
 
     def __init__(self, *args):
         super(CGroupBy, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(
+        self._cgenv = cppcommon.prepend_template_relpath(
             self.language().cgenv(), '{0}/groupby'.format(CC._template_path))
 
     @classmethod
@@ -296,7 +295,7 @@ class CHashJoin(algebra.Join, CCOperator):
 
     def __init__(self, *args):
         super(CHashJoin, self).__init__(*args)
-        self._cgenv = clangcommon.prepend_template_relpath(
+        self._cgenv = cppcommon.prepend_template_relpath(
             self.language().cgenv(), '{0}/hashjoin'.format(CC._template_path))
 
     def produce(self, state):
@@ -429,23 +428,23 @@ def indentby(code, level):
 
 # iteration  over table + insertion into hash table with filter
 
-class CUnionAll(clangcommon.CBaseUnionAll, CCOperator):
+class CUnionAll(cppcommon.CBaseUnionAll, CCOperator):
     pass
 
 
-class CApply(clangcommon.CBaseApply, CCOperator):
+class CApply(cppcommon.CBaseApply, CCOperator):
     pass
 
 
-class CProject(clangcommon.CBaseProject, CCOperator):
+class CProject(cppcommon.CBaseProject, CCOperator):
     pass
 
 
-class CSelect(clangcommon.CBaseSelect, CCOperator):
+class CSelect(cppcommon.CBaseSelect, CCOperator):
     pass
 
 
-class CFileScan(clangcommon.CBaseFileScan, CCOperator):
+class CFileScan(cppcommon.CBaseFileScan, CCOperator):
 
     def __get_ascii_scan_template__(self):
         return CC.cgenv().get_template('ascii_scan.cpp')
@@ -458,7 +457,7 @@ class CFileScan(clangcommon.CBaseFileScan, CCOperator):
         return CC.cgenv().get_template('relation_declaration.cpp')
 
 
-class CStore(clangcommon.CBaseStore, CCOperator):
+class CStore(cppcommon.CBaseStore, CCOperator):
 
     def __file_code__(self, t, state):
         output_stream_symbol = "outputfile"
@@ -543,15 +542,15 @@ def clangify(emit_print):
         rules.OneToOne(algebra.UnionAll, CUnionAll),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
-        clangcommon.StoreToBaseCStore(emit_print, CStore),
+        cppcommon.StoreToBaseCStore(emit_print, CStore),
 
-        clangcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
+        cppcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
     ]
 
 
 class CCAlgebra(Algebra):
 
-    def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
+    def __init__(self, emit_print=cppcommon.EMIT_CONSOLE):
         """ To store results into a file or onto console """
         self.emit_print = emit_print
 
@@ -576,7 +575,7 @@ class CCAlgebra(Algebra):
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
             rules.simple_group_by,
-            clangcommon.clang_push_select,
+            cppcommon.clang_push_select,
             [rules.ProjectToDistinctColumnSelect(),
              rules.JoinToProjectingJoin()],
             rules.push_apply,

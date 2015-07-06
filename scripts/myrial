@@ -61,7 +61,7 @@ def parse_options(args):
                        help="Encode plan as Python repr", action='store_true')
     group.add_argument('-f', dest='standalone', action='store_true',
                        help='Execute the program in standalone mode')
-    group.add_argument('-c', dest='clang', action='store_true',
+    group.add_argument('-c', dest='cpp', action='store_true',
                        help='Output physical plan for grappalang and source program')
     group.add_argument('-s', dest='sparql', action='store_true',
                        help='Output an attempt at a SPARQL translation of the input program')

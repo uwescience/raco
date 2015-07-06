@@ -55,7 +55,7 @@ class CBaseLanguage(Language):
         child_loaders = [
             jinja2.PackageLoader(_PACKAGE_PATH, l) for l in libraries]
         loaders = child_loaders + \
-            [jinja2.PackageLoader(_PACKAGE_PATH, 'clang/cbase_templates')]
+            [jinja2.PackageLoader(_PACKAGE_PATH, 'cpp/cbase_templates')]
 
         # StrictUndefined makes uses of the result of render() fail when
         # a template variable is undefined, which is most useful for debugging
