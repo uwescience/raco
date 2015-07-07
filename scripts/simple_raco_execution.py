@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 '''
 A notional raco-only script for executing a MyriaL query
