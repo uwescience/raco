@@ -38,21 +38,21 @@ def emitCode(query, name, algType, plan=None, emit_print=None, dir='.'):
 
     # parse the query
     dlog.fromDatalog(query)
-    #print dlog.parsed
-    LOG.info("logical: %s",dlog.logicalplan)
+    # print dlog.parsed
+    LOG.info("logical: %s", dlog.logicalplan)
 
     print dlog.logicalplan
     logical_dot = viz.operator_to_dot(dlog.logicalplan)
-    with open("%s.logical.dot"%(name), 'w') as dwf:
+    with open("%s.logical.dot" % (name), 'w') as dwf:
         dwf.write(logical_dot)
 
     dlog.optimize(target=alg)
 
-    LOG.info("physical: %s",dlog.physicalplan)
+    LOG.info("physical: %s", dlog.physicalplan)
 
     print dlog.physicalplan
     physical_dot = viz.operator_to_dot(dlog.physicalplan)
-    with open("%s.physical.dot"%(name), 'w') as dwf:
+    with open("%s.physical.dot" % (name), 'w') as dwf:
         dwf.write(physical_dot)
 
     # generate code in the target language
@@ -66,4 +66,3 @@ def emitCode(query, name, algType, plan=None, emit_print=None, dir='.'):
 
     # returns name of code file
     return fname
-
