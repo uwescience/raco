@@ -622,7 +622,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         self.useKey = len(self.grouping_list) > 0
         _LOG.debug("groupby uses keys? %s" % self.useKey)
 
-        if not(self.useKey or \
+        if not(self.useKey or
                all([not isinstance(exp, expression.UdaAggregateExpression)
                     for exp in self.aggregate_list])):
             raise NotImplementedError("""
@@ -641,20 +641,30 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         inp_sch = self.input.scheme()
 
-        # reconstruct the lost mapping of schema to aggregate expressions/grouping list
+        # reconstruct the lost mapping of schema to aggregate
+        # expressions/grouping list
         # TODO: doesn't this exist somewhere in raco?
         def resolve_name(ref, sch):
-            if isinstance(ref, expression.UnnamedAttributeRef)or isinstance(ref, expression.UnnamedAttributeRef):
+            if isinstance(
+                    ref,
+                    expression.UnnamedAttributeRef)or isinstance(
+                    ref,
+                    expression.UnnamedAttributeRef):
                 return sch.get_names()[ref.position]
             else:
                 return ref.name
 
-        grouped_names = set([resolve_name(ref, inp_sch) for ref in self.grouping_list])
+        grouped_names = set([resolve_name(ref, inp_sch)
+                             for ref in self.grouping_list])
         aggregates_types = [typ  # throw away the name because it is made up
-                                   for name, typ in self.scheme()
-                                   if name not in grouped_names]
-        aggregates_names = [resolve_name(a.input, inp_sch) for a in self.aggregate_list ]
-        self.aggregates_schema = scheme.Scheme(zip(aggregates_names, aggregates_types))
+                            for name, typ in self.scheme()
+                            if name not in grouped_names]
+        aggregates_names = [
+            resolve_name(
+                a.input,
+                inp_sch) for a in self.aggregate_list]
+        self.aggregates_schema = scheme.Scheme(
+            zip(aggregates_names, aggregates_types))
 
         symbol = gensym()
         self.func_name = "__{0}".format(symbol)
@@ -689,8 +699,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
             init_template = self._cgenv.get_template('withoutkey_init.cpp')
             initializer = no_key_state_initializer
-            ## FIXME? Does this need to call init()?
-            ## FOR BUILTINs        self.__get_initial_value__(0, cached_inp_sch=inp_sch)
+            # FIXME? Does this need to call init()?
+            # FOR BUILTINs        self.__get_initial_value__(0,
+            # cached_inp_sch=inp_sch)
 
         state.addInitializers([init_template.render(locals())])
 
@@ -736,7 +747,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         assignmentcode = ""
         for i in range(0, len(output_tuple.scheme)):
             d = output_tuple.set_func_code(i)
-            s = output_tuple.get_code_with_name(i, "{0}_tmp".format(output_tuple.name))
+            s = output_tuple.get_code_with_name(
+                i, "{0}_tmp".format(
+                    output_tuple.name))
             assignment_template = self._cgenv.get_template('assignment.cpp')
             assignmentcode += assignment_template.render(
                 dst_set_func=d, src_expr_compiled=s)
@@ -755,6 +768,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         all_code_inits = []
 
         class AggregateSetter:
+
             def __init__(self, name, expression):
                 self.name = name
                 self.expression = expression
@@ -798,8 +812,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         def aggregate_to_updater(index, aggr):
             if isinstance(aggr, aggregate.UdaAggregateExpression):
                 attr_ref = aggr.input
-                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef), \
-                    "type(attr_ref)={0} but must be {1}".format(type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
+                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                    "type(attr_ref)={0} but must be {1}".format(
+                    type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
                 name, expr = updaters_map[attr_ref.name]
                 return AggregateSetter(name, expr)
             elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
@@ -809,7 +824,10 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                     aggr.input.typeof(inp_sch, None))
                 op = aggr
                 up_op_name = op.__class__.__name__
-                state_type = self.language().typename(aggr.typeof(inp_sch, None))
+                state_type = self.language().typename(
+                    aggr.typeof(
+                        inp_sch,
+                        None))
                 update_func = \
                     "Aggregates::{op}<{state_type}, {input_type}>".format(
                         op=up_op_name,
@@ -822,7 +840,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                     # get the output type
                     self.aggregates_schema.get_types()[index],
                     # get the aggregate result attribute (left)
-                    expression.NamedStateAttributeRef(self.aggregates_schema.get_names()[index]),
+                    expression.NamedStateAttributeRef(
+                        self.aggregates_schema.get_names()[index]),
                     # get the aggregate input attribute (right)
                     aggr.input)
 
@@ -834,8 +853,9 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         def aggregate_to_init(index, aggr):
             if isinstance(aggr, aggregate.UdaAggregateExpression):
                 attr_ref = aggr.input
-                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef), \
-                    "type(attr_ref)={0} but must be {1}".format(type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
+                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                    "type(attr_ref)={0} but must be {1}".format(
+                    type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
                 name, expr = inits_map[attr_ref.name]
                 return AggregateSetter(name, expr)
             elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
@@ -854,15 +874,19 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                 # TODO: Support decomposable aggregate state, instead of
                 # TODO: just using the same function from self.updaters
                 attr_ref = aggr.input
-                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef), \
-                    "type(attr_ref)={0} but must be {1}".format(type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
+                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                    "type(attr_ref)={0} but must be {1}".format(
+                    type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
                 name, expr = updaters_map[attr_ref.name]
                 return AggregateSetter(name, expr)
             elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
                 # get combiner function
                 name = "_v{0}".format(index)
 
-                state_type = self.language().typename(aggr.typeof(inp_sch, None))
+                state_type = self.language().typename(
+                    aggr.typeof(
+                        inp_sch,
+                        None))
 
                 # hack to get the combiner function based on the aggregate
                 # TODO: support decomposable state
@@ -895,9 +919,18 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                 assert False, "expected every element of aggregate_list to " \
                               "be an aggregate"
 
-        all_updaters = [aggregate_to_updater(i, a) for i, a in enumerate(self.aggregate_list)]
-        all_initers = [aggregate_to_init(i, a) for i, a in enumerate(self.aggregate_list)]
-        all_combiners = [aggregate_to_combiner(i, a) for i, a in enumerate(self.aggregate_list)]
+        all_updaters = [
+            aggregate_to_updater(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
+        all_initers = [
+            aggregate_to_init(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
+        all_combiners = [
+            aggregate_to_combiner(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
         ########################
 
         update_updates, update_state_vars, update_decls, update_inits = \
@@ -929,11 +962,12 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             name=self.func_name)
         # currently only needed for 0key reduce, since there is no key-based
         # reduce in the grappalang streaming aggregate
-        combine_def = self._cgenv.get_template('combine_definition.cpp').render(
-            state_type = self.state_tuple.getTupleTypename(),
-            combine_updates=combine_updates,
-            combine_state_vars=combine_state_vars,
-            name=self.func_name)
+        combine_def = self._cgenv.get_template(
+            'combine_definition.cpp').render(
+                state_type=self.state_tuple.getTupleTypename(),
+                combine_updates=combine_updates,
+                combine_state_vars=combine_state_vars,
+                name=self.func_name)
 
         all_code_decls += [update_def, init_def]
         all_code_decls += update_decls + init_decls

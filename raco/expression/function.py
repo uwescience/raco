@@ -12,6 +12,7 @@ from .expression import (ZeroaryOperator, UnaryOperator, BinaryOperator,
 
 
 class UnaryFunction(UnaryOperator):
+
     def __str__(self):
         return "%s(%s)" % (self.__class__.__name__, self.input)
 
@@ -20,6 +21,7 @@ class UnaryFunction(UnaryOperator):
 
 
 class BinaryFunction(BinaryOperator):
+
     def __str__(self):
         return "%s(%s, %s)" % (self.__class__.__name__, self.left, self.right)
 
@@ -37,10 +39,10 @@ class CustomBinaryFunction(BinaryFunction):
 
     def __repr__(self):
         return "{op}({n!r}, {t!r}, {l!r}, {r!r})".format(op=self.opname(),
-                                                  n=self.name,
-                                                  t=self.typ,
-                                                  l=self.left,
-                                                  r=self.right)
+                                                         n=self.name,
+                                                         t=self.typ,
+                                                         l=self.left,
+                                                         r=self.right)
 
     def typeof(self, scheme, state_scheme):
         return self.typ
@@ -52,6 +54,7 @@ class CustomBinaryFunction(BinaryFunction):
 
 
 class CustomZeroaryOperator(ZeroaryOperator):
+
     def __init__(self, name, typ):
         self.name = name
         self.typ = typ
@@ -62,8 +65,8 @@ class CustomZeroaryOperator(ZeroaryOperator):
 
     def __repr__(self):
         return "{op}({n!r}, {t!r})".format(op=self.opname(),
-                                            n=self.name,
-                                            t=self.typ)
+                                           n=self.name,
+                                           t=self.typ)
 
     def typeof(self, scheme, state_scheme):
         return self.typ
@@ -73,6 +76,7 @@ class CustomZeroaryOperator(ZeroaryOperator):
 
 
 class NaryFunction(NaryOperator):
+
     def __str__(self):
         return "%s(%s)" % \
             (self.__class__.__name__,
@@ -83,6 +87,7 @@ class NaryFunction(NaryOperator):
 
 
 class WORKERID(ZeroaryOperator):
+
     def __str__(self):
         return "%s" % self.__class__.__name__
 
@@ -97,6 +102,7 @@ class WORKERID(ZeroaryOperator):
 
 
 class RANDOM(ZeroaryOperator):
+
     def __str__(self):
         return "%s" % self.__class__.__name__
 
@@ -111,7 +117,9 @@ class RANDOM(ZeroaryOperator):
 
 
 class UnaryDoubleFunction(UnaryFunction):
+
     """A unary function that returns a double."""
+
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
@@ -119,6 +127,7 @@ class UnaryDoubleFunction(UnaryFunction):
 
 
 class UnaryTypePreservingFunction(UnaryFunction):
+
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
@@ -126,46 +135,55 @@ class UnaryTypePreservingFunction(UnaryFunction):
 
 
 class ABS(UnaryTypePreservingFunction):
+
     def evaluate(self, _tuple, scheme, state=None):
         return abs(self.input.evaluate(_tuple, scheme, state))
 
 
 class CEIL(UnaryDoubleFunction):
+
     def evaluate(self, _tuple, scheme, state=None):
         return math.ceil(self.input.evaluate(_tuple, scheme, state))
 
 
 class COS(UnaryDoubleFunction):
+
     def evaluate(self, _tuple, scheme, state=None):
         return math.cos(self.input.evaluate(_tuple, scheme, state))
 
 
 class FLOOR(UnaryDoubleFunction):
+
     def evaluate(self, _tuple, scheme, state=None):
         return math.floor(self.input.evaluate(_tuple, scheme, state))
 
 
 class LOG(UnaryDoubleFunction):
+
     def evaluate(self, _tuple, scheme, state=None):
         return math.log(self.input.evaluate(_tuple, scheme, state))
 
 
 class SIN(UnaryDoubleFunction):
+
     def evaluate(self, _tuple, scheme, state=None):
         return math.sin(self.input.evaluate(_tuple, scheme, state))
 
 
 class SQRT(UnaryDoubleFunction):
+
     def evaluate(self, _tuple, scheme, state=None):
         return math.sqrt(self.input.evaluate(_tuple, scheme, state))
 
 
 class TAN(UnaryDoubleFunction):
+
     def evaluate(self, _tuple, scheme, state=None):
         return math.tan(self.input.evaluate(_tuple, scheme, state))
 
 
 class MD5(UnaryFunction):
+
     def typeof(self, scheme, state_scheme):
         return types.LONG_TYPE
 
@@ -193,6 +211,7 @@ class POW(BinaryFunction):
 
 
 class CompareFunction(BinaryFunction):
+
     def typeof(self, scheme, state_scheme):
         lt = self.left.typeof(scheme, state_scheme)
         rt = self.right.typeof(scheme, state_scheme)
