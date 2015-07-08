@@ -19,9 +19,9 @@ from raco.fakedb import FakeDatabase
 from raco import algebra
 from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
-from raco.language.grappalang import GrappaAlgebra
-from raco.language.logical import OptLogicalAlgebra
-from raco.language.sparql import SPARQLAlgebra
+from raco.backends.radish import GrappaAlgebra
+from raco.backends.logical import OptLogicalAlgebra
+from raco.backends.sparql import SPARQLAlgebra
 import raco.from_repr as from_repr
 from raco.compile import compile
 
@@ -67,7 +67,7 @@ def parse_options(args):
                        help='Execute the program in standalone mode')
     group.add_argument('-b', dest='federated', action='store_true',
                        help='Execute the program in federated mode')
-    group.add_argument('-c', dest='clang', action='store_true',
+    group.add_argument('-c', dest='cpp', action='store_true',
                        help='Output physical plan for grappalang and source program')
     group.add_argument('-s', dest='sparql', action='store_true',
                        help='Output an attempt at a SPARQL translation of the input program')
@@ -75,6 +75,8 @@ def parse_options(args):
                        help='Turn on verbose DEBUG logging')
     arg_parser.add_argument('--catalog', dest="catalog_path", default=None, help="[Optional] path to catalog file")
     arg_parser.add_argument('--plan', dest="from_repr", action='store_true', help="[Optional] input file is a plan as a python repr")
+    arg_parser.add_argument('--key', action='append', help="May use this argument multiple times to specify additional arguments to compiler")
+    arg_parser.add_argument('--value', action='append', help="May use this argument multiple times to specify additional arguments to compiler")
     arg_parser.add_argument('file',
                             help='File containing MyriaL source program (or a physical plan if using --plan)')
 
@@ -85,6 +87,12 @@ def parse_options(args):
 
 def main(args):
     opt = parse_options(args)
+
+    if opt.key is not None:
+        assert opt.value is not None and len(opt.key)==len(opt.value), "Must be --key K --value V pairs"
+        kwargs = dict(zip(opt.key, opt.value))
+    else:
+        kwargs = {}
 
     if opt.verbose:
         logging.basicConfig(level=logging.DEBUG)
@@ -158,30 +166,32 @@ def main(args):
             ppj = pd.get_json()
             print(json.dumps(ppj))
         elif opt.standalone:
-            pp = pd.get_physical_plan()
+            pp = pd.get_physical_plan(**kwargs)
             db = FakeDatabase()
             db.evaluate(pp)
         elif opt.repr:
-            pp = pd.get_physical_plan()
+            pp = pd.get_physical_plan(**kwargs)
             print repr(pp)
         elif opt.opt_logical:
             if opt.from_repr:
                 raise "Options opt_logical and --plan are incompatible"
             print_pretty_plan(processor.get_physical_plan(
-                target_alg=OptLogicalAlgebra()))
-        elif opt.clang:
-            pp = pd.get_physical_plan(target_alg=GrappaAlgebra())
+                target_alg=OptLogicalAlgebra(), **kwargs))
+        elif opt.cpp:
+            # some useful kwargs
+            # scan_array_repr='symmetric_array'
+            pp = pd.get_physical_plan(target_alg=GrappaAlgebra(), **kwargs)
             print_pretty_plan(pp)
             c = compile(pp)
             fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
             with open(fname, 'w') as f:
                 f.write(c)
         elif opt.sparql:
-            pp = pd.get_physical_plan(target_alg=SPARQLAlgebra())
+            pp = pd.get_physical_plan(target_alg=SPARQLAlgebra(), **kwargs)
             c = compile(pp)
             print c
         else:
-            print_pretty_plan(pd.get_physical_plan())
+            print_pretty_plan(pd.get_physical_plan(**kwargs))
 
     return 0
 
@@ -198,14 +208,15 @@ class PhysicalPlanDispatch(object):
         else:
             raise "Requires processor or repr plan input"
 
-    def get_physical_plan(self, target_alg=None):
+    def get_physical_plan(self, target_alg=None, **kwargs):
         if self.with_repr:
             return from_repr.plan_from_repr(self.with_repr)
         else:
             if target_alg is None:
-                return self.processor.get_physical_plan()
+                return self.processor.get_physical_plan(**kwargs)
             else:
-                return self.processor.get_physical_plan(target_alg=target_alg)
+                return self.processor.get_physical_plan(target_alg=target_alg,
+                                                        **kwargs)
 
     def get_json(self):
         if self.with_repr:

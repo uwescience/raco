@@ -3,8 +3,8 @@ from testquery import checkquery
 from testquery import GrappalangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
-from raco.language.grappalang import GrappaAlgebra
-import raco.language.grappalang as grappalang
+from raco.backends.radish import GrappaAlgebra
+import raco.backends.radish as grappalang
 from raco.platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
 from raco.compile import compile
 from nose.plugins.skip import SkipTest
@@ -130,6 +130,10 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
          and R3.a=S3.a and R3.b=S3.b and R3.c=S3.c emit R3.c, T3.c, S3.c];
         STORE(J, OUTPUT);
         """, "three_way_three_key_hash_join")
+
+    def test_symmetric_array_repr(self):
+        q = self.myrial_from_sql(['T1'], "select")
+        self.check(q, "select", scan_array_repr='symmetric_array')
 
 
 if __name__ == '__main__':

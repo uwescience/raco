@@ -1,4 +1,4 @@
-from raco.language.sparql import SPARQLAlgebra
+from raco.backends.sparql import SPARQLAlgebra
 from raco.platform_tests import MyriaLPlatformTestHarness
 import raco.compile
 

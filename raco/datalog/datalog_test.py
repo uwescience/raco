@@ -3,9 +3,9 @@ import json
 
 import raco.fakedb
 from raco import RACompiler
-from raco.language.myrialang import (compile_to_json,
-                                     MyriaLeftDeepTreeAlgebra,
-                                     MyriaHyperCubeAlgebra)
+from raco.backends.myria import (compile_to_json,
+                                 MyriaLeftDeepTreeAlgebra,
+                                 MyriaHyperCubeAlgebra)
 from raco.catalog import FakeCatalog
 
 
