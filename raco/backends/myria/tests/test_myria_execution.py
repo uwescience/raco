@@ -15,17 +15,17 @@ import os
 
 def is_skipping():
     return not ('RACO_MYRIAX_TESTS' in os.environ
-           and int(os.environ['RACO_MYRIAX_TESTS']) == 1)
+                    and int(os.environ['RACO_MYRIAX_TESTS']) == 1)
 
 
 def get_connection():
     if is_skipping():
-         # Use the local stub server
-         connection = MyriaConnection(hostname='localhost', port=12345)
+        # Use the local stub server
+        connection = MyriaConnection(hostname='localhost', port=12345)
     else:
-         # Use the production server
-         rest_url = 'https://rest.myria.cs.washington.edu:1776'
-         execution_url = 'https://myria-web.appspot.com'
+        # Use the production server
+        rest_url = 'https://rest.myria.cs.washington.edu:1776'
+        execution_url = 'https://myria-web.appspot.com'
         connection = MyriaConnection(rest_url=rest_url, 
                                      execution_url=execution_url)
 
