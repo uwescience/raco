@@ -109,12 +109,15 @@ class CBaseLanguage(Language):
 
     @staticmethod
     def _extract_code_decl_init(args):
-        codes = [c for c, _, _ in args]
-        decls_combined = reduce(lambda sofar, x: sofar + x,
-                                [d for _, d, _ in args])
-        inits_combined = reduce(lambda sofar, x: sofar + x,
-                                [i for _, _, i in args])
-        return codes, decls_combined, inits_combined
+        if len(args) == 0:
+            return [], [], []
+        else:
+            codes = [c for c, _, _ in args]
+            decls_combined = reduce(lambda sofar, x: sofar + x,
+                                    [d for _, d, _ in args])
+            inits_combined = reduce(lambda sofar, x: sofar + x,
+                                    [i for _, _, i in args])
+            return codes, decls_combined, inits_combined
 
     @classmethod
     def expression_combine(cls, args, operator="&&"):
@@ -130,11 +133,16 @@ class CBaseLanguage(Language):
         return "( %s )" % conjunc, decls, inits
 
     @classmethod
-    def function_call(cls, name, *args):
+    def function_call(cls, name, *args, **kwargs):
+        is_custom = kwargs.get('custom', False)
+        if not is_custom:
+            name = name.lower()
+
         codes, decls, inits = cls._extract_code_decl_init(list(args))
         argscode = ",".join(["{0}".format(d) for d in codes])
+
         code = "{name}({argscode})".format(
-            name=name.lower(), argscode=argscode)
+            name=name, argscode=argscode)
         return code, decls, inits
 
     @classmethod
@@ -184,8 +192,20 @@ class CBaseLanguage(Language):
             assert state_scheme is not None, \
                 "Cannot compile {0} without a state_scheme".format(expr)
 
+            # A bit hacky but simple: when we
+            # haven't physically joined left and right in sides in
+            # binary operators into one state scheme,
+            # we can treat them separately.
+            # Note that it assumes the full scheme is just
+            # state_scheme + state_scheme
+            if hasattr(expr, 'tagged_state_id'):
+                name_id = expr.tagged_state_id
+            else:
+                name_id = ''
+
             position = expr.get_position(None, state_scheme)
-            code = StagedTupleRef.get_code_with_name(position, "state")
+            code = StagedTupleRef.get_code_with_name(
+                position, "state{0}".format(name_id))
             return code, [], []
 
         assert False, "{expr} is unsupported attribute".format(expr=expr)
@@ -282,6 +302,12 @@ class StagedTupleRef:
         self.relsym = relsym
         self.scheme = scheme
         self.__typename = None
+
+    def __str__(self):
+        return "Tuple{{name={name}, relsym={relsym}, scheme={scheme}}}".format(
+            name=self.name,
+            relsym=self.relsym,
+            scheme=self.scheme)
 
     def getTupleTypename(self):
         if self.__typename is None:

@@ -11,6 +11,7 @@ from raco.pipelines import Pipelined
 from raco.language.clangcommon import StagedTupleRef, CBaseLanguage
 from raco.language import clangcommon
 from raco.utility import emitlist
+import raco.scheme as scheme
 
 from raco.algebra import gensym
 
@@ -586,9 +587,6 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
     _i = 0
 
-    _ONE_BUILT_IN = 0
-    _MULTI_UDA = 1
-
     @classmethod
     def __genHashName__(cls):
         name = "group_hash_%03d" % cls._i
@@ -616,53 +614,67 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             aggregate.MIN: 'std::numeric_limits<{0}>::max'
         }.get(op.__class__)
         if r is None:
-            return 'Aggregates::Zero'
+            return 'Aggregates::Zero<{0}>'
         else:
             return r
 
     def produce(self, state):
-        self._agg_mode = None
-        if len(self.aggregate_list) == 1 \
-                and isinstance(self.aggregate_list[0],
-                               expression.BuiltinAggregateExpression):
-            self._agg_mode = self._ONE_BUILT_IN
-        elif all([isinstance(a, expression.UdaAggregateExpression)
-                  for a in self.aggregate_list]):
-            self._agg_mode = self._MULTI_UDA
-
-        assert self._agg_mode is not None, \
-            "unsupported aggregates {0}".format(self.aggregate_list)
-        _LOG.debug("%s _agg_mode was set to %s", self, self._agg_mode)
-
         self.useKey = len(self.grouping_list) > 0
         _LOG.debug("groupby uses keys? %s" % self.useKey)
 
+        if not(self.useKey or
+               all([not isinstance(exp, expression.UdaAggregateExpression)
+                    for exp in self.aggregate_list])):
+            raise NotImplementedError("""
+                    UDAs with no groupby key. The reason is that we
+                    need to support decomposable state for correctness
+                    of a local aggregate and global combine strategy. This
+                    is solved adhoc in specific important builtin cases
+                    like COUNT""")
+
+        if not all([not isinstance(exp, expression.ZeroaryOperator)
+                    for exp in self.aggregate_list]):
+            raise NotImplementedError("""No support for Zeroary aggregates yet.
+            If using COUNT(*), then use COUNT(a), but NOTE that COUNT(a)
+            does not have proper null semantics
+            (unconditionally counts everything)""")
+
         inp_sch = self.input.scheme()
 
-        if self._agg_mode == self._ONE_BUILT_IN:
-            state_type = self.language().typename(
-                self.aggregate_list[0].typeof(inp_sch, None))
-            input_type = self.language().typename(
-                self.aggregate_list[0].input.typeof(inp_sch, None))
-            op = self.aggregate_list[0]
-            up_op_name = op.__class__.__name__
-            co_op_name = self._combiner_for_builtin_update(
-                op).__class__.__name__
-            self.update_func = \
-                "Aggregates::{op}<{state_type}, {input_type}>".format(
-                    op=up_op_name,
-                    state_type=state_type,
-                    input_type=input_type)
-            combine_func = "Aggregates::{op}<{type}, {type}>".format(
-                op=co_op_name, type=state_type)
-        elif self._agg_mode == self._MULTI_UDA:
-            # for now just name the aggregate after the first state variable
-            self.func_name = self.updaters[0][0]
-            self.state_tuple = GrappaStagedTupleRef(gensym(),
-                                                    self.state_scheme)
-            state.addDeclarations([self.state_tuple.generateDefinition()])
-            state_type = self.state_tuple.getTupleTypename()
-            self.update_func = "{name}_update".format(name=self.func_name)
+        # reconstruct the lost mapping of schema to aggregate
+        # expressions/grouping list
+        # TODO: doesn't this exist somewhere in raco?
+        def resolve_name(ref, sch):
+            if isinstance(
+                    ref,
+                    expression.UnnamedAttributeRef)or isinstance(
+                    ref,
+                    expression.UnnamedAttributeRef):
+                return sch.get_names()[ref.position]
+            else:
+                return ref.name
+
+        grouped_names = set([resolve_name(ref, inp_sch)
+                             for ref in self.grouping_list])
+        aggregates_types = [typ  # throw away the name because it is made up
+                            for name, typ in self.scheme()
+                            if name not in grouped_names]
+        aggregates_names = [
+            resolve_name(
+                a.input,
+                inp_sch) for a in self.aggregate_list]
+        self.aggregates_schema = scheme.Scheme(
+            zip(aggregates_names, aggregates_types))
+
+        symbol = gensym()
+        self.func_name = "__{0}".format(symbol)
+        self.state_tuple = GrappaStagedTupleRef(symbol,
+                                                self.aggregates_schema)
+        state.addDeclarations([self.state_tuple.generateDefinition()])
+        state_type = self.state_tuple.getTupleTypename()
+        self.update_func = "{name}_update".format(name=self.func_name)
+        # combine_func currently just for 0key_output
+        combine_func = "{name}_combine".format(name=self.func_name)
 
         update_func = self.update_func
 
@@ -681,19 +693,15 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             init_template = self._cgenv.get_template('withkey_init.cpp')
             valtype = state_type
         else:
-            if self._agg_mode == self._ONE_BUILT_IN:
-                initial_value = \
-                    self.__get_initial_value__(0, cached_inp_sch=inp_sch)
-                no_key_state_initializer = \
-                    "counter<{state_type}>::create({valinit})".format(
-                        state_type=state_type, valinit=initial_value)
-            elif self._agg_mode == self._MULTI_UDA:
-                no_key_state_initializer = \
-                    "symmetric_global_alloc<{state_tuple_type}>()".format(
-                        state_tuple_type=self.state_tuple.getTupleTypename())
+            no_key_state_initializer = \
+                "symmetric_global_alloc<{state_tuple_type}>()".format(
+                    state_tuple_type=self.state_tuple.getTupleTypename())
 
             init_template = self._cgenv.get_template('withoutkey_init.cpp')
             initializer = no_key_state_initializer
+            # FIXME? Does this need to call init()?
+            # FOR BUILTINs        self.__get_initial_value__(0,
+            # cached_inp_sch=inp_sch)
 
         state.addInitializers([init_template.render(locals())])
 
@@ -708,30 +716,14 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         if self.useKey:
             mapping_var_name = gensym()
-            if self._agg_mode == self._ONE_BUILT_IN:
-                emit_type = self.language().typename(
-                    self.aggregate_list[0].typeof(
-                        self.input.scheme(), None))
-            elif self._agg_mode == self._MULTI_UDA:
-                emit_type = self.state_tuple.getTupleTypename()
+            emit_type = self.state_tuple.getTupleTypename()
 
-            if self._agg_mode == self._ONE_BUILT_IN:
-                # need to force type in make_tuple
-                produce_template = self._cgenv.get_template(
-                    'one_built_in_scan.cpp')
-            elif self._agg_mode == self._MULTI_UDA:
-                # pass in attribute values individually
-                produce_template = self._cgenv.get_template(
-                    'multi_uda_scan.cpp')
-
+            # pass in attribute values individually
+            produce_template = self._cgenv.get_template(
+                'multi_uda_scan.cpp')
         else:
-            if self._agg_mode == self._ONE_BUILT_IN:
-                produce_template = self._cgenv.get_template(
-                    'one_built_in_0key_output.cpp')
-
-            elif self._agg_mode == self._MULTI_UDA:
-                produce_template = self._cgenv.get_template(
-                    'multi_uda_0key_output.cpp')
+            produce_template = self._cgenv.get_template(
+                'multi_uda_0key_output.cpp')
 
         pipeline_sync = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
@@ -742,11 +734,26 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
         output_tuple_name = output_tuple.name
         output_tuple_type = output_tuple.getTupleTypename()
-        output_tuple_set_func = output_tuple.set_func_code(0)
+        output_tuple_set_func = output_tuple.set_func_code(0)  # UNUSED??
         state.addDeclarations([output_tuple.generateDefinition()])
 
         inner_code = self.parent().consume(output_tuple, self, state)
         comment = self.language().comment("scan of " + str(self))
+
+        # assign state type tuple to output type tuple
+        # For 0key case they should just be treated the same,
+        # i.e., self.state_tuple same as output_tuple for !self.useKey
+        # except for name
+        assignmentcode = ""
+        for i in range(0, len(output_tuple.scheme)):
+            d = output_tuple.set_func_code(i)
+            s = output_tuple.get_code_with_name(
+                i, "{0}_tmp".format(
+                    output_tuple.name))
+            assignment_template = self._cgenv.get_template('assignment.cpp')
+            assignmentcode += assignment_template.render(
+                dst_set_func=d, src_expr_compiled=s)
+
         code = produce_template.render(locals())
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
@@ -757,8 +764,14 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         inp_sch = self.input.scheme()
 
-        all_decls = []
-        all_inits = []
+        all_code_decls = []
+        all_code_inits = []
+
+        class AggregateSetter:
+
+            def __init__(self, name, expression):
+                self.name = name
+                self.expression = expression
 
         # compile update statements
         def compile_assignments(assgns):
@@ -769,79 +782,208 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             inits = []
 
             for a in assgns:
-                state_name, update_exp = a
                 # doesn't have to use inputTuple.name,
                 # but it will for simplicity
+                # If it is a UDA, we need to compile the expression
                 rhs = self.language().compile_expression(
-                    update_exp,
+                    a.expression,
+                    # For resolving attributes of the consumed input tuple
                     tupleref=inputTuple,
-                    state_scheme=self.state_scheme)
+                    # for resolving attributes of the state tuple
+                    state_scheme=self.aggregates_schema)
 
                 # combine lhs, rhs with assignment
-                code = "{lhs} = {rhs}".format(lhs=state_name, rhs=rhs[0])
+                code = "{lhs} = {rhs}".format(lhs=a.name, rhs=rhs[0])
 
                 decls += rhs[1]
                 inits += rhs[2]
 
                 state_var_updates.append(
                     state_var_update_template.format(assignment=code))
-                state_vars.append(state_name)
+                state_vars.append(a.name)
 
             return state_var_updates, state_vars, decls, inits
 
-        update_updates, update_state_vars, update_decls, update_inits = \
-            compile_assignments(self.updaters)
-        init_updates, init_state_vars, init_decls, init_inits = \
-            compile_assignments(self.inits)
-        assert set(update_state_vars) == set(init_state_vars), \
-            """Initialized and update state vars are not the same \
-            (may not need to be?)"""
-        all_decls += update_decls + init_decls
-        all_inits += update_inits + init_inits
+        # add Builtins updaters and inits to those
+        # from UDAs in self.updaters and self.inits
+        updaters_map = dict((k, (k, v)) for k, v in self.updaters)
+        inits_map = dict((k, (k, v)) for k, v in self.inits)
 
-        if self._agg_mode == self._MULTI_UDA:
-            state_tuple_decl = self.state_tuple.generateDefinition()
-            update_def = self._cgenv.get_template(
-                'update_definition.cpp').render(
-                    state_type=self.state_tuple.getTupleTypename(),
-                    input_type=inputTuple.getTupleTypename(),
-                    input_tuple_name=inputTuple.name,
-                    update_updates=update_updates,
-                    update_state_vars=update_state_vars,
-                    name=self.func_name)
-            init_def = self._cgenv.get_template('init_definition.cpp').render(
+        def aggregate_to_updater(index, aggr):
+            if isinstance(aggr, aggregate.UdaAggregateExpression):
+                attr_ref = aggr.input
+                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                    "type(attr_ref)={0} but must be {1}".format(
+                    type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
+                name, expr = updaters_map[attr_ref.name]
+                return AggregateSetter(name, expr)
+            elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
+                # get update function
+                name = "_v{0}".format(index)
+                input_type = self.language().typename(
+                    aggr.input.typeof(inp_sch, None))
+                op = aggr
+                up_op_name = op.__class__.__name__
+                state_type = self.language().typename(
+                    aggr.typeof(
+                        inp_sch,
+                        None))
+                update_func = \
+                    "Aggregates::{op}<{state_type}, {input_type}>".format(
+                        op=up_op_name,
+                        state_type=state_type,
+                        input_type=input_type)
+
+                # create a class for this binary function so it can be compiled
+                update_as_expression = expression.CustomBinaryFunction(
+                    update_func,
+                    # get the output type
+                    self.aggregates_schema.get_types()[index],
+                    # get the aggregate result attribute (left)
+                    expression.NamedStateAttributeRef(
+                        self.aggregates_schema.get_names()[index]),
+                    # get the aggregate input attribute (right)
+                    aggr.input)
+
+                return AggregateSetter(name, update_as_expression)
+            else:
+                assert False, "expected every element of aggregate_list to " \
+                              "be an aggregate"
+
+        def aggregate_to_init(index, aggr):
+            if isinstance(aggr, aggregate.UdaAggregateExpression):
+                attr_ref = aggr.input
+                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                    "type(attr_ref)={0} but must be {1}".format(
+                    type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
+                name, expr = inits_map[attr_ref.name]
+                return AggregateSetter(name, expr)
+            elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
+                name = "_v{0}".format(index)
+                input_type = self.language().typename(
+                    aggr.input.typeof(inp_sch, None))
+                init_func = self._init_func_for_op(aggr) \
+                    .format(input_type)
+                return AggregateSetter(name, expression.CustomZeroaryOperator(
+                    init_func,
+                    # get the output type
+                    self.aggregates_schema.get_types()[index]))
+
+        def aggregate_to_combiner(index, aggr):
+            if isinstance(aggr, aggregate.UdaAggregateExpression):
+                # TODO: Support decomposable aggregate state, instead of
+                # TODO: just using the same function from self.updaters
+                attr_ref = aggr.input
+                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                    "type(attr_ref)={0} but must be {1}".format(
+                    type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
+                name, expr = updaters_map[attr_ref.name]
+                return AggregateSetter(name, expr)
+            elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
+                # get combiner function
+                name = "_v{0}".format(index)
+
+                state_type = self.language().typename(
+                    aggr.typeof(
+                        inp_sch,
+                        None))
+
+                # hack to get the combiner function based on the aggregate
+                # TODO: support decomposable state
+                co_op_name = self._combiner_for_builtin_update(
+                    aggr).__class__.__name__
+
+                # type for left and right is state_type for combiner
+                this_combine_func = "Aggregates::{op}<{type}, {type}>".format(
+                    op=co_op_name, type=state_type)
+
+                attribute0 = expression.NamedStateAttributeRef(
+                    self.aggregates_schema.get_names()[index])
+                attribute0.tagged_state_id = 0
+                attribute1 = expression.NamedStateAttributeRef(
+                    self.aggregates_schema.get_names()[index])
+                attribute1.tagged_state_id = 1
+
+                # create a class for this binary function so it can be compiled
+                combine_as_expression = expression.CustomBinaryFunction(
+                    this_combine_func,
+                    # get the output type
+                    self.aggregates_schema.get_types()[index],
+                    # get the aggregate result attribute (left)
+                    attribute0,
+                    # get the aggregate input attribute (right)
+                    attribute1)
+
+                return AggregateSetter(name, combine_as_expression)
+            else:
+                assert False, "expected every element of aggregate_list to " \
+                              "be an aggregate"
+
+        all_updaters = [
+            aggregate_to_updater(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
+        all_initers = [
+            aggregate_to_init(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
+        all_combiners = [
+            aggregate_to_combiner(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
+        ########################
+
+        update_updates, update_state_vars, update_decls, update_inits = \
+            compile_assignments(all_updaters)
+        init_updates, init_state_vars, init_decls, init_inits = \
+            compile_assignments(all_initers)
+        combine_updates, combine_state_vars, combine_decls, combine_inits = \
+            compile_assignments(all_combiners)
+        assert set(update_state_vars) == set(init_state_vars) and \
+            set(update_state_vars) == set(combine_state_vars), \
+            """Initialized and update state vars are not the same \
+            {0} != {1} or {0} != {2}""".format(update_state_vars,
+                                               init_state_vars,
+                                               combine_state_vars)
+        # generate the update and init function definitions
+        state_tuple_decl = self.state_tuple.generateDefinition()
+        update_def = self._cgenv.get_template(
+            'update_definition.cpp').render(
                 state_type=self.state_tuple.getTupleTypename(),
-                init_updates=init_updates,
-                init_state_vars=init_state_vars,
+                input_type=inputTuple.getTupleTypename(),
+                input_tuple_name=inputTuple.name,
+                update_updates=update_updates,
+                update_state_vars=update_state_vars,
+                name=self.func_name)
+        init_def = self._cgenv.get_template('init_definition.cpp').render(
+            state_type=self.state_tuple.getTupleTypename(),
+            init_updates=init_updates,
+            init_state_vars=init_state_vars,
+            name=self.func_name)
+        # currently only needed for 0key reduce, since there is no key-based
+        # reduce in the grappalang streaming aggregate
+        combine_def = self._cgenv.get_template(
+            'combine_definition.cpp').render(
+                state_type=self.state_tuple.getTupleTypename(),
+                combine_updates=combine_updates,
+                combine_state_vars=combine_state_vars,
                 name=self.func_name)
 
-            all_decls += [update_def, init_def]
+        all_code_decls += [update_def, init_def]
+        all_code_decls += update_decls + init_decls
+        all_code_inits += update_inits + init_inits
 
-        # form code to fill in the materialize template
-        if self._agg_mode == self._ONE_BUILT_IN:
+        if not self.useKey:
+            # if 0key then add the combiner codes, otherwise
+            # omit it because it may be invalid code
+            all_code_decls += [combine_def]
+            all_code_decls += combine_decls
+            all_code_inits += combine_inits
 
-            if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
-                # no value needed for Zero-input aggregate,
-                # but just provide the first column
-                valpos = 0
-            elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
-                # get value positions from aggregated attributes
-                valpos = \
-                    self.aggregate_list[0].input.get_position(self.scheme())
-            else:
-                assert False, "only support Unary or Zeroary aggregates"
-
-            update_val = inputTuple.get_code(valpos)
-            input_type = self.language().typename(
-                self.aggregate_list[0].input.typeof(inp_sch, None))
-
-            init_func = self._init_func_for_op(self.aggregate_list[0])\
-                .format(input_type)
-
-        elif self._agg_mode == self._MULTI_UDA:
-            init_func = "{name}_init".format(name=self.func_name)
-            update_val = inputTuple.name
-            input_type = inputTuple.getTupleTypename()
+        # values for the materialize template (calling the update function)
+        init_func = "{name}_init".format(name=self.func_name)
+        update_val = inputTuple.name
+        input_type = inputTuple.getTupleTypename()
 
         if self.useKey:
             numkeys = len(self.grouping_list)
@@ -850,19 +992,15 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
             materialize_template = self._cgenv.get_template('nkey_update.cpp')
         else:
-            if self._agg_mode == self._ONE_BUILT_IN:
-                materialize_template = self._cgenv.get_template(
-                    'one_built_in_0key_update.cpp')
-            elif self._agg_mode == self._MULTI_UDA:
-                materialize_template = self._cgenv.get_template(
-                    'multi_uda_0key_update.cpp')
+            materialize_template = self._cgenv.get_template(
+                'multi_uda_0key_update.cpp')
 
         hashname = self._hashname
         tuple_name = inputTuple.name
         pipeline_sync = state.getPipelineProperty("global_syncname")
 
-        state.addDeclarations(all_decls)
-        state.addInitializers(all_inits)
+        state.addDeclarations(all_code_decls)
+        state.addInitializers(all_code_inits)
 
         update_func = self.update_func
 

@@ -45,6 +45,7 @@ void convert2bin_withTuple( std::string fn, char delim=' ', uint64_t burn=0, int
   std::cout << "binary: " << outpath << std::endl;
   std::cout << "rows: " << linenum << std::endl;
   std::cout << "cols: " << Tuple::numFields() << std::endl;
+  std::cout << "tuple size: " << Tuple::fieldsSize() << std::endl;
   if (add_id) {
     std::cout << "  + 1 column for id" << std::endl;
   }
