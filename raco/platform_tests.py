@@ -465,6 +465,22 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "join_of_aggregate_of_join")
 
+    def test_join_of_two_aggregates(self):
+        """
+        Goal is to force aggregate result to be insert side of a hash join.
+        A bug was surfaced by TPC-H Q2
+        """
+        self.check_sub_tables("""
+        D2 = SCAN(%(D2)s);
+        D3 = SCAN(%(D3)s);
+        agg1 = select a, MIN(b) as mb from D2;
+        agg2 = select a, MIN(b) as mb from D3;
+        out = select agg1.a, agg2.a
+            from agg1, agg2
+            where agg1.mb = agg2.mb;
+        STORE(out, OUTPUT);
+        """, "test_join_of_two_aggregates")
+
     def test_common_index_allowed(self):
         q = self.myrial_from_sql(["R2", "T2"], "common_index_allowed")
         self.check(q, "common_index_allowed")
