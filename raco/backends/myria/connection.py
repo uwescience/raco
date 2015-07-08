@@ -135,31 +135,26 @@ class MyriaConnection(object):
         headers = {
             'Accept': accept
         }
-        try:
-            if '://' not in url:
-                url = self._url_start + url
-            r = self._session.request(method, url, headers=headers,
-                                      data=body, params=params, stream=True)
-            logging.info("Make myria request to {}. Headers: {}".format(
-                         r.url, headers))
-            if r.status_code in [200, 201, 202]:
-                if get_request:
-                    return r
-                if accept == JSON:
-                    try:
-                        return r.json()
-                    except ValueError, e:
-                        raise MyriaError(
-                            'Error %d: %s' % (r.status_code, r.text))
-                else:
-                    return r.iter_lines()
+        if '://' not in url:
+            url = self._url_start + url
+        r = self._session.request(method, url, headers=headers,
+                                  data=body, params=params, stream=True)
+        logging.info("Make myria request to {}. Headers: {}".format(
+                     r.url, headers))
+        if r.status_code in [200, 201, 202]:
+            if get_request:
+                return r
+            if accept == JSON:
+                try:
+                    return r.json()
+                except ValueError, e:
+                    raise MyriaError(
+                        'Error %d: %s' % (r.status_code, r.text))
             else:
-                raise MyriaError('Error %d: %s'
-                                 % (r.status_code, r.text))
-        except Exception as e:
-            if isinstance(e, MyriaError):
-                raise
-            raise MyriaError(e)
+                return r.iter_lines()
+        else:
+            raise MyriaError('Error %d: %s'
+                             % (r.status_code, r.text))
 
     def _wrap_get(self, selector, params=None, status=None, accepted=None):
         if status is None:
