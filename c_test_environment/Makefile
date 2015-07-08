@@ -40,11 +40,20 @@ counters_util.o : counters_util.cc counters_util.h
 strings.o : strings.cc strings.h
 	$(COMP) 
 
+dates.o : dates.cc dates.h
+	$(COMP)
+
 utils.o : utils.cc utils.h
 	$(COMP) 
 
 %.o : %.cpp 
 	$(COMP) 
 
-libracoc.a: strings.o utils.o
+dates_test : dates.o dates_test.cc
+	$(LINK)
+
+run_dates_test : dates_test
+	./dates_test
+
+libracoc.a: strings.o utils.o dates.o
 	ar rcs $@ $^
