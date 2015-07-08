@@ -9,7 +9,9 @@ import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra
 
-import sys,os
+import sys
+import os
+
 
 def is_skipping():
     return not ('RACO_MYRIAX_TESTS' in os.environ
@@ -18,15 +20,17 @@ def is_skipping():
 
 def get_connection():
     if is_skipping():
-       # Use the local stub server
-       connection = MyriaConnection(hostname='localhost', port=12345)
+         # Use the local stub server
+         connection = MyriaConnection(hostname='localhost', port=12345)
     else:
-       # Use the production server
-       rest_url = 'https://rest.myria.cs.washington.edu:1776'
-       execution_url = 'https://myria-web.appspot.com'
-       connection = MyriaConnection(rest_url=rest_url, execution_url=execution_url)
+         # Use the production server
+         rest_url = 'https://rest.myria.cs.washington.edu:1776'
+         execution_url = 'https://myria-web.appspot.com'
+        connection = MyriaConnection(rest_url=rest_url, 
+                                     execution_url=execution_url)
 
     return connection
+
 
 def query(connection):
     # Get the physical plan for a test query
@@ -72,6 +76,7 @@ query_counter = 0
 # here we cheat with a global
 query_request = None
 
+
 @urlmatch(netloc=r'localhost:12345')
 def local_mock(url, request):
     global query_counter
@@ -84,11 +89,11 @@ def local_mock(url, request):
         return {'status_code': 202, 'content': body, 'headers': headers}
     elif '/dataset' in url.path:
         dataset_info = {
-            'schema' : {
-                'columnNames' : [u'name', u'pages'],
-                'columnTypes' : ['STRING_TYPE', 'LONG_TYPE']
+            'schema': {
+                'columnNames': [u'name', u'pages'],
+                'columnTypes': ['STRING_TYPE', 'LONG_TYPE']
             },
-            'numTuples' : 50
+            'numTuples': 50
         }
         return {'status_code': 200, 'content': dataset_info}
     elif url.path == '/query/query-17':
@@ -136,7 +141,8 @@ class TestQuery(unittest.TestCase):
         global query_request
         with HTTMock(local_mock):
             query_request = query(self.connection)
-            validated = self.connection.validate_query(query_request["fragments"])
+            plan = query_request["fragments"]
+            validated = self.connection.validate_query(plan)
 
     def test_query_status(self):
         global query_request
