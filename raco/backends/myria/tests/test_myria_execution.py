@@ -9,13 +9,12 @@ import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra
 
-import sys
 import os
 
 
 def is_skipping():
     return not ('RACO_MYRIAX_TESTS' in os.environ
-                    and int(os.environ['RACO_MYRIAX_TESTS']) == 1)
+                and int(os.environ['RACO_MYRIAX_TESTS']) == 1)
 
 
 def get_connection():
@@ -26,7 +25,7 @@ def get_connection():
         # Use the production server
         rest_url = 'https://rest.myria.cs.washington.edu:1776'
         execution_url = 'https://myria-web.appspot.com'
-        connection = MyriaConnection(rest_url=rest_url, 
+        connection = MyriaConnection(rest_url=rest_url,
                                      execution_url=execution_url)
 
     return connection
@@ -72,7 +71,7 @@ def query_status(query, query_id=17, status='SUCCESS'):
 
 
 query_counter = 0
-# A real server would have the query info; 
+# A real server would have the query info;
 # here we cheat with a global
 query_request = None
 
@@ -82,7 +81,7 @@ def local_mock(url, request):
     global query_counter
     global query_request
     if url.path == '/query' and request.method == 'POST':
-        #raise ValueError(type(request.body))
+        # raise ValueError(type(request.body))
         body = query_status(json.loads(request.body), 17, 'ACCEPTED')
         headers = {'Location': 'http://localhost:12345/query/query-17'}
         query_counter = 2
@@ -119,6 +118,7 @@ def local_mock(url, request):
 
     return None
 
+
 class TestQuery(unittest.TestCase):
     def __init__(self, args):
         with HTTMock(local_mock):
@@ -130,12 +130,14 @@ class TestQuery(unittest.TestCase):
         with HTTMock(local_mock):
             query_request = query(self.connection)
             status = self.connection.submit_query(query_request["fragments"])
+            self.assertNotEqual(status, None)
 
     def test_execute(self):
         global query_request
         with HTTMock(local_mock):
             query_request = query(self.connection)
             status = self.connection.execute_query(query_request["fragments"])
+            self.assertNotEqual(status, None)
 
     def test_validate(self):
         global query_request
@@ -143,18 +145,21 @@ class TestQuery(unittest.TestCase):
             query_request = query(self.connection)
             plan = query_request["fragments"]
             validated = self.connection.validate_query(plan)
+            self.assertNotEqual(validated, None)
 
     def test_query_status(self):
         global query_request
         with HTTMock(local_mock):
             query_request = query(self.connection)
             status = self.connection.get_query_status(17)
+            self.assertNotEqual(status, None)
 
     def x_test_queries(self):
         global query_request
         with HTTMock(local_mock):
             query_request = query(self.connection)
             result = self.connection.queries()
+            self.assertNotEqual(result, None)
 
 if __name__ == '__main__':
     unittest.main()
