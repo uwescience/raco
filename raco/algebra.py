@@ -1603,7 +1603,10 @@ def inline_operator(dest_op, var, target_op):
 
 
 def convertcondition(condition, left_len, combined_scheme):
-    """Convert an equijoin condition to a pair of column lists."""
+    """Convert an equijoin condition to a pair of column lists.
+       The positions in the column lists are relative to the
+       respective schemes NOT the combined_scheme
+    """
 
     if isinstance(condition, expression.AND):
         leftcols1, rightcols1 = convertcondition(condition.left,

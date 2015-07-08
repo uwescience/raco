@@ -465,10 +465,19 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "join_of_aggregate_of_join")
 
+    def test_join_two_types(self):
+        """
+        Makes sure that key types are not mixed up.
+        A related bug came up when input attribute types were
+        inadvertantly computed relative to a hashjoin schema instead of
+        the schema of its inputs
+        """
+        q = self.myrial_from_sql(["C3", "R3"], "join_two_types")
+        self.check(q, "join_two_types")
+
     def test_join_of_two_aggregates(self):
         """
         Goal is to force aggregate result to be insert side of a hash join.
-        A bug was surfaced by TPC-H Q2
         """
         self.check_sub_tables("""
         D2 = SCAN(%(D2)s);

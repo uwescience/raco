@@ -321,7 +321,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
         # declaration of hash map
         self._hashname = self.__getHashName__()
-        keytype = self.__aggregate_type__(my_sch, self.rightcols)
+        keytype = self.__aggregate_type__(right_sch, self.rightcols)
         hashname = self._hashname
         self.leftTypeRef = state.createUnresolvedSymbol()
         left_in_tuple_type = self.leftTypeRef.getPlaceholder()
@@ -1053,7 +1053,7 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
                                      len(left_sch),
                                      left_sch + right_sch)
 
-        keytype = self.__aggregate_type__(my_sch, self.rightcols)
+        keytype = self.__aggregate_type__(right_sch, self.rightcols)
 
         # common index is defined by same right side and same key
         hashtableInfo = state.lookupExpr((self.right,
