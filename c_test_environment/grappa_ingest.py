@@ -14,6 +14,7 @@ p = argparse.ArgumentParser(prog=sys.argv[0])
 p.add_argument("-i", dest="input_file", required=True, help="input file")
 p.add_argument("-c", dest="catalog_path", help="path of catalog file, see FromFileCatalog for format", required=True)
 p.add_argument("-s", dest="system", help="clang or grappa", default="clang")
+p.add_argument("-n", dest="relation_name", required=True, help="name of relation")
 p.add_argument("--splits", dest="splits", action="store_true", help="input file is base directory of file splits (e.g. hdfs)")
 p.add_argument("--softlink-data", dest="softlink_data", action="store_true", help="data file softlinked rather than copied")
 p.add_argument("--local-softlink-data", dest="local_softlink_data", action="store_true", help="softlink locally, only use if --host!=localhost but want local softlink (e.g. NFS)")
@@ -111,12 +112,11 @@ if args.storage == 'binary':
     # see $GRAPPA_HOME/build/Make+Release/applications/join/convert2bin.exe
 
     task_message("generating binary converter")
-    cat, __convert_cpp_name = generate_tuple_class_from_file(None, catalogfile)
-    if len(__convert_cpp_name) > 1:
-        print "WARNING: catalog had multiple entries, using the first"
+    cat, rel_key, convert_cpp_name = generate_tuple_class_from_file(
+        args.relation_name,
+        catalogfile)
 
     #TODO: rel_key is wrong!! is public:adhoc:x need just x
-    rel_key, convert_cpp_name = __convert_cpp_name[0]
     convert_exe_name = '{0}'.format(os.path.splitext(convert_cpp_name)[0])
 
     task_message("building binary converter")
