@@ -3,6 +3,9 @@
 '''
 A notional raco-only script for executing a MyriaL query
 '''
+
+assert False, "This script is currently only an example of a new interface yet to be implemented"
+
 import raco
 
 from raco.convenience import executeMyriaQuery
