@@ -113,6 +113,26 @@ bool operator==(const std::string& str, const std::array<char, N>& arr) {
 //            So we are not currently relying on this == for Pred of unordered_map on tuples of arrays
 template <size_t N>
 bool operator==(const std::array<char, N>& arr1, const std::array<char, N>& arr2) {
-  return std::string(arr1.data()).compare(std::string(arr2.data())) == 0;
+  return std::string(arr1.data()) == std::string(arr2.data());
 }
 
+// TODO see issue #434 Use C++ implicit type conversions for std::array and std::string
+template <size_t N>
+bool operator<=(const std::array<char, N>& lhs, const std::string& rhs) {
+  return std::string(lhs.data()) <= rhs; 
+}
+
+template <size_t N>
+bool operator<(const std::array<char, N>& lhs, const std::string& rhs) {
+  return std::string(lhs.data()) < rhs; 
+}
+
+template <size_t N>
+bool operator>=(const std::array<char, N>& lhs, const std::string& rhs) {
+  return std::string(lhs.data()) >= rhs; 
+}
+
+template <size_t N>
+bool operator>(const std::array<char, N>& lhs, const std::string& rhs) {
+  return std::string(lhs.data()) > rhs; 
+}
