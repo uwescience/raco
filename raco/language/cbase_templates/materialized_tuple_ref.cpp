@@ -24,6 +24,19 @@
          {% endif %}
     }
 
+    // debugging function to get storage sizes
+    static void print_representation() {
+        const {{tupletypename}} _t;
+
+        {% for i in range(1, numfields-1) %}
+        std::cout << (((char*)&_t.f{{i}}) - ((char*)&_t.f{{i-1}})) << ",";
+        {% endfor %}
+        std::cout << (_t.fieldsSize() - (((char*)&_t.f{{numfields-2}}) - ((char*)&_t)));
+        std::cout << std::endl;
+
+
+    }
+
     {{tupletypename}} () {
       // no-op
     }
