@@ -34,6 +34,7 @@ def get_connection():
 def query(connection):
     # Get the physical plan for a test query
     catalog = MyriaCatalog(connection)
+    servers = catalog.get_num_servers()
 
     parser = myrialparser.Parser()
     processor = interpreter.StatementProcessor(catalog, True)
