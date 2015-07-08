@@ -28,7 +28,7 @@
     static void print_representation() {
         const {{tupletypename}} _t;
 
-        {% for i in range(1, numfields-1) %}
+        {% for i in range(1, numfields) %}
         std::cout << (((char*)&_t.f{{i}}) - ((char*)&_t.f{{i-1}})) << ",";
         {% endfor %}
         std::cout << (_t.fieldsSize() - (((char*)&_t.f{{numfields-2}}) - ((char*)&_t)));
