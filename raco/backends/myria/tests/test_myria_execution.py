@@ -110,7 +110,9 @@ def local_mock(url, request):
                 'content': body,
                 'headers': headers}
     elif url.path == '/query/validate':
-        return request.body
+        return {'status_code': 200, 'content': request.body}
+    elif url.path == '/workers/alive':
+        return {'status_code': 200, 'content': json.dumps([4])}
     elif url.path == '/query' and request.method == 'GET':
         body = {'max': 17, 'min': 1,
                 'results': [query_status(query_request, 17, 'ACCEPTED'),
