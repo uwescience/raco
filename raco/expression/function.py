@@ -116,6 +116,15 @@ class RANDOM(ZeroaryOperator):
         return types.DOUBLE_TYPE
 
 
+class YEAR(UnaryFunction):
+
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        return types.LONG_TYPE
+
+
 class UnaryDoubleFunction(UnaryFunction):
 
     """A unary function that returns a double."""

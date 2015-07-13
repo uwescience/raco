@@ -141,6 +141,10 @@ class CBaseLanguage(Language):
         codes, decls, inits = cls._extract_code_decl_init(list(args))
         argscode = ",".join(["{0}".format(d) for d in codes])
 
+        # special cases where name is not just the name,
+        # for example there is a namespace preceding it
+        name = {'year': 'dates::year'}.get(name, name)
+
         code = "{name}({argscode})".format(
             name=name, argscode=argscode)
         return code, decls, inits
