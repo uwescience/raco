@@ -125,6 +125,9 @@ class CBaseLanguage(Language):
         # Rely on automatic conversion from float to int
         if operator == "//":
             operator = "/"
+        # special case for string LIKE, use overloaded mod operator
+        elif operator == "like":
+            operator = "%"
 
         opstr = " %s " % operator
         codes, decls, inits = cls._extract_code_decl_init(args)

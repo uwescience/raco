@@ -130,6 +130,10 @@ class ExpressionVisitor(object):
     def visit_CAST(self, expr):
         return
 
+    @abstractmethod
+    def visit_LIKE(self, binaryExpr):
+        return
+
 
 class SimpleExpressionVisitor(ExpressionVisitor):
 
@@ -219,6 +223,9 @@ class SimpleExpressionVisitor(ExpressionVisitor):
 
     def visit_NEG(self, unaryExpr):
         self.visit_unary(unaryExpr)
+
+    def visit_LIKE(self, binaryExpr):
+        self.visit_binary(binaryExpr)
 
     def visit_UnaryFunction(self, expr):
         self.visit_unary(expr)

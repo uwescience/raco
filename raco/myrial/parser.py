@@ -52,6 +52,7 @@ binops = {
     '=': sexpr.EQ,
     'AND': sexpr.AND,
     'OR': sexpr.OR,
+    'LIKE': sexpr.LIKE
 }
 
 # Map from myrial token name to raco internal type name.
@@ -152,7 +153,7 @@ class Parser(object):
             ('left', 'OR'),
             ('left', 'AND'),
             ('right', 'NOT'),
-            ('left', 'EQ', 'EQUALS', 'NE', 'GT', 'LT', 'LE', 'GE'),
+            ('left', 'EQ', 'EQUALS', 'NE', 'GT', 'LT', 'LE', 'GE', 'LIKE'),
             ('left', 'PLUS', 'MINUS'),
             ('left', 'TIMES', 'DIVIDE', 'IDIVIDE', 'MOD'),
             ('right', 'UMINUS'),    # Unary minus
@@ -930,7 +931,8 @@ class Parser(object):
                    | sexpr EQ sexpr
                    | sexpr EQUALS sexpr
                    | sexpr AND sexpr
-                   | sexpr OR sexpr"""
+                   | sexpr OR sexpr
+                   | sexpr LIKE sexpr"""
         p[0] = binops[p[2]](p[1], p[3])
 
     @staticmethod

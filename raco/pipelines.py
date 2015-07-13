@@ -2,21 +2,37 @@
 import abc
 from raco.utility import emitlist
 from algebra import gensym, Operator
+import re
 
 import logging
 LOG = logging.getLogger(__name__)
 
 
 class ResolvingSymbol:
+    _unique_tag = "_@@UNRESOLVED_SYMBOL_"
+
     def __init__(self, name):
         self._name = name
-        self._placeholder = "%%(%s)s" % name
+        self._placeholder = ResolvingSymbol._mksymbol(name)
+
+    @classmethod
+    def _mksymbol(cls, name):
+        return "{0}{1}".format(cls._unique_tag, name)
 
     def getPlaceholder(self):
         return self._placeholder
 
     def getName(self):
         return self._name
+
+    @classmethod
+    def substitute(cls, code, symbols):
+        # inefficient multi-string replacement
+        # TODO: replace with multi-pattern sed script
+        for name, val in symbols.items():
+            pat = r'{0}{1}'.format(cls._unique_tag, name)
+            code = re.sub(pat, val, code)
+        return code
 
 
 class CompileState:
@@ -162,7 +178,7 @@ class CompileState:
                 return True
 
         code = emitlist(filter(f, self.initializers))
-        return code % self.resolving_symbols
+        return ResolvingSymbol.substitute(code, self.resolving_symbols)
 
     def getCleanupCode(self):
         # cleanups is a set.
@@ -180,7 +196,7 @@ class CompileState:
                 return True
 
         code = emitlist(filter(f, self.cleanups))
-        return code % self.resolving_symbols
+        return ResolvingSymbol.substitute(code, self.resolving_symbols)
 
     def getDeclCode(self):
         # declarations is a set
@@ -198,7 +214,7 @@ class CompileState:
         # keep in original order
         code = emitlist(filter(f, self.declarations))
         code += emitlist(filter(f, self.declarations_later))
-        return code % self.resolving_symbols
+        return ResolvingSymbol.substitute(code, self.resolving_symbols)
 
     def getExecutionCode(self):
         # list -> string
@@ -218,7 +234,8 @@ class CompileState:
 
         # substitute all lazily resolved symbols
         print linearized
-        resolved = linearized % self.resolving_symbols
+        resolved = ResolvingSymbol.substitute(linearized,
+                                              self.resolving_symbols)
 
         return resolved
 
