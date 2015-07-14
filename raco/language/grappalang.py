@@ -44,6 +44,13 @@ class GrappaLanguage(CBaseLanguage):
     _cgenv = CBaseLanguage.__get_env_for_template_libraries__(_template_path)
 
     @classmethod
+    def on_all(cls, code):
+        return """on_all_cores([=] {{
+        {code}
+        }});
+        """.format(code)
+
+    @classmethod
     def cgenv(cls):
         return cls._cgenv
 

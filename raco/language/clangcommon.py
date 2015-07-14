@@ -140,10 +140,9 @@ class CBaseLanguage(Language):
             # Unchecked precondition: codes[1] is independent of the tuple
             varname = gensym()
             this_decls.append("std::regex {var};\n".format(var=varname))
-            this_inits.append("{var} = compile_like_pattern({str});".format(
-                var=varname,
-                str=codes[1]
-            ))
+            this_inits.append(cls.on_all(
+                """{var} = compile_like_pattern({str});
+                """.format(var=varname, str=codes[1])))
             # replace the string literal with the regex
             codes[1] = varname
 
@@ -153,6 +152,11 @@ class CBaseLanguage(Language):
         return "( %s )" % conjunc, \
                decls + this_decls, \
                inits + this_inits
+
+    @classmethod
+    def on_all(cls, code):
+        """Parallel on all partitions"""
+        return code
 
     @classmethod
     def function_call(cls, name, *args, **kwargs):
