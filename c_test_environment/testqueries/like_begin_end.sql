@@ -1,0 +1,1 @@
+select * from C2 where b LIKE "%A%";

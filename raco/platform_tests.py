@@ -572,6 +572,10 @@ class MyriaLPlatformTests(object):
        STORE(P, OUTPUT);
        """, "countstar_string")
 
+    def test_like_begin_end(self):
+        q = self.myrial_from_sql(["C2"], "like_begin_end")
+        self.check(q, "like_begin_end")
+
     def test_aggregate_double(self):
         self.check_sub_tables("""
         D2 = SCAN(%(D2)s);

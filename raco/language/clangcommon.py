@@ -121,19 +121,38 @@ class CBaseLanguage(Language):
 
     @classmethod
     def expression_combine(cls, args, operator="&&"):
+        codes, decls, inits = cls._extract_code_decl_init(args)
+
         # special case for integer divide. C doesn't have this syntax
         # Rely on automatic conversion from float to int
+        this_decls = []
+        this_inits = []
         if operator == "//":
             operator = "/"
         # special case for string LIKE, use overloaded mod operator
         elif operator == "like":
+            # NOTE: LIKE probably shouldn't be implemented as
+            # a "binop" because the input type != output type
+            assert len(args) == 2, "LIKE only combines 2 arguments"
             operator = "%"
 
+            # hoist pattern compilation out of the loop processing
+            # Unchecked precondition: codes[1] is independent of the tuple
+            varname = gensym()
+            this_decls.append("std::regex {var};\n".format(var=varname))
+            this_inits.append("{var} = compile_like_pattern({str});".format(
+                var=varname,
+                str=codes[1]
+            ))
+            # replace the string literal with the regex
+            codes[1] = varname
+
         opstr = " %s " % operator
-        codes, decls, inits = cls._extract_code_decl_init(args)
         conjunc = opstr.join(["(%s)" % c for c in codes])
         _LOG.debug("conjunc: %s", conjunc)
-        return "( %s )" % conjunc, decls, inits
+        return "( %s )" % conjunc, \
+               decls + this_decls, \
+               inits + this_inits
 
     @classmethod
     def function_call(cls, name, *args, **kwargs):

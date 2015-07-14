@@ -46,3 +46,15 @@ StringIndex build_string_index(const std::string& indexfn) {
   return StringIndex(str2int);
 }
   
+std::regex compile_like_pattern(const std::string& pattern) {
+  // compile regex
+  std::stringstream ss;
+  for (auto c=pattern.begin(); c!=pattern.end(); ++c) {
+    if (*c == '%') {
+      ss << ".*";
+    } else {
+      ss << *c;
+    }
+  }
+  return std::regex(ss.str());
+}

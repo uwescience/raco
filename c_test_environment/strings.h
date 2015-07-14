@@ -5,6 +5,8 @@
 #include <map>
 #include <vector>
 #include <algorithm>
+#include <regex>
+#include <sstream>
 
 class StringIndex {
   private:
@@ -135,4 +137,11 @@ bool operator>=(const std::array<char, N>& lhs, const std::string& rhs) {
 template <size_t N>
 bool operator>(const std::array<char, N>& lhs, const std::string& rhs) {
   return std::string(lhs.data()) > rhs; 
+}
+
+std::regex compile_like_pattern(const std::string& pattern);
+
+template <size_t N>
+bool operator%(const std::array<char, N>& s, std::regex r) {
+  return std::regex_match(std::string(s.data()), r);
 }
