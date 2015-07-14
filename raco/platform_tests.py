@@ -576,6 +576,18 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(["C2"], "like_begin_end")
         self.check(q, "like_begin_end")
 
+    def test_like_middle(self):
+        q = self.myrial_from_sql(["C2"], "like_middle")
+        self.check(q, "like_middle")
+
+    def test_like_end(self):
+        q = self.myrial_from_sql(["C2"], "like_end")
+        self.check(q, "like_end")
+
+    def test_like_begin(self):
+        q = self.myrial_from_sql(["C2"], "like_begin")
+        self.check(q, "like_begin")
+
     def test_aggregate_double(self):
         self.check_sub_tables("""
         D2 = SCAN(%(D2)s);
