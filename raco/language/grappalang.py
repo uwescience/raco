@@ -48,7 +48,7 @@ class GrappaLanguage(CBaseLanguage):
         return """on_all_cores([=] {{
         {code}
         }});
-        """.format(code)
+        """.format(code=code)
 
     @classmethod
     def cgenv(cls):
