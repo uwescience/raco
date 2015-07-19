@@ -130,10 +130,9 @@ def main(args):
         else:
             print statement_list
     elif opt.federated:
-        sys.path.append("./myria-python")
         sys.path.append("./SciDB-py")
-        from myria_catalog import MyriaCatalog
-        from myria.connection import MyriaConnection
+        from backends.myria.catalog import MyriaCatalog
+        from backends.myria.connection import MyriaConnection
         import scidbpy
 
         arg_file = './myria_connection.py'
