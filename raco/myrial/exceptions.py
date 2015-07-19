@@ -149,11 +149,14 @@ class ColumnIndexOutOfBounds(Exception):
 
 
 class SchemaMismatchException(MyrialCompileException):
-    def __init__(self, op_name):
+    def __init__(self, op_name, lscheme, rscheme):
         self.op_name = op_name
+        self.lscheme = lscheme
+        self.rscheme = rscheme
 
     def __str__(self):
-        return "Incompatible input schemas for %s operation" % self.op_name
+        return """Incompatible input schemas for %s operation: %s is not
+compatible with %s""" % (self.op_name, self.lscheme, self.rscheme)
 
 
 class NoSuchRelationException(MyrialCompileException):
