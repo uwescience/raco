@@ -51,7 +51,7 @@ def check_binop_compatability(op_name, left, right):
     # Todo: check for type compatibility here?
     # https://github.com/uwescience/raco/issues/213
     if len(left.scheme()) != len(right.scheme()):
-        raise SchemaMismatchException(op_name)
+        raise SchemaMismatchException(op_name, left.scheme(), right.scheme())
 
 
 def check_assignment_compatability(before, after):
