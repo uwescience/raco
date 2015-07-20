@@ -3,9 +3,11 @@ from raco import rules
 from raco.backends import Language, Algebra
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra as MyriaAlgebra
 from raco.compile import optimize
-from raco.language.myrialang import compile_to_json
+from raco.backends.myria import compile_to_json
 import raco.algebra
 
+from raco.backends.myria.catalog import MyriaCatalog
+from raco.backends.scidb.catalog import SciDBCatalog
 
 class Federated(Language):
     pass
@@ -14,27 +16,49 @@ class Federated(Language):
 class FederatedOperator(algebra.ZeroaryOperator):
     language = Federated
 
+    def scheme(self):
+        raise NotImplementedError
+
+    def shortStr(self):
+        return repr(self)
+
+class FederatedExec(FederatedOperator):
+    '''Execute a plan on a specific backend'''
     def __init__(self, plan, catalog):
         # Logical plan to be optimized and executed on target platform
         # Catalog is needed for optimization and identifies target
         self.plan = plan
         self.catalog = catalog
 
-    def shortStr(self):
-        return repr(self)
+    def num_tuples(self):
+        return self.plan.num_tuples()
 
-    def scheme(self):
-        raise NotImplementedError()
+    def __repr__(self):
+        return "Exec({} ON {})".format(self.plan, self.catalog.__class__.__name__)
 
-class LogicalExec(FederatedOperator):
-    pass
-
-class LogicalMove(FederatedOperator):
+class FederatedMove(FederatedOperator):
     def __init__(self, sourcename, sourcecatalog, targetname, targetcatalog):
         self.sourcename = sourcename
         self.sourcecatalog = sourcecatalog
         self.targetname = targetname
-        self.targetcatlog = targetcatalog
+        self.targetcatalog = targetcatalog
+
+    def num_tuples(self):
+        return 0
+
+    def __repr__(self):
+        args = (self.sourcename, self.targetcatalog.__class__.__name__, self.targetname)
+        return "Move({} TO {} AS {})".format(*args)
+
+class FederatedSequence(raco.algebra.Sequence, FederatedExec):
+    def __init__(self, args):
+        for expr in args:
+            assert(isinstance(expr, FederatedOperator))
+        super(self.__class__, self).__init__(args)
+        # The last operator in the sequence provides the return value
+        assert(isinstance(args[-1], FederatedExec))
+        self.plan = args[-1].plan
+        self.catalog = args[-1].catalog
 
 #class RunAQL(Runner):
 #    """Run an AQL query on a SciDB instance specified by the programmer"""
@@ -85,7 +109,7 @@ class Dispatch(rules.Rule):
         if isinstance(expr, algebra.ExecScan):
             # Some kind of custom code that we must pass through
             return dispatchmap[expr.languagetag](expr.command, expr.connection)
-        if isinstance(expr, LogicalExec):
+        if isinstance(expr, FederatedExec):
             return dispatchmap[expr.languagetag](expr.command, expr.connection)
         else:
             # Just a logical plan that we will dispatch to Myria by default
@@ -108,7 +132,7 @@ class LoopUnroll(rules.Rule):
 '''
 
 
-class SplitSciDBToMyria(rules.Rule):
+class SplitSciDBToMyria(rules.BottomUpRule):
     err = "Expected child op {} to be a federated plan.  \
 Maybe rule traversal is not bottom-up?"
 
@@ -119,21 +143,22 @@ Maybe rule traversal is not bottom-up?"
 
     @classmethod
     def checkchild(cls, child):
-        if not isinstance(child, LogicalExec):
-            raise ValueError(err.format(child))
+        if not isinstance(child, FederatedOperator):
+            raise ValueError(cls.err.format(child))
         
     def fire(self, op):
         if isinstance(op, raco.algebra.Scan):
             # TODO: Assumes each relation is in only one catalog
             cat = self.federatedcatalog.sourceof(op.relation_key)
-            return LogicalExec(op, cat)
+            newop = FederatedExec(op, cat)
+            return newop
 
         if isinstance(op, raco.algebra.UnaryOperator):
-           self.checkchild(op.child)
+           self.checkchild(op.input)
 
-           execop = op.child
+           execop = op.input
            # Absorb the current operator into the Exec
-           op.child = op.child.plan
+           op.input = op.input.plan
            execop.plan = op
            return execop
           
@@ -147,7 +172,7 @@ Maybe rule traversal is not bottom-up?"
            if leftcatalog == rightcatalog:
                op.left = op.left.plan
                op.right = op.right.plan
-               newexec = LogicalExec(op, leftcatalog)
+               newexec = FederatedExec(op, leftcatalog)
                return newexec
 
            else: 
@@ -160,34 +185,57 @@ Maybe rule traversal is not bottom-up?"
 
                    # Add a store operation on the SciDB side
                    scidbwork = op.right
-                   scidbwork.plan = Store(scidbwork.plan, movedrelation)
+                   scidbwork.plan = raco.algebra.Store(scidbwork.plan, movedrelation)
 
 
                    # Create the Move operator
-                   mover = ImportSciDBToMyria(movedrelation, 
-                                              rightcatalog, 
-                                              movedrelation, 
-                                              leftcatalog)
+                   mover = FederatedMove(movedrelation, 
+                                         rightcatalog, 
+                                         movedrelation, 
+                                         leftcatalog)
 
                    # Wrap the current operator on Myria
                    myriawork = op.left
                    op.left = op.left.plan
                    # insert a scan of the moved relation on the Myria side
-                   op.right = Scan(movedrelation)
+                   op.right = raco.algebra.Scan(movedrelation)
                    myriawork.plan = op
 
                    # Create a Sequence operator to define execution order
-                   federatedplan = Sequence([scidbwork, mover, myriawork])
+                   federatedplan = FederatedSequence([scidbwork, mover, myriawork])
 
                    return federatedplan
                  
-               elif isinstance(rightcatalog, MyriaCatalog) and \
-                             isinstance(leftcatalog, SciDBCatalog):
-                   # swap them and refire
-                   temp = op.left
-                   op.left = op.right
-                   op.right = temp
-                   return self(op)
+               elif isinstance(leftcatalog, MyriaCatalog) and \
+                             isinstance(rightcatalog, SciDBCatalog):
+                   # We need to move a dataset; flipped repetition of above
+                   # TODO: abstract this better
+
+                   # Give it a name
+                   movedrelation = raco.algebra.gensym()
+
+                   # Add a store operation on the SciDB side
+                   scidbwork = op.left
+                   scidbwork.plan = raco.algebra.Store(scidbwork.plan, movedrelation)
+
+
+                   # Create the Move operator
+                   mover = FederatedMove(movedrelation,
+                                         leftcatalog,
+                                         movedrelation,
+                                         rightcatalog)
+
+                   # Wrap the current operator on Myria
+                   myriawork = op.right
+                   op.right = op.right.plan
+                   # insert a scan of the moved relation on the Myria side
+                   op.left = raco.algebra.Scan(movedrelation)
+                   myriawork.plan = op
+
+                   # Create a Sequence operator to define execution order
+                   federatedplan = FederatedSequence([scidbwork, mover, myriawork])
+
+                   return federatedplan
 
                else:
                    template = "Expected Myria or SciDB catalogs, got {}, {}"
@@ -195,6 +243,7 @@ Maybe rule traversal is not bottom-up?"
                    raise NotImplemented(msg)
 
         if isinstance(op, raco.algebra.Sequence):
+            return FederatedSequence(op.args)
 
         if isinstance(op, raco.algebra.NaryOperator):
             template = "NaryOperators not yet implemented, got {}"
@@ -204,7 +253,7 @@ Maybe rule traversal is not bottom-up?"
 class FederatedAlgebra(Algebra):
     language = Federated
 
-    operators = [LogicalExec, LogicalMove]
+    operators = [FederatedExec, FederatedMove]
 
     def __init__(self, algebras, catalog):
         '''
