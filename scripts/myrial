@@ -13,7 +13,6 @@ import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme
 import raco.catalog
-import raco.run_federated
 
 from raco.fakedb import FakeDatabase
 from raco import algebra
@@ -143,9 +142,10 @@ def main(args):
 
         processor = interpreter.StatementProcessor(catalog)
         processor.evaluate(statement_list)
-        res = raco.run_federated.run(processor.get_logical_plan(), conn,
-                                     scidbpy)
-        print res
+        # TODO: Replace this with the new way of calling federated execution
+        #res = raco.run_federated.run(processor.get_logical_plan(), conn,
+        #                             scidbpy)
+        #print res
     else:
         if opt.from_repr:
             pd = PhysicalPlanDispatch(from_repr=plan_repr)
