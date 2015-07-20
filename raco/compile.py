@@ -4,7 +4,6 @@ from .pipelines import Pipelined
 from raco.utility import emit
 import raco.viz as viz
 import os
-from raco.utility import colored
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -40,18 +39,7 @@ def optimize_by_rules(expr, rules):
     writer.write_if_enabled(expr, "before rules")
 
     for rule in rules:
-        def recursiverule(e):
-            newe = rule(e)
-            writer.write_if_enabled(newe, str(rule))
-
-            LOG.debug("apply rule %s\n" +
-                      colored("  -", "red") + " %s" + "\n" +
-                      colored("  +", "green") + " %s", rule, e, newe)
-            newe.apply(recursiverule)
-
-            return newe
-        expr = recursiverule(expr)
-
+        expr = rule(expr, writer)
     return expr
 
 
