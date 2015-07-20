@@ -34,7 +34,7 @@ class FederatedExec(FederatedOperator):
         return self.plan.num_tuples()
 
     def __repr__(self):
-        return "Exec({} ON {})".format(self.plan, self.catalog.__class__.__name__)
+        return "{}Exec({})".format(self.catalog.__class__.__name__, self.plan)
 
 class FederatedMove(FederatedOperator):
     def __init__(self, sourcename, sourcecatalog, targetname, targetcatalog):
