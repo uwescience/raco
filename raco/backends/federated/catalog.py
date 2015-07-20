@@ -12,13 +12,11 @@ class FederatedCatalog(Catalog):
             try:
                 response = getattr(cat, method)(rel_key)
                 return (cat, response)
-            except:
-                # TODO: Catalogs should throw LookupError or KeyError; this is dangerous
-                # Assumes any error is a LookupError
+            except LookupError:
                 continue
 
         if not sch:
-            raise LookupError("Relation {} not found".format(rel_key))
+            raise LookupError("Relation {} not found in any catalogs".format(rel_key))
   
     def sourceof(self, rel_key):
         cat, sch = self._return_first("get_scheme", rel_key)
