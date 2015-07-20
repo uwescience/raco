@@ -20,7 +20,7 @@ class MyriaCatalog(Catalog):
         try:
             dataset_info = self.connection.dataset(relation_args)
         except MyriaError:
-            raise ValueError('No relation {} in the catalog'.format(rel_key))
+            raise LookupError('No relation {} in the catalog'.format(rel_key))
         schema = dataset_info['schema']
         return scheme.Scheme(zip(schema['columnNames'], schema['columnTypes']))
 
@@ -41,7 +41,7 @@ class MyriaCatalog(Catalog):
         try:
             dataset_info = self.connection.dataset(relation_args)
         except MyriaError:
-            raise ValueError(rel_key)
+            raise LookupError(rel_key)
         num_tuples = dataset_info['numTuples']
         assert isinstance(num_tuples, (int, long)), type(num_tuples)
         # that's a work round. numTuples is -1 if the dataset is old
