@@ -1,4 +1,5 @@
-from raco.backends.federated.algebra import FederatedAlgebra, ExportMyriaToScidb
+from raco.backends.federated.algebra import FederatedAlgebra
+#from raco.backends.federated.algebra import ExportMyriaToScidb
 from raco.algebra import Sequence
 from raco.backends.logical import OptLogicalAlgebra
 
@@ -78,6 +79,7 @@ class FederatedConnection(object):
 
         assert isinstance(seq_op, Sequence)
 
+        '''
         outs = []
         pure_myria_query = all([isinstance(x, RunMyria) for x in seq_op.args])
 
@@ -126,6 +128,7 @@ class FederatedConnection(object):
                 sdb.query("store(build(<RecordName:int64>[i=0:0,1,0], %d), %s)" % (
                                 val0, op.scidb_array_name))
 
+          '''
     def validate_query(self, query):
         """Submit the query to Myria for validation only.
 
