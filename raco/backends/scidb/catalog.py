@@ -2,6 +2,7 @@ from raco.catalog import Catalog
 import raco.scheme as scheme
 from operator import mul
 
+from raco.types import INT_TYPE, FLOAT_TYPE
 
 def parsescidb(result):
     lines = result.split("\n")
@@ -19,6 +20,9 @@ class SciDBCatalog(Catalog):
             raise RuntimeError(
                 "no schema for relation %s because no connection" % rel_key)
 
+        # TODO: Remove this; testing stub
+        if rel_key.user == 'SciDB':
+            return scheme.Scheme([("i",INT_TYPE), ("j",INT_TYPE), ("value", FLOAT_TYPE)])
         try:
             qattrs = "attributes({})".format(rel_key.relation)
             qdims = "dimensions({})".format(rel_key.relation)
@@ -38,6 +42,10 @@ class SciDBCatalog(Catalog):
         if not self.connection:
             raise RuntimeError(
                 "no schema for relation %s because no connection" % rel_key)
+
+        # TODO: Remove this; testing stub
+        if rel_key.user == 'SciDB':
+            return 100
 
         try:
             qdims = "dimensions({})".format(rel_key.relation)
