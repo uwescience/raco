@@ -7,6 +7,10 @@ from .expression import (accessed_columns, UnnamedAttributeRef,
 
 from abc import ABCMeta, abstractmethod
 import itertools
+from raco.utility import colored
+
+import logging
+LOG = logging.getLogger(__name__)
 
 
 class Rule(object):
@@ -22,11 +26,27 @@ class Rule(object):
     def __init__(self):
         self._disabled = False
 
-    def __call__(self, expr):
+
+    def __call__(self, expr, writer):
+        '''Traverse the expression preorder, firing the rule'''
         if self._disabled:
             return expr
         else:
-            return self.fire(expr)
+            def recursiverule(e):
+                # Fire the rule on the operator
+                newe = self.fire(e)
+
+                writer.write_if_enabled(newe, str(self))
+
+                LOG.debug("apply rule %s\n" +
+                          colored("  -", "red") + " %s" + "\n" +
+                          colored("  +", "green") + " %s", self, e, newe)
+
+                # ...then apply this recursive function to the children
+                newe.apply(recursiverule)
+
+                return newe
+            return recursiverule(expr)
 
     @classmethod
     def apply_disable_flags(cls, rule_list, *args):
@@ -45,7 +65,50 @@ class Rule(object):
     def fire(self, expr):
         """Apply this rule to the supplied expression tree"""
 
+class BottomUpRule(Rule):
+    '''Traverse the expression postorder and call the fire method on each node'''
 
+    def __call__(self, expr, writer):
+        if self._disabled:
+            return expr
+        else:
+            def recursiverule(e):
+
+                # Apply this recursive function to the children
+                e.apply(recursiverule)
+                # ...then fire the rule on the root
+                newe = self.fire(e)
+
+                writer.write_if_enabled(newe, str(self))
+
+                LOG.debug("apply rule %s\n" +
+                          colored("  -", "red") + " %s" + "\n" +
+                          colored("  +", "green") + " %s", self, e, newe)
+
+                return newe
+
+            return recursiverule(expr)
+
+class TopDownRule(Rule):
+    '''Traverse the expression preorder and call the fire method on each node'''
+    # Base class is top down buy default; this is just an alias
+    pass
+
+
+class ManualTraversalRule(Rule):
+    '''Call the fire method on the root; the fire method handles the traversal'''
+
+    def __call__(self, expr, writer):
+        if self._disabled:
+            return expr
+        else:
+            writer.write_if_enabled(newe, str(rule))
+
+            LOG.debug("apply rule %s\n" +
+                          colored("  -", "red") + " %s" + "\n" +
+                          colored("  +", "green") + " %s", rule, e, newe)
+            return rule.fire(expr)
+ 
 class CrossProduct2Join(Rule):
 
     """A rewrite rule for removing Cross Product"""
