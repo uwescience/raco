@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 from raco.backends.federated.algebra import FederatedAlgebra
 #from raco.backends.federated.algebra import ExportMyriaToScidb
 from raco.algebra import Sequence
@@ -16,7 +17,7 @@ class FederatedConnection(object):
     """Federates a collection of connections"""
 
     def __init__(self,
-                 connections=[]):
+                 connections):
         """
         Args:
             connections: A list of connection objects
@@ -39,8 +40,8 @@ class FederatedConnection(object):
         """Return a list of the datasets that exist"""
         return sum([conn.datasets for conn in self.connections], [])
 
-    def dataset(self, relation_key):
-        """Return information about the specified relation"""
+    def dataset(self, name):
+        """Return information about the specified entity"""
         rel = None
         for conn in self.connections:
             try:
@@ -48,7 +49,7 @@ class FederatedConnection(object):
             except:
                 continue
             break
-        if rel: 
+        if rel:
             return rel
         else:
             raise ValueError("Relation {} not found".format(relation_key))
@@ -66,12 +67,26 @@ class FederatedConnection(object):
         """
         raise NotImplemented
 
-    def execute_query(self, federated_plan):
+    def execute_query(self, query):
         """Submit the query and block until it finishes
 
         Args:
-            query: a Myria physical plan as a Python object.
+            query: a physical plan as a Python object.
         """
+
+        if isinstance(query, FederatedSequence):
+            return map(self.execute_query, query.args)[-1] if query.args else None
+        elif isinstance(query, FederatedParallel):
+            # TODO which one to return?
+            return Pool(len(query.args)).map(self.execute_query, query.args)
+        elif isinstance(query, FederatedMove):
+            return query.destination.import_(query, query.source.export(query))
+        elif isinstance(query, CatalogExec) and query.catalog.connection in self.connections:
+            return query.catalog.connection.execute_query(query.query)
+        elif isinstance(query, CatalogExec):
+            raise LookupError("Connection of type {} not part of this federated system.".format(type(query.catalog.connection)))
+        else:
+            raise RuntimeError("Unsupported federated operator {}".format(type(query)))
 
         # def run(logical_plan, myria_conn, scidb_conn_factory):
 

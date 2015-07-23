@@ -44,7 +44,7 @@ def get_myria_connection():
 def get_scidb_connection():
     if skip('RACO_SCIDB_TESTS'):
         # Use the local stub server
-        connection = SciDBConnection(hostname='localhost', port=11122)
+        connection = SciDBConnection('http://ec2-54-175-66-8.compute-1.amazonaws.com:8080')
     else:
         # Use the production server
         connection = SciDBConnection()
