@@ -3,6 +3,7 @@ from raco.backends.federated.algebra import FederatedAlgebra
 #from raco.backends.federated.algebra import ExportMyriaToScidb
 from raco.algebra import Sequence
 from raco.backends.logical import OptLogicalAlgebra
+from algebra import FederatedSequence, FederatedParallel, FederatedMove, FederatedExec
 
 import logging
 import numpy as np
@@ -17,12 +18,15 @@ class FederatedConnection(object):
     """Federates a collection of connections"""
 
     def __init__(self,
-                 connections):
+                 connections,
+                 movers=[]):
         """
         Args:
             connections: A list of connection objects
+            movers: a list of data movement strategies
         """
         self.connections = connections
+        self.movers = {(strategy.source_type, strategy.target_type): strategy for strategy in movers}
 
     def workers(self):
         """Return a dictionary of the workers"""
@@ -79,12 +83,16 @@ class FederatedConnection(object):
         elif isinstance(query, FederatedParallel):
             # TODO which one to return?
             return Pool(len(query.args)).map(self.execute_query, query.args)
-        elif isinstance(query, FederatedMove):
-            return query.destination.import_(query, query.source.export(query))
-        elif isinstance(query, CatalogExec) and query.catalog.connection in self.connections:
-            return query.catalog.connection.execute_query(query.query)
-        elif isinstance(query, CatalogExec):
+        elif isinstance(query, FederatedMove) and self._is_supported_move(query):
+            return self._get_move_strategy(query).move(query)
+        elif isinstance(query, FederatedExec) and self._is_supported_catalog(query):
+            print Sequence([query.plan])
+            return query.catalog.connection.execute_query(Sequence([query.plan]))
+        elif isinstance(query, FederatedExec):
             raise LookupError("Connection of type {} not part of this federated system.".format(type(query.catalog.connection)))
+        elif isinstance(query, FederatedMove):
+            raise LookupError("No movement strategy exists between systems of type {} and {}".format(
+                type(query.sourcecatalog.connection), type(query.targetcatalog.connection)))
         else:
             raise RuntimeError("Unsupported federated operator {}".format(type(query)))
 
@@ -226,3 +234,14 @@ class FederatedConnection(object):
                 is in little-Endian. Myria default is False.
         """
         raise NotImplemented
+
+    def _get_move_strategy(self, query):
+        return self.movers[(type(query.sourcecatalog.connection),
+                type(query.targetcatalog.connection))]
+
+    def _is_supported_move(self, query):
+        return (type(query.sourcecatalog.connection),
+                type(query.targetcatalog.connection)) in self.movers
+
+    def _is_supported_catalog(self, query):
+        return query.catalog.connection in self.connections

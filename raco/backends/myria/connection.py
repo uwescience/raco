@@ -7,6 +7,7 @@ import logging
 import urllib
 from urlparse import urlparse, ParseResult
 from .errors import MyriaError
+from myria import compile_to_json
 
 import requests
 
@@ -321,8 +322,8 @@ class MyriaConnection(object):
         Args:
             query: a Myria physical plan as a Python object.
         """
-
-        body = json.dumps(query)
+        # TODO how to get logicalRa and raw query here?
+        body = json.dumps(compile_to_json('', '', query))
         return self._finish_async_request(POST, '/query', body)
 
     def validate_query(self, query):

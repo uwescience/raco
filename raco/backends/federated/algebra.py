@@ -60,6 +60,9 @@ class FederatedSequence(raco.algebra.Sequence, FederatedExec):
         self.plan = args[-1].plan
         self.catalog = args[-1].catalog
 
+class FederatedParallel(FederatedSequence):
+    pass
+
 #class RunAQL(Runner):
 #    """Run an AQL query on a SciDB instance specified by the programmer"""
 #    def __repr__(self):
@@ -124,11 +127,11 @@ class ToSciDB(rules.Rule):
     pass
     # One strategy: start from datasets in SciDB, grow fragments until you hit
     # operators you don't want to do in SciDB
-    # 
+    #
 class LoopUnroll(rules.Rule):
     def fire(self, op):
         if isinstance(op, algebra.DoWhile):
-            
+
 '''
 
 
@@ -145,7 +148,7 @@ Maybe rule traversal is not bottom-up?"
     def checkchild(cls, child):
         if not isinstance(child, FederatedOperator):
             raise ValueError(cls.err.format(child))
-        
+
     def fire(self, op):
         if isinstance(op, raco.algebra.Scan):
             # TODO: Assumes each relation is in only one catalog
@@ -161,21 +164,21 @@ Maybe rule traversal is not bottom-up?"
            op.input = op.input.plan
            execop.plan = op
            return execop
-          
+
         if isinstance(op, raco.algebra.BinaryOperator):
            self.checkchild(op.left)
            self.checkchild(op.right)
-            
+
            leftcatalog = op.left.catalog
            rightcatalog = op.right.catalog
-            
+
            if leftcatalog == rightcatalog:
                op.left = op.left.plan
                op.right = op.right.plan
                newexec = FederatedExec(op, leftcatalog)
                return newexec
 
-           else: 
+           else:
                if isinstance(leftcatalog, MyriaCatalog) and \
                              isinstance(rightcatalog, SciDBCatalog):
                    # We need to move a dataset
@@ -189,9 +192,9 @@ Maybe rule traversal is not bottom-up?"
 
 
                    # Create the Move operator
-                   mover = FederatedMove(movedrelation, 
-                                         rightcatalog, 
-                                         movedrelation, 
+                   mover = FederatedMove(movedrelation,
+                                         rightcatalog,
+                                         movedrelation,
                                          leftcatalog)
 
                    # Wrap the current operator on Myria
@@ -205,7 +208,7 @@ Maybe rule traversal is not bottom-up?"
                    federatedplan = FederatedSequence([scidbwork, mover, myriawork])
 
                    return federatedplan
-                 
+
                elif isinstance(leftcatalog, MyriaCatalog) and \
                              isinstance(rightcatalog, SciDBCatalog):
                    # We need to move a dataset; flipped repetition of above
