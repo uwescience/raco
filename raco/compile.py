@@ -17,6 +17,25 @@ target algebra
 """
 
 
+def print_pretty_plan(plan, indent=0):
+    if isinstance(plan, algebra.DoWhile):
+        children = plan.children()
+        body = children[:-1]
+        term = children[-1]
+
+        spc = ' ' * indent
+        print '%sDO' % spc
+        for op in body:
+            print_pretty_plan(op, indent + 4)
+        print '%sWHILE' % spc
+        print_pretty_plan(term, indent + 4)
+    elif isinstance(plan, algebra.Sequence):
+        print '%s%s' % (' ' * indent, plan.shortStr())
+        for child in plan.children():
+            print_pretty_plan(child, indent + 4)
+    else:
+        print '%s%s' % (' ' * indent, plan)
+
 class PlanWriter():
 
     def __init__(self, template="wip-%02d.physical.dot", limit=20):

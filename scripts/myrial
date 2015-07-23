@@ -18,31 +18,12 @@ from raco.fakedb import FakeDatabase
 from raco import algebra
 from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
+from raco.compile import print_pretty_plan
 from raco.backends.radish import GrappaAlgebra
 from raco.backends.logical import OptLogicalAlgebra
 from raco.backends.sparql import SPARQLAlgebra
 import raco.from_repr as from_repr
 from raco.compile import compile
-
-
-def print_pretty_plan(plan, indent=0):
-    if isinstance(plan, algebra.DoWhile):
-        children = plan.children()
-        body = children[:-1]
-        term = children[-1]
-
-        spc = ' ' * indent
-        print '%sDO' % spc
-        for op in body:
-            print_pretty_plan(op, indent + 4)
-        print '%sWHILE' % spc
-        print_pretty_plan(term, indent + 4)
-    elif isinstance(plan, algebra.Sequence):
-        print '%s%s' % (' ' * indent, plan.shortStr())
-        for child in plan.children():
-            print_pretty_plan(child, indent + 4)
-    else:
-        print '%s%s' % (' ' * indent, plan)
 
 
 def parse_options(args):
