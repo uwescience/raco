@@ -83,11 +83,10 @@ store(mult,Brandon:Demo:Mult);
     falg = FederatedAlgebra(algebras, catalog)
 
     logical = processor.get_logical_plan()
+    print "LOGICAL"
     print logical
-    print "PHYSICAL"
 
     pd = processor.get_physical_plan(target_alg=falg)
-
     return pd
 
     #fedconn = FederatedConnection([myriaconnection, scidbconnection])
@@ -150,4 +149,7 @@ if __name__ == '__main__':
     with HTTMock(local_mock):
         myriaconn = get_myria_connection()
         scidbconn = get_scidb_connection()
-        print query(myriaconn, scidbconn)
+        q = query(myriaconn, scidbconn)
+        print "\n\n"
+        print "PHYSICAL"
+        print q
