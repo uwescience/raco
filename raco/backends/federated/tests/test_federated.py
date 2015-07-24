@@ -90,6 +90,7 @@ store(mult,Brandon:Demo:Mult);
 
     pd = processor.get_physical_plan(target_alg=falg)
 
+    print "PHYSICAL"
     print pd
 
     fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
@@ -152,7 +153,4 @@ if __name__ == '__main__':
     with HTTMock(local_mock):
         myriaconn = get_myria_connection()
         scidbconn = get_scidb_connection()
-        q = query(myriaconn, scidbconn)
-        print "\n\n"
-        print "PHYSICAL"
-        print q
+        query(myriaconn, scidbconn)
