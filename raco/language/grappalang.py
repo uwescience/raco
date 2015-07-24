@@ -617,11 +617,11 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
     def _init_func_for_op(self, op):
         r = {
-            aggregate.MAX: 'std::numeric_limits<{0}>::lowest',
-            aggregate.MIN: 'std::numeric_limits<{0}>::max'
+            aggregate.MAX: 'std::numeric_limits<{state_type}>::lowest',
+            aggregate.MIN: 'std::numeric_limits<{state_type}>::max'
         }.get(op.__class__)
         if r is None:
-            return 'Aggregates::Zero<{0}>'
+            return 'Aggregates::Zero<{state_type}>'
         else:
             return r
 
@@ -867,10 +867,10 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
                 return AggregateSetter(name, expr)
             elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
                 name = "_v{0}".format(index)
-                input_type = self.language().typename(
-                    aggr.input.typeof(inp_sch, None))
+                state_type = self.language().typename(
+                    aggr.typeof(inp_sch, None))
                 init_func = self._init_func_for_op(aggr) \
-                    .format(input_type)
+                    .format(state_type=state_type)
                 return AggregateSetter(name, expression.CustomZeroaryOperator(
                     init_func,
                     # get the output type
