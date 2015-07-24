@@ -305,3 +305,28 @@ class STDEV(UnaryFunction, BuiltinAggregateExpression):
 
     def is_decomposable(self):
         return True
+
+class BIN(UnaryFunction, BuiltinAggregateExpression):
+    '''
+    SciDB custom aggregator
+    '''
+    def evaluate_aggregate(self, tuple_iterator, scheme):
+        raise NotImplementedError("NOT SUPPORTING SCIDB AGGREGATE EVALUATION IN RACO")
+
+    def typeof(self, scheme, state_scheme):
+        #TODO: Do we need better type evaluation?
+        types.DOUBLE_TYPE
+    pass
+
+class SIGNED_COUNT(UnaryFunction, BuiltinAggregateExpression):
+    '''
+    SciDB custom aggregator
+    '''
+    def evaluate_aggregate(self, tuple_iterator, scheme):
+        raise NotImplementedError("NOT SUPPORTING SCIDB AGGREGATE EVALUATION IN RACO")
+
+    def typeof(self, scheme, state_scheme):
+        #TODO: Do we need better type evaluation?
+        types.DOUBLE_TYPE
+
+    pass
