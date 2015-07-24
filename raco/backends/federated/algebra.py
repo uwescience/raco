@@ -3,7 +3,10 @@ from raco import rules
 from raco.backends import Language, Algebra
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra as MyriaAlgebra
 from raco.compile import optimize
+from raco.viz import operator_to_dot
 from raco.backends.myria import compile_to_json
+from raco.backends.scidb import compile_to_aql
+from raco.backends.scidb import SciDBAFLAlgebra
 import raco.algebra
 
 from raco.backends.myria.catalog import MyriaCatalog
@@ -22,6 +25,7 @@ class FederatedOperator(algebra.ZeroaryOperator):
     def shortStr(self):
         return repr(self)
 
+
 class FederatedExec(FederatedOperator):
     '''Execute a plan on a specific backend'''
     def __init__(self, plan, catalog):
@@ -33,7 +37,7 @@ class FederatedExec(FederatedOperator):
     def num_tuples(self):
         return self.plan.num_tuples()
 
-    def __repr__(self):
+    def __str__(self):
         return "{}Exec({})".format(self.catalog.__class__.__name__, self.plan)
 
 class FederatedMove(FederatedOperator):
@@ -46,9 +50,10 @@ class FederatedMove(FederatedOperator):
     def num_tuples(self):
         return 0
 
-    def __repr__(self):
+    def __str__(self):
         args = (self.sourcename, self.targetcatalog.__class__.__name__, self.targetname)
         return "Move({} TO {} AS {})".format(*args)
+
 
 class FederatedSequence(raco.algebra.Sequence, FederatedExec):
     def __init__(self, args):
@@ -57,26 +62,62 @@ class FederatedSequence(raco.algebra.Sequence, FederatedExec):
         super(self.__class__, self).__init__(args)
         # The last operator in the sequence provides the return value
         assert(isinstance(args[-1], FederatedExec))
-        self.plan = args[-1].plan
-        self.catalog = args[-1].catalog
 
-#class RunAQL(Runner):
-#    """Run an AQL query on a SciDB instance specified by the programmer"""
-#    def __repr__(self):
-#        return "RunAQL(%s, %s)" % (self.command, self.connection)
+    @property
+    def plan(self):
+        return self.args[-1].plan
 
-#    def num_tuples(self):
-#      raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+    @plan.setter
+    def plan(self, plan):
+        self.args[-1].plan = plan
+
+    @property
+    def catalog(self):
+        return self.args[-1].catalog
+
+    @catalog.setter
+    def catalog(self, catalog):
+        self.args[-1].catalog = catalog
+
+    def __str__(self):
+        args = ",\n\n".join([str(x) for x in self.args])
+        return "{}(\n{}\n)".format(self.__class__.__name__, args)
 
 
-#class RunMyria(Runner):
-#    """Run a Myria query on the UW cluster"""
+class FederatedParallel(raco.algebra.Parallel):
+    def __init__(self, args):
+        for expr in args:
+            assert(isinstance(expr, FederatedOperator))
+        super(self.__class__, self).__init__(args)
 
-#    def __repr__(self):
-#        return "RunMyria(%s, %s)" % (self.command, self.connection)
 
-#    def num_tuples(self):
-#      raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+class FederatedDoWhile(raco.algebra.DoWhile):
+    def __init__(self, args):
+        for expr in args:
+            assert(isinstance(expr, FederatedOperator))
+        super(self.__class__, self).__init__(args)
+
+class Runner(FederatedExec):
+    pass
+
+class RunAQL(Runner):
+    """Run an AQL query on a SciDB instance specified by the programmer"""
+     
+    def __repr__(self):
+        return "RunAQL(%s, %s)" % (self.command, self.connection)
+
+    def num_tuples(self):
+      raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+
+
+class RunMyria(Runner):
+    """Run a Myria query on the UW cluster"""
+
+    def __repr__(self):
+        return "RunMyria(%s, %s)" % (self.command, self.connection)
+
+    def num_tuples(self):
+      raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
 #class ExportMyriaToScidb(Mover):
 #    def __init__(self, myria_relkey, scidb_array_name, conn):
@@ -97,25 +138,38 @@ class FederatedSequence(raco.algebra.Sequence, FederatedExec):
 #        raise NotImplementedError()
 
 
-#dispatchmap = {"aql": RunAQL, "myria": RunMyria, "afl": RunAQL}
+dispatchmap = {"aql": RunAQL, "myria": RunMyria, "afl": RunAQL}
 
 
 class Dispatch(rules.Rule):
+
     def fire(self, expr):
-        if isinstance(expr, algebra.Sequence):
-            return expr  # Retain top-level sequence operator
-        if isinstance(expr, algebra.Move):
-            return expr
+        if isinstance(expr, FederatedSequence):
+            return expr  
+
+        if isinstance(expr, FederatedMove):
+            if isinstance(expr.sourcecatalog, SciDBCatalog) \
+                              and isinstance(expr.targetcatalog, MyriaCatalog):
+                # Construct parallel load plan for Myria
+                loadplan = expr.plan
+                return RunMyria(loadplan, expr.targetcatalog)
+            else:
+                raise NotImplementedError()
+
         if isinstance(expr, algebra.ExecScan):
             # Some kind of custom code that we must pass through
             return dispatchmap[expr.languagetag](expr.command, expr.connection)
+
         if isinstance(expr, FederatedExec):
-            return dispatchmap[expr.languagetag](expr.command, expr.connection)
-        else:
-            # Just a logical plan that we will dispatch to Myria by default
-            pp = optimize(expr, target=MyriaAlgebra())
-            json = compile_to_json("raw query", "logical plan", pp)
-            return dispatchmap["myria"](json)
+            if isinstance(expr.catalog, MyriaCatalog):
+                pp = optimize(expr, target=MyriaAlgebra())
+                json = compile_to_json("raw query", "logical plan", pp)
+                return RunMyria(json)
+
+            if isinstance(expr.catalog, SciDBCatalog):
+                pp = optimize(expr, target=SciDBAFLAlgebra())
+                aql = compile_to_aql(pp)
+                return RunAQL(aql, expr.catalog)
 
 
 
@@ -160,6 +214,7 @@ Maybe rule traversal is not bottom-up?"
            # Absorb the current operator into the Exec
            op.input = op.input.plan
            execop.plan = op
+
            return execop
           
         if isinstance(op, raco.algebra.BinaryOperator):
@@ -206,8 +261,8 @@ Maybe rule traversal is not bottom-up?"
 
                    return federatedplan
                  
-               elif isinstance(leftcatalog, MyriaCatalog) and \
-                             isinstance(rightcatalog, SciDBCatalog):
+               elif isinstance(rightcatalog, MyriaCatalog) and \
+                             isinstance(leftcatalog, SciDBCatalog):
                    # We need to move a dataset; flipped repetition of above
                    # TODO: abstract this better
 
@@ -240,20 +295,32 @@ Maybe rule traversal is not bottom-up?"
                else:
                    template = "Expected Myria or SciDB catalogs, got {}, {}"
                    msg = template.format(leftcatalog, rightcatalog)
-                   raise NotImplemented(msg)
+                   raise NotImplementedError(msg)
 
-        if isinstance(op, raco.algebra.Sequence):
-            return FederatedSequence(op.args)
+        elif isinstance(op, raco.algebra.NaryOperator):
+            # We have a hybrid plan
+            if isinstance(op, raco.algebra.Sequence):
+                return FederatedSequence(op.args)
 
-        if isinstance(op, raco.algebra.NaryOperator):
-            template = "NaryOperators not yet implemented, got {}"
-            msg = template.format(op)
-            raise NotImplementedError(msg)
+            if isinstance(op, raco.algebra.Parallel):
+                return FederatedParallel(op.args)
+
+            if isinstance(op, raco.algebra.DoWhile):
+                return FederatedDoWhile(op.args)
+
+
+class FlattenSingletonFederatedSequence(rules.TopDownRule):
+    def fire(self, op):
+        if isinstance(op, FederatedSequence):
+            if len(op.args) == 1:
+                if isinstance(op.args[0], FederatedSequence):
+                    return op.args[0]
+        return op
 
 class FederatedAlgebra(Algebra):
     language = Federated
 
-    operators = [FederatedExec, FederatedMove]
+    operators = [FederatedExec, FederatedMove, FederatedSequence]
 
     def __init__(self, algebras, catalog):
         '''
@@ -263,6 +330,10 @@ class FederatedAlgebra(Algebra):
         self.federatedcatalog = catalog
 
     def opt_rules(self, **kwargs):
-        childrules = sum([a.opt_rules() for a in self.algebras],[])
-        fedrules = [SplitSciDBToMyria(self.federatedcatalog)]
+        fedrules = [
+        rules.CrossProduct2Join(),
+        rules.PushSelects(),
+        SplitSciDBToMyria(self.federatedcatalog),
+        FlattenSingletonFederatedSequence()]
+                    #Dispatch()]
         return fedrules
