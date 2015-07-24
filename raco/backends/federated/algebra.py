@@ -5,7 +5,6 @@ from raco.backends.myria import MyriaLeftDeepTreeAlgebra as MyriaAlgebra
 from raco.compile import optimize
 from raco.viz import operator_to_dot
 from raco.backends.myria import compile_to_json
-from raco.backends.scidb import compile_to_aql
 from raco.backends.scidb import SciDBAFLAlgebra
 import raco.algebra
 
@@ -63,7 +62,6 @@ class FederatedSequence(raco.algebra.Sequence, FederatedExec):
         # The last operator in the sequence provides the return value
         assert(isinstance(args[-1], FederatedExec))
 
-<<<<<<< HEAD
     @property
     def plan(self):
         return self.args[-1].plan
