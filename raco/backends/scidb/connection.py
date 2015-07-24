@@ -1,5 +1,5 @@
 import scidbpy
-from utility import compile_to_afl
+from raco.backends.federated.algebra import compile_to_afl
 
 __all__ = ['FederatedConnection']
 
@@ -55,7 +55,7 @@ class SciDBConnection(object):
         """Submit the query and block until it finishes
 
         Args:
-            query: a physical plan as a Python object.
+            query: a logical plan as a Python object.
         """
         return self.connection.query(compile_to_afl(query))
 
