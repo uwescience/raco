@@ -1272,8 +1272,9 @@ class FileScan(ZeroaryOperator):
 
     """Load table data from a file."""
 
-    def __init__(self, path=None, _scheme=None, options={}):
+    def __init__(self, path=None, format=None, _scheme=None, options={}):
         self.path = path
+        self.format = format
         self._scheme = _scheme
         self.options = options
         ZeroaryOperator.__init__(self)
@@ -1281,6 +1282,7 @@ class FileScan(ZeroaryOperator):
     def __eq__(self, other):
         return (ZeroaryOperator.__eq__(self, other)
                 and self.path == other.path
+                and self.format == other.format
                 and self.scheme() == other.scheme()
                 and self.options == other.options)
 
@@ -1291,9 +1293,10 @@ class FileScan(ZeroaryOperator):
         return "%s(%s)" % (self.opname(), self.path)
 
     def __repr__(self):
-        return "{op}({path!r}, {sch!r}, {opt!r})".format(
+        return "{op}({path!r}, {fmt!r}, {sch!r}, {opt!r})".format(
             op=self.opname(),
             path=self.path,
+            fmt=self.format,
             sch=self._scheme,
             opt=self.options)
 
@@ -1303,6 +1306,7 @@ class FileScan(ZeroaryOperator):
     def copy(self, other):
         """deep copy"""
         self.path = other.path
+        self.format = other.format
         self._scheme = other._scheme
         self.options = other.options
         ZeroaryOperator.copy(self, other)

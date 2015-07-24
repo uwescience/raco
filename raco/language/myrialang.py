@@ -178,14 +178,18 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
 
 class MyriaFileScan(algebra.FileScan, MyriaOperator):
     def compileme(self):
-        return dict({
+        encoding = dict({
             "opType": "FileScan",
             "source": {
                 "dataType": "URI",
                 "uri": self.path,
             },
-            "schema": scheme_to_schema(self.scheme())
         }, **self.options)
+        if self.format == 'OPP':
+            encoding['opType'] = "SeaFlowFileScan"
+        else:
+            encoding['schema'] = scheme_to_schema(self.scheme())
+        return encoding
 
 
 class MyriaLimit(algebra.Limit, MyriaOperator):
