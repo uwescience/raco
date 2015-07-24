@@ -17,6 +17,8 @@ from raco.backends.federated import FederatedAlgebra
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
 
+from raco.backends.federated.movers.filesystem import SciDBToMyria
+
 import os
 
 
@@ -44,7 +46,7 @@ def get_myria_connection():
 def get_scidb_connection():
     if skip('RACO_SCIDB_TESTS'):
         # Use the local stub server
-        connection = SciDBConnection(hostname='localhost', port=11122)
+        connection = SciDBConnection('http://ec2-54-175-66-8.compute-1.amazonaws.com:8080')
     else:
         # Use the production server
         connection = SciDBConnection()
@@ -72,7 +74,7 @@ A = select * from AA where value != 0;
 B = scan(SciDB:Demo:Waveform);
 mult = select A.i, B.j, sum(A.value*B.value) from A, B where A.j = B.i;
 store(mult,Brandon:Demo:Mult);
- """
+"""
 
     statement_list = parser.parse(program)
 
@@ -87,13 +89,14 @@ store(mult,Brandon:Demo:Mult);
     print logical
 
     pd = processor.get_physical_plan(target_alg=falg)
-    return pd
 
-    #fedconn = FederatedConnection([myriaconnection, scidbconnection])
+    print pd
 
-    #result = fedconn.execute_query(pd)
+    fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
 
-    #return result
+    result = None # fedconn.execute_query(pd)
+
+    return result
 
 @urlmatch(netloc=r'localhost:12345')
 def local_mock(url, request):

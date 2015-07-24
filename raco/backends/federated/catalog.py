@@ -17,7 +17,7 @@ class FederatedCatalog(Catalog):
 
         if not sch:
             raise LookupError("Relation {} not found in any catalogs".format(rel_key))
-  
+
     def sourceof(self, rel_key):
         cat, sch = self._return_first("get_scheme", rel_key)
         return cat

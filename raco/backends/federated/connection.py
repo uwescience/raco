@@ -1,7 +1,9 @@
+from multiprocessing import Pool
 from raco.backends.federated.algebra import FederatedAlgebra
 #from raco.backends.federated.algebra import ExportMyriaToScidb
 from raco.algebra import Sequence
 from raco.backends.logical import OptLogicalAlgebra
+from algebra import FederatedSequence, FederatedParallel, FederatedMove, FederatedExec
 
 import logging
 import numpy as np
@@ -16,12 +18,15 @@ class FederatedConnection(object):
     """Federates a collection of connections"""
 
     def __init__(self,
-                 connections=[]):
+                 connections,
+                 movers=[]):
         """
         Args:
             connections: A list of connection objects
+            movers: a list of data movement strategies
         """
         self.connections = connections
+        self.movers = {(strategy.source_type, strategy.target_type): strategy for strategy in movers}
 
     def workers(self):
         """Return a dictionary of the workers"""
@@ -39,8 +44,8 @@ class FederatedConnection(object):
         """Return a list of the datasets that exist"""
         return sum([conn.datasets for conn in self.connections], [])
 
-    def dataset(self, relation_key):
-        """Return information about the specified relation"""
+    def dataset(self, name):
+        """Return information about the specified entity"""
         rel = None
         for conn in self.connections:
             try:
@@ -48,7 +53,7 @@ class FederatedConnection(object):
             except:
                 continue
             break
-        if rel: 
+        if rel:
             return rel
         else:
             raise ValueError("Relation {} not found".format(relation_key))
@@ -66,12 +71,30 @@ class FederatedConnection(object):
         """
         raise NotImplemented
 
-    def execute_query(self, federated_plan):
+    def execute_query(self, query):
         """Submit the query and block until it finishes
 
         Args:
-            query: a Myria physical plan as a Python object.
+            query: a physical plan as a Python object.
         """
+
+        if isinstance(query, FederatedSequence):
+            return map(self.execute_query, query.args)[-1] if query.args else None
+        elif isinstance(query, FederatedParallel):
+            # TODO which one to return?
+            return Pool(len(query.args)).map(self.execute_query, query.args)
+        elif isinstance(query, FederatedMove) and self._is_supported_move(query):
+            return self._get_move_strategy(query).move(query)
+        elif isinstance(query, FederatedExec) and self._is_supported_catalog(query):
+            print Sequence([query.plan])
+            return query.catalog.connection.execute_query(Sequence([query.plan]))
+        elif isinstance(query, FederatedExec):
+            raise LookupError("Connection of type {} not part of this federated system.".format(type(query.catalog.connection)))
+        elif isinstance(query, FederatedMove):
+            raise LookupError("No movement strategy exists between systems of type {} and {}".format(
+                type(query.sourcecatalog.connection), type(query.targetcatalog.connection)))
+        else:
+            raise RuntimeError("Unsupported federated operator {}".format(type(query)))
 
         # def run(logical_plan, myria_conn, scidb_conn_factory):
 
@@ -211,3 +234,14 @@ class FederatedConnection(object):
                 is in little-Endian. Myria default is False.
         """
         raise NotImplemented
+
+    def _get_move_strategy(self, query):
+        return self.movers[(type(query.sourcecatalog.connection),
+                type(query.targetcatalog.connection))]
+
+    def _is_supported_move(self, query):
+        return (type(query.sourcecatalog.connection),
+                type(query.targetcatalog.connection)) in self.movers
+
+    def _is_supported_catalog(self, query):
+        return query.catalog.connection in self.connections

@@ -1,57 +1,63 @@
 import scidbpy
+from utility import compile_to_afl
 
 __all__ = ['FederatedConnection']
 
 class SciDBConnection(object):
     """A SciDB connection wrapper"""
 
-    def __init__(self, hostname=None, port=None):
+    def __init__(self, url, username=None, password=None):
         """
         Args:
-            connections: A list of connection objects
+            url: SciDB shim URL
         """
-        #self.scidb = scidbpy.connect(hostname)
+        self.connection = scidbpy.connect(url, username=username, password=password)
 
     def workers(self):
         """Return a dictionary of the workers"""
-        raise NotImplemented
+        keys = ('hostname', 'port', 'id', 'created', 'path')
+        return [dict(izip(keys, values)) for values in self.connection.afl.list("'instances'").toarray()]
 
     def workers_alive(self):
         """Return a list of the workers that are alive"""
-        raise NotImplemented
+        return self.workers()
 
     def worker(self, worker_id):
         """Return information about the specified worker"""
-        raise NotImplemented
+        return next(worker for worker in self.workers() if worker['id'] == worker_id)
 
     def datasets(self):
         """Return a list of the datasets that exist"""
-        raise NotImplemented
+        return self.connection.list()
 
-    def dataset(self, relation_key):
+    def dataset(self, name):
         """Return information about the specified relation"""
-        raise NotImplemented
+        # TODO is name really a Myria relation triple?
+        return self.connection.show(name)
 
-    def download_dataset(self, relation_key):
+    def download_dataset(self, name):
         """Download the data in the dataset as json"""
-        raise NotImplemented
+        # TODO is name really a Myria relation triple?
+        return self.connection.wrap_array(name).todataframe().to_json()
 
     def submit_query(self, query):
         """Submit the query and return the status including the URL
         to be polled.
 
         Args:
-            query: a Federated physical plan as a Python object.
+            query: a physical plan as a Python object.
         """
+        # TODO this blocks, and doesn't return a URL
+        #return self.connection.query(query)
         raise NotImplemented
 
     def execute_query(self, query):
         """Submit the query and block until it finishes
 
         Args:
-            query: a Myria physical plan as a Python object.
+            query: a physical plan as a Python object.
         """
-        return self.scidb._execute_query(self, query, n=0, fmt="csv")
+        return self.connection.query(compile_to_afl(query))
 
     def validate_query(self, query):
         """Submit the query to Myria for validation only.
