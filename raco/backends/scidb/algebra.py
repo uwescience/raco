@@ -4,6 +4,8 @@ import logging
 from raco import rules
 from raco.backends import Language, Algebra
 from raco import algebra
+from raco.expression import *
+
 
 class SciDBLanguage(Language):
     pass
@@ -28,6 +30,64 @@ class SciDBConcat(algebra.UnionAll, SciDBOperator):
     def compileme(self, leftid, rightid):
         return "concat({},{})".format(leftid, rightid)
 
+class SciDBRedimension(algebra.GroupBy, SciDBOperator):
+    @staticmethod
+    #TODO: Possible duplication of code.
+    def agg_mapping(agg_expr):
+        """Maps a BuiltinAggregateExpression to a SciDB string constant
+        representing the corresponding aggregate operation."""
+        #TODO: Supporting bare mininum expressions for the regrid in our query, needs to be made generic
+        if isinstance(agg_expr, expression.BIN):
+            return "BIN" + math.pow(2, agg_expr.n)
+        elif isinstance(agg_expr, expression.SIGNED_COUNT):
+            return "SIGNED_COUNT"
+        elif isinstance(agg_expr, expression.AVG):
+            return "AVG"
+        raise NotImplementedError("SciDBRegrid.agg_mapping({})".format(
+            type(agg_expr)))
+
+    def compileme(self, inputid):
+        group_fields = [ref for ref in self.grid_ids]
+        #TODO: can be an aggregate on attributes or dimensions. Fix later to recognize this distinction
+        built_ins = [agg_expr for agg_expr in self.aggregate_list
+                     if isinstance(agg_expr, expression.BuiltinAggregateExpression)]
+
+        aggregators =[]
+        for i, agg_expr in enumerate(built_ins):
+            aggregators.append("{}({})", SciDBRegrid.agg_mapping(agg_expr), group_fields[i])
+
+        return "redimension({},{},{})".format(inputid, self.template_array, ",".join(aggregators))
+
+
+class SciDBRegrid(algebra.GroupBy, SciDBOperator):
+    @staticmethod
+    def agg_mapping(agg_expr):
+        """Maps a BuiltinAggregateExpression to a SciDB string constant
+        representing the corresponding aggregate operation."""
+        #TODO: Supporting bare mininum expressions for the regrid in our query, needs to be made generic
+        if isinstance(agg_expr, expression.BIN):
+            return "BIN" + math.pow(2, agg_expr.n)
+        elif isinstance(agg_expr, expression.SIGNED_COUNT):
+            return "SIGNED_COUNT"
+        elif isinstance(agg_expr, expression.AVG):
+            return "AVG"
+        raise NotImplementedError("SciDBRegrid.agg_mapping({})".format(
+            type(agg_expr)))
+
+
+    def compileme(self, inputid):
+        group_fields = [ref for ref in self.grid_ids]
+
+        built_ins = [agg_expr for agg_expr in self.aggregate_list
+                     if isinstance(agg_expr, expression.BuiltinAggregateExpression)]
+
+        aggregators =[]
+        for i, agg_expr in enumerate(built_ins):
+            aggregators.append("{}({})", SciDBRegrid.agg_mapping(agg_expr), group_fields[i])
+
+        #TODO: What about UDAs? Build support later on. Or since we are converting plans to scidb, is it necessary?
+        return "regrid({},{},{})".format(inputid, ",".join(group_fields), ",".join(aggregators))
+
 class SciDBAFLAlgebra(Algebra):
     """ SciDB algebra abstract class"""
     language = SciDBLanguage
@@ -35,7 +95,9 @@ class SciDBAFLAlgebra(Algebra):
     operators = [
         SciDBScan,
         SciDBStore,
-        SciDBConcat
+        SciDBConcat,
+        SciDBRegrid,
+        SciDBRedimension
     ]
 
 '''
@@ -66,3 +128,9 @@ class SciDBAFLAlgebra(Algebra):
 
     def __init__(self, catalog=None):
         self.catalog = catalog
+
+HARDCODED_PLAN = "scan(SciDB__Demo__Waveform)"
+
+def compile_to_afl(plan):
+	#TODO this is wrong, obviously
+	return HARDCODED_PLAN

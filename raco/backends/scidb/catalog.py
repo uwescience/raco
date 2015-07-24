@@ -22,7 +22,7 @@ class SciDBCatalog(Catalog):
 
         # TODO: Remove this; testing stub
         if rel_key.user == 'SciDB':
-            return scheme.Scheme([("i",INT_TYPE), ("j",INT_TYPE), ("value", FLOAT_TYPE)])
+            return scheme.Scheme([("id",INT_TYPE), ("time",INT_TYPE), ("value", FLOAT_TYPE)])
         try:
             qattrs = "attributes({})".format(rel_key.relation)
             qdims = "dimensions({})".format(rel_key.relation)

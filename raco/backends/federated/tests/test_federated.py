@@ -69,11 +69,42 @@ def query(myriaconnection, scidbconnection):
     processor = interpreter.StatementProcessor(catalog, True)
 
     program = """
-AA = scan(Brandon:Demo:Vectors);
-A = select * from AA where value != 0;
-B = scan(SciDB:Demo:Waveform);
-mult = select A.i, B.j, sum(A.value*B.value) from A, B where A.j = B.i;
-store(mult,Brandon:Demo:Mult);
+-------------------------
+-- Constants + Functions
+-------------------------
+const bins: 10;
+
+def iif(expression, true_value, false_value):
+    case when expression then true_value
+         else false_value end;
+def bin(x, high, low): greater(least(int((bins-1) * (x - low) / iif(high != low, high - low, 1)),
+                                bins - 1), 0);
+def difference(current, previous, previous_time, time):
+    iif(previous_time >= 0,
+        (current - previous) * iif(previous_time < time, 1, -1),
+        current);
+uda HarrTransformGroupBy(time, x) {
+  [0.0 as coefficient, 0.0 as _sum, 0 as _count, -1 as _time];
+  [difference(x, coefficient, _time, time), _sum + x, _count + 1, time];
+  [coefficient, _sum / int(_count)];
+};
+
+------------------------------------------------------------------------------------
+-- Harr Transform
+------------------------------------------------------------------------------------
+vectors = scan(SciDB:Demo:Vectors);
+
+groups = [from vectors emit
+                 id,
+                 int(floor(time/2)) as time,
+                 HarrTransformGroupBy(time, value) as [coefficient, mean]];
+
+histogram = [from groups
+             emit id,
+                  bin(coefficient, 1, 0) as index,
+                  count(bin(coefficient, 1, 0)) as value];
+
+sink(histogram);
 """
 
     statement_list = parser.parse(program)
@@ -117,7 +148,7 @@ def local_mock(url, request):
 
         dataset_info = {
             'schema': {
-                'columnNames': [u'i', u'j', u'value'],
+                'columnNames': [u'id', u'time', u'value'],
                 'columnTypes': ['LONG_TYPE', 'LONG_TYPE', 'DOUBLE_TYPE']
             },
             'numTuples': 500

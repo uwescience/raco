@@ -1,5 +1,5 @@
 import scidbpy
-from utility import compile_to_afl
+from raco.backends.scidb.algebra import compile_to_afl
 
 __all__ = ['FederatedConnection']
 
