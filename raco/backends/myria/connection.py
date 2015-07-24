@@ -7,6 +7,8 @@ import logging
 import urllib
 from urlparse import urlparse, ParseResult
 from .errors import MyriaError
+from raco.compile import optimize
+from raco.backends.myria import MyriaLeftDeepTreeAlgebra
 from myria import compile_to_json
 
 import requests
@@ -322,8 +324,8 @@ class MyriaConnection(object):
         Args:
             query: a Myria physical plan as a Python object.
         """
-        # TODO how to get logicalRa and raw query here?
-        body = json.dumps(compile_to_json('', '', query))
+        physical_plan = optimize(query, MyriaLeftDeepTreeAlgebra())
+        body = json.dumps(compile_to_json(str(query), physical_plan, physical_plan))
         return self._finish_async_request(POST, '/query', body)
 
     def validate_query(self, query):

@@ -33,10 +33,10 @@ def get_myria_connection():
         connection = MyriaConnection(hostname='localhost', port=12345)
     else:
         # Use the production server
-        rest_url = 'https://rest.myria.cs.washington.edu:1776'
-        execution_url = 'https://myria-web.appspot.com'
-        #rest_url = 'https://demo.myria.cs.washington.edu:1776'
+        #rest_url = 'https://rest.myria.cs.washington.edu:1776'
         #execution_url = 'https://myria-web.appspot.com'
+        rest_url = 'http://ec2-52-1-38-182.compute-1.amazonaws.com:8753'
+        execution_url = 'http://demo.myria.cs.washington.edu'
         connection = MyriaConnection(rest_url=rest_url,
                                      execution_url=execution_url)
 
@@ -104,6 +104,12 @@ histogram = [from groups
                   bin(coefficient, 1, 0) as index,
                   count(bin(coefficient, 1, 0)) as value];
 
+-- *******************************
+--- Added to test orchestrator
+r = scan(Brandon:Demo:Vectors);
+histogram = histogram + r;
+-- *******************************
+
 sink(histogram);
 """
 
@@ -126,14 +132,32 @@ sink(histogram);
 
     fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
 
-    result = None # fedconn.execute_query(pd)
+    result = fedconn.execute_query(pd)
 
     return result
+
+def empty_query():
+    """Simple empty query"""
+    return {'rawQuery': 'empty',
+            'logicalRa': 'empty',
+            'fragments': []}
+
+def query_status(query, query_id=17, status='SUCCESS'):
+    return {'url': 'http://localhost:12345/query/query-%d' % query_id,
+            'queryId': query_id,
+            'rawQuery': query['rawQuery'],
+            'logicalRa': query['rawQuery'],
+            'plan': query,
+            'submitTime': '2014-02-26T15:19:54.505-08:00',
+            'startTime': '2014-02-26T15:19:54.611-08:00',
+            'finishTime': '2014-02-26T15:23:34.189-08:00',
+            'elapsedNanos': 219577567891,
+            'status': status}
 
 @urlmatch(netloc=r'localhost:12345')
 def local_mock(url, request):
     global query_counter
-    global query_request
+    query_request = empty_query()
     if url.path == '/query' and request.method == 'POST':
         # raise ValueError(type(request.body))
         body = query_status(json.loads(request.body), 17, 'ACCEPTED')

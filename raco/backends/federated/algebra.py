@@ -1,5 +1,6 @@
 from raco import algebra
 from raco import rules
+from raco.relation_key import RelationKey
 from raco.backends import Language, Algebra
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra as MyriaAlgebra
 from raco.compile import optimize
@@ -101,7 +102,7 @@ class Runner(FederatedExec):
 
 class RunAQL(Runner):
     """Run an AQL query on a SciDB instance specified by the programmer"""
-     
+
     def __repr__(self):
         return "RunAQL(%s, %s)" % (self.command, self.connection)
 
@@ -144,7 +145,7 @@ class Dispatch(rules.Rule):
 
     def fire(self, expr):
         if isinstance(expr, FederatedSequence):
-            return expr  
+            return expr
 
         if isinstance(expr, FederatedMove):
             if isinstance(expr.sourcecatalog, SciDBCatalog) \
@@ -235,7 +236,7 @@ Maybe rule traversal is not bottom-up?"
                    # We need to move a dataset
 
                    # Give it a name
-                   movedrelation = raco.algebra.gensym()
+                   movedrelation = RelationKey(raco.algebra.gensym())
 
                    # Add a store operation on the SciDB side
                    scidbwork = op.right
@@ -259,14 +260,14 @@ Maybe rule traversal is not bottom-up?"
                    federatedplan = FederatedSequence([scidbwork, mover, myriawork])
 
                    return federatedplan
-                 
+
                elif isinstance(rightcatalog, MyriaCatalog) and \
                              isinstance(leftcatalog, SciDBCatalog):
                    # We need to move a dataset; flipped repetition of above
                    # TODO: abstract this better
 
                    # Give it a name
-                   movedrelation = raco.algebra.gensym()
+                   movedrelation = RelationKey(raco.algebra.gensym())
 
                    # Add a store operation on the SciDB side
                    scidbwork = op.left
