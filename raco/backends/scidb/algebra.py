@@ -1,5 +1,6 @@
 
 import logging
+import itertools
 
 from raco import rules
 from raco.backends import Language, Algebra
@@ -115,6 +116,12 @@ class GroupByToRegrid(rules.Rule):
         #   (assumes that dim is 0:N)
 '''
 
+class GroupByToRegrid(rules.Rule):
+    pass
+
+class GroupByToRedimension(rules.Rule):
+    pass
+
 class SciDBAFLAlgebra(Algebra):
     """SciDB physical algebra"""
     def opt_rules(self, **kwargs):
@@ -122,9 +129,11 @@ class SciDBAFLAlgebra(Algebra):
         scidbify = [
             rules.OneToOne(algebra.Store, SciDBStore),
             rules.OneToOne(algebra.Scan, SciDBScan),
-            rules.OneToOne(algebra.UnionAll, SciDBConcat),
+            rules.OneToOne(algebra.UnionAll, SciDBConcat)
         ]
-        return scidbify
+        all_rules = scidbify + [GroupByToRegrid, GroupByToRedimension]
+
+        return list(itertools.chain(*all_rules))
 
     def __init__(self, catalog=None):
         self.catalog = catalog
