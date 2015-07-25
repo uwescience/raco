@@ -135,7 +135,7 @@ class SciDBAFLAlgebra(Algebra):
         ]
         all_rules = scidbify + [GroupByToRegrid, GroupByToRedimension]
 
-        return list(itertools.chain(*all_rules))
+        return all_rules
 
     def __init__(self, catalog=None):
         self.catalog = catalog
