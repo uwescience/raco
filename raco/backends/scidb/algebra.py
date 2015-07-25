@@ -117,10 +117,12 @@ class GroupByToRegrid(rules.Rule):
 '''
 
 class GroupByToRegrid(rules.Rule):
-    pass
+    def fire(self, expr):
+        return expr
 
 class GroupByToRedimension(rules.Rule):
-    pass
+    def fire(self, expr):
+        return expr
 
 class SciDBAFLAlgebra(Algebra):
     """SciDB physical algebra"""
