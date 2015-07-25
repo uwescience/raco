@@ -86,7 +86,6 @@ class FederatedConnection(object):
         elif isinstance(query, FederatedMove) and self._is_supported_move(query):
             return self._get_move_strategy(query).move(query)
         elif isinstance(query, FederatedExec) and self._is_supported_catalog(query):
-            print Sequence([query.plan])
             return query.catalog.connection.execute_query(Sequence([query.plan]))
         elif isinstance(query, FederatedExec):
             raise LookupError("Connection of type {} not part of this federated system.".format(type(query.catalog.connection)))

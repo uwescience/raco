@@ -110,7 +110,7 @@ class CountToDimensions(rules.Rule):
 class GroupByToRegrid(rules.Rule):
     def fire(self, expr):
         # if GroupBy
-        # Look for dimension calculation: 
+        # Look for dimension calculation:
         #   floor(dim1 / size1)
         #   (assumes that dim is 0:N)
         #   (assumes that dim is 0:N)
