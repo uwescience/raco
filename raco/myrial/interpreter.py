@@ -108,8 +108,8 @@ class ExpressionProcessor(object):
         return raco.algebra.SampleScan(rel_key, scheme, samp_size, is_pct,
                                        samp_type)
 
-    def load(self, path, scheme, options):
-        return raco.algebra.FileScan(path, scheme, options)
+    def load(self, path, format, scheme, options):
+        return raco.algebra.FileScan(path, format, scheme, options)
 
     def table(self, emit_clause):
         """Emit a single-row table literal."""
