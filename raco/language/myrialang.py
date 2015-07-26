@@ -186,7 +186,7 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
             },
         }, **self.options)
         if self.format == 'OPP':
-            encoding['opType'] = "SeaFlowFileScan"
+            encoding['opType'] = "SeaFlowScan"
         else:
             encoding['schema'] = scheme_to_schema(self.scheme())
         return encoding
