@@ -1293,11 +1293,16 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
         self.right.childtag = "right"
         self.right.produce(state)
 
+
+
         self.left.childtag = "left"
         self.left.produce(state)
 
     def consume(self, t, src, state):
         if src.childtag == "right":
+            # right to left dependency
+            self.right_syncname = get_pipeline_task_name(state)
+
             code = self.language().comment(self.shortStr() + " RIGHT")
 
             # declare global var and broadcast value
@@ -1317,6 +1322,9 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
             return code
 
         elif src.childtag == "left":
+            # right to left dependency
+            state.addToPipelinePropertySet('dependences', self.right_syncname)
+
             code = self.language().comment(self.shortStr() + " LEFT")
 
             # add global field to your tuple
