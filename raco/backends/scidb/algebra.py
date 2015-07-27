@@ -118,11 +118,13 @@ class GroupByToRegrid(rules.Rule):
 
 class GroupByToRegrid(rules.Rule):
     def fire(self, expr):
+        # TODO: just a pass through right now. Fix later
         return expr
 
 class GroupByToRedimension(rules.Rule):
     def fire(self, expr):
-        return expr
+       # TODO: just a pass through right now. Fix later
+       return expr
 
 class SciDBAFLAlgebra(Algebra):
     """SciDB physical algebra"""
@@ -143,5 +145,120 @@ class SciDBAFLAlgebra(Algebra):
 HARDCODED_PLAN = "scan(SciDB__Demo__Waveform)"
 
 def compile_to_afl(plan):
-	#TODO this is wrong, obviously
-	return HARDCODED_PLAN
+	#TODO Harcoded plan we wan't later we would want the actual conversion.
+	ret = """
+create temp array transform_1<value: double null, bucket:int64 null>[id=0:599,1,0, time=0:127,256,0];
+create temp array transform_2<value: double null, bucket:int64 null>[id=0:599,1,0, time=0:63,256,0];
+create temp array transform_3<value: double null, bucket:int64 null>[id=0:599,1,0, time=0:31,256,0];
+create temp array transform_4<value: double null, bucket:int64 null>[id=0:599,1,0, time=0:15,256,0];
+create temp array transform_5<value: double null, bucket:int64 null>[id=0:599,1,0, time=0:7,256,0];
+create temp array transform_6<value: double null, bucket:int64 null>[id=0:599,1,0, time=0:3,256,0];
+create temp array transform_7<value: double null, bucket:int64 null>[id=0:599,1,0, time=0:1,256,0];
+create temp array transform_8<value: double null, bucket:int64 null>[id=0:599,1,0, time=0:0,256,0];
+
+create temp array out_transform_1<value:int64 null>[id=0:599,256,0, bucket=0:9,4294967296,0];
+create temp array out_transform_2<value:int64 null>[id=0:599,256,0, bucket=0:9,4294967296,0];
+create temp array out_transform_3<value:int64 null>[id=0:599,256,0, bucket=0:9,4294967296,0];
+create temp array out_transform_4<value:int64 null>[id=0:599,256,0, bucket=0:9,4294967296,0];
+create temp array out_transform_5<value:int64 null>[id=0:599,256,0, bucket=0:9,4294967296,0];
+create temp array out_transform_6<value:int64 null>[id=0:599,256,0, bucket=0:9,4294967296,0];
+create temp array out_transform_7<value:int64 null>[id=0:599,256,0, bucket=0:9,4294967296,0];
+create temp array out_transform_8<value:int64 null>[id=0:599,256,0, bucket=0:9,4294967296,0];
+
+save(
+  redimension(
+    store(
+      regrid(
+        scan(input),
+        1, 2,
+        avg(value), bin1(value)),
+        transform_1),
+    out_transform_1,
+    signed_count(bucket) as value),
+  'socket://transform_1', -1, 'csv+');
+
+save(
+  redimension(
+    store(
+      regrid(
+        scan(transform_1),
+        1, 2,
+        avg(value), bin2(value)),
+        transform_2),
+    out_transform_2,
+    signed_count(bucket) as value),
+  'socket://transform_2', -1, 'csv+');
+
+save(
+  redimension(
+    store(
+      regrid(
+        scan(transform_2),
+        1, 2,
+        avg(value), bin4(value)),
+        transform_3),
+    out_transform_3,
+    signed_count(bucket) as value),
+  'socket://transform_3', -1, 'csv+');
+
+save(
+  redimension(
+    store(
+      regrid(
+        scan(transform_3),
+        1, 2,
+        avg(value), bin8(value)),
+        transform_4),
+    out_transform_4,
+    signed_count(bucket) as value),
+  'socket://transform_4', -1, 'csv+');
+
+save(
+  redimension(
+    store(
+      regrid(
+        scan(transform_4),
+        1, 2,
+        avg(value), bin16(value)),
+        transform_5),
+    out_transform_5,
+    signed_count(bucket) as value),
+  'socket://transform_5', -1, 'csv+');
+
+save(
+  redimension(
+    store(
+      regrid(
+        scan(transform_5),
+        1, 2,
+        avg(value), bin32(value)),
+        transform_6),
+    out_transform_6,
+    signed_count(bucket) as value),
+  'socket://transform_6', -1, 'csv+');
+
+save(
+  redimension(
+    store(
+      regrid(
+        scan(transform_6),
+        1, 2,
+        avg(value), bin64(value)),
+        transform_7),
+    out_transform_7,
+    signed_count(bucket) as value),
+  'socket://transform_7', -1, 'csv+');
+
+save(
+  redimension(
+    store(
+      regrid(
+        scan(transform_7),
+        1, 2,
+        avg(value), bin128(value)),
+        transform_8),
+    out_transform_8,
+    signed_count(bucket) as value),
+  'socket://transform_8', -1, 'csv+');
+	"""
+	return ret
