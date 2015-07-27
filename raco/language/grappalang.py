@@ -1301,14 +1301,12 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
             code = self.language().comment(self.shortStr() + " RIGHT")
 
             # declare global var and broadcast value
-            self.broadcast_tuple = GrappaStagedTupleRef(
-                "broadcasted_{0}".format(gensym()), t.scheme)
-            type_decl = self.broadcast_tuple.generateDefinition()
+            self.broadcast_tuple = t.copy_type()
             var_decl = self.language().cgenv().get_template('tuple_declaration.cpp').render(
                 dst_type_name=self.broadcast_tuple.getTupleTypename(),
                 dst_name=self.broadcast_tuple.name
             )
-            state.addDeclarations([type_decl, var_decl])
+            state.addDeclarations([var_decl])
 
             code += """on_all_cores([=] {{
                   {global_name} = {input_name};
