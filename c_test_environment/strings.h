@@ -99,13 +99,24 @@ std::ostream& operator<<(std::ostream& o, const std::array<char, N>& arr) {
 
 template <size_t N>
 bool operator==(const std::array<char, N>& arr, const std::string& str) {
-  return std::string(arr.data()).compare(str) == 0;
+  return std::string(arr.data()) == str;
 }
 
 template <size_t N>
 bool operator==(const std::string& str, const std::array<char, N>& arr) {
   return arr == str;
 }
+
+template <size_t N>
+bool operator!=(const std::array<char, N>& arr, const std::string& str) {
+  return std::string(arr.data()) != str;
+}
+
+template <size_t N>
+bool operator!=(const std::string& str, const std::array<char, N>& arr) {
+  return arr != str;
+}
+
 
 // character arrays to be compared using string comparison semantics
 // rather than character-for-character equivalence
@@ -116,6 +127,11 @@ bool operator==(const std::string& str, const std::array<char, N>& arr) {
 template <size_t N>
 bool operator==(const std::array<char, N>& arr1, const std::array<char, N>& arr2) {
   return std::string(arr1.data()) == std::string(arr2.data());
+}
+
+template <size_t N>
+bool operator!=(const std::array<char, N>& arr1, const std::array<char, N>& arr2) {
+  return std::string(arr1.data()) != std::string(arr2.data());
 }
 
 // TODO see issue #434 Use C++ implicit type conversions for std::array and std::string
