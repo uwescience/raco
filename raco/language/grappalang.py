@@ -1286,6 +1286,92 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan(FileScan) [{0}]".format(self._array_rep)
 
 
+class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
+
+    def produce(self, state):
+
+        self.right.childtag = "right"
+        self.right.produce(state)
+
+        self.left.childtag = "left"
+        self.left.produce(state)
+
+    def consume(self, t, src, state):
+        if src.childtag == "right":
+            code = self.language().comment(self.shortStr() + " RIGHT")
+
+            # declare global var and broadcast value
+            self.broadcast_tuple = GrappaStagedTupleRef(
+                "broadcasted_{0}".format(gensym()), t.scheme)
+            var_decl = self.language().cgenv().get_template('tuple_declaration.cpp').render(
+                dst_type_name=self.broadcast_tuple.getTupleTypename(),
+                dst_name=self.broadcast_tuple.name
+            )
+            state.addDeclarations([var_decl])
+
+            code += """on_all_cores([=] {{
+                  {global_name} = {input_name};
+                   }});
+                   """.format(global_name=self.broadcast_tuple.name,
+                              input_name=t.name)
+
+            return code
+
+        elif src.childtag == "left":
+            code = self.language().comment(self.shortStr() + " LEFT")
+
+            # add global field to your tuple
+
+            output = GrappaStagedTupleRef(gensym(), self.scheme())
+
+            type1 = t.getTupleTypename()
+            type1numfields = len(t.scheme)
+            type2 = self.broadcast_tuple.getTupleTypename()
+            type2numfields = len(self.broadcast_tuple.scheme)
+            append_func_name, combine_function_def = \
+                GrappaStagedTupleRef.get_append(
+                    output.getTupleTypename(),
+                    type1, type1numfields,
+                    type2, type2numfields)
+
+            state.addDeclarations([output.generateDefinition(),
+                                   combine_function_def])
+
+
+            code += """
+            {out_tuple_type} {out_tuple_name} =
+              {append_func_name}({left_name}, {right_name});
+              """.format(out_tuple_type=output.getTupleTypename(),
+                         out_tuple_name=output.name,
+                         append_func_name=append_func_name,
+                         left_name=t.name,
+                         right_name=self.broadcast_tuple.name)
+
+            inner_plan_compiled = self.parent().consume(output, self, state)
+
+            return code + inner_plan_compiled
+
+        else:
+            assert False, "bad childtag: {0}".format(src.childtag)
+
+
+class CrossProductWithSmall(rules.Rule):
+    """
+    If there is a cross product between a relation and
+    a singleton, then broadcast the singleton: cross product
+    is just adding an attribute to every tuple from the other relation
+    """
+    def fire(self, expr):
+        if isinstance(expr, algebra.CrossProduct):
+            if expr.right.num_tuples() == 1:
+                return GrappaBroadcastCrossProduct(expr.left, expr.right)
+
+        return expr
+
+    def __str__(self):
+        return "CrossProduct(big, singleton) => " \
+               "GrappaBroadcastCrossProduct(big, singleton)"
+
 def grappify(join_type, emit_print,
              scan_array_repr):
     return [
@@ -1343,7 +1429,8 @@ class GrappaAlgebra(Algebra):
             clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
-            grappify(join_type, self.emit_print, scan_array_repr)
+            grappify(join_type, self.emit_print, scan_array_repr),
+            [CrossProductWithSmall()]
         ]
 
         if kwargs.get('SwapJoinSides'):
