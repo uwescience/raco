@@ -339,6 +339,12 @@ class StagedTupleRef:
             relsym=self.relsym,
             scheme=self.scheme)
 
+    def copy_type(self):
+        """
+        Create a new tuple ref of the same type but new symbol name
+        """
+        return self.__class__(self.relsym, self.scheme)
+
     def getTupleTypename(self):
         if self.__typename is None:
             fields = ""
