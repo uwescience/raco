@@ -59,6 +59,8 @@ class SciDBRedimension(algebra.GroupBy, SciDBOperator):
 
         return "redimension({},{},{})".format(inputid, self.template_array, ",".join(aggregators))
 
+    def shortStr(self):
+        return super(SciDBRedimension, self).shortStr() + 'Parent Apply:' +self.parent_apply.shortStr()
 
 class SciDBRegrid(algebra.GroupBy, SciDBOperator):
     @staticmethod
@@ -89,7 +91,11 @@ class SciDBRegrid(algebra.GroupBy, SciDBOperator):
         #TODO: What about UDAs? Build support later on. Or since we are converting plans to scidb, is it necessary?
         return "regrid({},{},{})".format(inputid, ",".join(group_fields), ",".join(aggregators))
 
+    def shortStr(self):
+        return super(SciDBRegrid, self).shortStr() + 'Parent Apply:' +self.parent_apply.shortStr()
+
 class SciDBAFLAlgebra(Algebra):
+
     """ SciDB algebra abstract class"""
     language = SciDBLanguage
 
@@ -100,6 +106,20 @@ class SciDBAFLAlgebra(Algebra):
         SciDBRegrid,
         SciDBRedimension
     ]
+    """SciDB physical algebra"""
+    def opt_rules(self, **kwargs):
+        # replace logical operator with its corresponding SciDB operators
+        scidbify = [
+            rules.OneToOne(algebra.Store, SciDBStore),
+            rules.OneToOne(algebra.Scan, SciDBScan),
+            rules.OneToOne(algebra.UnionAll, SciDBConcat)
+        ]
+        all_rules = scidbify + [GroupByToRegridOrRedminension(), StoreToSciDBStore()]
+
+        return all_rules
+
+    def __init__(self, catalog=None):
+        self.catalog = catalog
 
 '''
 class CountToDimensions(rules.Rule):
@@ -116,33 +136,49 @@ class GroupByToRegrid(rules.Rule):
         #   (assumes that dim is 0:N)
 '''
 
-class GroupByToRegrid(rules.Rule):
+class GroupByToRegridOrRedminension(rules.Rule):
     def fire(self, expr):
-        # TODO: just a pass through right now. Fix later
+         # Look for a GroupBy-Apply pair.
+        if isinstance(expr, algebra.Apply):
+            # Check if the input to the operator is a groupby
+            childop = expr.input
+            if isinstance(childop, algebra.GroupBy):
+                # Looking for dim / size operation.
+                # Todo: Crazy amount of hardcoding. Fix Later
+
+                is_regrid = False
+                for gb_operation in childop.grouping_list:
+                    if isinstance(gb_operation, CAST):
+                        if isinstance(gb_operation.input, FLOOR):
+                            if isinstance(gb_operation.input.input, DIVIDE):
+                                if isinstance(gb_operation.input.input.right, NumericLiteral):
+                                    is_regrid = True
+
+                if is_regrid:
+                    scidb_regridop = SciDBRegrid(childop.grouping_list, childop.aggregate_list, childop.input)
+                    scidb_regridop.parent_apply = algebra.Apply()
+                    scidb_regridop.parent_apply.copy(expr)
+                    return scidb_regridop
+                else:
+                    scidb_redimension = SciDBRedimension(childop.grouping_list, childop.aggregate_list, childop.input)
+                    scidb_redimension.parent_apply = algebra.Apply()
+                    scidb_redimension.parent_apply.copy(expr)
+                    return scidb_redimension
         return expr
 
-class GroupByToRedimension(rules.Rule):
+    def __str__(self):
+        return "GroupBy => ReGrid/ReDimension"
+
+class StoreToSciDBStore(rules.Rule):
     def fire(self, expr):
-       # TODO: just a pass through right now. Fix later
-       return expr
+        if isinstance(expr, algebra.Store) and not isinstance(expr, SciDBStore):
+            scidb_store = SciDBStore(expr.relation_key, expr.plan)
+            return scidb_store
+        return expr
 
-class SciDBAFLAlgebra(Algebra):
-    """SciDB physical algebra"""
-    def opt_rules(self, **kwargs):
-        # replace logical operator with its corresponding SciDB operators
-        scidbify = [
-            rules.OneToOne(algebra.Store, SciDBStore),
-            rules.OneToOne(algebra.Scan, SciDBScan),
-            rules.OneToOne(algebra.UnionAll, SciDBConcat)
-        ]
-        all_rules = scidbify + [GroupByToRegrid, GroupByToRedimension]
+    def __str__(self):
+        return "Store => SciDBStore"
 
-        return all_rules
-
-    def __init__(self, catalog=None):
-        self.catalog = catalog
-
-HARDCODED_PLAN = "scan(SciDB__Demo__Waveform)"
 
 def compile_to_afl(plan):
 	#TODO Harcoded plan we wan't later we would want the actual conversion.
