@@ -6,6 +6,7 @@ from abc import ABCMeta, abstractmethod
 import copy
 import operator
 import math
+import random
 from raco.expression import StateVar
 from functools import reduce
 
@@ -22,7 +23,7 @@ def reset():
 def gensym():
     global var_id
     var_id += 1
-    return "V%s" % var_id
+    return "V%s" % str(random.randint(1, 10000000000))
 # END Code to generate variables names
 
 

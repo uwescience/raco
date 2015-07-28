@@ -1,6 +1,6 @@
 import scidbpy
 from raco.compile import optimize
-from raco.backends.scidb.algebra import SciDBAFLAlgebra, compile_to_afl
+from raco.backends.scidb.algebra import SciDBAFLAlgebra, compile_to_afl, compile_to_afl_new
 
 __all__ = ['FederatedConnection']
 
@@ -58,8 +58,17 @@ class SciDBConnection(object):
         Args:
             query: a physical plan as a Python object.
         """
-        physical_plan = optimize(query, SciDBAFLAlgebra())
-        return self.connection.query(compile_to_afl(physical_plan))
+        # Assuming that the scidb part of the query plan will always be an store,
+        # as we will do something with the result of scidb in myria,
+        # hardcoding to optimize only the relation_key within store.
+        # This relation_key is the plan for the entire scidb operation.
+
+        physical_plan = optimize(query.plan, SciDBAFLAlgebra())
+        print "AFTER SCIDB RULES"
+        print physical_plan
+        compile_to_afl(physical_plan)
+        compile_to_afl_new(physical_plan)
+        # return self.connection.query(compile_to_afl(physical_plan))
 
     def validate_query(self, query):
         """Submit the query to Myria for validation only.
