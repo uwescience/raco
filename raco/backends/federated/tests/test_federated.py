@@ -13,10 +13,11 @@ from raco.backends.myria import MyriaLeftDeepTreeAlgebra
 from raco.backends.federated.connection import FederatedConnection
 from raco.backends.federated.catalog import FederatedCatalog
 from raco.backends.federated import FederatedAlgebra
+from raco.backends.federated.algebra import FederatedExec
 
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
-
+import raco.viz
 from raco.backends.federated.movers.filesystem import SciDBToMyria
 
 import os
@@ -47,6 +48,7 @@ def get_scidb_connection():
     if skip('RACO_SCIDB_TESTS'):
         # Use the local stub server
         connection = SciDBConnection('http://ec2-54-175-66-8.compute-1.amazonaws.com:8080')
+        # connection = SciDBConnection('http://localhost:9000')
     else:
         # Use the production server
         connection = SciDBConnection()
@@ -69,48 +71,88 @@ def query(myriaconnection, scidbconnection):
     processor = interpreter.StatementProcessor(catalog, True)
 
     program = """
+const test_vector_id: 1;
+const bins: 10;
+vectors = scan(SciDB:Demo:Vectors);
+
 -------------------------
 -- Constants + Functions
 -------------------------
-const bins: 10;
+const alpha: 1.0;
 
+def log2(x): log(x) / log(2);
+def mod2(x): x - int(x/2)*2;
 def iif(expression, true_value, false_value):
     case when expression then true_value
          else false_value end;
-def bin(x, high, low): greater(least(int((bins-1) * (x - low) / iif(high != low, high - low, 1)),
+def bucket(x, high, low): greater(least(int((bins-1) * (x - low) / iif(high != low, high - low, 1)),
                                 bins - 1), 0);
 def difference(current, previous, previous_time, time):
     iif(previous_time >= 0,
         (current - previous) * iif(previous_time < time, 1, -1),
         current);
-uda HarrTransformGroupBy(time, x) {
-  [0.0 as coefficient, 0.0 as _sum, 0 as _count, -1 as _time];
-  [difference(x, coefficient, _time, time), _sum + x, _count + 1, time];
-  [coefficient, _sum / int(_count)];
-};
+def idf(w_ij, w_ijN, N): log(N / w_ijN) * w_ij;
+
+symbols = empty(id:int, index:int, value:int);
 
 ------------------------------------------------------------------------------------
 -- Harr Transform
 ------------------------------------------------------------------------------------
-vectors = scan(SciDB:Demo:Vectors);
+uda HarrTransformGroupBy(alpha, time, x) {
+  [0.0 as coefficient, 0.0 as _sum, 0 as _count, -1 as _time];
+  [difference(x, coefficient, _time, time), _sum + x, _count + 1, time];
+  [coefficient, _sum / int(_count * alpha)];
+};
 
-groups = [from vectors emit
-                 id,
-                 int(floor(time/2)) as time,
-                 HarrTransformGroupBy(time, value) as [coefficient, mean]];
-
-histogram = [from groups
-             emit id,
-                  bin(coefficient, 1, 0) as index,
-                  count(bin(coefficient, 1, 0)) as value];
-
--- *******************************
---- Added to test orchestrator
-r = scan(Brandon:Demo:Vectors);
-histogram = histogram + r;
--- *******************************
-
-sink(histogram);
+iterations = [from vectors where id = test_vector_id emit 0 as i, int(ceil(log2(count(*)))) as total];
+do
+    groups = [from vectors emit
+                     id,
+                     int(floor(time/2)) as time,
+                     HarrTransformGroupBy(alpha, time, value) as [coefficient, mean]];
+    coefficients = [from groups emit id, coefficient];
+    range = [from vectors emit max(value) - min(value) as high, min(value) - max(value) as low];
+    histogram = [from coefficients, range
+                 emit id,
+                      bucket(coefficient, high, low) as index,
+                      count(bucket(coefficient, high, low)) as value];
+    symbols = symbols + [from histogram, iterations emit id, index + i*bins as index, value];
+    vectors = [from groups emit id, time, mean as value];
+    iterations = [from iterations emit $0 + 1, $1];
+while [from iterations emit $0 < $1];
+------------------------------------------------------------------------------------
+-- IDF
+------------------------------------------------------------------------------------
+ids = distinct([from symbols emit id]);
+N = [from ids emit count(*) as N];
+frequencies = [from symbols emit value, index, count(*) as frequency];
+tfv = [from symbols, frequencies, N
+       where symbols.value = frequencies.value
+       emit id, index, idf(value, frequency, N) as value];
+------------------------------------------------------------------------------------
+-- Conditioning
+------------------------------------------------------------------------------------
+moments = [from tfv emit id,
+                         avg(value) as mean,
+                         -- Sample estimator
+                         sqrt((stdev(value)*stdev(value)*count(value))/(count(value)-1)) as std];
+conditioned_tfv = [from tfv, moments
+                   where tfv.id = moments.id
+                   emit id, index, value as v, mean, std, (value - mean) / std as value];
+sum_squares = [from conditioned_tfv
+               emit id, sum(pow(value, 2)) as sum_squares];
+------------------------------------------------------------------------------------
+-- k-NN
+------------------------------------------------------------------------------------
+test_vector = [from conditioned_tfv where id = test_vector_id emit *];
+products = [from test_vector as x,
+                 conditioned_tfv as y
+                where x.index = y.index
+                emit y.id as id, sum(x.value * y.value) as product];
+correlations = [from products, sum_squares
+                where products.id = sum_squares.id
+                emit products.id as id, product / sum_squares as rho];
+sink(correlations);
 """
 
     statement_list = parser.parse(program)
@@ -130,11 +172,16 @@ sink(histogram);
     print "PHYSICAL"
     print pd
 
-    fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
+    # print raco.viz.operator_to_dot(pd)
 
-    result = fedconn.execute_query(pd)
+    # scidbconnection.execute_query(pd.args[0])
 
-    return result
+    # fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
+
+    # result = fedconn.execute_query(pd)
+
+    # return result
+    return pd
 
 def empty_query():
     """Simple empty query"""

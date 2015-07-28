@@ -1,4 +1,5 @@
-from multiprocessing import Pool
+#from multiprocessing import Pool  # need to have GAE support it
+
 from raco.backends.federated.algebra import FederatedAlgebra
 #from raco.backends.federated.algebra import ExportMyriaToScidb
 from raco.algebra import Sequence
@@ -79,14 +80,25 @@ class FederatedConnection(object):
         """
 
         if isinstance(query, FederatedSequence):
+            # execute each statement in the sequence, and return
+            # only the result of the last statement
             return map(self.execute_query, query.args)[-1] if query.args else None
         elif isinstance(query, FederatedParallel):
             # TODO which one to return?
+            raise NotImplementedError("Not supporting FedParallel in GAE")
             return Pool(len(query.args)).map(self.execute_query, query.args)
         elif isinstance(query, FederatedMove) and self._is_supported_move(query):
             return self._get_move_strategy(query).move(query)
         elif isinstance(query, FederatedExec) and self._is_supported_catalog(query):
-            return query.catalog.connection.execute_query(Sequence([query.plan]))
+            r = query.catalog.connection.execute_query(Sequence([query.plan]))
+
+            #TODO fix this API mismatch more elegantly; MyriaX returns 'status' and 'url'
+            if 'status' in r:
+                r['query_status'] = r['status']
+            if 'url' in r:
+                r['query_url'] = r['url']
+            return r
+
         elif isinstance(query, FederatedExec):
             raise LookupError("Connection of type {} not part of this federated system.".format(type(query.catalog.connection)))
         elif isinstance(query, FederatedMove):
