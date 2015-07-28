@@ -240,7 +240,7 @@ Maybe rule traversal is not bottom-up?"
 
                    # Add a store operation on the SciDB side
                    scidbwork = op.right
-                   scidbwork.plan = raco.algebra.Store(scidbwork.plan, movedrelation)
+                   scidbwork.plan = raco.algebra.Store(movedrelation, scidbwork.plan)
 
 
                    # Create the Move operator
@@ -271,7 +271,7 @@ Maybe rule traversal is not bottom-up?"
 
                    # Add a store operation on the SciDB side
                    scidbwork = op.left
-                   scidbwork.plan = raco.algebra.Store(scidbwork.plan, movedrelation)
+                   scidbwork.plan = raco.algebra.Store(movedrelation, scidbwork.plan)
 
 
                    # Create the Move operator
