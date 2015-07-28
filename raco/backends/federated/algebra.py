@@ -332,7 +332,7 @@ class FederatedAlgebra(Algebra):
     def opt_rules(self, **kwargs):
         fedrules = [
         rules.CrossProduct2Join(),
-        rules.PushSelects(),
+      #  rules.PushSelects(),
         SplitSciDBToMyria(self.federatedcatalog),
         FlattenSingletonFederatedSequence()]
                     #Dispatch()]

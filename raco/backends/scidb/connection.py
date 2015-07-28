@@ -59,7 +59,24 @@ class SciDBConnection(object):
             query: a physical plan as a Python object.
         """
         physical_plan = optimize(query, SciDBAFLAlgebra())
-        return self.connection.query(compile_to_afl(physical_plan))
+        afl_string = compile_to_afl(physical_plan)
+        result = ""
+        # sci-db AFL parser expects one statement at a time
+        for stmt in afl_string.split(";"):
+            if len(stmt) <= 1:
+                break
+            result += str(self.connection.query(stmt))
+
+        # FIXME: which do we want?
+        return {
+                 # myria-web
+                'query_status': result,
+                'query_url': 'TODO:scidb url',
+
+                # myriaX response format
+                'status': result,
+                'url': 'TODO:scidb url'
+        }
 
     def validate_query(self, query):
         """Submit the query to Myria for validation only.
