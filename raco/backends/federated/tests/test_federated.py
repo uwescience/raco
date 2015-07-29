@@ -91,7 +91,6 @@ def difference(current, previous, previous_time, time):
     iif(previous_time >= 0,
         (current - previous) * iif(previous_time < time, 1, -1),
         current);
-def idf(w_ij, w_ijN, N): log(N / w_ijN) * w_ij;
 
 symbols = empty(id:int, index:int, value:int);
 
@@ -127,8 +126,7 @@ sink(symbols);
 -- Myria
 --========================================================================
 
-const test_vector_id: 1;
-const bins: 10;
+const test_vector_id1: 1;
 def idf(w_ij, w_ijN, N): log(N / w_ijN) * w_ij;
 
 
@@ -160,7 +158,7 @@ sum_squares = [from conditioned_tfv
 -- k-NN
 ------------------------------------------------------------------------------------
 
-test_vector = [from conditioned_tfv where id = test_vector_id emit *];
+test_vector = [from conditioned_tfv where id = test_vector_id1 emit *];
 
 products = [from test_vector as x,
                  conditioned_tfv as y

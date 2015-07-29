@@ -74,8 +74,8 @@ class SciDBConnection(object):
         result = ""
         # sci-db AFL parser expects one statement at a time
         for stmt in afl_string.split(";"):
-            if len(stmt) <= 1:
-                break
+            if stmt.isspace() or len(stmt) <= 1:
+                continue
             result += str(self.connection.query(stmt))
 
         # FIXME: which do we want?

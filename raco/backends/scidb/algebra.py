@@ -210,7 +210,7 @@ save(
   redimension(
     store(
       regrid(
-        scan(Scidb__Demo__Vectors),
+        scan(SciDB__Demo__Vectors),
         1, 2,
         avg(value), bin1(value)),
         transform_1_{r}),

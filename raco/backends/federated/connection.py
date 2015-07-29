@@ -178,7 +178,7 @@ class FederatedConnection(object):
 
 
         # pd = processor.get_physical_plan(target_alg=MyriaLeftDeepTreeAlgebra())
-        
+
         r = self.get_myria_connection().execute_query(processor.get_logical_plan())
         r['query_status'] = r['status']
         r['query_url'] = r['url']
