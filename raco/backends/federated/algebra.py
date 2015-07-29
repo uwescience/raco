@@ -8,6 +8,7 @@ from raco.viz import operator_to_dot
 from raco.backends.myria import compile_to_json
 from raco.backends.scidb import SciDBAFLAlgebra
 import raco.algebra
+import itertools
 
 from raco.backends.myria.catalog import MyriaCatalog
 from raco.backends.scidb.catalog import SciDBCatalog
@@ -352,9 +353,9 @@ class FederatedAlgebra(Algebra):
 
     def opt_rules(self, **kwargs):
         fedrules = [
-        rules.CrossProduct2Join(),
-      #  rules.PushSelects(),
-        SplitSciDBToMyria(self.federatedcatalog),
-        FlattenSingletonFederatedSequence()]
+        [rules.CrossProduct2Join()],
+        rules.push_select,
+        [SplitSciDBToMyria(self.federatedcatalog)],
+        [FlattenSingletonFederatedSequence()]]
                     #Dispatch()]
-        return fedrules
+        return list(itertools.chain(*fedrules))
