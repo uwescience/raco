@@ -25,23 +25,22 @@ insert_loads = """
 ------------------------------------------------------------------------------------
 -- Import from SciDB
 ------------------------------------------------------------------------------------
-symbols0x1 = load("file:///home/scidb/0/transform_1", csv(schema(id:int, index:int, value:int)));
-symbols1x1 = load("file:///home/scidb/1/transform_1", csv(schema(id:int, index:int, value:int)));
-symbols0x2 = load("file:///home/scidb/0/transform_2", csv(schema(id:int, index:int, value:int)));
-symbols1x2 = load("file:///home/scidb/1/transform_2", csv(schema(id:int, index:int, value:int)));
-symbols0x3 = load("file:///home/scidb/0/transform_3", csv(schema(id:int, index:int, value:int)));
-symbols1x3 = load("file:///home/scidb/1/transform_3", csv(schema(id:int, index:int, value:int)));
-symbols0x4 = load("file:///home/scidb/0/transform_4", csv(schema(id:int, index:int, value:int)));
-symbols1x4 = load("file:///home/scidb/1/transform_4", csv(schema(id:int, index:int, value:int)));
-symbols0x5 = load("file:///home/scidb/0/transform_5", csv(schema(id:int, index:int, value:int)));
-symbols1x5 = load("file:///home/scidb/1/transform_5", csv(schema(id:int, index:int, value:int)));
-symbols0x6 = load("file:///home/scidb/0/transform_6", csv(schema(id:int, index:int, value:int)));
-symbols1x6 = load("file:///home/scidb/1/transform_6", csv(schema(id:int, index:int, value:int)));
-symbols0x7 = load("file:///home/scidb/0/transform_7", csv(schema(id:int, index:int, value:int)));
-symbols1x7 = load("file:///home/scidb/1/transform_7", csv(schema(id:int, index:int, value:int)));
-symbols0x8 = load("file:///home/scidb/0/transform_8", csv(schema(id:int, index:int, value:int)));
-symbols1x8 = load("file:///home/scidb/1/transform_8", csv(schema(id:int, index:int, value:int)));
-
+symbols0x1 = load("file:///{path_prefix}/0/out/transform_1", csv(schema(id:int, index:int, value:int)));
+symbols1x1 = load("file:///{path_prefix}/1/out/transform_1", csv(schema(id:int, index:int, value:int)));
+symbols0x2 = load("file:///{path_prefix}/0/out/transform_2", csv(schema(id:int, index:int, value:int)));
+symbols1x2 = load("file:///{path_prefix}/1/out/transform_2", csv(schema(id:int, index:int, value:int)));
+symbols0x3 = load("file:///{path_prefix}/0/out/transform_3", csv(schema(id:int, index:int, value:int)));
+symbols1x3 = load("file:///{path_prefix}/1/out/transform_3", csv(schema(id:int, index:int, value:int)));
+symbols0x4 = load("file:///{path_prefix}/0/out/transform_4", csv(schema(id:int, index:int, value:int)));
+symbols1x4 = load("file:///{path_prefix}/1/out/transform_4", csv(schema(id:int, index:int, value:int)));
+symbols0x5 = load("file:///{path_prefix}/0/out/transform_5", csv(schema(id:int, index:int, value:int)));
+symbols1x5 = load("file:///{path_prefix}/1/out/transform_5", csv(schema(id:int, index:int, value:int)));
+symbols0x6 = load("file:///{path_prefix}/0/out/transform_6", csv(schema(id:int, index:int, value:int)));
+symbols1x6 = load("file:///{path_prefix}/1/out/transform_6", csv(schema(id:int, index:int, value:int)));
+symbols0x7 = load("file:///{path_prefix}/0/out/transform_7", csv(schema(id:int, index:int, value:int)));
+symbols1x7 = load("file:///{path_prefix}/1/out/transform_7", csv(schema(id:int, index:int, value:int)));
+symbols0x8 = load("file:///{path_prefix}/0/out/transform_8", csv(schema(id:int, index:int, value:int)));
+symbols1x8 = load("file:///{path_prefix}/1/out/transform_8", csv(schema(id:int, index:int, value:int)));
 
 symbols = symbols0x1 + symbols0x2 + symbols0x3 + symbols0x4 +
           symbols0x5 + symbols0x6 + symbols0x7 + symbols0x8 +
@@ -49,7 +48,8 @@ symbols = symbols0x1 + symbols0x2 + symbols0x3 + symbols0x4 +
           symbols1x5 + symbols1x6 + symbols1x7 + symbols1x8;
 store(symbols, symbols);
 symbols = scan(symbols);
-"""
+""".format(path_prefix = 'state/partition1/scidb-bhaynes/data/000') # FOR scidb on txe1.
+# """.format(path_prefix = 'home/scidb')  # FOR scidb on ec2.
 
 
 __all__ = ['FederatedConnection']
@@ -166,7 +166,6 @@ class FederatedConnection(object):
             r = self.get_myria_connection().execute_query(processor.get_logical_plan())
             r['query_status'] = r['status']
             r['query_url'] = r['url']
-            # print r
             return r
 
         return run_myria()
