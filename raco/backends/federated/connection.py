@@ -10,6 +10,66 @@ import logging
 import numpy as np
 import time
 
+from raco.backends.myria.connection import MyriaConnection
+from raco.backends.scidb.connection import SciDBConnection
+from raco.backends.federated.catalog import FederatedCatalog
+from raco.backends.myria.catalog import MyriaCatalog
+from raco.backends.scidb.catalog import SciDBCatalog
+from raco.backends.myria.myria import MyriaLeftDeepTreeAlgebra
+from raco.backends.scidb.algebra import SciDBAFLAlgebra
+
+import raco.myrial.parser as myrialparser
+import raco.myrial.interpreter as interpreter
+
+insert_loads = """
+------------------------------------------------------------------------------------
+-- Import from SciDB
+------------------------------------------------------------------------------------
+symbols0x1 = load("out/worker-0/transform_1", csv(schema(id:int, index:int, value:int)));
+symbols1x1 = load("out/worker-1/transform_1", csv(schema(id:int, index:int, value:int)));
+symbols2x1 = load("out/worker-2/transform_1", csv(schema(id:int, index:int, value:int)));
+symbols3x1 = load("out/worker-3/transform_1", csv(schema(id:int, index:int, value:int)));
+symbols0x2 = load("out/worker-0/transform_2", csv(schema(id:int, index:int, value:int)));
+symbols1x2 = load("out/worker-1/transform_2", csv(schema(id:int, index:int, value:int)));
+symbols2x2 = load("out/worker-2/transform_2", csv(schema(id:int, index:int, value:int)));
+symbols3x2 = load("out/worker-3/transform_2", csv(schema(id:int, index:int, value:int)));
+symbols0x3 = load("out/worker-0/transform_3", csv(schema(id:int, index:int, value:int)));
+symbols1x3 = load("out/worker-1/transform_3", csv(schema(id:int, index:int, value:int)));
+symbols2x3 = load("out/worker-2/transform_3", csv(schema(id:int, index:int, value:int)));
+symbols3x3 = load("out/worker-3/transform_3", csv(schema(id:int, index:int, value:int)));
+symbols0x4 = load("out/worker-0/transform_4", csv(schema(id:int, index:int, value:int)));
+symbols1x4 = load("out/worker-1/transform_4", csv(schema(id:int, index:int, value:int)));
+symbols2x4 = load("out/worker-2/transform_4", csv(schema(id:int, index:int, value:int)));
+symbols3x4 = load("out/worker-3/transform_4", csv(schema(id:int, index:int, value:int)));
+symbols0x5 = load("out/worker-0/transform_5", csv(schema(id:int, index:int, value:int)));
+symbols1x5 = load("out/worker-1/transform_5", csv(schema(id:int, index:int, value:int)));
+symbols2x5 = load("out/worker-2/transform_5", csv(schema(id:int, index:int, value:int)));
+symbols3x5 = load("out/worker-3/transform_5", csv(schema(id:int, index:int, value:int)));
+symbols0x6 = load("out/worker-0/transform_6", csv(schema(id:int, index:int, value:int)));
+symbols1x6 = load("out/worker-1/transform_6", csv(schema(id:int, index:int, value:int)));
+symbols2x6 = load("out/worker-2/transform_6", csv(schema(id:int, index:int, value:int)));
+symbols3x6 = load("out/worker-3/transform_6", csv(schema(id:int, index:int, value:int)));
+symbols0x7 = load("out/worker-0/transform_7", csv(schema(id:int, index:int, value:int)));
+symbols1x7 = load("out/worker-1/transform_7", csv(schema(id:int, index:int, value:int)));
+symbols2x7 = load("out/worker-2/transform_7", csv(schema(id:int, index:int, value:int)));
+symbols3x7 = load("out/worker-3/transform_7", csv(schema(id:int, index:int, value:int)));
+symbols0x8 = load("out/worker-0/transform_8", csv(schema(id:int, index:int, value:int)));
+symbols1x8 = load("out/worker-1/transform_8", csv(schema(id:int, index:int, value:int)));
+symbols2x8 = load("out/worker-2/transform_8", csv(schema(id:int, index:int, value:int)));
+symbols3x8 = load("out/worker-3/transform_8", csv(schema(id:int, index:int, value:int)));
+
+symbols = symbols0x1 + symbols0x2 + symbols0x3 + symbols0x4 +
+          symbols0x5 + symbols0x6 + symbols0x7 + symbols0x8 +
+          symbols1x1 + symbols1x2 + symbols1x3 + symbols1x4 +
+          symbols1x5 + symbols1x6 + symbols1x7 + symbols1x8 +
+          symbols2x1 + symbols2x2 + symbols2x3 + symbols2x4 +
+          symbols2x5 + symbols2x6 + symbols2x7 + symbols2x8 +
+          symbols3x1 + symbols3x2 + symbols3x3 + symbols3x4 +
+          symbols3x5 + symbols3x6 + symbols3x7 + symbols3x8;
+store(symbols, symbols);
+symbols = scan(symbols);
+
+"""
 
 
 __all__ = ['FederatedConnection']
@@ -28,6 +88,16 @@ class FederatedConnection(object):
         """
         self.connections = connections
         self.movers = {(strategy.source_type, strategy.target_type): strategy for strategy in movers}
+
+    def get_myria_connection(self):
+        for c in self.connections:
+            if isinstance(c, MyriaConnection):
+                return c
+
+    def get_scidb_connection(self):
+        for c in self.connections:
+            if isinstance(c, SciDBConnection):
+                return c
 
     def workers(self):
         """Return a dictionary of the workers"""
@@ -79,39 +149,75 @@ class FederatedConnection(object):
             query: a physical plan as a Python object.
         """
 
-        if isinstance(query, FederatedSequence):
-            # execute each statement in the sequence, and return
-            # only the result of the last statement
-            return map(self.execute_query, query.args)[-1] if query.args else None
-        elif isinstance(query, FederatedParallel):
-            # TODO which one to return?
-            raise NotImplementedError("Not supporting FedParallel in GAE")
-            return Pool(len(query.args)).map(self.execute_query, query.args)
-        elif isinstance(query, FederatedMove) and self._is_supported_move(query):
-            return self._get_move_strategy(query).move(query)
-        elif isinstance(query, FederatedExec) and self._is_supported_catalog(query):
-            r = query.catalog.connection.execute_query(Sequence([query.plan]))
+        #TODO: Fix hack, assuming query is a query string and not a parsed plan
 
-            #TODO fix this API mismatch more elegantly; MyriaX returns 'status' and 'url'
-            if 'status' in r:
-                r['query_status'] = r['status']
-            if 'url' in r:
-                r['query_url'] = r['url']
-            return r
+        [scidb_query, myria_query] = query.split('-- Myria')
 
-        elif isinstance(query, FederatedExec):
-            raise LookupError("Connection of type {} not part of this federated system.".format(type(query.catalog.connection)))
-        elif isinstance(query, FederatedMove):
-            raise LookupError("No movement strategy exists between systems of type {} and {}".format(
-                type(query.sourcecatalog.connection), type(query.targetcatalog.connection)))
-        else:
-            raise RuntimeError("Unsupported federated operator {}".format(type(query)))
+        print scidb_query
+        print "-------------------SPLIT---------------"
+        print myria_query
 
-        # def run(logical_plan, myria_conn, scidb_conn_factory):
+        myria_query = insert_loads + "\n" + myria_query
 
-        seq_op = federated_plan
+        parser = myrialparser.Parser()
+        catalog = FederatedCatalog([MyriaCatalog(self.get_myria_connection()), SciDBCatalog(self.get_scidb_connection())])
+        processor = interpreter.StatementProcessor(catalog, False)
+        statement_list = parser.parse(scidb_query)
+        processor.evaluate(statement_list)
+        algebras = [MyriaLeftDeepTreeAlgebra(), SciDBAFLAlgebra()]
+        falg = FederatedAlgebra(algebras, catalog)
 
-        assert isinstance(seq_op, Sequence)
+        pd = processor.get_physical_plan(target_alg=falg)
+
+        # Execute SciDB Query: UNCOMMENT
+        self.get_scidb_connection().execute_query(pd)
+
+        # Start the myria execution now.
+        statement_list = parser.parse(myria_query)
+        processor.evaluate(statement_list)
+
+
+        # pd = processor.get_physical_plan(target_alg=MyriaLeftDeepTreeAlgebra())
+        
+        r = self.get_myria_connection().execute_query(processor.get_logical_plan())
+        r['query_status'] = r['status']
+        r['query_url'] = r['url']
+        return r
+
+
+        # if isinstance(query, FederatedSequence):
+        #     # execute each statement in the sequence, and return
+        #     # only the result of the last statement
+        #     return map(self.execute_query, query.args)[-1] if query.args else None
+        # elif isinstance(query, FederatedParallel):
+        #     # TODO which one to return?
+        #     raise NotImplementedError("Not supporting FedParallel in GAE")
+        #     return Pool(len(query.args)).map(self.execute_query, query.args)
+        # elif isinstance(query, FederatedMove) and self._is_supported_move(query):
+        #     return self._get_move_strategy(query).move(query)
+        # elif isinstance(query, FederatedExec) and self._is_supported_catalog(query):
+        #     r = query.catalog.connection.execute_query(Sequence([query.plan]))
+        #
+        #     #TODO fix this API mismatch more elegantly; MyriaX returns 'status' and 'url'
+        #     if 'status' in r:
+        #         r['query_status'] = r['status']
+        #     if 'url' in r:
+        #         r['query_url'] = r['url']
+        #     return r
+        #
+        # elif isinstance(query, FederatedExec):
+        #     raise LookupError("Connection of type {} not part of this federated system.".format(type(query.catalog.connection)))
+        # elif isinstance(query, FederatedMove):
+        #     raise LookupError("No movement strategy exists between systems of type {} and {}".format(
+        #         type(query.sourcecatalog.connection), type(query.targetcatalog.connection)))
+        # else:
+        #     raise RuntimeError("Unsupported federated operator {}".format(type(query)))
+        #
+        # # def run(logical_plan, myria_conn, scidb_conn_factory):
+        #
+        # seq_op = federated_plan
+        #
+        # assert isinstance(seq_op, Sequence)
 
         '''
         outs = []

@@ -120,15 +120,29 @@ do
     vectors = [from groups emit id, time, mean as value];
     iterations = [from iterations emit $0 + 1, $1];
 while [from iterations emit $0 < $1];
+
+sink(symbols);
+
+--========================================================================
+-- Myria
+--========================================================================
+
+const test_vector_id: 1;
+const bins: 10;
+def idf(w_ij, w_ijN, N): log(N / w_ijN) * w_ij;
+
+
 ------------------------------------------------------------------------------------
 -- IDF
 ------------------------------------------------------------------------------------
 ids = distinct([from symbols emit id]);
 N = [from ids emit count(*) as N];
 frequencies = [from symbols emit value, index, count(*) as frequency];
+
 tfv = [from symbols, frequencies, N
        where symbols.value = frequencies.value
        emit id, index, idf(value, frequency, N) as value];
+
 ------------------------------------------------------------------------------------
 -- Conditioning
 ------------------------------------------------------------------------------------
@@ -141,47 +155,52 @@ conditioned_tfv = [from tfv, moments
                    emit id, index, value as v, mean, std, (value - mean) / std as value];
 sum_squares = [from conditioned_tfv
                emit id, sum(pow(value, 2)) as sum_squares];
+
 ------------------------------------------------------------------------------------
 -- k-NN
 ------------------------------------------------------------------------------------
+
 test_vector = [from conditioned_tfv where id = test_vector_id emit *];
+
 products = [from test_vector as x,
                  conditioned_tfv as y
                 where x.index = y.index
                 emit y.id as id, sum(x.value * y.value) as product];
+
 correlations = [from products, sum_squares
                 where products.id = sum_squares.id
                 emit products.id as id, product / sum_squares as rho];
+
 sink(correlations);
 """
 
-    statement_list = parser.parse(program)
-
-    processor.evaluate(statement_list)
-
-    # TODO: Should we just have every algebra take a catalog object as a parameter?
-    algebras = [MyriaLeftDeepTreeAlgebra(), SciDBAFLAlgebra()]
-    falg = FederatedAlgebra(algebras, catalog)
-
-    logical = processor.get_logical_plan()
-    print "LOGICAL"
-    print logical
-
-    pd = processor.get_physical_plan(target_alg=falg)
-
-    print "PHYSICAL"
-    print pd
-
+    # statement_list = parser.parse(program)
+    #
+    # processor.evaluate(statement_list)
+    #
+    # # TODO: Should we just have every algebra take a catalog object as a parameter?
+    # algebras = [MyriaLeftDeepTreeAlgebra(), SciDBAFLAlgebra()]
+    # falg = FederatedAlgebra(algebras, catalog)
+    #
+    # logical = processor.get_logical_plan()
+    # # print "LOGICAL"
+    # # print logical
+    #
+    # pd = processor.get_physical_plan(target_alg=falg)
+    #
+    # # print "PHYSICAL"
+    # # print pd
+    #
     # print raco.viz.operator_to_dot(pd)
 
     # scidbconnection.execute_query(pd.args[0])
 
-    # fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
+    fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
 
-    # result = fedconn.execute_query(pd)
+    result = fedconn.execute_query(program)
 
-    # return result
-    return pd
+    return result
+    # return logical
 
 def empty_query():
     """Simple empty query"""

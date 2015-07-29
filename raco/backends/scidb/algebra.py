@@ -210,13 +210,13 @@ save(
   redimension(
     store(
       regrid(
-        scan(Scidb__Demo_Vectors),
+        scan(Scidb__Demo__Vectors),
         1, 2,
         avg(value), bin1(value)),
         transform_1_{r}),
     out_transform_1_{r},
     signed_count(bucket) as value),
-  'out/transform_1_{r}', -1, 'csv+');
+  'out/transform_1', -1, 'csv+');
 
 save(
   redimension(
@@ -228,7 +228,7 @@ save(
         transform_2_{r}),
     out_transform_2_{r},
     signed_count(bucket) as value),
-  'out/transform_2_{r}', -1, 'csv+');
+  'out/transform_2', -1, 'csv+');
 
 save(
   redimension(
@@ -240,7 +240,7 @@ save(
         transform_3_{r}),
     out_transform_3_{r},
     signed_count(bucket) as value),
-  'out/transform_3_{r}', -1, 'csv+');
+  'out/transform_3', -1, 'csv+');
 
 save(
   redimension(
@@ -252,7 +252,7 @@ save(
         transform_4_{r}),
     out_transform_4_{r},
     signed_count(bucket) as value),
-  'out/transform_4_{r}', -1, 'csv+');
+  'out/transform_4', -1, 'csv+');
 
 save(
   redimension(
@@ -264,7 +264,7 @@ save(
         transform_5_{r}),
     out_transform_5_{r},
     signed_count(bucket) as value),
-  'out/transform_5_{r}', -1, 'csv+');
+  'out/transform_5', -1, 'csv+');
 
 save(
   redimension(
@@ -276,7 +276,7 @@ save(
         transform_6_{r}),
     out_transform_6_{r},
     signed_count(bucket) as value),
-  'out/transform_6_{r}', -1, 'csv+');
+  'out/transform_6', -1, 'csv+');
 
 save(
   redimension(
@@ -288,7 +288,7 @@ save(
         transform_7_{r}),
     out_transform_7_{r},
     signed_count(bucket) as value),
-  'out/transform_7_{r}', -1, 'csv+');
+  'out/transform_7', -1, 'csv+');
 
 save(
   redimension(
@@ -300,7 +300,7 @@ save(
         transform_8_{r}),
     out_transform_8_{r},
     signed_count(bucket) as value),
-  'out/transform_8_{r}', -1, 'csv+');
+  'out/transform_8', -1, 'csv+');
 	""".format(r = random.randint(1, 10000000))
 	return ret
 
