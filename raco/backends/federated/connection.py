@@ -68,7 +68,6 @@ symbols = symbols0x1 + symbols0x2 + symbols0x3 + symbols0x4 +
           symbols3x5 + symbols3x6 + symbols3x7 + symbols3x8;
 store(symbols, symbols);
 symbols = scan(symbols);
-
 """
 
 
@@ -153,9 +152,9 @@ class FederatedConnection(object):
 
         [scidb_query, myria_query] = query.split('-- Myria')
 
-        print scidb_query
-        print "-------------------SPLIT---------------"
-        print myria_query
+        # print scidb_query
+        # print "-------------------SPLIT---------------"
+        # print myria_query
 
         myria_query = insert_loads + "\n" + myria_query
 
