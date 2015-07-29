@@ -31,7 +31,11 @@ def skip(str):
 def get_myria_connection():
     if skip('RACO_MYRIAX_TESTS'):
         # Use the local stub server
-        connection = MyriaConnection(hostname='localhost', port=12345)
+        # connection = MyriaConnection(hostname='localhost', port=12345)
+        rest_url = 'http://localhost:8753'
+        execution_url = 'http://localhost:8090'
+        connection = MyriaConnection(rest_url=rest_url,
+                                     execution_url=execution_url)
     else:
         # Use the production server
         #rest_url = 'https://rest.myria.cs.washington.edu:1776'
@@ -47,7 +51,9 @@ def get_myria_connection():
 def get_scidb_connection():
     if skip('RACO_SCIDB_TESTS'):
         # Use the local stub server
-        connection = SciDBConnection('http://ec2-54-175-66-8.compute-1.amazonaws.com:8080')
+        # connection = SciDBConnection('http://ec2-54-175-66-8.compute-1.amazonaws.com:8080')
+        connection = SciDBConnection('http://localhost:8092')
+
         # connection = SciDBConnection('http://localhost:9000')
     else:
         # Use the production server
