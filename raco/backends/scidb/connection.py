@@ -89,7 +89,7 @@ class SciDBConnection(object):
                 'query_url': 'TODO:scidb url',
 
                 # myriaX response format
-                'status': result,
+                'status': r.text,
                 'url': 'TODO:scidb url'
         }
 
