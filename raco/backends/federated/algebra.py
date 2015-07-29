@@ -34,6 +34,9 @@ class FederatedExec(FederatedOperator):
         self.plan = plan
         self.catalog = catalog
 
+    def scheme(self):
+        return self.plan.scheme()
+
     def num_tuples(self):
         return self.plan.num_tuples()
 
@@ -84,14 +87,14 @@ class FederatedSequence(raco.algebra.Sequence, FederatedExec):
         return "{}(\n{}\n)".format(self.__class__.__name__, args)
 
 
-class FederatedParallel(raco.algebra.Parallel):
+class FederatedParallel(raco.algebra.Parallel, FederatedOperator):
     def __init__(self, args):
         for expr in args:
             assert(isinstance(expr, FederatedOperator))
         super(self.__class__, self).__init__(args)
 
 
-class FederatedDoWhile(raco.algebra.DoWhile):
+class FederatedDoWhile(raco.algebra.DoWhile, FederatedOperator):
     def __init__(self, args):
         for expr in args:
             assert(isinstance(expr, FederatedOperator))
@@ -201,14 +204,28 @@ Maybe rule traversal is not bottom-up?"
             raise ValueError(cls.err.format(child))
 
     def fire(self, op):
+        # print type(op)
         if isinstance(op, raco.algebra.Scan):
             # TODO: Assumes each relation is in only one catalog
             cat = self.federatedcatalog.sourceof(op.relation_key)
             newop = FederatedExec(op, cat)
             return newop
 
+        if isinstance(op, raco.algebra.ScanTemp):
+            # TODO: Assumes each relation is in only one catalog
+            cat = self.federatedcatalog.get_catalog(op.name)
+            newop = FederatedExec(op, cat)
+            return newop
+
+        if isinstance(op, raco.algebra.EmptyRelation):
+            # Assuming empty relations are scidb for now
+            return FederatedExec(op, self.federatedcatalog.get_scidb_catalog())
+
         if isinstance(op, raco.algebra.UnaryOperator):
            self.checkchild(op.input)
+
+           if isinstance(op, raco.algebra.StoreTemp):
+               self.federatedcatalog.add_to_temp_relations(op.name, op.input.catalog)
 
            execop = op.input
            # Absorb the current operator into the Exec
@@ -233,7 +250,7 @@ Maybe rule traversal is not bottom-up?"
            else:
                if isinstance(leftcatalog, MyriaCatalog) and \
                              isinstance(rightcatalog, SciDBCatalog):
-                   # We need to move a dataset
+                       # We need to move a dataset
 
                    # Give it a name
                    movedrelation = RelationKey(raco.algebra.gensym())
@@ -307,6 +324,10 @@ Maybe rule traversal is not bottom-up?"
 
             if isinstance(op, raco.algebra.DoWhile):
                 return FederatedDoWhile(op.args)
+
+
+        assert False, "{op} --- is not supported".format(op = op)
+        return op
 
 
 class FlattenSingletonFederatedSequence(rules.TopDownRule):
