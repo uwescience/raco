@@ -154,34 +154,40 @@ class FederatedConnection(object):
 
         # print scidb_query
         # print "-------------------SPLIT---------------"
-        # print myria_query
 
         myria_query = insert_loads + "\n" + myria_query
+        # print myria_query
 
-        parser = myrialparser.Parser()
-        catalog = FederatedCatalog([MyriaCatalog(self.get_myria_connection()), SciDBCatalog(self.get_scidb_connection())])
-        processor = interpreter.StatementProcessor(catalog, False)
-        statement_list = parser.parse(scidb_query)
-        processor.evaluate(statement_list)
-        algebras = [MyriaLeftDeepTreeAlgebra(), SciDBAFLAlgebra()]
-        falg = FederatedAlgebra(algebras, catalog)
+        def run_scidb():
+            parser = myrialparser.Parser()
+            catalog = FederatedCatalog([MyriaCatalog(self.get_myria_connection()), SciDBCatalog(self.get_scidb_connection())])
+            processor = interpreter.StatementProcessor(catalog, False)
+            statement_list = parser.parse(scidb_query)
+            processor.evaluate(statement_list)
+            algebras = [MyriaLeftDeepTreeAlgebra(), SciDBAFLAlgebra()]
+            falg = FederatedAlgebra(algebras, catalog)
 
-        pd = processor.get_physical_plan(target_alg=falg)
+            pd = processor.get_physical_plan(target_alg=falg)
 
-        # Execute SciDB Query: UNCOMMENT
-        self.get_scidb_connection().execute_query(pd)
+            # Execute SciDB Query: UNCOMMENT
+            self.get_scidb_connection().execute_query(pd)
 
-        # Start the myria execution now.
-        statement_list = parser.parse(myria_query)
-        processor.evaluate(statement_list)
+        run_scidb()
+        def run_myria():
+            parser = myrialparser.Parser()
+            processor = interpreter.StatementProcessor(MyriaCatalog(self.get_myria_connection()), False)
+            # Start the myria execution now.
+            statement_list = parser.parse(myria_query)
+            processor.evaluate(statement_list)
+            # pd = processor.get_physical_plan(target_alg=MyriaLeftDeepTreeAlgebra())
+            # print processor.get_logical_plan()
 
+            r = self.get_myria_connection().execute_query(processor.get_logical_plan())
+            r['query_status'] = r['status']
+            r['query_url'] = r['url']
+            return r
 
-        # pd = processor.get_physical_plan(target_alg=MyriaLeftDeepTreeAlgebra())
-
-        r = self.get_myria_connection().execute_query(processor.get_logical_plan())
-        r['query_status'] = r['status']
-        r['query_url'] = r['url']
-        return r
+        return run_myria()
 
 
         # if isinstance(query, FederatedSequence):
