@@ -1,6 +1,7 @@
 import scidbpy
 from raco.compile import optimize
 from raco.backends.scidb.algebra import SciDBAFLAlgebra, compile_to_afl, compile_to_afl_new
+import requests
 
 __all__ = ['FederatedConnection']
 
@@ -12,7 +13,8 @@ class SciDBConnection(object):
         Args:
             url: SciDB shim URL
         """
-        self.connection = scidbpy.connect(url, username=username, password=password)
+        self.url = url
+        # self.connection = scidbpy.connect(url, username=username, password=password)
 
     def workers(self):
         """Return a dictionary of the workers"""
@@ -71,17 +73,19 @@ class SciDBConnection(object):
         # # compile_to_afl_new(physical_plan)
 
         afl_string = compile_to_afl(physical_plan)
+
         result = ""
         # sci-db AFL parser expects one statement at a time
-        for stmt in afl_string.split(";"):
-            if stmt.isspace() or len(stmt) <= 1:
-                continue
-            result += str(self.connection.query(stmt))
-
+        # for stmt in afl_string.split(";"):
+        #     if stmt.isspace() or len(stmt) <= 1:
+        #         continue
+        #     result += str(self.connection.query(stmt))
+        #print " ".join(afl_string.split())
+        r = requests.get(self.url + '/iquery?' + " ".join(afl_string.split()))
         # FIXME: which do we want?
         return {
                  # myria-web
-                'query_status': result,
+                'query_status': r.text,
                 'query_url': 'TODO:scidb url',
 
                 # myriaX response format

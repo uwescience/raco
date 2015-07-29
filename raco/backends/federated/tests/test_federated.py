@@ -52,7 +52,7 @@ def get_scidb_connection():
     if skip('RACO_SCIDB_TESTS'):
         # Use the local stub server
         # connection = SciDBConnection('http://ec2-54-175-66-8.compute-1.amazonaws.com:8080')
-        connection = SciDBConnection('http://localhost:8092')
+        connection = SciDBConnection('http://localhost:8751')
 
         # connection = SciDBConnection('http://localhost:9000')
     else:
