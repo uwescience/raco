@@ -1444,7 +1444,6 @@ class StoreTemp(UnaryOperator):
     """
 
     def __init__(self, name=None, input=None):
-        assert input is not None
         UnaryOperator.__init__(self, input)
         self.name = name
 
