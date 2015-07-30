@@ -130,6 +130,9 @@ class FederatedConnection(object):
         """
 
         #TODO: Fix hack, assuming query is a query string and not a parsed plan
+        if query.split('\n', 1)[0] == "-- exec scidb":
+            query = query.split('\n', 1)[1]
+            return self.get_scidb_connection().execute_afl(query)
 
         [scidb_query, myria_query] = query.split('-- Myria')
 

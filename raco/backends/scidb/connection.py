@@ -54,6 +54,19 @@ class SciDBConnection(object):
         #return self.connection.query(query)
         raise NotImplemented
 
+    def execute_afl(self, query):
+        r = requests.get(self.url + '/iquery?' + " ".join(query.split()))
+        # FIXME: which do we want?
+        return {
+                 # myria-web
+                'query_status': r.text,
+                'query_url': 'TODO:scidb url',
+
+                # myriaX response format
+                'status': r.text,
+                'url': 'TODO:scidb url'
+        }
+
     def execute_query(self, query):
         """Submit the query and block until it finishes
 
