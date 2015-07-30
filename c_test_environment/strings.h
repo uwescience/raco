@@ -161,3 +161,8 @@ template <size_t N>
 bool operator%(const std::array<char, N>& s, std::regex r) {
   return std::regex_match(std::string(s.data()), r);
 }
+
+template <size_t N>
+std::string substr(const std::array<char, N>& s, uint64_t pos, uint64_t len) {
+  return std::string(s.data()).substr(pos, len);
+}
