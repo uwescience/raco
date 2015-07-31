@@ -14,17 +14,17 @@ namespace dates {
 
 // for passing an array
 // TODO implicit conversion to avoid this code, https://github.com/uwescience/raco/issues/454
-  <template N>
+  template <size_t N>
   uint64_t year(std::array<char, N> date) {
-    year(std::string(date.data()))
+    year(std::string(date.data()));
   }
-  <template N>
+  template <size_t N>
   uint64_t month(std::array<char, N> date) {
-    month(std::string(date.data()))
+    month(std::string(date.data()));
   }
-  <template N>
+  template <size_t N>
   uint64_t day(std::array<char, N> date) {
-    day(std::string(date.data()))
+    day(std::string(date.data()));
   }
 
   std::string add(std::string t, int64_t days);
