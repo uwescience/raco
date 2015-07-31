@@ -175,7 +175,8 @@ correlations = [from products, sum_squares
                 where products.id = sum_squares.id
                 emit products.id as id, product / sum_squares as rho];
 
-sink(correlations);
+store(correlations, correlations);
+-- sink(correlations);
 """
 
     # statement_list = parser.parse(program)
