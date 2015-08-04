@@ -43,7 +43,7 @@ strings.o : strings.cc strings.h
 dates.o : dates.cc dates.h
 	$(COMP)
 
-utils.o : utils.cc utils.h
+radish_utils.o : radish_utils.cc radish_utils.h
 	$(COMP) 
 
 %.o : %.cpp 
@@ -55,5 +55,5 @@ dates_test : dates.o dates_test.cc
 run_dates_test : dates_test
 	./dates_test
 
-libracoc.a: strings.o utils.o dates.o
+libracoc.a: strings.o radish_utils.o dates.o
 	ar rcs $@ $^
