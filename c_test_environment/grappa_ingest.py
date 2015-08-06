@@ -18,6 +18,7 @@ p.add_argument("-n", dest="relation_name", required=True, help="name of relation
 p.add_argument("--splits", dest="splits", action="store_true", help="input file is base directory of file splits (e.g. hdfs)")
 p.add_argument("--softlink-data", dest="softlink_data", action="store_true", help="data file softlinked rather than copied")
 p.add_argument("--local-softlink-data", dest="local_softlink_data", action="store_true", help="softlink locally, only use if --host!=localhost but want local softlink (e.g. NFS)")
+p.add_argument("--allow-failed-upload", dest="allow_failed_upload", action="store_true", help="if softlinking on then still softlink even if uploading data fails")
 p.add_argument("--host", dest="host", help="hostname of server", default="localhost")
 p.add_argument("--port", dest="port", help="port server is listening on", default=1337)
 p.add_argument("--external-string-index", dest="ext_index", action="store_true", help="Create string external string index that is deprecated after raco@40640adff89e1c1aade007a998b335b623ff22aa")
@@ -168,7 +169,13 @@ with open(schema_file, 'w') as csvfile:
 print "data for input in " + schema_file
 
 conn = UploadConnection(args.host, args.port)
-conn.upload(schema_file, upload_files)
+
+try:
+    conn.upload(schema_file, upload_files)
+except Exception as e:
+    if not args.allow_failed_upload:
+        raise e
+
 conn.softlink(link_files)
 
 print "successful upload of: " + schema_file + " and " + str(upload_files)
