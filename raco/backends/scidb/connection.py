@@ -55,16 +55,17 @@ class SciDBConnection(object):
         raise NotImplemented
 
     def execute_afl(self, query):
-        r = requests.get(self.url + '/iquery?' + " ".join(query.split()))
+        #r = requests.get(self.url + '/iquery?' + " ".join(query.split()))
+        r = requests.post(self.url + '/iquery', data={'query': query })
         # FIXME: which do we want?
         return {
                  # myria-web
                 'query_status': r.text,
-                'query_url': 'TODO:scidb url',
+                'query_url': 'http://localhost:8753/query/query-1',
 
                 # myriaX response format
                 'status': r.text,
-                'url': 'TODO:scidb url'
+                'url': 'http://localhost:8753/query/query-1'
         }
 
     def execute_query(self, query):
