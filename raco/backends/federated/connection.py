@@ -205,8 +205,8 @@ class FederatedConnection(object):
             # print processor.get_logical_plan()
 
             r = self.get_myria_connection().execute_query(processor.get_logical_plan())
-            r['query_status'] = r['status']
-            r['query_url'] = r['url']
+            r['query_status'] = str(r['status'])
+            r['query_url'] = str(r['url'])
             # print r
             return r
 
