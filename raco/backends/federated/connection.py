@@ -6,6 +6,24 @@ from raco.algebra import Sequence
 from raco.backends.logical import OptLogicalAlgebra
 from algebra import FederatedSequence, FederatedParallel, FederatedMove, FederatedExec
 
+from raco.backends.scidb.connection import SciDBConnection
+from raco.backends.scidb.catalog import SciDBCatalog
+from raco.backends.scidb.algebra import SciDBAFLAlgebra, SciDBScan, SciDBStore, SciDBConcat
+
+from raco.backends.myria.connection import MyriaConnection
+from raco.backends.myria.catalog import MyriaCatalog
+from raco.backends.myria import MyriaLeftDeepTreeAlgebra
+
+from raco.backends.federated.connection import FederatedConnection
+from raco.backends.federated.catalog import FederatedCatalog
+from raco.backends.federated import FederatedAlgebra
+
+import raco.myrial.interpreter as interpreter
+import raco.myrial.parser as myrialparser
+
+from raco.backends.federated.movers.filesystem import SciDBToMyria
+
+
 import logging
 import numpy as np
 import time
