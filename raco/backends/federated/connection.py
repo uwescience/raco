@@ -14,7 +14,7 @@ from raco.backends.myria.connection import MyriaConnection
 from raco.backends.myria.catalog import MyriaCatalog
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra
 
-from raco.backends.federated.connection import FederatedConnection
+#from raco.backends.federated.connection import FederatedConnection
 from raco.backends.federated.catalog import FederatedCatalog
 from raco.backends.federated import FederatedAlgebra
 
