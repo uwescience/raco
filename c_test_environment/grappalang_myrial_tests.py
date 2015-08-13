@@ -54,7 +54,7 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             dwf.write(physical_dot)
 
         # generate code in the target language
-        code = compile(plan)
+        code = compile(plan, **kwargs)
 
         fname = os.path.join("c_test_environment", "{gname}.cpp".format(gname=gname))
         if os.path.exists(fname):
