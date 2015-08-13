@@ -112,6 +112,14 @@ class GrappaLanguage(CBaseLanguage):
         return code
 
     @staticmethod
+    def iterators_wrap(code, attrs):
+        code = GrappaLanguage.on_all(code)
+        code += """
+        iterate(&{fragment_symbol}, &{global_syncname});
+        """.format(**attrs)
+        return code
+
+    @staticmethod
     def pipeline_wrap(ident, plcode, attrs):
 
         def apply_wrappers(code, wrappers):
@@ -1265,8 +1273,9 @@ class GrappaStore(clangcommon.CBaseStore, GrappaOperator):
 
 class MemoryScanOfFileScan(rules.Rule):
 
-    def __init__(self, array_rep):
+    def __init__(self, array_rep, memory_scan_class=GrappaMemoryScan):
         self._array_rep = array_rep
+        self._memory_scan_class = memory_scan_class
         super(MemoryScanOfFileScan, self).__init__()
 
     """A rewrite rule for making a scan into materialization
@@ -1275,7 +1284,7 @@ class MemoryScanOfFileScan(rules.Rule):
     def fire(self, expr):
         if isinstance(expr, algebra.Scan) \
                 and not isinstance(expr, GrappaFileScan):
-            return GrappaMemoryScan(
+            return self._memory_scan_class(
                 GrappaFileScan(self._array_rep,
                                expr.relation_key,
                                expr.scheme()),
@@ -1362,6 +1371,94 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
             assert False, "bad childtag: {0}".format(src.childtag)
 
 
+class Iterator(object):
+    _cgenv = clangcommon.prepend_template_relpath(GrappaLanguage.cgenv(),
+                                                  '{0}/iterators/'.format(GrappaLanguage._template_path))
+
+    def operator_code(self, **kwargs):
+        return self.cgenv().get_template("instantiate_operator.cpp").render(kwargs)
+
+    def default_operator_code(self, **kwargs):
+        kwargs['call_constructor'] = "{class_symbol}({inputsym})".format(**kwargs)
+        return self.operator_code(**kwargs)
+
+    def sink_operator_code(self, **kwargs):
+        return self.cgenv().get_template("instantiate_sink.cpp").render(kwargs)
+
+    def assign_symbol(self):
+        self.symbol = gensym()
+
+    def cgenv(cls):
+        return cls._cgenv
+
+
+class IGrappaMemoryScan(GrappaMemoryScan, Iterator):
+    def _constructor(self, inputsym, state):
+        return "Scan<{{type}}>({{inputsym}})".format(type=state.lookupTupleDef(inputsym),
+                                                     inputsym=inputsym)
+
+    def consume(self, inputsym, src, state):
+        _ = create_pipeline_synchronization(state)
+        _ = get_pipeline_task_name(state)
+
+        self.assign_symbol()
+        stagedTuple = state.lookupTupleDef(inputsym)
+        state.addOperator(self.operator_code(
+            produce_type=stagedTuple.getTupleTypename(),
+            symbol=self.symbol,
+            call_constructor=self._constructor(inputsym, state)
+        ))
+        self.parent().consume(stagedTuple, self, state)
+
+        state.addPipeline()
+        return None
+
+
+class IGrappaSelect(GrappaSelect, Iterator):
+    def consume(self, t, src, state):
+        class_symbol = "Select_{sym}".format(sym=gensym())
+        self.assign_symbol()
+        state.addDeclarations([self.cgenv().get_template("select.cpp").render(
+            class_symbol=class_symbol,
+            consume_type=t.getTupleTypename(),
+            produce_type=t.getTupleTypename(),
+            consume_tuple_name=t.name,
+            expression=self._compile_condition(t, state)
+        )])
+        state.addOperator(self.default_operator_code(
+            produce_type=t.getTupleTypename(),
+            symbol=self.symbol,
+            inputsym=src.symbol,
+            class_symbol=class_symbol
+        ))
+        self.parent().consume(t, self, state)
+        return None
+
+
+class IGrappaStore(GrappaStore, Iterator):
+    def _constructor(self, t, inputsym, state):
+        return "Store<{type}>({inputsym}, &result)".format(type=t.getTupleTypename(),
+                                                               inputsym=inputsym)
+
+    def consume(self, t, src, state):
+        # FIXME hack to include iterators header file
+        # FIXME   I'd prefer to subclass the base_query.cpp template using
+        # FIXME   a jinja block called "includes", but
+        # FIXME   GrappaLanguage.base_template is sort of fixed by _cgenv
+        state.addDeclarations(["#include Operators.hpp;\n"])
+
+        symbol = "frag_{0}".format(gensym())
+        state.setPipelineProperty('fragment_symbol', symbol)
+        self._add_result_declaration(t, state)
+        state.addDeclarations([self.cgenv().get_template("sink_declaration.cpp").render(symbol=symbol)])
+        state.addOperator(self.sink_operator_code(
+            symbol=symbol,
+            call_constructor=self._constructor(t, src.symbol, state)
+        ))
+        return None
+
+
+
 class CrossProductWithSmall(rules.Rule):
     """
     If there is a cross product between a relation and
@@ -1378,6 +1475,23 @@ class CrossProductWithSmall(rules.Rule):
     def __str__(self):
         return "CrossProduct(big, singleton) => " \
                "GrappaBroadcastCrossProduct(big, singleton)"
+
+
+def iteratorfy(emit_print, scan_array_repr):
+    return [
+        rules.ProjectingJoinToProjectOfJoin(),
+
+        rules.OneToOne(algebra.Select, IGrappaSelect),
+        MemoryScanOfFileScan(scan_array_repr, IGrappaMemoryScan),
+        #rules.OneToOne(algebra.Apply, GrappaApply),
+        #rules.OneToOne(algebra.Join, join_type),
+        #rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
+        #rules.OneToOne(algebra.Project, GrappaProject),
+        #rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
+        # TODO: obviously breaks semantics
+        #rules.OneToOne(algebra.Union, GrappaUnionAll),
+        clangcommon.StoreToBaseCStore(emit_print, IGrappaStore),
+    ]
 
 def grappify(join_type, emit_print,
              scan_array_repr):
@@ -1429,6 +1543,14 @@ class GrappaAlgebra(Algebra):
         scan_array_repr = kwargs.get('scan_array_repr',
                                      _ARRAY_REPRESENTATION.GLOBAL_ARRAY)
 
+        compiler_type = kwargs.get('compiler', 'push')
+        if compiler_type == 'push':
+            grappify_rules = grappify(join_type, self.emit_print, scan_array_repr)
+        elif compiler_type == 'iterator':
+            grappify_rules = iteratorfy(self.emit_print, scan_array_repr)
+        else:
+            raise ValueError("unsupported argument compiler={0}".format(compiler_type))
+
         # sequence that works for myrial
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
@@ -1436,8 +1558,8 @@ class GrappaAlgebra(Algebra):
             clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
-            grappify(join_type, self.emit_print, scan_array_repr),
-            [CrossProductWithSmall()]
+            grappify_rules,
+            [CrossProductWithSmall()],
         ]
 
         if kwargs.get('SwapJoinSides'):

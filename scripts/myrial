@@ -155,9 +155,10 @@ def main(args):
         elif opt.clang:
             # some useful kwargs
             # scan_array_repr='symmetric_array'
-            pp = pd.get_physical_plan(target_alg=GrappaAlgebra(), **kwargs)
+            pp = pd.get_physical_plan(target_alg=GrappaAlgebra(),
+                                      **kwargs)
             print_pretty_plan(pp)
-            c = compile(pp)
+            c = compile(pp, **kwargs)
             fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
             with open(fname, 'w') as f:
                 f.write(c)

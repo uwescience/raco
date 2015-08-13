@@ -35,7 +35,7 @@ class ResolvingSymbol:
         return code
 
 
-class CompileState:
+class CompileState(object):
 
     def __init__(self, lang, cse=True):
         self.language = lang
@@ -255,7 +255,9 @@ class CompileState:
         self.materialized[expr] = sym
 
     def lookupTupleDef(self, sym):
-        return self.tupledefs.get(sym)
+        r = self.tupledefs.get(sym)
+        assert r is not None, "required tuple definition not found: {0}".format(sym)
+        return r
 
     def saveTupleDef(self, sym, tupledef):
         self.tupledefs[sym] = tupledef
@@ -318,10 +320,13 @@ class Pipelined(object):
         """Denotation for consuming a tuple"""
         return
 
-    def compilePipeline(self):
+    def compilePipeline(self, **kwargs):
         self.__markAllParents__()
 
-        state = CompileState(self.language())
+        compilerstate = {'push': CompileState,
+                 'iterator': IteratorCompileState
+        }[kwargs.get('compiler', 'push')]
+        state = compilerstate(self.language())
 
         state.addCode(
             self.language().comment("Compiled subplan for %s" % self))
@@ -331,3 +336,22 @@ class Pipelined(object):
         # state.addCode( self.language().log("Evaluating subplan %s" % self) )
 
         return state
+
+
+class IteratorCompileState(CompileState):
+    def __init__(self, lang, cse=True):
+        super(IteratorCompileState, self).__init__(lang, cse)
+        self.iterator_operators = []
+
+    def addOperator(self, code):
+        self.iterator_operators.append(code)
+
+    def addPipeline(self, p=None):
+        # base class addPipeline takes code from the client,
+        # but the IteratorCompileState keeps track of the code itself in self.iterator_operators
+        if p is None: # None indicates an iterator pipeline
+            p = self.language.iterators_wrap(''.join(self.iterator_operators), self.current_pipeline_properties)
+
+        super(IteratorCompileState, self).addPipeline(p)
+        self.iterator_operators = []
+

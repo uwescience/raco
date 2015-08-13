@@ -403,13 +403,7 @@ class StagedTupleRef:
 
 
 class CBaseSelect(Pipelined, algebra.Select):
-
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
-        basic_select_template = _cgenv.get_template('select.cpp')
-
+    def _compile_condition(self, t, state):
         condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
 
         # compile the predicate into code
@@ -418,6 +412,16 @@ class CBaseSelect(Pipelined, algebra.Select):
                 condition_as_unnamed, tupleref=t)
         state.addInitializers(cond_inits)
         state.addDeclarations(cond_decls)
+        return conditioncode
+
+
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        basic_select_template = _cgenv.get_template('select.cpp')
+
+        conditioncode = self._compile_condition(t, state)
 
         inner_code_compiled = self.parent().consume(t, self, state)
 
@@ -687,10 +691,13 @@ class CBaseStore(Pipelined, algebra.Store):
     def produce(self, state):
         self.input.produce(state)
 
-    def consume(self, t, src, state):
-        code = ""
+    def _add_result_declaration(self, t, state):
         resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
         state.addDeclarations([resdecl])
+
+    def consume(self, t, src, state):
+        code = ""
+        self._add_result_declaration(t, state)
         code += "result.push_back(%s);\n" % (t.name)
 
         if self.emit_print == EMIT_CONSOLE:
