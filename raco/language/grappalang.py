@@ -1519,7 +1519,14 @@ class GrappaAlgebra(Algebra):
     def __init__(self, emit_print=clangcommon.EMIT_CONSOLE):
         self.emit_print = emit_print
 
-    def opt_rules(self, **kwargs):
+    def opt_rules(self,
+                  join_type=GrappaHashJoin,
+                  scan_array_repr=_ARRAY_REPRESENTATION.GLOBAL_ARRAY,
+                  compiler='push',
+                  SwapJoinSides=False,
+                  external_indexing=False,
+                  **kwargs):
+
         # datalog_rules = [
         # rules.removeProject(),
         #     rules.CrossProduct2Join(),
@@ -1539,17 +1546,12 @@ class GrappaAlgebra(Algebra):
         # rules.FreeMemory()
         # ]
 
-        join_type = kwargs.get('join_type', GrappaHashJoin)
-        scan_array_repr = kwargs.get('scan_array_repr',
-                                     _ARRAY_REPRESENTATION.GLOBAL_ARRAY)
-
-        compiler_type = kwargs.get('compiler', 'push')
-        if compiler_type == 'push':
+        if compiler == 'push':
             grappify_rules = grappify(join_type, self.emit_print, scan_array_repr)
-        elif compiler_type == 'iterator':
+        elif compiler == 'iterator':
             grappify_rules = iteratorfy(self.emit_print, scan_array_repr)
         else:
-            raise ValueError("unsupported argument compiler={0}".format(compiler_type))
+            raise ValueError("unsupported argument compiler={0}".format(compiler))
 
         # sequence that works for myrial
         rule_grps_sequence = [
@@ -1562,11 +1564,11 @@ class GrappaAlgebra(Algebra):
             [CrossProductWithSmall()],
         ]
 
-        if kwargs.get('SwapJoinSides'):
+        if SwapJoinSides:
             rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
         # set external indexing on (replacing strings with ints)
-        if kwargs.get('external_indexing'):
+        if external_indexing:
             CBaseLanguage.set_external_indexing(True)
 
         # flatten the rules lists
