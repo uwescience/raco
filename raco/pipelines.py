@@ -30,6 +30,7 @@ class ResolvingSymbol:
         # inefficient multi-string replacement
         # TODO: replace with multi-pattern sed script
         for name, val in symbols.items():
+            assert val is not None, "Unresolved symbol: {}".format(name)
             pat = r'{0}{1}'.format(cls._unique_tag, name)
             code = re.sub(pat, val, code)
         return code
