@@ -1372,29 +1372,38 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
 
 
 class Iterator(object):
-    _cgenv = clangcommon.prepend_template_relpath(GrappaLanguage.cgenv(),
+    __cgenv = clangcommon.prepend_template_relpath(GrappaLanguage.cgenv(),
                                                   '{0}/iterators/'.format(GrappaLanguage._template_path))
 
     def operator_code(self, **kwargs):
-        return self.cgenv().get_template("instantiate_operator.cpp").render(kwargs)
+        return self.iter_cgenv().get_template("instantiate_operator.cpp").render(kwargs)
 
     def default_operator_code(self, **kwargs):
         kwargs['call_constructor'] = "{class_symbol}({inputsym})".format(**kwargs)
         return self.operator_code(**kwargs)
 
     def sink_operator_code(self, **kwargs):
-        return self.cgenv().get_template("instantiate_sink.cpp").render(kwargs)
+        return self.iter_cgenv().get_template("instantiate_sink.cpp").render(kwargs)
+
+    def declare_sink(self, state):
+        symbol = "frag_{0}".format(gensym())
+        state.setPipelineProperty('fragment_symbol', symbol)
+        try:
+            state.addDeclarations([self.iter_cgenv().get_template("sink_declaration.cpp").render(symbol=symbol)])
+        except Exception as e:
+            print "OK: ",e
+        return symbol
 
     def assign_symbol(self):
         self.symbol = gensym()
 
-    def cgenv(cls):
-        return cls._cgenv
+    def iter_cgenv(cls):
+        return cls.__cgenv
 
 
 class IGrappaMemoryScan(GrappaMemoryScan, Iterator):
     def _constructor(self, inputsym, state):
-        return "Scan<{{type}}>({{inputsym}})".format(type=state.lookupTupleDef(inputsym),
+        return "Scan<{type}>({inputsym})".format(type=state.lookupTupleDef(inputsym).getTupleTypename(),
                                                      inputsym=inputsym)
 
     def consume(self, inputsym, src, state):
@@ -1418,7 +1427,7 @@ class IGrappaSelect(GrappaSelect, Iterator):
     def consume(self, t, src, state):
         class_symbol = "Select_{sym}".format(sym=gensym())
         self.assign_symbol()
-        state.addDeclarations([self.cgenv().get_template("select.cpp").render(
+        state.addDeclarations([self.iter_cgenv().get_template("select.cpp").render(
             class_symbol=class_symbol,
             consume_type=t.getTupleTypename(),
             produce_type=t.getTupleTypename(),
@@ -1447,14 +1456,93 @@ class IGrappaStore(GrappaStore, Iterator):
         # FIXME   GrappaLanguage.base_template is sort of fixed by _cgenv
         state.addDeclarations(["#include Operators.hpp;\n"])
 
-        symbol = "frag_{0}".format(gensym())
-        state.setPipelineProperty('fragment_symbol', symbol)
+        symbol = self.declare_sink(state)
         self._add_result_declaration(t, state)
-        state.addDeclarations([self.cgenv().get_template("sink_declaration.cpp").render(symbol=symbol)])
         state.addOperator(self.sink_operator_code(
             symbol=symbol,
             call_constructor=self._constructor(t, src.symbol, state)
         ))
+        return None
+
+
+class IGrappaApply(GrappaApply, Iterator):
+    def consume(self, t, src, state):
+        class_symbol = "Apply_{}".format(gensym())
+        self.symbol = gensym()
+
+        state.addDeclarations([self.iter_cgenv().get_template("apply.cpp").render(
+            class_symbol=class_symbol,
+            produce_type=self.newtuple.getTupleTypename(),
+            consume_type=t.getTupleTypename(),
+            produce_tuple_name=self.newtuple.name,
+            consume_tuple_name=t.name,
+            statements=self._apply_statements(t, state)
+        )])
+        state.addOperator(self.default_operator_code(
+            produce_type=self.newtuple.getTupleTypename(),
+            class_symbol=class_symbol,
+            symbol=self.symbol,
+            inputsym=src.symbol
+        ))
+
+        self.parent().consume(self.newtuple, self, state)
+        return None
+
+
+class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
+    def _constructor(self, inputsym, class_symbol):
+        return "{class_symbol}(&{hashname}, {inputsym})".format(
+            class_symbol=class_symbol,
+            hashname=self._hashname,
+            inputsym=inputsym
+        )
+
+    def consume(self, t, src, state):
+        class_symbol_template = "HashJoinSink{side}_{sym}"
+        symbol = self.declare_sink(state)
+
+        if src.childtag == 'right':
+            side = 'Right'
+            class_symbol = class_symbol_template.format(side=side, sym=gensym())
+
+            state.addDeclarations([self.iter_cgenv().get_template("hashjoin_sink.cpp").render(
+                class_symbol=class_symbol,
+                side=side,
+                keytype=          None,
+                left_tuple_type=           None,
+                right_tuple_type=           None,
+                input_tuple_name=           None,
+                keyval=           None,
+            )])
+
+
+            state.resolveSymbol(self.rightTypeRef, "TODO")
+
+        elif src.childtag == 'left':
+            side = 'Left'
+            class_symbol = class_symbol_template.format(side=side, sym=gensym())
+
+            state.addDeclarations([self.iter_cgenv().get_template("hashjoin_sink.cpp").render(
+                class_symbol=class_symbol,
+                side=side,
+                keytype=           None,
+                left_tuple_type=           None,
+                right_tuple_type=           None,
+                input_tuple_name=           None,
+                keyval=           None,
+            )])
+
+
+            state.resolveSymbol(self.leftTypeRef, "TODO")
+
+        else:
+            assert False, "Invalid child tag: {}".format(src.childtag)
+
+        state.addOperator(self.sink_operator_code(
+            symbol=symbol,
+            call_constructor=self._constructor(src.symbol, class_symbol)
+        ))
+
         return None
 
 
@@ -1483,8 +1571,8 @@ def iteratorfy(emit_print, scan_array_repr):
 
         rules.OneToOne(algebra.Select, IGrappaSelect),
         MemoryScanOfFileScan(scan_array_repr, IGrappaMemoryScan),
-        #rules.OneToOne(algebra.Apply, GrappaApply),
-        #rules.OneToOne(algebra.Join, join_type),
+        rules.OneToOne(algebra.Apply, IGrappaApply),
+        rules.OneToOne(algebra.Join, IGrappaHashJoin),
         #rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
         #rules.OneToOne(algebra.Project, GrappaProject),
         #rules.OneToOne(algebra.UnionAll, GrappaUnionAll),

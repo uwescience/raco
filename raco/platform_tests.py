@@ -626,6 +626,23 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(['T1'], "select")
         self.check(q, "select", compiler='iterator')
 
+    def test_iterator_apply(self):
+        self.check_sub_tables("""
+        T2 = SCAN(%(T2)s);
+        interm = [FROM T2 EMIT $0, $1];
+        out = [FROM interm EMIT $1];
+        STORE(out, OUTPUT);
+        """, "apply", compiler='iterator')
+
+    def test_iterator_join(self):
+        self.check_sub_tables("""
+        T3 = SCAN(%(T3)s);
+        R3 = SCAN(%(R3)s);
+        out = JOIN(T3, b, R3, b);
+        out2 = [FROM out WHERE $3 = $5 EMIT $0, $3];
+        STORE(out2, OUTPUT);
+        """, "join", compiler='iterator')
+
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);

@@ -471,17 +471,12 @@ class CBaseApply(Pipelined, algebra.Apply):
 
         self.input.produce(state)
 
-    def consume(self, t, src, state):
-        code = self.language().comment(self.shortStr())
-
+    def _apply_statements(self, t, state):
         assignment_template = _cgenv.get_template('assignment.cpp')
-
         dst_name = self.newtuple.name
         dst_type_name = self.newtuple.getTupleTypename()
 
-        # declaration of tuple instance
-        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
-
+        code = ""
         for dst_fieldnum, src_label_expr in enumerate(self.emitters):
             dst_set_func = self.newtuple.set_func_code(dst_fieldnum)
             src_label, src_expr = src_label_expr
@@ -496,6 +491,18 @@ class CBaseApply(Pipelined, algebra.Apply):
             state.addDeclarations(expr_decls)
 
             code += assignment_template.render(locals())
+        return code
+
+    def consume(self, t, src, state):
+        code = self.language().comment(self.shortStr())
+
+        dst_name = self.newtuple.name
+        dst_type_name = self.newtuple.getTupleTypename()
+
+        # declaration of tuple instance
+        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
+
+        code += self._apply_statements(t, state)
 
         innercode = self.parent().consume(self.newtuple, self, state)
         code += innercode
