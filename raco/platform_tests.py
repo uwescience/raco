@@ -622,6 +622,10 @@ class MyriaLPlatformTests(object):
                               no_MergeSelects=True,
                               no_PushSelects=True)
 
+    def test_iterator_select(self):
+        q = self.myrial_from_sql(['T1'], "select")
+        self.check(q, "select", compiler='iterator')
+
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
