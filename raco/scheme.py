@@ -15,33 +15,17 @@ class DummyScheme(object):
         return "DummyScheme()"
 
 
-class InterestingOrders(object):
-    def __init__(self, hash_partitioned=None, sorted=None, grouped=None):
-        """
-        @param hash_partitioned: None or list of AttributeRefs in hash key
-        @param sorted: None or list of (AttributeRefs, ASC/DESC) in sort order
-        @param grouped: None or list of AttributeRefs to group by
-
-        None means that no knowledge about the interesting order is
-        known
-        """
-        self.hash_partitioned = hash_partitioned
-        self.sorted = sorted
-        self.grouped = grouped
-
-
 class Scheme(object):
     """Add an attribute to the scheme."""
     salt = "1"
 
-    def __init__(self, attributes=None, interesting_orders=InterestingOrders()):
+    def __init__(self, attributes=None):
         if attributes is None:
             attributes = []
         self.attributes = []
         self.asdict = OrderedDict()
         for n, t in attributes:
             self.addAttribute(n, t)
-        self.interesting_orders = interesting_orders
 
     def addAttribute(self, name, _type):
         assert _type in raco.types.ALL_TYPES, \
@@ -56,9 +40,6 @@ class Scheme(object):
         self.attributes.append((name, _type))
         # just in case we changed the name.  ugly.
         return name
-
-    def get_iteresting_orders(self):
-        return self.interesting_orders
 
     def get_types(self):
         """Return a list of the types in this scheme."""

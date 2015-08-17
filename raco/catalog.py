@@ -29,6 +29,21 @@ class ASCIIFile(FileRelation):
     pass
 
 
+class InterestingProperties(object):
+    def __init__(self, hash_partitioned=None, sorted=None, grouped=None):
+        """
+        @param hash_partitioned: None or list of AttributeRefs in hash key
+        @param sorted: None or list of (AttributeRefs, ASC/DESC) in sort order
+        @param grouped: None or list of AttributeRefs to group by
+
+        None means that no knowledge about the interesting property is
+        known
+        """
+        self.hash_partitioned = hash_partitioned
+        self.sorted = sorted
+        self.grouped = grouped
+
+
 class Catalog(object):
     __metaclass__ = ABCMeta
 
@@ -43,6 +58,12 @@ class Catalog(object):
     @abstractmethod
     def num_tuples(self, rel_key):
         """ Return number of tuples of rel_key """
+
+    @abstractmethod
+    def interesting_properties(self, rel_key):
+        """
+        Return interesting properties, like partitioning and sorted
+        """
 
 
 # Some useful Catalog implementations
