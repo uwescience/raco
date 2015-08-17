@@ -1505,35 +1505,37 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
             side = 'Right'
             class_symbol = class_symbol_template.format(side=side, sym=gensym())
 
+            keyval = self.__aggregate_val__(t, self.rightcols)
+            keytype = self.__aggregate_type__(self.right.scheme(), self.rightcols)
+            state.resolveSymbol(self.rightTypeRef, t.getTupleTypename())
+
             state.addDeclarations([self.iter_cgenv().get_template("hashjoin_sink.cpp").render(
                 class_symbol=class_symbol,
                 side=side,
-                keytype=          None,
-                left_tuple_type=           None,
-                right_tuple_type=           None,
-                input_tuple_name=           None,
-                keyval=           None,
+                keytype=keytype,
+                left_tuple_type=self.leftTypeRef.getPlaceholder(),
+                right_tuple_type=t.getTupleTypename(),
+                input_tuple_name=t.name,
+                keyval=keyval,
             )])
-
-
-            state.resolveSymbol(self.rightTypeRef, "TODO")
 
         elif src.childtag == 'left':
             side = 'Left'
             class_symbol = class_symbol_template.format(side=side, sym=gensym())
 
+            keyval = self.__aggregate_val__(t, self.leftcols)
+            keytype = self.__aggregate_type__(self.left.scheme(), self.leftcols)
+            state.resolveSymbol(self.leftTypeRef, t.getTupleTypename())
+
             state.addDeclarations([self.iter_cgenv().get_template("hashjoin_sink.cpp").render(
                 class_symbol=class_symbol,
                 side=side,
-                keytype=           None,
-                left_tuple_type=           None,
-                right_tuple_type=           None,
-                input_tuple_name=           None,
-                keyval=           None,
+                keytype=keytype,
+                left_tuple_type=t.getTupleTypename(),
+                right_tuple_type=self.rightTypeRef.getPlaceholder(),
+                input_tuple_name=t.name,
+                keyval=keyval,
             )])
-
-
-            state.resolveSymbol(self.leftTypeRef, "TODO")
 
         else:
             assert False, "Invalid child tag: {}".format(src.childtag)
