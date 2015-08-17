@@ -22,61 +22,13 @@ from raco.backends.federated.movers.filesystem import SciDBToMyria
 
 import os
 
+program_simple = """
+T1 = scan(abc);
+T2 = [from T1 where value>40 emit value as X];
+store(T2, JustX);
+"""
 
-def skip(str):
-    return not (str in os.environ
-                and int(os.environ[str]) == 1)
-
-
-def get_myria_connection():
-    if skip('RACO_MYRIAX_TESTS'):
-        # Use the local stub server
-        # connection = MyriaConnection(hostname='localhost', port=12345)
-        rest_url = 'http://localhost:8753'
-        execution_url = 'http://localhost:8090'
-        connection = MyriaConnection(rest_url=rest_url,
-                                     execution_url=execution_url)
-    else:
-        # Use the production server
-        #rest_url = 'https://rest.myria.cs.washington.edu:1776'
-        #execution_url = 'https://myria-web.appspot.com'
-        rest_url = 'http://ec2-52-1-38-182.compute-1.amazonaws.com:8753'
-        execution_url = 'http://demo.myria.cs.washington.edu'
-        connection = MyriaConnection(rest_url=rest_url,
-                                     execution_url=execution_url)
-
-    return connection
-
-
-def get_scidb_connection():
-    if skip('RACO_SCIDB_TESTS'):
-        # Use the local stub server
-        # connection = SciDBConnection('http://ec2-54-175-66-8.compute-1.amazonaws.com:8080')
-        connection = SciDBConnection('http://localhost:8751')
-
-        # connection = SciDBConnection('http://localhost:9000')
-    else:
-        # Use the production server
-        connection = SciDBConnection()
-
-    return connection
-
-
-def query(myriaconnection, scidbconnection):
-
-    myriacatalog = MyriaCatalog(myriaconnection)
-    scidbcatalog = SciDBCatalog(scidbconnection)
-
-    catalog = FederatedCatalog([myriacatalog, scidbcatalog])
-
-    parser = myrialparser.Parser()
-
-    # TODO: StatementProcessor needs catalog to typecheck relation keys
-    # but the Algebra/Rules need the catalog to during optimization
-    # Do we really need it both places?
-    processor = interpreter.StatementProcessor(catalog, True)
-
-    program = """
+program = """
 const test_vector_id: 1;
 const bins: 10;
 vectors = scan(SciDB:Demo:Vectors);
@@ -179,32 +131,87 @@ store(correlations, correlations);
 -- sink(correlations);
 """
 
-    # statement_list = parser.parse(program)
+def skip(str):
+    return not (str in os.environ
+                and int(os.environ[str]) == 1)
+
+
+def get_myria_connection():
+    if skip('RACO_MYRIAX_TESTS'):
+        # Use the local stub server
+        # connection = MyriaConnection(hostname='localhost', port=12345)
+        # rest_url = 'http://localhost:8753'
+        # execution_url = 'http://localhost:8090'
+        rest_url = 'http://ec2-52-1-38-182.compute-1.amazonaws.com:8753'
+        execution_url = 'http://demo.myria.cs.washington.edu'
+        connection = MyriaConnection(rest_url=rest_url,
+                                     execution_url=execution_url)
+    else:
+        # Use the production server
+        #rest_url = 'https://rest.myria.cs.washington.edu:1776'
+        #execution_url = 'https://myria-web.appspot.com'
+        rest_url = 'http://ec2-52-1-38-182.compute-1.amazonaws.com:8753'
+        execution_url = 'http://demo.myria.cs.washington.edu'
+        connection = MyriaConnection(rest_url=rest_url,
+                                     execution_url=execution_url)
+
+    return connection
+
+
+def get_scidb_connection():
+    if skip('RACO_SCIDB_TESTS'):
+        # Use the local stub server
+        connection = SciDBConnection('http://ec2-54-175-66-8.compute-1.amazonaws.com:8080')
+        # connection = SciDBConnection('http://localhost:8751')
+
+        # connection = SciDBConnection('http://localhost:9000')
+    else:
+        # Use the production server
+        connection = SciDBConnection()
+
+    return connection
+
+
+def query(myriaconnection, scidbconnection):
+
+    myriacatalog = MyriaCatalog(myriaconnection)
+    scidbcatalog = SciDBCatalog(scidbconnection)
+
+    catalog = FederatedCatalog([myriacatalog, scidbcatalog])
+
+    parser = myrialparser.Parser()
+
+    # TODO: StatementProcessor needs catalog to typecheck relation keys
+    # but the Algebra/Rules need the catalog to during optimization
+    # Do we really need it both places?
+    processor = interpreter.StatementProcessor(catalog, True)
+
+    statement_list = parser.parse(program_simple)
     #
-    # processor.evaluate(statement_list)
+    processor.evaluate(statement_list)
     #
     # # TODO: Should we just have every algebra take a catalog object as a parameter?
-    # algebras = [MyriaLeftDeepTreeAlgebra(), SciDBAFLAlgebra()]
-    # falg = FederatedAlgebra(algebras, catalog)
+    algebras = [MyriaLeftDeepTreeAlgebra(), SciDBAFLAlgebra()]
+    falg = FederatedAlgebra(algebras, catalog)
     #
-    # logical = processor.get_logical_plan()
-    # # print "LOGICAL"
-    # # print logical
+    logical = processor.get_logical_plan()
+    print "LOGICAL"
+    print logical
     #
-    # pd = processor.get_physical_plan(target_alg=falg)
+    pd = processor.get_physical_plan(target_alg=falg)
+    # pd = processor.get_physical_plan(target_alg=SciDBAFLAlgebra())
     #
-    # # print "PHYSICAL"
-    # # print pd
+    print "PHYSICAL"
+    print pd
     #
     # print raco.viz.operator_to_dot(pd)
+    scidbconnection.execute_query(pd.args[0].plan)
 
-    # scidbconnection.execute_query(pd.args[0])
+    # fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
 
-    fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
+        # result = fedconn.execute_query(program)
 
-    result = fedconn.execute_query(program)
-
-    return result
+    # return result
     # return logical
 
 def empty_query():
@@ -280,3 +287,4 @@ if __name__ == '__main__':
         myriaconn = get_myria_connection()
         scidbconn = get_scidb_connection()
         query(myriaconn, scidbconn)
+

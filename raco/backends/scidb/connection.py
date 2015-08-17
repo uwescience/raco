@@ -14,7 +14,7 @@ class SciDBConnection(object):
             url: SciDB shim URL
         """
         self.url = url
-        # self.connection = scidbpy.connect(url, username=username, password=password)
+        self.connection = scidbpy.connect(url, username=username, password=password)
 
     def workers(self):
         """Return a dictionary of the workers"""
@@ -55,17 +55,21 @@ class SciDBConnection(object):
         raise NotImplemented
 
     def execute_afl(self, query):
-        r = requests.get(self.url + '/iquery?' + " ".join(query.split()))
-        # FIXME: which do we want?
-        return {
-                 # myria-web
-                'query_status': r.text,
-                'query_url': 'TODO:scidb url',
+        # r = self.connection.query(" ".join(query.split()))
+        # r = requests.get(self.url + '/iquery?' + " ".join(query.split()))
 
-                # myriaX response format
-                'status': r.text,
-                'url': 'TODO:scidb url'
-        }
+        r = self.connection._execute_query(query, response = True)
+        # FIXME: which do we want?
+        return r
+        # return {
+        #          # myria-web
+        #         'query_status': r.text,
+        #         'query_url': 'TODO:scidb url',
+        #
+        #         # myriaX response format
+        #         'status': r.text,
+        #         'url': 'TODO:scidb url'
+        # }
 
     def execute_query(self, query):
         """Submit the query and block until it finishes
@@ -81,11 +85,13 @@ class SciDBConnection(object):
         # return self.connection.query(compile_to_afl(physical_plan))
 
         physical_plan = optimize(query, SciDBAFLAlgebra())
-        # print "AFTER SCIDB RULES"
-        # print physical_plan
+        print "AFTER SCIDB RULES"
+        print physical_plan
         # # compile_to_afl_new(physical_plan)
 
-        afl_string = compile_to_afl(physical_plan)
+        afl_string = compile_to_afl_new(physical_plan)
+        print afl_string
+        return afl_string
 
         result = ""
         # sci-db AFL parser expects one statement at a time
@@ -94,15 +100,16 @@ class SciDBConnection(object):
         #         continue
         #     result += str(self.connection.query(stmt))
         #print " ".join(afl_string.split())
-        r = requests.get(self.url + '/iquery?' + " ".join(afl_string.split()))
+        # r = requests.get(self.url + '/query?' + " ".join(afl_string.split()))
+        r = self.connection._execute_query(" ".join(afl_string.split(), response = True))
         # FIXME: which do we want?
         return {
                  # myria-web
-                'query_status': r.text,
+                'query_status': r,
                 'query_url': 'TODO:scidb url',
 
                 # myriaX response format
-                'status': r.text,
+                'status': r,
                 'url': 'TODO:scidb url'
         }
 
