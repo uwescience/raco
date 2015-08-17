@@ -3,8 +3,6 @@ import raco.types
 
 from collections import OrderedDict
 
-from abc import abstractmethod
-
 
 class DummyScheme(object):
     """Dummy scheme used to generate plans in the absence of catalog info."""
