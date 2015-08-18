@@ -1497,6 +1497,53 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
             inputsym=inputsym
         )
 
+    def produce(self, state):
+        super(IGrappaHashJoin, self).produce(state)
+
+        _ = create_pipeline_synchronization(state)
+        _ = get_pipeline_task_name(state)
+
+        # add dependences on left and right inputs
+        state.addToPipelinePropertySet('dependences', self.right_syncname)
+        state.addToPipelinePropertySet('dependences', self.left_syncname)
+
+        self.assign_symbol()
+        class_symbol = "HashJoinSource_{sym}".format(sym=gensym())
+        keytype = self.__aggregate_type__(self.right.scheme(), self.rightcols)
+        left_type = self.leftTypeRef.getPlaceholder()
+        right_type = self.rightTypeRef.getPlaceholder()
+        out_tuple_type = self.outTuple.getTupleTypename()
+
+        append_func_name, combine_function_def = \
+            GrappaStagedTupleRef.get_append(
+                out_tuple_type,
+                left_type, len(self.left.scheme()),
+                right_type, len(self.right.scheme()))
+
+        state.addDeclarations([combine_function_def])
+
+        state.addDeclarations([self.iter_cgenv().get_template("hashjoin_source.cpp").render(
+            class_symbol=class_symbol,
+            keytype=keytype,
+            left_tuple_type=left_type,
+            right_tuple_type=right_type,
+            out_tuple_type=out_tuple_type,
+            left_name=gensym(),
+            right_name=gensym(),
+            append_func_name=append_func_name
+        )])
+
+        state.addOperator(self.operator_code(
+            produce_type=out_tuple_type,
+            symbol=self.symbol,
+            call_constructor="{class_symbol}(&{hashname})".format(
+                class_symbol=class_symbol,
+                hashname=self._hashname)
+        ))
+
+        self.parent().consume(self.outTuple, self, state)
+        state.addPipeline()
+
     def consume(self, t, src, state):
         class_symbol_template = "HashJoinSink{side}_{sym}"
         symbol = self.declare_sink(state)
@@ -1519,6 +1566,8 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
                 keyval=keyval,
             )])
 
+            self.right_syncname = get_pipeline_task_name(state)
+
         elif src.childtag == 'left':
             side = 'Left'
             class_symbol = class_symbol_template.format(side=side, sym=gensym())
@@ -1536,6 +1585,8 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
                 input_tuple_name=t.name,
                 keyval=keyval,
             )])
+
+            self.left_syncname = get_pipeline_task_name(state)
 
         else:
             assert False, "Invalid child tag: {}".format(src.childtag)
