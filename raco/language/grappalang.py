@@ -1550,7 +1550,8 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
             keytype = self.__aggregate_type__(self.right.scheme(), self.rightcols)
             state.resolveSymbol(self.rightTypeRef, t.getTupleTypename())
 
-            state.addDeclarations([self.iter_cgenv().get_template("hashjoin_sink.cpp").render(
+            # save to add after left type added
+            self.right_class_decl = self.iter_cgenv().get_template("hashjoin_sink.cpp").render(
                 class_symbol=class_symbol,
                 side=side,
                 keytype=keytype,
@@ -1558,7 +1559,7 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
                 right_tuple_type=t.getTupleTypename(),
                 input_tuple_name=t.name,
                 keyval=keyval,
-            )])
+            )
 
             self.right_syncname = get_pipeline_task_name(state)
 
@@ -1578,7 +1579,7 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
                 right_tuple_type=self.rightTypeRef.getPlaceholder(),
                 input_tuple_name=t.name,
                 keyval=keyval,
-            )])
+            ), self.right_class_decl]) # add right here too
 
             self.left_syncname = get_pipeline_task_name(state)
 
