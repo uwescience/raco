@@ -1,11 +1,11 @@
 class {{class_symbol}} : public HashJoinSink{{side}}<{{keytype}},
                                                      {{left_tuple_type}},
                                                      {{right_tuple_type}},
-                                                     hash_tuple::hash<{{keytype}}>>> {
+                                                     hash_tuple::hash<{{keytype}}>> {
     using HashJoinSink{{side}}<{{keytype}},
                                                      {{left_tuple_type}},
                                                      {{right_tuple_type}},
-                                                     hash_tuple::hash<{{keytype}}>>>::HashJoinSink{{side}};
+                                                     hash_tuple::hash<{{keytype}}>>::HashJoinSink{{side}};
     protected:
       {{keytype}} mktuple({% if side == 'Right' %}
                                       {{right_tuple_type}}
