@@ -1450,12 +1450,6 @@ class IGrappaStore(GrappaStore, Iterator):
                                                                inputsym=inputsym)
 
     def consume(self, t, src, state):
-        # FIXME hack to include iterators header file
-        # FIXME   I'd prefer to subclass the base_query.cpp template using
-        # FIXME   a jinja block called "includes", but
-        # FIXME   GrappaLanguage.base_template is sort of fixed by _cgenv
-        state.addDeclarations(['#include "Operators.hpp"\n'])
-
         symbol = self.declare_sink(state)
         self._add_result_declaration(t, state)
         state.addOperator(self.sink_operator_code(
