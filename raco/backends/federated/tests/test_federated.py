@@ -24,7 +24,7 @@ import os
 
 program_simple = """
 T1 = scan(abc);
-T2 = [from T1 where value>40 emit value as X];
+T2 = [from T1 where value>40 emit value];
 store(T2, JustX);
 """
 

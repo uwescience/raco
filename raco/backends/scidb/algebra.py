@@ -211,8 +211,13 @@ class GroupByToRegridOrRedminension(rules.Rule):
 class ApplyToApplyProject(rules.BottomUpRule):
     def fire(self, expr):
         if isinstance(expr, SciDBApply):
-            # project = SciDBProject([name for (name, expr_to_apply) in expr.emitters], expr)
-            return SciDBProject([name for (name, expr_to_apply) in expr.emitters], expr)
+            # Checking for just projection operation.
+            just_project = True
+            for (n, ex) in expr.emitters:
+                if isinstance(ex, NamedAttributeRef):
+                    if n != ex.name:
+                        just_project = False
+            return SciDBProject([name for (name, expr_to_apply) in expr.emitters], expr.input) if just_project else SciDBProject([name for (name, expr_to_apply) in expr.emitters], expr)
         return expr
 
     def __str__(self):
