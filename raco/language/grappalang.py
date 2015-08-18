@@ -1454,7 +1454,7 @@ class IGrappaStore(GrappaStore, Iterator):
         # FIXME   I'd prefer to subclass the base_query.cpp template using
         # FIXME   a jinja block called "includes", but
         # FIXME   GrappaLanguage.base_template is sort of fixed by _cgenv
-        state.addDeclarations(["#include Operators.hpp;\n"])
+        state.addDeclarations(['#include "Operators.hpp"\n'])
 
         symbol = self.declare_sink(state)
         self._add_result_declaration(t, state)
