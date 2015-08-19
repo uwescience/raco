@@ -643,6 +643,17 @@ class MyriaLPlatformTests(object):
         STORE(out2, OUTPUT);
         """, "join", compiler='iterator')
 
+    def test_iterator_aggregate_sum(self):
+        q = self.myrial_from_sql(["R1"], "aggregate_sum")
+        self.check(q, "aggregate_sum", compiler='iterator')
+
+    def test_iterator_aggregate_count_group_one(self):
+        self.check_sub_tables("""
+        R2 = SCAN(%(R2)s);
+        out = [FROM R2 EMIT b, COUNT(a)];
+        STORE(out, OUTPUT);
+        """, "aggregate_count_group_one", compiler='iterator')
+
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
