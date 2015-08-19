@@ -6,7 +6,7 @@ class {{class_symbol}} : public AggregateSource<{{produce_type}}, {{keytype}}, {
 
     protected:
         void mktuple({{produce_type}}& {{produce_tuple_name}}, map_output_t& {{mapping_var_name}}) {
-            {{produce_type}} {{produce_tuple_name}}_tmp(std::tuple_cat({{mapping_var_name}}.first, {{mapping_var_name}}.second.to_tuple());
+            {{produce_type}} {{produce_tuple_name}}_tmp(std::tuple_cat({{mapping_var_name}}.first, {{mapping_var_name}}.second.to_tuple()));
             {{produce_tuple_name}} = {{produce_tuple_name}}_tmp;
         }
 };
