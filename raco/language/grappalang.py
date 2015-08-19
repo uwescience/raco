@@ -1695,8 +1695,8 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
             state_type=self.state_tuple.getTupleTypename(),
             input_type = self.input_tuple_type,
             assignment_code=assignment_code,
-            entry_name=output_tuple.name+"_tmp",
-            combine_func=self.func_name
+            mapping_var_name=output_tuple.name+"_entry",
+            combine_func=self.combine_func
         )])
 
         state.addOperator(self.operator_code(
@@ -1745,7 +1745,10 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
         symbol = self.declare_sink(state)
         state.addOperator(self.sink_operator_code(
            symbol=symbol,
-           call_constructor="{class_symbol}({inputsym}, {hashname})".format(inputsym=src.symbol, class_symbol=class_symbol, hashname=self._hashname)
+           call_constructor="{class_symbol}({inputsym}, {hashname})".format(
+               inputsym=src.symbol,
+               class_symbol=class_symbol,
+               hashname=self._hashname)
         ))
 
         return None
