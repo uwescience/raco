@@ -1632,6 +1632,7 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
                 right_tuple_type=t.getTupleTypename(),
                 input_tuple_name=t.name,
                 keyval=keyval,
+                pipeline_sync=state.getPipelineProperty("global_syncname")
             )
 
             self.right_syncname = get_pipeline_task_name(state)
