@@ -22,10 +22,18 @@ from raco.backends.federated.movers.filesystem import SciDBToMyria
 
 import os
 
-program_simple = """
-T1 = scan(abc);
-T2 = [from T1 where value>40 emit value];
+program_simple_old = """
+abc = scan(abc);
+a = [from abc emit value as a_val];
+a1 = [from abc emit value as a1_val];
+T2 = [from a, a1 where a.a_val + 1 = a1.a1_val emit a1.a1_val];
 store(T2, JustX);
+"""
+
+program_simple = """
+abc = scan(abc);
+r = [from abc emit max(value) - min(value) as high, min(value) - max(value) as low];
+store(r,range);
 """
 
 program = """

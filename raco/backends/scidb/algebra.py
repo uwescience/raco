@@ -35,23 +35,42 @@ class SciDBConcat(algebra.UnionAll, SciDBOperator):
 
 class SciDBSelect(algebra.Select, SciDBOperator):
     def compileme(self, input):
-        cond_str = str(self.condition)
-
-        for i in range(len(self.scheme())):
-            unnamed_literal = "$" + str(i)
-            cond_str = cond_str.replace(unnamed_literal, self.scheme().getName(i))
-        return "filter({}, {})".format(input, cond_str)
+        return "filter({}, {})".format(input, removed_unnamed_literals(self.scheme(), self.condition))
         # return "filter({}, {})".format(input, compile_expr(self.condition, self.scheme(), None))
 
+def removed_unnamed_literals(scheme, expression):
+    for i in range(len(scheme)):
+            unnamed_literal = "$" + str(i)
+            expression = expression.replace(unnamed_literal, scheme.getName(i))
+    return expression
+
+class SciDBJoin(algebra.Join, SciDBOperator):
+    def compileme(self, left, right):
+        return "join({})".format(",".join([left, right]))
 
 class SciDBProject(algebra.Project, SciDBOperator):
     def compileme(self, input):
-        return "project({}, {})".format(input, ", ".join([x for x in self.columnlist]))
+        return "project({}, {})".format(input, ", ".join([x.name for x in self.columnlist]))
 
+class SciDBAggregate(algebra.GroupBy, SciDBOperator):
+    def compileme(self, input):
+        print self.aggregate_list
+        new_agg_list = list()
+        for i, agg in enumerate(self.aggregate_list):
+            new_agg_list.append(str(agg) + 'as _Column%d_' % i)
+        print self.grouping_list
+        if len(self.grouping_list) == 0:
+            return "aggregate({input}, {aggregate_list})"\
+                .format(input = input,
+                        aggregate_list = ",".join([x for x in new_agg_list]))
+        return "aggregate({input}, {aggregate_list}, {dimension_list})"\
+            .format(input=input,
+                    aggregate_list = ",".join([x for x in new_agg_list]),
+                    dimension_list = ",".join([str(dim) for dim in self.grouping_list]))
 
 class SciDBApply(algebra.Apply, SciDBOperator):
     def compileme(self, input):
-        return "apply({}, {})".format(input, ",".join([str(x) for x in list(itertools.chain(*self.emitters))]))
+        return "apply({}, {})".format(input, ",".join([removed_unnamed_literals(self.input.scheme(), str(x)) for x in list(itertools.chain(*self.emitters))]))
 
 
 class SciDBRedimension(algebra.GroupBy, SciDBOperator):
@@ -130,7 +149,8 @@ class SciDBAFLAlgebra(Algebra):
         SciDBSelect,
         # SciDBProject,
         SciDBApply,
-        SciDBRedimension
+        SciDBRedimension,
+        SciDBJoin
     ]
     """SciDB physical algebra"""
 
@@ -142,9 +162,11 @@ class SciDBAFLAlgebra(Algebra):
             rules.OneToOne(algebra.UnionAll, SciDBConcat),
             rules.OneToOne(algebra.Select, SciDBSelect),
             rules.OneToOne(algebra.Apply, SciDBApply),
-            rules.OneToOne(algebra.Project, SciDBProject)
+            rules.OneToOne(algebra.Project, SciDBProject),
+            rules.OneToOne(algebra.Join, SciDBJoin)
         ]
-        all_rules = scidbify + [GroupByToRegridOrRedminension(), ApplyToApplyProject()]
+        # all_rules = scidbify + [GroupByToRegridOrRedminension(), ApplyToApplyProject()] # Removing the hardcoding rule
+        all_rules = scidbify + [GroupByToAggregate(), ApplyToApplyProject()]
 
         return all_rules
 
@@ -216,13 +238,32 @@ class ApplyToApplyProject(rules.BottomUpRule):
             for (n, ex) in expr.emitters:
                 if isinstance(ex, NamedAttributeRef):
                     if n != ex.name:
+                        print n, ex.name
                         just_project = False
-            return SciDBProject([name for (name, expr_to_apply) in expr.emitters], expr.input) if just_project else SciDBProject([name for (name, expr_to_apply) in expr.emitters], expr)
+                else:
+                    just_project = False
+            return SciDBProject([NamedAttributeRef(name) for (name, expr_to_apply) in expr.emitters], expr.input) if just_project\
+                else SciDBProject([NamedAttributeRef(name) for (name, expr_to_apply) in expr.emitters], expr)
         return expr
 
     def __str__(self):
         return "SciDBApply => SciDBApply followed by a SciDbProject"
 
+class GroupByToAggregate(rules.BottomUpRule):
+    def fire(self, expr):
+        if isinstance(expr, algebra.GroupBy):
+            # Todo: Assuming for now that the grouping list consists of only dimensions. Fix Later.
+            scidbagg = SciDBAggregate(expr.grouping_list, expr.aggregate_list, expr.input)
+            # Adding a after after the aggregates, as scidb renames the aggregates
+            # raco_apply = SciDBApply([(NamedAttributeRef(str(agg.input) + '_' + str(agg.__class__.__name__)), agg.input) for agg in expr.aggregate_list], scidbagg)
+            # scidbproj = SciDBProject([NamedAttributeRef(str(agg.input) + '_' + str(agg.__class__.__name__)) for agg in expr.aggregate_list], scidbagg)
+            # old_scheme = scidbagg.scheme()
+            # new_scheme = raco.scheme.Scheme()
+            # for i, (n,t) in enumerate(old_scheme.attributes):
+            #     new_scheme.addAttribute(str(n)+'_'+str(expr.aggregate_list[i].__class__.__name__),t)
+            # scidbagg.scheme = new_scheme
+            return scidbagg
+        return expr
 
 def compile_to_afl(plan):
     # TODO Harcoded plan we wan't later we would want the actual conversion.
@@ -357,26 +398,31 @@ def compile_to_afl_new(plan):
             queue.append(c)
     temp_out_name = 'out_' + scidb_out_relation
 
-    ret = compile_plan(plan, input_relation, scidb_out_relation, temp_out_name)
+    ret = compile_plan(plan, scidb_out_relation, temp_out_name)
     print ret
 
 
-def compile_plan(plan, input_relation, scidb_out_relation, temp_out_name):
+def compile_plan(plan, scidb_out_relation, temp_out_name):
     if isinstance(plan, SciDBStore):
-        return "\nsave(" + compile_plan(plan.input, input_relation, scidb_out_relation, temp_out_name) + \
-              ", '{scidb_out_relation}', -1, 'csv+');".format(scidb_out_relation=scidb_out_relation)
+        return "\nstore(" + compile_plan(plan.input, scidb_out_relation, temp_out_name) + \
+              ", {scidb_out_relation});".format(scidb_out_relation=str(plan.relation_key).replace(':', '__'))
     if isinstance(plan, SciDBRegrid):
-        return plan.compileme(compile_plan(plan.input, input_relation, scidb_out_relation, temp_out_name))
+        return plan.compileme(compile_plan(plan.input, scidb_out_relation, temp_out_name))
     if isinstance(plan, SciDBRedimension):
         plan.template_array = temp_out_name
-        return plan.compileme(compile_plan(plan.input, input_relation, scidb_out_relation, temp_out_name),
+        return plan.compileme(compile_plan(plan.input, scidb_out_relation, temp_out_name),
                              scidb_out_relation)
     if isinstance(plan, (SciDBSelect, SciDBProject, SciDBApply)):
-        return plan.compileme(compile_plan(plan.input, input_relation, scidb_out_relation, temp_out_name))
+        return plan.compileme(compile_plan(plan.input, scidb_out_relation, temp_out_name))
     if isinstance(plan, SciDBScan):
-        return "scan({input_relation})".format(input_relation=input_relation)
-
-    raise NotImplementedError()
+        return "scan({input_relation})".format(input_relation=str(plan.relation_key.relation))
+    if isinstance(plan, SciDBJoin):
+        return plan.compileme(compile_plan(plan.left, scidb_out_relation, temp_out_name),
+                              compile_plan(plan.right, scidb_out_relation, temp_out_name))
+    if isinstance(plan, SciDBAggregate):
+        return plan.compileme(compile_plan(plan.input, scidb_out_relation, temp_out_name))
+    print plan.scheme()
+    raise NotImplementedError("Compiling expr of class %s" % plan.__class__)
 
 def compile_expr(op, child_scheme, state_scheme):
     ####
