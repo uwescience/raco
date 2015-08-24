@@ -35,14 +35,15 @@ class SciDBConcat(algebra.UnionAll, SciDBOperator):
 
 class SciDBSelect(algebra.Select, SciDBOperator):
     def compileme(self, input):
-        return "filter({}, {})".format(input, removed_unnamed_literals(self.scheme(), self.condition))
+        return "filter({}, {})".format(input, remove_unnamed_literals(self.scheme(), self.condition))
         # return "filter({}, {})".format(input, compile_expr(self.condition, self.scheme(), None))
 
-def removed_unnamed_literals(scheme, expression):
+def remove_unnamed_literals(scheme, expression):
+    ex = str(expression)
     for i in range(len(scheme)):
             unnamed_literal = "$" + str(i)
-            expression = expression.replace(unnamed_literal, scheme.getName(i))
-    return expression
+            ex = ex.replace(unnamed_literal, scheme.getName(i))
+    return ex
 
 class SciDBJoin(algebra.Join, SciDBOperator):
     def compileme(self, left, right):
@@ -54,11 +55,9 @@ class SciDBProject(algebra.Project, SciDBOperator):
 
 class SciDBAggregate(algebra.GroupBy, SciDBOperator):
     def compileme(self, input):
-        print self.aggregate_list
         new_agg_list = list()
         for i, agg in enumerate(self.aggregate_list):
-            new_agg_list.append(str(agg) + 'as _Column%d_' % i) # Todo: Really pathetic hack, fix later.
-        print self.grouping_list
+            new_agg_list.append(str(agg) + ' as _COLUMN%d_' % i) # Todo: Really pathetic hack, fix later.
         if len(self.grouping_list) == 0:
             return "aggregate({input}, {aggregate_list})"\
                 .format(input = input,
@@ -70,7 +69,7 @@ class SciDBAggregate(algebra.GroupBy, SciDBOperator):
 
 class SciDBApply(algebra.Apply, SciDBOperator):
     def compileme(self, input):
-        return "apply({}, {})".format(input, ",".join([removed_unnamed_literals(self.input.scheme(), str(x)) for x in list(itertools.chain(*self.emitters))]))
+        return "apply({}, {})".format(input, ",".join([remove_unnamed_literals(self.input.scheme(), str(x)) for x in list(itertools.chain(*self.emitters))]))
 
 
 class SciDBRedimension(algebra.GroupBy, SciDBOperator):
@@ -238,7 +237,6 @@ class ApplyToApplyProject(rules.BottomUpRule):
             for (n, ex) in expr.emitters:
                 if isinstance(ex, NamedAttributeRef):
                     if n != ex.name:
-                        print n, ex.name
                         just_project = False
                 else:
                     just_project = False
