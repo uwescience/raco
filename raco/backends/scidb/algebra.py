@@ -57,7 +57,7 @@ class SciDBAggregate(algebra.GroupBy, SciDBOperator):
         print self.aggregate_list
         new_agg_list = list()
         for i, agg in enumerate(self.aggregate_list):
-            new_agg_list.append(str(agg) + 'as _Column%d_' % i)
+            new_agg_list.append(str(agg) + 'as _Column%d_' % i) # Todo: Really pathetic hack, fix later.
         print self.grouping_list
         if len(self.grouping_list) == 0:
             return "aggregate({input}, {aggregate_list})"\
@@ -254,14 +254,6 @@ class GroupByToAggregate(rules.BottomUpRule):
         if isinstance(expr, algebra.GroupBy):
             # Todo: Assuming for now that the grouping list consists of only dimensions. Fix Later.
             scidbagg = SciDBAggregate(expr.grouping_list, expr.aggregate_list, expr.input)
-            # Adding a after after the aggregates, as scidb renames the aggregates
-            # raco_apply = SciDBApply([(NamedAttributeRef(str(agg.input) + '_' + str(agg.__class__.__name__)), agg.input) for agg in expr.aggregate_list], scidbagg)
-            # scidbproj = SciDBProject([NamedAttributeRef(str(agg.input) + '_' + str(agg.__class__.__name__)) for agg in expr.aggregate_list], scidbagg)
-            # old_scheme = scidbagg.scheme()
-            # new_scheme = raco.scheme.Scheme()
-            # for i, (n,t) in enumerate(old_scheme.attributes):
-            #     new_scheme.addAttribute(str(n)+'_'+str(expr.aggregate_list[i].__class__.__name__),t)
-            # scidbagg.scheme = new_scheme
             return scidbagg
         return expr
 
