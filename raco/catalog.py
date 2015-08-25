@@ -29,7 +29,7 @@ class ASCIIFile(FileRelation):
     pass
 
 
-class InterestingProperties(object):
+class RepresentationProperties(object):
     def __init__(self, hash_partitioned=set(), sorted=None, grouped=None):
         """
         @param hash_partitioned: None or list of AttributeRefs in hash key

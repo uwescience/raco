@@ -1,7 +1,7 @@
 from raco import expression
 from raco import scheme
 from raco.utility import Printable, real_str
-from catalog import InterestingProperties
+from catalog import RepresentationProperties
 
 from abc import ABCMeta, abstractmethod
 import copy
@@ -78,7 +78,7 @@ class Operator(Printable):
     def partitioning(self):
         """Return the partitioning of the tuples output by this operator.
         Default implementation returns no information"""
-        return InterestingProperties()
+        return RepresentationProperties()
 
     def postorder(self, f):
         """Postorder traversal, applying a function to each operator.  The
@@ -357,7 +357,7 @@ class NaryJoin(NaryOperator):
         attributes = set()
         for c in self.children():
             attributes.union(c.partitioning().hash_partitioned)
-        return InterestingProperties(hash_partitioned=attributes)
+        return RepresentationProperties(hash_partitioned=attributes)
 
     def scheme(self):
         combined = reduce(operator.add, [c.scheme() for c in self.children()])
@@ -386,7 +386,7 @@ class SymmetricBinaryOperator(object):
 
     def partitioning(self):
         """attributes that are partitioned in both inputs"""
-        return InterestingProperties(hash_partitioned=set.intersection(
+        return RepresentationProperties(hash_partitioned=set.intersection(
             self.left.partitioning().hash_partitioned,
             self.right.partitioning().hash_partitioned))
 
@@ -480,7 +480,7 @@ class CompositeBinaryOperator(BinaryOperator):
 
     def partitioning(self):
         """ The schemas are mutually exclusive so union the partition attributes"""
-        return InterestingProperties(hash_partitioned=set.union(self.left.partitioning(),
+        return RepresentationProperties(hash_partitioned=set.union(self.left.partitioning(),
                                                                 self.right.partition()))
 
     def scheme(self):
@@ -617,7 +617,7 @@ class Apply(UnaryOperator):
 
     def partitioning(self):
         # TODO pass on partitioning for easy cases like renames
-        return InterestingProperties()
+        return RepresentationProperties()
 
     def shortStr(self):
         estrs = ",".join(["%s=%s" % (name, str(ex))
@@ -696,7 +696,7 @@ class StatefulApply(UnaryOperator):
 
     def partitioning(self):
         # TODO pass on partitioning for easy cases like renames
-        return InterestingProperties()
+        return RepresentationProperties()
 
     def copy(self, other):
         """deep copy"""
@@ -835,7 +835,7 @@ class Project(UnaryOperator):
 
     def partitioning(self):
         all_columns = set(self.columnlist)
-        return InterestingProperties(hash_partitioned=set.intersection(
+        return RepresentationProperties(hash_partitioned=set.intersection(
             all_columns,
             self.input.partitioning().hash_partitioned))
 
@@ -903,7 +903,7 @@ class GroupBy(UnaryOperator):
 
     def partitioning(self):
         all_groupings = set(self.grouping_list)
-        return InterestingProperties(hash_partitioned=set.intersection(
+        return RepresentationProperties(hash_partitioned=set.intersection(
             all_groupings,
             self.input.partitioning().hash_partitioned
         ))
@@ -1069,7 +1069,7 @@ class Shuffle(UnaryOperator):
         # TODO: incorporate information about functional dependences
         if self.shuffle_type == self.ShuffleType.SingleFieldHash \
                 or self.shuffle_type == self.ShuffleType.MultiFieldHash:
-            return InterestingProperties(hash_partitioned=set(self.columnlist))
+            return RepresentationProperties(hash_partitioned=set(self.columnlist))
 
     def copy(self, other):
         self.columnlist = other.columnlist
@@ -1129,7 +1129,7 @@ class Collect(UnaryOperator):
 
     def partitioning(self):
         # TODO: implement specific-worker partitioning?
-        return InterestingProperties()
+        return RepresentationProperties()
 
     def shortStr(self):
         return "%s(@%s)" % (self.opname(), self.server)
@@ -1181,7 +1181,7 @@ class PartitionBy(UnaryOperator):
         return self.input.num_tuples()
 
     def partitioning(self):
-        return InterestingProperties(hash_partitioned=set(self.columnlist))
+        return RepresentationProperties(hash_partitioned=set(self.columnlist))
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), real_str(self.columnlist,
@@ -1402,7 +1402,7 @@ class Scan(ZeroaryOperator):
         if partitioning is not None:
             self._partitioning = partitioning
         else:
-            self._partitioning = InterestingProperties()
+            self._partitioning = RepresentationProperties()
 
         ZeroaryOperator.__init__(self)
 
