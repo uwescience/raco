@@ -1,6 +1,7 @@
 from raco import expression
 from raco import scheme
 from raco.utility import Printable, real_str
+from catalog import InterestingProperties
 
 from abc import ABCMeta, abstractmethod
 import copy
@@ -72,6 +73,12 @@ class Operator(Printable):
     @abstractmethod
     def num_tuples(self):
         """Return the expected number of tuples output by this operator."""
+
+    @abstractmethod
+    def partitioning(self):
+        """Return the partitioning of the tuples output by this operator.
+        Default implementation returns no information"""
+        return InterestingProperties()
 
     def postorder(self, f):
         """Postorder traversal, applying a function to each operator.  The
@@ -344,6 +351,14 @@ class NaryJoin(NaryOperator):
         # TODO: use AGM bound (P10 in http://arxiv.org/pdf/1310.3314v2.pdf)
         return DEFAULT_CARDINALITY
 
+    def partitioning(self):
+        """attributes are mutually exclusive so union the partitioned
+        attributes"""
+        attributes = set()
+        for c in self.children():
+            attributes.union(c.partitioning().hash_partitioned)
+        return InterestingProperties(hash_partitioned=attributes)
+
     def scheme(self):
         combined = reduce(operator.add, [c.scheme() for c in self.children()])
         # do projection
@@ -366,7 +381,22 @@ class NaryJoin(NaryOperator):
 """Logical Relational Algebra"""
 
 
-class Union(BinaryOperator):
+class SymmetricBinaryOperator(object):
+    """BinaryOperator where both sides have the same schema"""
+
+    def partitioning(self):
+        """attributes that are partitioned in both inputs"""
+        return InterestingProperties(hash_partitioned=set.intersection(
+            self.left.partitioning().hash_partitioned,
+            self.right.partitioning().hash_partitioned))
+
+    def scheme(self):
+        """Same semantics as SQL: Assume first schema "wins" and throw an
+        error if they don't match during evaluation"""
+        return self.left.scheme()
+
+
+class Union(SymmetricBinaryOperator):
 
     """Set union."""
 
@@ -377,16 +407,11 @@ class Union(BinaryOperator):
         # a heuristic
         return int((self.left.num_tuples() + self.right.num_tuples()) / 2)
 
-    def scheme(self):
-        """Same semantics as SQL: Assume first schema "wins" and throw an
-        error if they don't match during evaluation"""
-        return self.left.scheme()
-
     def shortStr(self):
         return self.opname()
 
 
-class UnionAll(BinaryOperator):
+class UnionAll(SymmetricBinaryOperator):
 
     """Bag union."""
 
@@ -400,14 +425,11 @@ class UnionAll(BinaryOperator):
         """deep copy"""
         BinaryOperator.copy(self, other)
 
-    def scheme(self):
-        return self.left.scheme()
-
     def shortStr(self):
         return self.opname()
 
 
-class Intersection(BinaryOperator):
+class Intersection(SymmetricBinaryOperator):
 
     """Set intersection."""
 
@@ -417,14 +439,11 @@ class Intersection(BinaryOperator):
     def num_tuples(self):
         return min(self.left.num_tuples(), self.right.num_tuples())
 
-    def scheme(self):
-        return self.left.scheme()
-
     def shortStr(self):
         return self.opname()
 
 
-class Difference(BinaryOperator):
+class Difference(SymmetricBinaryOperator):
 
     """Set difference"""
 
@@ -435,9 +454,6 @@ class Difference(BinaryOperator):
         left_num = self.left.num_tuples()
         right_num = self.right.num_tuples()
         return left_num - math.floor(min(right_num, left_num * 0.5))
-
-    def scheme(self):
-        return self.left.scheme()
 
     def shortStr(self):
         return self.opname()
@@ -462,6 +478,15 @@ class CompositeBinaryOperator(BinaryOperator):
         return expression.EQ(expression.UnnamedAttributeRef(col0),
                              expression.UnnamedAttributeRef(col1))
 
+    def partitioning(self):
+        """ The schemas are mutually exclusive so union the partition attributes"""
+        return InterestingProperties(hash_partitioned=set.union(self.left.partitioning(),
+                                                                self.right.partition()))
+
+    def scheme(self):
+        """Return the scheme of the result."""
+        return self.left.scheme() + self.right.scheme()
+
 
 class CrossProduct(CompositeBinaryOperator):
 
@@ -479,10 +504,6 @@ class CrossProduct(CompositeBinaryOperator):
 
     def shortStr(self):
         return self.opname()
-
-    def scheme(self):
-        """Return the scheme of the result."""
-        return self.left.scheme() + self.right.scheme()
 
     def add_equijoin_condition(self, col0, col1):
         """Convert the cross-product into a join whenever possible."""
@@ -513,10 +534,6 @@ class Join(CompositeBinaryOperator):
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.condition)
-
-    def scheme(self):
-        """Return the scheme of the result."""
-        return self.left.scheme() + self.right.scheme()
 
     def add_equijoin_condition(self, col0, col1):
         condition = self.get_equijoin_condition(col0, col1)
@@ -598,6 +615,10 @@ class Apply(UnaryOperator):
                      for (name, expr) in self.emitters]
         return scheme.Scheme(new_attrs)
 
+    def partitioning(self):
+        # TODO pass on partitioning for easy cases like renames
+        return InterestingProperties()
+
     def shortStr(self):
         estrs = ",".join(["%s=%s" % (name, str(ex))
                           for name, ex in self.emitters])
@@ -673,6 +694,10 @@ class StatefulApply(UnaryOperator):
     def num_tuples(self):
         return self.input.num_tuples()
 
+    def partitioning(self):
+        # TODO pass on partitioning for easy cases like renames
+        return InterestingProperties()
+
     def copy(self, other):
         """deep copy"""
         self.emitters = other.emitters
@@ -706,6 +731,9 @@ class Distinct(UnaryOperator):
         # TODO: better heuristics?
         return self.input.num_tuples()
 
+    def partitioning(self):
+        return self.input.partitioning()
+
     def scheme(self):
         """scheme of the result"""
         return self.input.scheme()
@@ -730,6 +758,9 @@ class Limit(UnaryOperator):
 
     def num_tuples(self):
         return self.count
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def copy(self, other):
         self.count = other.count
@@ -778,6 +809,9 @@ class Select(UnaryOperator):
         """scheme of the result."""
         return self.input.scheme()
 
+    def partitioning(self):
+        return self.input.partitioning()
+
     def get_unnamed_condition(self):
         """Get the filter condition for this Select after ensuring that all
         attribute references are UnnamedAttributeRefs."""
@@ -798,6 +832,12 @@ class Project(UnaryOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        all_columns = set(self.columnlist)
+        return InterestingProperties(hash_partitioned=set.intersection(
+            all_columns,
+            self.input.partitioning().hash_partitioned))
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), real_str(self.columnlist,
@@ -860,6 +900,13 @@ class GroupBy(UnaryOperator):
         if not self.grouping_list:
             return 1
         return self.input.num_tuples()
+
+    def partitioning(self):
+        all_groupings = set(self.grouping_list)
+        return InterestingProperties(hash_partitioned=set.intersection(
+            all_groupings,
+            self.input.partitioning().hash_partitioned
+        ))
 
     def shortStr(self):
         return "%s(%s; %s)" % (self.opname(),
@@ -1018,6 +1065,12 @@ class Shuffle(UnaryOperator):
         return "%s(%s)" % (self.opname(), real_str(self.columnlist,
                                                    skip_out=True))
 
+    def partitioning(self):
+        # TODO: incorporate information about functional dependences
+        if self.shuffle_type == self.ShuffleType.SingleFieldHash \
+                or self.shuffle_type == self.ShuffleType.MultiFieldHash:
+            return InterestingProperties(hash_partitioned=set(self.columnlist))
+
     def copy(self, other):
         self.columnlist = other.columnlist
         self.shuffle_type = other.shuffle_type
@@ -1074,6 +1127,10 @@ class Collect(UnaryOperator):
     def num_tuples(self):
         return self.input.num_tuples()
 
+    def partitioning(self):
+        # TODO: implement specific-worker partitioning?
+        return InterestingProperties()
+
     def shortStr(self):
         return "%s(@%s)" % (self.opname(), self.server)
 
@@ -1104,6 +1161,9 @@ class Split(UnaryOperator):
     def shortStr(self):
         return self.opname()
 
+    def partitioning(self):
+        return self.input.partitioning()
+
 
 class PartitionBy(UnaryOperator):
 
@@ -1119,6 +1179,9 @@ class PartitionBy(UnaryOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return InterestingProperties(hash_partitioned=set(self.columnlist))
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), real_str(self.columnlist,
@@ -1196,6 +1259,9 @@ class Store(UnaryOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self.relation_key)
@@ -1319,7 +1385,8 @@ class Scan(ZeroaryOperator):
 
     """Logical Scan operator."""
 
-    def __init__(self, relation_key=None, _scheme=None, cardinality=None):
+    def __init__(self, relation_key=None, _scheme=None, cardinality=None,
+                 partitioning=None):
         """Initialize a scan operator.
 
         relation_key is a string of the form "user:program:relation"
@@ -1331,6 +1398,12 @@ class Scan(ZeroaryOperator):
             self._cardinality = cardinality
         else:
             self._cardinality = DEFAULT_CARDINALITY
+
+        if partitioning is not None:
+            self._partitioning = partitioning
+        else:
+            self._partitioning = InterestingProperties()
+
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
