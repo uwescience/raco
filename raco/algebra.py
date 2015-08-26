@@ -1,7 +1,6 @@
 from raco import expression
 from raco import scheme
 from raco.utility import Printable, real_str
-from catalog import RepresentationProperties
 
 from abc import ABCMeta, abstractmethod
 import copy
@@ -9,6 +8,7 @@ import operator
 import math
 from raco.expression import StateVar
 from functools import reduce
+from raco.representation import RepresentationProperties
 
 
 # BEGIN Code to generate variables names
@@ -381,7 +381,8 @@ class NaryJoin(NaryOperator):
 """Logical Relational Algebra"""
 
 
-class IdenticalSchemeBinaryOperator(object):
+class IdenticalSchemeBinaryOperator(BinaryOperator):
+
     """BinaryOperator where both sides have the same schema"""
 
     def partitioning(self):
@@ -395,7 +396,10 @@ class IdenticalSchemeBinaryOperator(object):
         error if they don't match during evaluation"""
         left_sch = self.left.scheme()
         right_sch = self.right.scheme()
-        assert left_sch == right_sch, "Left and right not the same scheme"
+        assert all(
+            la[1] == ra[1] for la, ra in zip(
+                left_sch, right_sch)), "Must be same scheme types: {left} != {right}".format(
+            left=left_sch, right=right_sch)
         return left_sch
 
 
@@ -483,8 +487,10 @@ class CompositeBinaryOperator(BinaryOperator):
 
     def partitioning(self):
         """ The schemas are mutually exclusive so union the partition attributes"""
-        return RepresentationProperties(hash_partitioned=set.union(self.left.partitioning(),
-                                                                self.right.partition()))
+        return RepresentationProperties(
+            hash_partitioned=set.union(
+                self.left.partitioning().hash_partitioned,
+                self.right.partitioning().hash_partitioned))
 
     def scheme(self):
         """Return the scheme of the result."""
@@ -980,6 +986,10 @@ class OrderBy(UnaryOperator):
     def num_tuples(self):
         return self.input.num_tuples()
 
+    def partitioning(self):
+        # TODO set sorted
+        return RepresentationProperties()
+
     def shortStr(self):
         ascend_string = ['+' if a else '-' for a in self.ascending]
         sort_string = ','.join('{col}{asc}'.format(col=c, asc=a)
@@ -1072,7 +1082,11 @@ class Shuffle(UnaryOperator):
         # TODO: incorporate information about functional dependences
         if self.shuffle_type == self.ShuffleType.SingleFieldHash \
                 or self.shuffle_type == self.ShuffleType.MultiFieldHash:
-            return RepresentationProperties(hash_partitioned=set(self.columnlist))
+            return RepresentationProperties(
+                hash_partitioned=set(
+                    self.columnlist))
+        else:
+            return RepresentationProperties()
 
     def copy(self, other):
         self.columnlist = other.columnlist
@@ -1080,6 +1094,7 @@ class Shuffle(UnaryOperator):
         UnaryOperator.copy(self, other)
 
     class ShuffleType(object):
+
         """Enum of supported shuffling types."""
         SingleFieldHash, MultiFieldHash, IdentityHash = range(3)
 
@@ -1103,6 +1118,10 @@ class HyperCubeShuffle(UnaryOperator):
         self.mapped_hc_dimensions = mapped_hc_dims
         self.hyper_cube_dimensions = hyper_cube_dims
         self.cell_partition = cell_partition
+
+    def partitioning(self):
+        # TODO maintain the new partitioning information
+        return RepresentationProperties()
 
     def num_tuples(self):
         return self.input.num_tuples()
@@ -1131,7 +1150,7 @@ class Collect(UnaryOperator):
         return self.input.num_tuples()
 
     def partitioning(self):
-        # TODO: implement specific-worker partitioning?
+        # TODO: implement one-partition partitioning?
         return RepresentationProperties()
 
     def shortStr(self):
@@ -1152,8 +1171,13 @@ class Broadcast(UnaryOperator):
     def shortStr(self):
         return self.opname()
 
+    def partitioning(self):
+        # TODO a way to say that all tuples are on all partitions
+        return RepresentationProperties()
+
 
 class Split(UnaryOperator):
+
     """An in-memory pipeline between two operators. Typically used in
     multi-threaded systems for IPC between threads executing different
     operator subtrees."""
@@ -1286,6 +1310,9 @@ class Dump(UnaryOperator):
     def num_tuples(self):
         raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
+    def partitioning(self):
+        raise NotImplementedError("{op}.partitioning".format(op=type(self)))
+
     def shortStr(self):
         return "%s()" % self.opname()
 
@@ -1299,6 +1326,9 @@ class EmptyRelation(ZeroaryOperator):
 
     def num_tuples(self):
         return 0
+
+    def partitioning(self):
+        return RepresentationProperties()
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), self._scheme)
@@ -1336,6 +1366,9 @@ class SingletonRelation(ZeroaryOperator):
         """scheme of the result."""
         return scheme.Scheme()
 
+    def partitioning(self):
+        return RepresentationProperties()
+
 
 class FileScan(ZeroaryOperator):
 
@@ -1372,6 +1405,9 @@ class FileScan(ZeroaryOperator):
     def num_tuples(self):
         raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
+    def partitioning(self):
+        return RepresentationProperties()
+
     def copy(self, other):
         """deep copy"""
         self.path = other.path
@@ -1388,8 +1424,9 @@ class Scan(ZeroaryOperator):
 
     """Logical Scan operator."""
 
-    def __init__(self, relation_key=None, _scheme=None, cardinality=None,
-                 partitioning=None):
+    def __init__(self, relation_key=None, _scheme=None,
+                 cardinality=DEFAULT_CARDINALITY,
+                 partitioning=RepresentationProperties()):
         """Initialize a scan operator.
 
         relation_key is a string of the form "user:program:relation"
@@ -1397,15 +1434,8 @@ class Scan(ZeroaryOperator):
         """
         self.relation_key = relation_key
         self._scheme = _scheme
-        if cardinality is not None:
-            self._cardinality = cardinality
-        else:
-            self._cardinality = DEFAULT_CARDINALITY
-
-        if partitioning is not None:
-            self._partitioning = partitioning
-        else:
-            self._partitioning = RepresentationProperties()
+        self._cardinality = cardinality
+        self._partitioning = partitioning
 
         ZeroaryOperator.__init__(self)
 
@@ -1426,6 +1456,9 @@ class Scan(ZeroaryOperator):
 
     def num_tuples(self):
         return self._cardinality
+
+    def partitioning(self):
+        return self._partitioning
 
     def __repr__(self):
         return "{op}({rk!r}, {sch!r}, {card!r})".format(
@@ -1480,6 +1513,9 @@ class SampleScan(ZeroaryOperator):
     def num_tuples(self):
         return self.sample_size
 
+    def partitioning(self):
+        return RepresentationProperties()
+
     def scheme(self):
         """Scheme of the result, which is just the scheme of the relation."""
         return self._scheme
@@ -1498,6 +1534,9 @@ class StoreTemp(UnaryOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return '{op}({name})'.format(op=self.opname(), name=self.name)
@@ -1528,6 +1567,9 @@ class AppendTemp(UnaryOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return '{op}({name})'.format(op=self.opname(), name=self.name)
@@ -1561,6 +1603,10 @@ class ScanTemp(ZeroaryOperator):
     def num_tuples(self):
         raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
+    def partitioning(self):
+        # TODO: get the partitioning from StoreTemp
+        return RepresentationProperties()
+
     def shortStr(self):
         return "%s(%s,%s)" % (self.opname(), self.name, str(self._scheme))
 
@@ -1581,11 +1627,15 @@ class ScanTemp(ZeroaryOperator):
 class Sink(UnaryOperator):
 
     """ Throw the tuples in an relation on the floor."""
+
     def __init__(self, input=None):
         UnaryOperator.__init__(self, input)
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return "{op}".format(op=self.opname())
@@ -1603,6 +1653,9 @@ class Parallel(NaryOperator):
 
     def num_tuples(self):
         raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+
+    def partitioning(self):
+        raise NotImplementedError("{op}.partitioning".format(op=type(self)))
 
     def shortStr(self):
         return self.opname()
@@ -1632,6 +1685,9 @@ class Sequence(NaryOperator):
     def num_tuples(self):
         raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
 
+    def partitioning(self):
+        raise NotImplementedError("{op}.partitioning".format(op=type(self)))
+
 
 class DoWhile(NaryOperator):
 
@@ -1650,6 +1706,9 @@ class DoWhile(NaryOperator):
 
     def num_tuples(self):
         raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+
+    def partitioning(self):
+        raise NotImplementedError("{op}.partitioning".format(op=type(self)))
 
     def shortStr(self):
         return self.opname()

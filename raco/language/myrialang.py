@@ -8,6 +8,7 @@ from raco import algebra, expression, rules, scheme
 from raco.algebra import convertcondition
 from raco.algebra import Shuffle
 from raco.catalog import Catalog
+from raco.representation import RepresentationProperties
 from raco.language import Language, Algebra
 from raco.language.sql.catalog import SQLCatalog
 from raco.expression import WORKERID, COUNTALL
@@ -547,6 +548,9 @@ class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
     def num_tuples(self):
         return self.input.num_tuples()
 
+    def partitioning(self):
+        return algebra.Broadcast(self.input).partitioning()
+
     def shortStr(self):
         return "%s" % self.opname()
 
@@ -565,6 +569,9 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return "%s" % self.opname()
@@ -591,6 +598,9 @@ class MyriaSplitProducer(algebra.UnaryOperator, MyriaOperator):
     def num_tuples(self):
         return self.input.num_tuples()
 
+    def partitioning(self):
+        return self.input.partitioning()
+
     def compileme(self, inputid):
         return {
             "opType": "LocalMultiwayProducer",
@@ -606,6 +616,9 @@ class MyriaSplitConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return self.opname()
@@ -642,6 +655,9 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     def __repr__(self):
         return "{op}({inp!r}, {hc!r})".format(op=self.opname(), inp=self.input,
                                               hc=self.hash_columns)
+
+    def partitioning(self):
+        return Shuffle(self.input, self.hash_columns, self.shuffle_type).partitioning()
 
     def num_tuples(self):
         return self.input.num_tuples()
@@ -684,6 +700,9 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         return "%s" % self.opname()
 
+    def partitioning(self):
+        return self.input.partitioning()
+
     def compileme(self, inputid):
         return {
             'opType': 'ShuffleConsumer',
@@ -700,6 +719,10 @@ class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        # TODO: have a way to say it is on a specific worker
+        return RepresentationProperties()
 
     def shortStr(self):
         return "%s(@%s)" % (self.opname(), self.server)
@@ -724,6 +747,9 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return "%s" % self.opname()
@@ -754,6 +780,9 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     def num_tuples(self):
         return self.input.num_tuples()
 
+    def partitioning(self):
+        return MyriaHyperShuffle(self.input, self.hashed_columns, self.mapped_hc_dims, self.hyper_cube_dimensions, self.cell_partition).partitioning()
+
     def shortStr(self):
         mapping = {i: '*' for i in range(len(self.hyper_cube_dimensions))}
         mapping.update({h: 'h({col})'.format(col=i)
@@ -781,6 +810,9 @@ class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     def num_tuples(self):
         return self.input.num_tuples()
 
+    def partitioning(self):
+        return self.input.partitioning()
+
     def shortStr(self):
         return "%s" % self.opname()
 
@@ -805,6 +837,9 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self._num_tuples
+
+    def partitioning(self):
+        return RepresentationProperties()
 
     def shortStr(self):
         return "MyriaQueryScan({sql!r})".format(sql=self.sql)
@@ -845,6 +880,9 @@ class MyriaCalculateSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return RepresentationProperties()
 
     def scheme(self):
         return self.input.scheme() + scheme.Scheme([('SampleSize',
@@ -889,6 +927,9 @@ class MyriaSample(algebra.BinaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.sample_size
+
+    def partitioning(self):
+        return RepresentationProperties()
 
     def scheme(self):
         """The right operator is the one sampled from."""
@@ -988,24 +1029,6 @@ class BreakSplit(rules.Rule):
         return consumer
 
 
-def check_shuffle_xor(exp):
-    """Enforce that neither or both inputs to a binary op are shuffled.
-
-    Return True if the arguments are shuffled; False if they are not;
-    or raise a ValueError on xor failure.
-
-    Note that we assume that inputs are shuffled in a compatible way.
-    """
-    left_shuffle = isinstance(exp.left, algebra.Shuffle)
-    right_shuffle = isinstance(exp.right, algebra.Shuffle)
-
-    if left_shuffle and right_shuffle:
-        return True
-    if left_shuffle or right_shuffle:
-        raise ValueError("Must shuffle on both inputs of %s" % exp)
-    return False
-
-
 class CollectBeforeLimit(rules.Rule):
     """Similar to a decomposable GroupBy, rewrite Limit as
     Limit[Collect[Limit]]"""
@@ -1018,6 +1041,18 @@ class CollectBeforeLimit(rules.Rule):
         return exp
 
 
+def check_partition_equality(op, representation):
+    """Check to see if the operator has the required hash partitioning.
+    @param op operator
+    @param representation list of columns hash partitioned by,
+                        in the unnamed perspective
+    @return true if the op has an equal hash partitioning to representation
+    """
+
+    p = set([expression.ensure_unnamed(attr) for attr in op.partitioning().hash_partitioned])
+    return p == representation
+
+
 class ShuffleBeforeSetop(rules.Rule):
     def fire(self, exp):
         if not isinstance(exp, (algebra.Difference, algebra.Intersection)):
@@ -1026,11 +1061,15 @@ class ShuffleBeforeSetop(rules.Rule):
         def shuffle_after(op):
             cols = [expression.UnnamedAttributeRef(i)
                     for i in range(len(op.scheme()))]
-            return algebra.Shuffle(child=op, columnlist=cols)
 
-        if not check_shuffle_xor(exp):
-            exp.left = shuffle_after(exp.left)
-            exp.right = shuffle_after(exp.right)
+            if check_partition_equality(op, cols):
+                return op
+            else:
+                return algebra.Shuffle(child=op, columnlist=cols)
+
+        exp.left = shuffle_after(exp.left)
+        exp.right = shuffle_after(exp.right)
+
         return exp
 
 
@@ -1040,30 +1079,34 @@ class ShuffleBeforeJoin(rules.Rule):
         if not isinstance(expr, algebra.Join):
             return expr
 
-        # If both have shuffles already, who cares?
-        if check_shuffle_xor(expr):
-            return expr
-
         # Figure out which columns go in the shuffle
         left_cols, right_cols = \
             convertcondition(expr.condition,
                              len(expr.left.scheme()),
                              expr.left.scheme() + expr.right.scheme())
 
-        # Left shuffle
+        # Left shuffle cols
         left_cols = [expression.UnnamedAttributeRef(i)
                      for i in left_cols]
-        left_shuffle = algebra.Shuffle(expr.left, left_cols)
-        # Right shuffle
+        # Right shuffle cols
         right_cols = [expression.UnnamedAttributeRef(i)
                       for i in right_cols]
-        right_shuffle = algebra.Shuffle(expr.right, right_cols)
+
+        if check_partition_equality(expr.left, left_cols):
+            new_left = expr.left
+        else:
+            new_left = algebra.Shuffle(expr.left, left_cols)
+
+        if check_partition_equality(expr.right, right_cols):
+            new_right = expr.right
+        else:
+            new_right = algebra.Shuffle(expr.right, right_cols)
 
         # Construct the object!
         assert isinstance(expr, algebra.ProjectingJoin)
         if isinstance(expr, algebra.ProjectingJoin):
             return algebra.ProjectingJoin(expr.condition,
-                                          left_shuffle, right_shuffle,
+                                          new_left, new_right,
                                           expr.output_columns)
 
 
