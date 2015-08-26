@@ -381,7 +381,7 @@ class NaryJoin(NaryOperator):
 """Logical Relational Algebra"""
 
 
-class SymmetricBinaryOperator(object):
+class IdenticalSchemeBinaryOperator(object):
     """BinaryOperator where both sides have the same schema"""
 
     def partitioning(self):
@@ -393,10 +393,13 @@ class SymmetricBinaryOperator(object):
     def scheme(self):
         """Same semantics as SQL: Assume first schema "wins" and throw an
         error if they don't match during evaluation"""
-        return self.left.scheme()
+        left_sch = self.left.scheme()
+        right_sch = self.right.scheme()
+        assert left_sch == right_sch, "Left and right not the same scheme"
+        return left_sch
 
 
-class Union(SymmetricBinaryOperator):
+class Union(IdenticalSchemeBinaryOperator):
 
     """Set union."""
 
@@ -411,7 +414,7 @@ class Union(SymmetricBinaryOperator):
         return self.opname()
 
 
-class UnionAll(SymmetricBinaryOperator):
+class UnionAll(IdenticalSchemeBinaryOperator):
 
     """Bag union."""
 
@@ -429,7 +432,7 @@ class UnionAll(SymmetricBinaryOperator):
         return self.opname()
 
 
-class Intersection(SymmetricBinaryOperator):
+class Intersection(IdenticalSchemeBinaryOperator):
 
     """Set intersection."""
 
@@ -443,7 +446,7 @@ class Intersection(SymmetricBinaryOperator):
         return self.opname()
 
 
-class Difference(SymmetricBinaryOperator):
+class Difference(IdenticalSchemeBinaryOperator):
 
     """Set difference"""
 
