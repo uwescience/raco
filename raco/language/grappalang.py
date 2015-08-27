@@ -1728,6 +1728,7 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
         self._update_func(state, t)
         self._init_def(state, t)
 
+        # generate class definition, if needed
         if self.useKey:
             class_symbol = "AggregateSink_{}".format(gensym())
             state.addDeclarations([
@@ -1745,13 +1746,28 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
             self._combine_def(state, t)
 
         symbol = self.declare_sink(state)
-        state.addOperator(self.sink_operator_code(
-           symbol=symbol,
-           call_constructor="{class_symbol}({inputsym}, {hashname})".format(
-               inputsym=src.symbol,
-               class_symbol=class_symbol,
-               hashname=self._hashname)
-        ))
+
+        # generate instantiation
+        if self.useKey:
+            state.addOperator(self.sink_operator_code(
+               symbol=symbol,
+               call_constructor="{class_symbol}({inputsym}, {hashname})".format(
+                   inputsym=src.symbol,
+                   class_symbol=class_symbol,
+                   hashname=self._hashname)
+            ))
+        else:
+           state.addOperator(self.sink_operator_code(
+               symbol=symbol,
+               call_constructor="ZeroKeyAggregateSink<{consume_type}, {state_type}>({inputsym}, {hashname}, &{update_func}, &{init_func})".format(
+                   inputsym=src.symbol,
+                   hashname=self._hashname,
+                   update_func=self.update_func,
+                   init_func=self.init_func,
+                   consume_type=t.getTupleTypename(),
+                   state_type=self.state_tuple.getTupleTypename()
+               )
+           ))
 
         return None
 
