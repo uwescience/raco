@@ -1676,8 +1676,10 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
 
         if self.useKey:
             produce_template = self.iter_cgenv().get_template("multikey_groupby_source.cpp")
+            class_symbol = "AggregateSource_{}".format(gensym())
         else:
             produce_template = self.iter_cgenv().get_template("0key_groupby_source.cpp")
+            class_symbol = "ZeroKeyAggregateSource_{}".format(gensym())
 
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
         state.addDeclarations([output_tuple.generateDefinition()])
@@ -1685,7 +1687,6 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
         assignment_code = self._assignment_code(output_tuple)
 
         self.assign_symbol()
-        class_symbol = "AggregateSource_{}".format(gensym())
 
         inp_sch = self.input.scheme()
 
