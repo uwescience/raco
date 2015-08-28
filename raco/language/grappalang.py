@@ -1553,6 +1553,7 @@ class IGrappaApply(GrappaApply, Iterator):
         ))
 
         self.parent().consume(self.newtuple, self, state)
+
         return None
 
 
@@ -1774,6 +1775,9 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
         return None
 
 
+class IGrappaBroadcastCrossProduct(GrappaBroadcastCrossProduct, Iterator):
+    def consume(self, t, src, state):
+        raise NotImplementedError
 
 
 class CrossProductWithSmall(rules.Rule):
@@ -1782,10 +1786,13 @@ class CrossProductWithSmall(rules.Rule):
     a singleton, then broadcast the singleton: cross product
     is just adding an attribute to every tuple from the other relation
     """
+    def __init__(self, broadcast_crossproduct_class=GrappaBroadcastCrossProduct):
+        self.op_class = broadcast_crossproduct_class
+
     def fire(self, expr):
         if isinstance(expr, algebra.CrossProduct):
             if expr.right.num_tuples() == 1:
-                return GrappaBroadcastCrossProduct(expr.left, expr.right)
+                return self.op_class(expr.left, expr.right)
 
         return expr
 
@@ -1808,6 +1815,7 @@ def iteratorfy(emit_print, scan_array_repr):
         # TODO: obviously breaks semantics
         #rules.OneToOne(algebra.Union, GrappaUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, IGrappaStore),
+        CrossProductWithSmall(IGrappaBroadcastCrossProduct)
     ]
 
 def grappify(join_type, emit_print,
@@ -1825,6 +1833,7 @@ def grappify(join_type, emit_print,
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, GrappaStore),
+        CrossProductWithSmall(),
 
         # Don't need this because we support two-key
         # clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
@@ -1878,7 +1887,6 @@ class GrappaAlgebra(Algebra):
             rules.push_project,
             rules.push_apply,
             grappify_rules,
-            [CrossProductWithSmall()],
         ]
 
         if SwapJoinSides:
