@@ -1698,7 +1698,8 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
             input_type = self.input_tuple_type,
             assignment_code=assignment_code,
             mapping_var_name=output_tuple.name+"_entry",
-            combine_func=self.combine_func
+            combine_func=self.combine_func,
+            state_tuple_name=output_tuple.name+"_tmp"
         )])
 
         state.addOperator(self.operator_code(
