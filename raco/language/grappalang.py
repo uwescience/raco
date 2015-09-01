@@ -1383,6 +1383,15 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
         self.left.childtag = "left"
         self.left.produce(state)
 
+    def _declare_broadcast_tuple(self, t, state):
+        # declare global var and broadcast value
+        self.broadcast_tuple = t.copy_type()
+        var_decl = self.language().cgenv().get_template('tuple_declaration.cpp').render(
+            dst_type_name=self.broadcast_tuple.getTupleTypename(),
+            dst_name=self.broadcast_tuple.name
+        )
+        state.addDeclarations([var_decl])
+
     def consume(self, t, src, state):
         if src.childtag == "right":
             # right to left dependency
@@ -1390,13 +1399,7 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
 
             code = self.language().comment(self.shortStr() + " RIGHT")
 
-            # declare global var and broadcast value
-            self.broadcast_tuple = t.copy_type()
-            var_decl = self.language().cgenv().get_template('tuple_declaration.cpp').render(
-                dst_type_name=self.broadcast_tuple.getTupleTypename(),
-                dst_name=self.broadcast_tuple.name
-            )
-            state.addDeclarations([var_decl])
+            self._declare_broadcast_tuple(t, state)
 
             code += """on_all_cores([=] {{
                   {global_name} = {input_name};
