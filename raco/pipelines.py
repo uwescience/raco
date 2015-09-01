@@ -9,7 +9,7 @@ LOG = logging.getLogger(__name__)
 
 
 class ResolvingSymbol:
-    _unique_tag = "_@@UNRESOLVED_SYMBOL_"
+    _unique_tag = "_@@UNRESOLVED_SYMBOL_{name}@@_"
 
     def __init__(self, name):
         self._name = name
@@ -17,7 +17,7 @@ class ResolvingSymbol:
 
     @classmethod
     def _mksymbol(cls, name):
-        return "{0}{1}".format(cls._unique_tag, name)
+        return cls._unique_tag.format(name=name)
 
     def getPlaceholder(self):
         return self._placeholder
@@ -31,8 +31,9 @@ class ResolvingSymbol:
         # TODO: replace with multi-pattern sed script
         for name, val in symbols.items():
             assert val is not None, "Unresolved symbol: {}".format(name)
-            pat = r'{0}{1}'.format(cls._unique_tag, name)
+            pat = cls._unique_tag.format(name=name)
             code = re.sub(pat, val, code)
+            print "{0} into {1}".format(val, pat)
         return code
 
 
