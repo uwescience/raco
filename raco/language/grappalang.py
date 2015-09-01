@@ -1780,7 +1780,61 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
 
 class IGrappaBroadcastCrossProduct(GrappaBroadcastCrossProduct, Iterator):
     def consume(self, t, src, state):
-        raise NotImplementedError
+        if src.childtag == "right":
+            symbol = self.declare_sink(state)
+            # right to left dependency
+            self.right_syncname = get_pipeline_task_name(state)
+            self._declare_broadcast_tuple(t, state)
+            state.addOperator(self.sink_operator_code(
+                symbol=symbol,
+                call_constructor="BroadcastTupleSink<{consume_type}>({inputsym}, &{broadcast_tuple})".format(
+                    consume_type=t.getTupleTypename(),
+                    inputsym=src.symbol,
+                    broadcast_tuple=self.broadcast_tuple.name ) ))
+            return None
+
+        elif src.childtag == "left":
+            # right to left dependency
+            state.addToPipelinePropertySet('dependences', self.right_syncname)
+            output = GrappaStagedTupleRef(gensym(), self.scheme())
+
+            append_func_name, combine_function_def = \
+                GrappaStagedTupleRef.get_append(
+                    output.getTupleTypename(),
+                    t.getTupleTypename(), len(t.scheme),
+                    self.broadcast_tuple.getTupleTypename(), len(self.broadcast_tuple.scheme))
+
+            class_symbol = "BroadcastTupleStream_{}".format(gensym())
+
+            class_decl = self.iter_cgenv().get_template('broadcast_stream.cpp').render(
+                class_symbol=class_symbol,
+                left_type=t.getTupleTypename(),
+                right_type=self.broadcast_tuple.getTupleTypename(),
+                output_type=output.getTupleTypename(),
+                output_name=output.name,
+                append_func_name=append_func_name
+            )
+
+            state.addDeclarations([output.generateDefinition(),
+                                   combine_function_def,
+                                   class_decl])
+
+            self.assign_symbol()
+            state.addOperator(self.operator_code(
+                produce_type=output.getTupleTypename(),
+                symbol=self.symbol,
+                call_constructor = "{class_symbol}({inputsym}, &{broadcast_tuple}".format(
+                    class_symbol=class_symbol,
+                    broadcast_tuple=self.broadcast_tuple.name,
+                    inputsym=src.symbol
+                )
+            ))
+
+            self.parent().consume(output, self, state)
+            return None
+
+        else:
+            assert False, "bad childtag: {0}".format(src.childtag)
 
 
 class CrossProductWithSmall(rules.Rule):
