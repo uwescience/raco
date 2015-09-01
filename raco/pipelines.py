@@ -33,7 +33,6 @@ class ResolvingSymbol:
             assert val is not None, "Unresolved symbol: {}".format(name)
             pat = cls._unique_tag.format(name=name)
             code = re.sub(pat, val, code)
-            print "{0} into {1}".format(val, pat)
         return code
 
 
