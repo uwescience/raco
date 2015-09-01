@@ -1823,7 +1823,7 @@ class IGrappaBroadcastCrossProduct(GrappaBroadcastCrossProduct, Iterator):
             state.addOperator(self.operator_code(
                 produce_type=output.getTupleTypename(),
                 symbol=self.symbol,
-                call_constructor = "{class_symbol}({inputsym}, &{broadcast_tuple}".format(
+                call_constructor = "{class_symbol}({inputsym}, &{broadcast_tuple})".format(
                     class_symbol=class_symbol,
                     broadcast_tuple=self.broadcast_tuple.name,
                     inputsym=src.symbol
