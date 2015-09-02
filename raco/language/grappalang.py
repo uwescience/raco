@@ -680,7 +680,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             self.func_name = subexpression_proxy.func_name
             self.state_tuple = subexpression_proxy.state_tuple
             self.input_syncname = subexpression_proxy.input_syncname
-            self.input_type_ref = subexpression_proxy.input_type_ref
+            #self.input_type_ref = subexpression_proxy.input_type_ref
         else:
             symbol = gensym()
             self._hashname = self.__genHashName__()
@@ -688,7 +688,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             self.func_name = "__{0}".format(symbol)
             self.state_tuple = GrappaStagedTupleRef(symbol,
                                                     self.aggregates_schema)
-            self.input_type_ref = state.createUnresolvedSymbol()
+            #self.input_type_ref = state.createUnresolvedSymbol()
             state.saveExpr(self, self)
             state.addDeclarations([self.state_tuple.generateDefinition()])
 
