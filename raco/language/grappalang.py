@@ -729,6 +729,13 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
     def _init_template(self):
         return self._cgenv.get_template('withkey_init.cpp')
 
+    def _reuse_properties(self, other):
+        self._hashname = other._hashname
+        self.func_name = other.func_name
+        self.state_tuple = other.state_tuple
+        self.input_syncname = other.input_syncname
+        self.input_type_ref = other.input_type_ref
+
     def produce(self, state):
         # we distinguish between no-key and using a key cases
         self.useKey = len(self.grouping_list) > 0
@@ -757,11 +764,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         hashtableInfo = state.lookupExpr(self)
         if hashtableInfo:
             subexpression_proxy = hashtableInfo
-            self._hashname = subexpression_proxy._hashname
-            self.func_name = subexpression_proxy.func_name
-            self.state_tuple = subexpression_proxy.state_tuple
-            self.input_syncname = subexpression_proxy.input_syncname
-            #self.input_type_ref = subexpression_proxy.input_type_ref
+            self._reuse_properties(subexpression_proxy)
         else:
             symbol = gensym()
             self._hashname = self.__genHashName__()
@@ -769,7 +772,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             self.func_name = "__{0}".format(symbol)
             self.state_tuple = GrappaStagedTupleRef(symbol,
                                                     self.aggregates_schema)
-            #self.input_type_ref = state.createUnresolvedSymbol()
+            self.input_type_ref = state.createUnresolvedSymbol()
             state.saveExpr(self, self)
             state.addDeclarations([self.state_tuple.generateDefinition()])
 
@@ -789,8 +792,6 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             keytype = self._key_type(inp_sch)
 
         hashname = self._hashname
-
-        self.input_type_ref = state.createUnresolvedSymbol()
 
         if self.useKey:
             init_template = self._init_template()
@@ -1686,6 +1687,11 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
 
 
 class IGrappaGroupBy(GrappaGroupBy, Iterator):
+    def _reuse_properties(self, other):
+        super(IGrappaGroupBy, self)._reuse_properties(other)
+        # save additional properties
+        self.input_tuple_type = other.input_tuple_type
+
     def _impl_produce(self, state):
         pipeline_sync = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
