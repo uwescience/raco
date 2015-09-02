@@ -673,11 +673,25 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         self.aggregates_schema = scheme.Scheme(
             zip(aggregates_names, aggregates_types))
 
-        symbol = gensym()
-        self.func_name = "__{0}".format(symbol)
-        self.state_tuple = GrappaStagedTupleRef(symbol,
-                                                self.aggregates_schema)
-        state.addDeclarations([self.state_tuple.generateDefinition()])
+        hashtableInfo = state.lookupExpr(self)
+        if hashtableInfo:
+            subexpression_proxy = hashtableInfo
+            self._hashname = subexpression_proxy._hashname
+            self.func_name = subexpression_proxy.func_name
+            self.state_tuple = subexpression_proxy.state_tuple
+            self.input_syncname = subexpression_proxy.input_syncname
+            self.input_type_ref = subexpression_proxy.input_type_ref
+        else:
+            symbol = gensym()
+            self._hashname = self.__genHashName__()
+            _LOG.debug("generate hashname %s for %s", self._hashname, self)
+            self.func_name = "__{0}".format(symbol)
+            self.state_tuple = GrappaStagedTupleRef(symbol,
+                                                    self.aggregates_schema)
+            self.input_type_ref = state.createUnresolvedSymbol()
+            state.saveExpr(self, self)
+            state.addDeclarations([self.state_tuple.generateDefinition()])
+
         state_type = self.state_tuple.getTupleTypename()
         self.update_func = "{name}_update".format(name=self.func_name)
         # combine_func currently just for 0key_output
@@ -690,9 +704,6 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             keytype = "std::tuple<{types}>".format(
                 types=','.join([self.language().typename(
                     g.typeof(inp_sch, None)) for g in self.grouping_list]))
-
-        self._hashname = self.__genHashName__()
-        _LOG.debug("generate hashname %s for %s", self._hashname, self)
 
         hashname = self._hashname
 
@@ -712,7 +723,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         state.addInitializers([init_template.render(locals())])
 
-        self.input.produce(state)
+        if not hashtableInfo:
+            self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
         # assert len(self.column_list()) == 1 \
