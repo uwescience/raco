@@ -754,11 +754,25 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         self.aggregates_schema = self._reconstruct_aggregates_schema()
 
-        symbol = gensym()
-        self.func_name = "__{0}".format(symbol)
-        self.state_tuple = GrappaStagedTupleRef(symbol,
-                                                self.aggregates_schema)
-        state.addDeclarations([self.state_tuple.generateDefinition()])
+        hashtableInfo = state.lookupExpr(self)
+        if hashtableInfo:
+            subexpression_proxy = hashtableInfo
+            self._hashname = subexpression_proxy._hashname
+            self.func_name = subexpression_proxy.func_name
+            self.state_tuple = subexpression_proxy.state_tuple
+            self.input_syncname = subexpression_proxy.input_syncname
+            #self.input_type_ref = subexpression_proxy.input_type_ref
+        else:
+            symbol = gensym()
+            self._hashname = self.__genHashName__()
+            _LOG.debug("generate hashname %s for %s", self._hashname, self)
+            self.func_name = "__{0}".format(symbol)
+            self.state_tuple = GrappaStagedTupleRef(symbol,
+                                                    self.aggregates_schema)
+            #self.input_type_ref = state.createUnresolvedSymbol()
+            state.saveExpr(self, self)
+            state.addDeclarations([self.state_tuple.generateDefinition()])
+
         state_type = self.state_tuple.getTupleTypename()
         self.update_func = "{name}_update".format(name=self.func_name)
         self.init_func = "{name}_init".format(name=self.func_name)
@@ -773,9 +787,6 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         if self.useKey:
             numkeys = len(self.grouping_list)
             keytype = self._key_type(inp_sch)
-
-        self._hashname = self.__genHashName__()
-        _LOG.debug("generate hashname %s for %s", self._hashname, self)
 
         hashname = self._hashname
 
@@ -798,7 +809,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
         state.addInitializers([init_template.render(locals())])
 
-        self.input.produce(state)
+        if not hashtableInfo:
+            self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
 
