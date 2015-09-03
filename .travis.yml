@@ -5,6 +5,7 @@ install:
   - pip install -r requirements-dev.txt
   - python setup.py install
   - pip install coveralls
-script: CXX=clang++ nosetests --with-coverage --cover-package=raco --logging-level=WARN
+  - sudo ln -fs `which clang++` `which g++`
+script: nosetests --with-coverage --cover-package=raco --logging-level=WARN
 after_success:
   - coveralls
