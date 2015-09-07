@@ -387,7 +387,7 @@ class IdenticalSchemeBinaryOperator(BinaryOperator):
 
     def partitioning(self):
         """keep the partitioning if both sides are identically partitioned"""
-        lp = self.left.partitioning().hash_partitioned
+        lp = self.left.partitioning()
         if lp.hash_partitioned == self.right.partitioning().hash_partitioned:
             return lp
         else:
