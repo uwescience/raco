@@ -839,6 +839,8 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
         return self._num_tuples
 
     def partitioning(self):
+        # TODO be less conservative by using the partitioning()
+        # TODO   of the query plan in the rule PushIntoSQL
         return RepresentationProperties()
 
     def shortStr(self):
@@ -1049,7 +1051,7 @@ def check_partition_equality(op, representation):
     @return true if the op has an equal hash partitioning to representation
     """
 
-    p = set([expression.ensure_unnamed(attr) for attr in op.partitioning().hash_partitioned])
+    p = set(expression.ensure_unnamed(attr) for attr in op.partitioning().hash_partitioned)
     return p == representation
 
 

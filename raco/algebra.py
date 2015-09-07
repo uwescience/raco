@@ -356,7 +356,7 @@ class NaryJoin(NaryOperator):
         attributes"""
         attributes = set()
         for c in self.children():
-            attributes.union(c.partitioning().hash_partitioned)
+            attributes = attributes.union(c.partitioning().hash_partitioned)
         return RepresentationProperties(hash_partitioned=attributes)
 
     def scheme(self):
@@ -386,10 +386,12 @@ class IdenticalSchemeBinaryOperator(BinaryOperator):
     """BinaryOperator where both sides have the same schema"""
 
     def partitioning(self):
-        """attributes that are partitioned in both inputs"""
-        return RepresentationProperties(hash_partitioned=set.intersection(
-            self.left.partitioning().hash_partitioned,
-            self.right.partitioning().hash_partitioned))
+        """keep the partitioning if both sides are identically partitioned"""
+        lp = self.left.partitioning().hash_partitioned
+        if lp.hash_partitioned == self.right.partitioning().hash_partitioned:
+            return lp
+        else:
+            return RepresentationProperties()
 
     def scheme(self):
         """Same semantics as SQL: Assume first schema "wins" and throw an
@@ -843,10 +845,15 @@ class Project(UnaryOperator):
         return self.input.num_tuples()
 
     def partitioning(self):
+        """
+        if all partition columns are still present then keep partitioning
+        """
         all_columns = set(self.columnlist)
-        return RepresentationProperties(hash_partitioned=set.intersection(
-            all_columns,
-            self.input.partitioning().hash_partitioned))
+        ip = self.input.partitioning()
+        if ip.hash_partitioned <= all_columns:
+            return ip
+        else:
+            return RepresentationProperties()
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), real_str(self.columnlist,
@@ -911,11 +918,12 @@ class GroupBy(UnaryOperator):
         return self.input.num_tuples()
 
     def partitioning(self):
+        ip = self.input.partitioning()
         all_groupings = set(self.grouping_list)
-        return RepresentationProperties(hash_partitioned=set.intersection(
-            all_groupings,
-            self.input.partitioning().hash_partitioned
-        ))
+        if ip.hash_partitioned <= all_groupings:
+            return ip
+        else:
+            return RepresentationProperties()
 
     def shortStr(self):
         return "%s(%s; %s)" % (self.opname(),
@@ -1035,6 +1043,14 @@ class ProjectingJoin(Join):
         """deep copy"""
         self.output_columns = other.output_columns
         Join.copy(self, other)
+
+    def partitioning(self):
+        """Partitioning of a Join followed by a Project"""
+        joinp = super(ProjectingJoin, self).partitioning()
+        if joinp <= set(self.output_columns):
+            return joinp
+        else:
+            return RepresentationProperties()
 
     def scheme(self):
         """Return the scheme of the result."""
