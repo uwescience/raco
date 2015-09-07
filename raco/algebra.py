@@ -400,7 +400,8 @@ class IdenticalSchemeBinaryOperator(BinaryOperator):
         right_sch = self.right.scheme()
         assert all(
             la[1] == ra[1] for la, ra in zip(
-                left_sch, right_sch)), "Must be same scheme types: {left} != {right}".format(
+                left_sch, right_sch)), \
+            "Must be same scheme types: {left} != {right}".format(
             left=left_sch, right=right_sch)
         return left_sch
 
@@ -488,7 +489,8 @@ class CompositeBinaryOperator(BinaryOperator):
                              expression.UnnamedAttributeRef(col1))
 
     def partitioning(self):
-        """ The schemas are mutually exclusive so union the partition attributes"""
+        """ The schemas are mutually exclusive
+        so union the partition attributes"""
         return RepresentationProperties(
             hash_partitioned=set.union(
                 self.left.partitioning().hash_partitioned,
