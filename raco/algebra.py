@@ -1477,15 +1477,16 @@ class Scan(ZeroaryOperator):
         return self._partitioning
 
     def __repr__(self):
-        return "{op}({rk!r}, {sch!r}, {card!r})".format(
+        return "{op}({rk!r}, {sch!r}, {card!r}, {part!r})".format(
             op=self.opname(), rk=self.relation_key, sch=self._scheme,
-            card=self._cardinality)
+            card=self._cardinality, part=self._partitioning)
 
     def copy(self, other):
         """deep copy"""
         self.relation_key = other.relation_key
         self._scheme = other._scheme
         self._cardinality = other._cardinality
+        self._partitioning = other._partitioning
 
         # TODO: need a cleaner and more general way of tracing information
         # through the compilation process for debugging purposes

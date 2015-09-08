@@ -15,3 +15,16 @@ class RepresentationProperties(object):
 
         if sorted is not None or grouped is not None:
             raise NotImplementedError("sorted and grouped not yet supported")
+
+    def __str__(self):
+        return "{clazz}(hash: {hash_attrs})".format(
+            clazz=self.__class__.__name__,
+            hash_attrs=self.hash_partitioned)
+
+    def __repr__(self):
+        return "{clazz}({hp!r}, {sort!r}, {grp!r})".format(
+            clazz=self.__class__.__name__,
+            hp=self.hash_partitioned,
+            sort=None,
+            grp=None
+        )
