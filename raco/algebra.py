@@ -492,7 +492,7 @@ class CompositeBinaryOperator(BinaryOperator):
         """ The schemas are mutually exclusive
         so union the partition attributes"""
         return RepresentationProperties(
-            hash_partitioned=set.union(
+            hash_partitioned=frozenset.union(
                 self.left.partitioning().hash_partitioned,
                 self.right.partitioning().hash_partitioned))
 

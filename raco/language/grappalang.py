@@ -255,6 +255,9 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
     def shortStr(self):
         return "%s" % (self.opname())
 
+    def partitioning(self):
+        raise NotImplementedError
+
     def __eq__(self, other):
         """
         See important __eq__ notes below
