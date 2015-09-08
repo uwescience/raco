@@ -8,3 +8,4 @@ install:
 script: nosetests --with-coverage --cover-package=raco --logging-level=WARN
 after_success:
   - coveralls
+sudo: false
