@@ -28,7 +28,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
     x_key = relation_key.RelationKey.from_string("public:adhoc:X")
     y_key = relation_key.RelationKey.from_string("public:adhoc:Y")
     part_key = relation_key.RelationKey.from_string("public:adhoc:part")
-    part_partition = RepresentationProperties(hash_partitioned=frozenset([AttIndex(1)]))
+    part_partition = RepresentationProperties(
+        hash_partitioned=frozenset([AttIndex(1)]))
 
     def setUp(self):
         super(OptimizerTest, self).setUp()
@@ -858,7 +859,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
         self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
         self.assertEquals(pp.partitioning().hash_partitioned,
-                         frozenset([AttIndex(0)]))
+                          frozenset([AttIndex(0)]))
 
     def test_partitioning_from_scan(self):
         """Store will know the partitioning of a partitioned store relation"""
@@ -870,13 +871,92 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         lp = self.get_logical_plan(query)
         pp = self.logical_to_physical(lp)
 
-        print lp.args[0], lp.args[0].partitioning()
-        print lp.args[0].input, lp.args[0].input.partitioning()
-        print pp, pp.partitioning()
-        print pp.input, pp.input.partitioning()
-        print self.part_partition
         self.assertEquals(pp.partitioning().hash_partitioned,
                           self.part_partition.hash_partitioned)
 
+    def test_repartitioning(self):
+        """Shuffle repartition a partitioned relation"""
+        query = """
+        r = scan({part});
+        store(r, OUTPUT);
+        """.format(part=self.part_key)
 
+        lp = self.get_logical_plan(query)
 
+        # insert a shuffle
+        tail = lp.args[0].input
+        lp.args[0].input = Shuffle(tail, [AttIndex(2)])
+
+        pp = self.logical_to_physical(lp)
+
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
+        self.assertEquals(pp.partitioning().hash_partitioned,
+                          frozenset([AttIndex(2)]))
+
+    def test_apply_removes_partitioning(self):
+        """Projecting out any partitioned attribute
+        eliminates partition info"""
+
+        query = """
+        r = scan({part});
+        s = select g,i from r;
+        store(s, OUTPUT);
+        """.format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        self.assertEquals(pp.partitioning().hash_partitioned,
+                          frozenset())
+
+    def test_apply_maintains_partitioning(self):
+        """Projecting out non-partitioned attributes
+        does not eliminate partition info"""
+
+        query = """
+        r = scan({part});
+        s = select h, i from r;
+        store(s, OUTPUT);
+        """.format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        self.assertEquals(pp.partitioning().hash_partitioned,
+                          frozenset([AttIndex(0)]))
+
+    def test_swapping_apply_maintains_partitioning(self):
+        """Projecting out non-partitioned attributes
+        does not eliminate partition info, even for swaps"""
+
+        query = """
+        r = scan({part});
+        s = select i, h from r;
+        store(s, OUTPUT);
+        """.format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        self.assertEquals(pp.partitioning().hash_partitioned,
+                          frozenset([AttIndex(1)]))
+
+    def test_projecting_join_maintains_partitioning(self):
+        """Projecting join: projecting out non-partitioned attributes
+        does not eliminate partition info.
+        """
+
+        query = """
+        r = scan({part});
+        s = scan({part});
+        t = select r.h, r.i, s.h, s.i from r, s where r.h = s.h;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        # TODO: this test case forces conservative behavior
+        # (in general, info could be h($0) && h($2)
+        self.assertEquals(pp.partitioning().hash_partitioned,
+                          frozenset([AttIndex(0)]))

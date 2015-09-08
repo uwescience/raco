@@ -490,11 +490,12 @@ class CompositeBinaryOperator(BinaryOperator):
 
     def partitioning(self):
         """ The schemas are mutually exclusive
-        so union the partition attributes"""
+        so conjunction of the partition functions"""
+
+        # TODO: being conservative, just take the left side because
+        # TODO: we don't support conjuncs in partition info
         return RepresentationProperties(
-            hash_partitioned=frozenset.union(
-                self.left.partitioning().hash_partitioned,
-                self.right.partitioning().hash_partitioned))
+            hash_partitioned=self.left.partitioning().hash_partitioned)
 
     def scheme(self):
         """Return the scheme of the result."""
@@ -590,6 +591,33 @@ def resolve_attribute_name(user_name, scheme, sexpr, index):
     return '_COLUMN%d_' % index
 
 
+def project_partitioning(columnlist, input_partitioning):
+    """Return the partitioning for a simple projection that supports
+    duplicates, swapping, and removal"""
+
+    if input_partitioning.hash_partitioned <= frozenset(columnlist):
+        # Translate to new schema.
+
+        # In general, Apply can make hash partitioning into a disjunction
+        # for example, Apply(b=a, c=a)
+        #     b or c could be the partition attribute but not both together
+        # We are conservative: just pick the first
+        newrefs = {}
+        for newi, old in [(newi, old)
+                          for newi, old in enumerate(columnlist)
+                          if old in input_partitioning.hash_partitioned]:
+            # keep only the first instance of input column
+            if old not in newrefs:
+                newrefs[old] = newi
+
+        return RepresentationProperties(
+            hash_partitioned=frozenset(
+                expression.UnnamedAttributeRef(i)
+                for i in newrefs.values()))
+    else:
+        return RepresentationProperties()
+
+
 class Apply(UnaryOperator):
 
     def __init__(self, emitters=None, input=None):
@@ -629,8 +657,16 @@ class Apply(UnaryOperator):
         return scheme.Scheme(new_attrs)
 
     def partitioning(self):
-        # TODO pass on partitioning for easy cases like renames
-        return RepresentationProperties()
+        # currently covers easy case of $i = f($k) for f=Identity
+        # TODO cover other f's
+
+        # find the emitters $i = Identity($k)
+        simple_equals = [expr
+                         for expr
+                         in enumerate(self.get_unnamed_emit_exprs())
+                         if isinstance(expr, expression.UnnamedAttributeRef)]
+
+        return project_partitioning(simple_equals, self.input.partitioning())
 
     def shortStr(self):
         estrs = ",".join(["%s=%s" % (name, str(ex))
@@ -848,13 +884,10 @@ class Project(UnaryOperator):
 
     def partitioning(self):
         """
-        if all partition columns are still present then keep partitioning
+        if all partition columns are still present then keep partitioning,
+        translated to the new schema
         """
-        ip = self.input.partitioning()
-        if ip.hash_partitioned <= frozenset(self.columnlist):
-            return ip
-        else:
-            return RepresentationProperties()
+        return project_partitioning(self.columnlist, self.input.partitioning())
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), real_str(self.columnlist,
@@ -1047,10 +1080,8 @@ class ProjectingJoin(Join):
     def partitioning(self):
         """Partitioning of a Join followed by a Project"""
         joinp = super(ProjectingJoin, self).partitioning()
-        if joinp <= frozenset(self.output_columns):
-            return joinp
-        else:
-            return RepresentationProperties()
+
+        return project_partitioning(self.output_columns, joinp)
 
     def scheme(self):
         """Return the scheme of the result."""
@@ -1224,7 +1255,9 @@ class PartitionBy(UnaryOperator):
         return self.input.num_tuples()
 
     def partitioning(self):
-        return RepresentationProperties(hash_partitioned=frozenset(self.columnlist))
+        return RepresentationProperties(
+            hash_partitioned=frozenset(
+                self.columnlist))
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), real_str(self.columnlist,
