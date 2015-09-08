@@ -1110,9 +1110,7 @@ def check_partition_equality(op, representation):
     @return true if the op has an equal hash partitioning to representation
     """
 
-    p = frozenset(expression.ensure_unnamed(attr)
-                  for attr in op.partitioning().hash_partitioned)
-    return p == representation
+    return op.partitioning().hash_partitioned == frozenset(representation)
 
 
 class ShuffleBeforeSetop(rules.Rule):
@@ -1134,6 +1132,9 @@ class ShuffleBeforeSetop(rules.Rule):
         exp.right = shuffle_after(exp.right)
 
         return exp
+
+    def __str__(self):
+        return "Setop => Shuffle(Setop)"
 
 
 class ShuffleBeforeJoin(rules.Rule):
@@ -1172,6 +1173,9 @@ class ShuffleBeforeJoin(rules.Rule):
             return algebra.ProjectingJoin(expr.condition,
                                           new_left, new_right,
                                           expr.output_columns)
+
+    def __str__(self):
+        return "Join => Shuffle(Join)"
 
 
 class HCShuffleBeforeNaryJoin(rules.Rule):
