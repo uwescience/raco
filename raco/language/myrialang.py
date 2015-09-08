@@ -871,23 +871,24 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
 
     """A Myria Query Scan"""
 
-    def __init__(self, sql, scheme, num_tuples=algebra.DEFAULT_CARDINALITY):
+    def __init__(self, sql, scheme, num_tuples=algebra.DEFAULT_CARDINALITY,
+                 partitioning=RepresentationProperties()):
         self.sql = str(sql)
         self._scheme = scheme
         self._num_tuples = num_tuples
+        self._partitioning = partitioning
 
     def __repr__(self):
-        return ("{op}({sql!r}, {sch!r}, {nt!r})"
+        return ("{op}({sql!r}, {sch!r}, {nt!r}, {part!r})"
                 .format(op=self.opname(), sql=self.sql,
-                        sch=self._scheme, nt=self._num_tuples))
+                        sch=self._scheme, nt=self._num_tuples,
+                        part=self._partitioning))
 
     def num_tuples(self):
         return self._num_tuples
 
     def partitioning(self):
-        # TODO be less conservative by using the partitioning()
-        # TODO   of the query plan in the rule PushIntoSQL
-        return RepresentationProperties()
+        return self._partitioning
 
     def shortStr(self):
         return "MyriaQueryScan({sql!r})".format(sql=self.sql)
@@ -1587,7 +1588,8 @@ class PushIntoSQL(rules.Rule):
             sql_string.visit_bindparam = sql_string.render_literal_bindparam
             return MyriaQueryScan(sql=sql_string.process(sql_plan),
                                   scheme=expr.scheme(),
-                                  num_tuples=expr.num_tuples())
+                                  num_tuples=expr.num_tuples(),
+                                  partitioning=expr.partitioning())
         except NotImplementedError as e:
             LOGGER.warn("Error converting {plan}: {e}"
                         .format(plan=expr, e=e))
