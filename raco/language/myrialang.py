@@ -1109,8 +1109,8 @@ def check_partition_equality(op, representation):
     @return true if the op has an equal hash partitioning to representation
     """
 
-    p = set(expression.ensure_unnamed(attr)
-            for attr in op.partitioning().hash_partitioned)
+    p = frozenset(expression.ensure_unnamed(attr)
+                  for attr in op.partitioning().hash_partitioned)
     return p == representation
 
 

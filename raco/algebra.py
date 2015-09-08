@@ -354,7 +354,7 @@ class NaryJoin(NaryOperator):
     def partitioning(self):
         """attributes are mutually exclusive so union the partitioned
         attributes"""
-        attributes = set()
+        attributes = frozenset()
         for c in self.children():
             attributes = attributes.union(c.partitioning().hash_partitioned)
         return RepresentationProperties(hash_partitioned=attributes)
@@ -850,9 +850,8 @@ class Project(UnaryOperator):
         """
         if all partition columns are still present then keep partitioning
         """
-        all_columns = set(self.columnlist)
         ip = self.input.partitioning()
-        if ip.hash_partitioned <= all_columns:
+        if ip.hash_partitioned <= frozenset(self.columnlist):
             return ip
         else:
             return RepresentationProperties()
@@ -921,8 +920,7 @@ class GroupBy(UnaryOperator):
 
     def partitioning(self):
         ip = self.input.partitioning()
-        all_groupings = set(self.grouping_list)
-        if ip.hash_partitioned <= all_groupings:
+        if ip.hash_partitioned <= frozenset(self.grouping_list):
             return ip
         else:
             return RepresentationProperties()
@@ -1049,7 +1047,7 @@ class ProjectingJoin(Join):
     def partitioning(self):
         """Partitioning of a Join followed by a Project"""
         joinp = super(ProjectingJoin, self).partitioning()
-        if joinp <= set(self.output_columns):
+        if joinp <= frozenset(self.output_columns):
             return joinp
         else:
             return RepresentationProperties()
@@ -1101,7 +1099,7 @@ class Shuffle(UnaryOperator):
         if self.shuffle_type == self.ShuffleType.SingleFieldHash \
                 or self.shuffle_type == self.ShuffleType.MultiFieldHash:
             return RepresentationProperties(
-                hash_partitioned=set(
+                hash_partitioned=frozenset(
                     self.columnlist))
         else:
             return RepresentationProperties()
@@ -1226,7 +1224,7 @@ class PartitionBy(UnaryOperator):
         return self.input.num_tuples()
 
     def partitioning(self):
-        return RepresentationProperties(hash_partitioned=set(self.columnlist))
+        return RepresentationProperties(hash_partitioned=frozenset(self.columnlist))
 
     def shortStr(self):
         return "%s(%s)" % (self.opname(), real_str(self.columnlist,
