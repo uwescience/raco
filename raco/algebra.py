@@ -663,7 +663,7 @@ class Apply(UnaryOperator):
         # find the emitters $i = Identity($k)
         simple_equals = [expr
                          for expr
-                         in enumerate(self.get_unnamed_emit_exprs())
+                         in self.get_unnamed_emit_exprs()
                          if isinstance(expr, expression.UnnamedAttributeRef)]
 
         return project_partitioning(simple_equals, self.input.partitioning())
