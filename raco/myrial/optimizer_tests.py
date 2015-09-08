@@ -894,6 +894,45 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(pp.partitioning().hash_partitioned,
                           frozenset([AttIndex(2)]))
 
+    def test_remove_shuffle(self):
+        """No shuffle for hash join needed when the input is partitioned"""
+        query = """
+        r = scan({part});
+        s = scan({part});
+        t = select * from r, s where r.h = s.h;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+
+    def test_do_not_remove_shuffle_left(self):
+        """Shuffle for hash join needed when the input is partitioned wrong"""
+        query = """
+        r = scan({part});
+        s = scan({part});
+        t = select * from r, s where r.i = s.h;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
+
+    def test_do_not_remove_shuffle_both(self):
+        """Shuffle for hash join needed when the input is partitioned wrong"""
+        query = """
+        r = scan({part});
+        s = scan({part});
+        t = select * from r, s where r.i = s.i;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 2)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 2)
+
     def test_apply_removes_partitioning(self):
         """Projecting out any partitioned attribute
         eliminates partition info"""
@@ -956,7 +995,12 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         lp = self.get_logical_plan(query)
         pp = self.logical_to_physical(lp)
 
+        # shuffles should be removed
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+
         # TODO: this test case forces conservative behavior
         # (in general, info could be h($0) && h($2)
         self.assertEquals(pp.partitioning().hash_partitioned,
                           frozenset([AttIndex(0)]))
+
