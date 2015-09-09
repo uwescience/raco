@@ -11,6 +11,7 @@ from raco.catalog import Catalog
 import raco.expression as expression
 import raco.scheme as scheme
 import raco.types as types
+from raco.representation import RepresentationProperties
 
 
 type_to_raco = {Integer: types.LONG_TYPE,
@@ -43,6 +44,9 @@ class SQLCatalog(Catalog):
         """ Return number of tuples of rel_key """
         table = self.metadata.tables[str(rel_key)]
         return self.engine.execute(table.count()).scalar()
+
+    def partitioning(self, rel_key):
+        return RepresentationProperties()
 
     def get_scheme(self, rel_key):
         table = self.metadata.tables[str(rel_key)]
