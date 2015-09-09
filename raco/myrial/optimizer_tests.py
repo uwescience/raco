@@ -1003,4 +1003,3 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # (in general, info could be h($0) && h($2)
         self.assertEquals(pp.partitioning().hash_partitioned,
                           frozenset([AttIndex(0)]))
-
