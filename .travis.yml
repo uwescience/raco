@@ -10,7 +10,7 @@ install:
   - pip install -r requirements-dev.txt
   - python setup.py install
   - pip install coveralls
-script: nosetests --with-coverage --cover-package=raco --logging-level=DEBUG --exclude-dir=c_test_environment
+script: nosetests --with-coverage --cover-package=raco --logging-level=DEBUG --exclude-dir=raco
 after_success:
   - coveralls
 sudo: false
