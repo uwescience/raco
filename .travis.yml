@@ -2,16 +2,11 @@ language: python
 python:
   - "2.7"
 install:
-  - wget https://pypi.python.org/packages/source/n/nose-exclude/nose-exclude-0.4.1.tar.gz#md5=69d263e2480d471a36bf2a41967e7c8e
-  - tar xzf nose-exclude-0.4.1.tar.gz
-  - pushd nose-exclude-0.4.1
-  - python setup.py install
-  - popd
   - pip install -r requirements-dev.txt
   - python setup.py install
   - pip install coveralls
   - export CXX=clang++
-script: nosetests --with-coverage --cover-package=raco --logging-level=DEBUG --exclude-dir=raco
+script: nosetests --with-coverage --cover-package=raco --logging-level=WARN
 after_success:
   - coveralls
 sudo: false
