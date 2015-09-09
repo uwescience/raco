@@ -2,6 +2,9 @@ language: python
 python:
   - "2.7"
 install:
+  - wget https://pypi.python.org/packages/source/n/nose-exclude/nose-exclude-0.4.1.tar.gz#md5=69d263e2480d471a36bf2a41967e7c8e
+  - tar xzf node-exclude-0.4.1.tar.gz
+  - cd node-exclude-0.4.1; python setup.py install
   - pip install -r requirements-dev.txt
   - python setup.py install
   - pip install coveralls
