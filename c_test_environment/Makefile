@@ -1,7 +1,10 @@
 # WARNING: name environment source files .h or .cc, but not .cpp, which is reserved (.gitignore laziness)
 
-CXX = clang++
-#CXX=g++
+ifeq ($(shell uname), Darwin)
+CXX=g++
+else
+CXX=clang++
+endif
 
 CFLAGS =-ggdb -std=c++11
 #-O3 #-m64 -Wno-deprecated -fPIC
