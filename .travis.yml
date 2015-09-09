@@ -10,6 +10,7 @@ install:
   - pip install -r requirements-dev.txt
   - python setup.py install
   - pip install coveralls
+  - export CXX=clang++
 script: nosetests --with-coverage --cover-package=raco --logging-level=DEBUG --exclude-dir=raco
 after_success:
   - coveralls
