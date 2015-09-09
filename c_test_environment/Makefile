@@ -1,6 +1,5 @@
 # WARNING: name environment source files .h or .cc, but not .cpp, which is reserved (.gitignore laziness)
 
-CXX = $(CXX)
 CXX ?= g++
 
 CFLAGS =-ggdb -std=c++11
