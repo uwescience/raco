@@ -318,12 +318,18 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
             self.language().cgenv(),
             '{0}/symmetrichashjoin'.format(GrappaLanguage._template_path))
 
+    def _declr_template(self):
+        return self._cgenv.get_template('hash_declaration.cpp')
+
+    def _impl_produce(self, state):
+        state.addInitializers([init_template.render(hashname=self._hashname)])
+
     def produce(self, state):
         self.symBase = self.__genBaseName__()
 
         init_template = self._cgenv.get_template('hash_init.cpp')
 
-        declr_template = self._cgenv.get_template('hash_declaration.cpp')
+        declr_template = self._declr_template()
 
         my_sch = self.scheme()
         left_sch = self.left.scheme()
@@ -351,11 +357,12 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         state.addDeclarations([out_tuple_type_def])
 
         self.right.childtag = "right"
-        state.addInitializers([init_template.render(locals())])
         self.right.produce(state)
 
         self.left.childtag = "left"
         self.left.produce(state)
+
+        self._impl_produce(state)
 
     def consume(self, t, src, state):
         access_template = self._cgenv.get_template('hash_insert_lookup.cpp')
@@ -1575,11 +1582,17 @@ class IGrappaApply(GrappaApply, Iterator):
 
 class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
     def _constructor(self, inputsym, class_symbol):
-        return "{class_symbol}(&{hashname}, {inputsym})".format(
+        return "{class_symbol}({hashname}, {inputsym})".format(
             class_symbol=class_symbol,
             hashname=self._hashname,
             inputsym=inputsym
         )
+
+    def _declr_template(self):
+        return self.iter_cgenv().get_template('hash_declaration.cpp')
+
+    def _impl_produce(self, state):
+        pass
 
     def produce(self, state):
         super(IGrappaHashJoin, self).produce(state)
@@ -1597,6 +1610,13 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
         left_type = self.leftTypeRef.getPlaceholder()
         right_type = self.rightTypeRef.getPlaceholder()
         out_tuple_type = self.outTuple.getTupleTypename()
+
+        state.addInitializers([self.iter_cgenv().get_template('hash_init.cpp').render(
+            hashname=self._hashname,
+            left_type=left_type,
+            right_type=right_type,
+            keytype=keytype
+        )])
 
         append_func_name, combine_function_def = \
             GrappaStagedTupleRef.get_append(
@@ -1620,7 +1640,7 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
         state.addOperator(self.operator_code(
             produce_type=out_tuple_type,
             symbol=self.symbol,
-            call_constructor="{class_symbol}(&{hashname})".format(
+            call_constructor="{class_symbol}({hashname})".format(
                 class_symbol=class_symbol,
                 hashname=self._hashname)
         ))
