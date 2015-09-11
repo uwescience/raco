@@ -1914,13 +1914,20 @@ def iteratorfy(emit_print, scan_array_repr):
 
 def grappify(join_type, emit_print,
              scan_array_repr):
+    if isinstance(join_type, str):
+        join_type_class = dict((c.__name__, c)
+                               for c
+                               in [GrappaHashJoin, GrappaSymmetricHashJoin])[join_type]
+    else:
+        join_type_class = join_type
+
     return [
         rules.ProjectingJoinToProjectOfJoin(),
 
         rules.OneToOne(algebra.Select, GrappaSelect),
         MemoryScanOfFileScan(scan_array_repr),
         rules.OneToOne(algebra.Apply, GrappaApply),
-        rules.OneToOne(algebra.Join, join_type),
+        rules.OneToOne(algebra.Join, join_type_class),
         rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
         rules.OneToOne(algebra.Project, GrappaProject),
         rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
