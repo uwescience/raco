@@ -322,12 +322,11 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         return self._cgenv.get_template('hash_declaration.cpp')
 
     def _impl_produce(self, state):
+        init_template = self._cgenv.get_template('hash_init.cpp')
         state.addInitializers([init_template.render(hashname=self._hashname)])
 
     def produce(self, state):
         self.symBase = self.__genBaseName__()
-
-        init_template = self._cgenv.get_template('hash_init.cpp')
 
         declr_template = self._declr_template()
 
