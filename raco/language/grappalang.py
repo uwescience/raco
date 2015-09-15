@@ -1396,7 +1396,7 @@ def grappify(join_type, emit_print,
     if isinstance(join_type, str):
         join_type_class = dict((c.__name__, c)
                                for c
-                               in [GrappaHashJoin, GrappaSymmetricHashJoin])[join_type]
+                               in [GrappaHashJoin, GrappaSymmetricHashJoin, GrappaShuffleHashJoin])[join_type]
     else:
         join_type_class = join_type
 
