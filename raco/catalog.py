@@ -1,10 +1,12 @@
 from abc import abstractmethod, ABCMeta
-from raco.algebra import DEFAULT_CARDINALITY
-from raco.relation_key import RelationKey
-from raco.scheme import Scheme
 from ast import literal_eval
 import os
 import json
+
+from raco.algebra import DEFAULT_CARDINALITY
+from raco.representation import RepresentationProperties
+from raco.relation_key import RelationKey
+from raco.scheme import Scheme
 
 
 class Relation(object):
@@ -44,6 +46,17 @@ class Catalog(object):
     def num_tuples(self, rel_key):
         """ Return number of tuples of rel_key """
 
+    @abstractmethod
+    def partitioning(self, rel_key):
+        """ Return partitioning of rel_key """
+
+    def representation_properties(self, rel_key):
+        """
+        Return interesting properties, like partitioning and sorted
+        """
+        # default is to return no information
+        return RepresentationProperties()
+
 
 # Some useful Catalog implementations
 
@@ -51,22 +64,34 @@ class FakeCatalog(Catalog):
 
     """ fake catalog, should only be used in test """
 
-    def __init__(self, num_servers, child_sizes=None):
+    def __init__(self, num_servers, child_sizes=None,
+                 child_partitionings=None):
         self.num_servers = num_servers
         # default sizes
-        self.cached = {}
+        self.sizes = {}
+        # default partitionings
+        self.partitionings = {}
         # overwrite default sizes if necessary
         if child_sizes:
             for child, size in child_sizes.items():
-                self.cached[RelationKey(child)] = size
+                self.sizes[RelationKey(child)] = size
+        if child_partitionings:
+            for child, part in child_partitionings.items():
+                self.partitionings[RelationKey(child)] = frozenset(part)
 
     def get_num_servers(self):
         return self.num_servers
 
     def num_tuples(self, rel_key):
-        if rel_key in self.cached:
-            return self.cached[rel_key]
+        if rel_key in self.sizes:
+            return self.sizes[rel_key]
         return DEFAULT_CARDINALITY
+
+    def partitioning(self, rel_key):
+        if rel_key in self.partitionings:
+            return RepresentationProperties(
+                hash_partitioned=self.partitionings[rel_key])
+        return RepresentationProperties()
 
     def get_scheme(self, rel_key):
         raise NotImplementedError()
@@ -176,3 +201,7 @@ class FromFileCatalog(Catalog):
 
     def num_tuples(self, rel_key):
         return self.__get_catalog_entry__(rel_key)[1]
+
+    def partitioning(self, rel_key):
+        # TODO allow specifying an optional list of attributes
+        return RepresentationProperties()

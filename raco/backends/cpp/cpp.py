@@ -129,6 +129,9 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
     def shortStr(self):
         return "%s" % (self.opname())
 
+    def partitioning(self):
+        raise NotImplementedError()
+
     def __eq__(self, other):
         """
     For what we are using MemoryScan for, the only use
