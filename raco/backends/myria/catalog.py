@@ -67,7 +67,8 @@ class MyriaCatalog(Catalog):
             raise ValueError('No relation {} in the catalog'.format(rel_key))
         partition_function = dataset_info['howPartitioned']['pf']
         # TODO: can we do anything useful with other hash partition functions?
-        if partition_function and partition_function['type'] in ["SingleFieldHash", "MultiFieldHash"]:
+        if partition_function and partition_function['type'] in [
+                "SingleFieldHash", "MultiFieldHash"]:
             if partition_function['type'] == "SingleFieldHash":
                 indexes = [partition_function['index']]
             else:
