@@ -93,6 +93,10 @@ def local_mock(url, request):
                 'columnNames': [u'name', u'pages'],
                 'columnTypes': ['STRING_TYPE', 'LONG_TYPE']
             },
+            'howPartitioned': {
+                'pf': None,
+                'workers': None
+            },
             'numTuples': 50
         }
         return {'status_code': 200, 'content': dataset_info}
