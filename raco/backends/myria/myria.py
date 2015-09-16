@@ -277,22 +277,54 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
 class MyriaStore(algebra.Store, MyriaOperator):
 
     def compileme(self, inputid):
+        partitionFunction = None
+        attributes = self.partitioning().hash_partitioned
+        if attributes:
+            indexes = [attr.get_position(self.scheme()) for attr in attributes]
+            if len(indexes) == 1:
+                partitionFunction = {
+                    "type": "SingleFieldHash",
+                    "index": indexes[0]
+                }
+            else:
+                partitionFunction = {
+                    "type": "MultiFieldHash",
+                    "indexes": indexes
+                }
+
         return {
             "opType": "DbInsert",
             "relationKey": relation_key_to_json(self.relation_key),
             "argOverwriteTable": True,
             "argChild": inputid,
+            "partitionFunction": partitionFunction
         }
 
 
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
 
     def compileme(self, inputid):
+        partitionFunction = None
+        attributes = self.partitioning().hash_partitioned
+        if attributes:
+            indexes = [attr.get_position(self.scheme()) for attr in attributes]
+            if len(indexes) == 1:
+                partitionFunction = {
+                    "type": "SingleFieldHash",
+                    "index": indexes[0]
+                }
+            else:
+                partitionFunction = {
+                    "type": "MultiFieldHash",
+                    "indexes": indexes
+                }
+
         return {
             "opType": "TempInsert",
             "table": self.name,
             "argOverwriteTable": True,
             "argChild": inputid,
+            "partitionFunction": partitionFunction
         }
 
 
