@@ -343,7 +343,7 @@ class GroupByToAggregate(rules.BottomUpRule):
             return scidbagg
         return expr
 
-class JoinToSciDBJoin(rules.Rule):
+class JoinToSciDBJoin(rules.BottomUpRule):
     def fire(self, expr):
         if isinstance(expr, algebra.Join):
             newop = SciDBJoin()
