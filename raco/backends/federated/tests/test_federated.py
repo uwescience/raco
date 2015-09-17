@@ -26,8 +26,29 @@ program_simple_old = """
 abc = scan(abc);
 a = [from abc emit value as a_val];
 a1 = [from abc emit value as a1_val];
-T2 = [from a, a1 where a.a_val + 1 = a1.a1_val emit a1.a1_val];
-store(T2, JustX);
+b = [from a, a1 where a.a_val + 1 = a1.a1_val emit a1.a1_val];
+store(b, filtered_array);
+"""
+
+program_multiply = """
+abc = scan(abc);
+abc1 = scan(abc1);
+a = [from abc emit value as a_v, i as a_i, j as a_j];
+b = [from abc1 emit value as b_v, i as b_i, j as b_j];
+m = select a_i, b_j, sum(a_v*b_v) from a, b where a_j = b_i;
+store(m,mult);
+"""
+
+program_test_project_dimension ="""
+abc = scan(abc);
+b = [from abc emit i];
+store(b, projected_dimension);
+"""
+program_join = """
+abc = scan(abc);
+abc1 = scan(abc1);
+b = [from abc, abc1 emit value];
+store(b,join_result);
 """
 
 program_simple = """
@@ -194,7 +215,7 @@ def query(myriaconnection, scidbconnection):
     # Do we really need it both places?
     processor = interpreter.StatementProcessor(catalog, True)
 
-    statement_list = parser.parse(program_simple)
+    statement_list = parser.parse(program_join)
     #
     processor.evaluate(statement_list)
     #
@@ -205,6 +226,8 @@ def query(myriaconnection, scidbconnection):
     logical = processor.get_logical_plan()
     print "LOGICAL"
     print logical
+    # print 'dot version of logical plan'
+    # print raco.viz.operator_to_dot(logical)
     #
     pd = processor.get_physical_plan(target_alg=falg)
     # pd = processor.get_physical_plan(target_alg=SciDBAFLAlgebra())
@@ -212,6 +235,7 @@ def query(myriaconnection, scidbconnection):
     print "PHYSICAL"
     print pd
     #
+    # print 'dot version of physical plan'
     # print raco.viz.operator_to_dot(pd)
     scidbconnection.execute_query(pd.args[0].plan)
 
