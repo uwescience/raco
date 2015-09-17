@@ -370,7 +370,9 @@ class JoinToSciDBJoin(rules.Rule):
                                                                                 total_cells=expr.right.num_tuples())
 
             newop.templateright = template_1darray.format(dims_attrs=dims_attrs_string, new_dimensions=new_dimensions)
-            return newop
+
+            filter = SciDBSelect(expr.condition, newop)
+            return filter
         return expr
 
     def __str__(self):
