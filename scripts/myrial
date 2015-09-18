@@ -67,6 +67,7 @@ def parse_options(args):
                        help='Output an attempt at a SPARQL translation of the input program')
     arg_parser.add_argument('-v', dest='verbose', action='store_true',
                        help='Turn on verbose DEBUG logging')
+    arg_parser.add_argument('--dot-radish', dest='dot_radish', action='store_true', help='print out dot for Grappa plan')
     arg_parser.add_argument('--catalog', dest="catalog_path", default=None, help="[Optional] path to catalog file")
     arg_parser.add_argument('--plan', dest="from_repr", action='store_true', help="[Optional] input file is a plan as a python repr")
     arg_parser.add_argument('--key', action='append', help="May use this argument multiple times to specify additional arguments to compiler")
@@ -133,10 +134,17 @@ def main(args):
             if opt.from_repr:
                 raise "Options logical and --plan are incompatible"
             print_pretty_plan(processor.get_logical_plan())
+
         elif opt.dot:
             if opt.from_repr:
                 raise "Options dot and --plan are incompatible"
+
             print operator_to_dot(processor.get_logical_plan())
+        elif opt.dot_radish:
+            if opt.from_repr:
+                raise "Options dot and --plan are incompatible"
+
+            print operator_to_dot(pd.get_physical_plan(target_alg=GrappaAlgebra(),**kwargs))
         elif opt.json:
             ppj = pd.get_json()
             print(json.dumps(ppj))
