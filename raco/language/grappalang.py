@@ -393,8 +393,12 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
                     left_type, len(left_sch),
                     right_type, len(t.scheme))
 
-            # need to add later because requires left tuple type decl
-            self.right_combine_decl = combine_function_def
+            # Need to add later because requires left tuple type decl.
+            # Needs to be a list because could be multiple right sides occurences
+            if hasattr(self, 'right_combine_decls'):
+                self.right_combine_decls.append(combine_function_def)
+            else:
+                self.right_combine_decls = [combine_function_def]
 
             if self._force_right_to_left_sync():
                 self.right_syncname = get_pipeline_task_name(state)
@@ -427,8 +431,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
                     left_type, len(t.scheme),
                     right_type, len(self.right.scheme()))
 
-            state.addDeclarations([self.right_combine_decl,
-                                   combine_function_def])
+            state.addDeclarations(self.right_combine_decls+[combine_function_def])
 
             code = access_template.render(locals())
             return code
