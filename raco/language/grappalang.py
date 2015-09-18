@@ -310,6 +310,12 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
             self.language().cgenv(),
             '{0}/symmetrichashjoin'.format(GrappaLanguage._template_path))
 
+    def _force_right_to_left_sync(self):
+        """Returns whether or not to create a dependence from right
+        pipeline to left pipeline. Default symmetric hash join plan allows
+        the two sides to be concurrent"""
+        return False
+
     def produce(self, state):
         self.symBase = self.__genBaseName__()
 
@@ -390,10 +396,16 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
             # need to add later because requires left tuple type decl
             self.right_combine_decl = combine_function_def
 
+            if self._force_right_to_left_sync():
+                self.right_syncname = get_pipeline_task_name(state)
+
             code = access_template.render(locals())
             return code
 
         if src.childtag == "left":
+            if self._force_right_to_left_sync():
+                state.addToPipelinePropertySet('dependences', self.right_syncname)
+
             right_in_tuple_type = self.right_in_tuple_type
             left_in_tuple_type = t.getTupleTypename()
             state.resolveSymbol(self.leftTypeRef, left_in_tuple_type)
@@ -422,6 +434,11 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
             return code
 
         assert False, "src not equal to left or right"
+
+
+class GrappaOverSynchronizedSymmetricHashJoin(GrappaSymmetricHashJoin):
+    def _force_right_to_left_sync(self):
+        return True
 
 
 class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
@@ -1396,7 +1413,7 @@ def grappify(join_type, emit_print,
     if isinstance(join_type, str):
         join_type_class = dict((c.__name__, c)
                                for c
-                               in [GrappaHashJoin, GrappaSymmetricHashJoin, GrappaShuffleHashJoin])[join_type]
+                               in [GrappaHashJoin, GrappaSymmetricHashJoin, GrappaShuffleHashJoin, GrappaOverSynchronizedSymmetricHashJoin])[join_type]
     else:
         join_type_class = join_type
 
