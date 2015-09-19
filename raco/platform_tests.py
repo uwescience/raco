@@ -633,6 +633,27 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "directed_triangles", join_type='symmetric_hash')
 
+    def test_symmetric_hash_join_then_aggregate(self):
+        """to fix https://github.com/uwescience/raco/issues/477, caused by
+        multiple instances of a pipeline"""
+        self.check_sub_tables("""
+        R2 = SCAN(%(R2)s);
+        S2 = SCAN(%(S2)s);
+        T2 = SCAN(%(T2)s);
+        j2 = select * from R2, S2, T2 where R2.b=S2.a and S2.a=T2.a;
+        a = select SUM($0), $1 from j2;
+        STORE(a, OUTPUT);
+        """, "join_then_aggregate", join_type='symmetric_hash')
+
+    def test_union_then_aggregate(self):
+        self.check_sub_tables("""
+        R2 = SCAN(%(R2)s);
+        S2 = SCAN(%(S2)s);
+        u = UNIONALL(R2, S2);
+        a = select SUM($0), $1 from u;
+        STORE(a, OUTPUT);
+        """, "union_then_aggregate")
+
     def test_shuffle_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);

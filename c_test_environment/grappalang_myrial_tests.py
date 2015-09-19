@@ -54,7 +54,9 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             dwf.write(physical_dot)
 
         # generate code in the target language
-        code = compile(plan)
+        # test_mode=True turns on extra checks like assign-once instance
+        #    variables for operators
+        code = compile(plan, test_mode=True)
 
         fname = os.path.join("c_test_environment", "{gname}.cpp".format(gname=gname))
         if os.path.exists(fname):
