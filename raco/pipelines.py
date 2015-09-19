@@ -281,15 +281,53 @@ class Pipelined(object):
         # Ensure this class follows cooperative multiple inheritance
         super(Pipelined, self).__init__(*args)
 
-    def __markAllParents__(self):
+    def _markAllParents(self, test_mode=False):
         root = self
 
         def markChildParent(op):
             for c in op.children():
                 c._parent = op
+                if test_mode:
+                    # Test mode turns on assign-once checks of all
+                    # Pipeline subclasses instance variables
+                    c._freeze()  # _parent is the last allowed attribute
             return []
 
         [_ for _ in root.postorder_traversal(markChildParent)]
+
+    __isfrozen = False
+    def __setattr__(self, key, value):
+        """Overriden to allow objects to turn on assigned-once checks
+
+        While we'd prefer subclasses of Pipelined (more specifically Operator)
+        to actually be immutable algebraic datatypes, this is an intermediate
+        solution. It was introduced to catch bugs that occur from
+        reassigning instance variables that are introduced for compilation
+        state (see issue https://github.com/uwescience/raco/issues/477).
+        """
+        if self.__isfrozen and key in self.assigned_attrs:
+            if self.__getattribute__(key) == value:
+                LOG.warning('reassignment of self.{attr} but ignoring because assigned same value {value}'.format(
+                    attr=key,
+                    value=value
+                ))
+                return
+            else:
+                raise TypeError( "{obj} is a frozen object; self.{attr} = {oldval}; tried to assign {newval}".format(
+                    obj=self,
+                    attr=key,
+                    oldval=self.__getattribute__(key),
+                    newval=value))
+        # new set created here rather than __init__ because there
+        # may be inconsistency in when Pipelined.__init__ is called relative
+        # to assignments to instance variables
+        if not hasattr(self, 'assigned_attrs'):
+            object.__setattr__(self, 'assigned_attrs', set())
+        self.assigned_attrs.add(key)
+        object.__setattr__(self, key, value)
+
+    def _freeze(self):
+        self.__isfrozen = True
 
     def parent(self):
         return self._parent

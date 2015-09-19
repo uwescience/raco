@@ -395,10 +395,9 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
             # Need to add later because requires left tuple type decl.
             # Needs to be a list because could be multiple right sides occurences
-            if hasattr(self, 'right_combine_decls'):
-                self.right_combine_decls.append(combine_function_def)
-            else:
-                self.right_combine_decls = [combine_function_def]
+            if not hasattr(self, 'right_combine_decls'):
+                self.right_combine_decls = []
+            self.right_combine_decls.append(combine_function_def)
 
             if self._force_right_to_left_sync():
                 self.right_syncname = get_pipeline_task_name(state)
@@ -768,7 +767,8 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         get_pipeline_task_name(state)
 
         # add a dependence on the input aggregation pipeline
-        state.addToPipelinePropertySet('dependences', self.input_syncname)
+        for s in self.input_syncname:
+            state.addToPipelinePropertySet('dependences', s)
 
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
         output_tuple_name = output_tuple.name
@@ -799,7 +799,10 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
     def consume(self, inputTuple, fromOp, state):
         # save the inter-pipeline task name
-        self.input_syncname = get_pipeline_task_name(state)
+        # Needs to be a list because could be multiple input occurences
+        if not hasattr(self, 'input_syncname'):
+            self.input_syncname = []
+        self.input_syncname.append(get_pipeline_task_name(state))
 
         inp_sch = self.input.scheme()
 
@@ -1081,7 +1084,6 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
         declr_template = self._cgenv.get_template('hash_declaration.cpp')
 
         self.right.childtag = "right"
-        self.rightTupleTypeRef = None  # may remain None if CSE succeeds
 
         my_sch = self.scheme()
         left_sch = self.left.scheme()
@@ -1122,6 +1124,8 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             # TODO saveExpr before self.right.produce(),
             # TODO but I need to get the self.rightTupleTypename cleanly
         else:
+            self.rightTupleTypeRef = None  # indicates CSE succeeded
+
             # if found a common subexpression on right child then
             # use the same hashtable
             self._hashname, self.rightTupleTypename, self.right_syncname\
@@ -1140,7 +1144,10 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             keyname = t.name
             keyval = self.__aggregate_val__(t, self.rightcols)
 
-            self.right_syncname = get_pipeline_task_name(state)
+            # Needs to be a list because could be multiple right sides occurences
+            if not hasattr(self, 'right_syncname'):
+                self.right_syncname = []
+            self.right_syncname.append(get_pipeline_task_name(state))
 
             self.rightTupleTypename = t.getTupleTypename()
             if self.rightTupleTypeRef is not None:
@@ -1158,8 +1165,9 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             comment = self.language().comment("left side of " + str(self))
             left_template = self._cgenv.get_template('lookup.cpp')
 
-            # add a dependence on the right pipeline
-            state.addToPipelinePropertySet('dependences', self.right_syncname)
+            # add a dependences on the right pipelines
+            for s in self.right_syncname:
+                state.addToPipelinePropertySet('dependences', s)
 
             hashname = self._hashname
             keyname = t.name
