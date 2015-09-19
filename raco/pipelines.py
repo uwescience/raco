@@ -356,8 +356,8 @@ class Pipelined(object):
         """Denotation for consuming a tuple"""
         return
 
-    def compilePipeline(self):
-        self.__markAllParents__()
+    def compilePipeline(self, **kwargs):
+        self._markAllParents(**kwargs)
 
         state = CompileState(self.language())
 

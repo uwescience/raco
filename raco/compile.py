@@ -64,7 +64,7 @@ def optimize(expr, target, **kwargs):
     return optimize_by_rules(expr, target.opt_rules(**kwargs))
 
 
-def compile(expr):
+def compile(expr, **kwargs):
     """Compile physical plan to linearized form for execution"""
     # TODO: Fix this
     algebra.reset()
@@ -83,7 +83,7 @@ def compile(expr):
     lang = store_expr.language()
 
     if isinstance(store_expr, Pipelined):
-        body = lang.body(store_expr.compilePipeline())
+        body = lang.body(store_expr.compilePipeline(**kwargs))
     else:
         body = lang.body(store_expr)
 
