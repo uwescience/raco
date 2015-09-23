@@ -88,8 +88,8 @@ class SciDBConnection(object):
         physical_plan = optimize(query, SciDBAFLAlgebra())
         print "AFTER SCIDB RULES"
         print physical_plan
-        print 'dot version after scidb rules'
-        print raco.viz.operator_to_dot(physical_plan)
+        # print 'dot version after scidb rules'
+        # print raco.viz.operator_to_dot(physical_plan)
         # # compile_to_afl_new(physical_plan)
 
         afl_string = compile_to_afl_new(physical_plan)
