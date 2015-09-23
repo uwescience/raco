@@ -1350,6 +1350,15 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan(FileScan) [{0}]".format(self._array_rep)
 
 
+class GrappaPartitionGroupBy(GrappaGroupBy):
+    def __init__(self, *args):
+        super(GrappaPartitionGroupBy, self).__init__(*args)
+        # Override some GrappaGroupBy template with new ones.
+        # The rest of the generation logic is the same
+        self._cgenv = clangcommon.prepend_template_relpath(self._cgenv,
+                                                           '{0}/partition_groupby'.format(GrappaLanguage._template_path))
+
+
 class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
 
     def produce(self, state):
@@ -1499,6 +1508,13 @@ class GrappaAlgebra(Algebra):
         join_type = kwargs.get('join_type', GrappaHashJoin)
         scan_array_repr = kwargs.get('scan_array_repr',
                                      _ARRAY_REPRESENTATION.GLOBAL_ARRAY)
+        groupby_sematics = kwargs.get('groupby_semantics', 'global')
+        if groupby_sematics == 'global':
+            groupby_rules = [rules.OneToOne(algebra.GroupBy, GrappaGroupBy)]
+        elif groupby_sematics == 'partition':
+            groupby_rules = rules.distributed_group_by(GrappaPartitionGroupBy, countall_rule=False)
+        else:
+            raise ValueError("groupby_semantics must be one of {global, partition}")
 
         # sequence that works for myrial
         rule_grps_sequence = [
@@ -1507,6 +1523,7 @@ class GrappaAlgebra(Algebra):
             clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
+            groupby_rules,
             grappify(join_type, self.emit_print, scan_array_repr),
             [CrossProductWithSmall()]
         ]
