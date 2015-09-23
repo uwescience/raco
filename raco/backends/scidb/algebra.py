@@ -45,7 +45,7 @@ class SciDBSelect(algebra.Select, SciDBOperator):
 
 class SciDBJoin(algebra.Join, SciDBOperator):
     def compileme(self, left, right):
-        return "join(redimension({},{}),redimension({},{}))".format(left, self.templateleft, right, self.templateright)
+        return "cross_join(redimension({},{}),redimension({},{}))".format(left, self.templateleft, right, self.templateright)
 
 class SciDBProject(algebra.Project, SciDBOperator):
     def compileme(self, input):
@@ -200,6 +200,11 @@ class GroupByToRegridOrRedminension(rules.Rule):
 
 class GroupByAndJoinToMult(rules.Rule):
     def fire(self, expr):
+        if not isinstance(expr, algebra.Apply):
+            return expr
+        if not isinstance(expr.input, algebra.GroupBy):
+            return expr
+        expr = expr.input
         if not isinstance(expr, algebra.GroupBy):
             return expr
         if not isinstance(expr.input, algebra.Join):
@@ -356,8 +361,8 @@ class JoinToSciDBJoin(rules.BottomUpRule):
             dims_attrs_string = ','.join('{name}:{t}'.format(name=dims_attrs[i], t=type_dict[types[i]])
                                          for i in range(0,len(dims_attrs)))
             new_dimensions = '[dim_{r}=1:{total_cells},{total_cells},0]'.format(r=random.randint(1, 10000000),
-                                                                                # total_cells=10000)
-                                                                                total_cells=expr.left.num_tuples())
+                                                                                total_cells=10000)
+                                                                                # total_cells=expr.left.num_tuples())
             newop.templateleft = template_1darray.format(dims_attrs=dims_attrs_string, new_dimensions=new_dimensions)
 
 
@@ -366,8 +371,8 @@ class JoinToSciDBJoin(rules.BottomUpRule):
             dims_attrs_string = ','.join('{name}:{t}'.format(name=dims_attrs[i], t=type_dict[types[i]])
                                          for i in range(0,len(dims_attrs)))
             new_dimensions = '[dim_{r}=1:{total_cells},{total_cells},0]'.format(r=random.randint(1, 10000000),
-                                                                                # total_cells=10000)
-                                                                                total_cells=expr.right.num_tuples())
+                                                                                total_cells=10000)
+                                                                                # total_cells=expr.right.num_tuples())
 
             newop.templateright = template_1darray.format(dims_attrs=dims_attrs_string, new_dimensions=new_dimensions)
 

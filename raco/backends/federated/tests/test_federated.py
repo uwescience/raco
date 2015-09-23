@@ -17,12 +17,14 @@ from raco.backends.federated.algebra import FederatedExec
 
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
+from optparse import OptionParser
+
 import raco.viz
 from raco.backends.federated.movers.filesystem import SciDBToMyria
 
 import os
 
-program_simple_old = """
+program_simple = """
 abc = scan(abc);
 a = [from abc emit value as a_val];
 a1 = [from abc emit value as a1_val];
@@ -31,19 +33,18 @@ store(b, filtered_array);
 """
 
 program_multiply = """
-abc = scan(abc);
-abc1 = scan(abc1);
-a = [from abc emit value as a_v, i as a_i, j as a_j];
-b = [from abc1 emit value as b_v, i as b_i, j as b_j];
+a = scan(AAA);
+b = scan(BBB);
 m = select a_i, b_j, sum(a_v*b_v) from a, b where a_j = b_i;
 store(m,mult);
 """
 
 program_test_project_dimension ="""
 abc = scan(abc);
-b = [from abc emit i];
+b = [from abc emit vale];
 store(b, projected_dimension);
 """
+
 program_join = """
 abc = scan(abc);
 abc1 = scan(abc1);
@@ -51,13 +52,13 @@ b = [from abc, abc1 emit value];
 store(b,join_result);
 """
 
-program_simple = """
+program_complex = """
 abc = scan(abc);
 r = [from abc emit max(value) - min(value) as high, min(value) - max(value) as low];
 store(r,range);
 """
 
-program = """
+program_old = """
 const test_vector_id: 1;
 const bins: 10;
 vectors = scan(SciDB:Demo:Vectors);
@@ -201,7 +202,13 @@ def get_scidb_connection():
     return connection
 
 
-def query(myriaconnection, scidbconnection):
+def query(myriaconnection, scidbconnection, program):
+
+    if not program:
+        myrial_code = program_simple
+    else:
+        with open(program, 'r') as content_file:
+            myrial_code = content_file.read()
 
     myriacatalog = MyriaCatalog(myriaconnection)
     scidbcatalog = SciDBCatalog(scidbconnection)
@@ -215,7 +222,7 @@ def query(myriaconnection, scidbconnection):
     # Do we really need it both places?
     processor = interpreter.StatementProcessor(catalog, True)
 
-    statement_list = parser.parse(program_join)
+    statement_list = parser.parse(myrial_code)
     #
     processor.evaluate(statement_list)
     #
@@ -315,8 +322,17 @@ def local_mock(url, request):
 
 
 if __name__ == '__main__':
+
+    parser = OptionParser(usage="usage: %prog [options] ")
+    parser.add_option('-f', '--file', dest='program', help='file with the myriaL code')
+
+    (options, args) = parser.parse_args()
+    if len(args) !=0:
+        parser.error('Incorrect number of arguments')
+
     with HTTMock(local_mock):
         myriaconn = get_myria_connection()
         scidbconn = get_scidb_connection()
-        query(myriaconn, scidbconn)
+        query(myriaconn, scidbconn, options.program)
+
 
