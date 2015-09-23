@@ -805,7 +805,7 @@ class DecomposeGroupBy(Rule):
     if the cardinality of the grouping keys is high.
     """
 
-    def __init__(self, partition_groupby_class, only_fire_on_multi_key=False):
+    def __init__(self, partition_groupby_class, only_fire_on_multi_key=None):
         self._gb_class = partition_groupby_class
         self._only_fire_on_multi_key = only_fire_on_multi_key
         super(DecomposeGroupBy, self).__init__()
@@ -832,7 +832,9 @@ class DecomposeGroupBy(Rule):
             return op
 
         if self._only_fire_on_multi_key and len(op.grouping_list) == 0:
-            return op
+            out_op = self._only_fire_on_multi_key()
+            out_op.copy(op)
+            return out_op
 
         # Bail early if we have any non-decomposable aggregates
         if not all(x.is_decomposable() for x in op.aggregate_list):
