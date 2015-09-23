@@ -730,6 +730,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         hashname = self._hashname
 
         if self.useKey:
+            decl_template = self._cgenv.get_template('withkey_decl.cpp')
             init_template = self._cgenv.get_template('withkey_init.cpp')
             valtype = state_type
         else:
@@ -743,6 +744,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             # FOR BUILTINs        self.__get_initial_value__(0,
             # cached_inp_sch=inp_sch)
 
+        state.addDeclarations([decl_template.render(locals())])
         state.addInitializers([init_template.render(locals())])
 
         if not hashtableInfo:
