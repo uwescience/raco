@@ -1514,7 +1514,7 @@ class GrappaAlgebra(Algebra):
         if groupby_sematics == 'global':
             groupby_rules = [rules.OneToOne(algebra.GroupBy, GrappaGroupBy)]
         elif groupby_sematics == 'partition':
-            groupby_rules = rules.distributed_group_by(GrappaPartitionGroupBy, countall_rule=False)
+            groupby_rules = rules.distributed_group_by(GrappaPartitionGroupBy, countall_rule=False, only_fire_on_multi_key=True)
         else:
             raise ValueError("groupby_semantics must be one of {global, partition}")
 

@@ -805,8 +805,9 @@ class DecomposeGroupBy(Rule):
     if the cardinality of the grouping keys is high.
     """
 
-    def __init__(self, partition_groupby_class):
-        self.gb_class = partition_groupby_class
+    def __init__(self, partition_groupby_class, only_fire_on_multi_key=False):
+        self._gb_class = partition_groupby_class
+        self._only_fire_on_multi_key = only_fire_on_multi_key
         super(DecomposeGroupBy, self).__init__()
 
     @staticmethod
@@ -830,9 +831,12 @@ class DecomposeGroupBy(Rule):
         if op.__class__ != algebra.GroupBy:
             return op
 
+        if self._only_fire_on_multi_key and len(op.grouping_list) == 0:
+            return op
+
         # Bail early if we have any non-decomposable aggregates
         if not all(x.is_decomposable() for x in op.aggregate_list):
-            out_op = self.gb_class()
+            out_op = self._gb_class()
             out_op.copy(op)
             DecomposeGroupBy.do_transfer(out_op)
             return out_op
@@ -906,13 +910,13 @@ class DecomposeGroupBy(Rule):
         # Local => Shuffle => Remote => (optional) Finalizer.
         ################################
 
-        local_gb = self.gb_class(op.grouping_list, local_emitters, op.input,
+        local_gb = self._gb_class(op.grouping_list, local_emitters, op.input,
                                 local_statemods)
 
         grouping_fields = [UnnamedAttributeRef(i)
                            for i in range(num_grouping_terms)]
 
-        remote_gb = self.gb_class(grouping_fields, remote_emitters, local_gb,
+        remote_gb = self._gb_class(grouping_fields, remote_emitters, local_gb,
                                  remote_statemods)
 
         DecomposeGroupBy.do_transfer(remote_gb)
@@ -928,11 +932,11 @@ class DecomposeGroupBy(Rule):
 
 # 7. distributed groupby
 # this need to be put after shuffle logic
-def distributed_group_by(partition_groupby_class, countall_rule=True):
+def distributed_group_by(partition_groupby_class, countall_rule=True, **kwargs):
     r = [
     # DecomposeGroupBy may introduce a complex GroupBy,
     # so we must run SimpleGroupBy after it. TODO no one likes this.
-    DecomposeGroupBy(partition_groupby_class),
+    DecomposeGroupBy(partition_groupby_class, **kwargs),
     SimpleGroupBy()
     ]
 
