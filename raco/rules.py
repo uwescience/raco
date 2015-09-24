@@ -247,7 +247,7 @@ class DistinctToGroupBy(Rule):
         return expr
 
     def __str__(self):
-        return "Distinct => GroupBy"
+        return "Distinct => GroupBy(no groupings)"
 
 
 class EmptyGroupByToDistinct(Rule):
@@ -272,7 +272,7 @@ class EmptyGroupByToDistinct(Rule):
         return expr
 
     def __str__(self):
-        return "Distinct => GroupBy"
+        return "GroupBy(no groupings) => Distinct"
 
 
 class CountToCountall(Rule):
