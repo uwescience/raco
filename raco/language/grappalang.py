@@ -276,19 +276,22 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
                                                rep=self.array_representation)
 
 
-class GrappaJoin(algebra.Join, GrappaOperator):
-
-    @classmethod
-    def __aggregate_val__(cls, tuple, cols):
+class CKeyUtils:
+    @staticmethod
+    def _aggregate_val(tuple, cols):
         return "std::make_tuple({0})".format(
             ','.join([tuple.get_code(p) for p in cols]))
 
-    @classmethod
-    def __aggregate_type__(cls, sch, cols):
+    @staticmethod
+    def _aggregate_type(language, sch, cols):
         return "std::tuple<{0}>".format(
-            ','.join([cls.language().typename(
+            ','.join([language.typename(
                 expression.UnnamedAttributeRef(c).typeof(sch, None))
-                for c in cols]))
+                      for c in cols]))
+
+
+class GrappaJoin(algebra.Join, GrappaOperator):
+    pass
 
 
 class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
@@ -334,7 +337,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
         # declaration of hash map
         self._hashname = self.__getHashName__()
-        keytype = self.__aggregate_type__(right_sch, self.rightcols)
+        keytype = CKeyUtils._aggregate_type(self.language(), right_sch, self.rightcols)
         hashname = self._hashname
         self.leftTypeRef = state.createUnresolvedSymbol()
         left_in_tuple_type = self.leftTypeRef.getPlaceholder()
@@ -377,7 +380,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
-            keyval = self.__aggregate_val__(t, self.rightcols)
+            keyval = CKeyUtils._aggregate_val(t, self.rightcols)
 
             other_tuple_type = self.leftTypeRef.getPlaceholder()
             left_type = other_tuple_type
@@ -413,7 +416,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
             left_in_tuple_type = t.getTupleTypename()
             state.resolveSymbol(self.leftTypeRef, left_in_tuple_type)
 
-            keyval = self.__aggregate_val__(t, self.leftcols)
+            keyval = CKeyUtils._aggregate_val(t, self.leftcols)
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
@@ -727,8 +730,10 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         hashname = self._hashname
 
         if self.useKey:
+            decl_template = self._cgenv.get_template('withkey_decl.cpp')
             init_template = self._cgenv.get_template('withkey_init.cpp')
             valtype = state_type
+            state.addDeclarations([decl_template.render(locals())])
         else:
             no_key_state_initializer = \
                 "symmetric_global_alloc<{state_tuple_type}>()".format(
@@ -1094,7 +1099,7 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
                                      len(left_sch),
                                      left_sch + right_sch)
 
-        keytype = self.__aggregate_type__(right_sch, self.rightcols)
+        keytype = CKeyUtils._aggregate_type(self.language(), right_sch, self.rightcols)
 
         # common index is defined by same right side and same key
         hashtableInfo = state.lookupExpr((self.right,
@@ -1142,7 +1147,7 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
 
             hashname = self._hashname
             keyname = t.name
-            keyval = self.__aggregate_val__(t, self.rightcols)
+            keyval = CKeyUtils._aggregate_val(t, self.rightcols)
 
             # Needs to be a list because could be multiple right sides occurences
             if not hasattr(self, 'right_syncname'):
@@ -1172,7 +1177,7 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             hashname = self._hashname
             keyname = t.name
             input_tuple_type = t.getTupleTypename()
-            keyval = self.__aggregate_val__(t, self.leftcols)
+            keyval = CKeyUtils._aggregate_val(t, self.leftcols)
 
             pipeline_sync = state.getPipelineProperty('global_syncname')
 
@@ -1303,6 +1308,27 @@ class GrappaStore(clangcommon.CBaseStore, GrappaOperator):
         return ""
 
 
+class GrappaShuffle(algebra.Shuffle, GrappaOperator):
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        inner_plan_compiled = self.parent().consume(t, self, state)
+
+        columnlist_nums = [c.position for c in self.columnlist]
+
+        code = self.language().cgenv().get_template('shuffle.cpp').render(
+            keyname=t.name,
+            keytype=CKeyUtils._aggregate_type(self.language(), self.input.scheme(), columnlist_nums),
+            keyval=CKeyUtils._aggregate_val(t, columnlist_nums),
+            pipeline_sync=state.getPipelineProperty('global_syncname'),
+            comment=self.language().comment(self.shortStr()),
+            inner_code=inner_plan_compiled
+        )
+
+        return code
+
+
 class MemoryScanOfFileScan(rules.Rule):
 
     def __init__(self, array_rep):
@@ -1324,6 +1350,15 @@ class MemoryScanOfFileScan(rules.Rule):
 
     def __str__(self):
         return "Scan => MemoryScan(FileScan) [{0}]".format(self._array_rep)
+
+
+class GrappaPartitionGroupBy(GrappaGroupBy):
+    def __init__(self, *args):
+        super(GrappaPartitionGroupBy, self).__init__(*args)
+        # Override some GrappaGroupBy template with new ones.
+        # The rest of the generation logic is the same
+        self._cgenv = clangcommon.prepend_template_relpath(self._cgenv,
+                                                           '{0}/partition_groupby'.format(GrappaLanguage._template_path))
 
 
 class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
@@ -1435,8 +1470,8 @@ def grappify(join_type, emit_print,
         MemoryScanOfFileScan(scan_array_repr),
         rules.OneToOne(algebra.Apply, GrappaApply),
         rules.OneToOne(algebra.Join, join_type_class),
-        rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
         rules.OneToOne(algebra.Project, GrappaProject),
+        rules.OneToOne(algebra.Shuffle, GrappaShuffle),
         rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll),
@@ -1475,6 +1510,13 @@ class GrappaAlgebra(Algebra):
         join_type = kwargs.get('join_type', GrappaHashJoin)
         scan_array_repr = kwargs.get('scan_array_repr',
                                      _ARRAY_REPRESENTATION.GLOBAL_ARRAY)
+        groupby_sematics = kwargs.get('groupby_semantics', 'global')
+        if groupby_sematics == 'global':
+            groupby_rules = [rules.OneToOne(algebra.GroupBy, GrappaGroupBy)]
+        elif groupby_sematics == 'partition':
+            groupby_rules = rules.distributed_group_by(GrappaPartitionGroupBy, countall_rule=False, only_fire_on_multi_key=GrappaGroupBy)
+        else:
+            raise ValueError("groupby_semantics must be one of {global, partition}")
 
         # sequence that works for myrial
         rule_grps_sequence = [
@@ -1483,6 +1525,7 @@ class GrappaAlgebra(Algebra):
             clangcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
+            groupby_rules,
             grappify(join_type, self.emit_print, scan_array_repr),
             [CrossProductWithSmall()]
         ]
