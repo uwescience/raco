@@ -898,13 +898,6 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         # from UDAs in self.updaters
         updaters_map = dict((k, (k, v)) for k, v in self.updaters)
 
-    def consume(self, inputTuple, fromOp, state):
-        # save the inter-pipeline task name
-        # Needs to be a list because could be multiple input occurences
-        if not hasattr(self, 'input_syncname'):
-            self.input_syncname = []
-        self.input_syncname.append(get_pipeline_task_name(state))
-
         inp_sch = self.input.scheme()
 
         def aggregate_to_updater(index, aggr):
@@ -1093,10 +1086,12 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
         return [inputTuple.get_code(g.get_position(inp_sch))
                 for g in self.grouping_list]
 
-
     def consume(self, inputTuple, fromOp, state):
         # save the inter-pipeline task name
-        self.input_syncname = get_pipeline_task_name(state)
+        # Needs to be a list because could be multiple input occurences
+        if not hasattr(self, 'input_syncname'):
+            self.input_syncname = []
+        self.input_syncname.append(get_pipeline_task_name(state))
 
         # not used, but must be resolved
         state.resolveSymbol(self.input_type_ref, inputTuple.getTupleTypename())
@@ -1534,9 +1529,6 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
 
 
 class Iterator(object):
-    __cgenv = clangcommon.prepend_template_relpath(GrappaLanguage.cgenv(),
-                                                  '{0}/iterators/'.format(GrappaLanguage._template_path))
-
     def operator_code(self, **kwargs):
         return self.iter_cgenv().get_template("instantiate_operator.cpp").render(kwargs)
 
@@ -1547,17 +1539,20 @@ class Iterator(object):
     def sink_operator_code(self, **kwargs):
         return self.iter_cgenv().get_template("instantiate_sink.cpp").render(kwargs)
 
-    def declare_sink(self, state):
+    def declare_sink(self, state, cgenv=None):
+        if not cgenv:
+            cgenv = self.iter_cgenv()
         symbol = "frag_{0}".format(gensym())
         state.setPipelineProperty('fragment_symbol', symbol)
-        state.addDeclarations([self.iter_cgenv().get_template("sink_declaration.cpp").render(symbol=symbol)])
+        state.addDeclarations([cgenv.get_template("sink_declaration.cpp").render(symbol=symbol)])
         return symbol
 
     def assign_symbol(self):
         self.symbol = gensym()
 
-    def iter_cgenv(cls):
-        return cls.__cgenv
+    def iter_cgenv(cls, env=GrappaLanguage.cgenv()):
+        return clangcommon.prepend_template_relpath(env,
+                        '{0}/iterators/'.format(GrappaLanguage._template_path))
 
 
 class IGrappaMemoryScan(GrappaMemoryScan, Iterator):
@@ -1663,7 +1658,7 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
 
         self.assign_symbol()
         class_symbol = "HashJoinSource_{sym}".format(sym=gensym())
-        keytype = self.__aggregate_type__(self.right.scheme(), self.rightcols)
+        keytype = CKeyUtils._aggregate_type(self.language(), self.right.scheme(), self.rightcols)
         left_type = self.leftTypeRef.getPlaceholder()
         right_type = self.rightTypeRef.getPlaceholder()
         out_tuple_type = self.outTuple.getTupleTypename()
@@ -1706,8 +1701,8 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
             side = 'Right'
             class_symbol = class_symbol_template.format(side=side, sym=gensym())
 
-            keyval = self.__aggregate_val__(t, self.rightcols)
-            keytype = self.__aggregate_type__(self.right.scheme(), self.rightcols)
+            keyval = CKeyUtils._aggregate_val(t, self.rightcols)
+            keytype = CKeyUtils._aggregate_type(self.language(), self.right.scheme(), self.rightcols)
             state.resolveSymbol(self.rightTypeRef, t.getTupleTypename())
 
             # save to add after left type added
@@ -1728,8 +1723,8 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
             side = 'Left'
             class_symbol = class_symbol_template.format(side=side, sym=gensym())
 
-            keyval = self.__aggregate_val__(t, self.leftcols)
-            keytype = self.__aggregate_type__(self.left.scheme(), self.leftcols)
+            keyval = CKeyUtils._aggregate_val(t, self.leftcols)
+            keytype = CKeyUtils._aggregate_type(self.language(), self.left.scheme(), self.leftcols)
             state.resolveSymbol(self.leftTypeRef, t.getTupleTypename())
 
             state.addDeclarations([self.iter_cgenv().get_template("hashjoin_sink.cpp").render(
@@ -1757,6 +1752,10 @@ class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
 
 
 class IGrappaGroupBy(GrappaGroupBy, Iterator):
+    def __init__(self, *args):
+        super(IGrappaGroupBy, self).__init__(*args)
+        self._igroupby_cgenv = self.iter_cgenv(env=self._cgenv)
+
     def _reuse_properties(self, other):
         super(IGrappaGroupBy, self)._reuse_properties(other)
         # save additional properties
@@ -1767,10 +1766,10 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
         get_pipeline_task_name(state)
 
         if self.useKey:
-            produce_template = self.iter_cgenv().get_template("multikey_groupby_source.cpp")
+            produce_template = self._igroupby_cgenv.get_template("multikey_groupby_source.cpp")
             class_symbol = "AggregateSource_{}".format(gensym())
         else:
-            produce_template = self.iter_cgenv().get_template("0key_groupby_source.cpp")
+            produce_template = self._igroupby_cgenv.get_template("0key_groupby_source.cpp")
             class_symbol = "ZeroKeyAggregateSource_{}".format(gensym())
 
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
@@ -1807,11 +1806,13 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
         state.addPipeline()
 
     def _init_template(self):
-        return self.iter_cgenv().get_template('withkey_init.cpp')
+        return self._igroupby_cgenv.get_template('withkey_init.cpp')
 
     def consume(self, t, src, state):
         # save the inter-pipeline task name
-        self.input_syncname = get_pipeline_task_name(state)
+        if not hasattr(self, 'input_syncname'):
+            self.input_syncname = []
+        self.input_syncname.append(get_pipeline_task_name(state))
 
         self.input_tuple_type = t.getTupleTypename()
 
@@ -1826,7 +1827,7 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
         if self.useKey:
             class_symbol = "AggregateSink_{}".format(gensym())
             state.addDeclarations([
-                self.iter_cgenv().get_template("multikey_groupby_sink.cpp").render(
+                self._igroupby_cgenv.get_template("multikey_groupby_sink.cpp").render(
                    class_symbol=class_symbol,
                    consume_type=t.getTupleTypename(),
                    keytype=self._key_type(inp_sch),
@@ -1839,7 +1840,7 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
         else:
             self._combine_def(state, t)
 
-        symbol = self.declare_sink(state)
+        symbol = self.declare_sink(state, cgenv=self._igroupby_cgenv)
 
         # generate instantiation
         if self.useKey:
@@ -1863,6 +1864,28 @@ class IGrappaGroupBy(GrappaGroupBy, Iterator):
                )
            ))
 
+        return None
+
+
+class IGrappaPartitionGroupBy(IGrappaGroupBy):
+    def __init__(self, *args):
+        super(IGrappaPartitionGroupBy, self).__init__(*args)
+        # Override some IGrappaGroupBy template with new ones.
+        # The rest of the generation logic is the same
+        self._igroupby_cgenv = clangcommon.prepend_template_relpath(self._igroupby_cgenv,
+                                                           '{0}/iterators/partition_groupby'.format(GrappaLanguage._template_path))
+
+
+class IGrappaShuffle(algebra.Shuffle, GrappaOperator, Iterator):
+    def __init__(self, *args):
+        raise NotImplementedError("Should not be necessary currently, see {0}".format(FuseGroupByShuffle))
+
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        # currently a no-op because IGroupBy takes care of the shuffle
+        self.parent().consume(t, src, state)
         return None
 
 
@@ -1946,15 +1969,40 @@ class CrossProductWithSmall(rules.Rule):
                "GrappaBroadcastCrossProduct(big, singleton)"
 
 
+class FuseGroupByShuffle(rules.Rule):
+    """
+    Global groupby is a fusion of a shuffle and a groupby
+    """
+    def __init__(self, global_groupby_class):
+        self.global_groupby_class = global_groupby_class
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.GroupBy) and isinstance(expr.input, algebra.Shuffle):
+            # make sure the shuffle is for the groupby
+            if expr.grouping_list == expr.input.columnlist:
+                x = rules.OneToOne(algebra.GroupBy, self.global_groupby_class).fire(expr)
+                x.input = expr.input.input
+                return x
+            else:
+                _LOG.warning("missed {0} because the shuffle isn't for the groupby")
+        else:
+            return expr
+
+    def __str__(self):
+        return "GroupBy($a..$z)[Shuffle($a..$z)] => {0}($a..$z)".format(self.global_groupby_class)
+
+
 def iteratorfy(emit_print, scan_array_repr):
     return [
+        FuseGroupByShuffle(IGrappaGroupBy),
+
         rules.ProjectingJoinToProjectOfJoin(),
 
         rules.OneToOne(algebra.Select, IGrappaSelect),
         MemoryScanOfFileScan(scan_array_repr, IGrappaMemoryScan),
         rules.OneToOne(algebra.Apply, IGrappaApply),
         rules.OneToOne(algebra.Join, IGrappaHashJoin),
-        rules.OneToOne(algebra.GroupBy, IGrappaGroupBy),
+        #rules.OneToOne(algebra.Shuffle, IGrappaShuffle),
         #rules.OneToOne(algebra.Project, GrappaProject),
         #rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
         # TODO: obviously breaks semantics
@@ -2026,19 +2074,18 @@ class GrappaAlgebra(Algebra):
 
         if compiler == 'push':
             grappify_rules = grappify(join_type, self.emit_print, scan_array_repr)
+            groupby_classes = {'global': GrappaGroupBy, 'partition': GrappaPartitionGroupBy}
         elif compiler == 'iterator':
             grappify_rules = iteratorfy(self.emit_print, scan_array_repr)
+            groupby_classes = {'global': IGrappaGroupBy, 'partition': IGrappaPartitionGroupBy}
         else:
             raise ValueError("unsupported argument compiler={0}".format(compiler))
 
-        join_type = kwargs.get('join_type', GrappaHashJoin)
-        scan_array_repr = kwargs.get('scan_array_repr',
-                                     _ARRAY_REPRESENTATION.GLOBAL_ARRAY)
         groupby_sematics = kwargs.get('groupby_semantics', 'global')
         if groupby_sematics == 'global':
-            groupby_rules = [rules.OneToOne(algebra.GroupBy, GrappaGroupBy)]
+            groupby_rules = [rules.OneToOne(algebra.GroupBy, groupby_classes['global'])]
         elif groupby_sematics == 'partition':
-            groupby_rules = rules.distributed_group_by(GrappaPartitionGroupBy, countall_rule=False, only_fire_on_multi_key=GrappaGroupBy)
+            groupby_rules = rules.distributed_group_by(groupby_classes['partition'], countall_rule=False, only_fire_on_multi_key=groupby_classes['global'])
         else:
             raise ValueError("groupby_semantics must be one of {global, partition}")
 

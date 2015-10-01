@@ -283,7 +283,7 @@ class Pipelined(object):
         # Ensure this class follows cooperative multiple inheritance
         super(Pipelined, self).__init__(*args)
 
-    def _markAllParents(self, test_mode=False):
+    def _markAllParents(self, test_mode=False, **kwargs):
         root = self
 
         def markChildParent(op):
