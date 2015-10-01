@@ -9,6 +9,7 @@ from raco import relation_key, types
 from raco.algebra import StoreTemp, DEFAULT_CARDINALITY
 from raco.catalog import Catalog
 from raco.expression import AND, EQ, BuiltinAggregateExpression
+from raco.representation import RepresentationProperties
 
 debug = False
 
@@ -39,6 +40,9 @@ class FakeDatabase(Catalog):
         # Temporary tables, identified by string name
         self.temp_tables = DBConnection()
 
+        # partitionings
+        self.partitionings = {}
+
     def get_num_servers(self):
         return 1
 
@@ -47,6 +51,12 @@ class FakeDatabase(Catalog):
             return self.tables.num_tuples(rel_key)
         except KeyError:
             return DEFAULT_CARDINALITY
+
+    def partitioning(self, rel_key):
+        """get fake metadata for relation.
+        This has no effect on query evaluation
+        in the FakeDatabase"""
+        return self.partitionings[rel_key]
 
     def evaluate(self, op):
         """Evaluate a relational algebra operation.
@@ -61,12 +71,14 @@ class FakeDatabase(Catalog):
         """Return a bag (collections.Counter instance) for the operation"""
         return collections.Counter(self.evaluate(op))
 
-    def ingest(self, rel_key, contents, scheme):
+    def ingest(self, rel_key, contents, scheme,
+               partitioning=RepresentationProperties()):
         """Directly load raw data into the database"""
         if isinstance(rel_key, basestring):
             rel_key = relation_key.RelationKey.from_string(rel_key)
         assert isinstance(rel_key, relation_key.RelationKey)
         self.tables.add_table(rel_key, scheme, contents.elements())
+        self.partitionings[rel_key] = partitioning
 
     def get_scheme(self, rel_key):
         if isinstance(rel_key, basestring):
