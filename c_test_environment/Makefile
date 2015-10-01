@@ -1,7 +1,6 @@
 # WARNING: name environment source files .h or .cc, but not .cpp, which is reserved (.gitignore laziness)
 
-#CXX = clang++
-CXX=g++
+CXX ?= g++
 
 CFLAGS =-ggdb -std=c++11 -O3
 #-O3 #-m64 -Wno-deprecated -fPIC

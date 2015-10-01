@@ -9,6 +9,7 @@ from raco import algebra, expression, rules, scheme
 from raco.algebra import convertcondition
 from raco.algebra import Shuffle
 from raco.catalog import Catalog
+from raco.representation import RepresentationProperties
 from raco.language import Language, Algebra
 from raco.language.sql.catalog import SQLCatalog
 from raco.expression import WORKERID, COUNTALL
@@ -16,6 +17,7 @@ from raco.expression import UnnamedAttributeRef
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
 from raco.rules import distributed_group_by
+from functools import reduce
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,9 +38,9 @@ def compile_expr(op, child_scheme, state_scheme):
     # Put special handling at the top!
     ####
     if isinstance(op, expression.NumericLiteral):
-        if type(op.value) == int:
+        if isinstance(op.value, int):
             myria_type = types.LONG_TYPE
-        elif type(op.value) == float:
+        elif isinstance(op.value, float):
             myria_type = types.DOUBLE_TYPE
         else:
             raise NotImplementedError("Compiling NumericLiteral {} of type {}"
@@ -160,6 +162,7 @@ def relation_key_to_json(relation_key):
 
 
 class MyriaScan(algebra.Scan, MyriaOperator):
+
     def compileme(self):
         return {
             "opType": "TableScan",
@@ -168,6 +171,7 @@ class MyriaScan(algebra.Scan, MyriaOperator):
 
 
 class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
+
     def compileme(self):
         return {
             "opType": "TempTableScan",
@@ -176,18 +180,24 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
 
 
 class MyriaFileScan(algebra.FileScan, MyriaOperator):
+
     def compileme(self):
-        return dict({
+        encoding = dict({
             "opType": "FileScan",
             "source": {
                 "dataType": "URI",
                 "uri": self.path,
             },
-            "schema": scheme_to_schema(self.scheme())
         }, **self.options)
+        if self.format == 'OPP':
+            encoding['opType'] = "SeaFlowScan"
+        else:
+            encoding['schema'] = scheme_to_schema(self.scheme())
+        return encoding
 
 
 class MyriaLimit(algebra.Limit, MyriaOperator):
+
     def compileme(self, inputid):
         return {
             "opType": "Limit",
@@ -197,6 +207,7 @@ class MyriaLimit(algebra.Limit, MyriaOperator):
 
 
 class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
+
     def compileme(self, leftid, rightid):
         return {
             "opType": "UnionAll",
@@ -205,6 +216,7 @@ class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
 
 
 class MyriaDifference(algebra.Difference, MyriaOperator):
+
     def compileme(self, leftid, rightid):
         return {
             "opType": "Difference",
@@ -214,6 +226,7 @@ class MyriaDifference(algebra.Difference, MyriaOperator):
 
 
 class MyriaSingleton(algebra.SingletonRelation, MyriaOperator):
+
     def compileme(self):
         return {
             "opType": "Singleton",
@@ -221,6 +234,7 @@ class MyriaSingleton(algebra.SingletonRelation, MyriaOperator):
 
 
 class MyriaEmptyRelation(algebra.EmptyRelation, MyriaOperator):
+
     def compileme(self):
         return {
             "opType": "Empty",
@@ -229,6 +243,7 @@ class MyriaEmptyRelation(algebra.EmptyRelation, MyriaOperator):
 
 
 class MyriaSelect(algebra.Select, MyriaOperator):
+
     def compileme(self, inputid):
         pred = compile_expr(self.condition, self.scheme(), None)
         return {
@@ -241,6 +256,7 @@ class MyriaSelect(algebra.Select, MyriaOperator):
 
 
 class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
+
     def compileme(self, leftid, rightid):
         column_names = [name for (name, _) in self.scheme()]
         allleft = [i.position for i in self.left.scheme().ascolumnlist()]
@@ -258,6 +274,7 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
 
 
 class MyriaStore(algebra.Store, MyriaOperator):
+
     def compileme(self, inputid):
         return {
             "opType": "DbInsert",
@@ -268,6 +285,7 @@ class MyriaStore(algebra.Store, MyriaOperator):
 
 
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
+
     def compileme(self, inputid):
         return {
             "opType": "TempInsert",
@@ -278,6 +296,7 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
 
 
 class MyriaSink(algebra.Sink, MyriaOperator):
+
     def compileme(self, inputid):
         return {
             "opType": "SinkRoot",
@@ -286,6 +305,7 @@ class MyriaSink(algebra.Sink, MyriaOperator):
 
 
 class MyriaAppendTemp(algebra.AppendTemp, MyriaOperator):
+
     def compileme(self, inputid):
         return {
             "opType": "TempInsert",
@@ -313,6 +333,7 @@ def convert_nary_conditions(conditions, schemes):
 
 
 class MyriaSymmetricHashJoin(algebra.ProjectingJoin, MyriaOperator):
+
     def compileme(self, leftid, rightid):
         """Compile the operator to a sequence of json operators"""
 
@@ -383,6 +404,7 @@ class MyriaLeapFrogJoin(algebra.NaryJoin, MyriaOperator):
 
 
 class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
+
     @staticmethod
     def agg_mapping(agg_expr):
         """Maps a BuiltinAggregateExpression to a Myria string constant
@@ -477,6 +499,7 @@ class MyriaInMemoryOrderBy(algebra.OrderBy, MyriaOperator):
 
 
 class MyriaShuffle(algebra.Shuffle, MyriaOperator):
+
     """Represents a simple shuffle operator"""
 
     def compileme(self, inputid):
@@ -484,6 +507,7 @@ class MyriaShuffle(algebra.Shuffle, MyriaOperator):
 
 
 class MyriaCollect(algebra.Collect, MyriaOperator):
+
     """Represents a simple collect operator"""
 
     def compileme(self, inputid):
@@ -491,6 +515,7 @@ class MyriaCollect(algebra.Collect, MyriaOperator):
 
 
 class MyriaDupElim(algebra.Distinct, MyriaOperator):
+
     """Represents duplicate elimination"""
 
     def compileme(self, inputid):
@@ -501,6 +526,7 @@ class MyriaDupElim(algebra.Distinct, MyriaOperator):
 
 
 class MyriaApply(algebra.Apply, MyriaOperator):
+
     """Represents a simple apply operator"""
 
     def compileme(self, inputid):
@@ -515,6 +541,7 @@ class MyriaApply(algebra.Apply, MyriaOperator):
 
 
 class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
+
     """Represents a stateful apply operator"""
 
     def compileme(self, inputid):
@@ -534,6 +561,7 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
 
 
 class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria BroadcastProducer"""
 
     def __init__(self, input):
@@ -541,6 +569,9 @@ class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return algebra.Broadcast(self.input).partitioning()
 
     def shortStr(self):
         return "%s" % self.opname()
@@ -553,6 +584,7 @@ class MyriaBroadcastProducer(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria BroadcastConsumer"""
 
     def __init__(self, input):
@@ -560,6 +592,9 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return "%s" % self.opname()
@@ -572,6 +607,7 @@ class MyriaBroadcastConsumer(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaSplitProducer(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria SplitProducer"""
 
     def __init__(self, input):
@@ -586,6 +622,9 @@ class MyriaSplitProducer(algebra.UnaryOperator, MyriaOperator):
     def num_tuples(self):
         return self.input.num_tuples()
 
+    def partitioning(self):
+        return self.input.partitioning()
+
     def compileme(self, inputid):
         return {
             "opType": "LocalMultiwayProducer",
@@ -594,6 +633,7 @@ class MyriaSplitProducer(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaSplitConsumer(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria SplitConsumer"""
 
     def __init__(self, input):
@@ -601,6 +641,9 @@ class MyriaSplitConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return self.opname()
@@ -613,6 +656,7 @@ class MyriaSplitConsumer(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria ShuffleProducer"""
 
     def __init__(self, input, hash_columns, shuffle_type=None):
@@ -637,6 +681,12 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     def __repr__(self):
         return "{op}({inp!r}, {hc!r})".format(op=self.opname(), inp=self.input,
                                               hc=self.hash_columns)
+
+    def partitioning(self):
+        return Shuffle(
+            self.input,
+            self.hash_columns,
+            self.shuffle_type).partitioning()
 
     def num_tuples(self):
         return self.input.num_tuples()
@@ -668,6 +718,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria ShuffleConsumer"""
 
     def __init__(self, input):
@@ -679,6 +730,9 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         return "%s" % self.opname()
 
+    def partitioning(self):
+        return self.input.partitioning()
+
     def compileme(self, inputid):
         return {
             'opType': 'ShuffleConsumer',
@@ -687,6 +741,7 @@ class MyriaShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria CollectProducer"""
 
     def __init__(self, input, server):
@@ -695,6 +750,10 @@ class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        # TODO: have a way to say it is on a specific worker
+        return RepresentationProperties()
 
     def shortStr(self):
         return "%s(@%s)" % (self.opname(), self.server)
@@ -712,6 +771,7 @@ class MyriaCollectProducer(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria CollectConsumer"""
 
     def __init__(self, input):
@@ -719,6 +779,9 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return "%s" % self.opname()
@@ -731,13 +794,17 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaHyperShuffle(algebra.HyperCubeShuffle, MyriaOperator):
+
     """Represents a HyperShuffle shuffle operator"""
+
     def compileme(self, inputsym):
         raise NotImplementedError('shouldn''t ever get here, should be turned into HCSP-HCSC pair')  # noqa
 
 
 class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria HyperShuffleProducer"""
+
     def __init__(self, input, hashed_columns,
                  hyper_cube_dims, mapped_hc_dims, cell_partition):
         algebra.UnaryOperator.__init__(self, input)
@@ -748,6 +815,14 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return MyriaHyperShuffle(
+            self.input,
+            self.hashed_columns,
+            self.mapped_hc_dims,
+            self.hyper_cube_dimensions,
+            self.cell_partition).partitioning()
 
     def shortStr(self):
         mapping = {i: '*' for i in range(len(self.hyper_cube_dimensions))}
@@ -769,12 +844,17 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria HyperShuffleConsumer"""
+
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
 
     def num_tuples(self):
         return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
 
     def shortStr(self):
         return "%s" % self.opname()
@@ -787,19 +867,27 @@ class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
+
     """A Myria Query Scan"""
-    def __init__(self, sql, scheme, num_tuples=algebra.DEFAULT_CARDINALITY):
+
+    def __init__(self, sql, scheme, num_tuples=algebra.DEFAULT_CARDINALITY,
+                 partitioning=RepresentationProperties()):
         self.sql = str(sql)
         self._scheme = scheme
         self._num_tuples = num_tuples
+        self._partitioning = partitioning
 
     def __repr__(self):
-        return ("{op}({sql!r}, {sch!r}, {nt!r})"
+        return ("{op}({sql!r}, {sch!r}, {nt!r}, {part!r})"
                 .format(op=self.opname(), sql=self.sql,
-                        sch=self._scheme, nt=self._num_tuples))
+                        sch=self._scheme, nt=self._num_tuples,
+                        part=self._partitioning))
 
     def num_tuples(self):
         return self._num_tuples
+
+    def partitioning(self):
+        return self._partitioning
 
     def shortStr(self):
         return "MyriaQueryScan({sql!r})".format(sql=self.sql)
@@ -816,7 +904,9 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
 
 
 class MyriaCalculateSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
+
     """A Myria SamplingDistribution operator"""
+
     def __init__(self, input, sample_size, is_pct, sample_type):
         algebra.UnaryOperator.__init__(self, input)
         self.sample_size = sample_size
@@ -841,6 +931,9 @@ class MyriaCalculateSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
     def num_tuples(self):
         return self.input.num_tuples()
 
+    def partitioning(self):
+        return RepresentationProperties()
+
     def scheme(self):
         return self.input.scheme() + scheme.Scheme([('SampleSize',
                                                      types.LONG_TYPE), (
@@ -858,7 +951,9 @@ class MyriaCalculateSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
 
 
 class MyriaSample(algebra.BinaryOperator, MyriaOperator):
+
     """A Myria Sample operator"""
+
     def __init__(self, left, right, sample_size, is_pct, sample_type):
         algebra.BinaryOperator.__init__(self, left, right)
         # sample_size, sample_type, is_pct are just used for displaying.
@@ -885,6 +980,9 @@ class MyriaSample(algebra.BinaryOperator, MyriaOperator):
     def num_tuples(self):
         return self.sample_size
 
+    def partitioning(self):
+        return RepresentationProperties()
+
     def scheme(self):
         """The right operator is the one sampled from."""
         return self.right.scheme()
@@ -898,6 +996,7 @@ class MyriaSample(algebra.BinaryOperator, MyriaOperator):
 
 
 class LogicalSampleToDistributedSample(rules.Rule):
+
     """Converts logical SampleScan to the sequence of physical operators."""
 
     def fire(self, expr):
@@ -926,6 +1025,7 @@ class LogicalSampleToDistributedSample(rules.Rule):
 
 
 class BreakShuffle(rules.Rule):
+
     def fire(self, expr):
         if not isinstance(expr, MyriaShuffle):
             return expr
@@ -937,6 +1037,7 @@ class BreakShuffle(rules.Rule):
 
 
 class BreakHyperCubeShuffle(rules.Rule):
+
     def fire(self, expr):
         """
         self.hashed_columns = hashed_columns
@@ -954,6 +1055,7 @@ class BreakHyperCubeShuffle(rules.Rule):
 
 
 class BreakCollect(rules.Rule):
+
     def fire(self, expr):
         if not isinstance(expr, MyriaCollect):
             return expr
@@ -964,6 +1066,7 @@ class BreakCollect(rules.Rule):
 
 
 class BreakBroadcast(rules.Rule):
+
     def fire(self, expr):
         if not isinstance(expr, algebra.Broadcast):
             return expr
@@ -974,6 +1077,7 @@ class BreakBroadcast(rules.Rule):
 
 
 class BreakSplit(rules.Rule):
+
     def fire(self, expr):
         if not isinstance(expr, algebra.Split):
             return expr
@@ -983,27 +1087,11 @@ class BreakSplit(rules.Rule):
         return consumer
 
 
-def check_shuffle_xor(exp):
-    """Enforce that neither or both inputs to a binary op are shuffled.
-
-    Return True if the arguments are shuffled; False if they are not;
-    or raise a ValueError on xor failure.
-
-    Note that we assume that inputs are shuffled in a compatible way.
-    """
-    left_shuffle = isinstance(exp.left, algebra.Shuffle)
-    right_shuffle = isinstance(exp.right, algebra.Shuffle)
-
-    if left_shuffle and right_shuffle:
-        return True
-    if left_shuffle or right_shuffle:
-        raise ValueError("Must shuffle on both inputs of %s" % exp)
-    return False
-
-
 class CollectBeforeLimit(rules.Rule):
+
     """Similar to a decomposable GroupBy, rewrite Limit as
     Limit[Collect[Limit]]"""
+
     def fire(self, exp):
         if exp.__class__ == algebra.Limit:
             return MyriaLimit(exp.count,
@@ -1013,7 +1101,19 @@ class CollectBeforeLimit(rules.Rule):
         return exp
 
 
+def check_partition_equality(op, representation):
+    """Check to see if the operator has the required hash partitioning.
+    @param op operator
+    @param representation list of columns hash partitioned by,
+                        in the unnamed perspective
+    @return true if the op has an equal hash partitioning to representation
+    """
+
+    return op.partitioning().hash_partitioned == frozenset(representation)
+
+
 class ShuffleBeforeSetop(rules.Rule):
+
     def fire(self, exp):
         if not isinstance(exp, (algebra.Difference, algebra.Intersection)):
             return exp
@@ -1021,22 +1121,26 @@ class ShuffleBeforeSetop(rules.Rule):
         def shuffle_after(op):
             cols = [expression.UnnamedAttributeRef(i)
                     for i in range(len(op.scheme()))]
-            return algebra.Shuffle(child=op, columnlist=cols)
 
-        if not check_shuffle_xor(exp):
-            exp.left = shuffle_after(exp.left)
-            exp.right = shuffle_after(exp.right)
+            if check_partition_equality(op, cols):
+                return op
+            else:
+                return algebra.Shuffle(child=op, columnlist=cols)
+
+        exp.left = shuffle_after(exp.left)
+        exp.right = shuffle_after(exp.right)
+
         return exp
+
+    def __str__(self):
+        return "Setop => Shuffle(Setop)"
 
 
 class ShuffleBeforeJoin(rules.Rule):
+
     def fire(self, expr):
         # If not a join, who cares?
         if not isinstance(expr, algebra.Join):
-            return expr
-
-        # If both have shuffles already, who cares?
-        if check_shuffle_xor(expr):
             return expr
 
         # Figure out which columns go in the shuffle
@@ -1045,24 +1149,36 @@ class ShuffleBeforeJoin(rules.Rule):
                              len(expr.left.scheme()),
                              expr.left.scheme() + expr.right.scheme())
 
-        # Left shuffle
+        # Left shuffle cols
         left_cols = [expression.UnnamedAttributeRef(i)
                      for i in left_cols]
-        left_shuffle = algebra.Shuffle(expr.left, left_cols)
-        # Right shuffle
+        # Right shuffle cols
         right_cols = [expression.UnnamedAttributeRef(i)
                       for i in right_cols]
-        right_shuffle = algebra.Shuffle(expr.right, right_cols)
+
+        if check_partition_equality(expr.left, left_cols):
+            new_left = expr.left
+        else:
+            new_left = algebra.Shuffle(expr.left, left_cols)
+
+        if check_partition_equality(expr.right, right_cols):
+            new_right = expr.right
+        else:
+            new_right = algebra.Shuffle(expr.right, right_cols)
 
         # Construct the object!
         assert isinstance(expr, algebra.ProjectingJoin)
         if isinstance(expr, algebra.ProjectingJoin):
             return algebra.ProjectingJoin(expr.condition,
-                                          left_shuffle, right_shuffle,
+                                          new_left, new_right,
                                           expr.output_columns)
+
+    def __str__(self):
+        return "Join => Shuffle(Join)"
 
 
 class HCShuffleBeforeNaryJoin(rules.Rule):
+
     def __init__(self, catalog):
         assert isinstance(catalog, Catalog)
         self.catalog = catalog
@@ -1242,6 +1358,7 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
 
 
 class OrderByBeforeNaryJoin(rules.Rule):
+
     def fire(self, expr):
         # if not NaryJoin, who cares?
         if not isinstance(expr, algebra.NaryJoin):
@@ -1269,6 +1386,7 @@ class OrderByBeforeNaryJoin(rules.Rule):
 
 
 class BroadcastBeforeCross(rules.Rule):
+
     def fire(self, expr):
         # If not a CrossProduct, who cares?
         if not isinstance(expr, algebra.CrossProduct):
@@ -1284,7 +1402,7 @@ class BroadcastBeforeCross(rules.Rule):
                 expr.left = algebra.Broadcast(expr.left)
             else:
                 expr.right = algebra.Broadcast(expr.right)
-        except NotImplementedError, e:
+        except NotImplementedError as e:
             # If cardinalities unknown, broadcast the right child
             expr.right = algebra.Broadcast(expr.right)
 
@@ -1292,6 +1410,7 @@ class BroadcastBeforeCross(rules.Rule):
 
 
 class ShuffleAfterSingleton(rules.Rule):
+
     def fire(self, expr):
         if isinstance(expr, MyriaSingleton):
             return expr
@@ -1303,29 +1422,33 @@ class ShuffleAfterSingleton(rules.Rule):
 
 
 class AddAppendTemp(rules.Rule):
+
     def fire(self, op):
-        if type(op) is not MyriaStoreTemp:
+        if not isinstance(op, MyriaStoreTemp):
             return op
 
         child = op.input
-        if type(child) is not MyriaUnionAll:
+        if not isinstance(child, MyriaUnionAll):
             return op
 
         left = child.left
         right = child.right
         rel_name = op.name
 
-        is_scan = lambda op: type(op) is MyriaScanTemp and op.name == rel_name
+        is_scan = lambda op: isinstance(
+            op,
+            MyriaScanTemp) and op.name == rel_name
         if is_scan(left) and not any(is_scan(op) for op in right.walk()):
-                return MyriaAppendTemp(name=rel_name, input=right)
+            return MyriaAppendTemp(name=rel_name, input=right)
 
         elif is_scan(right) and not any(is_scan(op) for op in left.walk()):
-                return MyriaAppendTemp(name=rel_name, input=left)
+            return MyriaAppendTemp(name=rel_name, input=left)
 
         return op
 
 
 class PushIntoSQL(rules.Rule):
+
     def __init__(self, dialect=None):
         self.dialect = dialect or postgresql.dialect()
         super(PushIntoSQL, self).__init__()
@@ -1340,14 +1463,16 @@ class PushIntoSQL(rules.Rule):
             sql_string.visit_bindparam = sql_string.render_literal_bindparam
             return MyriaQueryScan(sql=sql_string.process(sql_plan),
                                   scheme=expr.scheme(),
-                                  num_tuples=expr.num_tuples())
-        except NotImplementedError, e:
+                                  num_tuples=expr.num_tuples(),
+                                  partitioning=expr.partitioning())
+        except NotImplementedError as e:
             LOGGER.warn("Error converting {plan}: {e}"
                         .format(plan=expr, e=e))
             return expr
 
 
 class InsertSplit(rules.Rule):
+
     """Inserts an algebra.Split operator in every fragment that has multiple
     heavy-weight operators."""
     heavy_ops = (algebra.Store, algebra.StoreTemp,
@@ -1373,6 +1498,7 @@ class InsertSplit(rules.Rule):
 
 
 class MergeToNaryJoin(rules.Rule):
+
     """Merge consecutive binary join into a single multiway join
     Note: this code assumes that the binary joins form a left deep tree
     before the merge."""
@@ -1442,8 +1568,10 @@ class MergeToNaryJoin(rules.Rule):
 
 
 class GetCardinalities(rules.Rule):
+
     """ get cardinalities information of Zeroary operators.
     """
+
     def __init__(self, catalog):
         assert isinstance(catalog, Catalog)
         self.catalog = catalog
@@ -1510,6 +1638,7 @@ break_communication = [
 
 
 class MyriaAlgebra(Algebra):
+
     """ Myria algebra abstract class"""
     language = MyriaLanguage
 
@@ -1528,7 +1657,9 @@ class MyriaAlgebra(Algebra):
 
 
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
+
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
+
     def opt_rules(self, **kwargs):
         opt_grps_sequence = [
             rules.remove_trivial_sequences,
@@ -1576,7 +1707,9 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
+
     """Myria physical algebra using HyperCubeShuffle and LeapFrogJoin"""
+
     def opt_rules(self, **kwargs):
         # this rule is hyper cube shuffle specific
         merge_to_nary_join = [
@@ -1638,6 +1771,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
 
 
 class OpIdFactory(object):
+
     def __init__(self):
         self.count = 0
 
