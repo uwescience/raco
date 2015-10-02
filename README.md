@@ -120,7 +120,7 @@ Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 Pass the `-j` option to `scripts/myrial`. Output omitted for brevity.
 
 # C++ and Grappa output (Radish)
-There is also C++ and [Grappa](http://grappa.io) output for Raco.
+Raco has backend compilers that emit C++ and [Grappa](http://grappa.io) programs for query plans.
 
 ### Output C++ plan and source program
 ```
