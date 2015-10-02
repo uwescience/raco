@@ -138,9 +138,9 @@ c_test_environment/join.exe INPUT_FILE.csv
 ### Run the full MyriaL -> Grappa tests
 The default tests (just running `nosetests`) include tests for translation from MyriaL to Grappa code but do no checking of whether the Grappa program correctly executes the query. To actually run the Grappa queries: 
 
-1. `export RACO_HOME=/path/to/raco` to root of raco
+1. `export RACO_HOME=/path/to/raco`
 2. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
-3. `export GRAPPA_HOME=/path/to/grappa` to root of Grappa
+3. `export GRAPPA_HOME=/path/to/grappa`
 4. run tests: run this command from the `$RACO_HOME` directory
 ```bash
 PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_myrial_tests.MyriaLGrappaTest
