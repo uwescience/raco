@@ -19,7 +19,7 @@ Output languages include:
 * Logical relational algebra (+ while loop)
 * The Myria physical algebra (in JSON)
 * C++ physical algebra, C++ source code
-* [http://grappa.io](Grappa) (distributed C++) physical algebra, Grappa source code
+* [Grappa](http://grappa.io) (distributed C++) physical algebra, Grappa source code
 * Pseudocode algebra
 * Python physical algebra
 * SPARQL (partial)
@@ -120,7 +120,7 @@ Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 Pass the `-j` option to `scripts/myrial`. Output omitted for brevity.
 
 # C++ and Grappa output (Radish)
-There is also C++ and [http://grappa.io](Grappa) output for Raco.
+There is also C++ and [Grappa](http://grappa.io) output for Raco.
 
 ### Output C++ plan and source program
 ```
