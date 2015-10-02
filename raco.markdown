@@ -52,7 +52,7 @@ This algorithm is very simplistic, but it works out okay right now.
 3. Go to your algebra (e.g., `MyriaLeftDeepJoinAlgebra` in `raco/language/myrialang.py`) and instantiate your rule somewhere in the list returned by `opt_rules`.
 
 ### Example plan manipulation
-Adding a myriaX shuffle to a query in the MyMergerTree application.
+Often users of MyriaX want to partition a table. This can be done by scan the relation, shuffle, store. MyriaL query language does not have a Shuffle operator (they only get introduced by joins, groupbys, and set operations); however we can still easily build the query plan we want. Here is an example of using MyriaX shuffle to partition a table in the MyMergerTree astronomy application.
 
 [vulcan.py catalog is here](https://gist.github.com/bmyerz/8fe4107eb8faff6221e8)
 
