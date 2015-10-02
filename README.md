@@ -6,6 +6,8 @@ A pure Python compiler and optimization framework for relational algebra.
 [![Build Status](https://travis-ci.org/uwescience/raco.png?branch=master)](https://travis-ci.org/uwescience/raco)
 [![Coverage Status](https://coveralls.io/repos/uwescience/raco/badge.png)](https://coveralls.io/r/uwescience/raco)
 
+Raco takes as input a number of source languages and has a growing number of output languages.
+
 Source languages include:
 
 * Datalog
@@ -14,12 +16,12 @@ Source languages include:
 
 Output languages include:
 
-* Logical relational algebra
+* Logical relational algebra (+ while loop)
 * The Myria physical algebra (in JSON)
-* A C++ algebra, C++ source code
-* A Grappa algebra, Grappa source code
-* A pseudocode algebra
-* A Python algebra
+* C++ physical algebra, C++ source code
+* [Grappa](http://grappa.io) (distributed C++) physical algebra, Grappa source code
+* Pseudocode algebra
+* Python physical algebra
 * SPARQL (partial)
 
 Users can of course author programs by directly instantiating one of the intermediate or output algebras as well as one of the source languages.
@@ -44,15 +46,27 @@ python setup.py install
 
 # Run tests
 
-To execute the tests, run `nosetests` in the root directory of the repository. See `nosetests -h` for more options or consult the [nose documentation](https://nose.readthedocs.org).
+To execute the tests, run `nosetests` in the root directory of the repository. 
+
+A few hints: to print test names use `-v`
+```
+nosetests -v
+```
+And fail on first error use `-x`
+```
+nosetests -x -v
+```
+
+See `nosetests -h` for more options or consult the [nose documentation](https://nose.readthedocs.org).
+
 
 #### Requirements for C++ backend tests
-- C++11 compiler
+- C++11 compiler, i.e. gcc-4.7 or later, clang-3.3 or later
 - sqlite3
 
 # Example
 
-We are currently using Raco mostly for Myria. To try parsing and understanding a program written in the Myria language, use the included `myrial` utility.
+Raco is the compiler for Myria. To try parsing and understanding a program written in the Myria language, use the included `myrial` utility.
 
 Note that the commands below run the `myrial` utility from the included `scripts` directory. However, the install command above will in fact install `myrial` in your `$PATH`.
 
@@ -102,25 +116,45 @@ Sequence
 ### Visualize a Myria plan as a graph
 Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
+### Output the Myria physical plan as json (what MyriaX understands)
+Pass the `-j` option to `scripts/myrial`. Output omitted for brevity.
+
 # C++ and Grappa output (Radish)
-There is also Grappa output for Raco.
+There is also C++ and [Grappa](http://grappa.io) output for Raco.
+
+### Output C++ plan and source program
+```
+# generate the query and save to join.cpp
+scripts/myrial --cpp examples/join.myl
+
+# build
+mv join.cpp c_test_environment/
+cd c_test_environment; make join.exe
+
+# run
+c_test_environment/join.exe INPUT_FILE.csv
+```
 
 ### Run the full MyriaL -> Grappa tests
 The default tests (just running `nosetests`) include tests for translation from MyriaL to Grappa code but do no checking of whether the Grappa program correctly executes the query. To actually run the Grappa queries: 
 
-1. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
-2. set GRAPPA_HOME to root of Grappa
-3. set RACO_HOME to root of raco
-4. run tests:
+1. `export RACO_HOME=/path/to/raco` to root of raco
+2. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
+3. `export GRAPPA_HOME=/path/to/grappa` to root of Grappa
+4. run tests: run this command from the `$RACO_HOME` directory
 ```bash
 PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_myrial_tests.MyriaLGrappaTest
 ```
 
-### Visualize a Radish plan as a graph
-Pass the `-c` option to `scripts/myrial`.
+
+### Output Radish (Grappa) plan and source program
+```
+scripts/myrial -c examples/join.myl
+# the query implemented in Grappa is in join.cpp
+```
 
 # More Raco
-using Raco, manipulating plans, adding optimizer rules
+using Raco, manipulating plans, adding optimizer rules, developing Raco
 see [Raco in myria-docs](https://github.com/uwescience/myria-docs/blob/master/raco.markdown)
 
 # Authors and contact information
