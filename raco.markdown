@@ -76,9 +76,11 @@ processor.evaluate(statement_list)
 # we will add the shuffle into the logical plan
 p = processor.get_logical_plan()
 
-# This is the actual plan manipulation; just insert a Shuffle
+# This is the actual plan manipulation; just insert a Shuffle. Since the
+# operators are all unary (single-input) this just looks like linked-list insertion.
 tail = p.args[0].input
 p.args[0].input = alg.Shuffle(tail, [UnnamedAttributeRef(0), UnnamedAttributeRef(1), UnnamedAttributeRef(3)])
+                                    # Shuffle columns
 
 # output json query plan for MyriaX
 p = processor.get_physical_plan()
