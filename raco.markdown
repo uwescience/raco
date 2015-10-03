@@ -52,35 +52,38 @@ This algorithm is very simplistic, but it works out okay right now.
 3. Go to your algebra (e.g., `MyriaLeftDeepJoinAlgebra` in `raco/language/myrialang.py`) and instantiate your rule somewhere in the list returned by `opt_rules`.
 
 ### Example plan manipulation
-Adding a myriaX shuffle to a query in the MyMergerTree application.
+Often users of MyriaX want to partition a table. This can be done by scan the relation, shuffle, store. MyriaL query language does not have a Shuffle operator (they only get introduced by joins, groupbys, and set operations); however we can still easily build the query plan we want. Here is an example of using MyriaX shuffle to partition a table in the MyMergerTree astronomy application.
 
 [vulcan.py catalog is here](https://gist.github.com/bmyerz/8fe4107eb8faff6221e8)
 
 ```python
-#imports
 from raco.catalog import FromFileCatalog
 import raco.myrial.parser as parser
 import raco.myrial.interpreter as interpreter
 import raco.algebra as alg
 from raco.expression.expression import UnnamedAttributeRef
 
-#get the schema
+# get the schema
 catalog = FromFileCatalog.load_from_file("vulcan.py")
 _parser = parser.Parser()
 
-#based on an initial query, process it to into statements
+# We can have Raco start us with a plan that is close to the one we want by giving it a MyriaL query.
+# Here we start with scan, store. We'll modify it to get scan, shuffle, store.
 statement_list = _parser.parse("T1 = scan(public:vulcan:edgesConnected);store(T1, public:vulcan:edgesConnectedSort);")
 processor = interpreter.StatementProcessor(catalog, True)
 processor.evaluate(statement_list)
 
-#get logical plan, add the shuffle and then print the physical plan
+# we will add the shuffle into the logical plan
 p = processor.get_logical_plan()
 
+# This is the actual plan manipulation; just insert a Shuffle. Since the
+# operators are all unary (single-input) this just looks like linked-list insertion.
 tail = p.args[0].input
 p.args[0].input = alg.Shuffle(tail, [UnnamedAttributeRef(0), UnnamedAttributeRef(1), UnnamedAttributeRef(3)])
+                                    # Shuffle columns
 
+# output json query plan for MyriaX
 p = processor.get_physical_plan()
 p = processor.get_json()
-
 print p
 ```
