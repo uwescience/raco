@@ -683,6 +683,10 @@ class CBaseSink(Pipelined, algebra.Sink):
         self.input.produce(state)
 
     def consume(self, t, src, state):
+        # declare an unused result vector
+        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
+        state.addDeclarations([resdecl])
+        
         code = self.language().log_unquoted("%s" % t.name, 2)
         return code
 
