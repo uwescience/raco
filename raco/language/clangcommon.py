@@ -678,6 +678,15 @@ EMIT_CONSOLE = 'console'
 EMIT_FILE = 'file'
 
 
+class CBaseSink(Pipelined, algebra.Sink):
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        code = self.language().log_unquoted("%s" % t.name, 2)
+        return code
+
+
 class CBaseStore(Pipelined, algebra.Store):
 
     def __init__(self, emit_print, relation_key, plan):

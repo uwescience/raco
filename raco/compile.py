@@ -77,7 +77,8 @@ def compile(expr, **kwargs):
     else:
         store_expr = expr
 
-    assert isinstance(store_expr, algebra.Store)
+    assert isinstance(store_expr, algebra.Store) \
+        or isinstance(store_expr, algebra.Sink)
     assert len(store_expr.children()) == 1, "expected single expression only"
 
     lang = store_expr.language()

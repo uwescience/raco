@@ -1223,7 +1223,6 @@ def indentby(code, level):
 #  def fire(self, expr):
 #    for ref in noReferences(expr)
 
-
 # Basic selection like serial C++
 class GrappaSelect(clangcommon.CBaseSelect, GrappaOperator):
     pass
@@ -1241,6 +1240,10 @@ class GrappaUnionAll(clangcommon.CBaseUnionAll, GrappaOperator):
 
 # Basic materialized copy based project like serial C++
 class GrappaProject(clangcommon.CBaseProject, GrappaOperator):
+    pass
+
+
+class GrappaSink(clangcommon.CBaseSink, GrappaOperator):
     pass
 
 
@@ -1479,6 +1482,7 @@ def grappify(join_type, emit_print,
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll),
         clangcommon.StoreToBaseCStore(emit_print, GrappaStore),
+        rules.OneToOne(algebra.Sink, GrappaSink)
 
         # Don't need this because we support two-key
         # clangcommon.BreakHashJoinConjunction(GrappaSelect, join_type)

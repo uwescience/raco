@@ -227,6 +227,15 @@ class MyriaLPlatformTests(object):
         STORE(T1, OUTPUT);
         """, "scan")
 
+    def test_sink(self):
+        """
+        Sink still prints on verbose=2, so same as store for testing method
+        """
+        self.check_sub_tables("""
+        T1 = SCAN(%(T1)s);
+        SINK(T1);
+        """, "scan")
+
     def test_select(self):
         q = self.myrial_from_sql(['T1'], "select")
         self.check(q, "select")
