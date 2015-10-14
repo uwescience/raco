@@ -315,7 +315,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         return name
 
     def __getHashName__(self):
-        name = "dhash_%s" % self.symBase
+        name = "%s_dhash_%s" % (self.__class__.__name__, self.symBase)
         return name
 
     def __init__(self, *args):
@@ -629,7 +629,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
 
     @classmethod
     def __genHashName__(cls):
-        name = "group_hash_%03d" % cls._i
+        name = "%s_hash_%03d" % (cls.__name__, cls._i)
         cls._i += 1
         return name
 
