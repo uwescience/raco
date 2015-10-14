@@ -1966,7 +1966,7 @@ class CrossProductWithSmall(rules.Rule):
 
     def __str__(self):
         return "CrossProduct(big, singleton) => " \
-               "GrappaBroadcastCrossProduct(big, singleton)"
+               "{}(big, singleton)".format(self.op_class.__name__)
 
 
 class FuseGroupByShuffle(rules.Rule):
@@ -2098,7 +2098,6 @@ class GrappaAlgebra(Algebra):
             rules.push_apply,
             groupby_rules,
             grappify_rules,
-            [CrossProductWithSmall()]
         ]
 
         if SwapJoinSides:
