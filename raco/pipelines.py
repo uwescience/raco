@@ -265,6 +265,9 @@ class CompileState(object):
     def getCurrentPipelineId(self):
         return self.pipeline_count
 
+    def numNonScanPipelines(self):
+        return len(self.pipelines)
+
 
 class Pipelined(object):
     """

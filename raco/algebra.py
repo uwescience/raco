@@ -1822,3 +1822,15 @@ def convertcondition(condition, left_len, combined_scheme):
         return [leftcol], [rightcol - left_len]
 
     raise NotImplementedError("Myria only supports EquiJoins, not %s" % condition)  # noqa
+
+
+def count_op(clazz):
+    def count_op_class(op):
+        if isinstance(op, clazz):
+            yield 1
+        else:
+            yield 0
+    return count_op_class
+
+def plan_count(root, f):
+    return sum(root.postorder(f))
