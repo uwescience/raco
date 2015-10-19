@@ -32,11 +32,17 @@ def define_cl_arg(type, name, default_value, description):
 
 
 class GrappaStagedTupleRef(StagedTupleRef):
+    def __init__(self, relsym, scheme, aligned=False):
+        self.aligned = aligned
+        super(GrappaStagedTupleRef, self).__init__(relsym, scheme)
 
     def __afterDefinitionCode__(self, numfields, fieldtypes):
         # Grappa requires structures to be block aligned if they will be
         # iterated over with localizing forall
-        return "GRAPPA_BLOCK_ALIGNED"
+        if self.aligned:
+            return "GRAPPA_BLOCK_ALIGNED"
+        else:
+            return ""
 
 
 class GrappaLanguage(CBaseLanguage):
@@ -711,8 +717,10 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             self._hashname = self.__genHashName__()
             _LOG.debug("generate hashname %s for %s", self._hashname, self)
             self.func_name = "__{0}".format(symbol)
+
             self.state_tuple = GrappaStagedTupleRef(symbol,
-                                                    self.aggregates_schema)
+                                                    self.aggregates_schema,
+                                                    aligned=(not self.useKey))
             #self.input_type_ref = state.createUnresolvedSymbol()
             state.saveExpr(self, self)
             state.addDeclarations([self.state_tuple.generateDefinition()])

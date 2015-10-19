@@ -306,7 +306,7 @@ _cgenv = CBaseLanguage.__get_env_for_template_libraries__()
 # just has relationsymbol and row
 
 
-class StagedTupleRef:
+class StagedTupleRef(object):
     nextid = 0
 
     @staticmethod
