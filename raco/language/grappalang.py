@@ -1256,6 +1256,12 @@ class GrappaSink(clangcommon.CBaseSink, GrappaOperator):
 
 
 class GrappaFileScan(clangcommon.CBaseFileScan, GrappaOperator):
+    def new_tuple_ref_for_filescan(self, resultsym, scheme):
+        # make new tuple 64-byte aligned if scanning into a global array
+        aligned = self.array_representation == \
+                  _ARRAY_REPRESENTATION.GLOBAL_ARRAY
+        return GrappaStagedTupleRef(resultsym, scheme,
+                                    aligned=aligned)
 
     def __init__(self, representation=_ARRAY_REPRESENTATION.GLOBAL_ARRAY,
                  relation_key=None, _scheme=None, cardinality=None):
