@@ -306,7 +306,7 @@ _cgenv = CBaseLanguage.__get_env_for_template_libraries__()
 # just has relationsymbol and row
 
 
-class StagedTupleRef:
+class StagedTupleRef(object):
     nextid = 0
 
     @staticmethod
@@ -574,7 +574,7 @@ class CBaseFileScan(Pipelined, algebra.Scan):
             fstemplate, fsbindings = self.__compileme__(resultsym, name)
             state.saveExpr(self, resultsym)
 
-            stagedTuple = self.new_tuple_ref(resultsym, self.scheme())
+            stagedTuple = self.new_tuple_ref_for_filescan(resultsym, self.scheme())
             state.saveTupleDef(resultsym, stagedTuple)
 
             tuple_type_def = stagedTuple.generateDefinition()
@@ -595,6 +595,11 @@ class CBaseFileScan(Pipelined, algebra.Scan):
 
         # no return value used because parent is a new pipeline
         self.parent().consume(resultsym, self, state)
+
+    def new_tuple_ref_for_filescan(self, resultsym, scheme):
+        """instance version of new_tuple_ref.
+        Default just calls the cls version"""
+        self.new_tuple_ref(resultsym, scheme)
 
     def consume(self, t, src, state):
         assert False, "as a source, no need for consume"
