@@ -574,7 +574,9 @@ class CBaseFileScan(Pipelined, algebra.Scan):
             fstemplate, fsbindings = self.__compileme__(resultsym, name)
             state.saveExpr(self, resultsym)
 
-            stagedTuple = self.new_tuple_ref_for_filescan(resultsym, self.scheme())
+            stagedTuple = self.new_tuple_ref_for_filescan(
+                resultsym,
+                self.scheme())
             state.saveTupleDef(resultsym, stagedTuple)
 
             tuple_type_def = stagedTuple.generateDefinition()
@@ -599,7 +601,7 @@ class CBaseFileScan(Pipelined, algebra.Scan):
     def new_tuple_ref_for_filescan(self, resultsym, scheme):
         """instance version of new_tuple_ref.
         Default just calls the cls version"""
-        self.new_tuple_ref(resultsym, scheme)
+        return self.new_tuple_ref(resultsym, scheme)
 
     def consume(self, t, src, state):
         assert False, "as a source, no need for consume"
@@ -684,6 +686,7 @@ EMIT_FILE = 'file'
 
 
 class CBaseSink(Pipelined, algebra.Sink):
+
     def produce(self, state):
         self.input.produce(state)
 
@@ -691,7 +694,7 @@ class CBaseSink(Pipelined, algebra.Sink):
         # declare an unused result vector
         resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
         state.addDeclarations([resdecl])
-        
+
         code = self.language().log_unquoted("%s" % t.name, 2)
         return code
 

@@ -32,6 +32,7 @@ def define_cl_arg(type, name, default_value, description):
 
 
 class GrappaStagedTupleRef(StagedTupleRef):
+
     def __init__(self, relsym, scheme, aligned=False):
         self.aligned = aligned
         super(GrappaStagedTupleRef, self).__init__(relsym, scheme)
@@ -286,6 +287,7 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
 
 
 class CKeyUtils:
+
     @staticmethod
     def _aggregate_val(tuple, cols):
         return "std::make_tuple({0})".format(
@@ -296,7 +298,7 @@ class CKeyUtils:
         return "std::tuple<{0}>".format(
             ','.join([language.typename(
                 expression.UnnamedAttributeRef(c).typeof(sch, None))
-                      for c in cols]))
+                for c in cols]))
 
 
 class GrappaJoin(algebra.Join, GrappaOperator):
@@ -346,7 +348,10 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
         # declaration of hash map
         self._hashname = self.__getHashName__()
-        keytype = CKeyUtils._aggregate_type(self.language(), right_sch, self.rightcols)
+        keytype = CKeyUtils._aggregate_type(
+            self.language(),
+            right_sch,
+            self.rightcols)
         hashname = self._hashname
         self.leftTypeRef = state.createUnresolvedSymbol()
         left_in_tuple_type = self.leftTypeRef.getPlaceholder()
@@ -406,7 +411,8 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
                     right_type, len(t.scheme))
 
             # Need to add later because requires left tuple type decl.
-            # Needs to be a list because could be multiple right sides occurences
+            # Needs to be a list because could be multiple right sides
+            # occurences
             if not hasattr(self, 'right_combine_decls'):
                 self.right_combine_decls = []
             self.right_combine_decls.append(combine_function_def)
@@ -419,7 +425,9 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
         if src.childtag == "left":
             if self._force_right_to_left_sync():
-                state.addToPipelinePropertySet('dependences', self.right_syncname)
+                state.addToPipelinePropertySet(
+                    'dependences',
+                    self.right_syncname)
 
             right_in_tuple_type = self.right_in_tuple_type
             left_in_tuple_type = t.getTupleTypename()
@@ -442,7 +450,9 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
                     left_type, len(t.scheme),
                     right_type, len(self.right.scheme()))
 
-            state.addDeclarations(self.right_combine_decls+[combine_function_def])
+            state.addDeclarations(
+                self.right_combine_decls +
+                [combine_function_def])
 
             code = access_template.render(locals())
             return code
@@ -451,6 +461,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
 
 class GrappaOverSynchronizedSymmetricHashJoin(GrappaSymmetricHashJoin):
+
     def _force_right_to_left_sync(self):
         return True
 
@@ -711,7 +722,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             self.func_name = subexpression_proxy.func_name
             self.state_tuple = subexpression_proxy.state_tuple
             self.input_syncname = subexpression_proxy.input_syncname
-            #self.input_type_ref = subexpression_proxy.input_type_ref
+            # self.input_type_ref = subexpression_proxy.input_type_ref
         else:
             symbol = gensym()
             self._hashname = self.__genHashName__()
@@ -721,7 +732,7 @@ class GrappaGroupBy(clangcommon.BaseCGroupby, GrappaOperator):
             self.state_tuple = GrappaStagedTupleRef(symbol,
                                                     self.aggregates_schema,
                                                     aligned=(not self.useKey))
-            #self.input_type_ref = state.createUnresolvedSymbol()
+            # self.input_type_ref = state.createUnresolvedSymbol()
             state.saveExpr(self, self)
             state.addDeclarations([self.state_tuple.generateDefinition()])
 
@@ -1110,7 +1121,10 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
                                      len(left_sch),
                                      left_sch + right_sch)
 
-        keytype = CKeyUtils._aggregate_type(self.language(), right_sch, self.rightcols)
+        keytype = CKeyUtils._aggregate_type(
+            self.language(),
+            right_sch,
+            self.rightcols)
 
         # common index is defined by same right side and same key
         hashtableInfo = state.lookupExpr((self.right,
@@ -1160,7 +1174,8 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             keyname = t.name
             keyval = CKeyUtils._aggregate_val(t, self.rightcols)
 
-            # Needs to be a list because could be multiple right sides occurences
+            # Needs to be a list because could be multiple right sides
+            # occurences
             if not hasattr(self, 'right_syncname'):
                 self.right_syncname = []
             self.right_syncname.append(get_pipeline_task_name(state))
@@ -1232,6 +1247,8 @@ def indentby(code, level):
 #    for ref in noReferences(expr)
 
 # Basic selection like serial C++
+
+
 class GrappaSelect(clangcommon.CBaseSelect, GrappaOperator):
     pass
 
@@ -1256,10 +1273,11 @@ class GrappaSink(clangcommon.CBaseSink, GrappaOperator):
 
 
 class GrappaFileScan(clangcommon.CBaseFileScan, GrappaOperator):
+
     def new_tuple_ref_for_filescan(self, resultsym, scheme):
         # make new tuple 64-byte aligned if scanning into a global array
         aligned = self.array_representation == \
-                  _ARRAY_REPRESENTATION.GLOBAL_ARRAY
+            _ARRAY_REPRESENTATION.GLOBAL_ARRAY
         return GrappaStagedTupleRef(resultsym, scheme,
                                     aligned=aligned)
 
@@ -1329,6 +1347,7 @@ class GrappaStore(clangcommon.CBaseStore, GrappaOperator):
 
 
 class GrappaShuffle(algebra.Shuffle, GrappaOperator):
+
     def produce(self, state):
         self.input.produce(state)
 
@@ -1339,12 +1358,17 @@ class GrappaShuffle(algebra.Shuffle, GrappaOperator):
 
         code = self.language().cgenv().get_template('shuffle.cpp').render(
             keyname=t.name,
-            keytype=CKeyUtils._aggregate_type(self.language(), self.input.scheme(), columnlist_nums),
-            keyval=CKeyUtils._aggregate_val(t, columnlist_nums),
+            keytype=CKeyUtils._aggregate_type(
+                self.language(),
+                self.input.scheme(),
+                columnlist_nums),
+            keyval=CKeyUtils._aggregate_val(
+                t,
+                columnlist_nums),
             pipeline_sync=state.getPipelineProperty('global_syncname'),
-            comment=self.language().comment(self.shortStr()),
-            inner_code=inner_plan_compiled
-        )
+            comment=self.language().comment(
+                self.shortStr()),
+            inner_code=inner_plan_compiled)
 
         return code
 
@@ -1373,12 +1397,14 @@ class MemoryScanOfFileScan(rules.Rule):
 
 
 class GrappaPartitionGroupBy(GrappaGroupBy):
+
     def __init__(self, *args):
         super(GrappaPartitionGroupBy, self).__init__(*args)
         # Override some GrappaGroupBy template with new ones.
         # The rest of the generation logic is the same
-        self._cgenv = clangcommon.prepend_template_relpath(self._cgenv,
-                                                           '{0}/partition_groupby'.format(GrappaLanguage._template_path))
+        self._cgenv = clangcommon.prepend_template_relpath(
+            self._cgenv, '{0}/partition_groupby'.format(
+                GrappaLanguage._template_path))
 
 
 class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
@@ -1387,8 +1413,6 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
 
         self.right.childtag = "right"
         self.right.produce(state)
-
-
 
         self.left.childtag = "left"
         self.left.produce(state)
@@ -1402,10 +1426,10 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
 
             # declare global var and broadcast value
             self.broadcast_tuple = t.copy_type()
-            var_decl = self.language().cgenv().get_template('tuple_declaration.cpp').render(
+            var_decl = self.language().cgenv().get_template(
+                'tuple_declaration.cpp').render(
                 dst_type_name=self.broadcast_tuple.getTupleTypename(),
-                dst_name=self.broadcast_tuple.name
-            )
+                dst_name=self.broadcast_tuple.name)
             state.addDeclarations([var_decl])
 
             code += """on_all_cores([=] {{
@@ -1439,7 +1463,6 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
             state.addDeclarations([output.generateDefinition(),
                                    combine_function_def])
 
-
             code += """
             {out_tuple_type} {out_tuple_name} =
               {append_func_name}({left_name}, {right_name});
@@ -1458,11 +1481,13 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
 
 
 class CrossProductWithSmall(rules.Rule):
+
     """
     If there is a cross product between a relation and
     a singleton, then broadcast the singleton: cross product
     is just adding an attribute to every tuple from the other relation
     """
+
     def fire(self, expr):
         if isinstance(expr, algebra.CrossProduct):
             if expr.right.num_tuples() == 1:
@@ -1474,12 +1499,17 @@ class CrossProductWithSmall(rules.Rule):
         return "CrossProduct(big, singleton) => " \
                "GrappaBroadcastCrossProduct(big, singleton)"
 
+
 def grappify(join_type, emit_print,
              scan_array_repr):
     if isinstance(join_type, str):
-        join_type_class = dict((c.__name__, c)
-                               for c
-                               in [GrappaHashJoin, GrappaSymmetricHashJoin, GrappaShuffleHashJoin, GrappaOverSynchronizedSymmetricHashJoin])[join_type]
+        join_type_class = dict(
+            (c.__name__,
+             c) for c in [
+                GrappaHashJoin,
+                GrappaSymmetricHashJoin,
+                GrappaShuffleHashJoin,
+                GrappaOverSynchronizedSymmetricHashJoin])[join_type]
     else:
         join_type_class = join_type
 
@@ -1535,9 +1565,13 @@ class GrappaAlgebra(Algebra):
         if groupby_sematics == 'global':
             groupby_rules = [rules.OneToOne(algebra.GroupBy, GrappaGroupBy)]
         elif groupby_sematics == 'partition':
-            groupby_rules = rules.distributed_group_by(GrappaPartitionGroupBy, countall_rule=False, only_fire_on_multi_key=GrappaGroupBy)
+            groupby_rules = rules.distributed_group_by(
+                GrappaPartitionGroupBy,
+                countall_rule=False,
+                only_fire_on_multi_key=GrappaGroupBy)
         else:
-            raise ValueError("groupby_semantics must be one of {global, partition}")
+            raise ValueError(
+                "groupby_semantics must be one of {global, partition}")
 
         # sequence that works for myrial
         rule_grps_sequence = [

@@ -265,6 +265,7 @@ class CompileState:
 
 
 class Pipelined(object):
+
     """
     Trait to provide the compilePipeline method
     for calling into pipeline style compilation.
@@ -296,6 +297,7 @@ class Pipelined(object):
         [_ for _ in root.postorder_traversal(markChildParent)]
 
     __isfrozen = False
+
     def __setattr__(self, key, value):
         """Overriden to allow objects to turn on assigned-once checks
 
@@ -307,17 +309,20 @@ class Pipelined(object):
         """
         if self.__isfrozen and key in self.assigned_attrs:
             if self.__getattribute__(key) == value:
-                LOG.warning('reassignment of self.{attr} but ignoring because assigned same value {value}'.format(
-                    attr=key,
-                    value=value
-                ))
+                LOG.warning(
+                    'reassignment of self.{attr} but ignoring because '
+                    'assigned same value {value}'.format(
+                        attr=key,
+                        value=value))
                 return
             else:
-                raise TypeError( "{obj} is a frozen object; self.{attr} = {oldval}; tried to assign {newval}".format(
-                    obj=self,
-                    attr=key,
-                    oldval=self.__getattribute__(key),
-                    newval=value))
+                raise TypeError(
+                    "{obj} is a frozen object; self.{attr} = {oldval}; "
+                    "tried to assign {newval}".format(
+                        obj=self,
+                        attr=key,
+                        oldval=self.__getattribute__(key),
+                        newval=value))
         # new set created here rather than __init__ because there
         # may be inconsistency in when Pipelined.__init__ is called relative
         # to assignments to instance variables

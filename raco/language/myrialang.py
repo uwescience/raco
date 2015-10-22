@@ -1737,7 +1737,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             merge_to_nary_join,
             rules.push_apply,
             left_deep_tree_shuffle_logic,
-            distributed_group_by,
+            distributed_group_by(MyriaGroupBy),
             hyper_cube_shuffle_logic
         ]
 

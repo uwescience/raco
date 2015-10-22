@@ -796,6 +796,7 @@ push_apply = [
 
 
 class DecomposeGroupBy(Rule):
+
     """Convert a logical group by into a two-phase group by.
 
     The local half of the aggregate before the shuffle step, whereas the remote
@@ -913,13 +914,13 @@ class DecomposeGroupBy(Rule):
         ################################
 
         local_gb = self._gb_class(op.grouping_list, local_emitters, op.input,
-                                local_statemods)
+                                  local_statemods)
 
         grouping_fields = [UnnamedAttributeRef(i)
                            for i in range(num_grouping_terms)]
 
         remote_gb = self._gb_class(grouping_fields, remote_emitters, local_gb,
-                                 remote_statemods)
+                                   remote_statemods)
 
         DecomposeGroupBy.do_transfer(remote_gb)
 
@@ -934,12 +935,15 @@ class DecomposeGroupBy(Rule):
 
 # 7. distributed groupby
 # this need to be put after shuffle logic
-def distributed_group_by(partition_groupby_class, countall_rule=True, **kwargs):
+def distributed_group_by(
+        partition_groupby_class,
+        countall_rule=True,
+        **kwargs):
     r = [
-    # DecomposeGroupBy may introduce a complex GroupBy,
-    # so we must run SimpleGroupBy after it. TODO no one likes this.
-    DecomposeGroupBy(partition_groupby_class, **kwargs),
-    SimpleGroupBy()
+        # DecomposeGroupBy may introduce a complex GroupBy,
+        # so we must run SimpleGroupBy after it. TODO no one likes this.
+        DecomposeGroupBy(partition_groupby_class, **kwargs),
+        SimpleGroupBy()
     ]
 
     if countall_rule:
@@ -948,6 +952,6 @@ def distributed_group_by(partition_groupby_class, countall_rule=True, **kwargs):
     r += [
         DedupGroupBy(),
         EmptyGroupByToDistinct(),
-        ]
+    ]
 
     return r
