@@ -1,5 +1,5 @@
 import unittest
-from myria.errors import MyriaError
+from raco.backends.myria.errors import MyriaError
 
 
 class TestError(unittest.TestCase):
