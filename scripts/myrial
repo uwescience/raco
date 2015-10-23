@@ -62,15 +62,10 @@ def parse_options(args):
                        help="Encode plan as Python repr", action='store_true')
     group.add_argument('-f', dest='standalone', action='store_true',
                        help='Execute the program in standalone mode')
-<<<<<<< HEAD
-    group.add_argument('-c', dest='cpp', action='store_true',
-                       help='Output physical plan for grappalang and source program')
-=======
     group.add_argument('-c', dest='radish', action='store_true',
                        help='Output physical plan for Radish (Grappa) and save source program to file')
     group.add_argument('--cpp', dest='cpp', action='store_true',
                        help='Output physical plan for C++ and save source program to file')
->>>>>>> master
     group.add_argument('-s', dest='sparql', action='store_true',
                        help='Output an attempt at a SPARQL translation of the input program')
     arg_parser.add_argument('-v', dest='verbose', action='store_true',
@@ -160,11 +155,7 @@ def main(args):
                 raise "Options opt_logical and --plan are incompatible"
             print_pretty_plan(processor.get_physical_plan(
                 target_alg=OptLogicalAlgebra(), **kwargs))
-<<<<<<< HEAD
-        elif opt.cpp:
-=======
         elif opt.radish:
->>>>>>> master
             # some useful kwargs
             # scan_array_repr='symmetric_array'
             pp = pd.get_physical_plan(target_alg=GrappaAlgebra(), **kwargs)
