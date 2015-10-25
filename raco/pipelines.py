@@ -149,7 +149,7 @@ class CompileState:
 
         # inits is a set.
         # If this ever becomes a bottleneck when declarations are strings,
-        # as in clang, then resort to at least symbol name deduping.
+        # as in cpp, then resort to at least symbol name deduping.
         # TODO: better would be to mark elements of self.initializers as
         # TODO: "do dedup" or "don't dedup"
         s = set()
@@ -167,7 +167,7 @@ class CompileState:
     def getCleanupCode(self):
         # cleanups is a set.
         # If this ever becomes a bottleneck when declarations are strings,
-        # as in clang, then resort to at least symbol name deduping.
+        # as in cpp, then resort to at least symbol name deduping.
         # TODO: better would be to mark elements of self.cleanups as
         # TODO: "do dedup" or "don't dedup"
         s = set()
@@ -185,7 +185,7 @@ class CompileState:
     def getDeclCode(self):
         # declarations is a set
         # If this ever becomes a bottleneck when declarations are strings,
-        # as in clang, then resort to at least symbol name deduping.
+        # as in cpp, then resort to at least symbol name deduping.
         s = set()
 
         def f(x):

@@ -4,14 +4,14 @@ from osutils import Chdir
 import sys
 import unittest
 
-from raco.language.grappalang import GrappaAlgebra
+from raco.backends.radish import GrappaAlgebra
 
 from generate_test_relations import generate_default, need_generate
 from raco.platform_tests import DatalogPlatformTest
 from testquery import checkquery, checkstore, GrappalangRunner
 
 sys.path.append('./examples')
-from emitcode import emitCode
+from raco.cpp_datalog_utils import emitCode
 
 
 class DatalogGrappaTest(unittest.TestCase, DatalogPlatformTest):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-""" Executes clang runner and retrieves the results """
+""" Executes cpp runner and retrieves the results """
 
 import argparse
 import os
@@ -15,7 +15,7 @@ def parse_options(args):
     parser = argparse.ArgumentParser()
 
     parser.add_argument('platform', metavar='P', type=str,
-                        help='Type of platform to use: clang or grappa', choices=['grappa', 'clang'])
+                        help='Type of platform to use: cpp or grappa', choices=['grappa', 'cpp'])
 
     parser.add_argument('file', help='File containing platform source program')
     parser.add_argument('--query', help='File containing myrial query')
@@ -25,10 +25,10 @@ def parse_options(args):
     return ns
 
 
-from raco.language.clang import CCAlgebra
-from raco.language.grappalang import GrappaAlgebra
+from raco.backends.cpp import CCAlgebra
+from raco.backends.radish import GrappaAlgebra
 from raco.catalog import FromFileCatalog
-from raco.language.clangcommon import EMIT_FILE
+from raco.backends.cpp.cppcommon import EMIT_FILE
 from clang_processor import ClangProcessor
 
 
@@ -54,12 +54,12 @@ def main(args):
     if opt.platform == 'grappa':
         runner = GrappalangRunner()
         runner.run(name, abspath)
-    elif opt.platform == 'clang':
+    elif opt.platform == 'cpp':
         try:
             runner = ClangRunner()
             runner.run(name, abspath)
         except subprocess.CalledProcessError as e:
-            print 'clang runner for %s failed' % (name)
+            print 'cpp runner for %s failed' % (name)
             print e.output
             raise
 

@@ -4,7 +4,7 @@ import raco.rules
 
 from raco import algebra
 from raco.scheme import Scheme
-from raco.language import Language, Algebra
+from raco.backends import Language, Algebra
 from raco.expression import UnnamedAttributeRef, \
     NamedAttributeRef, \
     AttributeRef
