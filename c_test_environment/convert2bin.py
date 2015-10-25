@@ -3,7 +3,7 @@ import argparse
 import sys
 
 from raco.catalog import FromFileCatalog
-from raco.language.clangcommon import StagedTupleRef
+from raco.backends.cpp.cppcommon import StagedTupleRef
 
 """
 given a schema, creates a C++ program to convert csv data to a binary format

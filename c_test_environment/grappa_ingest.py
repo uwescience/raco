@@ -13,8 +13,8 @@ from raco.catalog import FromFileCatalog
 p = argparse.ArgumentParser(prog=sys.argv[0])
 p.add_argument("-i", dest="input_file", required=True, help="input file")
 p.add_argument("-c", dest="catalog_path", help="path of catalog file, see FromFileCatalog for format", required=True)
-p.add_argument("-s", dest="system", help="clang or grappa", default="clang")
 p.add_argument("-n", dest="relation_name", required=True, help="name of relation")
+p.add_argument("-s", dest="system", help="cpp or grappa", default="cpp")
 p.add_argument("--splits", dest="splits", action="store_true", help="input file is base directory of file splits (e.g. hdfs)")
 p.add_argument("--softlink-data", dest="softlink_data", action="store_true", help="data file softlinked rather than copied")
 p.add_argument("--local-softlink-data", dest="local_softlink_data", action="store_true", help="softlink locally, only use if --host!=localhost but want local softlink (e.g. NFS)")
@@ -182,4 +182,4 @@ print "successful upload of: " + schema_file + " and " + str(upload_files)
 
 
 # example schema for this file:
-# public,adhoc,sp2bench,http://sampa-gw.cs.washington.edu:1337,922232,clang,3,binary,subject,predicate,object,STRING_TYPE,STRING_TYPE,STRING_TYPE
+# public,adhoc,sp2bench,http://sampa-gw.cs.washington.edu:1337,922232,cpp,3,binary,subject,predicate,object,STRING_TYPE,STRING_TYPE,STRING_TYPE

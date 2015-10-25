@@ -1,5 +1,5 @@
 import raco.rules as rules
-from raco.language import Algebra
+from raco.backends import Algebra
 
 
 class OptLogicalAlgebra(Algebra):

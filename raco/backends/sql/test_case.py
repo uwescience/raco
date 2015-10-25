@@ -4,7 +4,7 @@ import unittest
 
 import raco.algebra as algebra
 from raco.compile import optimize_by_rules
-from raco.language.logical import OptLogicalAlgebra
+from raco.backends.logical import OptLogicalAlgebra
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
 import raco.scheme as scheme
@@ -17,18 +17,20 @@ class SQLTestCase(unittest.TestCase):
 
     emp_table = [
         # id dept_id name salary
-        (1, 2, "Bill Howe", 25000),
-        (2, 1, "Dan Halperin", 90000),
-        (3, 1, "Andrew Whitaker", 5000),
-        (4, 2, "Shumo Chu", 5000),
-        (5, 1, "Victor Almeida", 25000),
-        (6, 3, "Dan Suciu", 90000),
-        (7, 1, "Magdalena Balazinska", 25000)]
+        (0, 1, "Hank Levy", 1000000, -1),
+        (1, 2, "Bill Howe", 25000, 0),
+        (2, 1, "Dan Halperin", 90000, 0),
+        (3, 1, "Andrew Whitaker", 5000, 0),
+        (4, 2, "Shumo Chu", 5000, 0),
+        (5, 1, "Victor Almeida", 25000, 0),
+        (6, 3, "Dan Suciu", 90000, 0),
+        (7, 1, "Magdalena Balazinska", 25000, 0)]
 
     emp_schema = scheme.Scheme([("id", types.INT_TYPE),
                                 ("dept_id", types.INT_TYPE),
                                 ("name", types.STRING_TYPE),
-                                ("salary", types.LONG_TYPE)])
+                                ("salary", types.LONG_TYPE),
+                                ("mgr_id", types.INT_TYPE)])
 
     emp_key = "public:adhoc:employee"
 

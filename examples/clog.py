@@ -1,5 +1,5 @@
-from emitcode import emitCode
-from raco.language import CCAlgebra
+from raco.cpp_datalog_utils import emitCode
+from raco.backends.cpp import CCAlgebra
 import sys
 
 import logging

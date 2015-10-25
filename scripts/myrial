@@ -15,9 +15,10 @@ from raco.fakedb import FakeDatabase
 from raco import algebra
 from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
-from raco.language.grappalang import GrappaAlgebra
-from raco.language.logical import OptLogicalAlgebra
-from raco.language.sparql import SPARQLAlgebra
+from raco.backends.radish import GrappaAlgebra
+from raco.backends.logical import OptLogicalAlgebra
+from raco.backends.sparql import SPARQLAlgebra
+from raco.backends.cpp import CCAlgebra
 import raco.from_repr as from_repr
 from raco.compile import compile
 
@@ -61,8 +62,10 @@ def parse_options(args):
                        help="Encode plan as Python repr", action='store_true')
     group.add_argument('-f', dest='standalone', action='store_true',
                        help='Execute the program in standalone mode')
-    group.add_argument('-c', dest='clang', action='store_true',
-                       help='Output physical plan for grappalang and source program')
+    group.add_argument('-c', dest='radish', action='store_true',
+                       help='Output physical plan for Radish (Grappa) and save source program to file')
+    group.add_argument('--cpp', dest='cpp', action='store_true',
+                       help='Output physical plan for C++ and save source program to file')
     group.add_argument('-s', dest='sparql', action='store_true',
                        help='Output an attempt at a SPARQL translation of the input program')
     arg_parser.add_argument('-v', dest='verbose', action='store_true',
@@ -160,10 +163,19 @@ def main(args):
                 raise "Options opt_logical and --plan are incompatible"
             print_pretty_plan(processor.get_physical_plan(
                 target_alg=OptLogicalAlgebra(), **kwargs))
-        elif opt.clang:
+        elif opt.radish:
             # some useful kwargs
             # scan_array_repr='symmetric_array'
             pp = pd.get_physical_plan(target_alg=GrappaAlgebra(), **kwargs)
+            print_pretty_plan(pp)
+            c = compile(pp)
+            fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
+            with open(fname, 'w') as f:
+                f.write(c)
+        elif opt.cpp:
+            # some useful kwargs
+            # scan_array_repr='symmetric_array'
+            pp = pd.get_physical_plan(target_alg=CCAlgebra(), **kwargs)
             print_pretty_plan(pp)
             c = compile(pp)
             fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])

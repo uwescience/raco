@@ -7,18 +7,20 @@ import raco.algebra
 import raco.expression
 import raco.catalog
 import raco.scheme
-from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
-                                     MyriaHyperCubeAlgebra)
-from raco.language.myrialang import compile_to_json
+from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
+                                 MyriaHyperCubeAlgebra)
+from raco.backends.myria import compile_to_json
 from raco.compile import optimize
 from raco import relation_key
 from raco.expression import StateVar
 
 import collections
 import copy
+from functools import reduce
 
 
 class DuplicateAliasException(Exception):
+
     """Bag comprehension arguments must have different alias names."""
     pass
 
@@ -52,7 +54,9 @@ def check_assignment_compatability(before, after):
 
 
 class ExpressionProcessor(object):
+
     """Convert syntactic expressions into relational algebra operations."""
+
     def __init__(self, symbols, catalog, use_dummy_schema=False):
         self.symbols = symbols
         self.catalog = catalog
@@ -314,6 +318,7 @@ class ExpressionProcessor(object):
 
 
 class StatementProcessor(object):
+
     """Evaluate a list of statements"""
 
     def __init__(self, catalog, use_dummy_schema=False):

@@ -185,7 +185,11 @@ class SQLCatalog(Catalog):
 
         elif isinstance(plan, algebra.ProjectingJoin):
             cond = self._convert_expr(all_cols, plan.condition, all_sch)
-            return left.join(right, cond)
+
+            clause = [self._convert_expr(all_cols, e, all_sch)
+                      for e in plan.output_columns]
+
+            return select(clause, from_obj=left.join(right, cond))
 
         raise NotImplementedError("convert {op} to sql".format(op=type(plan)))
 
