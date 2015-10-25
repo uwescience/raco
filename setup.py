@@ -35,6 +35,6 @@ setup(name='raco',
       url='https://github.com/uwescience/raco',
       packages=find_packages(exclude=['clang']),
       package_data={'': ['c_templates/*.template','grappa_templates/*.template']},
-      install_requires=['networkx', 'ply', 'pyparsing', 'SQLAlchemy', 'jinja2', 'requests'],
+      install_requires=['networkx', 'ply', 'pyparsing', 'SQLAlchemy', 'jinja2', 'requests', 'requests_toolbelt' ],
       scripts=['scripts/myrial']
       )
