@@ -120,7 +120,7 @@ Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 Pass the `-j` option to `scripts/myrial`. Output omitted for brevity.
 
 # C++ and Grappa output (Radish)
-Raco has backend compilers that emit C++ and [Grappa](http://grappa.io) programs for query plans. To find out how it works in depth, read the [UW technical report](https://homes.cs.washington.edu/~bdmyers/papers/UW-CSE-14-10-01.pdf).
+Raco has backend compilers that emit C++ and [Grappa](http://grappa.io) programs. To find out how it works in depth, read the [UW technical report](https://homes.cs.washington.edu/~bdmyers/papers/UW-CSE-14-10-01.pdf).
 
 ### Output C++ plan and source program
 ```
