@@ -65,7 +65,7 @@ This algorithm is very simplistic, but it works out okay right now.
 Using Raco's python API, it is possible to manipulate the query plan at either
 the logical or physical level.
 
-#### Example
+#### Example (simple)
 
 Often users of MyriaX want to partition a table. 
 
@@ -111,6 +111,58 @@ p.args[0].input = alg.Shuffle(tail, [UnnamedAttributeRef(0), UnnamedAttributeRef
 
 # output json query plan for MyriaX
 p = processor.get_physical_plan()
+p = processor.get_json()
+print p
+```
+
+#### Example (a bit more complex)
+
+Suppose Raco chooses to perform a join by shuffling both inputs.
+However, we may know that the right input is much smaller and so we really
+want to do a broadcast join.
+
+```python
+from raco.catalog import FromFileCatalog
+import raco.myrial.parser as parser
+import raco.myrial.interpreter as interpreter
+import raco.backends.myria as alg
+from raco.expression.expression import UnnamedAttributeRef
+
+# get the schema
+catalog = FromFileCatalog.load_from_file("vulcan.py")
+_parser = parser.Parser()
+
+# We can have Raco start us with a plan that is close to the one we want by giving it a MyriaL query.
+# Here we start with scan, store. We'll modify it to get scan, shuffle, store.
+statement_list = _parser.parse("""
+T1 = scan(public:vulcan:edgesConnected);
+s = select * from T1 a, T1 b where b.currentTime=0 and a.nextGroup=b.currentGroup;
+store(s, public:vulcan:joined);
+""")
+processor = interpreter.StatementProcessor(catalog, True)
+processor.evaluate(statement_list)
+
+# will modify the physical plan, where a Join implementation is already chosen
+p = processor.get_physical_plan()
+
+# the plan is a symmetric hash join, shuffling both sides
+print "before mod: ", p
+
+# locate the MyriaSymmetricHashJoin operator
+join = p.input.input.input
+assert isinstance(join, alg.MyriaSymmetricHashJoin)
+
+# modify the right side to replace shuffle with broadcast
+rightChild = join.right.input.input
+join.right = alg.MyriaBroadcastConsumer(alg.MyriaBroadcastProducer(rightChild))
+
+# modify the left side to remove the shuffle
+leftChild = join.left.input.input
+join.left = leftChild
+
+print "after mod: ", p
+
+# output json query plan for MyriaX
 p = processor.get_json()
 print p
 ```
