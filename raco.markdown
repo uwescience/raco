@@ -90,7 +90,10 @@ _parser = parser.Parser()
 
 # We can have Raco start us with a plan that is close to the one we want by giving it a MyriaL query.
 # Here we start with scan, store. We'll modify it to get scan, shuffle, store.
-statement_list = _parser.parse("T1 = scan(public:vulcan:edgesConnected);store(T1, public:vulcan:edgesConnectedSort);")
+statement_list = _parser.parse("""
+T1 = scan(public:vulcan:edgesConnected);
+store(T1, public:vulcan:edgesConnectedSort);
+""")
 processor = interpreter.StatementProcessor(catalog, True)
 processor.evaluate(statement_list)
 
