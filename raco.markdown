@@ -62,7 +62,12 @@ This algorithm is very simplistic, but it works out okay right now.
 `fire` checks if the rule is applicable to the given tree. If not then it should return the tree itself. If the rule does apply then `fire` should return a transformed tree. It is okay to mutate the input tree and return it: most of Raco's rules are currently doing this instead of keeping the input immutable and copying the whole tree.
 3. Go to your algebra (e.g., `MyriaLeftDeepJoinAlgebra` in `raco/language/myrialang.py`) and instantiate your rule somewhere in the list returned by `opt_rules`.
 
-### Example plan manipulation
+### Plan manipulation
+
+Using Raco's python API, it is possible to manipulate the query plan at either
+the logical or physical level.
+
+#### Example
 
 Often users of MyriaX want to partition a table. 
 
