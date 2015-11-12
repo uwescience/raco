@@ -132,8 +132,7 @@ from raco.expression.expression import UnnamedAttributeRef
 catalog = FromFileCatalog.load_from_file("vulcan.py")
 _parser = parser.Parser()
 
-# We can have Raco start us with a plan that is close to the one we want by giving it a MyriaL query.
-# Here we start with scan, store. We'll modify it to get scan, shuffle, store.
+# Get the default Raco plan for the join
 statement_list = _parser.parse("""
 T1 = scan(public:vulcan:edgesConnected);
 s = select * from T1 a, T1 b where b.currentTime=0 and a.nextGroup=b.currentGroup;
