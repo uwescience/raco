@@ -231,7 +231,7 @@ class CompileExpressionVisitor(ExpressionVisitor):
                 type(expr).__name__,
                 *arglist))
 
-    def visit_CustomZeroaryOperator(self, expr):
+    def visit_CustomZeroaryFunction(self, expr):
         self.stack.append(
             self.language.function_call(expr.name, custom=True))
 

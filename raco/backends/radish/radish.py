@@ -933,7 +933,7 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
                     aggr.typeof(inp_sch, None))
                 init_func = self._init_func_for_op(aggr) \
                     .format(state_type=state_type)
-                return AggregateSetter(name, expression.CustomZeroaryOperator(
+                return AggregateSetter(name, expression.CustomZeroaryFunction(
                     init_func,
                     # get the output type
                     self.aggregates_schema.get_types()[index]))

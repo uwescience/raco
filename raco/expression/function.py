@@ -53,15 +53,24 @@ class CustomBinaryFunction(BinaryFunction):
         raise NotImplementedError("Not intended for evaluation")
 
 
-class CustomZeroaryOperator(ZeroaryOperator):
+class ZeroaryFunction(ZeroaryOperator):
+
+    def __str__(self):
+        return "%s()" % (self.__class__.__name__)
+
+    def __repr__(self):
+        return "{op}()".format(op=self.opname())
+
+
+class CustomZeroaryFunction(ZeroaryFunction):
 
     def __init__(self, name, typ):
         self.name = name
         self.typ = typ
-        super(CustomZeroaryOperator, self).__init__()
+        super(CustomZeroaryFunction, self).__init__()
 
     def __str__(self):
-        return "%s(%s, %s)" % (self.__class__.__name__, self.left, self.right)
+        return "%s(%s, %s)" % (self.__class__.__name__, self.name, self.typ)
 
     def __repr__(self):
         return "{op}({n!r}, {t!r})".format(op=self.opname(),
