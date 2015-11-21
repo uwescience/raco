@@ -42,7 +42,7 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         elif join_type == 'shuffle_hash':
             kwargs['join_type'] = grappalang.GrappaShuffleHashJoin
             # FIXME: see issue #348; always skipping shuffle tests because it got broken
-            raise SkipTest()
+            raise SkipTest(query)
 
         kwargs['target_alg'] = GrappaAlgebra(emit_print=emit_print)
 
@@ -65,6 +65,7 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             f.write(code)
 
         #raise Exception()
+
         raise_skip_test(query)
 
         with Chdir("c_test_environment") as d:
@@ -154,6 +155,23 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
     def test_symmetric_array_repr(self):
         q = self.myrial_from_sql(['T1'], "select")
         self.check(q, "select", scan_array_repr='symmetric_array')
+
+    def test_indexed_strings(self):
+        q = self.myrial_from_sql(["C3", "C3"], "join_string_key")
+        self.check(q, "join_string_key", external_indexing=True)
+
+    def test_shuffle_hash_join(self):
+        """
+        GrappaShuffleHashJoin is outdated.
+        For example, it only supports single attribute key.
+        """
+        self.check_sub_tables("""
+        T3 = SCAN(%(T3)s);
+        R3 = SCAN(%(R3)s);
+        out = JOIN(T3, b, R3, b);
+        out2 = [FROM out WHERE $3 = $5 EMIT $0, $3];
+        STORE(out2, OUTPUT);
+        """, "join", join_type='shuffle_hash')
 
 
 if __name__ == '__main__':

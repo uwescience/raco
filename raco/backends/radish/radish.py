@@ -467,132 +467,134 @@ class GrappaOverSynchronizedSymmetricHashJoin(GrappaSymmetricHashJoin):
 
 
 class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
-    _i = 0
-
-    @classmethod
-    def __genBaseName__(cls):
-        name = "%03d" % cls._i
-        cls._i += 1
-        return name
-
-    def __getHashName__(self):
-        name = "hashjoin_reducer_%s" % self.symBase
-        return name
-
-    def __init__(self, *args):
-        super(GrappaShuffleHashJoin, self).__init__(*args)
-        self._cgenv = cppcommon.prepend_template_relpath(
-            self.language().cgenv(),
-            '{0}/shufflehashjoin'.format(GrappaLanguage._template_path))
-
-    def produce(self, state):
-        left_sch = self.left.scheme()
-
-        self.syncnames = []
-        self.symBase = self.__genBaseName__()
-
-        self.right.childtag = "right"
-        self.rightTupleTypeRef = None  # may remain None if CSE succeeds
-        self.leftTupleTypeRef = None  # may remain None if CSE succeeds
-
-        # find the attribute that corresponds to the right child
-        self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(left_sch)
-        self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(left_sch)
-        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
-
-        # find right key position
-        if self.rightCondIsRightAttr:
-            self.right_keypos = self.condition.right.position \
-                - len(left_sch)
-        else:
-            self.right_keypos = self.condition.left.position \
-                - len(left_sch)
-
-        # find left key position
-        if self.rightCondIsRightAttr:
-            self.left_keypos = self.condition.left.position
-        else:
-            self.left_keypos = self.condition.right.position
-
-        # define output tuple
-        outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
-        out_tuple_type_def = outTuple.generateDefinition()
-        out_tuple_type = outTuple.getTupleTypename()
-        out_tuple_name = outTuple.name
-
-        # common index is defined by same right side and same key
-        # TODO: probably want also left side
-        hashtableInfo = state.lookupExpr((self.right, self.right_keypos))
-        if not hashtableInfo:
-            # if right child never bound then store hashtable symbol and
-            # call right child produce
-            self._hashname = self.__getHashName__()
-            _LOG.debug("generate hashname %s for %s", self._hashname, self)
-
-            hashname = self._hashname
-
-            # declaration of hash map
-            self.rightTupleTypeRef = state.createUnresolvedSymbol()
-            self.leftTupleTypeRef = state.createUnresolvedSymbol()
-            self.outTupleTypeRef = state.createUnresolvedSymbol()
-            right_type = self.rightTupleTypeRef.getPlaceholder()
-            left_type = self.leftTupleTypeRef.getPlaceholder()
-
-            # TODO: really want this addInitializers to be addPreCode
-            # TODO: *for all pipelines that use this hashname*
-            init_template = self._cgenv.get_template('hash_init.cpp')
-
-            state.addInitializers([init_template.render(locals())])
-            self.right.produce(state)
-
-            self.left.childtag = "left"
-            self.left.produce(state)
-
-            state.saveExpr((self.right, self.right_keypos),
-                           (self._hashname, right_type, left_type,
-                            self.right_syncname, self.left_syncname))
-
-        else:
-            # if found a common subexpression on right child then
-            # use the same hashtable
-            self._hashname, right_type, left_type,\
-                self.right_syncname, self.left_syncname = hashtableInfo
-            _LOG.debug("reuse hash %s for %s", self._hashname, self)
-
-        # now that Relation is produced, produce its contents by iterating over
-        # the join result
-        iterate_template = self._cgenv.get_template('result_scan.cpp')
-
-        hashname = self._hashname
-
-        state.addDeclarations([out_tuple_type_def])
-
-        pipeline_sync = create_pipeline_synchronization(state)
-        get_pipeline_task_name(state)
-
-        # add dependences on left and right inputs
-        state.addToPipelinePropertySet('dependences', self.right_syncname)
-        state.addToPipelinePropertySet('dependences', self.left_syncname)
-
-        # reduce is a single self contained pipeline.
-        # future hashjoin implementations may pipeline out of it
-        # by passing a continuation to reduceExecute
-        reduce_template = self._cgenv.get_template('reduce.cpp')
-
-        state.addPreCode(reduce_template.render(locals()))
-
-        delete_template = self._cgenv.get_template('delete.cpp')
-
-        state.addPostCode(delete_template.render(locals()))
-
-        inner_code_compiled = self.parent().consume(outTuple, self, state)
-
-        code = iterate_template % locals()
-        state.setPipelineProperty('type', 'in_memory')
-        state.setPipelineProperty('source', self.__class__)
-        state.addPipeline(code)
+    # this class is out-of-date, but can be fixed
+    pass
+#    _i = 0
+#
+#    @classmethod
+#    def __genBaseName__(cls):
+#        name = "%03d" % cls._i
+#        cls._i += 1
+#        return name
+#
+#    def __getHashName__(self):
+#        name = "hashjoin_reducer_%s" % self.symBase
+#        return name
+#
+#    def __init__(self, *args):
+#        super(GrappaShuffleHashJoin, self).__init__(*args)
+#        self._cgenv = cppcommon.prepend_template_relpath(
+#            self.language().cgenv(),
+#            '{0}/shufflehashjoin'.format(GrappaLanguage._template_path))
+#
+#    def produce(self, state):
+#        left_sch = self.left.scheme()
+#
+#        self.syncnames = []
+#        self.symBase = self.__genBaseName__()
+#
+#        self.right.childtag = "right"
+#        self.rightTupleTypeRef = None  # may remain None if CSE succeeds
+#        self.leftTupleTypeRef = None  # may remain None if CSE succeeds
+#
+#        # find the attribute that corresponds to the right child
+#        self.rightCondIsRightAttr = \
+#            self.condition.right.position >= len(left_sch)
+#        self.leftCondIsRightAttr = \
+#            self.condition.left.position >= len(left_sch)
+#        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
+#
+#        # find right key position
+#        if self.rightCondIsRightAttr:
+#            self.right_keypos = self.condition.right.position \
+#                - len(left_sch)
+#        else:
+#            self.right_keypos = self.condition.left.position \
+#                - len(left_sch)
+#
+#        # find left key position
+#        if self.rightCondIsRightAttr:
+#            self.left_keypos = self.condition.left.position
+#        else:
+#            self.left_keypos = self.condition.right.position
+#
+#        # define output tuple
+#        outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
+#        out_tuple_type_def = outTuple.generateDefinition()
+#        out_tuple_type = outTuple.getTupleTypename()
+#        out_tuple_name = outTuple.name
+#
+#        # common index is defined by same right side and same key
+#        # TODO: probably want also left side
+#        hashtableInfo = state.lookupExpr((self.right, self.right_keypos))
+#        if not hashtableInfo:
+#            # if right child never bound then store hashtable symbol and
+#            # call right child produce
+#            self._hashname = self.__getHashName__()
+#            _LOG.debug("generate hashname %s for %s", self._hashname, self)
+#
+#            hashname = self._hashname
+#
+#            # declaration of hash map
+#            self.rightTupleTypeRef = state.createUnresolvedSymbol()
+#            self.leftTupleTypeRef = state.createUnresolvedSymbol()
+#            self.outTupleTypeRef = state.createUnresolvedSymbol()
+#            right_type = self.rightTupleTypeRef.getPlaceholder()
+#            left_type = self.leftTupleTypeRef.getPlaceholder()
+#
+#            # TODO: really want this addInitializers to be addPreCode
+#            # TODO: *for all pipelines that use this hashname*
+#            init_template = self._cgenv.get_template('hash_init.cpp')
+#
+#            state.addInitializers([init_template.render(locals())])
+#            self.right.produce(state)
+#
+#            self.left.childtag = "left"
+#            self.left.produce(state)
+#
+#            state.saveExpr((self.right, self.right_keypos),
+#                           (self._hashname, right_type, left_type,
+#                            self.right_syncname, self.left_syncname))
+#
+#        else:
+#            # if found a common subexpression on right child then
+#            # use the same hashtable
+#            self._hashname, right_type, left_type,\
+#                self.right_syncname, self.left_syncname = hashtableInfo
+#            _LOG.debug("reuse hash %s for %s", self._hashname, self)
+#
+#        # now that Relation is produced, produce its contents by iterating over
+#        # the join result
+#        iterate_template = self._cgenv.get_template('result_scan.cpp')
+#
+#        hashname = self._hashname
+#
+#        state.addDeclarations([out_tuple_type_def])
+#
+#        pipeline_sync = create_pipeline_synchronization(state)
+#        get_pipeline_task_name(state)
+#
+#        # add dependences on left and right inputs
+#        state.addToPipelinePropertySet('dependences', self.right_syncname)
+#        state.addToPipelinePropertySet('dependences', self.left_syncname)
+#
+#        # reduce is a single self contained pipeline.
+#        # future hashjoin implementations may pipeline out of it
+#        # by passing a continuation to reduceExecute
+#        reduce_template = self._cgenv.get_template('reduce.cpp')
+#
+#        state.addPreCode(reduce_template.render(locals()))
+#
+#        delete_template = self._cgenv.get_template('delete.cpp')
+#
+#        state.addPostCode(delete_template.render(locals()))
+#
+#        inner_code_compiled = self.parent().consume(outTuple, self, state)
+#
+#        code = iterate_template % locals()
+#        state.setPipelineProperty('type', 'in_memory')
+#        state.setPipelineProperty('source', self.__class__)
+#        state.addPipeline(code)
 
     def consume(self, inputTuple, fromOp, state):
         if fromOp.childtag == "right":

@@ -669,17 +669,6 @@ class MyriaLPlatformTests(object):
         STORE(T1, OUTPUT);
         """, "scan", emit_print='file')
 
-    def test_shuffle_hash_join(self):
-        self.check_sub_tables("""
-        R2 = SCAN(%(R2)s);
-        S2 = SCAN(%(S2)s);
-        T2 = SCAN(%(T2)s);
-        j1 = JOIN(R2, b, S2, a);
-        j2 = JOIN(j1, $3, T2, a);
-        out = [FROM j2 WHERE $0 = $5 EMIT $0, $1, $3];
-        STORE(out, OUTPUT);
-        """, "directed_triangles", join_type='shuffle_hash')
-
     def test_q2(self):
         """
         A test resembling sp2bench Q2
