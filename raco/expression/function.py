@@ -125,13 +125,26 @@ class RANDOM(ZeroaryOperator):
         return types.DOUBLE_TYPE
 
 
-class YEAR(UnaryFunction):
-
+class UnaryDateToNumFunction(UnaryFunction):
     def evaluate(self, _tuple, scheme, state=None):
         raise NotImplementedError()
 
     def typeof(self, scheme, state_scheme):
+        if self.input.typeof(scheme, state_scheme) != types.STRING_TYPE:
+            raise TypeSafetyViolation("Dates can only be strings")
         return types.LONG_TYPE
+
+
+class YEAR(UnaryDateToNumFunction):
+    pass
+
+
+class MONTH(UnaryDateToNumFunction):
+    pass
+
+
+class DAY(UnaryDateToNumFunction):
+    pass
 
 
 class UnaryDoubleFunction(UnaryFunction):
