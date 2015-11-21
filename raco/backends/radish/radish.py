@@ -596,43 +596,43 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 #        state.setPipelineProperty('source', self.__class__)
 #        state.addPipeline(code)
 
-    def consume(self, inputTuple, fromOp, state):
-        if fromOp.childtag == "right":
-            side = "Right"
-            self.right_syncname = get_pipeline_task_name(state)
-
-            keypos = self.right_keypos
-
-            self.rightTupleTypename = inputTuple.getTupleTypename()
-            if self.rightTupleTypeRef is not None:
-                state.resolveSymbol(self.rightTupleTypeRef,
-                                    self.rightTupleTypename)
-        elif fromOp.childtag == "left":
-            side = "Left"
-            self.left_syncname = get_pipeline_task_name(state)
-
-            keypos = self.left_keypos
-
-            self.leftTupleTypename = inputTuple.getTupleTypename()
-            if self.leftTupleTypeRef is not None:
-                state.resolveSymbol(self.leftTupleTypeRef,
-                                    self.leftTupleTypename)
-        else:
-            assert False, "src not equal to left or right"
-
-        hashname = self._hashname
-        keyname = inputTuple.name
-        keytype = inputTuple.getTupleTypename()
-        keyval = inputTuple.get_code(keypos)
-
-        # intra-pipeline sync
-        global_syncname = state.getPipelineProperty('global_syncname')
-
-        mat_template = self._cgenv.get_template('materialize.cpp')
-
-        # materialization point
-        code = mat_template.render(locals())
-        return code
+#    def consume(self, inputTuple, fromOp, state):
+#        if fromOp.childtag == "right":
+#            side = "Right"
+#            self.right_syncname = get_pipeline_task_name(state)
+#
+#            keypos = self.right_keypos
+#
+#            self.rightTupleTypename = inputTuple.getTupleTypename()
+#            if self.rightTupleTypeRef is not None:
+#                state.resolveSymbol(self.rightTupleTypeRef,
+#                                    self.rightTupleTypename)
+#        elif fromOp.childtag == "left":
+#            side = "Left"
+#            self.left_syncname = get_pipeline_task_name(state)
+#
+#            keypos = self.left_keypos
+#
+#            self.leftTupleTypename = inputTuple.getTupleTypename()
+#            if self.leftTupleTypeRef is not None:
+#                state.resolveSymbol(self.leftTupleTypeRef,
+#                                    self.leftTupleTypename)
+#        else:
+#            assert False, "src not equal to left or right"
+#
+#        hashname = self._hashname
+#        keyname = inputTuple.name
+#        keytype = inputTuple.getTupleTypename()
+#        keyval = inputTuple.get_code(keypos)
+#
+#        # intra-pipeline sync
+#        global_syncname = state.getPipelineProperty('global_syncname')
+#
+#        mat_template = self._cgenv.get_template('materialize.cpp')
+#
+#        # materialization point
+#        code = mat_template.render(locals())
+#        return code
 
 
 class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
