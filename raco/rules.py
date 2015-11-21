@@ -247,7 +247,7 @@ class DistinctToGroupBy(Rule):
         return expr
 
     def __str__(self):
-        return "Distinct => GroupBy"
+        return "Distinct => GroupBy(no groupings)"
 
 
 class EmptyGroupByToDistinct(Rule):
@@ -272,7 +272,7 @@ class EmptyGroupByToDistinct(Rule):
         return expr
 
     def __str__(self):
-        return "Distinct => GroupBy"
+        return "GroupBy(no groupings) => Distinct"
 
 
 class CountToCountall(Rule):
@@ -546,13 +546,19 @@ class PushApply(Rule):
                 return op
 
             unused_map = {i: j + num_grps for j, i in enumerate(accessed_aggs)}
-            child.aggregate_list = [child.aggregate_list[i - num_grps]
+
+            # copy the groupby operator so we can modify it
+            newgb = child.__class__()
+            newgb.copy(child)
+
+            # remove aggregates that are projected out
+            newgb.aggregate_list = [newgb.aggregate_list[i - num_grps]
                                     for i in accessed_aggs]
             for e in emits:
                 expression.reindex_expr(e, unused_map)
 
             return algebra.Apply(emitters=zip(op.get_names(), emits),
-                                 input=child)
+                                 input=newgb)
 
         return op
 
