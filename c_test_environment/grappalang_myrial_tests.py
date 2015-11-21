@@ -1,5 +1,5 @@
 import unittest
-from testquery import checkquery
+from testquery import checkquery, checkstore
 from testquery import GrappalangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
@@ -34,17 +34,17 @@ def raise_skip_test(query=None):
 
 
 class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
-    def check(self, query, name, **kwargs):
+    def check(self, query, name, join_type=None, emit_print='console', **kwargs):
         gname = "grappa_{name}".format(name=name)
 
-        if kwargs.get('join_type', None) == 'symmetric_hash':
+        if join_type == 'symmetric_hash':
             kwargs['join_type'] = grappalang.GrappaSymmetricHashJoin
-        elif kwargs.get('join_type', None) == 'shuffle_hash':
+        elif join_type == 'shuffle_hash':
             kwargs['join_type'] = grappalang.GrappaShuffleHashJoin
             # FIXME: see issue #348; always skipping shuffle tests because it got broken
             raise SkipTest()
 
-        kwargs['target_alg'] = GrappaAlgebra()
+        kwargs['target_alg'] = GrappaAlgebra(emit_print=emit_print)
 
         plan = self.get_physical_plan(query, **kwargs)
         physical_dot = viz.operator_to_dot(plan)
@@ -68,7 +68,10 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         raise_skip_test(query)
 
         with Chdir("c_test_environment") as d:
-            checkquery(name, GrappalangRunner(binary_input=False))
+            if emit_print == 'file':
+                checkstore(name, GrappalangRunner(binary_input=False))
+            else:
+                checkquery(name, GrappalangRunner(binary_input=False))
 
     def setUp(self):
         super(MyriaLGrappaTest, self).setUp()

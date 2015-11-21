@@ -663,6 +663,12 @@ class MyriaLPlatformTests(object):
         STORE(a, OUTPUT);
         """, "union_then_aggregate")
 
+    def test_store_file(self):
+        self.check_sub_tables("""
+        T1 = SCAN(%(T1)s);
+        STORE(T1, OUTPUT);
+        """, "scan", emit_print='file')
+
     def test_shuffle_hash_join(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
