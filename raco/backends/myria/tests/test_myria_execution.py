@@ -32,11 +32,12 @@ def get_connection():
 
     return connection
 
+
 def rel_info(connection):
     cat = MyriaCatalog(connection)
     key = RelationKey('Brandon', 'Demo', 'MoreBooks')
-    return cat.num_tuples(key),\
-           cat.partitioning(key)
+    return cat.num_tuples(key), cat.partitioning(key)
+
 
 def query(connection):
     # Get the physical plan for a test query
