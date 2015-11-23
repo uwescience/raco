@@ -563,7 +563,8 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 #                self.right_syncname, self.left_syncname = hashtableInfo
 #            _LOG.debug("reuse hash %s for %s", self._hashname, self)
 #
-#        # now that Relation is produced, produce its contents by iterating over
+#        # now that Relation is produced, 
+#        # produce its contents by iterating over
 #        # the join result
 #        iterate_template = self._cgenv.get_template('result_scan.cpp')
 #
