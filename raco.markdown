@@ -169,7 +169,6 @@ print p
 ## Raco development
 
 Here we provide information on extending Raco.
-(todo: more depth)
 
 ### Add a compiler backend
 
@@ -190,4 +189,10 @@ raco/backends/myria/__init__.py: provides convenient import of public members us
 Compilation from a tree of `Operator`s to the target language can be implemented in any way you want.
 For examples, see `MyriaOperator`'s `compileme` method and `GrappaOperator`'s `produce` and `consume` method.
 
+### Add a rule
 
+Plan rewriting rules extend the class `raco.rules.Rule`. The analysis step and rewriting step are currently both defined within the method `fire`, which takes a subtree of `Operator`s. Rules are applied with an optimization strategy (some examples in `raco.compile`).
+
+If a rule is generally useful for more than just one backend, put it in `raco.rules`. Otherwise, you can put it somewhere in `raco/backends/<backend>/`.
+
+To add a rule to the list of rules used for an `Algebra`, instantiate it in the `opt_rules` method.
