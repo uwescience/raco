@@ -165,3 +165,29 @@ print "after mod: ", p
 p = processor.get_json()
 print p
 ```
+
+## Raco development
+
+Here we provide information on extending Raco.
+(todo: more depth)
+
+### Add a compiler backend
+
+Raco currently emits code for MyriaX (+ SQL query push down into Postgres), Grappa/C++, and SQL databases. It has limited support for SciDB and SPARQL.
+
+Every backend goes in its own directory within `raco/backends`. Here is an example:
+
+```bash
+raco/backends/myria/catalog.py: defines the Catalog interface for getting information about relations
+raco/backends/myria/myria.py: defines the physical algebra for Myria and a list of optimization rules
+raco/backends/myria/tests: tests specific to myria backend
+raco/backends/myria/__init__.py: provides convenient import of public members using raco.backends.myria
+```
+
+`MyriaAlgebra` defines `opt_rules`, which is a list of optimization rules to apply in order.
+`MyriaOperator` is the base class for operators in the physical algebra for Myria.
+
+Compilation from a tree of `Operator`s to the target language can be implemented in any way you want.
+For examples, see `MyriaOperator`'s `compileme` method and `GrappaOperator`'s `produce` and `consume` method.
+
+
