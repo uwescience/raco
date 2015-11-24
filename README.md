@@ -155,7 +155,7 @@ scripts/myrial -c examples/join.myl
 
 # More Raco
 using Raco, manipulating plans, adding optimizer rules, developing Raco
-see [Raco in myria-docs](https://github.com/uwescience/myria-docs/blob/master/raco.markdown)
+see [Raco in depth](https://github.com/uwescience/raco/blob/master/raco.markdown)
 
 # Authors and contact information
 
