@@ -1,6 +1,6 @@
-# Raco query frontend and middleware
+# Raco in depth
 
-[Raco](https://github.com/uwescience/raco) parses query languages, optimizes query plans, and compiles plans to representations accepted by query processing systems.
+This document explains more usage of Raco and how to develop it (add rules, new compiler backends, new operators).
 
 ## Command line usage
 
@@ -189,10 +189,15 @@ raco/backends/myria/__init__.py: provides convenient import of public members us
 Compilation from a tree of `Operator`s to the target language can be implemented in any way you want.
 For examples, see `MyriaOperator`'s `compileme` method and `GrappaOperator`'s `produce` and `consume` method.
 
+### Add a new operator
+
+Put your new operator for `<backend>` into `raco/backends/<backend>/<backend>.py`.
+If you need to also add an operator to the logical operator, put it in `raco/algebra.py`.
+
 ### Add a rule
 
-Plan rewriting rules extend the class `raco.rules.Rule`. The analysis step and rewriting step are currently both defined within the method `fire`, which takes a subtree of `Operator`s. Rules are applied with an optimization strategy (some examples in `raco.compile`).
+Plan rewriting rules extend the class `raco.rules.Rule`. The analysis step and rewriting step are currently both defined within the method `fire`, which takes a subtree of `Operator`s. Rules are applied with an optimization strategy (some examples in `raco/compile.py`).
 
-If a rule is generally useful for more than just one backend, put it in `raco.rules`. Otherwise, you can put it somewhere in `raco/backends/<backend>/`.
+If a rule is generally useful for more than just one backend, put it in `raco/rules.py`. Otherwise, you can put it somewhere in `raco/backends/<backend>/`.
 
 To add a rule to the list of rules used for an `Algebra`, instantiate it in the `opt_rules` method.
