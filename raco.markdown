@@ -76,7 +76,7 @@ store(T1, public:vulcan:edgesConnectedSort, [$0, $1, $3]);
 ```
 
 In the past, MyriaL did not have this Shuffle syntax.
-However we could still easily build the query plan we wanted. Here is an example of using MyriaX shuffle to partition a table in the MyMergerTree astronomy application. Don't feel daunted by the length of this example; most of the code is boilerplate except for "this is the actual plan manipulation".
+However we could still easily build the query plan we wanted. Here is an example of using MyriaX shuffle to partition a table in the MyMergerTree astronomy application. Don't feel daunted by the length of this example; most of the code is boilerplate to get the plan from a query. The action is at "this is the actual plan manipulation".
 
 [vulcan.py catalog is here](https://gist.github.com/bmyerz/8fe4107eb8faff6221e8)
 
