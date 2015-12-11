@@ -110,32 +110,70 @@ class CBaseLanguage(Language):
 
     @staticmethod
     def _extract_code_decl_init(args):
-        codes = [c for c, _, _ in args]
-        decls_combined = reduce(lambda sofar, x: sofar + x,
-                                [d for _, d, _ in args])
-        inits_combined = reduce(lambda sofar, x: sofar + x,
-                                [i for _, _, i in args])
-        return codes, decls_combined, inits_combined
+        if len(args) == 0:
+            return [], [], []
+        else:
+            codes = [c for c, _, _ in args]
+            decls_combined = reduce(lambda sofar, x: sofar + x,
+                                    [d for _, d, _ in args])
+            inits_combined = reduce(lambda sofar, x: sofar + x,
+                                    [i for _, _, i in args])
+            return codes, decls_combined, inits_combined
 
     @classmethod
     def expression_combine(cls, args, operator="&&"):
+        codes, decls, inits = cls._extract_code_decl_init(args)
+
         # special case for integer divide. C doesn't have this syntax
         # Rely on automatic conversion from float to int
+        this_decls = []
+        this_inits = []
         if operator == "//":
             operator = "/"
+        # special case for string LIKE, use overloaded mod operator
+        elif operator == "like":
+            # NOTE: LIKE probably shouldn't be implemented as
+            # a "binop" because the input type != output type
+            assert len(args) == 2, "LIKE only combines 2 arguments"
+            operator = "%"
+
+            # hoist pattern compilation out of the loop processing
+            # Unchecked precondition: codes[1] is independent of the tuple
+            varname = gensym()
+            this_decls.append("std::regex {var};\n".format(var=varname))
+            this_inits.append(cls.on_all(
+                """{var} = compile_like_pattern({str});
+                """.format(var=varname, str=codes[1])))
+            # replace the string literal with the regex
+            codes[1] = varname
 
         opstr = " %s " % operator
-        codes, decls, inits = cls._extract_code_decl_init(args)
         conjunc = opstr.join(["(%s)" % c for c in codes])
         _LOG.debug("conjunc: %s", conjunc)
-        return "( %s )" % conjunc, decls, inits
+        return "( %s )" % conjunc, \
+               decls + this_decls, \
+               inits + this_inits
 
     @classmethod
-    def function_call(cls, name, *args):
+    def on_all(cls, code):
+        """Parallel on all partitions"""
+        return code
+
+    @classmethod
+    def function_call(cls, name, *args, **kwargs):
+        is_custom = kwargs.get('custom', False)
+        if not is_custom:
+            name = name.lower()
+
         codes, decls, inits = cls._extract_code_decl_init(list(args))
         argscode = ",".join(["{0}".format(d) for d in codes])
+
+        # special cases where name is not just the name,
+        # for example there is a namespace preceding it
+        name = {'year': 'dates::year'}.get(name, name)
+
         code = "{name}({argscode})".format(
-            name=name.lower(), argscode=argscode)
+            name=name, argscode=argscode)
         return code, decls, inits
 
     @classmethod
@@ -185,8 +223,20 @@ class CBaseLanguage(Language):
             assert state_scheme is not None, \
                 "Cannot compile {0} without a state_scheme".format(expr)
 
+            # A bit hacky but simple: when we
+            # haven't physically joined left and right in sides in
+            # binary operators into one state scheme,
+            # we can treat them separately.
+            # Note that it assumes the full scheme is just
+            # state_scheme + state_scheme
+            if hasattr(expr, 'tagged_state_id'):
+                name_id = expr.tagged_state_id
+            else:
+                name_id = ''
+
             position = expr.get_position(None, state_scheme)
-            code = StagedTupleRef.get_code_with_name(position, "state")
+            code = StagedTupleRef.get_code_with_name(
+                position, "state{0}".format(name_id))
             return code, [], []
 
         assert False, "{expr} is unsupported attribute".format(expr=expr)
@@ -257,7 +307,7 @@ _cgenv = CBaseLanguage.__get_env_for_template_libraries__()
 # just has relationsymbol and row
 
 
-class StagedTupleRef:
+class StagedTupleRef(object):
     nextid = 0
 
     @staticmethod
@@ -283,6 +333,18 @@ class StagedTupleRef:
         self.relsym = relsym
         self.scheme = scheme
         self.__typename = None
+
+    def __str__(self):
+        return "Tuple{{name={name}, relsym={relsym}, scheme={scheme}}}".format(
+            name=self.name,
+            relsym=self.relsym,
+            scheme=self.scheme)
+
+    def copy_type(self):
+        """
+        Create a new tuple ref of the same type but new symbol name
+        """
+        return self.__class__(self.relsym, self.scheme)
 
     def getTupleTypename(self):
         if self.__typename is None:
@@ -513,7 +575,9 @@ class CBaseFileScan(Pipelined, algebra.Scan):
             fstemplate, fsbindings = self.__compileme__(resultsym, name)
             state.saveExpr(self, resultsym)
 
-            stagedTuple = self.new_tuple_ref(resultsym, self.scheme())
+            stagedTuple = self.new_tuple_ref_for_filescan(
+                resultsym,
+                self.scheme())
             state.saveTupleDef(resultsym, stagedTuple)
 
             tuple_type_def = stagedTuple.generateDefinition()
@@ -534,6 +598,11 @@ class CBaseFileScan(Pipelined, algebra.Scan):
 
         # no return value used because parent is a new pipeline
         self.parent().consume(resultsym, self, state)
+
+    def new_tuple_ref_for_filescan(self, resultsym, scheme):
+        """instance version of new_tuple_ref.
+        Default just calls the cls version"""
+        return self.new_tuple_ref(resultsym, scheme)
 
     def consume(self, t, src, state):
         assert False, "as a source, no need for consume"
@@ -615,6 +684,20 @@ clang_push_select = [
 
 EMIT_CONSOLE = 'console'
 EMIT_FILE = 'file'
+
+
+class CBaseSink(Pipelined, algebra.Sink):
+
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        # declare an unused result vector
+        resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
+        state.addDeclarations([resdecl])
+
+        code = self.language().log_unquoted("%s" % t.name, 2)
+        return code
 
 
 class CBaseStore(Pipelined, algebra.Store):

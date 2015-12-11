@@ -4,6 +4,9 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <algorithm>
+#include <regex>
+#include <sstream>
 
 class StringIndex {
   private:
@@ -39,22 +42,41 @@ namespace QueryUtils {
 // for array based strings
 #include <array>
 #include <cassert>
-#define MAX_STR_LEN 25
+#define MAX_STR_LEN 28
 
 #include <iostream>
-template<size_t N, class Iterable>
+template<size_t N, class Iterable, bool truncate=false>
 std::array<char, N> to_array(const Iterable& x) {
-  assert(x.size() <= N-1);
-  std::array<char, N> d;
-  std::copy(x.begin(), x.end(), d.data());
-  *(d.data()+x.size()) = '\0'; // copy null terminator
-  
-  // ensure normalization of std::arrays that are equal strings
-  if (x.size()+1 < N) {
-    std::memset(d.data() + x.size() + 1, 0, N - x.size());
-  }
+  if (!truncate) {
+    assert(x.size() <= N-1);
+    std::array<char, N> d;
+    std::copy(x.begin(), x.end(), d.data());
+    *(d.data()+x.size()) = '\0'; // copy null terminator
+    
+    // ensure normalization of std::arrays that are equal strings
+    if (x.size()+1 < N) {
+      std::memset(d.data() + x.size() + 1, 0, N - x.size());
+    }
 
-  return d;
+    return d;
+  } else {
+    std::array<char, N> d;
+    uint64_t item = 0;
+
+    // only copy up to N-1 elements
+    std::copy_if(x.begin(), x.end(), d.data(), [&item](const char& c) {
+        return item++ < N-1;
+        });
+
+    *(d.data() + std::min(x.size(), N-1)) = '\0';
+
+    // ensure normalization of std::arrays that are equal strings
+    if (x.size()+1 < N) {
+      std::memset(d.data() + x.size() + 1, 0, N - x.size());
+    }
+
+    return d;
+  }
 }
 
 // utility to see full content of char array 
@@ -77,13 +99,24 @@ std::ostream& operator<<(std::ostream& o, const std::array<char, N>& arr) {
 
 template <size_t N>
 bool operator==(const std::array<char, N>& arr, const std::string& str) {
-  return std::string(arr.data()).compare(str) == 0;
+  return std::string(arr.data()) == str;
 }
 
 template <size_t N>
 bool operator==(const std::string& str, const std::array<char, N>& arr) {
   return arr == str;
 }
+
+template <size_t N>
+bool operator!=(const std::array<char, N>& arr, const std::string& str) {
+  return std::string(arr.data()) != str;
+}
+
+template <size_t N>
+bool operator!=(const std::string& str, const std::array<char, N>& arr) {
+  return arr != str;
+}
+
 
 // character arrays to be compared using string comparison semantics
 // rather than character-for-character equivalence
@@ -93,6 +126,43 @@ bool operator==(const std::string& str, const std::array<char, N>& arr) {
 //            So we are not currently relying on this == for Pred of unordered_map on tuples of arrays
 template <size_t N>
 bool operator==(const std::array<char, N>& arr1, const std::array<char, N>& arr2) {
-  return std::string(arr1.data()).compare(std::string(arr2.data())) == 0;
+  return std::string(arr1.data()) == std::string(arr2.data());
 }
 
+template <size_t N>
+bool operator!=(const std::array<char, N>& arr1, const std::array<char, N>& arr2) {
+  return std::string(arr1.data()) != std::string(arr2.data());
+}
+
+// TODO see issue #434 Use C++ implicit type conversions for std::array and std::string
+template <size_t N>
+bool operator<=(const std::array<char, N>& lhs, const std::string& rhs) {
+  return std::string(lhs.data()) <= rhs; 
+}
+
+template <size_t N>
+bool operator<(const std::array<char, N>& lhs, const std::string& rhs) {
+  return std::string(lhs.data()) < rhs; 
+}
+
+template <size_t N>
+bool operator>=(const std::array<char, N>& lhs, const std::string& rhs) {
+  return std::string(lhs.data()) >= rhs; 
+}
+
+template <size_t N>
+bool operator>(const std::array<char, N>& lhs, const std::string& rhs) {
+  return std::string(lhs.data()) > rhs; 
+}
+
+std::regex compile_like_pattern(const std::string& pattern);
+
+template <size_t N>
+bool operator%(const std::array<char, N>& s, std::regex r) {
+  return std::regex_match(std::string(s.data()), r);
+}
+
+template <size_t N>
+std::string substr(const std::array<char, N>& s, uint64_t pos, uint64_t len) {
+  return std::string(s.data()).substr(pos, len);
+}

@@ -29,6 +29,7 @@ class Language(object):
     GTEQ = ">="
     LTEQ = "<="
     MOD = "%"
+    LIKE = "like"
 
     # By default, reuse scans
     reusescans = True
@@ -137,6 +138,9 @@ class CompileExpressionVisitor(ExpressionVisitor):
     def visit_LTEQ(self, binaryexpr):
         self.appendbinop(binaryexpr, self.language.LTEQ)
 
+    def visit_LIKE(self, binaryexpr):
+        self.appendbinop(binaryexpr, self.language.LIKE)
+
     def visit_NamedAttributeRef(self, named):
         self.stack.append(
             self.language.compile_attribute(
@@ -210,6 +214,14 @@ class CompileExpressionVisitor(ExpressionVisitor):
                 left,
                 right))
 
+    def visit_CustomBinaryFunction(self, expr):
+        left, right = self.__visit_BinaryOperator__(expr)
+        self.stack.append(
+            self.language.function_call(
+                expr.name,
+                left,
+                right, custom=True))
+
     def visit_NaryFunction(self, expr):
         arglist = []
         for _ in range(len(expr.operands)):
@@ -218,6 +230,10 @@ class CompileExpressionVisitor(ExpressionVisitor):
             self.language.function_call(
                 type(expr).__name__,
                 *arglist))
+
+    def visit_CustomZeroaryFunction(self, expr):
+        self.stack.append(
+            self.language.function_call(expr.name, custom=True))
 
     def visit_CAST(self, expr):
         inputexpr = self.stack.pop()

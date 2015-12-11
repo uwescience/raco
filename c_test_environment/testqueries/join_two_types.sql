@@ -1,0 +1,1 @@
+select * from C3, R3 where C3.a = R3.c;

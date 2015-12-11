@@ -24,6 +24,23 @@
          {% endif %}
     }
 
+    // debugging function to get storage sizes
+    static void print_representation() {
+        const {{tupletypename}} _t;
+
+        {% if numfields == 1 %}
+        std::cout << _t.fieldsSize() << std::endl;
+        {% else %}
+        {% for i in range(1, numfields) %}
+        std::cout << (((char*)&_t.f{{i}}) - ((char*)&_t.f{{i-1}})) << ",";
+        {% endfor %}
+        std::cout << (_t.fieldsSize() - (((char*)&_t.f{{numfields-2}}) - ((char*)&_t)));
+        std::cout << std::endl;
+        {% endif %}
+
+
+    }
+
     {{tupletypename}} () {
       // no-op
     }
@@ -99,7 +116,8 @@
                {
                std::string _temp;
                std::getline(ss, _temp, delim);
-               _ret.f{{i}} = to_array<MAX_STR_LEN, std::string>(_temp);
+               // beware; truncate= true, so unckecked truncation for stringlen >= MAX_STR_LEN!
+               _ret.f{{i}} = to_array<MAX_STR_LEN, std::string, true>(_temp);
                }
             {% else %}
                {

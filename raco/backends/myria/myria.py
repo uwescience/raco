@@ -2,6 +2,7 @@ import itertools
 import logging
 from collections import defaultdict, deque
 from operator import mul
+
 from sqlalchemy.dialects import postgresql
 
 from raco import algebra, expression, rules, scheme
@@ -13,11 +14,9 @@ from raco.backends import Language, Algebra
 from raco.backends.sql.catalog import SQLCatalog
 from raco.expression import WORKERID, COUNTALL
 from raco.expression import UnnamedAttributeRef
-from raco.expression.aggregate import (rebase_local_aggregate_output,
-                                       rebase_finalizer)
-from raco.expression.statevar import *
 from raco.datastructure.UnionFind import UnionFind
 from raco import types
+from raco.rules import distributed_group_by
 from functools import reduce
 
 LOGGER = logging.getLogger(__name__)
@@ -1454,134 +1453,6 @@ class ShuffleAfterSingleton(rules.Rule):
         return expr
 
 
-class DecomposeGroupBy(rules.Rule):
-
-    """Convert a logical group by into a two-phase group by.
-
-    The local half of the aggregate before the shuffle step, whereas the remote
-    half runs after the shuffle step.
-
-    TODO: omit this optimization if the data is already shuffled, or
-    if the cardinality of the grouping keys is high.
-    """
-
-    @staticmethod
-    def do_transfer(op):
-        """Introduce a network transfer before a groupby operation."""
-
-        # Get an array of position references to columns in the child scheme
-        child_scheme = op.input.scheme()
-        group_fields = [expression.toUnnamed(ref, child_scheme)
-                        for ref in op.grouping_list]
-        if len(group_fields) == 0:
-            # Need to Collect all tuples at once place
-            op.input = algebra.Collect(op.input)
-        else:
-            # Need to Shuffle
-            op.input = algebra.Shuffle(op.input, group_fields)
-
-    def fire(self, op):
-        # Punt if it's not a group by or we've already converted this into an
-        # an instance of MyriaGroupBy
-        if op.__class__ != algebra.GroupBy:
-            return op
-
-        # Bail early if we have any non-decomposable aggregates
-        if not all(x.is_decomposable() for x in op.aggregate_list):
-            out_op = MyriaGroupBy()
-            out_op.copy(op)
-            DecomposeGroupBy.do_transfer(out_op)
-            return out_op
-
-        num_grouping_terms = len(op.grouping_list)
-
-        local_emitters = []
-        local_statemods = []
-        remote_emitters = []
-        remote_statemods = []
-        finalizer_exprs = []
-
-        # The starting positions for the current local, remote aggregate
-        local_output_pos = num_grouping_terms
-        remote_output_pos = num_grouping_terms
-        requires_finalizer = False
-
-        for agg in op.aggregate_list:
-            # Multiple emit arguments can be associated with a single
-            # decomposition rule; coalesce them all together.
-            state = agg.get_decomposable_state()
-            assert state
-
-            ################################
-            # Extract the set of emitters and statemods required for the
-            # local aggregate.
-            ################################
-
-            laggs = state.get_local_emitters()
-            local_emitters.extend(laggs)
-            local_statemods.extend(state.get_local_statemods())
-
-            ################################
-            # Extract the set of emitters and statemods required for the
-            # remote aggregate.  Remote expressions must be rebased to
-            # remove instances of LocalAggregateOutput
-            ################################
-
-            raggs = state.get_remote_emitters()
-            raggs = [rebase_local_aggregate_output(x, local_output_pos)
-                     for x in raggs]
-            remote_emitters.extend(raggs)
-
-            rsms = state.get_remote_statemods()
-            for sm in rsms:
-                update_expr = rebase_local_aggregate_output(
-                    sm.update_expr, local_output_pos)
-                remote_statemods.append(
-                    StateVar(sm.name, sm.init_expr, update_expr))
-
-            ################################
-            # Extract any required finalizers.  These must be rebased to remove
-            # instances of RemoteAggregateOutput
-            ################################
-
-            finalizer = state.get_finalizer()
-            if finalizer is not None:
-                requires_finalizer = True
-                finalizer_exprs.append(
-                    rebase_finalizer(finalizer, remote_output_pos))
-            else:
-                for i in range(len(raggs)):
-                    finalizer_exprs.append(
-                        UnnamedAttributeRef(remote_output_pos + i))
-
-            local_output_pos += len(laggs)
-            remote_output_pos += len(raggs)
-
-        ################################
-        # Glue together the local and remote aggregates:
-        # Local => Shuffle => Remote => (optional) Finalizer.
-        ################################
-
-        local_gb = MyriaGroupBy(op.grouping_list, local_emitters, op.input,
-                                local_statemods)
-
-        grouping_fields = [UnnamedAttributeRef(i)
-                           for i in range(num_grouping_terms)]
-
-        remote_gb = MyriaGroupBy(grouping_fields, remote_emitters, local_gb,
-                                 remote_statemods)
-
-        DecomposeGroupBy.do_transfer(remote_gb)
-
-        if requires_finalizer:
-            # Pass through grouping terms
-            gmappings = [(None, UnnamedAttributeRef(i))
-                         for i in range(num_grouping_terms)]
-            fmappings = [(None, fx) for fx in finalizer_exprs]
-            return algebra.Apply(gmappings + fmappings, remote_gb)
-        return remote_gb
-
-
 class AddAppendTemp(rules.Rule):
 
     def fire(self, op):
@@ -1760,17 +1631,6 @@ left_deep_tree_shuffle_logic = [
     CollectBeforeLimit(),
 ]
 
-# 7. distributed groupby
-# this need to be put after shuffle logic
-distributed_group_by = [
-    # DecomposeGroupBy may introduce a complex GroupBy,
-    # so we must run SimpleGroupBy after it. TODO no one likes this.
-    DecomposeGroupBy(),
-    rules.SimpleGroupBy(),
-    rules.CountToCountall(),   # TODO revisit when we have NULL support.
-    rules.DedupGroupBy(),
-    rules.EmptyGroupByToDistinct(),
-]
 
 # 8. Myriafy logical operators
 # replace logical operator with its corresponding Myria operators
@@ -1846,7 +1706,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             rules.push_project,
             rules.push_apply,
             left_deep_tree_shuffle_logic,
-            distributed_group_by,
+            distributed_group_by(MyriaGroupBy),
             [rules.PushApply()],
             [LogicalSampleToDistributedSample()],
         ]
@@ -1909,7 +1769,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             merge_to_nary_join,
             rules.push_apply,
             left_deep_tree_shuffle_logic,
-            distributed_group_by,
+            distributed_group_by(MyriaGroupBy),
             hyper_cube_shuffle_logic
         ]
 

@@ -11,6 +11,7 @@ from raco.pipelines import Pipelined
 from raco.backends.cpp.cppcommon import StagedTupleRef, CBaseLanguage
 from raco.backends.cpp import cppcommon
 from raco.utility import emitlist
+import raco.scheme as scheme
 
 from raco.algebra import gensym
 
@@ -32,15 +33,29 @@ def define_cl_arg(type, name, default_value, description):
 
 class GrappaStagedTupleRef(StagedTupleRef):
 
+    def __init__(self, relsym, scheme, aligned=False):
+        self.aligned = aligned
+        super(GrappaStagedTupleRef, self).__init__(relsym, scheme)
+
     def __afterDefinitionCode__(self, numfields, fieldtypes):
         # Grappa requires structures to be block aligned if they will be
         # iterated over with localizing forall
-        return "GRAPPA_BLOCK_ALIGNED"
+        if self.aligned:
+            return "GRAPPA_BLOCK_ALIGNED"
+        else:
+            return ""
 
 
 class GrappaLanguage(CBaseLanguage):
     _template_path = 'radish/grappa_templates'
     _cgenv = CBaseLanguage.__get_env_for_template_libraries__(_template_path)
+
+    @classmethod
+    def on_all(cls, code):
+        return """on_all_cores([=] {{
+        {code}
+        }});
+        """.format(code=code)
 
     @classmethod
     def cgenv(cls):
@@ -271,19 +286,23 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
                                                rep=self.array_representation)
 
 
-class GrappaJoin(algebra.Join, GrappaOperator):
+class CKeyUtils:
 
-    @classmethod
-    def __aggregate_val__(cls, tuple, cols):
+    @staticmethod
+    def _aggregate_val(tuple, cols):
         return "std::make_tuple({0})".format(
             ','.join([tuple.get_code(p) for p in cols]))
 
-    @classmethod
-    def __aggregate_type__(cls, sch, cols):
+    @staticmethod
+    def _aggregate_type(language, sch, cols):
         return "std::tuple<{0}>".format(
-            ','.join([cls.language().typename(
+            ','.join([language.typename(
                 expression.UnnamedAttributeRef(c).typeof(sch, None))
                 for c in cols]))
+
+
+class GrappaJoin(algebra.Join, GrappaOperator):
+    pass
 
 
 class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
@@ -305,6 +324,12 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
             self.language().cgenv(),
             '{0}/symmetrichashjoin'.format(GrappaLanguage._template_path))
 
+    def _force_right_to_left_sync(self):
+        """Returns whether or not to create a dependence from right
+        pipeline to left pipeline. Default symmetric hash join plan allows
+        the two sides to be concurrent"""
+        return False
+
     def produce(self, state):
         self.symBase = self.__genBaseName__()
 
@@ -323,7 +348,10 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
         # declaration of hash map
         self._hashname = self.__getHashName__()
-        keytype = self.__aggregate_type__(my_sch, self.rightcols)
+        keytype = CKeyUtils._aggregate_type(
+            self.language(),
+            right_sch,
+            self.rightcols)
         hashname = self._hashname
         self.leftTypeRef = state.createUnresolvedSymbol()
         left_in_tuple_type = self.leftTypeRef.getPlaceholder()
@@ -366,7 +394,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
-            keyval = self.__aggregate_val__(t, self.rightcols)
+            keyval = CKeyUtils._aggregate_val(t, self.rightcols)
 
             other_tuple_type = self.leftTypeRef.getPlaceholder()
             left_type = other_tuple_type
@@ -382,18 +410,30 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
                     left_type, len(left_sch),
                     right_type, len(t.scheme))
 
-            # need to add later because requires left tuple type decl
-            self.right_combine_decl = combine_function_def
+            # Need to add later because requires left tuple type decl.
+            # Needs to be a list because could be multiple right sides
+            # occurences
+            if not hasattr(self, 'right_combine_decls'):
+                self.right_combine_decls = []
+            self.right_combine_decls.append(combine_function_def)
+
+            if self._force_right_to_left_sync():
+                self.right_syncname = get_pipeline_task_name(state)
 
             code = access_template.render(locals())
             return code
 
         if src.childtag == "left":
+            if self._force_right_to_left_sync():
+                state.addToPipelinePropertySet(
+                    'dependences',
+                    self.right_syncname)
+
             right_in_tuple_type = self.right_in_tuple_type
             left_in_tuple_type = t.getTupleTypename()
             state.resolveSymbol(self.leftTypeRef, left_in_tuple_type)
 
-            keyval = self.__aggregate_val__(t, self.leftcols)
+            keyval = CKeyUtils._aggregate_val(t, self.leftcols)
 
             inner_plan_compiled = self.parent().consume(outTuple, self, state)
 
@@ -410,8 +450,9 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
                     left_type, len(t.scheme),
                     right_type, len(self.right.scheme()))
 
-            state.addDeclarations([self.right_combine_decl,
-                                   combine_function_def])
+            state.addDeclarations(
+                self.right_combine_decls +
+                [combine_function_def])
 
             code = access_template.render(locals())
             return code
@@ -419,178 +460,184 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         assert False, "src not equal to left or right"
 
 
+class GrappaOverSynchronizedSymmetricHashJoin(GrappaSymmetricHashJoin):
+
+    def _force_right_to_left_sync(self):
+        return True
+
+
 class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
-    _i = 0
+    # this class is out-of-date, but can be fixed
+    pass
+#    _i = 0
+#
+#    @classmethod
+#    def __genBaseName__(cls):
+#        name = "%03d" % cls._i
+#        cls._i += 1
+#        return name
+#
+#    def __getHashName__(self):
+#        name = "hashjoin_reducer_%s" % self.symBase
+#        return name
+#
+#    def __init__(self, *args):
+#        super(GrappaShuffleHashJoin, self).__init__(*args)
+#        self._cgenv = cppcommon.prepend_template_relpath(
+#            self.language().cgenv(),
+#            '{0}/shufflehashjoin'.format(GrappaLanguage._template_path))
+#
+#    def produce(self, state):
+#        left_sch = self.left.scheme()
+#
+#        self.syncnames = []
+#        self.symBase = self.__genBaseName__()
+#
+#        self.right.childtag = "right"
+#        self.rightTupleTypeRef = None  # may remain None if CSE succeeds
+#        self.leftTupleTypeRef = None  # may remain None if CSE succeeds
+#
+#        # find the attribute that corresponds to the right child
+#        self.rightCondIsRightAttr = \
+#            self.condition.right.position >= len(left_sch)
+#        self.leftCondIsRightAttr = \
+#            self.condition.left.position >= len(left_sch)
+#        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
+#
+#        # find right key position
+#        if self.rightCondIsRightAttr:
+#            self.right_keypos = self.condition.right.position \
+#                - len(left_sch)
+#        else:
+#            self.right_keypos = self.condition.left.position \
+#                - len(left_sch)
+#
+#        # find left key position
+#        if self.rightCondIsRightAttr:
+#            self.left_keypos = self.condition.left.position
+#        else:
+#            self.left_keypos = self.condition.right.position
+#
+#        # define output tuple
+#        outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
+#        out_tuple_type_def = outTuple.generateDefinition()
+#        out_tuple_type = outTuple.getTupleTypename()
+#        out_tuple_name = outTuple.name
+#
+#        # common index is defined by same right side and same key
+#        # TODO: probably want also left side
+#        hashtableInfo = state.lookupExpr((self.right, self.right_keypos))
+#        if not hashtableInfo:
+#            # if right child never bound then store hashtable symbol and
+#            # call right child produce
+#            self._hashname = self.__getHashName__()
+#            _LOG.debug("generate hashname %s for %s", self._hashname, self)
+#
+#            hashname = self._hashname
+#
+#            # declaration of hash map
+#            self.rightTupleTypeRef = state.createUnresolvedSymbol()
+#            self.leftTupleTypeRef = state.createUnresolvedSymbol()
+#            self.outTupleTypeRef = state.createUnresolvedSymbol()
+#            right_type = self.rightTupleTypeRef.getPlaceholder()
+#            left_type = self.leftTupleTypeRef.getPlaceholder()
+#
+#            # TODO: really want this addInitializers to be addPreCode
+#            # TODO: *for all pipelines that use this hashname*
+#            init_template = self._cgenv.get_template('hash_init.cpp')
+#
+#            state.addInitializers([init_template.render(locals())])
+#            self.right.produce(state)
+#
+#            self.left.childtag = "left"
+#            self.left.produce(state)
+#
+#            state.saveExpr((self.right, self.right_keypos),
+#                           (self._hashname, right_type, left_type,
+#                            self.right_syncname, self.left_syncname))
+#
+#        else:
+#            # if found a common subexpression on right child then
+#            # use the same hashtable
+#            self._hashname, right_type, left_type,\
+#                self.right_syncname, self.left_syncname = hashtableInfo
+#            _LOG.debug("reuse hash %s for %s", self._hashname, self)
+#
+#        # now that Relation is produced,
+#        # produce its contents by iterating over
+#        # the join result
+#        iterate_template = self._cgenv.get_template('result_scan.cpp')
+#
+#        hashname = self._hashname
+#
+#        state.addDeclarations([out_tuple_type_def])
+#
+#        pipeline_sync = create_pipeline_synchronization(state)
+#        get_pipeline_task_name(state)
+#
+#        # add dependences on left and right inputs
+#        state.addToPipelinePropertySet('dependences', self.right_syncname)
+#        state.addToPipelinePropertySet('dependences', self.left_syncname)
+#
+#        # reduce is a single self contained pipeline.
+#        # future hashjoin implementations may pipeline out of it
+#        # by passing a continuation to reduceExecute
+#        reduce_template = self._cgenv.get_template('reduce.cpp')
+#
+#        state.addPreCode(reduce_template.render(locals()))
+#
+#        delete_template = self._cgenv.get_template('delete.cpp')
+#
+#        state.addPostCode(delete_template.render(locals()))
+#
+#        inner_code_compiled = self.parent().consume(outTuple, self, state)
+#
+#        code = iterate_template % locals()
+#        state.setPipelineProperty('type', 'in_memory')
+#        state.setPipelineProperty('source', self.__class__)
+#        state.addPipeline(code)
 
-    @classmethod
-    def __genBaseName__(cls):
-        name = "%03d" % cls._i
-        cls._i += 1
-        return name
-
-    def __getHashName__(self):
-        name = "hashjoin_reducer_%s" % self.symBase
-        return name
-
-    def __init__(self, *args):
-        super(GrappaShuffleHashJoin, self).__init__(*args)
-        self._cgenv = cppcommon.prepend_template_relpath(
-            self.language().cgenv(),
-            '{0}/shufflehashjoin'.format(GrappaLanguage._template_path))
-
-    def produce(self, state):
-        left_sch = self.left.scheme()
-
-        self.syncnames = []
-        self.symBase = self.__genBaseName__()
-
-        self.right.childtag = "right"
-        self.rightTupleTypeRef = None  # may remain None if CSE succeeds
-        self.leftTupleTypeRef = None  # may remain None if CSE succeeds
-
-        # find the attribute that corresponds to the right child
-        self.rightCondIsRightAttr = \
-            self.condition.right.position >= len(left_sch)
-        self.leftCondIsRightAttr = \
-            self.condition.left.position >= len(left_sch)
-        assert self.rightCondIsRightAttr ^ self.leftCondIsRightAttr
-
-        # find right key position
-        if self.rightCondIsRightAttr:
-            self.right_keypos = self.condition.right.position \
-                - len(left_sch)
-        else:
-            self.right_keypos = self.condition.left.position \
-                - len(left_sch)
-
-        # find left key position
-        if self.rightCondIsRightAttr:
-            self.left_keypos = self.condition.left.position
-        else:
-            self.left_keypos = self.condition.right.position
-
-        # define output tuple
-        outTuple = GrappaStagedTupleRef(gensym(), self.scheme())
-        out_tuple_type_def = outTuple.generateDefinition()
-        out_tuple_type = outTuple.getTupleTypename()
-        out_tuple_name = outTuple.name
-
-        # common index is defined by same right side and same key
-        # TODO: probably want also left side
-        hashtableInfo = state.lookupExpr((self.right, self.right_keypos))
-        if not hashtableInfo:
-            # if right child never bound then store hashtable symbol and
-            # call right child produce
-            self._hashname = self.__getHashName__()
-            _LOG.debug("generate hashname %s for %s", self._hashname, self)
-
-            hashname = self._hashname
-
-            # declaration of hash map
-            self.rightTupleTypeRef = state.createUnresolvedSymbol()
-            self.leftTupleTypeRef = state.createUnresolvedSymbol()
-            self.outTupleTypeRef = state.createUnresolvedSymbol()
-            right_type = self.rightTupleTypeRef.getPlaceholder()
-            left_type = self.leftTupleTypeRef.getPlaceholder()
-
-            # TODO: really want this addInitializers to be addPreCode
-            # TODO: *for all pipelines that use this hashname*
-            init_template = self._cgenv.get_template('hash_init.cpp')
-
-            state.addInitializers([init_template.render(locals())])
-            self.right.produce(state)
-
-            self.left.childtag = "left"
-            self.left.produce(state)
-
-            state.saveExpr((self.right, self.right_keypos),
-                           (self._hashname, right_type, left_type,
-                            self.right_syncname, self.left_syncname))
-
-        else:
-            # if found a common subexpression on right child then
-            # use the same hashtable
-            self._hashname, right_type, left_type,\
-                self.right_syncname, self.left_syncname = hashtableInfo
-            _LOG.debug("reuse hash %s for %s", self._hashname, self)
-
-        # now that Relation is produced, produce its contents by iterating over
-        # the join result
-        iterate_template = self._cgenv.get_template('result_scan.cpp')
-
-        hashname = self._hashname
-
-        state.addDeclarations([out_tuple_type_def])
-
-        pipeline_sync = create_pipeline_synchronization(state)
-        get_pipeline_task_name(state)
-
-        # add dependences on left and right inputs
-        state.addToPipelinePropertySet('dependences', self.right_syncname)
-        state.addToPipelinePropertySet('dependences', self.left_syncname)
-
-        # reduce is a single self contained pipeline.
-        # future hashjoin implementations may pipeline out of it
-        # by passing a continuation to reduceExecute
-        reduce_template = self._cgenv.get_template('reduce.cpp')
-
-        state.addPreCode(reduce_template.render(locals()))
-
-        delete_template = self._cgenv.get_template('delete.cpp')
-
-        state.addPostCode(delete_template.render(locals()))
-
-        inner_code_compiled = self.parent().consume(outTuple, self, state)
-
-        code = iterate_template % locals()
-        state.setPipelineProperty('type', 'in_memory')
-        state.setPipelineProperty('source', self.__class__)
-        state.addPipeline(code)
-
-    def consume(self, inputTuple, fromOp, state):
-        if fromOp.childtag == "right":
-            side = "Right"
-            self.right_syncname = get_pipeline_task_name(state)
-
-            keypos = self.right_keypos
-
-            self.rightTupleTypename = inputTuple.getTupleTypename()
-            if self.rightTupleTypeRef is not None:
-                state.resolveSymbol(self.rightTupleTypeRef,
-                                    self.rightTupleTypename)
-        elif fromOp.childtag == "left":
-            side = "Left"
-            self.left_syncname = get_pipeline_task_name(state)
-
-            keypos = self.left_keypos
-
-            self.leftTupleTypename = inputTuple.getTupleTypename()
-            if self.leftTupleTypeRef is not None:
-                state.resolveSymbol(self.leftTupleTypeRef,
-                                    self.leftTupleTypename)
-        else:
-            assert False, "src not equal to left or right"
-
-        hashname = self._hashname
-        keyname = inputTuple.name
-        keytype = inputTuple.getTupleTypename()
-        keyval = inputTuple.get_code(keypos)
-
-        # intra-pipeline sync
-        global_syncname = state.getPipelineProperty('global_syncname')
-
-        mat_template = self._cgenv.get_template('materialize.cpp')
-
-        # materialization point
-        code = mat_template.render(locals())
-        return code
+#    def consume(self, inputTuple, fromOp, state):
+#        if fromOp.childtag == "right":
+#            side = "Right"
+#            self.right_syncname = get_pipeline_task_name(state)
+#
+#            keypos = self.right_keypos
+#
+#            self.rightTupleTypename = inputTuple.getTupleTypename()
+#            if self.rightTupleTypeRef is not None:
+#                state.resolveSymbol(self.rightTupleTypeRef,
+#                                    self.rightTupleTypename)
+#        elif fromOp.childtag == "left":
+#            side = "Left"
+#            self.left_syncname = get_pipeline_task_name(state)
+#
+#            keypos = self.left_keypos
+#
+#            self.leftTupleTypename = inputTuple.getTupleTypename()
+#            if self.leftTupleTypeRef is not None:
+#                state.resolveSymbol(self.leftTupleTypeRef,
+#                                    self.leftTupleTypename)
+#        else:
+#            assert False, "src not equal to left or right"
+#
+#        hashname = self._hashname
+#        keyname = inputTuple.name
+#        keytype = inputTuple.getTupleTypename()
+#        keyval = inputTuple.get_code(keypos)
+#
+#        # intra-pipeline sync
+#        global_syncname = state.getPipelineProperty('global_syncname')
+#
+#        mat_template = self._cgenv.get_template('materialize.cpp')
+#
+#        # materialization point
+#        code = mat_template.render(locals())
+#        return code
 
 
 class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
     _i = 0
-
-    _ONE_BUILT_IN = 0
-    _MULTI_UDA = 1
 
     @classmethod
     def __genHashName__(cls):
@@ -615,57 +662,87 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
 
     def _init_func_for_op(self, op):
         r = {
-            aggregate.MAX: 'std::numeric_limits<{0}>::lowest',
-            aggregate.MIN: 'std::numeric_limits<{0}>::max'
+            aggregate.MAX: 'std::numeric_limits<{state_type}>::lowest',
+            aggregate.MIN: 'std::numeric_limits<{state_type}>::max'
         }.get(op.__class__)
         if r is None:
-            return 'Aggregates::Zero'
+            return 'Aggregates::Zero<{state_type}>'
         else:
             return r
 
     def produce(self, state):
-        self._agg_mode = None
-        if len(self.aggregate_list) == 1 \
-                and isinstance(self.aggregate_list[0],
-                               expression.BuiltinAggregateExpression):
-            self._agg_mode = self._ONE_BUILT_IN
-        elif all([isinstance(a, expression.UdaAggregateExpression)
-                  for a in self.aggregate_list]):
-            self._agg_mode = self._MULTI_UDA
-
-        assert self._agg_mode is not None, \
-            "unsupported aggregates {0}".format(self.aggregate_list)
-        _LOG.debug("%s _agg_mode was set to %s", self, self._agg_mode)
-
         self.useKey = len(self.grouping_list) > 0
         _LOG.debug("groupby uses keys? %s" % self.useKey)
 
+        if not(self.useKey or
+               all([not isinstance(exp, expression.UdaAggregateExpression)
+                    for exp in self.aggregate_list])):
+            raise NotImplementedError("""
+                    UDAs with no groupby key. The reason is that we
+                    need to support decomposable state for correctness
+                    of a local aggregate and global combine strategy. This
+                    is solved adhoc in specific important builtin cases
+                    like COUNT""")
+
+        if not all([not isinstance(exp, expression.ZeroaryOperator)
+                    for exp in self.aggregate_list]):
+            raise NotImplementedError("""No support for Zeroary aggregates yet.
+            If using COUNT(*), then use COUNT(a), but NOTE that COUNT(a)
+            does not have proper null semantics
+            (unconditionally counts everything)""")
+
         inp_sch = self.input.scheme()
 
-        if self._agg_mode == self._ONE_BUILT_IN:
-            state_type = self.language().typename(
-                self.aggregate_list[0].typeof(inp_sch, None))
-            input_type = self.language().typename(
-                self.aggregate_list[0].input.typeof(inp_sch, None))
-            op = self.aggregate_list[0]
-            up_op_name = op.__class__.__name__
-            co_op_name = self._combiner_for_builtin_update(
-                op).__class__.__name__
-            self.update_func = \
-                "Aggregates::{op}<{state_type}, {input_type}>".format(
-                    op=up_op_name,
-                    state_type=state_type,
-                    input_type=input_type)
-            combine_func = "Aggregates::{op}<{type}, {type}>".format(
-                op=co_op_name, type=state_type)
-        elif self._agg_mode == self._MULTI_UDA:
-            # for now just name the aggregate after the first state variable
-            self.func_name = self.updaters[0][0]
-            self.state_tuple = GrappaStagedTupleRef(gensym(),
-                                                    self.state_scheme)
+        # reconstruct the lost mapping of schema to aggregate
+        # expressions/grouping list
+        # TODO: doesn't this exist somewhere in raco?
+        def resolve_name(ref, sch):
+            if isinstance(
+                    ref,
+                    expression.UnnamedAttributeRef)or isinstance(
+                    ref,
+                    expression.UnnamedAttributeRef):
+                return sch.get_names()[ref.position]
+            else:
+                return ref.name
+
+        grouped_names = set([resolve_name(ref, inp_sch)
+                             for ref in self.grouping_list])
+        aggregates_types = [typ  # throw away the name because it is made up
+                            for name, typ in self.scheme()
+                            if name not in grouped_names]
+        aggregates_names = [
+            resolve_name(
+                a.input,
+                inp_sch) for a in self.aggregate_list]
+        self.aggregates_schema = scheme.Scheme(
+            zip(aggregates_names, aggregates_types))
+
+        hashtableInfo = state.lookupExpr(self)
+        if hashtableInfo:
+            subexpression_proxy = hashtableInfo
+            self._hashname = subexpression_proxy._hashname
+            self.func_name = subexpression_proxy.func_name
+            self.state_tuple = subexpression_proxy.state_tuple
+            self.input_syncname = subexpression_proxy.input_syncname
+            # self.input_type_ref = subexpression_proxy.input_type_ref
+        else:
+            symbol = gensym()
+            self._hashname = self.__genHashName__()
+            _LOG.debug("generate hashname %s for %s", self._hashname, self)
+            self.func_name = "__{0}".format(symbol)
+
+            self.state_tuple = GrappaStagedTupleRef(symbol,
+                                                    self.aggregates_schema,
+                                                    aligned=(not self.useKey))
+            # self.input_type_ref = state.createUnresolvedSymbol()
+            state.saveExpr(self, self)
             state.addDeclarations([self.state_tuple.generateDefinition()])
-            state_type = self.state_tuple.getTupleTypename()
-            self.update_func = "{name}_update".format(name=self.func_name)
+
+        state_type = self.state_tuple.getTupleTypename()
+        self.update_func = "{name}_update".format(name=self.func_name)
+        # combine_func currently just for 0key_output
+        combine_func = "{name}_combine".format(name=self.func_name)
 
         update_func = self.update_func
 
@@ -675,32 +752,28 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
                 types=','.join([self.language().typename(
                     g.typeof(inp_sch, None)) for g in self.grouping_list]))
 
-        self._hashname = self.__genHashName__()
-        _LOG.debug("generate hashname %s for %s", self._hashname, self)
-
         hashname = self._hashname
 
         if self.useKey:
+            decl_template = self._cgenv.get_template('withkey_decl.cpp')
             init_template = self._cgenv.get_template('withkey_init.cpp')
             valtype = state_type
+            state.addDeclarations([decl_template.render(locals())])
         else:
-            if self._agg_mode == self._ONE_BUILT_IN:
-                initial_value = \
-                    self.__get_initial_value__(0, cached_inp_sch=inp_sch)
-                no_key_state_initializer = \
-                    "counter<{state_type}>::create({valinit})".format(
-                        state_type=state_type, valinit=initial_value)
-            elif self._agg_mode == self._MULTI_UDA:
-                no_key_state_initializer = \
-                    "symmetric_global_alloc<{state_tuple_type}>()".format(
-                        state_tuple_type=self.state_tuple.getTupleTypename())
+            no_key_state_initializer = \
+                "symmetric_global_alloc<{state_tuple_type}>()".format(
+                    state_tuple_type=self.state_tuple.getTupleTypename())
 
             init_template = self._cgenv.get_template('withoutkey_init.cpp')
             initializer = no_key_state_initializer
+            # FIXME? Does this need to call init()?
+            # FOR BUILTINs        self.__get_initial_value__(0,
+            # cached_inp_sch=inp_sch)
 
         state.addInitializers([init_template.render(locals())])
 
-        self.input.produce(state)
+        if not hashtableInfo:
+            self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
         # assert len(self.column_list()) == 1 \
@@ -711,57 +784,66 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
 
         if self.useKey:
             mapping_var_name = gensym()
-            if self._agg_mode == self._ONE_BUILT_IN:
-                emit_type = self.language().typename(
-                    self.aggregate_list[0].typeof(
-                        self.input.scheme(), None))
-            elif self._agg_mode == self._MULTI_UDA:
-                emit_type = self.state_tuple.getTupleTypename()
+            emit_type = self.state_tuple.getTupleTypename()
 
-            if self._agg_mode == self._ONE_BUILT_IN:
-                # need to force type in make_tuple
-                produce_template = self._cgenv.get_template(
-                    'one_built_in_scan.cpp')
-            elif self._agg_mode == self._MULTI_UDA:
-                # pass in attribute values individually
-                produce_template = self._cgenv.get_template(
-                    'multi_uda_scan.cpp')
-
+            # pass in attribute values individually
+            produce_template = self._cgenv.get_template(
+                'multi_uda_scan.cpp')
         else:
-            if self._agg_mode == self._ONE_BUILT_IN:
-                produce_template = self._cgenv.get_template(
-                    'one_built_in_0key_output.cpp')
-
-            elif self._agg_mode == self._MULTI_UDA:
-                produce_template = self._cgenv.get_template(
-                    'multi_uda_0key_output.cpp')
+            produce_template = self._cgenv.get_template(
+                'multi_uda_0key_output.cpp')
 
         pipeline_sync = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
 
         # add a dependence on the input aggregation pipeline
-        state.addToPipelinePropertySet('dependences', self.input_syncname)
+        for s in self.input_syncname:
+            state.addToPipelinePropertySet('dependences', s)
 
         output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
         output_tuple_name = output_tuple.name
         output_tuple_type = output_tuple.getTupleTypename()
-        output_tuple_set_func = output_tuple.set_func_code(0)
+        output_tuple_set_func = output_tuple.set_func_code(0)  # UNUSED??
         state.addDeclarations([output_tuple.generateDefinition()])
 
         inner_code = self.parent().consume(output_tuple, self, state)
         comment = self.language().comment("scan of " + str(self))
+
+        # assign state type tuple to output type tuple
+        # For 0key case they should just be treated the same,
+        # i.e., self.state_tuple same as output_tuple for !self.useKey
+        # except for name
+        assignmentcode = ""
+        for i in range(0, len(output_tuple.scheme)):
+            d = output_tuple.set_func_code(i)
+            s = output_tuple.get_code_with_name(
+                i, "{0}_tmp".format(
+                    output_tuple.name))
+            assignment_template = self._cgenv.get_template('assignment.cpp')
+            assignmentcode += assignment_template.render(
+                dst_set_func=d, src_expr_compiled=s)
+
         code = produce_template.render(locals())
         state.setPipelineProperty("type", "in_memory")
         state.addPipeline(code)
 
     def consume(self, inputTuple, fromOp, state):
         # save the inter-pipeline task name
-        self.input_syncname = get_pipeline_task_name(state)
+        # Needs to be a list because could be multiple input occurences
+        if not hasattr(self, 'input_syncname'):
+            self.input_syncname = []
+        self.input_syncname.append(get_pipeline_task_name(state))
 
         inp_sch = self.input.scheme()
 
-        all_decls = []
-        all_inits = []
+        all_code_decls = []
+        all_code_inits = []
+
+        class AggregateSetter:
+
+            def __init__(self, name, expression):
+                self.name = name
+                self.expression = expression
 
         # compile update statements
         def compile_assignments(assgns):
@@ -772,79 +854,208 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             inits = []
 
             for a in assgns:
-                state_name, update_exp = a
                 # doesn't have to use inputTuple.name,
                 # but it will for simplicity
+                # If it is a UDA, we need to compile the expression
                 rhs = self.language().compile_expression(
-                    update_exp,
+                    a.expression,
+                    # For resolving attributes of the consumed input tuple
                     tupleref=inputTuple,
-                    state_scheme=self.state_scheme)
+                    # for resolving attributes of the state tuple
+                    state_scheme=self.aggregates_schema)
 
                 # combine lhs, rhs with assignment
-                code = "{lhs} = {rhs}".format(lhs=state_name, rhs=rhs[0])
+                code = "{lhs} = {rhs}".format(lhs=a.name, rhs=rhs[0])
 
                 decls += rhs[1]
                 inits += rhs[2]
 
                 state_var_updates.append(
                     state_var_update_template.format(assignment=code))
-                state_vars.append(state_name)
+                state_vars.append(a.name)
 
             return state_var_updates, state_vars, decls, inits
 
-        update_updates, update_state_vars, update_decls, update_inits = \
-            compile_assignments(self.updaters)
-        init_updates, init_state_vars, init_decls, init_inits = \
-            compile_assignments(self.inits)
-        assert set(update_state_vars) == set(init_state_vars), \
-            """Initialized and update state vars are not the same \
-            (may not need to be?)"""
-        all_decls += update_decls + init_decls
-        all_inits += update_inits + init_inits
+        # add Builtins updaters and inits to those
+        # from UDAs in self.updaters and self.inits
+        updaters_map = dict((k, (k, v)) for k, v in self.updaters)
+        inits_map = dict((k, (k, v)) for k, v in self.inits)
 
-        if self._agg_mode == self._MULTI_UDA:
-            state_tuple_decl = self.state_tuple.generateDefinition()
-            update_def = self._cgenv.get_template(
-                'update_definition.cpp').render(
-                    state_type=self.state_tuple.getTupleTypename(),
-                    input_type=inputTuple.getTupleTypename(),
-                    input_tuple_name=inputTuple.name,
-                    update_updates=update_updates,
-                    update_state_vars=update_state_vars,
-                    name=self.func_name)
-            init_def = self._cgenv.get_template('init_definition.cpp').render(
+        def aggregate_to_updater(index, aggr):
+            if isinstance(aggr, aggregate.UdaAggregateExpression):
+                attr_ref = aggr.input
+                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                    "type(attr_ref)={0} but must be {1}".format(
+                    type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
+                name, expr = updaters_map[attr_ref.name]
+                return AggregateSetter(name, expr)
+            elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
+                # get update function
+                name = "_v{0}".format(index)
+                input_type = self.language().typename(
+                    aggr.input.typeof(inp_sch, None))
+                op = aggr
+                up_op_name = op.__class__.__name__
+                state_type = self.language().typename(
+                    aggr.typeof(
+                        inp_sch,
+                        None))
+                update_func = \
+                    "Aggregates::{op}<{state_type}, {input_type}>".format(
+                        op=up_op_name,
+                        state_type=state_type,
+                        input_type=input_type)
+
+                # create a class for this binary function so it can be compiled
+                update_as_expression = expression.CustomBinaryFunction(
+                    update_func,
+                    # get the output type
+                    self.aggregates_schema.get_types()[index],
+                    # get the aggregate result attribute (left)
+                    expression.NamedStateAttributeRef(
+                        self.aggregates_schema.get_names()[index]),
+                    # get the aggregate input attribute (right)
+                    aggr.input)
+
+                return AggregateSetter(name, update_as_expression)
+            else:
+                assert False, "expected every element of aggregate_list to " \
+                              "be an aggregate"
+
+        def aggregate_to_init(index, aggr):
+            if isinstance(aggr, aggregate.UdaAggregateExpression):
+                attr_ref = aggr.input
+                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                    "type(attr_ref)={0} but must be {1}".format(
+                    type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
+                name, expr = inits_map[attr_ref.name]
+                return AggregateSetter(name, expr)
+            elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
+                name = "_v{0}".format(index)
+                state_type = self.language().typename(
+                    aggr.typeof(inp_sch, None))
+                init_func = self._init_func_for_op(aggr) \
+                    .format(state_type=state_type)
+                return AggregateSetter(name, expression.CustomZeroaryFunction(
+                    init_func,
+                    # get the output type
+                    self.aggregates_schema.get_types()[index]))
+
+        def aggregate_to_combiner(index, aggr):
+            if isinstance(aggr, aggregate.UdaAggregateExpression):
+                # TODO: Support decomposable aggregate state, instead of
+                # TODO: just using the same function from self.updaters
+                attr_ref = aggr.input
+                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                    "type(attr_ref)={0} but must be {1}".format(
+                    type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
+                name, expr = updaters_map[attr_ref.name]
+                return AggregateSetter(name, expr)
+            elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
+                # get combiner function
+                name = "_v{0}".format(index)
+
+                state_type = self.language().typename(
+                    aggr.typeof(
+                        inp_sch,
+                        None))
+
+                # hack to get the combiner function based on the aggregate
+                # TODO: support decomposable state
+                co_op_name = self._combiner_for_builtin_update(
+                    aggr).__class__.__name__
+
+                # type for left and right is state_type for combiner
+                this_combine_func = "Aggregates::{op}<{type}, {type}>".format(
+                    op=co_op_name, type=state_type)
+
+                attribute0 = expression.NamedStateAttributeRef(
+                    self.aggregates_schema.get_names()[index])
+                attribute0.tagged_state_id = 0
+                attribute1 = expression.NamedStateAttributeRef(
+                    self.aggregates_schema.get_names()[index])
+                attribute1.tagged_state_id = 1
+
+                # create a class for this binary function so it can be compiled
+                combine_as_expression = expression.CustomBinaryFunction(
+                    this_combine_func,
+                    # get the output type
+                    self.aggregates_schema.get_types()[index],
+                    # get the aggregate result attribute (left)
+                    attribute0,
+                    # get the aggregate input attribute (right)
+                    attribute1)
+
+                return AggregateSetter(name, combine_as_expression)
+            else:
+                assert False, "expected every element of aggregate_list to " \
+                              "be an aggregate"
+
+        all_updaters = [
+            aggregate_to_updater(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
+        all_initers = [
+            aggregate_to_init(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
+        all_combiners = [
+            aggregate_to_combiner(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
+        ########################
+
+        update_updates, update_state_vars, update_decls, update_inits = \
+            compile_assignments(all_updaters)
+        init_updates, init_state_vars, init_decls, init_inits = \
+            compile_assignments(all_initers)
+        combine_updates, combine_state_vars, combine_decls, combine_inits = \
+            compile_assignments(all_combiners)
+        assert set(update_state_vars) == set(init_state_vars) and \
+            set(update_state_vars) == set(combine_state_vars), \
+            """Initialized and update state vars are not the same \
+            {0} != {1} or {0} != {2}""".format(update_state_vars,
+                                               init_state_vars,
+                                               combine_state_vars)
+        # generate the update and init function definitions
+        state_tuple_decl = self.state_tuple.generateDefinition()
+        update_def = self._cgenv.get_template(
+            'update_definition.cpp').render(
                 state_type=self.state_tuple.getTupleTypename(),
-                init_updates=init_updates,
-                init_state_vars=init_state_vars,
+                input_type=inputTuple.getTupleTypename(),
+                input_tuple_name=inputTuple.name,
+                update_updates=update_updates,
+                update_state_vars=update_state_vars,
+                name=self.func_name)
+        init_def = self._cgenv.get_template('init_definition.cpp').render(
+            state_type=self.state_tuple.getTupleTypename(),
+            init_updates=init_updates,
+            init_state_vars=init_state_vars,
+            name=self.func_name)
+        # currently only needed for 0key reduce, since there is no key-based
+        # reduce in the grappalang streaming aggregate
+        combine_def = self._cgenv.get_template(
+            'combine_definition.cpp').render(
+                state_type=self.state_tuple.getTupleTypename(),
+                combine_updates=combine_updates,
+                combine_state_vars=combine_state_vars,
                 name=self.func_name)
 
-            all_decls += [update_def, init_def]
+        all_code_decls += [update_def, init_def]
+        all_code_decls += update_decls + init_decls
+        all_code_inits += update_inits + init_inits
 
-        # form code to fill in the materialize template
-        if self._agg_mode == self._ONE_BUILT_IN:
+        if not self.useKey:
+            # if 0key then add the combiner codes, otherwise
+            # omit it because it may be invalid code
+            all_code_decls += [combine_def]
+            all_code_decls += combine_decls
+            all_code_inits += combine_inits
 
-            if isinstance(self.aggregate_list[0], expression.ZeroaryOperator):
-                # no value needed for Zero-input aggregate,
-                # but just provide the first column
-                valpos = 0
-            elif isinstance(self.aggregate_list[0], expression.UnaryOperator):
-                # get value positions from aggregated attributes
-                valpos = \
-                    self.aggregate_list[0].input.get_position(self.scheme())
-            else:
-                assert False, "only support Unary or Zeroary aggregates"
-
-            update_val = inputTuple.get_code(valpos)
-            input_type = self.language().typename(
-                self.aggregate_list[0].input.typeof(inp_sch, None))
-
-            init_func = self._init_func_for_op(self.aggregate_list[0])\
-                .format(input_type)
-
-        elif self._agg_mode == self._MULTI_UDA:
-            init_func = "{name}_init".format(name=self.func_name)
-            update_val = inputTuple.name
-            input_type = inputTuple.getTupleTypename()
+        # values for the materialize template (calling the update function)
+        init_func = "{name}_init".format(name=self.func_name)
+        update_val = inputTuple.name
+        input_type = inputTuple.getTupleTypename()
 
         if self.useKey:
             numkeys = len(self.grouping_list)
@@ -853,19 +1064,15 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
 
             materialize_template = self._cgenv.get_template('nkey_update.cpp')
         else:
-            if self._agg_mode == self._ONE_BUILT_IN:
-                materialize_template = self._cgenv.get_template(
-                    'one_built_in_0key_update.cpp')
-            elif self._agg_mode == self._MULTI_UDA:
-                materialize_template = self._cgenv.get_template(
-                    'multi_uda_0key_update.cpp')
+            materialize_template = self._cgenv.get_template(
+                'multi_uda_0key_update.cpp')
 
         hashname = self._hashname
         tuple_name = inputTuple.name
         pipeline_sync = state.getPipelineProperty("global_syncname")
 
-        state.addDeclarations(all_decls)
-        state.addInitializers(all_inits)
+        state.addDeclarations(all_code_decls)
+        state.addInitializers(all_code_inits)
 
         update_func = self.update_func
 
@@ -907,7 +1114,6 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
         declr_template = self._cgenv.get_template('hash_declaration.cpp')
 
         self.right.childtag = "right"
-        self.rightTupleTypeRef = None  # may remain None if CSE succeeds
 
         my_sch = self.scheme()
         left_sch = self.left.scheme()
@@ -918,7 +1124,10 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
                                      len(left_sch),
                                      left_sch + right_sch)
 
-        keytype = self.__aggregate_type__(my_sch, self.rightcols)
+        keytype = CKeyUtils._aggregate_type(
+            self.language(),
+            right_sch,
+            self.rightcols)
 
         # common index is defined by same right side and same key
         hashtableInfo = state.lookupExpr((self.right,
@@ -948,6 +1157,8 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             # TODO saveExpr before self.right.produce(),
             # TODO but I need to get the self.rightTupleTypename cleanly
         else:
+            self.rightTupleTypeRef = None  # indicates CSE succeeded
+
             # if found a common subexpression on right child then
             # use the same hashtable
             self._hashname, self.rightTupleTypename, self.right_syncname\
@@ -964,9 +1175,13 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
 
             hashname = self._hashname
             keyname = t.name
-            keyval = self.__aggregate_val__(t, self.rightcols)
+            keyval = CKeyUtils._aggregate_val(t, self.rightcols)
 
-            self.right_syncname = get_pipeline_task_name(state)
+            # Needs to be a list because could be multiple right sides
+            # occurences
+            if not hasattr(self, 'right_syncname'):
+                self.right_syncname = []
+            self.right_syncname.append(get_pipeline_task_name(state))
 
             self.rightTupleTypename = t.getTupleTypename()
             if self.rightTupleTypeRef is not None:
@@ -984,13 +1199,14 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             comment = self.language().comment("left side of " + str(self))
             left_template = self._cgenv.get_template('lookup.cpp')
 
-            # add a dependence on the right pipeline
-            state.addToPipelinePropertySet('dependences', self.right_syncname)
+            # add a dependences on the right pipelines
+            for s in self.right_syncname:
+                state.addToPipelinePropertySet('dependences', s)
 
             hashname = self._hashname
             keyname = t.name
             input_tuple_type = t.getTupleTypename()
-            keyval = self.__aggregate_val__(t, self.leftcols)
+            keyval = CKeyUtils._aggregate_val(t, self.leftcols)
 
             pipeline_sync = state.getPipelineProperty('global_syncname')
 
@@ -1033,8 +1249,9 @@ def indentby(code, level):
 #  def fire(self, expr):
 #    for ref in noReferences(expr)
 
-
 # Basic selection like serial C++
+
+
 class GrappaSelect(cppcommon.CBaseSelect, GrappaOperator):
     pass
 
@@ -1054,7 +1271,18 @@ class GrappaProject(cppcommon.CBaseProject, GrappaOperator):
     pass
 
 
+class GrappaSink(cppcommon.CBaseSink, GrappaOperator):
+    pass
+
+
 class GrappaFileScan(cppcommon.CBaseFileScan, GrappaOperator):
+
+    def new_tuple_ref_for_filescan(self, resultsym, scheme):
+        # make new tuple 64-byte aligned if scanning into a global array
+        aligned = self.array_representation == \
+            _ARRAY_REPRESENTATION.GLOBAL_ARRAY
+        return GrappaStagedTupleRef(resultsym, scheme,
+                                    aligned=aligned)
 
     def __init__(self, representation=_ARRAY_REPRESENTATION.GLOBAL_ARRAY,
                  relation_key=None, _scheme=None, cardinality=None):
@@ -1121,6 +1349,33 @@ class GrappaStore(cppcommon.CBaseStore, GrappaOperator):
         return ""
 
 
+class GrappaShuffle(algebra.Shuffle, GrappaOperator):
+
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        inner_plan_compiled = self.parent().consume(t, self, state)
+
+        columnlist_nums = [c.position for c in self.columnlist]
+
+        code = self.language().cgenv().get_template('shuffle.cpp').render(
+            keyname=t.name,
+            keytype=CKeyUtils._aggregate_type(
+                self.language(),
+                self.input.scheme(),
+                columnlist_nums),
+            keyval=CKeyUtils._aggregate_val(
+                t,
+                columnlist_nums),
+            pipeline_sync=state.getPipelineProperty('global_syncname'),
+            comment=self.language().comment(
+                self.shortStr()),
+            inner_code=inner_plan_compiled)
+
+        return code
+
+
 class MemoryScanOfFileScan(rules.Rule):
 
     def __init__(self, array_rep):
@@ -1144,21 +1399,137 @@ class MemoryScanOfFileScan(rules.Rule):
         return "Scan => MemoryScan(FileScan) [{0}]".format(self._array_rep)
 
 
+class GrappaPartitionGroupBy(GrappaGroupBy):
+
+    def __init__(self, *args):
+        super(GrappaPartitionGroupBy, self).__init__(*args)
+        # Override some GrappaGroupBy template with new ones.
+        # The rest of the generation logic is the same
+        self._cgenv = cppcommon.prepend_template_relpath(
+            self._cgenv, '{0}/partition_groupby'.format(
+                GrappaLanguage._template_path))
+
+
+class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
+
+    def produce(self, state):
+
+        self.right.childtag = "right"
+        self.right.produce(state)
+
+        self.left.childtag = "left"
+        self.left.produce(state)
+
+    def consume(self, t, src, state):
+        if src.childtag == "right":
+            # right to left dependency
+            self.right_syncname = get_pipeline_task_name(state)
+
+            code = self.language().comment(self.shortStr() + " RIGHT")
+
+            # declare global var and broadcast value
+            self.broadcast_tuple = t.copy_type()
+            var_decl = self.language().cgenv().get_template(
+                'tuple_declaration.cpp').render(
+                dst_type_name=self.broadcast_tuple.getTupleTypename(),
+                dst_name=self.broadcast_tuple.name)
+            state.addDeclarations([var_decl])
+
+            code += """on_all_cores([=] {{
+                  {global_name} = {input_name};
+                   }});
+                   """.format(global_name=self.broadcast_tuple.name,
+                              input_name=t.name)
+
+            return code
+
+        elif src.childtag == "left":
+            # right to left dependency
+            state.addToPipelinePropertySet('dependences', self.right_syncname)
+
+            code = self.language().comment(self.shortStr() + " LEFT")
+
+            # add global field to your tuple
+
+            output = GrappaStagedTupleRef(gensym(), self.scheme())
+
+            type1 = t.getTupleTypename()
+            type1numfields = len(t.scheme)
+            type2 = self.broadcast_tuple.getTupleTypename()
+            type2numfields = len(self.broadcast_tuple.scheme)
+            append_func_name, combine_function_def = \
+                GrappaStagedTupleRef.get_append(
+                    output.getTupleTypename(),
+                    type1, type1numfields,
+                    type2, type2numfields)
+
+            state.addDeclarations([output.generateDefinition(),
+                                   combine_function_def])
+
+            code += """
+            {out_tuple_type} {out_tuple_name} =
+              {append_func_name}({left_name}, {right_name});
+              """.format(out_tuple_type=output.getTupleTypename(),
+                         out_tuple_name=output.name,
+                         append_func_name=append_func_name,
+                         left_name=t.name,
+                         right_name=self.broadcast_tuple.name)
+
+            inner_plan_compiled = self.parent().consume(output, self, state)
+
+            return code + inner_plan_compiled
+
+        else:
+            assert False, "bad childtag: {0}".format(src.childtag)
+
+
+class CrossProductWithSmall(rules.Rule):
+
+    """
+    If there is a cross product between a relation and
+    a singleton, then broadcast the singleton: cross product
+    is just adding an attribute to every tuple from the other relation
+    """
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.CrossProduct):
+            if expr.right.num_tuples() == 1:
+                return GrappaBroadcastCrossProduct(expr.left, expr.right)
+
+        return expr
+
+    def __str__(self):
+        return "CrossProduct(big, singleton) => " \
+               "GrappaBroadcastCrossProduct(big, singleton)"
+
+
 def grappify(join_type, emit_print,
              scan_array_repr):
+    if isinstance(join_type, str):
+        join_type_class = dict(
+            (c.__name__,
+             c) for c in [
+                GrappaHashJoin,
+                GrappaSymmetricHashJoin,
+                GrappaShuffleHashJoin,
+                GrappaOverSynchronizedSymmetricHashJoin])[join_type]
+    else:
+        join_type_class = join_type
+
     return [
         rules.ProjectingJoinToProjectOfJoin(),
 
         rules.OneToOne(algebra.Select, GrappaSelect),
         MemoryScanOfFileScan(scan_array_repr),
         rules.OneToOne(algebra.Apply, GrappaApply),
-        rules.OneToOne(algebra.Join, join_type),
-        rules.OneToOne(algebra.GroupBy, GrappaGroupBy),
+        rules.OneToOne(algebra.Join, join_type_class),
         rules.OneToOne(algebra.Project, GrappaProject),
+        rules.OneToOne(algebra.Shuffle, GrappaShuffle),
         rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll),
         cppcommon.StoreToBaseCStore(emit_print, GrappaStore),
+        rules.OneToOne(algebra.Sink, GrappaSink)
 
         # Don't need this because we support two-key
         # cppcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
@@ -1193,6 +1564,17 @@ class GrappaAlgebra(Algebra):
         join_type = kwargs.get('join_type', GrappaHashJoin)
         scan_array_repr = kwargs.get('scan_array_repr',
                                      _ARRAY_REPRESENTATION.GLOBAL_ARRAY)
+        groupby_sematics = kwargs.get('groupby_semantics', 'global')
+        if groupby_sematics == 'global':
+            groupby_rules = [rules.OneToOne(algebra.GroupBy, GrappaGroupBy)]
+        elif groupby_sematics == 'partition':
+            groupby_rules = rules.distributed_group_by(
+                GrappaPartitionGroupBy,
+                countall_rule=False,
+                only_fire_on_multi_key=GrappaGroupBy)
+        else:
+            raise ValueError(
+                "groupby_semantics must be one of {global, partition}")
 
         # sequence that works for myrial
         rule_grps_sequence = [
@@ -1201,7 +1583,9 @@ class GrappaAlgebra(Algebra):
             cppcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
-            grappify(join_type, self.emit_print, scan_array_repr)
+            groupby_rules,
+            grappify(join_type, self.emit_print, scan_array_repr),
+            [CrossProductWithSmall()]
         ]
 
         if kwargs.get('SwapJoinSides'):
