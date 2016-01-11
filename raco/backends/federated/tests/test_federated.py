@@ -32,6 +32,63 @@ b = [from a, a1 where a.a_val + 1 = a1.a1_val emit a1.a1_val];
 store(b, filtered_array);
 """
 
+program_mcl = """
+matA = scan(shbae:matrices:undirNet_1000_sm);
+
+-- define constant values as singleton tables.
+epsilon = [0.001];
+prunelimit = [0.00001];
+
+-- initialize oldChaos and newChaos for stop condition.
+oldchaos = [1000];
+newchaos = [1000];
+
+-- while there is an epsilon improvement
+do
+    oldchaos = newchaos;
+
+    -- square matA
+    AxA = [from matA as A, matA as B
+           where A.col == B.row
+           emit A.row as row, B.col as col, sum(A.value * B.value) as value];
+
+    -- inflate operation
+    -- value will be value^2
+    squareA = [from AxA emit row as row, col as col, value * value as value];
+
+    colsums = [from squareA
+               emit squareA.col as col, sum(squareA.value) as colsum];
+
+    -- normalize newMatA
+    newMatA = [from squareA, colsums
+               where squareA.col == colsums.col
+               emit squareA.row as row, squareA.col as col, squareA.value/colsums.colsum as value];
+
+    -- pruning
+    prunedA = [from newMatA
+               where value > *prunelimit
+               emit *];
+
+    -- calculate newchaos
+    colssqs = [from prunedA
+               emit prunedA.col as col, sum (prunedA.value * prunedA.value) as sumSquare];
+    colmaxs = [from prunedA
+               emit prunedA.col as col, max (prunedA.value) as maxVal];
+
+    newchaos = [from colmaxs, colssqs
+                where colmaxs.col == colssqs.col
+                emit max (colmaxs.maxVal - colssqs.sumSquare)];
+
+    -- prepare for the iteration.
+    matA = prunedA;
+
+    -- check the convergency.
+    continue = [from newchaos, oldchaos emit (*oldchaos - *newchaos) > *epsilon];
+while continue;
+
+store (newchaos, OUTPUT_undirNet_10k_newchaos);
+"""
+
 program_multiply = """
 a = scan(AAA);
 b = scan(BBB);
@@ -41,8 +98,8 @@ store(m,mult);
 
 program_test_project_dimension ="""
 abc = scan(abc);
-b = [from abc emit vale];
-store(b, projected_dimension);
+b = [from abc where abc.i>0 emit value ];
+store(b, proj_dim);
 """
 
 program_join = """
@@ -172,7 +229,8 @@ def get_myria_connection():
         # connection = MyriaConnection(hostname='localhost', port=12345)
         # rest_url = 'http://localhost:8753'
         # execution_url = 'http://localhost:8090'
-        rest_url = 'http://ec2-52-1-38-182.compute-1.amazonaws.com:8753'
+        rest_url = 'https://rest.myria.cs.washington.edu:1776'
+        # rest_url = 'http://ec2-52-1-38-182.compute-1.amazonaws.com:8753'
         execution_url = 'http://demo.myria.cs.washington.edu'
         connection = MyriaConnection(rest_url=rest_url,
                                      execution_url=execution_url)
@@ -180,7 +238,8 @@ def get_myria_connection():
         # Use the production server
         #rest_url = 'https://rest.myria.cs.washington.edu:1776'
         #execution_url = 'https://myria-web.appspot.com'
-        rest_url = 'http://ec2-52-1-38-182.compute-1.amazonaws.com:8753'
+        rest_url = 'https://rest.myria.cs.washington.edu:1776'
+        # rest_url = 'http://ec2-52-1-38-182.compute-1.amazonaws.com:8753'
         execution_url = 'http://demo.myria.cs.washington.edu'
         connection = MyriaConnection(rest_url=rest_url,
                                      execution_url=execution_url)
@@ -205,7 +264,7 @@ def get_scidb_connection():
 def query(myriaconnection, scidbconnection, program):
 
     if not program:
-        myrial_code = program_simple
+        myrial_code = program_mcl
     else:
         with open(program, 'r') as content_file:
             myrial_code = content_file.read()
@@ -233,8 +292,8 @@ def query(myriaconnection, scidbconnection, program):
     logical = processor.get_logical_plan()
     print "LOGICAL"
     print logical
-    # print 'dot version of logical plan'
-    # print raco.viz.operator_to_dot(logical)
+    print 'dot version of logical plan'
+    print raco.viz.operator_to_dot(logical)
     #
     pd = processor.get_physical_plan(target_alg=falg)
     # pd = processor.get_physical_plan(target_alg=SciDBAFLAlgebra())
@@ -242,8 +301,8 @@ def query(myriaconnection, scidbconnection, program):
     print "PHYSICAL"
     print pd
     #
-    # print 'dot version of physical plan'
-    # print raco.viz.operator_to_dot(pd)
+    print 'dot version of physical plan'
+    print raco.viz.operator_to_dot(pd)
     scidbconnection.execute_query(pd.args[0].plan)
 
     # fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
