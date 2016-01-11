@@ -2,21 +2,38 @@
 import abc
 from raco.utility import emitlist
 from algebra import gensym, Operator
+import re
 
 import logging
 LOG = logging.getLogger(__name__)
 
 
 class ResolvingSymbol:
+    _unique_tag = "_@@UNRESOLVED_SYMBOL_{name}@@_"
+
     def __init__(self, name):
         self._name = name
-        self._placeholder = "%%(%s)s" % name
+        self._placeholder = ResolvingSymbol._mksymbol(name)
+
+    @classmethod
+    def _mksymbol(cls, name):
+        return cls._unique_tag.format(name=name)
 
     def getPlaceholder(self):
         return self._placeholder
 
     def getName(self):
         return self._name
+
+    @classmethod
+    def substitute(cls, code, symbols):
+        # inefficient multi-string replacement
+        # TODO: replace with multi-pattern sed script
+        for name, val in symbols.items():
+            assert val is not None, "Unresolved symbol: {}".format(name)
+            pat = cls._unique_tag.format(name=name)
+            code = re.sub(pat, val, code)
+        return code
 
 
 class CompileState:
@@ -162,7 +179,7 @@ class CompileState:
                 return True
 
         code = emitlist(filter(f, self.initializers))
-        return code % self.resolving_symbols
+        return ResolvingSymbol.substitute(code, self.resolving_symbols)
 
     def getCleanupCode(self):
         # cleanups is a set.
@@ -180,7 +197,7 @@ class CompileState:
                 return True
 
         code = emitlist(filter(f, self.cleanups))
-        return code % self.resolving_symbols
+        return ResolvingSymbol.substitute(code, self.resolving_symbols)
 
     def getDeclCode(self):
         # declarations is a set
@@ -198,7 +215,7 @@ class CompileState:
         # keep in original order
         code = emitlist(filter(f, self.declarations))
         code += emitlist(filter(f, self.declarations_later))
-        return code % self.resolving_symbols
+        return ResolvingSymbol.substitute(code, self.resolving_symbols)
 
     def getExecutionCode(self):
         # list -> string
@@ -217,8 +234,8 @@ class CompileState:
             scan_linearize_wrap + mem_linearize_wrap + flush_linearized
 
         # substitute all lazily resolved symbols
-        print linearized
-        resolved = linearized % self.resolving_symbols
+        resolved = ResolvingSymbol.substitute(linearized,
+                                              self.resolving_symbols)
 
         return resolved
 
@@ -248,6 +265,7 @@ class CompileState:
 
 
 class Pipelined(object):
+
     """
     Trait to provide the compilePipeline method
     for calling into pipeline style compilation.
@@ -264,15 +282,57 @@ class Pipelined(object):
         # Ensure this class follows cooperative multiple inheritance
         super(Pipelined, self).__init__(*args)
 
-    def __markAllParents__(self):
+    def _markAllParents(self, test_mode=False):
         root = self
 
         def markChildParent(op):
             for c in op.children():
                 c._parent = op
+                if test_mode:
+                    # Test mode turns on assign-once checks of all
+                    # Pipeline subclasses instance variables
+                    c._freeze()  # _parent is the last allowed attribute
             return []
 
         [_ for _ in root.postorder_traversal(markChildParent)]
+
+    __isfrozen = False
+
+    def __setattr__(self, key, value):
+        """Overriden to allow objects to turn on assigned-once checks
+
+        While we'd prefer subclasses of Pipelined (more specifically Operator)
+        to actually be immutable algebraic datatypes, this is an intermediate
+        solution. It was introduced to catch bugs that occur from
+        reassigning instance variables that are introduced for compilation
+        state (see issue https://github.com/uwescience/raco/issues/477).
+        """
+        if self.__isfrozen and key in self.assigned_attrs:
+            if self.__getattribute__(key) == value:
+                LOG.warning(
+                    'reassignment of self.{attr} but ignoring because '
+                    'assigned same value {value}'.format(
+                        attr=key,
+                        value=value))
+                return
+            else:
+                raise TypeError(
+                    "{obj} is a frozen object; self.{attr} = {oldval}; "
+                    "tried to assign {newval}".format(
+                        obj=self,
+                        attr=key,
+                        oldval=self.__getattribute__(key),
+                        newval=value))
+        # new set created here rather than __init__ because there
+        # may be inconsistency in when Pipelined.__init__ is called relative
+        # to assignments to instance variables
+        if not hasattr(self, 'assigned_attrs'):
+            object.__setattr__(self, 'assigned_attrs', set())
+        self.assigned_attrs.add(key)
+        object.__setattr__(self, key, value)
+
+    def _freeze(self):
+        self.__isfrozen = True
 
     def parent(self):
         return self._parent
@@ -301,8 +361,8 @@ class Pipelined(object):
         """Denotation for consuming a tuple"""
         return
 
-    def compilePipeline(self):
-        self.__markAllParents__()
+    def compilePipeline(self, **kwargs):
+        self._markAllParents(**kwargs)
 
         state = CompileState(self.language())
 

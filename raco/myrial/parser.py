@@ -52,6 +52,7 @@ binops = {
     '=': sexpr.EQ,
     'AND': sexpr.AND,
     'OR': sexpr.OR,
+    'LIKE': sexpr.LIKE
 }
 
 # Map from myrial token name to raco internal type name.
@@ -152,7 +153,7 @@ class Parser(object):
             ('left', 'OR'),
             ('left', 'AND'),
             ('right', 'NOT'),
-            ('left', 'EQ', 'EQUALS', 'NE', 'GT', 'LT', 'LE', 'GE'),
+            ('left', 'EQ', 'EQUALS', 'NE', 'GT', 'LT', 'LE', 'GE', 'LIKE'),
             ('left', 'PLUS', 'MINUS'),
             ('left', 'TIMES', 'DIVIDE', 'IDIVIDE', 'MOD'),
             ('right', 'UMINUS'),    # Unary minus
@@ -594,8 +595,8 @@ class Parser(object):
     @staticmethod
     def p_expression_load(p):
         'expression : LOAD LPAREN STRING_LITERAL COMMA file_parser_fun RPAREN'
-        schema, options = p[5]
-        p[0] = ('LOAD', p[3], scheme.Scheme(schema), options)
+        format, schema, options = p[5]
+        p[0] = ('LOAD', p[3], format, scheme.Scheme(schema), options)
 
     @staticmethod
     def p_relation_key(p):
@@ -627,19 +628,17 @@ class Parser(object):
 
     @staticmethod
     def p_file_parser_fun(p):
-        """file_parser_fun : file_parser_type LPAREN \
+        """file_parser_fun : CSV LPAREN \
    schema_fun COMMA option_list RPAREN
- | file_parser_type LPAREN schema_fun RPAREN"""
+ | CSV LPAREN schema_fun RPAREN
+ | OPP LPAREN RPAREN"""
         if len(p) == 7:
-            schema, options = (p[3], dict(p[5]))
+            format, schema, options = (p[1], p[3], dict(p[5]))
+        elif len(p) == 5:
+            format, schema, options = (p[1], p[3], {})
         else:
-            schema, options = (p[3], {})
-        p[0] = (schema, options)
-
-    @staticmethod
-    def p_file_parser_type(p):
-        'file_parser_type : CSV'
-        p[0] = p[1]
+            format, schema, options = (p[1], [], {})
+        p[0] = (format, schema, options)
 
     @staticmethod
     def p_option_list(p):
@@ -950,7 +949,8 @@ class Parser(object):
                    | sexpr EQ sexpr
                    | sexpr EQUALS sexpr
                    | sexpr AND sexpr
-                   | sexpr OR sexpr"""
+                   | sexpr OR sexpr
+                   | sexpr LIKE sexpr"""
         p[0] = binops[p[2]](p[1], p[3])
 
     @staticmethod

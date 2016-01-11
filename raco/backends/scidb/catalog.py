@@ -3,6 +3,7 @@ import raco.scheme as scheme
 from operator import mul
 
 from raco.types import INT_TYPE, FLOAT_TYPE
+from raco.representation import RepresentationProperties
 
 def parsescidb(result):
     result = result.replace('\n','').replace('),',')\n').replace('[', '').replace(']', '').replace('(','').replace(')','').replace("'",'')
@@ -63,3 +64,6 @@ class SciDBCatalog(Catalog):
                 "no cardinality of %s because no connection" % rel_key)
 
         return numtuples
+
+    def partitioning(self, rel_key):
+        return RepresentationProperties()

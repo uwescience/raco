@@ -13,14 +13,17 @@ from raco.catalog import FromFileCatalog
 p = argparse.ArgumentParser(prog=sys.argv[0])
 p.add_argument("-i", dest="input_file", required=True, help="input file")
 p.add_argument("-c", dest="catalog_path", help="path of catalog file, see FromFileCatalog for format", required=True)
+p.add_argument("-n", dest="relation_name", required=True, help="name of relation")
 p.add_argument("-s", dest="system", help="cpp or grappa", default="cpp")
 p.add_argument("--splits", dest="splits", action="store_true", help="input file is base directory of file splits (e.g. hdfs)")
 p.add_argument("--softlink-data", dest="softlink_data", action="store_true", help="data file softlinked rather than copied")
 p.add_argument("--local-softlink-data", dest="local_softlink_data", action="store_true", help="softlink locally, only use if --host!=localhost but want local softlink (e.g. NFS)")
+p.add_argument("--allow-failed-upload", dest="allow_failed_upload", action="store_true", help="if softlinking on then still softlink even if uploading data fails")
 p.add_argument("--host", dest="host", help="hostname of server", default="localhost")
 p.add_argument("--port", dest="port", help="port server is listening on", default=1337)
 p.add_argument("--external-string-index", dest="ext_index", action="store_true", help="Create string external string index that is deprecated after raco@40640adff89e1c1aade007a998b335b623ff22aa")
 p.add_argument("--storage", dest="storage", default="binary", help="binary, row_ascii, row_json")
+p.add_argument("--delim", dest="delim", default=' ', help="delimiter for ingesting ascii csv data")
 args = p.parse_args(sys.argv[1:])
 inputf = args.input_file
 catalogfile = args.catalog_path
@@ -110,20 +113,20 @@ if args.storage == 'binary':
     # see $GRAPPA_HOME/build/Make+Release/applications/join/convert2bin.exe
 
     task_message("generating binary converter")
-    cat, __convert_cpp_name = generate_tuple_class_from_file(None, catalogfile)
-    if len(__convert_cpp_name) > 1:
-        print "WARNING: catalog had multiple entries, using the first"
+    cat, rel_key, convert_cpp_name = generate_tuple_class_from_file(
+        args.relation_name,
+        catalogfile)
 
     #TODO: rel_key is wrong!! is public:adhoc:x need just x
-    rel_key, convert_cpp_name = __convert_cpp_name[0]
     convert_exe_name = '{0}'.format(os.path.splitext(convert_cpp_name)[0])
 
     task_message("building binary converter")
     subprocess.check_call('make {0}'.format(convert_exe_name), shell=True)
 
     task_message("running binary converter")
-    convert_stdout = subprocess.check_output('./{exe} {file} {burns} {id}'.format(exe=convert_exe_name,
+    convert_stdout = subprocess.check_output('./{exe} {file} "{delim}" {burns} {id}'.format(exe=convert_exe_name,
                                                                file=datafile,
+                                                               delim=args.delim,
                                                                burns=0,
                                                                id=False), shell=True)
 
@@ -166,7 +169,13 @@ with open(schema_file, 'w') as csvfile:
 print "data for input in " + schema_file
 
 conn = UploadConnection(args.host, args.port)
-conn.upload(schema_file, upload_files)
+
+try:
+    conn.upload(schema_file, upload_files)
+except Exception as e:
+    if not args.allow_failed_upload:
+        raise e
+
 conn.softlink(link_files)
 
 print "successful upload of: " + schema_file + " and " + str(upload_files)

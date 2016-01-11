@@ -19,17 +19,18 @@ template = """
 #include <cstdlib>
 #include <iostream>
 #include "convert2bin.h"
-#include "utils.h"
+#include "radish_utils.h"
+#include "strings.h"
 
 {definition}
 
 int main(int argc, char * const argv[]) {{
     if (argc < 4) {{
-        std::cerr << "usage: " << argv[0] << " [file] [burns] [add_id?]" << std::endl;
+        std::cerr << "usage: " << argv[0] << " [file] [delim char] [burns] [add_id?]" << std::endl;
         exit(1);
     }}
 
-    convert2bin_withTuple<{typ}>(argv[1], atoi(argv[2]), atoi(argv[3]));
+    convert2bin_withTuple<{typ}>(argv[1], argv[2][0], atoi(argv[3]), atoi(argv[4]));
 }}
 """
 

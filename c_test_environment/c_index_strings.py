@@ -24,10 +24,9 @@ class WordIndexer:
         self.indexfw.close()
 
 
-def indexing(inputf):
+def indexing(inputf, delim_in):
     intfile = inputf + '.i'
     indexf = inputf + '.index'
-    delim_in = ','
     delim_out = ' '
 
     wi = WordIndexer(indexf)
@@ -45,9 +44,14 @@ def indexing(inputf):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        raise Exception("usage: %s inputfile" % sys.argv[0])
+        raise Exception("usage: %s inputfile [delim]" % sys.argv[0])
 
-    indexing(sys.argv[1])
+    if len(sys.argv) == 3:
+        delim = sys.argv[2]
+    else:
+        delim = ' '
+
+    indexing(sys.argv[1], delim_in=delim)
 
 
 

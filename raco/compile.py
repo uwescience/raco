@@ -4,6 +4,7 @@ from .pipelines import Pipelined
 from raco.utility import emit
 import raco.viz as viz
 import os
+from raco.utility import colored
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -58,7 +59,24 @@ def optimize_by_rules(expr, rules):
     writer.write_if_enabled(expr, "before rules")
 
     for rule in rules:
-        expr = rule(expr, writer)
+        def recursiverule(e):
+            newe = rule(e)
+            writer.write_if_enabled(newe, str(rule))
+
+            # log the optimizer step
+            if str(e) == str(newe):
+                LOG.debug("apply rule %s (no effect)\n" +
+                          " %s \n", rule, e)
+            else:
+                LOG.debug("apply rule %s\n" +
+                          colored("  -", "red") + " %s" + "\n" +
+                          colored("  +", "green") + " %s", rule, e, newe)
+
+            newe.apply(recursiverule)
+
+            return newe
+        expr = recursiverule(expr)
+
     return expr
 
 
@@ -66,12 +84,12 @@ def optimize(expr, target, **kwargs):
     """Fire the rule-based optimizer on an expression.  Fire all rules in the
     target algebra."""
     assert isinstance(expr, algebra.Operator)
-    assert isinstance(target, language.Algebra), "%s:%s" % (target, type(target))
+    assert isinstance(target, language.Algebra), type(target)
 
     return optimize_by_rules(expr, target.opt_rules(**kwargs))
 
 
-def compile(expr):
+def compile(expr, **kwargs):
     """Compile physical plan to linearized form for execution"""
     # TODO: Fix this
     algebra.reset()
@@ -84,13 +102,14 @@ def compile(expr):
     else:
         store_expr = expr
 
-    assert isinstance(store_expr, algebra.Store)
+    assert isinstance(store_expr, algebra.Store) \
+        or isinstance(store_expr, algebra.Sink)
     assert len(store_expr.children()) == 1, "expected single expression only"
 
     lang = store_expr.language()
 
     if isinstance(store_expr, Pipelined):
-        body = lang.body(store_expr.compilePipeline())
+        body = lang.body(store_expr.compilePipeline(**kwargs))
     else:
         body = lang.body(store_expr)
 

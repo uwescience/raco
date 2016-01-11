@@ -264,7 +264,7 @@ def get_scidb_connection():
 def query(myriaconnection, scidbconnection, program):
 
     if not program:
-        myrial_code = program_mcl
+        myrial_code = program_test_project_dimension
     else:
         with open(program, 'r') as content_file:
             myrial_code = content_file.read()

@@ -1,0 +1,1 @@
+select c, MAX(a), SUM(b) from I3 group by c;

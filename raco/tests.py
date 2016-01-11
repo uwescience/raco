@@ -114,6 +114,9 @@ class ExpressionTest(unittest.TestCase):
             def visit_BinaryFunction(self, expr):
                 pass
 
+            def visit_LIKE(self, binaryExpr):
+                pass
+
             def visit_UnaryFunction(self, expr):
                 pass
 

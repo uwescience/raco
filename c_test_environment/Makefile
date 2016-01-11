@@ -1,9 +1,8 @@
 # WARNING: name environment source files .h or .cc, but not .cpp, which is reserved (.gitignore laziness)
 
-#CXX = clang++
-CXX=g++
+CXX ?= g++
 
-CFLAGS =-ggdb -std=c++11
+CFLAGS =-ggdb -std=c++11 -O3
 #-O3 #-m64 -Wno-deprecated -fPIC
 
 ifneq ($(shell uname), Darwin)
@@ -40,11 +39,20 @@ counters_util.o : counters_util.cc counters_util.h
 strings.o : strings.cc strings.h
 	$(COMP) 
 
-utils.o : utils.cc utils.h
+dates.o : dates.cc dates.h
+	$(COMP)
+
+radish_utils.o : radish_utils.cc radish_utils.h
 	$(COMP) 
 
 %.o : %.cpp 
 	$(COMP) 
 
-libracoc.a: strings.o utils.o
+dates_test : dates.o dates_test.cc
+	$(LINK)
+
+run_dates_test : dates_test
+	./dates_test
+
+libracoc.a: strings.o radish_utils.o dates.o
 	ar rcs $@ $^

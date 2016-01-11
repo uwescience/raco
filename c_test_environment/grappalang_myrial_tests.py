@@ -1,5 +1,5 @@
 import unittest
-from testquery import checkquery
+from testquery import checkquery, checkstore
 from testquery import GrappalangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
@@ -34,17 +34,17 @@ def raise_skip_test(query=None):
 
 
 class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
-    def check(self, query, name, **kwargs):
+    def check(self, query, name, join_type=None, emit_print='console', **kwargs):
         gname = "grappa_{name}".format(name=name)
 
-        if kwargs.get('join_type', None) == 'symmetric_hash':
+        if join_type == 'symmetric_hash':
             kwargs['join_type'] = grappalang.GrappaSymmetricHashJoin
-        elif kwargs.get('join_type', None) == 'shuffle_hash':
+        elif join_type == 'shuffle_hash':
             kwargs['join_type'] = grappalang.GrappaShuffleHashJoin
             # FIXME: see issue #348; always skipping shuffle tests because it got broken
-            raise SkipTest()
+            raise SkipTest(query)
 
-        kwargs['target_alg'] = GrappaAlgebra()
+        kwargs['target_alg'] = GrappaAlgebra(emit_print=emit_print)
 
         plan = self.get_physical_plan(query, **kwargs)
         physical_dot = viz.operator_to_dot(plan)
@@ -54,7 +54,9 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             dwf.write(physical_dot)
 
         # generate code in the target language
-        code = compile(plan)
+        # test_mode=True turns on extra checks like assign-once instance
+        #    variables for operators
+        code = compile(plan, test_mode=True)
 
         fname = os.path.join("c_test_environment", "{gname}.cpp".format(gname=gname))
         if os.path.exists(fname):
@@ -63,10 +65,14 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             f.write(code)
 
         #raise Exception()
+
         raise_skip_test(query)
 
         with Chdir("c_test_environment") as d:
-            checkquery(name, GrappalangRunner(binary_input=False))
+            if emit_print == 'file':
+                checkstore(name, GrappalangRunner(binary_input=False))
+            else:
+                checkquery(name, GrappalangRunner(binary_input=False))
 
     def setUp(self):
         super(MyriaLGrappaTest, self).setUp()
@@ -95,15 +101,30 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         """.format(UDA=self._uda_def()), "argmax_uda")
 
     def test_argmax_all_uda(self):
-        # Always skip until no-key UDA is properly supported with decomposable UDA
-        raise SkipTest()
+        with self.assertRaises(NotImplementedError):
+            self.check_sub_tables("""
+            {UDA}
+            I3 = SCAN(%(I3)s);
+            out = select ArgMax(b, c) from I3;
+            STORE(out, OUTPUT);
+            """.format(UDA=self._uda_def()), "argmax_all_uda")
+            # TODO only test decomposable argmax here, as the non decomposable no-key is less useful
+
+    def test_builtin_and_UDA(self):
         self.check_sub_tables("""
         {UDA}
         I3 = SCAN(%(I3)s);
-        out = select ArgMax(b, c) from I3;
+        out = select a, ArgMax(b, c), SUM(b) from I3;
         STORE(out, OUTPUT);
-        """.format(UDA=self._uda_def()), "argmax_all_uda")
-        # TODO only test decomposable argmax here, as the non decomposable no-key is less useful
+        """.format(UDA=self._uda_def()), "builtin_and_UDA")
+
+    def test_multi_builtin(self):
+        self.check_sub_tables("""
+        I3 = SCAN(%(I3)s);
+        out = select c, MAX(a), SUM(b) from I3;
+        STORE(out, OUTPUT);
+        """, "multi_builtin")
+
 
     def test_two_key_hash_join(self):
         self.check_sub_tables("""
@@ -134,6 +155,23 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
     def test_symmetric_array_repr(self):
         q = self.myrial_from_sql(['T1'], "select")
         self.check(q, "select", scan_array_repr='symmetric_array')
+
+    def test_indexed_strings(self):
+        q = self.myrial_from_sql(["C3", "C3"], "join_string_key")
+        self.check(q, "join_string_key", external_indexing=True)
+
+    def test_shuffle_hash_join(self):
+        """
+        GrappaShuffleHashJoin is outdated.
+        For example, it only supports single attribute key.
+        """
+        self.check_sub_tables("""
+        T3 = SCAN(%(T3)s);
+        R3 = SCAN(%(R3)s);
+        out = JOIN(T3, b, R3, b);
+        out2 = [FROM out WHERE $3 = $5 EMIT $0, $3];
+        STORE(out2, OUTPUT);
+        """, "join", join_type='shuffle_hash')
 
 
 if __name__ == '__main__':

@@ -11,19 +11,36 @@ import logging
 from raco.catalog import FromFileCatalog
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as parser
-import raco.scheme
-import raco.catalog
-
 from raco.fakedb import FakeDatabase
 from raco import algebra
 from raco.viz import operator_to_dot
 from raco.myrial.exceptions import *
-from raco.compile import print_pretty_plan
 from raco.backends.radish import GrappaAlgebra
 from raco.backends.logical import OptLogicalAlgebra
 from raco.backends.sparql import SPARQLAlgebra
+from raco.backends.cpp import CCAlgebra
 import raco.from_repr as from_repr
 from raco.compile import compile
+
+
+def print_pretty_plan(plan, indent=0):
+    if isinstance(plan, algebra.DoWhile):
+        children = plan.children()
+        body = children[:-1]
+        term = children[-1]
+
+        spc = ' ' * indent
+        print '%sDO' % spc
+        for op in body:
+            print_pretty_plan(op, indent + 4)
+        print '%sWHILE' % spc
+        print_pretty_plan(term, indent + 4)
+    elif isinstance(plan, algebra.Sequence):
+        print '%s%s' % (' ' * indent, plan.shortStr())
+        for child in plan.children():
+            print_pretty_plan(child, indent + 4)
+    else:
+        print '%s%s' % (' ' * indent, plan)
 
 
 def parse_options(args):
@@ -45,14 +62,15 @@ def parse_options(args):
                        help="Encode plan as Python repr", action='store_true')
     group.add_argument('-f', dest='standalone', action='store_true',
                        help='Execute the program in standalone mode')
-    group.add_argument('-b', dest='federated', action='store_true',
-                       help='Execute the program in federated mode')
-    group.add_argument('-c', dest='cpp', action='store_true',
-                       help='Output physical plan for grappalang and source program')
+    group.add_argument('-c', dest='radish', action='store_true',
+                       help='Output physical plan for Radish (Grappa) and save source program to file')
+    group.add_argument('--cpp', dest='cpp', action='store_true',
+                       help='Output physical plan for C++ and save source program to file')
     group.add_argument('-s', dest='sparql', action='store_true',
                        help='Output an attempt at a SPARQL translation of the input program')
     arg_parser.add_argument('-v', dest='verbose', action='store_true',
                        help='Turn on verbose DEBUG logging')
+    arg_parser.add_argument('--dot-radish', dest='dot_radish', action='store_true', help='print out dot for Grappa plan')
     arg_parser.add_argument('--catalog', dest="catalog_path", default=None, help="[Optional] path to catalog file")
     arg_parser.add_argument('--plan', dest="from_repr", action='store_true', help="[Optional] input file is a plan as a python repr")
     arg_parser.add_argument('--key', action='append', help="May use this argument multiple times to specify additional arguments to compiler")
@@ -62,7 +80,6 @@ def parse_options(args):
 
     ns = arg_parser.parse_args(args)
     return ns
-
 
 
 def main(args):
@@ -109,24 +126,6 @@ def main(args):
             print "No MyriaL given"
         else:
             print statement_list
-    elif opt.federated:
-        sys.path.append("./SciDB-py")
-        from backends.myria.catalog import MyriaCatalog
-        from backends.myria.connection import MyriaConnection
-        import scidbpy
-
-        arg_file = './myria_connection.py'
-        with open(arg_file) as fh:
-            d = eval(fh.read())
-            conn = MyriaConnection(**d)
-            catalog = MyriaCatalog(conn)
-
-        processor = interpreter.StatementProcessor(catalog)
-        processor.evaluate(statement_list)
-        # TODO: Replace this with the new way of calling federated execution
-        #res = raco.run_federated.run(processor.get_logical_plan(), conn,
-        #                             scidbpy)
-        #print res
     else:
         if opt.from_repr:
             pd = PhysicalPlanDispatch(from_repr=plan_repr)
@@ -138,10 +137,17 @@ def main(args):
             if opt.from_repr:
                 raise "Options logical and --plan are incompatible"
             print_pretty_plan(processor.get_logical_plan())
+
         elif opt.dot:
             if opt.from_repr:
                 raise "Options dot and --plan are incompatible"
+
             print operator_to_dot(processor.get_logical_plan())
+        elif opt.dot_radish:
+            if opt.from_repr:
+                raise "Options dot and --plan are incompatible"
+
+            print operator_to_dot(pd.get_physical_plan(target_alg=GrappaAlgebra(),**kwargs))
         elif opt.json:
             ppj = pd.get_json()
             print(json.dumps(ppj))
@@ -157,10 +163,19 @@ def main(args):
                 raise "Options opt_logical and --plan are incompatible"
             print_pretty_plan(processor.get_physical_plan(
                 target_alg=OptLogicalAlgebra(), **kwargs))
-        elif opt.cpp:
+        elif opt.radish:
             # some useful kwargs
             # scan_array_repr='symmetric_array'
             pp = pd.get_physical_plan(target_alg=GrappaAlgebra(), **kwargs)
+            print_pretty_plan(pp)
+            c = compile(pp)
+            fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
+            with open(fname, 'w') as f:
+                f.write(c)
+        elif opt.cpp:
+            # some useful kwargs
+            # scan_array_repr='symmetric_array'
+            pp = pd.get_physical_plan(target_alg=CCAlgebra(), **kwargs)
             print_pretty_plan(pp)
             c = compile(pp)
             fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])

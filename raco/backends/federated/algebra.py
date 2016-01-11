@@ -12,6 +12,7 @@ import itertools
 
 from raco.backends.myria.catalog import MyriaCatalog
 from raco.backends.scidb.catalog import SciDBCatalog
+from raco.representation import RepresentationProperties
 
 class Federated(Language):
     pass
@@ -25,6 +26,9 @@ class FederatedOperator(algebra.ZeroaryOperator):
 
     def shortStr(self):
         return repr(self)
+
+    def partitioning(self):
+        return RepresentationProperties()
 
 
 class FederatedExec(FederatedOperator):

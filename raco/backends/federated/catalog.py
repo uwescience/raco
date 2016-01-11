@@ -2,6 +2,7 @@ from raco.catalog import Catalog
 import raco.scheme as scheme
 from raco.backends.scidb.catalog import SciDBCatalog
 from raco.types import INT_TYPE, FLOAT_TYPE
+from raco.representation import RepresentationProperties
 
 class FederatedCatalog(Catalog):
 
@@ -48,3 +49,6 @@ class FederatedCatalog(Catalog):
 
     def num_tuples(self, rel_key):
         return self._return_first("num_tuples", rel_key)
+
+    def partitioning(self, rel_key):
+        return RepresentationProperties()

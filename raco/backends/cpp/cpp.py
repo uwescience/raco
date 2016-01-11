@@ -129,6 +129,9 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
     def shortStr(self):
         return "%s" % (self.opname())
 
+    def partitioning(self):
+        raise NotImplementedError()
+
     def __eq__(self, other):
         """
     For what we are using MemoryScan for, the only use
@@ -457,6 +460,10 @@ class CFileScan(cppcommon.CBaseFileScan, CCOperator):
         return CC.cgenv().get_template('relation_declaration.cpp')
 
 
+class CSink(cppcommon.CBaseSink, CCOperator):
+    pass
+
+
 class CStore(cppcommon.CBaseStore, CCOperator):
 
     def __file_code__(self, t, state):
@@ -543,6 +550,7 @@ def clangify(emit_print):
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, CUnionAll),
         cppcommon.StoreToBaseCStore(emit_print, CStore),
+        rules.OneToOne(algebra.Sink, CSink),
 
         cppcommon.BreakHashJoinConjunction(CSelect, CHashJoin)
     ]

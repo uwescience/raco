@@ -1,0 +1,1 @@
+select a, b, MAX(c), SUM(b) from I3 group by a; -- seems wrong

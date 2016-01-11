@@ -112,6 +112,13 @@ class NEQ(BinaryComparisonOperator):
         return (self.left.evaluate(_tuple, scheme, state) !=
                 self.right.evaluate(_tuple, scheme, state))
 
+
+class LIKE(BinaryComparisonOperator):
+    literals = ["like"]
+
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError("TODO: use regex")
+
 reverse = {
     NEQ: NEQ,
     EQ: EQ,

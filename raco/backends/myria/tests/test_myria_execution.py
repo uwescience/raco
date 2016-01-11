@@ -34,6 +34,7 @@ def get_connection():
 def query(connection):
     # Get the physical plan for a test query
     catalog = MyriaCatalog(connection)
+    servers = catalog.get_num_servers()
 
     parser = myrialparser.Parser()
     processor = interpreter.StatementProcessor(catalog, True)
@@ -80,6 +81,7 @@ query_request = None
 def local_mock(url, request):
     global query_counter
     global query_request
+
     if url.path == '/query' and request.method == 'POST':
         # raise ValueError(type(request.body))
         body = query_status(json.loads(request.body), 17, 'ACCEPTED')
@@ -91,6 +93,10 @@ def local_mock(url, request):
             'schema': {
                 'columnNames': [u'name', u'pages'],
                 'columnTypes': ['STRING_TYPE', 'LONG_TYPE']
+            },
+            'howPartitioned': {
+                'pf': None,
+                'workers': None
             },
             'numTuples': 50
         }
@@ -109,12 +115,28 @@ def local_mock(url, request):
                 'content': body,
                 'headers': headers}
     elif url.path == '/query/validate':
-        return request.body
+        return {'status_code': 200, 'content': request.body}
+    elif url.path == '/workers/alive':
+        return {'status_code': 200, 'content': json.dumps([4])}
     elif url.path == '/query' and request.method == 'GET':
         body = {'max': 17, 'min': 1,
                 'results': [query_status(query_request, 17, 'ACCEPTED'),
                             query_status(query_request, 11, 'SUCCESS')]}
         return {'status_code': 200, 'content': body}
+    elif url.path == '/logs/sent' and request.method == 'GET':
+        # lazy test
+        return {'status_code': 200, 'content': request.body}
+    elif '/subquery' in url.path:
+        # lazy test
+        return {'status_code': 200, 'content': {'plan': 'fakeplan'}}
+    elif url.path == '/logs/profilingroots' and request.method == 'GET':
+        # lazy test
+        return {'status_code': 200, 'content': request.body}
+    elif url.path == '/logs/profiling' and request.method == 'GET':
+        # lazy test
+        return {'status_code': 200, 'content': request.body}
+    elif url.path == '/execute' and request.method == 'POST':
+        return {'status_code': 200, 'content': request.body}
 
     return None
 
@@ -138,6 +160,48 @@ class TestQuery(unittest.TestCase):
             query_request = query(self.connection)
             status = self.connection.execute_query(query_request["fragments"])
             self.assertNotEqual(status, None)
+
+    # TODO: fix these POST tests
+    # def test_execute_program(self):
+    #     global query_request
+    #     with HTTMock(local_mock):
+    #         query_request = query(self.connection)
+    #         status = self.connection.execute_program(
+    # query_request["rawQuery"])
+    #         self.assertNotEquals(status, None)
+
+    # def test_compile_program(self):
+    #     global query_request
+    #     with HTTMock(local_mock):
+    #         query_request = query(self.connection)
+    #         status = self.connection.compile_program(
+    # query_request["rawQuery"])
+    #         self.assertNotEquals(status, None)
+
+    def test_get_query_plan(self):
+        with HTTMock(local_mock):
+            status = self.connection.get_query_plan(17, 170)
+            self.assertNotEquals(status, None)
+
+    def test_get_sent_log(self):
+        with HTTMock(local_mock):
+            status = self.connection.get_sent_logs(17)
+            self.assertNotEquals(status, None)
+
+    def test_get_profiling_log(self):
+        with HTTMock(local_mock):
+            status = self.connection.get_profiling_log(17)
+            self.assertNotEquals(status, None)
+
+    def test_get_profiling_log_roots(self):
+        with HTTMock(local_mock):
+            status = self.connection.get_profiling_log_roots(17, 1)
+            self.assertNotEquals(status, None)
+
+    def test_upload_file(self):
+        with HTTMock(local_mock):
+            status = self.connection.upload_file("", [], "Hello")
+            self.assertNotEquals(status, None)
 
     def test_validate(self):
         global query_request

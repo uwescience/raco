@@ -2,6 +2,7 @@ import random
 import string
 import os
 from subprocess import check_call
+from c_index_strings import indexing
 
 
 def get_name(basename, fields):
@@ -67,6 +68,8 @@ def generate_strings(basename, fields, tuples, datarange):
                 if j < (fields - 1):
                     f.write(' ')
             f.write("\n")
+
+    indexing(fn, ' ')
 
 
 def generate_last_sequential(basename, fields, tuples, datarange):

@@ -227,6 +227,15 @@ class MyriaLPlatformTests(object):
         STORE(T1, OUTPUT);
         """, "scan")
 
+    def test_sink(self):
+        """
+        Sink still prints on verbose=2, so same as store for testing method
+        """
+        self.check_sub_tables("""
+        T1 = SCAN(%(T1)s);
+        SINK(T1);
+        """, "scan")
+
     def test_select(self):
         q = self.myrial_from_sql(['T1'], "select")
         self.check(q, "select")
@@ -465,6 +474,31 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "join_of_aggregate_of_join")
 
+    def test_join_two_types(self):
+        """
+        Makes sure that key types are not mixed up.
+        A related bug came up when input attribute types were
+        inadvertantly computed relative to a hashjoin schema instead of
+        the schema of its inputs
+        """
+        q = self.myrial_from_sql(["C3", "R3"], "join_two_types")
+        self.check(q, "join_two_types")
+
+    def test_join_of_two_aggregates(self):
+        """
+        Goal is to force aggregate result to be insert side of a hash join.
+        """
+        self.check_sub_tables("""
+        D2 = SCAN(%(D2)s);
+        D3 = SCAN(%(D3)s);
+        agg1 = select a, MIN(b) as mb from D2;
+        agg2 = select a, MIN(b) as mb from D3;
+        out = select agg1.a, agg2.a
+            from agg1, agg2
+            where agg1.mb = agg2.mb;
+        STORE(out, OUTPUT);
+        """, "test_join_of_two_aggregates")
+
     def test_common_index_allowed(self):
         q = self.myrial_from_sql(["R2", "T2"], "common_index_allowed")
         self.check(q, "common_index_allowed")
@@ -547,6 +581,22 @@ class MyriaLPlatformTests(object):
        STORE(P, OUTPUT);
        """, "countstar_string")
 
+    def test_like_begin_end(self):
+        q = self.myrial_from_sql(["C2"], "like_begin_end")
+        self.check(q, "like_begin_end")
+
+    def test_like_middle(self):
+        q = self.myrial_from_sql(["C2"], "like_middle")
+        self.check(q, "like_middle")
+
+    def test_like_end(self):
+        q = self.myrial_from_sql(["C2"], "like_end")
+        self.check(q, "like_end")
+
+    def test_like_begin(self):
+        q = self.myrial_from_sql(["C2"], "like_begin")
+        self.check(q, "like_begin")
+
     def test_aggregate_double(self):
         self.check_sub_tables("""
         D2 = SCAN(%(D2)s);
@@ -592,16 +642,32 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "directed_triangles", join_type='symmetric_hash')
 
-    def test_shuffle_hash_join(self):
+    def test_symmetric_hash_join_then_aggregate(self):
+        """to fix https://github.com/uwescience/raco/issues/477, caused by
+        multiple instances of a pipeline"""
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
         S2 = SCAN(%(S2)s);
         T2 = SCAN(%(T2)s);
-        j1 = JOIN(R2, b, S2, a);
-        j2 = JOIN(j1, $3, T2, a);
-        out = [FROM j2 WHERE $0 = $5 EMIT $0, $1, $3];
-        STORE(out, OUTPUT);
-        """, "directed_triangles", join_type='shuffle_hash')
+        j2 = select * from R2, S2, T2 where R2.b=S2.a and S2.a=T2.a;
+        a = select SUM($0), $1 from j2;
+        STORE(a, OUTPUT);
+        """, "join_then_aggregate", join_type='symmetric_hash')
+
+    def test_union_then_aggregate(self):
+        self.check_sub_tables("""
+        R2 = SCAN(%(R2)s);
+        S2 = SCAN(%(S2)s);
+        u = UNIONALL(R2, S2);
+        a = select SUM($0), $1 from u;
+        STORE(a, OUTPUT);
+        """, "union_then_aggregate")
+
+    def test_store_file(self):
+        self.check_sub_tables("""
+        T1 = SCAN(%(T1)s);
+        STORE(T1, OUTPUT);
+        """, "scan", emit_print='file')
 
     def test_q2(self):
         """

@@ -7,7 +7,7 @@ import raco.myrial.exceptions
 
 keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
             'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CSV', 'SCHEMA',
-            'UDA', 'TRUE', 'FALSE', 'CONNECT', 'EXPORTMYRIATOSCIDB']
+            'OPP', 'UDA', 'TRUE', 'FALSE', 'CONNECT', 'EXPORTMYRIATOSCIDB']
 
 types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN']
 
@@ -17,7 +17,7 @@ word_operators = ['AND', 'OR', 'NOT']
 
 builtins = ['EMPTY', 'WORKER_ID', 'SCAN', 'COUNTALL', 'COUNT', 'STORE',
             'DIFF', 'CROSS', 'JOIN', 'UNIONALL', 'INTERSECT', 'DISTINCT',
-            'LIMIT', 'SINK', 'SAMPLESCAN']
+            'LIMIT', 'SINK', 'SAMPLESCAN', 'LIKE']
 
 
 # identifiers with special meaning; case-insensitive
@@ -65,7 +65,6 @@ t_SEMI = r';'
 t_EQUALS = r'='
 t_COLON = r':'
 t_DOLLAR = r'\$'
-t_PERCENT = r'%'
 
 # Regular expressions for non-trivial tokens
 

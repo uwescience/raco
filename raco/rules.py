@@ -1,6 +1,6 @@
 import re
 
-from raco import algebra
+from raco import algebra, expression
 from raco import expression
 from .expression import (accessed_columns, UnnamedAttributeRef,
                          to_unnamed_recursive, RANDOM)
@@ -8,6 +8,8 @@ from .expression import (accessed_columns, UnnamedAttributeRef,
 from abc import ABCMeta, abstractmethod
 import itertools
 from raco.utility import colored
+from raco.expression import rebase_local_aggregate_output, StateVar, \
+    rebase_finalizer, UnnamedAttributeRef
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -26,27 +28,11 @@ class Rule(object):
     def __init__(self):
         self._disabled = False
 
-
-    def __call__(self, expr, writer):
-        '''Traverse the expression preorder, firing the rule'''
+    def __call__(self, expr):
         if self._disabled:
             return expr
         else:
-            def recursiverule(e):
-                # Fire the rule on the operator
-                newe = self.fire(e)
-
-                writer.write_if_enabled(newe, str(self))
-
-                LOG.debug("apply rule %s\n" +
-                          colored("  -", "red") + " %s" + "\n" +
-                          colored("  +", "green") + " %s", self, e, newe)
-
-                # ...then apply this recursive function to the children
-                newe.apply(recursiverule)
-
-                return newe
-            return recursiverule(expr)
+            return self.fire(expr)
 
     @classmethod
     def apply_disable_flags(cls, rule_list, *args):
@@ -68,7 +54,7 @@ class Rule(object):
 class BottomUpRule(Rule):
     '''Traverse the expression postorder and call the fire method on each node'''
 
-    def __call__(self, expr, writer):
+    def __call__(self, expr):
         if self._disabled:
             return expr
         else:
@@ -79,7 +65,7 @@ class BottomUpRule(Rule):
                 # ...then fire the rule on the root
                 newe = self.fire(e)
 
-                writer.write_if_enabled(newe, str(self))
+                # writer.write_if_enabled(newe, str(self))
 
                 LOG.debug("apply rule %s\n" +
                           colored("  -", "red") + " %s" + "\n" +
@@ -98,11 +84,11 @@ class TopDownRule(Rule):
 class ManualTraversalRule(Rule):
     '''Call the fire method on the root; the fire method handles the traversal'''
 
-    def __call__(self, expr, writer):
+    def __call__(self, expr):
         if self._disabled:
             return expr
         else:
-            writer.write_if_enabled(newe, str(rule))
+            # writer.write_if_enabled(newe, str(rule))
 
             LOG.debug("apply rule %s\n" +
                           colored("  -", "red") + " %s" + "\n" +
@@ -310,7 +296,7 @@ class DistinctToGroupBy(Rule):
         return expr
 
     def __str__(self):
-        return "Distinct => GroupBy"
+        return "Distinct => GroupBy(no groupings)"
 
 
 class EmptyGroupByToDistinct(Rule):
@@ -335,7 +321,7 @@ class EmptyGroupByToDistinct(Rule):
         return expr
 
     def __str__(self):
-        return "Distinct => GroupBy"
+        return "GroupBy(no groupings) => Distinct"
 
 
 class CountToCountall(Rule):
@@ -609,13 +595,19 @@ class PushApply(Rule):
                 return op
 
             unused_map = {i: j + num_grps for j, i in enumerate(accessed_aggs)}
-            child.aggregate_list = [child.aggregate_list[i - num_grps]
+
+            # copy the groupby operator so we can modify it
+            newgb = child.__class__()
+            newgb.copy(child)
+
+            # remove aggregates that are projected out
+            newgb.aggregate_list = [newgb.aggregate_list[i - num_grps]
                                     for i in accessed_aggs]
             for e in emits:
                 expression.reindex_expr(e, unused_map)
 
             return algebra.Apply(emitters=zip(op.get_names(), emits),
-                                 input=child)
+                                 input=newgb)
 
         return op
 
@@ -854,3 +846,165 @@ push_apply = [
     PushApply(),
     RemoveNoOpApply(),
 ]
+
+
+class DecomposeGroupBy(Rule):
+
+    """Convert a logical group by into a two-phase group by.
+
+    The local half of the aggregate before the shuffle step, whereas the remote
+    half runs after the shuffle step.
+
+    TODO: omit this optimization if the data is already shuffled, or
+    if the cardinality of the grouping keys is high.
+    """
+
+    def __init__(self, partition_groupby_class, only_fire_on_multi_key=None):
+        self._gb_class = partition_groupby_class
+        self._only_fire_on_multi_key = only_fire_on_multi_key
+        super(DecomposeGroupBy, self).__init__()
+
+    @staticmethod
+    def do_transfer(op):
+        """Introduce a network transfer before a groupby operation."""
+
+        # Get an array of position references to columns in the child scheme
+        child_scheme = op.input.scheme()
+        group_fields = [expression.toUnnamed(ref, child_scheme)
+                        for ref in op.grouping_list]
+        if len(group_fields) == 0:
+            # Need to Collect all tuples at once place
+            op.input = algebra.Collect(op.input)
+        else:
+            # Need to Shuffle
+            op.input = algebra.Shuffle(op.input, group_fields)
+
+    def fire(self, op):
+        # Punt if it's not a group by or we've already converted this into an
+        # an instance of self.gb_class
+        if op.__class__ != algebra.GroupBy:
+            return op
+
+        if self._only_fire_on_multi_key and len(op.grouping_list) == 0:
+            out_op = self._only_fire_on_multi_key()
+            out_op.copy(op)
+            return out_op
+
+        # Bail early if we have any non-decomposable aggregates
+        if not all(x.is_decomposable() for x in op.aggregate_list):
+            out_op = self._gb_class()
+            out_op.copy(op)
+            DecomposeGroupBy.do_transfer(out_op)
+            return out_op
+
+        num_grouping_terms = len(op.grouping_list)
+
+        local_emitters = []
+        local_statemods = []
+        remote_emitters = []
+        remote_statemods = []
+        finalizer_exprs = []
+
+        # The starting positions for the current local, remote aggregate
+        local_output_pos = num_grouping_terms
+        remote_output_pos = num_grouping_terms
+        requires_finalizer = False
+
+        for agg in op.aggregate_list:
+            # Multiple emit arguments can be associated with a single
+            # decomposition rule; coalesce them all together.
+            state = agg.get_decomposable_state()
+            assert state
+
+            ################################
+            # Extract the set of emitters and statemods required for the
+            # local aggregate.
+            ################################
+
+            laggs = state.get_local_emitters()
+            local_emitters.extend(laggs)
+            local_statemods.extend(state.get_local_statemods())
+
+            ################################
+            # Extract the set of emitters and statemods required for the
+            # remote aggregate.  Remote expressions must be rebased to
+            # remove instances of LocalAggregateOutput
+            ################################
+
+            raggs = state.get_remote_emitters()
+            raggs = [rebase_local_aggregate_output(x, local_output_pos)
+                     for x in raggs]
+            remote_emitters.extend(raggs)
+
+            rsms = state.get_remote_statemods()
+            for sm in rsms:
+                update_expr = rebase_local_aggregate_output(
+                    sm.update_expr, local_output_pos)
+                remote_statemods.append(
+                    StateVar(sm.name, sm.init_expr, update_expr))
+
+            ################################
+            # Extract any required finalizers.  These must be rebased to remove
+            # instances of RemoteAggregateOutput
+            ################################
+
+            finalizer = state.get_finalizer()
+            if finalizer is not None:
+                requires_finalizer = True
+                finalizer_exprs.append(
+                    rebase_finalizer(finalizer, remote_output_pos))
+            else:
+                for i in range(len(raggs)):
+                    finalizer_exprs.append(
+                        UnnamedAttributeRef(remote_output_pos + i))
+
+            local_output_pos += len(laggs)
+            remote_output_pos += len(raggs)
+
+        ################################
+        # Glue together the local and remote aggregates:
+        # Local => Shuffle => Remote => (optional) Finalizer.
+        ################################
+
+        local_gb = self._gb_class(op.grouping_list, local_emitters, op.input,
+                                  local_statemods)
+
+        grouping_fields = [UnnamedAttributeRef(i)
+                           for i in range(num_grouping_terms)]
+
+        remote_gb = self._gb_class(grouping_fields, remote_emitters, local_gb,
+                                   remote_statemods)
+
+        DecomposeGroupBy.do_transfer(remote_gb)
+
+        if requires_finalizer:
+            # Pass through grouping terms
+            gmappings = [(None, UnnamedAttributeRef(i))
+                         for i in range(num_grouping_terms)]
+            fmappings = [(None, fx) for fx in finalizer_exprs]
+            return algebra.Apply(gmappings + fmappings, remote_gb)
+        return remote_gb
+
+
+# 7. distributed groupby
+# this need to be put after shuffle logic
+def distributed_group_by(
+        partition_groupby_class,
+        countall_rule=True,
+        **kwargs):
+    r = [
+        # DecomposeGroupBy may introduce a complex GroupBy,
+        # so we must run SimpleGroupBy after it. TODO no one likes this.
+        DecomposeGroupBy(partition_groupby_class, **kwargs),
+        SimpleGroupBy()
+    ]
+
+    if countall_rule:
+        r.append(CountToCountall())   # TODO revisit when we have NULL support.
+
+    r += [
+        DedupGroupBy(),
+        EmptyGroupByToDistinct(),
+    ]
+
+    return r
