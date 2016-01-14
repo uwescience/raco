@@ -32,7 +32,14 @@ class Rule(object):
         if self._disabled:
             return expr
         else:
-            return self.fire(expr)
+            def recursiverule(e):
+                # Fire the rule on the operator
+                newe = self.fire(e)
+                # ... then apply this recursive function to the children
+                newe.apply(recursiverule)
+
+                return newe
+            return recursiverule(expr)
 
     @classmethod
     def apply_disable_flags(cls, rule_list, *args):

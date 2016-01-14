@@ -59,23 +59,7 @@ def optimize_by_rules(expr, rules):
     writer.write_if_enabled(expr, "before rules")
 
     for rule in rules:
-        def recursiverule(e):
-            newe = rule(e)
-            writer.write_if_enabled(newe, str(rule))
-
-            # log the optimizer step
-            if str(e) == str(newe):
-                LOG.debug("apply rule %s (no effect)\n" +
-                          " %s \n", rule, e)
-            else:
-                LOG.debug("apply rule %s\n" +
-                          colored("  -", "red") + " %s" + "\n" +
-                          colored("  +", "green") + " %s", rule, e, newe)
-
-            newe.apply(recursiverule)
-
-            return newe
-        expr = recursiverule(expr)
+        expr = rule(expr)
 
     return expr
 
