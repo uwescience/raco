@@ -12,6 +12,7 @@ import itertools
 
 from raco.backends.myria.catalog import MyriaCatalog
 from raco.backends.scidb.catalog import SciDBCatalog
+from raco.backends.spark.catalog import SparkCatalog
 from raco.representation import RepresentationProperties
 
 class Federated(Language):
@@ -180,21 +181,7 @@ class Dispatch(rules.Rule):
                 return RunAQL(aql, expr.catalog)
 
 
-
-'''
-class ToSciDB(rules.Rule):
-    pass
-    # One strategy: start from datasets in SciDB, grow fragments until you hit
-    # operators you don't want to do in SciDB
-    #
-class LoopUnroll(rules.Rule):
-    def fire(self, op):
-        if isinstance(op, algebra.DoWhile):
-
-'''
-
-
-class SplitSciDBToMyria(rules.BottomUpRule):
+class SplitBackend(rules.BottomUpRule):
     err = "Expected child op {} to be a federated plan.  \
 Maybe rule traversal is not bottom-up?"
 
@@ -334,6 +321,146 @@ Maybe rule traversal is not bottom-up?"
         assert False, "{op} --- is not supported".format(op = op)
         return op
 
+class SplitSparkToMyria(rules.BottomUpRule):
+    err = "Expected child op {} to be a federated plan.  \
+Maybe rule traversal is not bottom-up?"
+
+    def __init__(self, catalog):
+        # Assumes this is a Federated Catalog
+        self.federatedcatalog = catalog
+        super(self.__class__, self).__init__()
+
+    @classmethod
+    def checkchild(cls, child):
+        if not isinstance(child, FederatedOperator):
+            raise ValueError(cls.err.format(child))
+
+    def fire(self, op):
+        # print type(op)
+        if isinstance(op, raco.algebra.Scan):
+            # TODO: Assumes each relation is in only one catalog
+            cat = self.federatedcatalog.sourceof(op.relation_key)
+            newop = FederatedExec(op, cat)
+            return newop
+
+        if isinstance(op, raco.algebra.ScanTemp):
+            # TODO: Assumes each relation is in only one catalog
+            cat = self.federatedcatalog.get_catalog(op.name)
+            newop = FederatedExec(op, cat)
+            return newop
+
+        if isinstance(op, raco.algebra.EmptyRelation):
+            # Assuming empty relations are scidb for now
+            return FederatedExec(op, self.federatedcatalog.get_scidb_catalog())
+
+        if isinstance(op, raco.algebra.UnaryOperator):
+           self.checkchild(op.input)
+
+           if isinstance(op, raco.algebra.StoreTemp):
+               self.federatedcatalog.add_to_temp_relations(op.name, op.input.catalog)
+
+           execop = op.input
+           # Absorb the current operator into the Exec
+           op.input = op.input.plan
+           execop.plan = op
+
+           return execop
+
+        if isinstance(op, raco.algebra.BinaryOperator):
+           self.checkchild(op.left)
+           self.checkchild(op.right)
+
+           leftcatalog = op.left.catalog
+           rightcatalog = op.right.catalog
+
+           if leftcatalog == rightcatalog:
+               op.left = op.left.plan
+               op.right = op.right.plan
+               newexec = FederatedExec(op, leftcatalog)
+               return newexec
+
+           else:
+               if isinstance(leftcatalog, MyriaCatalog) and \
+                             isinstance(rightcatalog, SparkCatalog):
+                       # We need to move a dataset
+
+                   # Give it a name
+                   movedrelation = RelationKey(raco.algebra.gensym())
+
+                   # Add a store operation on the Spark side
+                   sparkwork = op.right
+                   sparkwork.plan = raco.algebra.Store(movedrelation, sparkwork.plan)
+
+
+                   # Create the Move operator
+                   mover = FederatedMove(movedrelation,
+                                         rightcatalog,
+                                         movedrelation,
+                                         leftcatalog)
+
+                   # Wrap the current operator on Myria
+                   myriawork = op.left
+                   op.left = op.left.plan
+                   # insert a scan of the moved relation on the Myria side
+                   op.right = raco.algebra.Scan(movedrelation)
+                   myriawork.plan = op
+
+                   # Create a Sequence operator to define execution order
+                   federatedplan = FederatedSequence([sparkwork, mover, myriawork])
+
+                   return federatedplan
+
+               elif isinstance(rightcatalog, MyriaCatalog) and \
+                             isinstance(leftcatalog, SparkCatalog):
+                   # We need to move a dataset; flipped repetition of above
+                   # TODO: abstract this better
+
+                   # Give it a name
+                   movedrelation = RelationKey(raco.algebra.gensym())
+
+                   # Add a store operation on the Spark side
+                   sparkwork = op.left
+                   sparkwork.plan = raco.algebra.Store(movedrelation, sparkwork.plan)
+
+
+                   # Create the Move operator
+                   mover = FederatedMove(movedrelation,
+                                         leftcatalog,
+                                         movedrelation,
+                                         rightcatalog)
+
+                   # Wrap the current operator on Myria
+                   myriawork = op.right
+                   op.right = op.right.plan
+                   # insert a scan of the moved relation on the Myria side
+                   op.left = raco.algebra.Scan(movedrelation)
+                   myriawork.plan = op
+
+                   # Create a Sequence operator to define execution order
+                   federatedplan = FederatedSequence([sparkwork, mover, myriawork])
+
+                   return federatedplan
+
+               else:
+                   template = "Expected Myria or Spark catalogs, got {}, {}"
+                   msg = template.format(leftcatalog, rightcatalog)
+                   raise NotImplementedError(msg)
+
+        elif isinstance(op, raco.algebra.NaryOperator):
+            # We have a hybrid plan
+            if isinstance(op, raco.algebra.Sequence):
+                return FederatedSequence(op.args)
+
+            if isinstance(op, raco.algebra.Parallel):
+                return FederatedParallel(op.args)
+
+            if isinstance(op, raco.algebra.DoWhile):
+                return FederatedDoWhile(op.args)
+
+
+        assert False, "{op} --- is not supported".format(op = op)
+        return op
+
 
 class FlattenSingletonFederatedSequence(rules.TopDownRule):
     def fire(self, op):
@@ -359,7 +486,7 @@ class FederatedAlgebra(Algebra):
         fedrules = [
         [rules.CrossProduct2Join()],
         rules.push_select,
-        [SplitSciDBToMyria(self.federatedcatalog)],
+        [SplitSparkToMyria(self.federatedcatalog)],
         [FlattenSingletonFederatedSequence()]]
                     #Dispatch()]
         return list(itertools.chain(*fedrules))

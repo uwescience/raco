@@ -6,6 +6,10 @@ from raco.backends.scidb.connection import SciDBConnection
 from raco.backends.scidb.catalog import SciDBCatalog
 from raco.backends.scidb.algebra import SciDBAFLAlgebra, SciDBScan, SciDBStore, SciDBConcat
 
+from raco.backends.spark.connection import SparkConnection
+from raco.backends.spark.catalog import SparkCatalog
+from raco.backends.spark.algebra import SparkAlgebra
+
 from raco.backends.myria.connection import MyriaConnection
 from raco.backends.myria.catalog import MyriaCatalog
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra
@@ -97,7 +101,7 @@ store(m,mult);
 """
 
 program_test_project_dimension ="""
-abc = scan(abc);
+abc = scan('/users/shrainik/downloads/sample.dat');
 b = [from abc where abc.i>0 emit value ];
 store(b, proj_dim);
 """
@@ -260,6 +264,13 @@ def get_scidb_connection():
 
     return connection
 
+def get_spark_connection():
+    if skip('RACO_SPARK_TESTS'):
+        # TODO: This is where the connection initialization will go.
+        connection = SparkConnection('local')
+    else:
+        connection = SparkConnection('local')
+    return connection
 
 def query(myriaconnection, scidbconnection, program):
 
@@ -311,6 +322,58 @@ def query(myriaconnection, scidbconnection, program):
 
     # return result
     # return logical
+
+def query_spark(myriaconnection, sparkconnection, program):
+
+    if not program:
+        myrial_code = program_test_project_dimension
+    else:
+        with open(program, 'r') as content_file:
+            myrial_code = content_file.read()
+
+    myriacatalog = MyriaCatalog(myriaconnection)
+    sparkcatalog = SparkCatalog(sparkconnection)
+
+    catalog = FederatedCatalog([myriacatalog, sparkcatalog])
+
+    parser = myrialparser.Parser()
+
+    # TODO: StatementProcessor needs catalog to typecheck relation keys
+    # but the Algebra/Rules need the catalog to during optimization
+    # Do we really need it both places?
+    processor = interpreter.StatementProcessor(catalog, True)
+
+    statement_list = parser.parse(myrial_code)
+    #
+    processor.evaluate(statement_list)
+    #
+    # # TODO: Should we just have every algebra take a catalog object as a parameter?
+    algebras = [MyriaLeftDeepTreeAlgebra(), SparkAlgebra()]
+    falg = FederatedAlgebra(algebras, catalog)
+    #
+    logical = processor.get_logical_plan()
+    print "LOGICAL"
+    print logical
+    print 'dot version of logical plan'
+    print raco.viz.operator_to_dot(logical)
+    #
+    pd = processor.get_physical_plan(target_alg=falg)
+    # pd = processor.get_physical_plan(target_alg=SparkAlgebra())
+    #
+    print "PHYSICAL"
+    print pd
+    #
+    print 'dot version of physical plan'
+    print raco.viz.operator_to_dot(pd)
+    sparkconnection.execute_query(pd.args[0].plan)
+
+    # fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
+
+        # result = fedconn.execute_query(program)
+
+    # return result
+    # return logical
+
 
 def empty_query():
     """Simple empty query"""
@@ -392,6 +455,8 @@ if __name__ == '__main__':
     with HTTMock(local_mock):
         myriaconn = get_myria_connection()
         scidbconn = get_scidb_connection()
-        query(myriaconn, scidbconn, options.program)
+        sparkconn = get_spark_connection()
+        # query(myriaconn, scidbconn, options.program)
+        query_spark(myriaconn, sparkconn, options.program)
 
 
