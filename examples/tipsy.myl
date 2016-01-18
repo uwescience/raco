@@ -1,0 +1,3 @@
+t = load("https://s3-us-west-2.amazonaws.com/uwdb/sampleData/sampleTipsy/cosmo8.33PLK.256g3bwK1C52.000970", tipsy(group="amiga"));
+--t = load("baz", tipsy);
+store(t, t);

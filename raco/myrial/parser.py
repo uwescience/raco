@@ -611,11 +611,15 @@ class Parser(object):
         """file_parser_fun : CSV LPAREN \
    schema_fun COMMA option_list RPAREN
  | CSV LPAREN schema_fun RPAREN
- | OPP LPAREN RPAREN"""
+ | OPP LPAREN RPAREN
+ | TIPSY LPAREN option_list RPAREN
+ | TIPSY"""
         if len(p) == 7:
             format, schema, options = (p[1], p[3], dict(p[5]))
         elif len(p) == 5:
-            format, schema, options = (p[1], p[3], {})
+            format = p[1]
+            schema = p[3] if p[1] != 'TIPSY' else []
+            options = {} if p[1] != 'TIPSY' else dict(p[3])
         else:
             format, schema, options = (p[1], [], {})
         p[0] = (format, schema, options)
