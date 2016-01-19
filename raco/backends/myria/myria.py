@@ -194,8 +194,9 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
         elif self.format == 'TIPSY':
             encoding['opType'] = "TipsyFileScan"
             encoding['tipsyFilename'] = self.path
-            encoding['grpFilename'] = self.path + '.grp' if 'group' not in self.options \
-                                        else '{}.{}.grp'.format(self.path, self.options['group'])
+            encoding['grpFilename'] = self.path + '.grp' \
+                if 'group' not in self.options \
+                else '{}.{}.grp'.format(self.path, self.options['group'])
             encoding['iorderFilename'] = self.path + '.iord'
             del encoding['source']
             del encoding['group']
