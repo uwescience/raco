@@ -130,7 +130,7 @@ class MyriaConnection(object):
                 raise
             raise MyriaError(e)
 
-    def _make_request(self, method, url, body="", params={},
+    def _make_request(self, method, url, body=None, params=None,
                       accept=JSON, get_request=False):
         headers = {
             'Accept': accept
