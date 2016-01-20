@@ -134,7 +134,7 @@ def local_mock(url, request):
         return {'status_code': 200, 'content': request.body}
     elif url.path == '/logs/profiling' and request.method == 'GET':
         # lazy test
-        return {'status_code': 200, 'content': request.body}
+        return {'status_code': 200, 'content': request.body or ""}
     elif url.path == '/execute' and request.method == 'POST':
         return {'status_code': 200, 'content': request.body}
 
