@@ -123,7 +123,7 @@ def local_mock(url, request):
                 'content': body,
                 'headers': headers}
     elif url.path == '/query/validate':
-        return {'status_code': 200, 'content': request.body}
+        return {'status_code': 200, 'content': request.body or ""}
     elif url.path == '/workers/alive':
         return {'status_code': 200, 'content': json.dumps([4])}
     elif url.path == '/query' and request.method == 'GET':
@@ -133,18 +133,18 @@ def local_mock(url, request):
         return {'status_code': 200, 'content': body}
     elif url.path == '/logs/sent' and request.method == 'GET':
         # lazy test
-        return {'status_code': 200, 'content': request.body}
+        return {'status_code': 200, 'content': request.body or ""}
     elif '/subquery' in url.path:
         # lazy test
         return {'status_code': 200, 'content': {'plan': 'fakeplan'}}
     elif url.path == '/logs/profilingroots' and request.method == 'GET':
         # lazy test
-        return {'status_code': 200, 'content': request.body}
+        return {'status_code': 200, 'content': request.body or ""}
     elif url.path == '/logs/profiling' and request.method == 'GET':
         # lazy test
         return {'status_code': 200, 'content': request.body or ""}
     elif url.path == '/execute' and request.method == 'POST':
-        return {'status_code': 200, 'content': request.body}
+        return {'status_code': 200, 'content': request.body or ""}
 
     return None
 
