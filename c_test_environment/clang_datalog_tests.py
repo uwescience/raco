@@ -16,7 +16,6 @@ import os
 
 class DatalogClangTest(unittest.TestCase, DatalogPlatformTest):
     def check(self, query, name):
-        raise SkipTest()
         with Chdir("c_test_environment") as d:
             os.remove("%s.cpp" % name) if os.path.exists("%s.cpp" % name) else None
             emitCode(query, name, clang.CCAlgebra)
