@@ -6,6 +6,7 @@ from generate_test_relations import need_generate
 from raco.backends.cpp import CCAlgebra
 from raco.platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
 from raco.compile import compile
+from nose.plugins.skip import SkipTest
 
 import sys
 sys.path.append('./examples')
@@ -20,6 +21,7 @@ import raco.viz as viz
 
 class MyriaLClangTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
     def check(self, query, name, **kwargs):
+        raise SkipTest()
         kwargs['target_alg'] = CCAlgebra()
         plan = self.get_physical_plan(query, **kwargs)
         physical_dot = viz.operator_to_dot(plan)
