@@ -10,7 +10,9 @@ __all__ = ['FederatedConnection']
 # os.environ['SPARK_HOME']="your_spark_home_folder"
 
 # Append pyspark to Python Path
-sys.path.append("/Users/shrainik/Downloads/spark-1.6.0-bin-hadoop2.6/python")
+sys.path.append(os.path.join(os.environ['SPARK_HOME'],"python"))
+
+
 try:
     from pyspark import SparkContext
     from pyspark import SparkConf
@@ -20,7 +22,7 @@ try:
     print ("Successfully imported Spark Modules")
 
 except ImportError as e:
-    print ("Cannot import Spark Modules", e)
+    raise
 
 class SparkConnection(object):
     """A Spark connection wrapper"""
@@ -32,7 +34,8 @@ class SparkConnection(object):
         """
         self.url = url
         self.context = SparkContext('local')
-        self.context.addPyFile('/Users/shrainik/Dropbox/raco/raco/backends/spark/pyspark_csv.py')
+        sparkcsv_python_file = os.path.join(os.path.dirname(__file__),"pyspark_csv.py")
+        self.context.addPyFile(sparkcsv_python_file)
         import pyspark_csv as pycsv
         self.sqlcontext = SQLContext(self.context)
 
