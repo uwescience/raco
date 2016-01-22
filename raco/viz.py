@@ -1,5 +1,5 @@
 from raco import algebra
-
+from graphviz import Digraph
 
 def graph_to_dot(graph, **kwargs):
     """Graph is expected to be a dict of the form { 'nodes' : list(), 'edges' :
@@ -32,7 +32,7 @@ def graph_to_dot(graph, **kwargs):
 }"""
 
     # Nodes:
-    nodes = ['"%s" [label="%s"] ;' % (id(n), n.shortStr().replace(r'"', r'\"'))
+    nodes = ['"%s" [label="%s"] ;' % (id(n), n.shortStr().replace(r'"', r'\"') + str(n.scheme()))
              for n in graph['nodes']]
     node_str = '\n      '.join(nodes)
 
@@ -48,6 +48,11 @@ def operator_to_dot(operator, graph=None, **kwargs):
     graph = operator.collectGraph(graph)
     return graph_to_dot(graph, **kwargs)
 
+def operator_to_dot_object(operator, graph=None, **kwargs):
+    """Operator is expected to be an object of class raco.algebra.Operator"""
+    graph = operator.collectGraph(graph)
+    return graph_to_dot_object(graph, **kwargs)
+
 
 def get_dot(obj):
     if isinstance(obj, dict) and 'nodes' in dict and 'edges' in dict:
@@ -55,3 +60,18 @@ def get_dot(obj):
     elif isinstance(obj, algebra.Operator):
         return operator_to_dot(obj)
     raise NotImplementedError('Unable to get dot from object type %s' % type(obj))  # noqa
+
+def graph_to_dot_object(graph, **kwargs):
+    """Graph is expected to be a dict of the form { 'nodes' : list(), 'edges' :
+    list() }. This function returns a string that will be input to dot."""
+
+
+    title = kwargs.get('title', '')
+    dot = Digraph(comment = title)
+
+    for n in graph['nodes']:
+        dot.node(str(id(n)), n.shortStr().replace(r'"', r'\"'))
+    for (x,y) in graph['edges']:
+        dot.edge(str(id(x)), str(id(y)))
+
+    return dot
