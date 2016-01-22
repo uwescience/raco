@@ -23,6 +23,7 @@ import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
 from optparse import OptionParser
 
+from raco.compile import optimize
 import raco.viz
 from raco.backends.federated.movers.filesystem import SciDBToMyria
 
@@ -37,7 +38,7 @@ store(b, filtered_array);
 """
 
 program_mcl = """
-matA = scan(shbae:matrices:undirNet_1000_sm);
+matA = scan('/users/shrainik/downloads/sample_small.dat');
 
 -- define constant values as singleton tables.
 epsilon = [0.001];
@@ -52,20 +53,22 @@ do
     oldchaos = newchaos;
 
     -- square matA
-    AxA = [from matA as A, matA as B
-           where A.col == B.row
-           emit A.row as row, B.col as col, sum(A.value * B.value) as value];
+    A = [from matA emit col as col_a, row as row_a, value as val_a];
+    B = [from matA emit col as col_b, row as row_b, value as val_b];
+    AxA = [from A, B
+           where col_a == row_b
+           emit row_a as row, col_b as col, sum(val_a * val_b) as value];
 
     -- inflate operation
     -- value will be value^2
-    squareA = [from AxA emit row as row, col as col, value * value as value];
+    squareA = [from AxA emit row, col, value * value as value];
 
     colsums = [from squareA
-               emit squareA.col as col, sum(squareA.value) as colsum];
+               emit squareA.col as col_c, sum(squareA.value) as colsum];
 
     -- normalize newMatA
     newMatA = [from squareA, colsums
-               where squareA.col == colsums.col
+               where squareA.col == colsums.col_c
                emit squareA.row as row, squareA.col as col, squareA.value/colsums.colsum as value];
 
     -- pruning
@@ -75,12 +78,12 @@ do
 
     -- calculate newchaos
     colssqs = [from prunedA
-               emit prunedA.col as col, sum (prunedA.value * prunedA.value) as sumSquare];
+               emit prunedA.col as col_sqs, sum (prunedA.value * prunedA.value) as sumSquare];
     colmaxs = [from prunedA
-               emit prunedA.col as col, max (prunedA.value) as maxVal];
+               emit prunedA.col as col_max, max (prunedA.value) as maxVal];
 
     newchaos = [from colmaxs, colssqs
-                where colmaxs.col == colssqs.col
+                where colmaxs.col_max == colssqs.col_sqs
                 emit max (colmaxs.maxVal - colssqs.sumSquare)];
 
     -- prepare for the iteration.
@@ -90,7 +93,7 @@ do
     continue = [from newchaos, oldchaos emit (*oldchaos - *newchaos) > *epsilon];
 while continue;
 
-store (newchaos, OUTPUT_undirNet_10k_newchaos);
+store (newchaos, '/users/shrainik/downloads/output.dat');
 """
 
 program_multiply = """
@@ -326,7 +329,7 @@ def query(myriaconnection, scidbconnection, program):
 def query_spark(myriaconnection, sparkconnection, program):
 
     if not program:
-        myrial_code = program_join
+        myrial_code = program_mcl
     else:
         with open(program, 'r') as content_file:
             myrial_code = content_file.read()
@@ -365,7 +368,8 @@ def query_spark(myriaconnection, sparkconnection, program):
     #
     print 'dot version of physical plan'
     print raco.viz.operator_to_dot(pd)
-    sparkconnection.execute_query(pd.args[0].plan)
+    physical_plan = optimize(query, SparkAlgebra())
+    sparkconnection.execute_query(physical_plan)
 
     # fedconn = FederatedConnection([myriaconnection, scidbconnection], [SciDBToMyria()])
 
