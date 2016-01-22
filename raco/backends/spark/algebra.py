@@ -3,10 +3,12 @@ import itertools
 
 from raco import rules
 from raco.backends import Language, Algebra
+from raco.backends.federated import *
 from raco import algebra
+from raco.scheme import Scheme
 from raco.expression import *
 
-
+from copy import copy
 class SparkLanguage(Language):
     pass
 
@@ -14,10 +16,15 @@ class SparkLanguage(Language):
 LOGGER = logging.getLogger(__name__)
 
 
+
 class SparkOperator(object):
     pass
 
 class SparkScan(algebra.Scan, SparkOperator):
+    def compileme(self):
+        return "scan({})".format(str(self.relation_key).split(':')[-1])
+
+class SparkScanTemp(algebra.ScanTemp, SparkOperator):
     def compileme(self):
         return "scan({})".format(str(self.relation_key).split(':')[-1])
 
@@ -31,12 +38,12 @@ class SparkConcat(algebra.UnionAll, SparkOperator):
 
 class SparkSelect(algebra.Select, SparkOperator):
     def compileme(self, input):
-        return "filter({}, {})".format(input, remove_unnamed_literals(self.scheme(), self.condition))
+        return "filter({}, {})".format(input, remove_unnamed_literals(self, self.condition))
         # return "filter({}, {})".format(input, compile_expr(self.condition, self.scheme(), None))
 
 class SparkJoin(algebra.Join, SparkOperator):
     def compileme(self, left, right):
-        return "join({},{})".format(left, right)
+        return "{}.join({}, {})".format(left, right, remove_unnamed_literals(self, self.condition))
 
 class SparkProject(algebra.Project, SparkOperator):
     def compileme(self, input):
@@ -58,119 +65,32 @@ class SparkAggregate(algebra.GroupBy, SparkOperator):
 
 class SparkApply(algebra.Apply, SparkOperator):
     def compileme(self, input):
-        return "apply({}, {})".format(input, ",".join([remove_unnamed_literals(self.input.scheme(), str(x))
+        return "apply({}, {})".format(input, ",".join([remove_unnamed_literals(self.input, str(x))
                                                        for x in list(itertools.chain(*self.emitters))]))
 
+class SparkGroupBy(algebra.GroupBy, SparkOperator):
+    def compileme(self, input):
+        # Todo: fix later, doesn't matter right now. Till compile to scala is working.
+        return "GroupBy"
+
+class SparkOrderBy(algebra.OrderBy, SparkOperator):
+    def compileme(self, input):
+        # Todo: fix later, doesn't matter right now. Till compile to scala is working.
+        return "OrderBy"
+
+class SparkStoreTemp(algebra.StoreTemp, SparkOperator):
+    def compileme(self, input):
+        return "StoreTemp"
+
+class SparkSequence(algebra.Sequence, SparkOperator):
+    def compileme(self, input):
+        return "Sequence"
+
+class SparkDoWhile(algebra.DoWhile, SparkOperator):
+    def compileme(self, input):
+        return "DoWhile"
+
 ### RULES
-
-class GroupByAndJoinToMult(rules.Rule):
-    def fire(self, expr):
-        # if not isinstance(expr, algebra.Apply):
-        #     return expr
-        # if not isinstance(expr.input, algebra.GroupBy):
-        #     return expr
-        # expr = expr.input
-        # if not isinstance(expr, algebra.GroupBy):
-        #     return expr
-        # if not isinstance(expr.input, algebra.Join):
-        #     return expr
-        # left_schema = expr.input.left.scheme().get_names()
-        # right_schema = expr.input.right.scheme().get_names()
-        #
-        # # Identified a Join --> GroupBy pair.
-        # if len(expr.column_list()) != 3: #checking if groupby on 3 columns, 2 dims and 1 aggregate
-        #     return expr
-        # attrs = 0
-        # agts = 0
-        # for c in expr.column_list():
-        #     if isinstance(c, NamedAttributeRef):
-        #         attrs +=1
-        #     elif isinstance(c, SUM):
-        #         agts +=1
-        # if attrs!=2 and agts!=1:
-        #     return expr
-        #
-        # if len(expr.aggregate_list) != 1:
-        #     return expr
-        # if not isinstance(expr.aggregate_list[0], SUM):
-        #     return expr
-        # if not isinstance(expr.aggregate_list[0].input, TIMES):
-        #     return expr
-        # if not isinstance(expr.aggregate_list[0].input.left, NamedAttributeRef):
-        #     return expr
-        # if not isinstance(expr.aggregate_list[0].input.right, NamedAttributeRef):
-        #     return expr
-        # val_attr1 = expr.aggregate_list[0].input.left.name
-        # val_attr2 = expr.aggregate_list[0].input.right.name
-        # if val_attr1 in left_schema:
-        #     left_schema.remove(val_attr1)
-        # if val_attr2 in left_schema:
-        #     left_schema.remove(val_attr2)
-        # if val_attr1 in right_schema:
-        #     right_schema.remove(val_attr1)
-        # if val_attr2 in right_schema:
-        #     right_schema.remove(val_attr2)
-        #
-        # if len(left_schema) != len(right_schema) and len(left_schema) !=2:
-        #     return expr
-        #
-        # for c in expr.column_list():
-        #     if isinstance(c, NamedAttributeRef):
-        #         if c.name in left_schema:
-        #             left_schema.remove(c.name)
-        #         if c.name in right_schema:
-        #             right_schema.remove(c.name)
-        #
-        # if len(left_schema) != len(right_schema) and len(left_schema) !=1:
-        #     return expr
-        #
-        # # Checking if join predicate is an equality between attributes
-        # # For some reason the join predicate has the form ((1=1) and ($2=$4)), the (1=1) condition is useless, ignoring.
-        # if not isinstance(expr.input.condition, AND):
-        #     print 'Not AND'
-        #     return expr
-        # if not isinstance(expr.input.condition.right, EQ):
-        #     print expr.input.condition
-        #     print 'Not EQ'
-        #     return expr
-        # print remove_unnamed_literals(expr.input.scheme(), expr.input.condition.right)
-        # if not isinstance(expr.input.condition.right.left, UnnamedAttributeRef):
-        #     print 'Not named ref left'
-        #     return expr
-        # if not isinstance(expr.input.condition.right.right, UnnamedAttributeRef):
-        #     print 'Not named ref right'
-        #     return expr
-        # left = remove_unnamed_literals(expr.input.scheme(), expr.input.condition.right.left)
-        # right = remove_unnamed_literals(expr.input.scheme(), expr.input.condition.right.right)
-        #
-        # if left in left_schema:
-        #     left_schema.remove(left)
-        # if right in left_schema:
-        #     left_schema.remove(right)
-        # if left in right_schema:
-        #     right_schema.remove(left)
-        # if right in right_schema:
-        #     right_schema.remove(right)
-        #
-        # if len(left_schema) != len(right_schema) and len(left_schema) !=0:
-        #     return expr
-        #
-        # # TODO: This is still not finished,
-        # # we still don't know if the arrays involved have a shape that can be multiplied.
-        # # as we have no way of distinguishing between dimensions and attributes.
-        # print 'All conditions matched, replacing Join--> Groupby with mult'
-        #
-        # newop = SciDbMult() # this step hopefully keeps the schema intact.
-        # newop.copy(expr)
-        # # but we need the info about left and right for the mult, so adding it ourselves, hurray dynamic typing!
-        # newop.left = expr.input.left
-        # newop.right = expr.input.right
-        # newop.isMult = True # TODO: THIS IS BAD. But got no other way to let other rules know about this.
-        # return newop
-        return expr
-
-    def __str__(self):
-        return "GroupBy_plus_Join => SciDbMULT"
 
 class ApplyToApplyProject(rules.BottomUpRule):
     def fire(self, expr):
@@ -194,51 +114,50 @@ class ApplyToApplyProject(rules.BottomUpRule):
     def __str__(self):
         return "SciDBApply => SciDBApply followed by a SciDbProject"
 
-class GroupByToAggregate(rules.BottomUpRule):
+class GroupByToGroupByApply(rules.Rule):
     def fire(self, expr):
-        # if isinstance(expr, algebra.GroupBy):
-        #     if hasattr(expr, 'isMult'):
-        #         return expr
-        #     # Todo: Assuming for now that the grouping list consists of only dimensions. Fix Later.
-        #     scidbagg = SciDBAggregate(expr.grouping_list, expr.aggregate_list, expr.input)
-        #     return scidbagg
+        if isinstance(expr, algebra.GroupBy):
+            for aggr in expr.aggregate_list:
+                if not (isinstance(aggr.input, NamedAttributeRef) or isinstance(aggr.input, UnnamedAttributeRef)):
+                    # print type(aggr.input)
+                    # The aggr is a function.
+                    # Spark doesn't support this, so we will add an apply below groupby to evaluate the expr
+                    prev_input = expr.input
+                    new_col_name = aggr.__class__.__name__ + str(random.randint(1, 1000000))
+
+                    gp_col_list = map(lambda col: (str(col), UnnamedAttributeRef(expr.input.scheme().getPosition(str(col)))), expr.grouping_list)
+                    new_input = SparkApply(gp_col_list + [(new_col_name, aggr.input)], prev_input)
+                    aggr.input = NamedAttributeRef(new_col_name)
+                    new_gp_list = []
+                    for c in range(len(expr.grouping_list)):
+                        new_gp_list.append(NamedAttributeRef(str(expr.grouping_list[c])))
+                    expr.grouping_list = new_gp_list
+                    expr.input = new_input
         return expr
 
-class JoinToSparkJoin(rules.BottomUpRule):
+class ScanTempToSparkScanTemp(rules.Rule):
     def fire(self, expr):
-        # if isinstance(expr, algebra.Join):
-        #     newop = SciDBJoin()
-        #     newop.copy(expr)
-        #     type_dict = {'LONG_TYPE': 'int64', 'FLOAT_TYPE': 'double'}
-        #     template_1darray = "<{dims_attrs}>{new_dimensions}"
-        #
-        #     dims_attrs = expr.left.scheme().get_names()
-        #     types = expr.left.scheme().get_types()
-        #     dims_attrs_string = ','.join('{name}:{t}'.format(name=dims_attrs[i], t=type_dict[types[i]])
-        #                                  for i in range(0,len(dims_attrs)))
-        #     new_dimensions = '[dim_{r}=1:{total_cells},{total_cells},0]'.format(r=random.randint(1, 10000000),
-        #                                                                         total_cells=10000)
-        #                                                                         # total_cells=expr.left.num_tuples())
-        #     newop.templateleft = template_1darray.format(dims_attrs=dims_attrs_string, new_dimensions=new_dimensions)
-        #
-        #
-        #     dims_attrs = expr.right.scheme().get_names()
-        #     types = expr.right.scheme().get_types()
-        #     dims_attrs_string = ','.join('{name}:{t}'.format(name=dims_attrs[i], t=type_dict[types[i]])
-        #                                  for i in range(0,len(dims_attrs)))
-        #     new_dimensions = '[dim_{r}=1:{total_cells},{total_cells},0]'.format(r=random.randint(1, 10000000),
-        #                                                                         total_cells=10000)
-        #                                                                         # total_cells=expr.right.num_tuples())
-        #
-        #     newop.templateright = template_1darray.format(dims_attrs=dims_attrs_string, new_dimensions=new_dimensions)
-        #
-        #     filter = SciDBSelect(expr.condition, newop)
-        #     return filter
+        if isinstance(expr, algebra.ScanTemp):
+            expr_scheme = expr._scheme
+            if len(expr.scheme().attributes) == 1:
+                if expr.scheme().attributes[0][0] == "_COLUMN0_":
+                    expr_scheme = Scheme([(expr.name, expr.scheme().attributes[0][1])])
+            # print 'scheme for: ' , expr.name, expr_scheme
+            sctemp = SparkScanTemp(expr.name, expr_scheme)
+            # TODO: I should copy the expr onto sctemp here, but that causes the schema to be overwritten. Fix later.
+            sctemp.name = expr.name
+            return sctemp
         return expr
 
-    def __str__(self):
-        return "Join => SciDBJoin"
-
+class ConsumeFederatedOps(rules.Rule):
+    def fire(self, expr):
+        if isinstance(expr, FederatedExec):
+            return expr.plan
+        if isinstance(expr, FederatedSequence):
+            return algebra.Sequence(expr.args)
+        if isinstance(expr, FederatedDoWhile):
+            return algebra.DoWhile(expr.args)
+        return expr
 ### ALGEBRA
 
 class SparkAlgebra(Algebra):
@@ -248,10 +167,15 @@ class SparkAlgebra(Algebra):
     operators = [
         SparkScan,
         SparkStore,
-        SparkConcat,
         SparkSelect,
         SparkApply,
-        SparkJoin
+        SparkProject,
+        SparkJoin,
+        SparkGroupBy,
+        SparkOrderBy,
+        SparkStoreTemp,
+        SparkDoWhile,
+        SparkSequence
     ]
 
     def opt_rules(self, **kwargs):
@@ -259,13 +183,18 @@ class SparkAlgebra(Algebra):
         sparkify = [
             rules.OneToOne(algebra.Store, SparkStore),
             rules.OneToOne(algebra.Scan, SparkScan),
-            rules.OneToOne(algebra.UnionAll, SparkConcat),
+            rules.OneToOne(algebra.ScanTemp, SparkScanTemp),
             rules.OneToOne(algebra.Select, SparkSelect),
             rules.OneToOne(algebra.Apply, SparkApply),
-            rules.OneToOne(algebra.Project, SparkProject)
-            # rules.OneToOne(algebra.Join, SciDBJoin)
+            rules.OneToOne(algebra.Project, SparkProject),
+            rules.OneToOne(algebra.Join, SparkJoin),
+            rules.OneToOne(algebra.GroupBy, SparkGroupBy),
+            rules.OneToOne(algebra.OrderBy, SparkOrderBy),
+            rules.OneToOne(algebra.StoreTemp, SparkStoreTemp),
+            rules.OneToOne(algebra.DoWhile, SparkDoWhile),
+            rules.OneToOne(algebra.Sequence, SparkSequence)
         ]
-        all_rules = sparkify + [GroupByAndJoinToMult(), GroupByToAggregate(), JoinToSparkJoin(), ApplyToApplyProject()]
+        all_rules = [ConsumeFederatedOps()] + sparkify + [GroupByToGroupByApply(), ScanTempToSparkScanTemp()]
 
         return all_rules
 
@@ -302,11 +231,19 @@ def compile_plan(plan):
 
 ### HELPER METHODS
 
-def remove_unnamed_literals(scheme, expression):
+def remove_unnamed_literals(plan, expression):
+    scheme = plan.scheme()
     ex = str(expression)
     for i in range(len(scheme)):
             unnamed_literal = "$" + str(i)
-            ex = ex.replace(unnamed_literal, scheme.getName(i))
+            repl_str = scheme.getName(i)
+            if isinstance(plan, algebra.GroupBy):
+                # if isinstance(plan.input, algebra.Apply): # this means I added it there.
+                if scheme.getName(i) == '_COLUMN{}_'.format(str(i)):
+                    s = str(plan.aggregate_list[i - len(plan.grouping_list)])
+                    repl_str = '`{}({})`'.format(s.split('(')[0].lower(), s.split('(')[1][:-1])
+
+            ex = ex.replace(unnamed_literal, repl_str)
     return ex
 
 def compile_expr(op, child_scheme, state_scheme):

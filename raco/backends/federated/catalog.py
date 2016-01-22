@@ -1,6 +1,7 @@
 from raco.catalog import Catalog
 import raco.scheme as scheme
 from raco.backends.scidb.catalog import SciDBCatalog
+from raco.backends.spark.catalog import SparkCatalog
 from raco.types import INT_TYPE, FLOAT_TYPE
 from raco.representation import RepresentationProperties
 
@@ -39,6 +40,12 @@ class FederatedCatalog(Catalog):
             if isinstance(cat, SciDBCatalog):
                 return cat
         assert False, "Couldn't find any scidb catalog.."
+
+    def get_spark_catalog(self):
+        for cat in self.catalogs:
+            if isinstance(cat, SparkCatalog):
+                return cat
+        assert False, "Couldn't find any spark catalog.."
 
     def get_num_servers(self):
         raise NotImplemented

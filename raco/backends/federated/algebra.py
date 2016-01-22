@@ -64,7 +64,7 @@ class FederatedMove(FederatedOperator):
         return "Move({} TO {} AS {})".format(*args)
 
 
-class FederatedSequence(raco.algebra.Sequence, FederatedExec):
+class FederatedSequence(raco.algebra.Sequence, FederatedOperator):
     def __init__(self, args):
         for expr in args:
             assert(isinstance(expr, FederatedOperator))
@@ -105,6 +105,10 @@ class FederatedDoWhile(raco.algebra.DoWhile, FederatedOperator):
         for expr in args:
             assert(isinstance(expr, FederatedOperator))
         super(self.__class__, self).__init__(args)
+
+class FederatedSingletonRelation(raco.algebra.SingletonRelation, FederatedOperator):
+    def __init__(self):
+        self.plan = []
 
 class Runner(FederatedExec):
     pass
@@ -350,8 +354,12 @@ Maybe rule traversal is not bottom-up?"
             return newop
 
         if isinstance(op, raco.algebra.EmptyRelation):
-            # Assuming empty relations are scidb for now
-            return FederatedExec(op, self.federatedcatalog.get_scidb_catalog())
+            # Assuming empty relations are spark for now
+            return FederatedExec(op, self.federatedcatalog.get_spark_catalog())
+
+        if isinstance(op, raco.algebra.SingletonRelation):
+            # Assuming singleton relations are spark for now
+            return FederatedExec(FederatedSingletonRelation(), self.federatedcatalog.get_spark_catalog())
 
         if isinstance(op, raco.algebra.UnaryOperator):
            self.checkchild(op.input)

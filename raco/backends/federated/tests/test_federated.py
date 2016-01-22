@@ -94,22 +94,22 @@ store (newchaos, OUTPUT_undirNet_10k_newchaos);
 """
 
 program_multiply = """
-a = scan(AAA);
-b = scan(BBB);
-m = select a_i, b_j, sum(a_v*b_v) from a, b where a_j = b_i;
+a = scan('/users/shrainik/downloads/sample.dat');
+b = scan('/users/shrainik/downloads/sample1.dat');
+m = select a.i, b.j, sum(a.value*b.value) from a, b where a.j = b.i;
 store(m,mult);
 """
 
 program_test_project_dimension ="""
 abc = scan('/users/shrainik/downloads/sample.dat');
-b = [from abc where abc.i>0 emit value ];
-store(b, proj_dim);
+b = [from abc where abc.i>5 emit i, j ];
+store(b, '/users/shrainik/downloads/sample-out.dat');
 """
 
 program_join = """
-abc = scan(abc);
-abc1 = scan(abc1);
-b = [from abc, abc1 emit value];
+abc = scan('/users/shrainik/downloads/sample.dat');
+abc1 = scan('/users/shrainik/downloads/sample.dat');
+b = [from abc, abc1 emit abc.value];
 store(b,join_result);
 """
 
@@ -326,7 +326,7 @@ def query(myriaconnection, scidbconnection, program):
 def query_spark(myriaconnection, sparkconnection, program):
 
     if not program:
-        myrial_code = program_test_project_dimension
+        myrial_code = program_join
     else:
         with open(program, 'r') as content_file:
             myrial_code = content_file.read()
