@@ -182,15 +182,14 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
 class MyriaFileScan(algebra.FileScan, MyriaOperator):
 
     def compileme(self):
-        encoding = dict({
-            "opType": "FileScan",
-            "source": {
-                "dataType": "URI",
-                "uri": self.path,
-            },
-        }, **self.options)
+        encoding = dict(self.options)
+
         if self.format == 'OPP':
             encoding['opType'] = "SeaFlowScan"
+            encoding['source'] = {
+                "dataType": "URI",
+                "uri": self.path,
+            }
         elif self.format == 'TIPSY':
             encoding['opType'] = "TipsyFileScan"
             encoding['tipsyFilename'] = self.path
@@ -198,10 +197,14 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
                 if 'group' not in self.options \
                 else '{}.{}.grp'.format(self.path, self.options['group'])
             encoding['iorderFilename'] = self.path + '.iord'
-            del encoding['source']
-            del encoding['group']
-        else:
             encoding['schema'] = scheme_to_schema(self.scheme())
+        else:
+            encoding['opType'] = "FileScan"
+            encoding['schema'] = scheme_to_schema(self.scheme())
+            encoding['source'] = {
+                "dataType": "URI",
+                "uri": self.path,
+            }
         return encoding
 
 
