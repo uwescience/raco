@@ -195,7 +195,7 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
                 "iorderFilename": self.path + ".iord",
                 "grpFilename": self.path + (
                     ".grp" if "group" not in self.options
-                    else "{}.grp".format(self.options["group"]))
+                    else ".git {}.grp".format(self.options["group"]))
             }
 
         else:
