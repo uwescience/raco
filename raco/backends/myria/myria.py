@@ -182,30 +182,34 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
 class MyriaFileScan(algebra.FileScan, MyriaOperator):
 
     def compileme(self):
-        encoding = dict(self.options)
-
         if self.format == 'OPP':
-            encoding['opType'] = "SeaFlowScan"
-            encoding['source'] = {
-                "dataType": "URI",
-                "uri": self.path,
-            }
+            encoding = dict({
+                "opType": "SeaFlowScan",
+                "source": self.get_source(self.path)
+            }, **self.options)
+
         elif self.format == 'TIPSY':
-            encoding['opType'] = "TipsyFileScan"
-            encoding['tipsyFilename'] = self.path
-            encoding['grpFilename'] = self.path + '.grp' \
-                if 'group' not in self.options \
-                else '{}.{}.grp'.format(self.path, self.options['group'])
-            encoding['iorderFilename'] = self.path + '.iord'
-            encoding['schema'] = scheme_to_schema(self.scheme())
-        else:
-            encoding['opType'] = "FileScan"
-            encoding['schema'] = scheme_to_schema(self.scheme())
-            encoding['source'] = {
-                "dataType": "URI",
-                "uri": self.path,
+            encoding = {
+                "opType": "TipsyFileScan",
+                "tipsyFilename": self.path,
+                "iorderFilename": self.path + ".iord",
+                "grpFilename": self.path + (
+                    ".grp" if "group" not in self.options
+                    else "{}.{}.grp".format(self.path, self.options["group"]))
             }
+
+        else:
+            encoding = dict({
+                "opType": "FileScan",
+                "schema": scheme_to_schema(self.scheme()),
+                "source": self.get_source(self.path)
+            }, **self.options)
+
         return encoding
+
+    @staticmethod
+    def get_source(uri, type='URI'):
+        return {"dataType": type, "uri": uri}
 
 
 class MyriaLimit(algebra.Limit, MyriaOperator):
