@@ -7,7 +7,7 @@
 -- the correct matches. A much higher criterion, say .001, would start
 -- to match points incorrectly.
 
-const sigma_noise = 0.00001
+const sigma_noise: 0.00001;
 const partition: 0.4;
 const epsilon: 2 * sigma_noise; 
 
