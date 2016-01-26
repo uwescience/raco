@@ -1,0 +1,105 @@
+-- Cross matching two relations based on coordinate.
+-- Example in 2 dimensions of the input data.
+
+-- Points in one relation are the same as the other relation, 
+-- but perturbed by Gaussian noise of sigma = .00001. Using a matching
+-- criteria (epsilon) of 2*sigma we'd expect to recover around 95% of 
+-- the correct matches. A much higher criterion, say .001, would start
+-- to match points incorrectly.
+
+const sigma_noise = 0.00001
+const partition: 0.4;
+const epsilon: 2 * sigma_noise; 
+
+def mod(x, n): x - int(x/n)*n;
+def cell(v): int((v - mod(v, partition)) * (1/partition));
+def is_ghost(xoffset, yoffset):
+  case when xoffset = 0 and
+            yoffset = 0 then 0 else 1 end;
+def is_replicated(x, y, xoffset, yoffset):
+  is_ghost(xoffset, yoffset) = 0 or
+  cell(x + epsilon*xoffset) != cell(x) or
+  cell(y + epsilon*yoffset) != cell(y);
+def distance(x1, x2, y1, y2): sqrt((x1-x2)*(x1-x2) +
+                                           (y1-y2)*(y1-y2));
+
+pointsleft = load("https://s3-us-west-2.amazonaws.com/myria-sdss/crossmatch/pointsleft.txt",
+              csv(schema(id:int,
+                         x:float,
+                         y:float,
+                         z:float), skip=0));
+
+pointsright = load("https://s3-us-west-2.amazonaws.com/myria-sdss/crossmatch/pointsright.txt",
+              csv(schema(id:int,
+                         x:float,
+                         y:float,
+                         z:float), skip=0));
+
+permutations = load("https://s3-us-west-2.amazonaws.com/myria-sdss/crossmatch/permutations.txt",
+                    csv(schema(xoffset:int,
+                               yoffset:int), skip=0));
+
+
+store(pointsleft, pointsleft);
+store(pointsright, pointsright);
+
+
+
+-- Partition into a grid with edges of size partition
+-- Replicate any point that falls within epsilon of a partition boundary
+
+partitionsleft = [from pointsleft, permutations
+              where is_replicated(x, y, xoffset, yoffset)
+              emit id, x, y,
+                   cell(x) + xoffset as px,
+                   cell(y) + yoffset as py,
+                   is_ghost(xoffset, yoffset) as ghost];
+
+
+
+store(partitionsleft, partitionsleft, [px, py]);
+
+partitionsright = [from pointsright
+              emit id, x, y,
+                   cell(x) as px,
+                   cell(y) as py,
+                   0 as ghost];
+
+store(partitionsright, partitionsright, [px, py]);
+
+----------------------------------------------------------------
+-- This script assumes that partitionsleft and partitionsright
+-- already exist in the catalog.
+--
+-- In on a fresh installation, it is best to run the above query first, 
+-- then the below query, or the entire query after the catalog has
+-- updated.
+----------------------------------------------------------------
+
+
+partitionsleft = scan(partitionsleft);
+partitionsright = scan(partitionsright);
+
+
+
+-- Cross product on partition + ghost cells; no shuffle required
+local = [from partitionsleft left,
+              partitionsright right
+         where left.px = right.px and
+               left.py = right.py
+         emit *];
+
+store(local, local);
+
+-- Calculate distances within each local pair and filter outliers
+distances = [from local
+             where ghost1 = 0 and -- The stable points must be ghost==0
+                   distance(x, x1, y, y1) <= epsilon
+             emit id as id1,
+                  id1 as id2, -- ghost, ghost1, for debugging if necessary
+                  distance(x, x1, y, y1) as distance];
+
+store(distances, distances);
+
+
+
