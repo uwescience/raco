@@ -3,9 +3,9 @@
 
 -- Points in one relation are the same as the other relation, 
 -- but perturbed by Gaussian noise of sigma = .00001. Using a matching
--- criteria (epsilon) of 2*sigma we'd expect to recover around 95% of 
--- the correct matches. A much higher criterion, say .001, would start
--- to match points incorrectly.
+-- distance threshold (epsilon) of 2*sigma we'd expect to recover around 95% of 
+-- the correct matches. Using a much higher threshold, say .02, would start
+-- leading to incorrect matches.
 
 const sigma_noise: 0.00001;
 const partition: 0.4;
