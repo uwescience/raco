@@ -4,6 +4,8 @@ import json
 
 from raco.backends.myria.connection import MyriaConnection
 from raco.backends.myria.catalog import MyriaCatalog
+from raco.relation_key import RelationKey
+from raco.representation import RepresentationProperties
 
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
@@ -29,6 +31,12 @@ def get_connection():
                                      execution_url=execution_url)
 
     return connection
+
+
+def rel_info(connection):
+    cat = MyriaCatalog(connection)
+    key = RelationKey('Brandon', 'Demo', 'MoreBooks')
+    return cat.num_tuples(key), cat.partitioning(key)
 
 
 def query(connection):
@@ -146,6 +154,17 @@ class TestQuery(unittest.TestCase):
         with HTTMock(local_mock):
             self.connection = get_connection()
         unittest.TestCase.__init__(self, args)
+
+    def test_num_tuples(self):
+        with HTTMock(local_mock):
+            i = rel_info(self.connection)
+            self.assertEqual(i[0], 50)
+
+    def test_partitioning(self):
+        with HTTMock(local_mock):
+            i = rel_info(self.connection)
+            self.assertEqual(i[1].hash_partitioned,
+                             RepresentationProperties().hash_partitioned)
 
     def test_submit(self):
         global query_request
