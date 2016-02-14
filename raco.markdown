@@ -55,7 +55,7 @@ catalog = MyriaCatalog(connection)
 _parser = parser.Parser()
 
 statement_list = _parser.parse("""
-<put myria query here>
+<put myrial query here>
 """)
 
 processor = interpreter.StatementProcessor(catalog, True)
