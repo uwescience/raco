@@ -29,10 +29,6 @@ as the provided query. You can also provide a custom path.
 scripts/myrial --catalog=examples/catalog.py -l examples/join.myl
 ```
 
-(soon) you will also be able to specify a url of a json catalog
-or the url of a myria instance
-TODO
-
 get the JSON used to submit the query plan to MyriaX REST interface
 ```bash
 scripts/myrial -j example/join.myl
@@ -40,6 +36,37 @@ scripts/myrial -j example/join.myl
 
 There is also a python string representation of the query plan. This is valid
 python code that you can give back to Raco.
+
+## Compile queries for Myria in python programs
+
+```python
+import raco.myrial.parser as parser
+import raco.myrial.interpreter as interpreter
+from raco.backends.myria.catalog import MyriaCatalog
+from raco.backends.myria.connection import MyriaConnection
+
+# connect to your Myria instance's catalog
+connection = MyriaConnection(
+   hostname=<url of your myria instance>,
+   port=8753,
+   ssl=False)
+catalog = MyriaCatalog(connection)
+
+_parser = parser.Parser()
+
+statement_list = _parser.parse("""
+<put myria query here>
+""")
+
+processor = interpreter.StatementProcessor(catalog, True)
+processor.evaluate(statement_list)
+
+# here we print the logical, physical, and json versions of the plan for illustration purposes
+print processor.get_logical_plan()
+print processor.get_physical_plan()
+print processor.get_json()
+```
+
 
 ## Rule-based optimization
 
