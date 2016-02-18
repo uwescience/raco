@@ -1042,7 +1042,30 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         lp = self.get_logical_plan(query)
         yes_push = self.logical_to_physical(lp, push_sql=True)
-        no_push = self.logical_to_physical(lp, push_sql=False)
-
         self.assertEquals(self.get_count(yes_push, MyriaSymmetricHashJoin), 0)
+
+    def test_dont_push_projecting_join_into_sql(self):
+        """Projecting join should not be pushed into SQL if
+           push_sql is off.
+        """
+
+        query = """
+        partitions = scan(public:adhoc:Cosmo8_partitions);
+
+        local = [from partitions left,
+              partitions right
+         where left.px = right.px and
+               left.py = right.py and
+               left.pz = right.pz
+         emit left.id as id1, right.id as id2,
+         left.x as x1, left.y as y1, left.z as z1,
+         right.x as x2, right.y as y2, right.z as z2,
+         left.ghost as ghost];
+
+        store(local, Cosmo8_local);
+        """
+
+        lp = self.get_logical_plan(query)
+        no_push = self.logical_to_physical(lp, push_sql=False)
         self.assertEquals(self.get_count(no_push, MyriaSymmetricHashJoin), 1)
+
