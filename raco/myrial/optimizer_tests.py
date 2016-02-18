@@ -91,10 +91,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
     @staticmethod
     def logical_to_physical(lp, **kwargs):
         if kwargs.get('hypercube', False):
-            kwargs.pop('hypercube')
-            algebra = MyriaHyperCubeAlgebra(FakeCatalog(64), **kwargs)
+            algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
         else:
-            algebra = MyriaLeftDeepTreeAlgebra(**kwargs)
+            algebra = MyriaLeftDeepTreeAlgebra()
         return optimize(lp, algebra, **kwargs)
 
     @staticmethod
