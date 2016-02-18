@@ -8,7 +8,8 @@ from raco.expression import StateVar
 
 from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
-    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer)
+    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer,
+    MyriaSymmetricHashJoin)
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
                                  MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -72,12 +73,28 @@ class OptimizerTest(myrial_test.MyrialTestCase):
              for (s2, d2) in self.z_data.elements()
              for (s3, d3) in self.z_data.elements() if d1 == s2 and d2 == s3])
 
+        self.db.ingest("public:adhoc:Cosmo8_partitions", collections.Counter(),
+                       scheme.Scheme([(u'id', 'LONG_TYPE'),
+                                      (u'x', 'DOUBLE_TYPE'),
+                                      (u'y', 'DOUBLE_TYPE'),
+                                      (u'z', 'DOUBLE_TYPE'),
+                                      (u'px', 'LONG_TYPE'),
+                                      (u'py', 'LONG_TYPE'),
+                                      (u'pz', 'LONG_TYPE'),
+                                      (u'ghost', 'LONG_TYPE')]),
+                       # partitioned by px, py, pz
+                       RepresentationProperties(hash_partitioned=frozenset([
+                           AttIndex(4),
+                           AttIndex(5),
+                           AttIndex(6)])))
+
     @staticmethod
     def logical_to_physical(lp, **kwargs):
         if kwargs.get('hypercube', False):
-            algebra = MyriaHyperCubeAlgebra(FakeCatalog(64))
+            kwargs.pop('hypercube')
+            algebra = MyriaHyperCubeAlgebra(FakeCatalog(64), **kwargs)
         else:
-            algebra = MyriaLeftDeepTreeAlgebra()
+            algebra = MyriaLeftDeepTreeAlgebra(**kwargs)
         return optimize(lp, algebra, **kwargs)
 
     @staticmethod
@@ -1003,3 +1020,30 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # (in general, info could be h($0) && h($2)
         self.assertEquals(pp.partitioning().hash_partitioned,
                           frozenset([AttIndex(0)]))
+
+    def test_push_projecting_join_into_sql(self):
+        """Projecting join should be pushed into SQL
+        """
+
+        query = """
+        partitions = scan(public:adhoc:Cosmo8_partitions);
+
+        local = [from partitions left,
+              partitions right
+         where left.px = right.px and
+               left.py = right.py and
+               left.pz = right.pz
+         emit left.id as id1, right.id as id2,
+         left.x as x1, left.y as y1, left.z as z1,
+         right.x as x2, right.y as y2, right.z as z2,
+         left.ghost as ghost];
+
+        store(local, Cosmo8_local);
+        """
+
+        lp = self.get_logical_plan(query)
+        yes_push = self.logical_to_physical(lp, push_sql=True)
+        no_push = self.logical_to_physical(lp, push_sql=False)
+
+        self.assertEquals(self.get_count(yes_push, MyriaSymmetricHashJoin), 0)
+        self.assertEquals(self.get_count(no_push, MyriaSymmetricHashJoin), 1)
