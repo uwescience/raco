@@ -1068,4 +1068,3 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         lp = self.get_logical_plan(query)
         no_push = self.logical_to_physical(lp, push_sql=False)
         self.assertEquals(self.get_count(no_push, MyriaSymmetricHashJoin), 1)
-
