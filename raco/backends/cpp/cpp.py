@@ -112,7 +112,7 @@ class CMemoryScan(algebra.UnaryOperator, CCOperator):
         memory_scan_template = self.language().cgenv().get_template(
             'memory_scan.cpp')
 
-        stagedTuple = state.lookupTupleDef(inputsym)
+        stagedTuple = self.new_tuple_ref(inputsym, self.scheme())
         tuple_type = stagedTuple.getTupleTypename()
         tuple_name = stagedTuple.name
 

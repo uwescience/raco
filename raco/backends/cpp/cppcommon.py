@@ -564,7 +564,8 @@ class CBaseFileScan(Pipelined, algebra.Scan):
         # Common subexpression elimination
         # don't scan the same file twice
         resultsym = state.lookupExpr(self)
-        _LOG.debug("lookup %s(h=%s) => %s", self, self.__hash__(), resultsym)
+        _LOG.debug("lookup %s(h=%s) => %s", self, self.__hash__(),
+                   resultsym)
         if not resultsym:
             # TODO for now this will break
             # whatever relies on self.bound like reusescans
@@ -578,7 +579,6 @@ class CBaseFileScan(Pipelined, algebra.Scan):
             stagedTuple = self.new_tuple_ref_for_filescan(
                 resultsym,
                 self.scheme())
-            state.saveTupleDef(resultsym, stagedTuple)
 
             tuple_type_def = stagedTuple.generateDefinition()
             tuple_type = stagedTuple.getTupleTypename()

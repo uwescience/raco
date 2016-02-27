@@ -245,6 +245,8 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         global_syncname = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
 
+        stagedTuple = self.new_tuple_ref(inputsym, self.scheme())
+
         # get template for the scan/iteration
         memory_scan_template_name = {
             _ARRAY_REPRESENTATION.GLOBAL_ARRAY:
@@ -255,7 +257,6 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         memory_scan_template = self.language().cgenv().get_template(
             memory_scan_template_name)
 
-        stagedTuple = state.lookupTupleDef(inputsym)
         tuple_type = stagedTuple.getTupleTypename()
         tuple_name = stagedTuple.name
 
