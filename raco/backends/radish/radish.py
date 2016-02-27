@@ -1440,7 +1440,7 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
 
         return assignment_code + self.language().comment(self) + self._language.cgenv()\
             .get_template('symmetric_array_relation_materialize.cpp')\
-            .render(sym=symname, input_tuple_name=t.name)
+            .render(sym=symname, input_tuple_name=tuple.name)
 
 
 class GrappaNullInput(cppcommon.CBaseFileScan, GrappaOperator):
