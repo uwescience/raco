@@ -1,5 +1,5 @@
 // recycle result vector
-swap_refs({{symsrc}}.data, {{symsink}}.data);
 on_all_cores([=] {
+    swap_refs({{symsrc}}.data, {{symsink}}.data);
     {{symsink}}.data->vector.clear();
 });
