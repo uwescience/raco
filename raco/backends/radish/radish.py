@@ -1432,15 +1432,17 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
 
             state.addInitializers([init])
 
+        newtuple = tuple.copy_type()
+        state.addDeclarations([newtuple.generateDefinition()])
         assignment_code = \
             cppcommon.createTupleTypeConversion(self.language(),
                                                 state,
                                                 t,
-                                                tuple)
+                                                newtuple)
 
         return assignment_code + self.language().comment(self) + self._language.cgenv()\
             .get_template('symmetric_array_relation_materialize.cpp')\
-            .render(sym=symname, input_tuple_name=tuple.name)
+            .render(sym=symname, input_tuple_name=newtuple.name)
 
 
 class GrappaNullInput(cppcommon.CBaseFileScan, GrappaOperator):
