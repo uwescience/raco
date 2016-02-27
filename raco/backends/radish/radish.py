@@ -1423,17 +1423,27 @@ class TempRelationSymbol:
 class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
 
     def produce(self, state):
+        temp_rel = TempRelationSymbol(self.name)
+
+        # Recycle cannot happen for every visit (in consume) because
+        # it will get called with binary streaming operators.
+        # Calling it here is safe because all pipelines below
+        # the StoreTemp should not be using this temp relation
+        #
+        # An alternative approach to consider in the future is,
+        # to just put recycle in consume() but require a barrier
+        # after it that involves all pipelines this StoreTemp appears in
+        state.addCode(self._language.cgenv().get_template(
+            'symmetric_array_relation_recycle.cpp').render(
+            symsrc=temp_rel.src_sym(),
+            symsink=temp_rel.sink_sym()))
+
         self.input.produce(state)
 
     def consume(self, t, src, state):
         temp_rel = TempRelationSymbol(self.name)
 
         # uses symmetric array representation only
-
-        state.addPreCode(self._language.cgenv().get_template(
-            'symmetric_array_relation_recycle.cpp').render(
-            symsrc=temp_rel.src_sym(),
-            symsink=temp_rel.sink_sym()))
 
         tuple = state.lookupTupleDef(temp_rel.symbol())
         if not tuple:
