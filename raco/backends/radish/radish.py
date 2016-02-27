@@ -1420,7 +1420,7 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
             declTupleType = tuple.generateDefinition()
             declRelation = self._language.cgenv()\
                 .get_template('symmetric_array_relation_declaration.cpp')\
-                .render(tuple_type=t.getTupleTypename(),
+                .render(tuple_type=tuple.getTupleTypename(),
                         resultsym=symname)
 
             state.addDeclarations([declTupleType, declRelation])
