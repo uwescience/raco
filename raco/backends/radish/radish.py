@@ -1427,7 +1427,8 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
 
             init = self._language.cgenv()\
                 .get_template('symmetric_array_relation_init.cpp')\
-                .render(sym=symname)
+                .render(sym=symname,
+                        tuple_type=tuple.getTupleTypename())
 
             state.addInitializers([init])
 
