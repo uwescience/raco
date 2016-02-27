@@ -135,11 +135,14 @@ class CompileState:
 
     def addPipeline(self, p):
         LOG.debug("output pipeline %s", self.current_pipeline_properties)
+
+        all_p = emitlist(self.current_pipeline_precode) \
+                + p \
+                + emitlist(self.current_pipeline_postcode)
+
         pipeline_code = \
-            emitlist(self.current_pipeline_precode) +\
-            self.language.pipeline_wrap(self.pipeline_count, p,
-                                        self.current_pipeline_properties) +\
-            emitlist(self.current_pipeline_postcode)
+            self.language.pipeline_wrap(self.pipeline_count, all_p,
+                                        self.current_pipeline_properties)
 
         # force scan pipelines to go first
         if self.current_pipeline_properties.get('type') == 'scan':
