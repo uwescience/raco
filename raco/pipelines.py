@@ -65,7 +65,7 @@ class CompileState:
         self.current_pipeline_precode = []
         self.current_pipeline_postcode = []
 
-        self.main_wait_statements = set()
+        self.sequence_wait_statements = set()
 
     def setPipelineProperty(self, key, value):
         LOG.debug("set %s in %s" % (key, self.current_pipeline_properties))
@@ -125,8 +125,13 @@ class CompileState:
     def addCleanups(self, i):
         self.cleanups += i
 
-    def addMainWaitStatement(self, c):
-        self.main_wait_statements.add(c)
+    def addSeqWaitStatement(self, c):
+        self.sequence_wait_statements.add(c)
+
+    def getAndFlushSeqWaitStatements(self):
+        r = self.sequence_wait_statements
+        self.sequence_wait_statements = set()
+        return r
 
     def addPipeline(self, p):
         LOG.debug("output pipeline %s", self.current_pipeline_properties)
@@ -220,8 +225,17 @@ class CompileState:
     def getExecutionCode(self):
         # list -> string
         scan_linearized = emitlist(self.scan_pipelines)
+
+        # Make sure we emitted all the wait statements
+        if self.sequence_wait_statements:
+            waits_linearized = emitlist(
+                list(self.getAndFlushSeqWaitStatements()))
+        else:
+            waits_linearized = ""
+
         mem_linearized = \
-            emitlist(self.pipelines) + emitlist(self.main_wait_statements)
+            emitlist(self.pipelines) + waits_linearized
+
         flush_linearized = emitlist(self.flush_pipelines)
         scan_linearize_wrap = self.language.group_wrap(gensym(),
                                                        scan_linearized,
@@ -337,6 +351,10 @@ class Pipelined(object):
     def parent(self):
         return self._parent
 
+    def run_analyses(self, **kwargs):
+        """Intended to be called on the root of the tree"""
+        self._markAllParents(**kwargs)
+
     @classmethod
     @abc.abstractmethod
     def language(cls):
@@ -362,7 +380,8 @@ class Pipelined(object):
         return
 
     def compilePipeline(self, **kwargs):
-        self._markAllParents(**kwargs)
+        # run analyses
+        self.run_analyses(**kwargs)
 
         state = CompileState(self.language())
 

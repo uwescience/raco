@@ -72,27 +72,23 @@ def optimize(expr, target, **kwargs):
 
 def compile(expr, **kwargs):
     """Compile physical plan to linearized form for execution"""
-    # TODO: Fix this
+    # TODO: Fix this --> what?
     algebra.reset()
     exprcode = []
 
-    # TODO, actually use Parallel[Store...]]? Right now assumes it
-    if isinstance(expr, (algebra.Sequence, algebra.Parallel)):
-        assert len(expr.children()) == 1, "expected single expression only"
-        store_expr = expr.children()[0]
+    # fixup for legacy usage of compile
+    if not hasattr(expr, 'language'):
+        assert isinstance(expr, algebra.Sequence) \
+            or isinstance(expr, algebra.Parallel)
+        assert len(expr.args) == 1
+        expr = expr.args[0]
+
+    lang = expr.language()
+
+    if isinstance(expr, Pipelined):
+        body = lang.body(expr.compilePipeline(**kwargs))
     else:
-        store_expr = expr
-
-    assert isinstance(store_expr, algebra.Store) \
-        or isinstance(store_expr, algebra.Sink)
-    assert len(store_expr.children()) == 1, "expected single expression only"
-
-    lang = store_expr.language()
-
-    if isinstance(store_expr, Pipelined):
-        body = lang.body(store_expr.compilePipeline(**kwargs))
-    else:
-        body = lang.body(store_expr)
+        body = lang.body(expr)
 
     exprcode.append(emit(body))
     return emit(*exprcode)

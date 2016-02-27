@@ -590,6 +590,10 @@ class CBaseFileScan(Pipelined, algebra.Scan):
             if rel_decl_template:
                 state.addDeclarations([rel_decl_template.render(locals())])
 
+            rel_aux_decl_template = self.__get_input_auxiliary_decls_template()
+            if rel_aux_decl_template:
+                state.addDeclarations([rel_aux_decl_template.render(locals())])
+
             # now that we have the type, format this in;
             state.setPipelineProperty('type', 'scan')
             state.setPipelineProperty('source', self.__class__)
@@ -642,6 +646,9 @@ class CBaseFileScan(Pipelined, algebra.Scan):
         """
         return ZeroaryOperator.__eq__(self, other) and \
             self.relation_key == other.relation_key
+
+    def __get_input_auxiliary_decls_template(self):
+        return None
 
 
 # Rules
