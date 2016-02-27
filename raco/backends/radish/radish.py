@@ -280,7 +280,10 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         global_syncname = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
 
-        stagedTuple = self.new_tuple_ref(inputsym, self.scheme())
+        # necessary to look this up rather than create a new
+        # one because we need to read from the correct type provided
+        # by the File/Temp relation input
+        stagedTuple = state.lookupTupleDef(inputsym)
 
         # get template for the scan/iteration
         memory_scan_template_name = {
@@ -1409,20 +1412,32 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
         state.addPreCode(self._language.cgenv().get_template(
             'symmetric_array_relation_recycle.cpp').render(sym=symname))
 
-        decl = self._language.cgenv()\
-            .get_template('symmetric_array_relation_declaration.cpp')\
-            .render(tuple_type=t.getTupleTypename(),
-                    resultsym=symname)
+        tuple = state.lookupTupleDef(symname)
+        if not tuple:
+            tuple = self.new_tuple_ref(symname, self.scheme())
+            state.saveTupleDef(symname, tuple)
 
-        state.addDeclarations([decl])
+            declTupleType = tuple.generateDefinition()
+            declRelation = self._language.cgenv()\
+                .get_template('symmetric_array_relation_declaration.cpp')\
+                .render(tuple_type=t.getTupleTypename(),
+                        resultsym=symname)
 
-        init = self._language.cgenv()\
-            .get_template('symmetric_array_relation_init.cpp')\
-            .render(sym=symname)
+            state.addDeclarations([declTupleType, declRelation])
 
-        state.addInitializers([init])
+            init = self._language.cgenv()\
+                .get_template('symmetric_array_relation_init.cpp')\
+                .render(sym=symname)
 
-        return self.language().comment(self) + self._language.cgenv()\
+            state.addInitializers([init])
+
+        assignment_code = \
+            cppcommon.createTupleTypeConversion(self.language(),
+                                                state,
+                                                t,
+                                                tuple)
+
+        return assignment_code + self.language().comment(self) + self._language.cgenv()\
             .get_template('symmetric_array_relation_materialize.cpp')\
             .render(sym=symname, input_tuple_name=t.name)
 
@@ -1436,7 +1451,10 @@ class GrappaNullInput(cppcommon.CBaseFileScan, GrappaOperator):
         return None
 
     def produce(self, state):
-        self.parent().consume(self.relation_key, self, state)
+        sym = _store_scan_temp_symbol(self.relation_key)
+        assert state.lookupTupleDef(sym) is not None, \
+            "Expected {} to already exist".format(sym)
+        self.parent().consume(sym, self, state)
 
     def consume(self, t, src, state):
         assert False, "as a source, no need for consume"

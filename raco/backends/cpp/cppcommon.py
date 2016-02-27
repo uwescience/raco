@@ -426,6 +426,26 @@ class CBaseSelect(Pipelined, algebra.Select):
         return code
 
 
+def createTupleTypeConversion(lang, state, input_tuple, result_tuple):
+    # add declaration for function to convert from one type to the other
+    type1 = input_tuple.getTupleTypename()
+    type1numfields = len(input_tuple.scheme)
+    convert_func_name = "create_" + gensym()
+    result_type = result_tuple.getTupleTypename()
+    result_name = result_tuple.name
+    input_tuple_name = input_tuple.name
+    convert_func = lang._cgenv.get_template(
+        'materialized_tuple_create_one.cpp').render(locals())
+    state.addDeclarations([convert_func])
+
+    return lang._cgenv.get_template('tuple_type_convert.cpp').render(
+        result_type=result_type,
+        result_name=result_name,
+        convert_func_name=convert_func_name,
+        input_tuple_name=input_tuple_name
+    )
+
+
 class CBaseUnionAll(Pipelined, algebra.Union):
 
     def produce(self, state):
@@ -436,24 +456,17 @@ class CBaseUnionAll(Pipelined, algebra.Union):
         self.left.produce(state)
 
     def consume(self, t, src, state):
-        union_template = _cgenv.get_template('union.cpp')
+        unified_tuple = self.unifiedTupleType
 
-        unified_tuple_typename = self.unifiedTupleType.getTupleTypename()
-        unified_tuple_name = self.unifiedTupleType.name
-        src_tuple_name = t.name
-
-        # add declaration for function to convert from one type to the other
-        type1 = t.getTupleTypename()
-        type1numfields = len(t.scheme)
-        convert_func_name = "create_" + gensym()
-        result_type = unified_tuple_typename
-        convert_func = _cgenv.get_template(
-            'materialized_tuple_create_one.cpp').render(locals())
-        state.addDeclarations([convert_func])
+        assignment_code = \
+            createTupleTypeConversion(self.language(),
+                                      state,
+                                      t,
+                                      unified_tuple)
 
         inner_plan_compiled = \
             self.parent().consume(self.unifiedTupleType, self, state)
-        return union_template.render(locals())
+        return assignment_code + inner_plan_compiled
 
 
 class CBaseApply(Pipelined, algebra.Apply):
@@ -579,6 +592,7 @@ class CBaseFileScan(Pipelined, algebra.Scan):
             stagedTuple = self.new_tuple_ref_for_filescan(
                 resultsym,
                 self.scheme())
+            state.saveTupleDef(resultsym, stagedTuple)
 
             tuple_type_def = stagedTuple.generateDefinition()
             tuple_type = stagedTuple.getTupleTypename()
