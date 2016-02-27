@@ -1,2 +1,2 @@
-{{sym}}.data->push_back({{input_tuple_name}});
+{{sym}}.data->vector.push_back({{input_tuple_name}});
 
