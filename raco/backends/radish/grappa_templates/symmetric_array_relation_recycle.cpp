@@ -1,4 +1,5 @@
-// recycle result vectors {{sym}}
+// recycle result vector
+swap({{symsrc}}.data, {{symsink}}.data);
 on_all_cores([=] {
-    {{sym}}.data->vector.clear();
+    {{symsink}}.data->vector.clear();
 });
