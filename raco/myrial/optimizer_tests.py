@@ -1021,6 +1021,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
         self.assertEquals(self.get_count(pp, MyriaDupElim), 1)
 
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        expected = dict([((h,), 1) for _, h, _ in self.part_data])
+        self.assertEquals(result, expected)
+
     def test_no_shuffle_for_partitioned_groupby(self):
         """Do not shuffle for groupby if already partitioned"""
 
@@ -1057,6 +1062,15 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaGroupBy), 0)
         self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
 
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        temp = dict([(h, 0) for _, h, _ in self.part_data])
+        for _, h, i in self.part_data:
+            temp[h] += i
+        expected = dict(((h, i), 1) for h, i in temp.items())
+
+        self.assertEquals(result, expected)
+
     def test_partition_aware_distinct_into_sql(self):
         """No shuffle for distinct also causes it to be pushed into sql"""
 
@@ -1076,3 +1090,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaGroupBy), 0)  # sanity
         self.assertEquals(self.get_count(pp, MyriaDupElim), 0)
         self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
+
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        expected = dict([((h,), 1) for _, h, _ in self.part_data])
+        self.assertEquals(result, expected)
+
+        self.assertEquals(result, expected)
