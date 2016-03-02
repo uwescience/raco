@@ -1470,14 +1470,15 @@ class AddAppendTemp(rules.Rule):
 
 class PushIntoSQL(rules.Rule):
 
-    def __init__(self, dialect=None):
+    def __init__(self, dialect=None, push_grouping=False):
         self.dialect = dialect or postgresql.dialect()
+        self.push_grouping = push_grouping
         super(PushIntoSQL, self).__init__()
 
     def fire(self, expr):
         if isinstance(expr, (algebra.Scan, algebra.ScanTemp)):
             return expr
-        cat = SQLCatalog()
+        cat = SQLCatalog(push_grouping=self.push_grouping)
         try:
             sql_plan = cat.get_sql(expr)
             sql_string = sql_plan.compile(dialect=self.dialect)
@@ -1702,7 +1703,9 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
 
         if kwargs.get('push_sql', False):
             opt_grps_sequence.append([
-                PushIntoSQL(dialect=kwargs.get('dialect'))])
+                PushIntoSQL(dialect=kwargs.get('dialect'),
+                            push_grouping=kwargs.get(
+                                'push_sql_grouping', False))])
 
         compile_grps_sequence = [
             myriafy,

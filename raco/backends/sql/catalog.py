@@ -31,8 +31,9 @@ raco_to_type = {types.LONG_TYPE: Integer,
 
 
 class SQLCatalog(Catalog):
-    def __init__(self, engine=None):
+    def __init__(self, engine=None, push_grouping=False):
         self.engine = engine
+        self.push_grouping = push_grouping
         self.metadata = MetaData()
 
     @staticmethod
@@ -110,6 +111,8 @@ class SQLCatalog(Catalog):
             return func.max(input)
         if isinstance(expr, expression.MIN):
             return func.min(input)
+        if isinstance(expr, expression.SUM):
+            return func.sum(input)
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_binary_expr(self, cols, expr, input_scheme):
@@ -157,7 +160,7 @@ class SQLCatalog(Catalog):
             return select(clause, from_obj=input)
 
         elif isinstance(plan, algebra.GroupBy):
-            if len(plan.grouping_list) > 0:
+            if (not self.push_grouping) and len(plan.grouping_list) > 0:
                 raise NotImplementedError(
                     "convert aggregate with grouping to sql -- Myria faster")
             a = [self._convert_expr(cols, e, input_sch)
@@ -168,6 +171,9 @@ class SQLCatalog(Catalog):
             if not plan.grouping_list:
                 return sel
             return sel.group_by(*g)
+
+        elif isinstance(plan, algebra.Distinct):
+            return select(['*'], from_obj=input, distinct=True)
 
         raise NotImplementedError("convert {op} to sql".format(op=type(plan)))
 

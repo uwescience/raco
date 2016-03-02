@@ -1006,6 +1006,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                           frozenset([AttIndex(0)]))
 
     def test_no_shuffle_for_partitioned_distinct(self):
+        """Do not shuffle for Distinct if already partitioned"""
+
         query = """
         r = scan({part});
         t = select distinct r.h from r;
@@ -1013,7 +1015,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         lp = self.get_logical_plan(query)
         pp = self.logical_to_physical(lp)
-        print pp
 
         # shuffles should be removed and distinct not decomposed into two
         self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
@@ -1021,6 +1022,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaDupElim), 1)
 
     def test_no_shuffle_for_partitioned_groupby(self):
+        """Do not shuffle for groupby if already partitioned"""
+
         query = """
         r = scan({part});
         t = select r.h, SUM(r.i) from r;
@@ -1028,11 +1031,49 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         lp = self.get_logical_plan(query)
         pp = self.logical_to_physical(lp)
-        print pp
 
         # shuffles should be removed and the groupby not decomposed into two
         self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
         self.assertEquals(self.get_count(pp, MyriaGroupBy), 1)
 
+    def test_partition_aware_groupby_into_sql(self):
+        """No shuffle for groupby also causes it to be pushed into sql"""
+
+        query = """
+        r = scan({part});
+        t = select r.h, SUM(r.i) from r;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp, push_sql=True,
+                                      push_sql_grouping=True)
+
+        # shuffles should be removed and the groupby not decomposed into two
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+
+        # should be pushed
+        self.assertEquals(self.get_count(pp, MyriaGroupBy), 0)
+        self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
+
+    def test_partition_aware_distinct_into_sql(self):
+        """No shuffle for distinct also causes it to be pushed into sql"""
+
+        query = """
+        r = scan({part});
+        t = select distinct r.h from r;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp, push_sql=True)
+
+        # shuffles should be removed and the groupby not decomposed into two
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+
+        # should be pushed
+        self.assertEquals(self.get_count(pp, MyriaGroupBy), 0)  # sanity
+        self.assertEquals(self.get_count(pp, MyriaDupElim), 0)
+        self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
 
