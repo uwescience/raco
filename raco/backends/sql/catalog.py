@@ -111,8 +111,6 @@ class SQLCatalog(Catalog):
             return func.max(input)
         if isinstance(expr, expression.MIN):
             return func.min(input)
-        if isinstance(expr, expression.SUM):
-            return func.sum(input)
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_binary_expr(self, cols, expr, input_scheme):

@@ -1,5 +1,6 @@
 import collections
 import random
+import sys
 
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
@@ -1031,7 +1032,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         query = """
         r = scan({part});
-        t = select r.h, SUM(r.i) from r;
+        t = select r.h, MIN(r.i) from r;
         store(t, OUTPUT);""".format(part=self.part_key)
 
         lp = self.get_logical_plan(query)
@@ -1047,7 +1048,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         query = """
         r = scan({part});
-        t = select r.h, SUM(r.i) from r;
+        t = select r.h, MIN(r.i) from r;
         store(t, OUTPUT);""".format(part=self.part_key)
 
         lp = self.get_logical_plan(query)
@@ -1064,9 +1065,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
-        temp = dict([(h, 0) for _, h, _ in self.part_data])
+        temp = dict([(h, sys.maxint) for _, h, _ in self.part_data])
         for _, h, i in self.part_data:
-            temp[h] += i
+            temp[h] = min(temp[h], i)
         expected = dict(((h, i), 1) for h, i in temp.items())
 
         self.assertEquals(result, expected)
