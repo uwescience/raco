@@ -189,7 +189,8 @@ class SQLCatalog(Catalog):
             clause = [self._convert_expr(all_cols, e, all_sch)
                       for e in plan.output_columns]
 
-            return select(clause, from_obj=left.join(right, cond))
+            return select(clause, from_obj=left.join(right, cond)).\
+                apply_labels()
 
         raise NotImplementedError("convert {op} to sql".format(op=type(plan)))
 
