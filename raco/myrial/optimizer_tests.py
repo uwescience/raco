@@ -8,7 +8,8 @@ from raco.expression import StateVar
 
 from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
-    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer)
+    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaDupElim,
+    MyriaGroupBy)
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
                                  MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -1003,3 +1004,35 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # (in general, info could be h($0) && h($2)
         self.assertEquals(pp.partitioning().hash_partitioned,
                           frozenset([AttIndex(0)]))
+
+    def test_no_shuffle_for_partitioned_distinct(self):
+        query = """
+        r = scan({part});
+        t = select distinct r.h from r;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+        print pp
+
+        # shuffles should be removed and distinct not decomposed into two
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+        self.assertEquals(self.get_count(pp, MyriaDupElim), 1)
+
+    def test_no_shuffle_for_partitioned_groupby(self):
+        query = """
+        r = scan({part});
+        t = select r.h, SUM(r.i) from r;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+        print pp
+
+        # shuffles should be removed and the groupby not decomposed into two
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+        self.assertEquals(self.get_count(pp, MyriaGroupBy), 1)
+
+

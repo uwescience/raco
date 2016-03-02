@@ -1,23 +1,23 @@
 import itertools
 import logging
 from collections import defaultdict, deque
+from functools import reduce
 from operator import mul
 
 from sqlalchemy.dialects import postgresql
 
 from raco import algebra, expression, rules, scheme
-from raco.algebra import convertcondition
+from raco import types
 from raco.algebra import Shuffle
-from raco.catalog import Catalog
-from raco.representation import RepresentationProperties
+from raco.algebra import convertcondition
 from raco.backends import Language, Algebra
 from raco.backends.sql.catalog import SQLCatalog
-from raco.expression import WORKERID, COUNTALL
-from raco.expression import UnnamedAttributeRef
+from raco.catalog import Catalog
 from raco.datastructure.UnionFind import UnionFind
-from raco import types
-from raco.rules import distributed_group_by
-from functools import reduce
+from raco.expression import UnnamedAttributeRef
+from raco.expression import WORKERID, COUNTALL
+from raco.representation import RepresentationProperties
+from raco.rules import distributed_group_by, check_partition_equality
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1131,17 +1131,6 @@ class CollectBeforeLimit(rules.Rule):
                                   MyriaLimit(exp.count, exp.input)))
 
         return exp
-
-
-def check_partition_equality(op, representation):
-    """Check to see if the operator has the required hash partitioning.
-    @param op operator
-    @param representation list of columns hash partitioned by,
-                        in the unnamed perspective
-    @return true if the op has an equal hash partitioning to representation
-    """
-
-    return op.partitioning().hash_partitioned == frozenset(representation)
 
 
 class ShuffleBeforeSetop(rules.Rule):
