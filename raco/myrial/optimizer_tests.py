@@ -1076,4 +1076,3 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaGroupBy), 0)  # sanity
         self.assertEquals(self.get_count(pp, MyriaDupElim), 0)
         self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
-
