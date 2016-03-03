@@ -1065,7 +1065,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
-        temp = dict([(h, sys.maxint) for _, h, _ in self.part_data])
+        temp = dict([(h, sys.maxsize) for _, h, _ in self.part_data])
         for _, h, i in self.part_data:
             temp[h] = min(temp[h], i)
         expected = dict(((h, i), 1) for h, i in temp.items())
@@ -1096,5 +1096,32 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         result = self.db.get_table('OUTPUT')
         expected = dict([((h,), 1) for _, h, _ in self.part_data])
         self.assertEquals(result, expected)
+
+    def test_push_half_groupby_into_sql(self):
+        """Push the first group by of decomposed group by into sql"""
+
+        query = """
+        r = scan({part});
+        t = select r.i, MIN(r.h) from r;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp, push_sql=True,
+                                      push_sql_grouping=True)
+
+        # wrong partition, so still has shuffle
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
+
+        # one group by should be pushed
+        self.assertEquals(self.get_count(pp, MyriaGroupBy), 1)
+        self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
+
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        temp = dict([(i, sys.maxsize) for _, _, i in self.part_data])
+        for _, h, i in self.part_data:
+            temp[i] = min(temp[i], h)
+        expected = dict(((k, v), 1) for k, v in temp.items())
 
         self.assertEquals(result, expected)
