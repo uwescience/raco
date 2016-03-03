@@ -840,8 +840,8 @@ class DecomposeGroupBy(Rule):
         child_scheme = op.input.scheme()
         group_fields = [expression.toUnnamed(ref, child_scheme)
                         for ref in op.grouping_list]
-        return len(group_fields) > 0 \
-            and check_partition_equality(op.input, group_fields)
+        return (len(group_fields) > 0 and
+                check_partition_equality(op.input, group_fields))
 
     def fire(self, op):
         # Punt if it's not a group by or we've already converted this into an
