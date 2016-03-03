@@ -11,7 +11,7 @@ from raco import types
 from raco.algebra import Shuffle
 from raco.algebra import convertcondition
 from raco.backends import Language, Algebra
-from raco.backends.sql.catalog import SQLCatalog
+from raco.backends.sql.catalog import SQLCatalog, PostgresSQLFunctionProvider
 from raco.catalog import Catalog
 from raco.datastructure.UnionFind import UnionFind
 from raco.expression import UnnamedAttributeRef
@@ -1478,7 +1478,8 @@ class PushIntoSQL(rules.Rule):
     def fire(self, expr):
         if isinstance(expr, (algebra.Scan, algebra.ScanTemp)):
             return expr
-        cat = SQLCatalog(push_grouping=self.push_grouping)
+        cat = SQLCatalog(provider=PostgresSQLFunctionProvider(),
+                         push_grouping=self.push_grouping)
         try:
             sql_plan = cat.get_sql(expr)
             sql_string = sql_plan.compile(dialect=self.dialect)

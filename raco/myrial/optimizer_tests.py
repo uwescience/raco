@@ -1,11 +1,13 @@
 import collections
 import random
 import sys
+import re
 
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.expression import StateVar
+from raco.expression import aggregate
 
 from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
@@ -1125,3 +1127,48 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         expected = dict(((k, v), 1) for k, v in temp.items())
 
         self.assertEquals(result, expected)
+
+    def _check_aggregate_functions_pushed(
+            self,
+            func,
+            expected,
+            override=False):
+        if override:
+            agg = func
+        else:
+            agg = "{func}(r.i)".format(func=func)
+
+        query = """
+        r = scan({part});
+        t = select r.h, {agg} from r;
+        store(t, OUTPUT);""".format(part=self.part_key, agg=agg)
+        print query
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp, push_sql=True,
+                                      push_sql_grouping=True)
+
+        self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
+
+        for op in pp.walk():
+            if isinstance(op, MyriaQueryScan):
+                print op.sql
+                self.assertTrue(re.search(expected, op.sql))
+
+    def test_aggregate_AVG_pushed(self):
+        """AVG is translated properly for postgresql. This is
+        a function not in SQLAlchemy"""
+        self._check_aggregate_functions_pushed(
+            aggregate.AVG.__name__, 'avg')
+
+    def test_aggregate_STDDEV_pushed(self):
+        """STDEV is translated properly for postgresql. This is
+        a function that is named differently in Raco and postgresql"""
+        self._check_aggregate_functions_pushed(
+            aggregate.STDEV.__name__, 'stddev_samp')
+
+    def test_aggregate_COUNTALL_pushed(self):
+        """COUNTALL is translated properly for postgresql. This is
+        a function that is expressed differently in Raco and postgresql"""
+        self._check_aggregate_functions_pushed(
+            'count(*)', r'count[(][a-zA-Z.]+[)]', True)
