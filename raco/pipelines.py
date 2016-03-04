@@ -67,6 +67,25 @@ class CompileState:
 
         self.sequence_wait_statements = set()
 
+        self.in_loop = False
+        self.loop_recycle_codes = set()
+        self.loop_pipeline_codes = []
+
+    def addIfInLoop(self, code):
+        if self.in_loop:
+            self.loop_recycle_codes.add(code)
+
+    def enterLoop(self):
+        assert not self.in_loop, "Nested loops not supported"
+        self.loop_recycle_codes = set()
+        self.loop_pipeline_codes = []
+        self.in_loop = True
+
+    def exitLoop(self):
+        assert self.in_loop, "Exiting loop but not in one"
+        self.in_loop = False
+        return self.loop_pipeline_codes, self.loop_recycle_codes
+
     def setPipelineProperty(self, key, value):
         LOG.debug("set %s in %s" % (key, self.current_pipeline_properties))
         self.current_pipeline_properties[key] = value
@@ -133,6 +152,12 @@ class CompileState:
         self.sequence_wait_statements = set()
         return r
 
+    def _append_pipeline_code(self, code):
+        if self.in_loop:
+            self.loop_pipeline_codes.append(code)
+        else:
+            self.pipelines.append(code)
+
     def addPipeline(self, p):
         LOG.debug("output pipeline %s", self.current_pipeline_properties)
 
@@ -146,9 +171,10 @@ class CompileState:
 
         # force scan pipelines to go first
         if self.current_pipeline_properties.get('type') == 'scan':
+            assert not self.in_loop, "scan pipeline not supported in loop"
             self.scan_pipelines.append(pipeline_code)
         else:
-            self.pipelines.append(pipeline_code)
+            self._append_pipeline_code(pipeline_code)
 
         self.pipeline_count += 1
         self.current_pipeline_properties = {}
@@ -159,7 +185,7 @@ class CompileState:
         """
         Just add code here
         """
-        self.pipelines.append(c)
+        self._append_pipeline_code(c)
 
     def addPreCode(self, c):
         self.current_pipeline_precode.append(c)
@@ -226,6 +252,8 @@ class CompileState:
         return ResolvingSymbol.substitute(code, self.resolving_symbols)
 
     def getExecutionCode(self):
+        assert not self.in_loop, "Bad state, in loop at end of compilation"
+
         # list -> string
         scan_linearized = emitlist(self.scan_pipelines)
 

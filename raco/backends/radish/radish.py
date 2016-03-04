@@ -819,7 +819,9 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             # FOR BUILTINs        self.__get_initial_value__(0,
             # cached_inp_sch=inp_sch)
 
-        state.addInitializers([init_template.render(locals())])
+        initialize_data_structure = init_template.render(locals())
+        self.initializer = initialize_data_structure
+        state.addInitializers([self.initializer])
 
         if not hashtableInfo:
             self.input.produce(state)
@@ -1115,6 +1117,9 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
         else:
             materialize_template = self._cgenv.get_template(
                 'multi_uda_0key_update.cpp')
+
+        state.addIfInLoop(self.language().comment("recycle") +
+                          self.initializer)
 
         hashname = self._hashname
         tuple_name = inputTuple.name
@@ -1686,13 +1691,23 @@ class GrappaDoWhile(algebra.DoWhile, GrappaOperator):
         found = false;
         """)
 
-        for c in self.args:  # condition args[-1] is not treated specially
+        state.enterLoop()
+
+        for c in self.args:  # condition (args[-1]) is not treated specially
             c.produce(state)
 
-            # See Grappa.Sequence.produce() for explanation
+            # See GrappaSequence.produce() for explanation
             waits = state.getAndFlushSeqWaitStatements()
             for s in waits:
                 state.addCode(s)
+
+        # put the recycle code before the pipeline code
+        # within the loop, pipelines are queued instead of emitted
+        pipes, recycles = state.exitLoop()
+        for c in recycles:
+            state.addCode(c)
+        for c in pipes:
+            state.addCode(c)
 
         state.addCode("} while (found);")
 
