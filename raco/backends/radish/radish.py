@@ -1694,10 +1694,11 @@ class GrappaSequence(algebra.Sequence, GrappaOperator):
 class GrappaDoWhile(algebra.DoWhile, GrappaOperator):
 
     def produce(self, state):
-        state.addDeclarations(["bool found;"])
+        state.addDeclarations(["bool continue_while;"])
 
         state.addCode("""do {
-        found = false;
+        continue_while = false;
+        auto continue_while_a = make_global(&continue_while);
         """)
 
         state.enterLoop()
@@ -1718,7 +1719,7 @@ class GrappaDoWhile(algebra.DoWhile, GrappaOperator):
         for c in pipes:
             state.addCode(c)
 
-        state.addCode("} while (found);")
+        state.addCode("} while (continue_while);")
 
     def consume(self, sym, src, state):
         raise NotImplementedError(
@@ -1735,7 +1736,7 @@ class GrappaTest(algebra.UnaryOperator, GrappaOperator):
         self.input.produce(state)
 
     def consume(self, t, src, state):
-        return """found = ({get} > 0);
+        return """delegate::write(continue_while_a, {get});
         """.format(get=t.get_code(0))
 
     def num_tuples(self):
@@ -1749,22 +1750,20 @@ class GrappaTest(algebra.UnaryOperator, GrappaOperator):
 
 
 class GrappaWhileCondition(rules.Rule):
+    """In the DoWhile condition, insert a test operator to check
+    result of the condition table"""
 
     def fire(self, expr):
         if isinstance(expr, algebra.DoWhile):
             newdw = rules.OneToOne(algebra.DoWhile, GrappaDoWhile).fire(expr)
             newdw.copy(expr)
-            newdw.children()[-1] = \
-                GrappaTest(
-                    algebra.GroupBy(None, [aggregate.COUNT(
-                        expression.UnnamedAttributeRef(0))],
-                        expr.children()[-1]))
+            newdw.children()[-1] = GrappaTest(expr.children()[-1])
             return newdw
         return expr
 
     def __str__(self):
         return """DoWhile[..., Cond] => \
-        GrappaDoWhile[..., GroupBy(Count)[Cond]]"""
+        GrappaDoWhile[..., GrappaTest[Cond]]"""
 
 
 class CrossProductWithSmall(rules.Rule):
