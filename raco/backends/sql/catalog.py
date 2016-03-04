@@ -39,6 +39,8 @@ class SQLFunctionProvider(object):
     For functions not understood by SQLAlchemy, the SQLAlchemy compiler
     just emits them verbatim."""
 
+    __metaclass__ = abc.ABCMeta
+
     @abc.abstractmethod
     def convert_unary_expr(self, expr, input):
         pass
