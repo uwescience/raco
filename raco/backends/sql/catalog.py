@@ -33,11 +33,11 @@ raco_to_type = {types.LONG_TYPE: Integer,
 
 class SQLFunctionProvider(object):
     """Interface for translating function names. For Raco functions
-    not understood by SQLAlchemy, like stddev, we cannot rely
+    not understood by SQLAlchemy, like stdev, we cannot rely
     on SQLAlchemy's compiler to translate function
     names to the given dialect.
-    For functions not understood by SQLAlchemy, it just emits them as
-    given."""
+    For functions not understood by SQLAlchemy, the SQLAlchemy compiler
+    just emits them verbatim."""
 
     @abc.abstractmethod
     def convert_unary_expr(self, expr, input):
@@ -65,10 +65,10 @@ class PostgresSQLFunctionProvider(SQLFunctionProvider):
 
 class SQLCatalog(Catalog):
     def __init__(self, engine=None, push_grouping=False,
-                 provider=None):
+                 provider=_DefaultSQLFunctionProvider()):
         self.engine = engine
         self.push_grouping = push_grouping
-        self.provider = provider or _DefaultSQLFunctionProvider()
+        self.provider = provider
         self.metadata = MetaData()
 
     @staticmethod
