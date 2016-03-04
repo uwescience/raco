@@ -555,6 +555,8 @@ from raco.algebra import ZeroaryOperator
 
 class CBaseFileScan(Pipelined, algebra.Scan):
 
+    __metaclass__ = abc.ABCMeta
+
     @abc.abstractmethod
     def __get_ascii_scan_template__(self):
         return
@@ -562,6 +564,9 @@ class CBaseFileScan(Pipelined, algebra.Scan):
     @abc.abstractmethod
     def __get_binary_scan_template__(self):
         return
+
+    def _get_input_aux_decls_template(self):
+        return None
 
     def __get_relation_decl_template__(self, name):
         """
@@ -604,7 +609,8 @@ class CBaseFileScan(Pipelined, algebra.Scan):
             if rel_decl_template:
                 state.addDeclarations([rel_decl_template.render(locals())])
 
-            rel_aux_decl_template = self.__get_input_auxiliary_decls_template()
+            rel_aux_decl_template = self._get_input_aux_decls_template()
+
             if rel_aux_decl_template:
                 state.addDeclarations([rel_aux_decl_template.render(locals())])
 
@@ -660,9 +666,6 @@ class CBaseFileScan(Pipelined, algebra.Scan):
         """
         return ZeroaryOperator.__eq__(self, other) and \
             self.relation_key == other.relation_key
-
-    def __get_input_auxiliary_decls_template(self):
-        return None
 
 
 # Rules

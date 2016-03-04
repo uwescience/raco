@@ -1372,9 +1372,9 @@ class GrappaFileScan(cppcommon.CBaseFileScan, GrappaOperator):
 
         return self._language.cgenv().get_template(template_name)
 
-    def __get_input_auxiliary_decls_template(self):
-        return self._language.cgenv() \
-            .get_template('input_relation_declarations.cpp')
+    def _get_input_aux_decls_template(self):
+        return self._language.cgenv().get_template(
+            'input_relation_declarations.cpp')
 
     def __repr__(self):
         return "{op}({rep!r}, {rk!r}, {sch!r}, {card!r})".format(
