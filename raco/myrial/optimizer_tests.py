@@ -1142,7 +1142,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         r = scan({part});
         t = select r.h, {agg} from r;
         store(t, OUTPUT);""".format(part=self.part_key, agg=agg)
-        print query
 
         lp = self.get_logical_plan(query)
         pp = self.logical_to_physical(lp, push_sql=True,
@@ -1152,7 +1151,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         for op in pp.walk():
             if isinstance(op, MyriaQueryScan):
-                print op.sql
                 self.assertTrue(re.search(expected, op.sql))
 
     def test_aggregate_AVG_pushed(self):
