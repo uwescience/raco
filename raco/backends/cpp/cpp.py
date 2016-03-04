@@ -152,10 +152,10 @@ class CGroupBy(cppcommon.BaseCGroupby, CCOperator):
         self._cgenv = cppcommon.prepend_template_relpath(
             self.language().cgenv(), '{0}/groupby'.format(CC._template_path))
 
-    @classmethod
-    def __genHashName__(cls):
-        name = "group_hash_%03d" % cls._i
-        cls._i += 1
+    @staticmethod
+    def __genHashName__():
+        name = "group_hash_%03d" % CGroupBy._i
+        CGroupBy._i += 1
         return name
 
     def produce(self, state):
@@ -202,7 +202,7 @@ class CGroupBy(cppcommon.BaseCGroupby, CCOperator):
                 inp_sch,
                 None))
 
-        self.hashname = self.__genHashName__()
+        self.hashname = CGroupBy.__genHashName__()
         hashname = self.hashname
 
         hash_declr = declr_template.render(locals())
@@ -290,10 +290,10 @@ class CGroupBy(cppcommon.BaseCGroupby, CCOperator):
 class CHashJoin(algebra.Join, CCOperator):
     _i = 0
 
-    @classmethod
-    def __genHashName__(cls):
-        name = "hash_%03d" % cls._i
-        cls._i += 1
+    @staticmethod
+    def __genHashName__():
+        name = "hash_%03d" % CHashJoin._i
+        CHashJoin._i += 1
         return name
 
     def __init__(self, *args):
@@ -337,7 +337,7 @@ class CHashJoin(algebra.Join, CCOperator):
         if not hashsym_and_type:
             # if right child never bound then store hashtable symbol and
             # call right child produce
-            self._hashname = self.__genHashName__()
+            self._hashname = CHashJoin.__genHashName__()
             _LOG.debug("generate hashname %s for %s", self._hashname, self)
             self.right.produce(state)
         else:

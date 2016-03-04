@@ -688,10 +688,10 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
     _i = 0
 
-    @classmethod
-    def __genHashName__(cls):
-        name = "group_hash_%03d" % cls._i
-        cls._i += 1
+    @staticmethod
+    def __genHashName__():
+        name = "group_hash_%03d" % GrappaGroupBy._i
+        GrappaGroupBy._i += 1
         return name
 
     def __init__(self, *args):
@@ -777,7 +777,7 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             # self.input_type_ref = subexpression_proxy.input_type_ref
         else:
             symbol = gensym()
-            self._hashname = self.__genHashName__()
+            self._hashname = GrappaGroupBy.__genHashName__()
             _LOG.debug("generate hashname %s for %s", self._hashname, self)
             self.func_name = "__{0}".format(symbol)
 
@@ -1152,10 +1152,10 @@ def get_pipeline_task_name(state):
 class GrappaHashJoin(GrappaJoin, GrappaOperator):
     _i = 0
 
-    @classmethod
-    def __genHashName__(cls):
-        name = "hash_%03d" % cls._i
-        cls._i += 1
+    @staticmethod
+    def __genHashName__():
+        name = "hash_%03d" % GrappaHashJoin._i
+        GrappaHashJoin._i += 1
         return name
 
     def __init__(self, *args):
@@ -1189,7 +1189,7 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
         if not hashtableInfo:
             # if right child never bound then store hashtable symbol and
             # call right child produce
-            self._hashname = self.__genHashName__()
+            self._hashname = GrappaHashJoin.__genHashName__()
             _LOG.debug("generate hashname %s for %s", self._hashname, self)
 
             hashname = self._hashname
