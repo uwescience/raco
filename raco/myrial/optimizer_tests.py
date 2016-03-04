@@ -1168,5 +1168,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
     def test_aggregate_COUNTALL_pushed(self):
         """COUNTALL is translated properly for postgresql. This is
         a function that is expressed differently in Raco and postgresql"""
+
+        # MyriaL parses count(*) to Raco COUNTALL. And COUNTALL
+        # should currently (under the no nulls semantics of Raco/Myria)
+        # translate to COUNT(something)
         self._check_aggregate_functions_pushed(
             'count(*)', r'count[(][a-zA-Z.]+[)]', True)
