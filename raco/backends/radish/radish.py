@@ -140,25 +140,16 @@ class GrappaLanguage(CBaseLanguage):
 
         wrappers = []
 
-        timing_template = GrappaLanguage.cgenv().get_template(
-            'grappa_pipeline_timing.cpp')
-        wrappers.append((timing_template, locals()))
-
         dependences = attrs.get('dependences', set())
         assert isinstance(dependences, set)
         _LOG.debug("pipeline %s dependences %s", ident, dependences)
 
-        dependence_code = emitlist([wait_statement(d) for d in dependences])
-        dependence_template = GrappaLanguage.cgenv().from_string("""
-        {{dependence_code}}
-        {{inner_code}}
-        """)
-        wrappers.append((dependence_template, locals()))
+        name = "pipeline_{ident}".format(ident=ident)
 
         syncname = attrs.get('sync')
         if syncname:
             dependence_captures = emitlist(
-                [",&{dep}".format(dep=d) for d in dependences])
+                ["&{dep},".format(dep=d) for d in dependences])
             sync_template = GrappaLanguage.cgenv().get_template('spawn.cpp')
             wrappers.append((sync_template, locals()))
 
@@ -1146,7 +1137,7 @@ def wait_statement(name):
 
 
 def get_pipeline_task_name(state):
-    name = "p_task_{n}".format(n=state.getCurrentPipelineId())
+    name = "pipeline_{n}".format(n=state.getCurrentPipelineId())
     state.setPipelineProperty('sync', name)
     wait_stmt = wait_statement(name)
     state.addSeqWaitStatement(wait_stmt)
