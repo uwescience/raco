@@ -68,10 +68,12 @@ class CompileState:
         self.sequence_wait_statements = set()
 
         self.in_loop = False
+        # this is a set for cases where we might generate recycle twice
+        # as in operators above a union or other streaming binary operator
         self.loop_recycle_codes = set()
         self.loop_pipeline_codes = []
 
-    def addIfInLoop(self, code):
+    def recordCodeWhenInLoop(self, code):
         if self.in_loop:
             self.loop_recycle_codes.add(code)
 

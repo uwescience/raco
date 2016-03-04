@@ -415,7 +415,8 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         state.addDeclarations([out_tuple_type_def])
 
         self.right.childtag = "right"
-        state.addInitializers([init_template.render(locals())])
+        self.initializer = init_template.render(locals())
+        state.addInitializers([self.initializer])
         self.right.produce(state)
 
         self.left.childtag = "left"
@@ -433,6 +434,10 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         out_tuple_name = self.outTuple.name
 
         global_syncname = state.getPipelineProperty('global_syncname')
+
+        # note that this recycles both sides of the hash join structure
+        state.recordCodeWhenInLoop(self.language().comment("recycle") +
+                                   self.initializer)
 
         if src.childtag == "right":
             left_sch = self.left.scheme()
@@ -819,8 +824,7 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             # FOR BUILTINs        self.__get_initial_value__(0,
             # cached_inp_sch=inp_sch)
 
-        initialize_data_structure = init_template.render(locals())
-        self.initializer = initialize_data_structure
+        self.initializer = init_template.render(locals())
         state.addInitializers([self.initializer])
 
         if not hashtableInfo:
@@ -1118,8 +1122,8 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             materialize_template = self._cgenv.get_template(
                 'multi_uda_0key_update.cpp')
 
-        state.addIfInLoop(self.language().comment("recycle") +
-                          self.initializer)
+        state.recordCodeWhenInLoop(self.language().comment("recycle") +
+                                   self.initializer)
 
         hashname = self._hashname
         tuple_name = inputTuple.name
@@ -1202,7 +1206,8 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
 
             init_template = self._cgenv.get_template('hash_init.cpp')
 
-            state.addInitializers([init_template.render(locals())])
+            self.initializer = init_template.render(locals())
+            state.addInitializers([self.initializer])
             self.right.produce(state)
             state.saveExpr((self.right, frozenset(self.rightcols)),
                            (self._hashname, self.rightTupleTypename,
@@ -1246,6 +1251,10 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
 
             # materialization point
             code = right_template.render(locals())
+
+            # recycling when right index is reused
+            state.recordCodeWhenInLoop(self.language().comment("recycle") +
+                                       self.initializer)
 
             return code
 
