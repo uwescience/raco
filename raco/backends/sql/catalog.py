@@ -12,6 +12,7 @@ import raco.expression as expression
 import raco.scheme as scheme
 import raco.types as types
 from raco.representation import RepresentationProperties
+import abc
 
 
 type_to_raco = {Integer: types.LONG_TYPE,
@@ -30,10 +31,46 @@ raco_to_type = {types.LONG_TYPE: Integer,
                 types.DATETIME_TYPE: DateTime}
 
 
+class SQLFunctionProvider(object):
+    """Interface for translating function names. For Raco functions
+    not understood by SQLAlchemy, like stdev, we cannot rely
+    on SQLAlchemy's compiler to translate function
+    names to the given dialect.
+    For functions not understood by SQLAlchemy, the SQLAlchemy compiler
+    just emits them verbatim."""
+
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def convert_unary_expr(self, expr, input):
+        pass
+
+
+class _DefaultSQLFunctionProvider(SQLFunctionProvider):
+    def convert_unary_expr(self, expr, input):
+        # just use the function name without complaining
+        fname = expr.__class__.__name__.lower()
+        return getattr(func, fname)(input)
+
+
+class PostgresSQLFunctionProvider(SQLFunctionProvider):
+    def convert_unary_expr(self, expr, input):
+        fname = expr.__class__.__name__.lower()
+
+        # replacements
+        if fname == "stdev":
+            return func.stddev_samp(input)
+
+        # Warning: may create some functions not available in Postgres
+        return getattr(func, fname)(input)
+
+
 class SQLCatalog(Catalog):
-    def __init__(self, engine=None, push_grouping=False):
+    def __init__(self, engine=None, push_grouping=False,
+                 provider=_DefaultSQLFunctionProvider()):
         self.engine = engine
         self.push_grouping = push_grouping
+        self.provider = provider
         self.metadata = MetaData()
 
     @staticmethod
@@ -107,10 +144,11 @@ class SQLCatalog(Catalog):
 
     def _convert_unary_expr(self, cols, expr, input_scheme):
         input = self._convert_expr(cols, expr.input, input_scheme)
-        if isinstance(expr, expression.MAX):
-            return func.max(input)
-        if isinstance(expr, expression.MIN):
-            return func.min(input)
+
+        c = self.provider.convert_unary_expr(expr, input)
+        if c is not None:
+            return c
+
         raise NotImplementedError("expression {} to sql".format(type(expr)))
 
     def _convert_binary_expr(self, cols, expr, input_scheme):
