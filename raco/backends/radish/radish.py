@@ -274,7 +274,7 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         # check if the input symbol was from a temp relation
         if isinstance(inputsym, TempRelationSymbol):
             inputsym_raw = inputsym.symbol()
-            inputsym = inputsym.src_sym()
+            inputsym = inputsym.symbol()
         else:
             inputsym_raw = inputsym
 
