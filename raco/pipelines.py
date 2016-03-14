@@ -129,6 +129,18 @@ class CompileState:
     def resolveSymbol(self, rs, value):
         self.resolving_symbols[rs.getName()] = value
 
+    def resolveCounterSymbol(self, rs, increment=1):
+        """For late-resolved symbols that are incremented integers whose
+        value is unknown until a later compilation step"""
+
+        # Only store strings in resolving_symbols to maintain symbol is
+        # a string invariant. We just convert back and forth here to increment
+        if self.resolving_symbols[rs.getName()] is None:
+            self.resolving_symbols[rs.getName()] = '0'
+
+        self.resolving_symbols[rs.getName()] = str(
+            int(self.resolving_symbols[rs.getName()]) + increment)
+
     def addDeclarations(self, d):
         self.declarations += d
 

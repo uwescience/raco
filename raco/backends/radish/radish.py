@@ -1434,9 +1434,13 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
         # An alternative approach to consider in the future is,
         # to just put recycle in consume() but require a barrier
         # after it that involves all pipelines this StoreTemp appears in
-        state.addCode(self._language.cgenv().get_template(
-            'symmetric_array_relation_recycle.cpp').render(
-            sym=temp_rel.symbol()))
+
+        self.num_producers = state.createUnresolvedSymbol()
+        state.addCode(self._language.cgenv()
+                      .get_template('symmetric_array_temprelation_recycle.cpp')
+                      .render(sym=temp_rel.symbol(),
+                              num_producers=
+                              self.num_producers.getPlaceholder()))
 
         self.input.produce(state)
 
@@ -1473,6 +1477,13 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
                                                 state,
                                                 t,
                                                 newtuple)
+
+        state.addPostCode(self._language.cgenv()
+                          .get_template(
+            'symmetric_array_temprelation_materializer_done.cpp')
+                          .render(sym=temp_rel.symbol()))
+
+        state.resolveCounterSymbol(self.num_producers)
 
         return assignment_code + self.language().comment(self) + self._language.cgenv()\
             .get_template('symmetric_array_temprelation_materialize.cpp')\
