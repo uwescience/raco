@@ -1414,12 +1414,6 @@ class TempRelationSymbol:
     def symbol(self):
         return "_temp_table_{}".format(self._name)
 
-    def src_sym(self):
-        return self.symbol()+"_src"
-
-    def sink_sym(self):
-        return self.symbol()+"_sink"
-
     def __eq__(self, other):
         return isinstance(other, TempRelationSymbol) \
                and self._name == other._name
@@ -1440,8 +1434,7 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
         # after it that involves all pipelines this StoreTemp appears in
         state.addCode(self._language.cgenv().get_template(
             'symmetric_array_relation_recycle.cpp').render(
-            symsrc=temp_rel.src_sym(),
-            symsink=temp_rel.sink_sym()))
+            sym=temp_rel.symbol()))
 
         self.input.produce(state)
 
@@ -1456,29 +1449,20 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
             state.saveTupleDef(temp_rel.symbol(), tuple)
 
             declTupleType = tuple.generateDefinition()
-            declRelationSrc = self._language.cgenv()\
-                .get_template('symmetric_array_relation_declaration.cpp')\
+            declRelation = self._language.cgenv()\
+                .get_template('symmetric_array_temprelation_declaration.cpp')\
                 .render(tuple_type=tuple.getTupleTypename(),
-                        resultsym=temp_rel.src_sym())
-            declRelationSink = self._language.cgenv() \
-                .get_template('symmetric_array_relation_declaration.cpp') \
-                .render(tuple_type=tuple.getTupleTypename(),
-                        resultsym=temp_rel.sink_sym())
+                        resultsym=temp_rel.symbol())
 
             state.addDeclarations([declTupleType,
-                                   declRelationSrc,
-                                   declRelationSink])
+                                   declRelation])
 
-            initSrc = self._language.cgenv()\
-                .get_template('symmetric_array_relation_init.cpp')\
-                .render(sym=temp_rel.src_sym(),
-                        tuple_type=tuple.getTupleTypename())
-            initSink = self._language.cgenv() \
-                .get_template('symmetric_array_relation_init.cpp') \
-                .render(sym=temp_rel.sink_sym(),
+            init_stmt = self._language.cgenv()\
+                .get_template('symmetric_array_temprelation_init.cpp')\
+                .render(sym=temp_rel.symbol(),
                         tuple_type=tuple.getTupleTypename())
 
-            state.addInitializers([initSrc, initSink])
+            state.addInitializers([init_stmt])
 
         newtuple = tuple.copy_type()
         state.addDeclarations([newtuple.generateDefinition()])
@@ -1490,7 +1474,7 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
 
         return assignment_code + self.language().comment(self) + self._language.cgenv()\
             .get_template('symmetric_array_relation_materialize.cpp')\
-            .render(sym=temp_rel.sink_sym(), input_tuple_name=newtuple.name)
+            .render(sym=temp_rel.symbol(), input_tuple_name=newtuple.name)
 
 
 class GrappaNullInput(cppcommon.CBaseFileScan, GrappaOperator):
