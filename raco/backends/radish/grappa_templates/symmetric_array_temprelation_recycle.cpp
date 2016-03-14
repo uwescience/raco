@@ -1,4 +1,4 @@
 // recycle result vector
-{{sym}}.register({{num_producers}});
+{{sym}}.register_producers({{num_producers}});
 
 

@@ -1,2 +1,2 @@
-{{sym}}.release();
+{{sym}}.release_producer();
 
