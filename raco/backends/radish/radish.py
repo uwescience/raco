@@ -275,10 +275,10 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         if isinstance(inputsym, TempRelationSymbol):
             inputsym_raw = inputsym.symbol()
             inputsym = inputsym.symbol()
-            readfrom = "{{inputsym}}.read()".format(inputsym=inputsym)
+            readfrom = "{inputsym}.read()".format(inputsym=inputsym)
         else:
             inputsym_raw = inputsym
-            readfrom = "{{inputsym}}.data".format(inputsym=inputsym)
+            readfrom = "{inputsym}.data".format(inputsym=inputsym)
 
         # necessary to look this up rather than create a new
         # one because we need to read from the correct type provided
