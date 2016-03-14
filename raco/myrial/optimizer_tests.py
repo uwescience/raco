@@ -10,7 +10,7 @@ from raco.expression import StateVar
 from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
     MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaDupElim,
-    MyriaGroupBy)
+    MyriaGroupBy, MyriaApply)
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
                                  MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -1125,3 +1125,22 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         expected = dict(((k, v), 1) for k, v in temp.items())
 
         self.assertEquals(result, expected)
+
+    def test_push_opaque_udf_into_sql(self):
+        """Push an opaque (hopefully registered) UDF into SQL"""
+
+        query = """
+        r = scan({part});
+        t = select my_test_udf(r.i, r.h) from r;
+        store(t, OUTPUT);
+        """.format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp, push_sql=True)
+
+        self.assertEquals(self.get_count(pp, MyriaApply), 0)
+        self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
+
+        print pp
+
+

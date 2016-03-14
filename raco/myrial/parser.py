@@ -288,6 +288,9 @@ class Parser(object):
         return emit_op
 
     @staticmethod
+    def add_opaque_udf(p, name, args):
+
+    @staticmethod
     def mangle(name):
         Parser.mangle_id += 1
         return "{name}__{mid}".format(name=name, mid=Parser.mangle_id)
@@ -388,6 +391,12 @@ class Parser(object):
     def p_udf(p):
         """udf : DEF unreserved_id LPAREN optional_arg_list RPAREN COLON sexpr SEMI"""  # noqa
         Parser.add_udf(p, p[2], p[4], [p[7]])
+        p[0] = None
+
+    @staticmethod
+    def p_opaque_udf(p):
+        """udf: DECLARE unreserved_id LPAREN optional_arg_list RPAREN SEMI"""
+        Parser.add_opaque_udf(p, p[2], p[4])
         p[0] = None
 
     @staticmethod
