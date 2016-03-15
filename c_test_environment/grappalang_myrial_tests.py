@@ -173,6 +173,19 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         STORE(out2, OUTPUT);
         """, "join", join_type='shuffle_hash')
 
+    def test_while(self):
+        """
+        Test a minimal while loop
+        """
+        self.check("""
+            i = [4];
+            do
+            i = [from i emit *i - 1];
+            while [from i where *i > 0 emit *i];
+
+            store(i, OUTPUT);
+        """, "while")
+
 
 if __name__ == '__main__':
     unittest.main()
