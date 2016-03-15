@@ -1,0 +1,9 @@
+select "stuff"
+UNION ALL
+select "stuff"
+UNION ALL
+select "stuff"
+UNION ALL
+select "stuff"
+UNION ALL
+select "stuff";

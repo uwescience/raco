@@ -180,11 +180,28 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         self.check("""
             i = [4];
             do
-            i = [from i emit *i - 1];
+                i = [from i emit *i - 1];
             while [from i where *i > 0 emit *i];
-
             store(i, OUTPUT);
         """, "while")
+
+    def test_while_union_all(self):
+        """
+        Test UNIONALL into StoreTemp in a While loop
+        """
+        self.check("""
+            m = ["stuff"];
+            do
+                m = UNIONALL(m, m);
+                cnt = select count($0) from m;
+                eqfive = select case
+                                when $0 = 5 then 0
+                                else 1
+                                 end
+                        from cnt;
+            while [from eqfive where *eqfive emit *eqfive];
+            store(m, OUTPUT);
+        """, "while_union_all")
 
 
 if __name__ == '__main__':
