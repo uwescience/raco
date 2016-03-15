@@ -1,9 +1,9 @@
-select "stuff"
+select 1234
 UNION ALL
-select "stuff"
+select 1234
 UNION ALL
-select "stuff"
+select 1234
 UNION ALL
-select "stuff"
+select 1234
 UNION ALL
-select "stuff";
+select 1234;

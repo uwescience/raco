@@ -190,7 +190,7 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         Test UNIONALL into StoreTemp in a While loop
         """
         self.check("""
-            m = ["stuff"];
+            m = [1234];
             do
                 m = UNIONALL(m, m);
                 cnt = select count($0) from m;
