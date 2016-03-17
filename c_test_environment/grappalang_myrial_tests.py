@@ -193,9 +193,9 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             m = [1234];
             do
                 m = UNIONALL(m, m);
-                cnt = select count($0) from m;
+                cnt = select count($0) as c from m;
                 eqfive = select case
-                                when $0 = 5 then 0
+                                when c = 8 then 0
                                 else 1
                                  end
                         from cnt;

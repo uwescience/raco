@@ -6,4 +6,10 @@ select 1234
 UNION ALL
 select 1234
 UNION ALL
+select 1234
+UNION ALL
+select 1234
+UNION ALL
+select 1234
+UNION ALL
 select 1234;
