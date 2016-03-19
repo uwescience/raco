@@ -65,7 +65,28 @@ class CompileState:
         self.current_pipeline_precode = []
         self.current_pipeline_postcode = []
 
-        self.main_wait_statements = set()
+        self.sequence_wait_statements = set()
+
+        self.in_loop = False
+        # this is a set for cases where we might generate recycle twice
+        # as in operators above a union or other streaming binary operator
+        self.loop_recycle_codes = set()
+        self.loop_pipeline_codes = []
+
+    def recordCodeWhenInLoop(self, code):
+        if self.in_loop:
+            self.loop_recycle_codes.add(code)
+
+    def enterLoop(self):
+        assert not self.in_loop, "Nested loops not supported"
+        self.loop_recycle_codes = set()
+        self.loop_pipeline_codes = []
+        self.in_loop = True
+
+    def exitLoop(self):
+        assert self.in_loop, "Exiting loop but not in one"
+        self.in_loop = False
+        return self.loop_pipeline_codes, self.loop_recycle_codes
 
     def setPipelineProperty(self, key, value):
         LOG.debug("set %s in %s" % (key, self.current_pipeline_properties))
@@ -108,6 +129,18 @@ class CompileState:
     def resolveSymbol(self, rs, value):
         self.resolving_symbols[rs.getName()] = value
 
+    def resolveCounterSymbol(self, rs, increment=1):
+        """For late-resolved symbols that are incremented integers whose
+        value is unknown until a later compilation step"""
+
+        # Only store strings in resolving_symbols to maintain symbol is
+        # a string invariant. We just convert back and forth here to increment
+        if self.resolving_symbols[rs.getName()] is None:
+            self.resolving_symbols[rs.getName()] = '0'
+
+        self.resolving_symbols[rs.getName()] = str(
+            int(self.resolving_symbols[rs.getName()]) + increment)
+
     def addDeclarations(self, d):
         self.declarations += d
 
@@ -125,22 +158,37 @@ class CompileState:
     def addCleanups(self, i):
         self.cleanups += i
 
-    def addMainWaitStatement(self, c):
-        self.main_wait_statements.add(c)
+    def addSeqWaitStatement(self, c):
+        self.sequence_wait_statements.add(c)
+
+    def getAndFlushSeqWaitStatements(self):
+        r = self.sequence_wait_statements
+        self.sequence_wait_statements = set()
+        return r
+
+    def _append_pipeline_code(self, code):
+        if self.in_loop:
+            self.loop_pipeline_codes.append(code)
+        else:
+            self.pipelines.append(code)
 
     def addPipeline(self, p):
         LOG.debug("output pipeline %s", self.current_pipeline_properties)
+
+        all_p = emitlist(self.current_pipeline_precode) \
+            + p \
+            + emitlist(self.current_pipeline_postcode)
+
         pipeline_code = \
-            emitlist(self.current_pipeline_precode) +\
-            self.language.pipeline_wrap(self.pipeline_count, p,
-                                        self.current_pipeline_properties) +\
-            emitlist(self.current_pipeline_postcode)
+            self.language.pipeline_wrap(self.pipeline_count, all_p,
+                                        self.current_pipeline_properties)
 
         # force scan pipelines to go first
         if self.current_pipeline_properties.get('type') == 'scan':
+            assert not self.in_loop, "scan pipeline not supported in loop"
             self.scan_pipelines.append(pipeline_code)
         else:
-            self.pipelines.append(pipeline_code)
+            self._append_pipeline_code(pipeline_code)
 
         self.pipeline_count += 1
         self.current_pipeline_properties = {}
@@ -151,7 +199,7 @@ class CompileState:
         """
         Just add code here
         """
-        self.pipelines.append(c)
+        self._append_pipeline_code(c)
 
     def addPreCode(self, c):
         self.current_pipeline_precode.append(c)
@@ -218,10 +266,21 @@ class CompileState:
         return ResolvingSymbol.substitute(code, self.resolving_symbols)
 
     def getExecutionCode(self):
+        assert not self.in_loop, "Bad state, in loop at end of compilation"
+
         # list -> string
         scan_linearized = emitlist(self.scan_pipelines)
+
+        # Make sure we emitted all the wait statements
+        if self.sequence_wait_statements:
+            waits_linearized = emitlist(
+                list(self.getAndFlushSeqWaitStatements()))
+        else:
+            waits_linearized = ""
+
         mem_linearized = \
-            emitlist(self.pipelines) + emitlist(self.main_wait_statements)
+            emitlist(self.pipelines) + waits_linearized
+
         flush_linearized = emitlist(self.flush_pipelines)
         scan_linearize_wrap = self.language.group_wrap(gensym(),
                                                        scan_linearized,
@@ -337,6 +396,10 @@ class Pipelined(object):
     def parent(self):
         return self._parent
 
+    def run_analyses(self, **kwargs):
+        """Intended to be called on the root of the tree"""
+        self._markAllParents(**kwargs)
+
     @classmethod
     @abc.abstractmethod
     def language(cls):
@@ -362,7 +425,8 @@ class Pipelined(object):
         return
 
     def compilePipeline(self, **kwargs):
-        self._markAllParents(**kwargs)
+        # run analyses
+        self.run_analyses(**kwargs)
 
         state = CompileState(self.language())
 

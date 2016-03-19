@@ -48,6 +48,58 @@ class Rule(object):
         """Apply this rule to the supplied expression tree"""
 
 
+class AbstractInterpretedValue:
+    def __init__(self):
+        self._values = set()
+
+    def appendValue(self, v):
+        self._values.add(v)
+
+    def setValues(self, values):
+        self._values = set(values)
+
+    def getValues(self):
+        return self._values
+
+
+class NumTuplesPropagation(Rule):
+    def fire(self, expr):
+        # TODO I really just want this to fire once on the top node...
+        if isinstance(expr, algebra.Sequence):
+            self._num_tuples_analysis(expr)
+        return expr
+
+    def _num_tuples_analysis(self, tree):
+        """Do an abstract interpretation of the tree to propagate StoreTemp
+        num_tuples to corresponding ScanTemps. This analysis mutates
+        the tree by tagging GrappaMemoryScan"""
+
+        # Right now, the abstract interpretation is not too interesting,
+        # as we ignore loops.
+        abstract_values = {}
+
+        def f(t):
+            if isinstance(t, algebra.StoreTemp):
+                if t.name not in abstract_values:
+                    abstract_values[t.name] = AbstractInterpretedValue()
+
+                abstract_values[t.name].appendValue(t.num_tuples())
+            elif isinstance(t, algebra.ScanTemp):
+                if t.name:
+                    assert t.name in abstract_values, "Saw a ScanTemp before" \
+                                                      "its StoreTemp"
+                    possible_values = \
+                        abstract_values[t.name].getValues()
+                    if len(possible_values) == 1:
+                        for v in possible_values:
+                            t.analyzed_num_tuples = v
+
+            yield None
+
+        # run it
+        [_ for _ in tree.preorder(f)]
+
+
 class CrossProduct2Join(Rule):
 
     """A rewrite rule for removing Cross Product"""

@@ -26,6 +26,8 @@ using namespace Grappa;
 #include "strings.h"
 #include "dates.h"
 #include "relation.hpp"
+#include "pipeline.hpp"
+#include "TemporaryTable.hpp"
 
 DEFINE_uint64( nt, 30, "hack: number of tuples");
 DEFINE_bool( jsonsplits, false, "interpret input file F as F/part-*,"

@@ -437,6 +437,14 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(["R1"], "aggregate_count")
         self.check(q, "aggregate_count")
 
+    def test_aggregate_min(self):
+        q = self.myrial_from_sql(["T2"], "aggregate_min")
+        self.check(q, "aggregate_min")
+
+    def test_aggregate_max(self):
+        q = self.myrial_from_sql(["T2"], "aggregate_max")
+        self.check(q, "aggregate_max")
+
     def test_aggregate_count_group_one(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);

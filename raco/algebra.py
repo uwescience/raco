@@ -1658,7 +1658,12 @@ class ScanTemp(ZeroaryOperator):
                 and self._scheme == other._scheme)
 
     def num_tuples(self):
-        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+        if hasattr(self, 'analyzed_num_tuples'):
+            return self.analyzed_num_tuples
+        else:
+            raise NotImplementedError("{op}({name}).num_tuples".format(
+                op=type(self),
+                name=self.name))
 
     def partitioning(self):
         # TODO: get the partitioning from StoreTemp

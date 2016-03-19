@@ -1,0 +1,1 @@
+select MAX(a) from T2;

@@ -2,20 +2,20 @@
 # TODO: To be refactored into parallel shared memory lang,
 # where you plugin in the parallel shared memory language specific codegen
 
-from raco import algebra
-from raco.expression import aggregate
-from raco import expression
-from raco.backends import Algebra
-from raco import rules
-from raco.pipelines import Pipelined
-from raco.backends.cpp.cppcommon import StagedTupleRef, CBaseLanguage
-from raco.backends.cpp import cppcommon
-from raco.utility import emitlist
-import raco.scheme as scheme
-
-from raco.algebra import gensym
-
 import logging
+
+import raco.scheme as scheme
+from raco import algebra
+from raco import expression
+from raco import rules
+from raco.algebra import gensym
+from raco.backends import Algebra
+from raco.backends.cpp import cppcommon
+from raco.backends.cpp.cppcommon import StagedTupleRef, CBaseLanguage
+from raco.expression import aggregate
+from raco.pipelines import Pipelined
+from raco.utility import emitlist
+
 _LOG = logging.getLogger(__name__)
 
 import itertools
@@ -140,25 +140,16 @@ class GrappaLanguage(CBaseLanguage):
 
         wrappers = []
 
-        timing_template = GrappaLanguage.cgenv().get_template(
-            'grappa_pipeline_timing.cpp')
-        wrappers.append((timing_template, locals()))
-
         dependences = attrs.get('dependences', set())
         assert isinstance(dependences, set)
         _LOG.debug("pipeline %s dependences %s", ident, dependences)
 
-        dependence_code = emitlist([wait_statement(d) for d in dependences])
-        dependence_template = GrappaLanguage.cgenv().from_string("""
-        {{dependence_code}}
-        {{inner_code}}
-        """)
-        wrappers.append((dependence_template, locals()))
+        name = "pipeline_{ident}".format(ident=ident)
 
         syncname = attrs.get('sync')
         if syncname:
             dependence_captures = emitlist(
-                [",&{dep}".format(dep=d) for d in dependences])
+                ["&{dep},".format(dep=d) for d in dependences])
             sync_template = GrappaLanguage.cgenv().get_template('spawn.cpp')
             wrappers.append((sync_template, locals()))
 
@@ -208,16 +199,51 @@ def create_pipeline_synchronization(state):
     return global_syncname
 
 
-# TODO: replace with ScanTemp functionality?
+class GrappaSingletonRelation(algebra.SingletonRelation, GrappaOperator):
+
+    def produce(self, state):
+        # Raco does SingletonRelation schema a little weird. SingletonRelation
+        # alone has an empty schema, but every SingletonRelation is
+        # followed by an Apply that actually creates the schema. We
+        # check this invariant here, then use it to get the schema
+        # to build the staged tuple.
+        assert isinstance(self.parent(), GrappaApply), \
+            "Apply[SingletonRelation] was broken: {}".format(self.parent())
+
+        stagedTuple = self.new_tuple_ref(gensym(), self.parent().scheme())
+
+        state.addDeclarations([stagedTuple.generateDefinition(),
+                               "{type} {name};".format(
+                                   type=stagedTuple.getTupleTypename(),
+                                   name=stagedTuple.name
+        )])
+        inner_code = self.parent().consume(stagedTuple, self, state)
+
+        get_pipeline_task_name(state)
+        state.setPipelineProperty('type', 'in_memory')
+        state.setPipelineProperty('source', self.__class__)
+        state.addPipeline(inner_code)
+
+    def consume(self, t, src, state):
+        assert False, "This is a source; it does not consume"
+
+
+# TODO: make filescan pipeline turn into
+# TODO sequence(storetemp(filescan)), scantemp).
+# TODO The MemoryScan should just already have the name
 class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
 
     def __init__(self, inp,
-                 representation=_ARRAY_REPRESENTATION.GLOBAL_ARRAY):
+                 representation=_ARRAY_REPRESENTATION.GLOBAL_ARRAY,
+                 symbol_name=None,
+                 analyzed_num_tuples=10000):
         self.array_representation = representation
+        self.symbol_name = symbol_name
+        self.analyzed_num_tuples = analyzed_num_tuples
         super(GrappaMemoryScan, self).__init__(inp)
 
     def num_tuples(self):
-        return 10000  # placeholder
+        return self.analyzed_num_tuples
 
     def produce(self, state):
         self.input.produce(state)
@@ -245,6 +271,20 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         global_syncname = create_pipeline_synchronization(state)
         get_pipeline_task_name(state)
 
+        # check if the input symbol was from a temp relation
+        if isinstance(inputsym, TempRelationSymbol):
+            inputsym_raw = inputsym.symbol()
+            inputsym = inputsym.symbol()
+            readfrom = "{inputsym}.read()".format(inputsym=inputsym)
+        else:
+            inputsym_raw = inputsym
+            readfrom = "{inputsym}.data".format(inputsym=inputsym)
+
+        # necessary to look this up rather than create a new
+        # one because we need to read from the correct type provided
+        # by the File/Temp relation input
+        stagedTuple = state.lookupTupleDef(inputsym_raw)
+
         # get template for the scan/iteration
         memory_scan_template_name = {
             _ARRAY_REPRESENTATION.GLOBAL_ARRAY:
@@ -255,7 +295,6 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         memory_scan_template = self.language().cgenv().get_template(
             memory_scan_template_name)
 
-        stagedTuple = state.lookupTupleDef(inputsym)
         tuple_type = stagedTuple.getTupleTypename()
         tuple_name = stagedTuple.name
 
@@ -268,7 +307,10 @@ class GrappaMemoryScan(algebra.UnaryOperator, GrappaOperator):
         return None
 
     def shortStr(self):
-        return "%s" % (self.opname())
+        return "{op}({rep}, {debug_info}) "\
+            .format(op=self.opname(),
+                    rep=self.array_representation,
+                    debug_info=self.symbol_name)
 
     def partitioning(self):
         raise NotImplementedError()
@@ -366,7 +408,8 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         state.addDeclarations([out_tuple_type_def])
 
         self.right.childtag = "right"
-        state.addInitializers([init_template.render(locals())])
+        self.initializer = init_template.render(locals())
+        state.addInitializers([self.initializer])
         self.right.produce(state)
 
         self.left.childtag = "left"
@@ -384,6 +427,12 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         out_tuple_name = self.outTuple.name
 
         global_syncname = state.getPipelineProperty('global_syncname')
+
+        # note that this recycles both sides of the hash join structure
+        state.recordCodeWhenInLoop(
+            self.language().comment("recycle") +
+            "{hashname}.clear();\n".format(
+                hashname=hashname))
 
         if src.childtag == "right":
             left_sch = self.left.scheme()
@@ -766,11 +815,10 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
 
             init_template = self._cgenv.get_template('withoutkey_init.cpp')
             initializer = no_key_state_initializer
-            # FIXME? Does this need to call init()?
-            # FOR BUILTINs        self.__get_initial_value__(0,
-            # cached_inp_sch=inp_sch)
+            func_name = self.func_name
 
-        state.addInitializers([init_template.render(locals())])
+        self.initializer = init_template.render(locals())
+        state.addInitializers([self.initializer])
 
         if not hashtableInfo:
             self.input.produce(state)
@@ -1067,6 +1115,10 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             materialize_template = self._cgenv.get_template(
                 'multi_uda_0key_update.cpp')
 
+        state.recordCodeWhenInLoop(self.language().comment("recycle") +
+                                   "{hashname}->clear();\n".format(
+                                       hashname=self._hashname))
+
         hashname = self._hashname
         tuple_name = inputTuple.name
         pipeline_sync = state.getPipelineProperty("global_syncname")
@@ -1088,10 +1140,10 @@ def wait_statement(name):
 
 
 def get_pipeline_task_name(state):
-    name = "p_task_{n}".format(n=state.getCurrentPipelineId())
+    name = "pipeline_{n}".format(n=state.getCurrentPipelineId())
     state.setPipelineProperty('sync', name)
     wait_stmt = wait_statement(name)
-    state.addMainWaitStatement(wait_stmt)
+    state.addSeqWaitStatement(wait_stmt)
     return name
 
 
@@ -1148,7 +1200,8 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
 
             init_template = self._cgenv.get_template('hash_init.cpp')
 
-            state.addInitializers([init_template.render(locals())])
+            self.initializer = init_template.render(locals())
+            state.addInitializers([self.initializer])
             self.right.produce(state)
             state.saveExpr((self.right, frozenset(self.rightcols)),
                            (self._hashname, self.rightTupleTypename,
@@ -1192,6 +1245,12 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
 
             # materialization point
             code = right_template.render(locals())
+
+            # recycling when right index is reused
+            state.recordCodeWhenInLoop(
+                self.language().comment("recycle") +
+                "{hashname}.clear();\n".format(
+                    hashname=hashname))
 
             return code
 
@@ -1318,6 +1377,10 @@ class GrappaFileScan(cppcommon.CBaseFileScan, GrappaOperator):
 
         return self._language.cgenv().get_template(template_name)
 
+    def _get_input_aux_decls_template(self):
+        return self._language.cgenv().get_template(
+            'input_relation_declarations.cpp')
+
     def __repr__(self):
         return "{op}({rep!r}, {rk!r}, {sch!r}, {card!r})".format(
             rep=self.array_representation,
@@ -1347,6 +1410,106 @@ class GrappaStore(cppcommon.CBaseStore, GrappaOperator):
         state.addPipelineFlushCode(resultfile)
 
         return ""
+
+
+class TempRelationSymbol:
+
+    def __init__(self, name):
+        self._name = name
+
+    def symbol(self):
+        return "_temp_table_{}".format(self._name)
+
+    def __eq__(self, other):
+        return isinstance(other, TempRelationSymbol) \
+            and self._name == other._name
+
+
+class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
+
+    def produce(self, state):
+        temp_rel = TempRelationSymbol(self.name)
+
+        # Recycle cannot happen for every visit (in consume) because
+        # it will get called with binary streaming operators.
+        # Calling it here is safe because all pipelines below
+        # the StoreTemp should not be using this temp relation
+        #
+        # An alternative approach to consider in the future is,
+        # to just put recycle in consume() but require a barrier
+        # after it that involves all pipelines this StoreTemp appears in
+
+        self.num_producers = state.createUnresolvedSymbol()
+        state.addCode(
+            self._language.cgenv().get_template(
+                'symmetric_array_temprelation_recycle.cpp').render(
+                sym=temp_rel.symbol(),
+                num_producers=self.num_producers.getPlaceholder()))
+
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        temp_rel = TempRelationSymbol(self.name)
+
+        # uses symmetric array representation only
+
+        tuple = state.lookupTupleDef(temp_rel.symbol())
+        if not tuple:
+            tuple = self.new_tuple_ref(temp_rel.symbol(), self.scheme())
+            state.saveTupleDef(temp_rel.symbol(), tuple)
+
+            declTupleType = tuple.generateDefinition()
+            declRelation = self._language.cgenv()\
+                .get_template('symmetric_array_temprelation_declaration.cpp')\
+                .render(tuple_type=tuple.getTupleTypename(),
+                        resultsym=temp_rel.symbol())
+
+            state.addDeclarations([declTupleType,
+                                   declRelation])
+
+            init_stmt = self._language.cgenv()\
+                .get_template('symmetric_array_temprelation_init.cpp')\
+                .render(sym=temp_rel.symbol(),
+                        tuple_type=tuple.getTupleTypename())
+
+            state.addInitializers([init_stmt])
+
+        newtuple = tuple.copy_type()
+        state.addDeclarations([newtuple.generateDefinition()])
+        assignment_code = \
+            cppcommon.createTupleTypeConversion(self.language(),
+                                                state,
+                                                t,
+                                                newtuple)
+
+        state.addPostCode(self._language.cgenv()
+                          .get_template(
+            'symmetric_array_temprelation_materializer_done.cpp')
+            .render(sym=temp_rel.symbol()))
+
+        state.resolveCounterSymbol(self.num_producers)
+
+        return assignment_code + self.language().comment(self) + self._language.cgenv()\
+            .get_template('symmetric_array_temprelation_materialize.cpp')\
+            .render(sym=temp_rel.symbol(), input_tuple_name=newtuple.name)
+
+
+class GrappaNullInput(cppcommon.CBaseFileScan, GrappaOperator):
+
+    def __get_binary_scan_template__(self):
+        return None
+
+    def __get_ascii_scan_template__(self):
+        return None
+
+    def produce(self, state):
+        sym = TempRelationSymbol(self.relation_key)
+        assert state.lookupTupleDef(sym.symbol()) is not None, \
+            "Expected {} to already exist".format(sym.symbol())
+        self.parent().consume(sym, self, state)
+
+    def consume(self, t, src, state):
+        assert False, "as a source, no need for consume"
 
 
 class GrappaShuffle(algebra.Shuffle, GrappaOperator):
@@ -1397,6 +1560,22 @@ class MemoryScanOfFileScan(rules.Rule):
 
     def __str__(self):
         return "Scan => MemoryScan(FileScan) [{0}]".format(self._array_rep)
+
+
+class ScanTempToMemoryScan(rules.Rule):
+
+    """Logical ScanTemp to MemoryScan"""
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.ScanTemp):
+            return GrappaMemoryScan(GrappaNullInput(expr.name, expr.scheme()),
+                                    _ARRAY_REPRESENTATION.SYMMETRIC_ARRAY,
+                                    expr.name,
+                                    expr.analyzed_num_tuples
+                                    if hasattr(expr, 'analyzed_num_tuples')
+                                    else 10000)
+
+        return expr
 
 
 class GrappaPartitionGroupBy(GrappaGroupBy):
@@ -1483,6 +1662,103 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
             assert False, "bad childtag: {0}".format(src.childtag)
 
 
+class GrappaSequence(algebra.Sequence, GrappaOperator):
+
+    def produce(self, state):
+        for c in self.children():
+            c.produce(state)
+
+            # During c.produce, the compiler will be adding
+            # wait statements for each pipeline in the child c.
+            # To enforce sequential execution of the
+            # sequence, we need to end each child with
+            # waits for its pipelines
+            waits = state.getAndFlushSeqWaitStatements()
+            for s in waits:
+                state.addCode(s)
+
+    def consume(self, sym, src, state):
+        raise NotImplementedError(
+            "GrappaSequence is a statement not expression. Its children"
+            "should not call consume")
+
+
+class GrappaDoWhile(algebra.DoWhile, GrappaOperator):
+
+    def produce(self, state):
+        state.addDeclarations(["bool continue_while;"])
+
+        state.addCode("""do {
+        continue_while = false;
+        auto continue_while_a = make_global(&continue_while);
+        """)
+
+        state.enterLoop()
+
+        for c in self.args:  # condition (args[-1]) is not treated specially
+            c.produce(state)
+
+            # See GrappaSequence.produce() for explanation
+            waits = state.getAndFlushSeqWaitStatements()
+            for s in waits:
+                state.addCode(s)
+
+        # put the recycle code before the pipeline code
+        # within the loop, pipelines are queued instead of emitted
+        pipes, recycles = state.exitLoop()
+        for c in recycles:
+            state.addCode(c)
+        for c in pipes:
+            state.addCode(c)
+
+        state.addCode("} while (continue_while);")
+
+    def consume(self, sym, src, state):
+        raise NotImplementedError(
+            "GrappaDoWhile is a statement not expression. Its children"
+            "should not call consume")
+
+
+class GrappaTest(algebra.UnaryOperator, GrappaOperator):
+
+    """Sets the found "register" to true if relation is
+    non-empty"""
+
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        return """delegate::write(continue_while_a, {get});
+        """.format(get=t.get_code(0))
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
+
+    def shortStr(self):
+        return "{op}".format(op=self.opname())
+
+
+class GrappaWhileCondition(rules.Rule):
+
+    """In the DoWhile condition, insert a test operator to check
+    result of the condition table"""
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.DoWhile):
+            newdw = rules.OneToOne(algebra.DoWhile, GrappaDoWhile).fire(expr)
+            newdw.copy(expr)
+            newdw.children()[-1] = GrappaTest(expr.children()[-1])
+            return newdw
+        return expr
+
+    def __str__(self):
+        return """DoWhile[..., Cond] => \
+        GrappaDoWhile[..., GrappaTest[Cond]]"""
+
+
 class CrossProductWithSmall(rules.Rule):
 
     """
@@ -1529,7 +1805,12 @@ def grappify(join_type, emit_print,
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll),
         cppcommon.StoreToBaseCStore(emit_print, GrappaStore),
-        rules.OneToOne(algebra.Sink, GrappaSink)
+        rules.OneToOne(algebra.Sink, GrappaSink),
+        rules.OneToOne(algebra.StoreTemp, GrappaStoreTemp),
+        ScanTempToMemoryScan(),
+        rules.OneToOne(algebra.Sequence, GrappaSequence),
+        rules.OneToOne(algebra.DoWhile, GrappaDoWhile),
+        rules.OneToOne(algebra.SingletonRelation, GrappaSingletonRelation)
 
         # Don't need this because we support two-key
         # cppcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
@@ -1579,11 +1860,13 @@ class GrappaAlgebra(Algebra):
         # sequence that works for myrial
         rule_grps_sequence = [
             rules.remove_trivial_sequences,
+            [GrappaWhileCondition()],
             rules.simple_group_by,
             cppcommon.clang_push_select,
             rules.push_project,
             rules.push_apply,
             groupby_rules,
+            [rules.NumTuplesPropagation()],
             grappify(join_type, self.emit_print, scan_array_repr),
             [CrossProductWithSmall()]
         ]
