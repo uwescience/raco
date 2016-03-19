@@ -203,6 +203,21 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             store(m, OUTPUT);
         """, "while_union_all")
 
+    def test_while_repeat_hash_join(self):
+        self.check_sub_tables("""
+            s = scan(%(T3)s);
+            i = [2];
+            do
+                i = [from i emit *i - 1];
+                s = select s1.b, s1.c, s1.a from s s1, s s2 where s1.a=s2.b;
+            while [from i where *i > 0 emit *i];
+            store(s, OUTPUT);
+        """, "while_repeat_hash_join")
+
+    def test_while_repeat_groupby(self):
+        pass
+
+
 
 if __name__ == '__main__':
     unittest.main()
