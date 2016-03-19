@@ -226,8 +226,17 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         self.check_sub_tables(self._while_join_query(), "while_repeat_join", join_type='symmetric_hash' )
     
     def test_while_repeat_groupby(self):
-        pass
-
+        self.check_sub_tables("""
+            s = scan(%(T3)s);
+            i = [2];
+            do
+                i = [from i emit *i - 1];
+                s = select SUM(s.a) as a,
+                    s.c as b,
+                    SUM(s.b) as c from s;
+            while [from i where *i > 0 emit *i];
+            store(s, OUTPUT);
+        """, "while_repeat_groupby")
 
 
 if __name__ == '__main__':
