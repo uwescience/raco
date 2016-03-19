@@ -1116,7 +1116,7 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
                 'multi_uda_0key_update.cpp')
 
         state.recordCodeWhenInLoop(self.language().comment("recycle") +
-                                   "{hashname}.clear();\n".format(hashname=self._hashname))
+                                   "{hashname}->clear();\n".format(hashname=self._hashname))
 
         hashname = self._hashname
         tuple_name = inputTuple.name
