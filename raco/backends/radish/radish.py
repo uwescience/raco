@@ -429,8 +429,10 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         global_syncname = state.getPipelineProperty('global_syncname')
 
         # note that this recycles both sides of the hash join structure
-        state.recordCodeWhenInLoop(self.language().comment("recycle") +
-                                   "{hashname}.clear();\n".format(hashname=hashname))
+        state.recordCodeWhenInLoop(
+            self.language().comment("recycle") +
+            "{hashname}.clear();\n".format(
+                hashname=hashname))
 
         if src.childtag == "right":
             left_sch = self.left.scheme()
@@ -1116,7 +1118,8 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
                 'multi_uda_0key_update.cpp')
 
         state.recordCodeWhenInLoop(self.language().comment("recycle") +
-                                   "{hashname}->clear();\n".format(hashname=self._hashname))
+                                   "{hashname}->clear();\n".format(
+                                       hashname=self._hashname))
 
         hashname = self._hashname
         tuple_name = inputTuple.name
@@ -1246,8 +1249,10 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
             code = right_template.render(locals())
 
             # recycling when right index is reused
-            state.recordCodeWhenInLoop(self.language().comment("recycle") +
-                                       "{hashname}.clear();\n".format(hashname=hashname))
+            state.recordCodeWhenInLoop(
+                self.language().comment("recycle") +
+                "{hashname}.clear();\n".format(
+                    hashname=hashname))
 
             return code
 
@@ -1410,6 +1415,7 @@ class GrappaStore(cppcommon.CBaseStore, GrappaOperator):
 
 
 class TempRelationSymbol:
+
     def __init__(self, name):
         self._name = name
 
@@ -1418,7 +1424,7 @@ class TempRelationSymbol:
 
     def __eq__(self, other):
         return isinstance(other, TempRelationSymbol) \
-               and self._name == other._name
+            and self._name == other._name
 
 
 class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
@@ -1436,11 +1442,11 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
         # after it that involves all pipelines this StoreTemp appears in
 
         self.num_producers = state.createUnresolvedSymbol()
-        state.addCode(self._language.cgenv()
-                      .get_template('symmetric_array_temprelation_recycle.cpp')
-                      .render(sym=temp_rel.symbol(),
-                              num_producers=
-                              self.num_producers.getPlaceholder()))
+        state.addCode(
+            self._language.cgenv().get_template(
+                'symmetric_array_temprelation_recycle.cpp').render(
+                sym=temp_rel.symbol(),
+                num_producers=self.num_producers.getPlaceholder()))
 
         self.input.produce(state)
 
@@ -1481,7 +1487,7 @@ class GrappaStoreTemp(algebra.StoreTemp, GrappaOperator):
         state.addPostCode(self._language.cgenv()
                           .get_template(
             'symmetric_array_temprelation_materializer_done.cpp')
-                          .render(sym=temp_rel.symbol()))
+            .render(sym=temp_rel.symbol()))
 
         state.resolveCounterSymbol(self.num_producers)
 
@@ -1738,6 +1744,7 @@ class GrappaTest(algebra.UnaryOperator, GrappaOperator):
 
 
 class GrappaWhileCondition(rules.Rule):
+
     """In the DoWhile condition, insert a test operator to check
     result of the condition table"""
 

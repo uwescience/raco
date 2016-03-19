@@ -176,8 +176,8 @@ class CompileState:
         LOG.debug("output pipeline %s", self.current_pipeline_properties)
 
         all_p = emitlist(self.current_pipeline_precode) \
-                + p \
-                + emitlist(self.current_pipeline_postcode)
+            + p \
+            + emitlist(self.current_pipeline_postcode)
 
         pipeline_code = \
             self.language.pipeline_wrap(self.pipeline_count, all_p,
