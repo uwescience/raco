@@ -37,12 +37,17 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
     def check(self, query, name, join_type=None, emit_print='console', **kwargs):
         gname = "grappa_{name}".format(name=name)
 
-        if join_type == 'symmetric_hash':
+        if join_type is None:
+            pass
+        elif join_type == 'symmetric_hash':
             kwargs['join_type'] = grappalang.GrappaSymmetricHashJoin
         elif join_type == 'shuffle_hash':
             kwargs['join_type'] = grappalang.GrappaShuffleHashJoin
             # FIXME: see issue #348; always skipping shuffle tests because it got broken
             raise SkipTest(query)
+        else:
+            raise NotImplementedError(
+                "join_type {} not supported".format(join_type))
 
         kwargs['target_alg'] = GrappaAlgebra(emit_print=emit_print)
 
@@ -203,8 +208,8 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             store(m, OUTPUT);
         """, "while_union_all")
 
-    def test_while_repeat_hash_join(self):
-        query = """
+    def _while_join_query(self):
+        return """
             s = scan(%(T3)s);
             i = [2];
             do
@@ -213,8 +218,12 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             while [from i where *i > 0 emit *i];
             store(s, OUTPUT);
         """
-        self.check_sub_tables(query, "while_repeat_join")
-        self.check_sub_tables(query, "while_repeat_join", join_type='symmetric_hash' )
+
+    def test_while_repeat_hash_join(self):
+        self.check_sub_tables(self._while_join_query(), "while_repeat_join")
+
+    def test_while_repeat_sym_hash_join(self):
+        self.check_sub_tables(self._while_join_query(), "while_repeat_join", join_type='symmetric_hash' )
     
     def test_while_repeat_groupby(self):
         pass
