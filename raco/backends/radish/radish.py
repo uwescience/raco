@@ -1115,9 +1115,13 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             materialize_template = self._cgenv.get_template(
                 'multi_uda_0key_update.cpp')
 
-        state.recordCodeWhenInLoop(self.language().comment("recycle") +
-                                   "{hashname}->clear();\n".format(
-                                       hashname=self._hashname))
+        if self.useKey:
+            state.recordCodeWhenInLoop(self.language().comment("recycle") +
+                                       "{hashname}->clear();\n".format(
+                                           hashname=self._hashname))
+        else:
+            state.recordCodeWhenInLoop(self.language().comment("recycle") +
+                                       self.initializer)
 
         hashname = self._hashname
         tuple_name = inputTuple.name
