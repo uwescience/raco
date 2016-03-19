@@ -430,7 +430,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
 
         # note that this recycles both sides of the hash join structure
         state.recordCodeWhenInLoop(self.language().comment("recycle") +
-                                   self.initializer)
+                                   "{hashname}.clear();\n".format(hashname=hashname))
 
         if src.childtag == "right":
             left_sch = self.left.scheme()
@@ -1116,7 +1116,7 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
                 'multi_uda_0key_update.cpp')
 
         state.recordCodeWhenInLoop(self.language().comment("recycle") +
-                                   self.initializer)
+                                   "{hashname}.clear();\n".format(hashname=self._hashname))
 
         hashname = self._hashname
         tuple_name = inputTuple.name
@@ -1247,7 +1247,7 @@ class GrappaHashJoin(GrappaJoin, GrappaOperator):
 
             # recycling when right index is reused
             state.recordCodeWhenInLoop(self.language().comment("recycle") +
-                                       self.initializer)
+                                       "{hashname}.clear();\n".format(hashname=hashname))
 
             return code
 
