@@ -815,9 +815,7 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
 
             init_template = self._cgenv.get_template('withoutkey_init.cpp')
             initializer = no_key_state_initializer
-            # FIXME? Does this need to call init()?
-            # FOR BUILTINs        self.__get_initial_value__(0,
-            # cached_inp_sch=inp_sch)
+            func_name = self.func_name
 
         self.initializer = init_template.render(locals())
         state.addInitializers([self.initializer])
