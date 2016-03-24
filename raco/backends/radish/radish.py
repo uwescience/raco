@@ -1692,7 +1692,10 @@ class GrappaDoWhile(algebra.DoWhile, GrappaOperator):
     def produce(self, state):
         state.addDeclarations(["bool continue_while;"])
 
-        state.addCode("""do {
+        state.addCode("""
+        WhileLoopManager while_manager;
+        do {
+        while_manager.iteration_start();
         continue_while = false;
         auto continue_while_a = make_global(&continue_while);
         """)
@@ -1715,7 +1718,10 @@ class GrappaDoWhile(algebra.DoWhile, GrappaOperator):
         for c in pipes:
             state.addCode(c)
 
-        state.addCode("} while (continue_while);")
+        state.addCode("""
+            while_manager.iteration_end();
+        } while (continue_while);
+        """)
 
     def consume(self, sym, src, state):
         raise NotImplementedError(
