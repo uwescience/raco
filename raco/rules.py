@@ -90,9 +90,10 @@ class NumTuplesPropagation(Rule):
                                                       "its StoreTemp"
                     possible_values = \
                         abstract_values[t.name].getValues()
-                    if len(possible_values) == 1:
-                        for v in possible_values:
-                            t.analyzed_num_tuples = v
+
+                    # dumb merge function, take the average of possible values
+                    t.analyzed_num_tuples = int(
+                        sum(possible_values)/len(possible_values))
 
             yield None
 
