@@ -28,6 +28,7 @@ using namespace Grappa;
 #include "relation.hpp"
 #include "pipeline.hpp"
 #include "TemporaryTable.hpp"
+#include "dowhile.hpp"
 
 DEFINE_uint64( nt, 30, "hack: number of tuples");
 DEFINE_bool( jsonsplits, false, "interpret input file F as F/part-*,"
