@@ -26,7 +26,7 @@ def get_myria_connection():
     return connection
 
 def get_spark_connection():
-    connection = SparkConnection('spark://ec2-54-218-218-17.us-west-2.compute.amazonaws.com:7077')
+    connection = SparkConnection('spark://ec2-54-190-164-183.us-west-2.compute.amazonaws.com:7077')
     return connection
 
 program_mcl = """
