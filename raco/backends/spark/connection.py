@@ -35,7 +35,7 @@ class SparkConnection(object):
         """
         self.url = url
         self.masterhostname = url.split(':')[1][2:]
-        self.context = SparkContext(self.url)
+        self.context = SparkContext('local')
         # sparkcsv_python_file = os.path.join(os.path.dirname(__file__),"pyspark_csv.py")
         # self.sparkcsv_python_file = "hdfs://" + self.masterhostname + ":9000/pyspark_csv.py"
         # self.context.addPyFile(self.sparkcsv_python_file)
