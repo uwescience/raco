@@ -33,7 +33,7 @@ class SparkConnection(object):
             url: Spark URL
         """
         self.url = url
-        self.context = SparkContext('local')
+        self.context = SparkContext(self.url)
         sparkcsv_python_file = os.path.join(os.path.dirname(__file__),"pyspark_csv.py")
         self.context.addPyFile(sparkcsv_python_file)
         import pyspark_csv as pycsv

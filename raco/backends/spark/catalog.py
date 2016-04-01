@@ -18,6 +18,7 @@ class SparkCatalog(Catalog):
                 "no schema for relation %s because no connection" % rel_key)
 
         try:
+            print rel_key.relation
             df_scheme = self.connection.get_df(rel_key.relation).dtypes
             print scheme.Scheme([(i, self.types_dict[j]) for (i, j) in df_scheme])
             return scheme.Scheme([(i, self.types_dict[j]) for (i, j) in df_scheme])
