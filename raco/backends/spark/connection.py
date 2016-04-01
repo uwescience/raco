@@ -41,7 +41,6 @@ class SparkConnection(object):
 
     def get_df(self, df_name):
         import pyspark_csv as pycsv
-        print df_name
         return pycsv.csvToDataFrame(self.sqlcontext, self.context.textFile(df_name))
 
     def workers(self):

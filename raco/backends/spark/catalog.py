@@ -24,7 +24,8 @@ class SparkCatalog(Catalog):
                 df_scheme = self.connection.get_df(rel_key.relation).dtypes
             print scheme.Scheme([(i, self.types_dict[j]) for (i, j) in df_scheme])
             return scheme.Scheme([(i, self.types_dict[j]) for (i, j) in df_scheme])
-        except:
+        except Exception as e:
+            print e
             # TODO: pass through other errors.
             raise LookupError('No relation {} in the catalog'.format(rel_key))
 
