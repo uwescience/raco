@@ -19,6 +19,7 @@ try:
     from pyspark.sql.types import *
     from pyspark.sql import Row
     from pyspark.sql import SQLContext
+    import raco.backends.spark.pyspark_csv as pycsv
     print ("Successfully imported Spark Modules")
 
 except ImportError as e:
@@ -34,16 +35,15 @@ class SparkConnection(object):
         """
         self.url = url
         self.masterhostname = url.split(':')[1][2:]
-        self.context = SparkContext(self.url)
+        self.context = SparkContext('local')
         # sparkcsv_python_file = os.path.join(os.path.dirname(__file__),"pyspark_csv.py")
-        self.sparkcsv_python_file = "hdfs://" + self.masterhostname + ":9000/pyspark_csv.py"
-        self.context.addPyFile(self.sparkcsv_python_file)
-        import pyspark_csv as pycsv
+        # self.sparkcsv_python_file = "hdfs://" + self.masterhostname + ":9000/pyspark_csv.py"
+        # self.context.addPyFile(self.sparkcsv_python_file)
         self.sqlcontext = SQLContext(self.context)
 
     def get_df(self, df_name):
-        self.context.addPyFile(self.sparkcsv_python_file)
-        import pyspark_csv as pycsv
+        # self.context.addPyFile(self.sparkcsv_python_file)
+        # import pyspark_csv as pycsv
         return pycsv.csvToDataFrame(self.sqlcontext, self.context.textFile(df_name))
 
     def workers(self):
