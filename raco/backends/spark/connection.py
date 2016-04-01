@@ -119,7 +119,10 @@ class SparkConnection(object):
 
     def execute_rec(self, plan):
         if isinstance(plan, SparkScan):
-            return self.get_df(str(plan.relation_key).split(':')[-1])
+            if str(plan.relation_key).startswith('hdfs://'):
+                return self.get_df(str(plan.relation_key))
+            else:
+                return self.get_df(str(plan.relation_key).split(':')[-1])
         if isinstance(plan, SparkScanTemp):
             df_temp = self.sqlcontext.sql("Select * from {}".format(plan.name))
             # if plan.name == 'prunedA':
