@@ -33,7 +33,7 @@ def get_spark_connection():
 masterHostname = open("/root/spark-ec2/masters").read().strip()
 
 program_mcl = """
-matA = scan('hdfs://{masterhostname}:9000/data/sample.csv');
+matA = scan('hdfs://{masterhostname}:9000/data/sample.dat');
 
 -- define constant values as singleton tables.
 epsilon = [0.001];
