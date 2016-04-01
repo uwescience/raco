@@ -1,2 +1,2 @@
-# everything in scidb made public
+# everything in spark made public
 from algebra import *
