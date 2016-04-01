@@ -26,11 +26,14 @@ def get_myria_connection():
     return connection
 
 def get_spark_connection():
-    connection = SparkConnection('spark://ec2-54-190-164-183.us-west-2.compute.amazonaws.com:7077')
+    master = open("/root/spark-ec2/cluster-url").read().strip()
+    connection = SparkConnection(master)
     return connection
 
+masterHostname = open("/root/spark-ec2/masters").read().strip()
+
 program_mcl = """
-matA = scan('/users/shrainik/downloads/sample_small.dat');
+matA = scan('hdfs://{masterhostname}:9000/data/sample.csv');
 
 -- define constant values as singleton tables.
 epsilon = [0.001];
@@ -86,7 +89,7 @@ do
 while continue;
 
 store (newchaos, '/users/shrainik/downloads/output.dat');
-"""
+""".format(masterhostname=masterHostname)
 
 myriaconn = get_myria_connection()
 sparkconn = get_spark_connection()
