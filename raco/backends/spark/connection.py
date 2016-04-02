@@ -1,6 +1,7 @@
 import raco
 from raco.compile import optimize
 from raco.backends.spark.algebra import *
+import pyspark_csv as pycsv
 from raco.expression import *
 import os, sys
 import requests
@@ -10,20 +11,18 @@ __all__ = ['FederatedConnection']
 # os.environ['SPARK_HOME']="your_spark_home_folder"
 
 # Append pyspark to Python Path
-sys.path.append(os.path.join(os.environ['SPARK_HOME'],"python"))
+#sys.path.append(os.path.join(os.environ['SPARK_HOME'],"python"))
 
 
-try:
-    from pyspark import SparkContext
-    from pyspark import SparkConf
-    from pyspark.sql.types import *
-    from pyspark.sql import Row
-    from pyspark.sql import SQLContext
-    import raco.backends.spark.pyspark_csv as pycsv
-    print ("Successfully imported Spark Modules")
+from pyspark import SparkContext
+from pyspark import SparkConf
+from pyspark.sql.types import *
+from pyspark.sql import Row
+from pyspark.sql import SQLContext
 
-except ImportError as e:
-    raise
+###Adding helper methods
+
+
 
 class SparkConnection(object):
     """A Spark connection wrapper"""
@@ -35,7 +34,7 @@ class SparkConnection(object):
         """
         self.url = url
         self.masterhostname = url.split(':')[1][2:]
-        self.context = SparkContext('local')
+        self.context = SparkContext(self.url)
         # sparkcsv_python_file = os.path.join(os.path.dirname(__file__),"pyspark_csv.py")
         # self.sparkcsv_python_file = "hdfs://" + self.masterhostname + ":9000/pyspark_csv.py"
         # self.context.addPyFile(self.sparkcsv_python_file)
