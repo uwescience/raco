@@ -26,7 +26,6 @@ import os
 import csv
 import sys
 import dateutil.parser
-sys.path.append(os.path.join(os.environ['SPARK_HOME'],"python"))
 from pyspark.sql.types import (StringType, DoubleType, TimestampType, NullType,
                                IntegerType, StructType, StructField)
 
