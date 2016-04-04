@@ -24,6 +24,8 @@ import pyspark_csv as pycsv
 import csv
 import dateutil.parser
 
+def huhua():
+    print 'This is a test huhua call.'
 
 class SparkConnection(object):
     """A Spark connection wrapper"""
@@ -43,6 +45,7 @@ class SparkConnection(object):
         self.sqlcontext = SQLContext(self.context)
 
     def get_df(self, df_name):
+        huhua()
         self.context.addPyFile(self.sparkcsv_python_file)
         import pyspark_csv as pycsv
         return pycsv.csvToDataFrame(self.sqlcontext, self.context.textFile(df_name))
