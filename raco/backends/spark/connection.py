@@ -43,8 +43,8 @@ class SparkConnection(object):
         self.sqlcontext = SQLContext(self.context)
 
     def get_df(self, df_name):
-        # self.context.addPyFile(self.sparkcsv_python_file)
-        # import pyspark_csv as pycsv
+        self.context.addPyFile(self.sparkcsv_python_file)
+        import pyspark_csv as pycsv
         return pycsv.csvToDataFrame(self.sqlcontext, self.context.textFile(df_name))
 
     def workers(self):
