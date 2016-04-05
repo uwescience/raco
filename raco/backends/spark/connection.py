@@ -43,6 +43,7 @@ class SparkConnection(object):
         # pycsv = PySpark_csv()
         try:
             df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(df_name)
+            print '<SHR> DEBUG: ', df.count()
         except Exception as e:
             print '<SHR> ERROR', e.args
             raise e
