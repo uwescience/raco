@@ -41,7 +41,11 @@ class SparkConnection(object):
         # import pyspark_csv as pycsv
         # from pyspark_csv import PySpark_csv
         # pycsv = PySpark_csv()
-        df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(df_name)
+        try:
+            df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(df_name)
+        except Exception as e:
+            print '<SHR> ERROR', e.args
+            raise e
         #df = self.csvToDataFrame(self.sqlcontext, self.context.textFile(df_name))
         return df
 
