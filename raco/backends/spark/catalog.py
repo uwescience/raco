@@ -10,7 +10,7 @@ class SparkCatalog(Catalog):
 
     def __init__(self, connection):
         self.connection = connection
-        self.types_dict = {'int64':INT_TYPE, 'int32': INT_TYPE, 'int16': INT_TYPE, 'int': INT_TYPE, 'float64': FLOAT_TYPE, 'float': FLOAT_TYPE}
+        self.types_dict = {'int64':INT_TYPE, 'int32': INT_TYPE, 'int16': INT_TYPE, 'int': INT_TYPE, 'float64': FLOAT_TYPE, 'float': FLOAT_TYPE, 'double': FLOAT_TYPE}
 
     def get_scheme(self, rel_key):
         if not self.connection:
@@ -20,7 +20,6 @@ class SparkCatalog(Catalog):
         try:
             if str(rel_key).startswith('hdfs://'):
                 df = self.connection.get_df(str(rel_key))
-                print df
                 df_scheme = df.dtypes
             else:
                 df_scheme = self.connection.get_df(rel_key.relation).dtypes
