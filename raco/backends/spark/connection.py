@@ -17,7 +17,6 @@ from pyspark import SparkConf
 from pyspark.sql.types import *
 from pyspark.sql import Row
 from pyspark.sql import SQLContext
-from pyspark_csv import PySpark_csv
 ### Adding helper methods csv taken from pyspark_csv.py
 #TODO: Fix later to figure out how to add a file
 
@@ -36,13 +35,15 @@ class SparkConnection(object):
         # self.sparkcsv_python_file = "hdfs://" + self.masterhostname + ":9000/pyspark_csv.py"
         # self.context.addPyFile(self.sparkcsv_python_file)
         # print 'DEBUG: Added pyspark to context successfully.'
-        self.pycsv = PySpark_csv()
+
         self.sqlcontext = SQLContext(self.context)
 
     def get_df(self, df_name):
         # self.context.addPyFile(self.sparkcsv_python_file)
         # import pyspark_csv as pycsv
-        return self.pycsv.csvToDataFrame(self.sqlcontext, self.context.textFile(df_name))
+        from pyspark_csv import PySpark_csv
+        pycsv = PySpark_csv()
+        return pycsv.csvToDataFrame(self.sqlcontext, self.context.textFile(df_name))
 
     def workers(self):
         """Return a dictionary of the workers"""

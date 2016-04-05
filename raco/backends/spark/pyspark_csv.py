@@ -28,7 +28,7 @@ import dateutil.parser
 from pyspark.sql.types import (StringType, DoubleType, TimestampType, NullType,
                                IntegerType, StructType, StructField)
 
-class PySpark_csv(object):
+class PySpark_csv:
     def __init__(self):
         self.py_version = sys.version_info[0]
 
