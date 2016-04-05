@@ -19,7 +19,9 @@ class SparkCatalog(Catalog):
 
         try:
             if str(rel_key).startswith('hdfs://'):
-                df_scheme = self.connection.get_df(str(rel_key)).dtypes
+                df = self.connection.get_df(str(rel_key))
+                print df
+                df_scheme = df.dtypes
             else:
                 df_scheme = self.connection.get_df(rel_key.relation).dtypes
             print scheme.Scheme([(i, self.types_dict[j]) for (i, j) in df_scheme])
