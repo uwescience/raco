@@ -45,7 +45,12 @@ class SparkConnection(object):
         # import pyspark_csv as pycsv
         # from pyspark_csv import PySpark_csv
         # pycsv = PySpark_csv()
-        return self.csvToDataFrame(self.sqlcontext, self.context.textFile(df_name))
+        try:
+            df = self.csvToDataFrame(self.sqlcontext, self.context.textFile(df_name))
+        except Exception as e:
+            print 'caught EXCEPTION!: ', e
+            raise e
+        return df
 
     def workers(self):
         """Return a dictionary of the workers"""
