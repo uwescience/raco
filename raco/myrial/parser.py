@@ -611,7 +611,9 @@ class Parser(object):
         """file_parser_fun : CSV LPAREN \
    schema_fun COMMA option_list RPAREN
  | CSV LPAREN schema_fun RPAREN
- | OPP LPAREN RPAREN"""
+ | OPP LPAREN RPAREN
+ | TIPSY LPAREN implicit_tipsy_schema empty option_list RPAREN
+ | TIPSY LPAREN implicit_tipsy_schema RPAREN"""
         if len(p) == 7:
             format, schema, options = (p[1], p[3], dict(p[5]))
         elif len(p) == 5:
@@ -619,6 +621,27 @@ class Parser(object):
         else:
             format, schema, options = (p[1], [], {})
         p[0] = (format, schema, options)
+
+    @staticmethod
+    def p_tipsy_schema(p):
+        """implicit_tipsy_schema : empty"""
+        p[0] = [("iOrder", "LONG_TYPE"),
+                ("mass", "FLOAT_TYPE"),
+                ("x", "FLOAT_TYPE"),
+                ("y", "FLOAT_TYPE"),
+                ("z", "FLOAT_TYPE"),
+                ("vx", "FLOAT_TYPE"),
+                ("vy", "FLOAT_TYPE"),
+                ("vz", "FLOAT_TYPE"),
+                ("rho", "FLOAT_TYPE"),
+                ("temp", "FLOAT_TYPE"),
+                ("hsmooth", "FLOAT_TYPE"),
+                ("metals", "FLOAT_TYPE"),
+                ("tform", "FLOAT_TYPE"),
+                ("eps", "FLOAT_TYPE"),
+                ("phi", "FLOAT_TYPE"),
+                ("grp", "FLOAT_TYPE"),
+                ("type", "FLOAT_TYPE")]
 
     @staticmethod
     def p_option_list(p):
