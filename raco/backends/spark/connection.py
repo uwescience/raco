@@ -2,7 +2,7 @@ import raco
 from raco.compile import optimize
 from raco.backends.spark.algebra import *
 from raco.expression import *
-
+import time
 __all__ = ['FederatedConnection']
 # Path for spark source folder
 # os.environ['SPARK_HOME']="your_spark_home_folder"
@@ -30,6 +30,7 @@ class SparkConnection(object):
         self.url = url
         self.masterhostname = url.split(':')[1][2:]
         self.context = SparkContext(self.url)
+        self.context.setLogLevel("WARN")
         self.sqlcontext = SQLContext(self.context)
 
     def get_df(self, df_name):
@@ -112,8 +113,12 @@ class SparkConnection(object):
 
     def execute_rec(self, plan):
         if isinstance(plan, SparkScan):
+            time_start = time.time()
             if str(plan.relation_key).startswith('hdfs://'):
-                return self.get_df(str(plan.relation_key))
+                df = self.get_df(str(plan.relation_key))
+                time_end = time.time()
+                print 'time to load data: ', (time_end - time_start) 
+                return df
             else:
                 return self.get_df(str(plan.relation_key).split(':')[-1])
         if isinstance(plan, SparkScanTemp):
@@ -173,7 +178,7 @@ class SparkConnection(object):
             return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition))
         if isinstance(plan, SparkStore):
             # change with actual save later
-            return self.execute_rec(plan.input).show(n=100)
+            print 'Count: \n', self.execute_rec(plan.input).count()
             # return self.execute_rec(plan.input).rdd.saveAsTextFile(plan.relation_key.split(':')[-1])
         if isinstance(plan, SparkStoreTemp):
             # print plan.name
