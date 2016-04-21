@@ -33,7 +33,7 @@ def get_spark_connection():
 masterHostname = open("/root/spark-ec2/masters").read().strip()
 
 program_mcl = """
-matA = scan('hdfs://{masterhostname}:9000/data/sample.dat');
+matA = scan('hdfs://{masterhostname}:9000/data/undirNet_1000.matrix_small.dat');
 
 -- define constant values as singleton tables.
 epsilon = [0.001];
@@ -116,5 +116,6 @@ dot_federated = raco.viz.operator_to_dot_object(federated_plan)
 
 physical_plan_spark = optimize(federated_plan, SparkAlgebra())
 phys_dot = raco.viz.operator_to_dot_object(physical_plan_spark)
+print physical_plan_spark
 sparkconn.execute_query(physical_plan_spark)
 

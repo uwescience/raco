@@ -50,7 +50,9 @@ sparkcatalog = SparkCatalog(sparkconn)
 
 catalog = FederatedCatalog([myriacatalog, sparkcatalog])
 
-matrices = ['random_N_10k_r_1.2.matrix.dat', 'random_N_10k_r_1.2.matrix.dat', 'random_N_10k_r_1.3.matrix.dat', 'random_N_10k_r_1.4.matrix.dat', 'random_N_10k_r_1.5.matrix.dat', 'random_N_10k_r_1.6.matrix.dat', 'random_N_20k_r_1.2.matrix.dat', 'random_N_20k_r_1.3.matrix.dat', 'random_N_20k_r_1.4.matrix.dat', 'random_N_20k_r_1.5.matrix.dat', 'random_N_20k_r_1.6.matrix.dat', 'random_N_50k_r_1.2.matrix.dat', 'random_N_50k_r_1.3.matrix.dat', 'random_N_50k_r_1.4.matrix.dat', 'random_N_50k_r_1.5.matrix.dat', 'random_N_50k_r_1.6.matrix.dat' ]
+#matrices = ['random_N_10k_r_1.2.matrix.dat', 'random_N_50k_r_1.6.matrix.dat']
+matrices = ['random_N_10k_r_1.2.matrix.dat','web-Stanford.matrix.dat','web-BerkStan.matrix.dat','soc-Pokec.matrix.dat']
+#matrices = ['random_N_10k_r_1.2.matrix.dat', 'random_N_10k_r_1.2.matrix.dat', 'random_N_10k_r_1.3.matrix.dat', 'random_N_10k_r_1.4.matrix.dat', 'random_N_10k_r_1.5.matrix.dat', 'random_N_10k_r_1.6.matrix.dat', 'random_N_20k_r_1.2.matrix.dat', 'random_N_20k_r_1.3.matrix.dat', 'random_N_20k_r_1.4.matrix.dat', 'random_N_20k_r_1.5.matrix.dat', 'random_N_20k_r_1.6.matrix.dat', 'random_N_50k_r_1.2.matrix.dat', 'random_N_50k_r_1.3.matrix.dat', 'random_N_50k_r_1.4.matrix.dat', 'random_N_50k_r_1.5.matrix.dat', 'random_N_50k_r_1.6.matrix.dat' ]
 
 print 'First experiment is just to startup spark... '
 for mat in matrices:
@@ -66,6 +68,8 @@ for mat in matrices:
     falg = FederatedAlgebra(algebras, catalog)
     
     logical = processor.get_logical_plan()
+    print 'Logical Plan: '
+    print logical
     federated_plan = processor.get_physical_plan(target_alg=falg)
     
     dot_logical = raco.viz.operator_to_dot_object(logical)
@@ -73,6 +77,8 @@ for mat in matrices:
     
     physical_plan_spark = optimize(federated_plan, SparkAlgebra())
     phys_dot = raco.viz.operator_to_dot_object(physical_plan_spark)
+    print 'Physical Plan:'
+    print physical_plan_spark
     sparkconn.execute_query(physical_plan_spark)
     end = time.time()
     total = end-start

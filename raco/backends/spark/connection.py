@@ -32,9 +32,24 @@ class SparkConnection(object):
         self.context = SparkContext(self.url)
         self.context.setLogLevel("WARN")
         self.sqlcontext = SQLContext(self.context)
+        self.singletons = []
+        #print self.sqlcontext.getConf('tungsten.enabled', 'sad')
+        #print self.sqlcontext.getConf('inMemoryColumnarStorage.batchSize', '999999')
+        #print self.sqlcontext.getConf('autoBroadcastJoinThreshold', '999999')
+        #self.sqlcontext.setConf('tungsten.enabled','false')
+        #self.sqlcontext.setConf('inMemoryColumnarStorage.batchSize','1000000')
+        #self.sqlcontext.setConf('autoBroadcastJoinThreshold','104857600')
+        ##self.sqlcontext.setConf('spark.sql.tungsten.enabled','false')
+        #print self.sqlcontext.getConf('tungsten.enabled', 'sad')
+        #print self.sqlcontext.getConf('inMemoryColumnarStorage.batchSize', '999999')
+        #print self.sqlcontext.getConf('autoBroadcastJoinThreshold', '999999')
 
     def get_df(self, df_name):
+        time_start = time.time()
         df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(df_name)
+        df.cache()
+        time_end = time.time()
+        print (time_end-time_start)  
         return df
 
     def workers(self):
@@ -113,23 +128,23 @@ class SparkConnection(object):
 
     def execute_rec(self, plan):
         if isinstance(plan, SparkScan):
-            time_start = time.time()
             if str(plan.relation_key).startswith('hdfs://'):
-                df = self.get_df(str(plan.relation_key))
-                time_end = time.time()
-                print 'time to load data: ', (time_end - time_start) 
-                return df
+                return self.get_df(str(plan.relation_key))
             else:
                 return self.get_df(str(plan.relation_key).split(':')[-1])
         if isinstance(plan, SparkScanTemp):
             df_temp = self.sqlcontext.sql("Select * from {}".format(plan.name))
             # if plan.name == 'prunedA':
             #     df_temp.show()
-            if df_temp.count() == 1:
-                if len(df_temp.dtypes) == 1:
-                    if df_temp.dtypes[0][0] == plan.name + "_SINGLETON_RELATION_":
-                        return self.sqlcontext.sql("select {} as {} from {}".format(plan.name + "_SINGLETON_RELATION_", plan.name, plan.name))
-            return self.sqlcontext.sql("Select * from {}".format(plan.name))
+            print 'SparkScanTemp:', plan.name
+            #df_temp.show(n=10)
+            if plan.name in self.singletons:
+                return self.sqlcontext.sql("select {} as {} from {}".format(plan.name + "_SINGLETON_RELATION_", plan.name, plan.name))
+            #if df_temp.count() == 1:
+            #    if len(df_temp.dtypes) == 1:
+            #        if df_temp.dtypes[0][0] == plan.name + "_SINGLETON_RELATION_":
+            #            return self.sqlcontext.sql("select {} as {} from {}".format(plan.name + "_SINGLETON_RELATION_", plan.name, plan.name))
+            return df_temp
         if isinstance(plan, SparkSelect):
             return self.execute_rec(plan.input).filter(remove_unnamed_literals(plan, plan.condition))
         if isinstance(plan, SparkProject):
@@ -145,6 +160,7 @@ class SparkConnection(object):
             return self.sqlcontext.sql('select {} from {}'.format(rename_str, temp_table_name))
         if isinstance(plan, SparkGroupBy):
             agg_dict = {}
+            print 'SparkGroupBy: ', plan
             for agg in plan.aggregate_list:
                 if isinstance(agg, MIN):
                     agg_dict[str(agg.input)] = 'min'
@@ -178,12 +194,13 @@ class SparkConnection(object):
             return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition))
         if isinstance(plan, SparkStore):
             # change with actual save later
-            print 'Count: \n', self.execute_rec(plan.input).count()
+            self.execute_rec(plan.input).count()
             # return self.execute_rec(plan.input).rdd.saveAsTextFile(plan.relation_key.split(':')[-1])
         if isinstance(plan, SparkStoreTemp):
-            # print plan.name
+            print 'SparkStoreTemp', plan.name
             if isinstance(plan.input, SparkApply):
                 if isinstance(plan.input.input, algebra.SingletonRelation):
+                    self.singletons.append(plan.name)
                     singletonRow = Row(plan.name + '_SINGLETON_RELATION_')
                     r = singletonRow(plan.input.emitters[0][1])
                     self.sqlcontext.createDataFrame(r).registerTempTable(plan.name + 'temp')
@@ -194,15 +211,21 @@ class SparkConnection(object):
                 # Check if scantemp has just one column and it's name is the same as the relation name and that it has just one value
                 # Assume that this is a singleton relation in this case
                 df_temp = self.sqlcontext.sql("Select * from {}".format(plan.input.name))
-                if df_temp.count() == 1:
-                    if len(df_temp.dtypes) == 1:
-                        if df_temp.dtypes[0][0] == plan.input.name + "_SINGLETON_RELATION_":
-                            # print 'Assigning {} to {}'.format(plan.input.name, plan.name)
-                            self.sqlcontext.sql("select {} as {} from {}".format(plan.input.name + "_SINGLETON_RELATION_", plan.name, plan.input.name)).registerTempTable(plan.name)
-                            return
+                if len(df_temp.dtypes) == 1:
+                    if df_temp.dtypes[0][0] == plan.input.name + "_SINGLETON_RELATION_":
+                        # print 'Assigning {} to {}'.format(plan.input.name, plan.name)
+                        self.sqlcontext.sql("select {} as {} from {}".format(plan.input.name + "_SINGLETON_RELATION_", plan.name, plan.input.name)).registerTempTable(plan.name)
+                        return
+                #if df_temp.count() == 1:
+                #    if len(df_temp.dtypes) == 1:
+                #        if df_temp.dtypes[0][0] == plan.input.name + "_SINGLETON_RELATION_":
+                #            # print 'Assigning {} to {}'.format(plan.input.name, plan.name)
+                #            self.sqlcontext.sql("select {} as {} from {}".format(plan.input.name + "_SINGLETON_RELATION_", plan.name, plan.input.name)).registerTempTable(plan.name)
+                #            return
             # Check if scantemp has just one column and it's name _COLUMN0_ and that it has just one value
             # Assume that this is a singleton relation in this case
             df_temp = self.execute_rec(plan.input)
+            #print 'Count of df_temp', df_temp.count()
             if len(df_temp.dtypes) == 1:
                 # print 'dtypes is 1'
                 if df_temp.dtypes[0][0] == "_COLUMN0_":
@@ -218,6 +241,7 @@ class SparkConnection(object):
                         # print 'Count is ', df_temp.count()
             # Else, just register the dataframe created below this operator as a temp table
             # print "Else, just register the dataframe created below this operator as a temp table", plan.name
+            
             self.sqlcontext.registerDataFrameAsTable(df_temp, plan.name)
             return
         if isinstance(plan, SparkSequence):
@@ -226,10 +250,16 @@ class SparkConnection(object):
         if isinstance(plan, SparkDoWhile):
             cond = True
             num_children = len(plan.children())
-            while(cond):
+            num_iterations = 4
+            itercount = 1
+            while(cond and itercount<num_iterations):
                 for i in range(0,num_children-1):
+                    print 'child: ', i,':      ', plan.children()[i]
                     self.execute_rec(plan.children()[i])
-                cond = self.execute_rec(plan.children()[-1]).collect()[0]['_COLUMN0_']
+                print 'Evaluating condition: ', plan.children()[-1]
+                cond = self.execute_rec(plan.children()[-1]).first()['_COLUMN0_']
+                #cond = self.execute_rec(plan.children()[-1]).collect()[0]['_COLUMN0_']
+                num_iterations += 1
                 # print cond, type(cond)
 
     def remove_unnamed_literals(scheme, expression):
