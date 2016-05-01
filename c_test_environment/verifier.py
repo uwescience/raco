@@ -13,10 +13,13 @@ class ComparableFloat(object):
         self._ep = ep
 
     def __eq__(self, other):
-        if isinstance(other, ComparableFloat):
+        if type(other) is ComparableFloat:
             return abs(other._raw - self._raw) <= self._ep
         else:
             return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 doublepat = re.compile(r'^-?\d+[.]\d+$')
 intpat = re.compile(r'^-?\d+$')
