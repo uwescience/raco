@@ -13,7 +13,6 @@ class ComparableFloat(object):
         self._ep = ep
 
     def __eq__(self, other):
-        print "comparing ", self, other
         if type(other) is ComparableFloat:
             return abs(other._raw - self._raw) <= self._ep
         else:
@@ -29,7 +28,9 @@ class ComparableFloat(object):
         return self.__str__()
 
     def __hash__(self):
-        return hash(self._raw)
+        # conservatively just make all floats hash to the same thing
+        # to guarantee that a==b => hash(a)==hash(b)
+        return 0
 
 doublepat = re.compile(r'^-?\d+[.]\d+$')
 intpat = re.compile(r'^-?\d+$')
