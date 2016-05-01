@@ -21,6 +21,9 @@ class ComparableFloat(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self._raw)
+
 doublepat = re.compile(r'^-?\d+[.]\d+$')
 intpat = re.compile(r'^-?\d+$')
 def parse_value(value):
