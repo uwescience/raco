@@ -246,6 +246,12 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         STORE(min_rank, OUTPUT);
         """, "expr_singleton")
 
+    def test_singleton_constant(self):
+        self.check("""
+        alpha = [.85];
+        STORE(alpha, OUTPUT);
+        """, "singleton_constant")
+
 
 if __name__ == '__main__':
     unittest.main()
