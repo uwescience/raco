@@ -202,14 +202,6 @@ def create_pipeline_synchronization(state):
 class GrappaSingletonRelation(algebra.SingletonRelation, GrappaOperator):
 
     def produce(self, state):
-        # Raco does SingletonRelation schema a little weird. SingletonRelation
-        # alone has an empty schema, but every SingletonRelation is
-        # followed by an Apply that actually creates the schema. We
-        # check this invariant here, then use it to get the schema
-        # to build the staged tuple.
-        assert isinstance(self.parent(), GrappaApply), \
-            "Apply[SingletonRelation] was broken: {}".format(self.parent())
-
         stagedTuple = self.new_tuple_ref(gensym(), self.parent().scheme())
 
         state.addDeclarations([stagedTuple.generateDefinition(),
@@ -226,6 +218,10 @@ class GrappaSingletonRelation(algebra.SingletonRelation, GrappaOperator):
 
     def consume(self, t, src, state):
         assert False, "This is a source; it does not consume"
+
+    def shortStr(self):
+        return "GrappaSingletonRelation"
+
 
 
 # TODO: make filescan pipeline turn into
