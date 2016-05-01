@@ -202,7 +202,8 @@ def create_pipeline_synchronization(state):
 class GrappaSingletonRelation(algebra.SingletonRelation, GrappaOperator):
 
     def produce(self, state):
-        stagedTuple = self.new_tuple_ref(gensym(), self.parent().scheme())
+        #stagedTuple = self.new_tuple_ref(gensym(), self.parent().scheme())
+        stagedTuple = self.new_tuple_ref(gensym(), self.scheme())
 
         state.addDeclarations([stagedTuple.generateDefinition(),
                                "{type} {name};".format(
