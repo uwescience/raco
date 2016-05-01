@@ -202,7 +202,6 @@ def create_pipeline_synchronization(state):
 class GrappaSingletonRelation(algebra.SingletonRelation, GrappaOperator):
 
     def produce(self, state):
-        #stagedTuple = self.new_tuple_ref(gensym(), self.parent().scheme())
         stagedTuple = self.new_tuple_ref(gensym(), self.scheme())
 
         state.addDeclarations([stagedTuple.generateDefinition(),
@@ -222,16 +221,6 @@ class GrappaSingletonRelation(algebra.SingletonRelation, GrappaOperator):
 
     def shortStr(self):
         return "GrappaSingletonRelation"
-
-    #def scheme(self):
-    #    """algebra.SingletonRelation.scheme() is arguably
-    #    broken. It returns an empty schema, perhaps for convenience?
-
-    #    We used to rely on an invariant that SingletonRelation would
-    #    be immediately followed by Apply, but that is not always the case
-    #    """
-    #    return scheme.Scheme([('_COLUMN0_', expression.types.LONG_TYPE)]) # type is arbitrary
-
 
 
 # TODO: make filescan pipeline turn into
