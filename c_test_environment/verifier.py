@@ -1,18 +1,29 @@
 import re
 import sys
-import nose
 
 """
 Checks two query outputs for equality
 """
+
+class ComparableFloat(object):
+    """Wrapper to use == on floats safely"""
+
+    def __init__(self, d, ep=0.00001):
+        self._raw = d
+        self._ep = ep
+
+    def __eq__(self, other):
+        if isinstance(other, ComparableFloat):
+            return abs(other._raw - self._raw) <= self._ep
+        else:
+            return False
 
 doublepat = re.compile(r'^-?\d+[.]\d+$')
 intpat = re.compile(r'^-?\d+$')
 def parse_value(value):
     if doublepat.match(value):
         n = float(value)
-        assert n < pow(2, 40), "decimal place rounding based comparison will be unsound for very large numbers"
-        return round(n, 2)
+        return ComparableFloat(n)
     elif intpat.match(value):
         return int(value)
     else:
