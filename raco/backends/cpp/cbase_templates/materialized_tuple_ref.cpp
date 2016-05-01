@@ -143,9 +143,13 @@
 
     void toOStreamAscii(std::ostream& os) const {
         os
+        {% if numfields == 0 %}
+           << "" <<
+        {% else %}
         {% for i in range(numfields-1) %}
         << f{{i}} << " "
         {% endfor %}
+        {% endif %}
         << f{{numfields-1}} << std::endl;
     }
 
