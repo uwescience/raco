@@ -229,7 +229,7 @@ class GrappaSingletonRelation(algebra.SingletonRelation, GrappaOperator):
         We used to rely on an invariant that SingletonRelation would
         be immediately followed by Apply, but that is not always the case
         """
-        return scheme.Scheme('_COLUMN0_', expression.types.LONG_TYPE)
+        return scheme.Scheme([('_COLUMN0_', expression.types.LONG_TYPE)]) # type is arbitrary 
 
 
 
