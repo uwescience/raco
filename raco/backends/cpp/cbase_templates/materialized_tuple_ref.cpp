@@ -149,8 +149,9 @@
         {% for i in range(numfields-1) %}
         << f{{i}} << " "
         {% endfor %}
+        << f{{numfields-1}} <<
         {% endif %}
-        << f{{numfields-1}} << std::endl;
+        std::endl;
     }
 
     //template <typename Tuple, typename T>
