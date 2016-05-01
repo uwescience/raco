@@ -350,9 +350,12 @@ class StagedTupleRef(object):
         if self.__typename is None:
             fields = ""
             relsym = self.relsym
-            for i in range(0, len(self.scheme)):
-                fieldnum = i
-                fields += "_%(fieldnum)s" % locals()
+            if len(self.scheme) == 0:
+                fields = "ZERO"
+            else:
+                for i in range(0, len(self.scheme)):
+                    fieldnum = i
+                    fields += "_%(fieldnum)s" % locals()
 
             self.__typename = "MaterializedTupleRef_%(relsym)s%(fields)s" \
                               % locals()
