@@ -63,7 +63,7 @@ def generate_strings(basename, fields, tuples, datarange):
                 else:
                     strmax = 24
                     strlength = random.randint(1, strmax)
-                    s = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(strlength))
+                    s = ''.join(random.choice(string.ascii_uppercase) for _ in range(strlength))
                     f.write(s)
                 if j < (fields - 1):
                     f.write(' ')
