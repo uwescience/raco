@@ -170,7 +170,8 @@ class CBaseLanguage(Language):
 
         # special cases where name is not just the name,
         # for example there is a namespace preceding it
-        name = {'year': 'dates::year'}.get(name, name)
+        name = {'year': 'dates::year',
+                'abs': 'std::abs'}.get(name, name)
 
         code = "{name}({argscode})".format(
             name=name, argscode=argscode)
