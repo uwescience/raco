@@ -1764,6 +1764,25 @@ class GrappaWhileCondition(rules.Rule):
         GrappaDoWhile[..., GrappaTest[Cond]]"""
 
 
+class DistinctToGroupby(rules.Rule):
+    """Change distinct back to Groupby(attributes)"""
+
+    def __init__(self, groupby_class):
+        self.gb_class = groupby_class
+
+    def fire(self, expr):
+        if isinstance(expr, algebra.Distinct):
+            return self.gb_class([expression.UnnamedAttributeRef(i)
+                                  for i in range(len(expr.scheme()))],
+                                 [],
+                                 expr.input)
+        else:
+            return expr
+
+    def __str__(self):
+        return """Distinct => Groupby(all attributes, no aggregate)"""
+
+
 class CrossProductWithSmall(rules.Rule):
 
     """
@@ -1785,7 +1804,7 @@ class CrossProductWithSmall(rules.Rule):
 
 
 def grappify(join_type, emit_print,
-             scan_array_repr):
+             scan_array_repr, groupby_class):
     if isinstance(join_type, str):
         join_type_class = dict(
             (c.__name__,
@@ -1815,7 +1834,8 @@ def grappify(join_type, emit_print,
         ScanTempToMemoryScan(),
         rules.OneToOne(algebra.Sequence, GrappaSequence),
         rules.OneToOne(algebra.DoWhile, GrappaDoWhile),
-        rules.OneToOne(algebra.SingletonRelation, GrappaSingletonRelation)
+        rules.OneToOne(algebra.SingletonRelation, GrappaSingletonRelation),
+        DistinctToGroupby(groupby_class)
 
         # Don't need this because we support two-key
         # cppcommon.BreakHashJoinConjunction(GrappaSelect, join_type)
@@ -1853,11 +1873,13 @@ class GrappaAlgebra(Algebra):
         groupby_sematics = kwargs.get('groupby_semantics', 'global')
         if groupby_sematics == 'global':
             groupby_rules = [rules.OneToOne(algebra.GroupBy, GrappaGroupBy)]
+            groupby_class = GrappaGroupBy
         elif groupby_sematics == 'partition':
             groupby_rules = rules.distributed_group_by(
                 GrappaPartitionGroupBy,
                 countall_rule=False,
                 only_fire_on_multi_key=GrappaGroupBy)
+            groupby_class = GrappaPartitionGroupBy
         else:
             raise ValueError(
                 "groupby_semantics must be one of {global, partition}")
@@ -1872,7 +1894,8 @@ class GrappaAlgebra(Algebra):
             rules.push_apply,
             groupby_rules,
             [rules.NumTuplesPropagation()],
-            grappify(join_type, self.emit_print, scan_array_repr),
+            grappify(join_type, self.emit_print, scan_array_repr,
+                     groupby_class),
             [CrossProductWithSmall()]
         ]
 
