@@ -170,7 +170,8 @@ class CBaseLanguage(Language):
 
         # special cases where name is not just the name,
         # for example there is a namespace preceding it
-        name = {'year': 'dates::year'}.get(name, name)
+        name = {'year': 'dates::year',
+                'abs': 'std::abs'}.get(name, name)
 
         code = "{name}({argscode})".format(
             name=name, argscode=argscode)
@@ -350,9 +351,12 @@ class StagedTupleRef(object):
         if self.__typename is None:
             fields = ""
             relsym = self.relsym
-            for i in range(0, len(self.scheme)):
-                fieldnum = i
-                fields += "_%(fieldnum)s" % locals()
+            if len(self.scheme) == 0:
+                fields = "ZERO"
+            else:
+                for i in range(0, len(self.scheme)):
+                    fieldnum = i
+                    fields += "_%(fieldnum)s" % locals()
 
             self.__typename = "MaterializedTupleRef_%(relsym)s%(fields)s" \
                               % locals()
