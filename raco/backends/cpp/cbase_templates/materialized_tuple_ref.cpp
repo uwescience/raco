@@ -76,7 +76,6 @@
     {% endif %}
 
 
-    {% if numfields > 0 %}
     {{tupletypename}}(const std::tuple<
         {% for ft in fieldtypes %}
         {{ft}}
@@ -106,7 +105,6 @@
         {% endfor %}
         return r;
      }
-    {% endif %}
 
     // shamelessly terrible disambiguation: one solution is named factory methods
     //{{tupletypename}} (std::vector<int64_t> vals, bool ignore1, bool ignore2) {
