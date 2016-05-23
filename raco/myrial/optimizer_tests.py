@@ -11,8 +11,9 @@ from raco.expression import aggregate
 
 from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
-    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaDupElim,
-    MyriaUnionAll, MyriaGroupBy, MyriaSelect)
+    MyriaBroadcastConsumer, MyriaBroadcastProducer, MyriaSplitConsumer,
+    MyriaScan, MyriaQueryScan, MyriaUnionAll,
+    MyriaDupElim, MyriaGroupBy, MyriaSelect)
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
                                  MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -71,7 +72,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                        self.part_partition)  # "partitioned" table
         self.db.ingest(OptimizerTest.broad_key,
                        self.broad_data,
-                       OptimizerTest.broad_scheme)
+                       OptimizerTest.broad_scheme,
+                       self.broad_partition)
 
         self.expected = collections.Counter(
             [(a, b, c, d, e, f) for (a, b, c) in self.x_data
@@ -1188,8 +1190,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
 
     def test_broadcasted_select(self):
-        """Test that no-broadcast storing a broadcasted relation selects
-        away the duplication"""
+        """Test that no-broadcast storing a broadcasted relation pushes it into
+        the scan"""
 
         query = """
         a = scan({broad});
@@ -1198,15 +1200,30 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         pp = self.get_physical_plan(query)
 
-        def count_debroadcast(_op):
-            if isinstance(_op, MyriaSelect) and isinstance(_op.condition.left, raco.expression.WORKERID) \
-                    and isinstance(_op.condition, raco.expression.EQ):
-                yield 1
+        def find_scan(_op):
+            if isinstance(_op, MyriaQueryScan) or isinstance(_op, MyriaScan):
+                if _op._debroadcast:
+                    yield True
+                else:
+                    yield False
             else:
-                yield 0
+                yield False
 
-        self.assertEquals(self.get_count(pp, MyriaSelect), 2)
-        self.assertEquals(pp.postorder(count_debroadcast(pp)), 1)
+        self.assertEquals(self.get_count(pp, MyriaSelect), 1)
+        self.assertTrue(any(pp.postorder(find_scan)))
+
+    def test_broadcast_store(self):
+        query = """
+        r = scan({X});
+        store(r, OUTPUT, broadcast);
+        """.format(X=self.x_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        self.assertEquals(self.get_count(pp, MyriaBroadcastConsumer), 1)
+        self.assertEquals(self.get_count(pp, MyriaBroadcastProducer), 1)
+        self.assertEquals(pp.partitioning().broadcasted, RepresentationProperties(broadcasted=True).broadcasted)
 
 
     def test_flatten_unionall(self):

@@ -1041,3 +1041,58 @@ def check_partition_equality(op, representation):
     """
 
     return op.partitioning().hash_partitioned == frozenset(representation)
+
+
+class MoveDeBroadcast(Rule):
+    @staticmethod
+    def _copy_op(other):
+        try:
+            copy = other.__class__()
+        except Exception as e:
+            raise Exception("{}".format(other))
+
+        copy.copy(other)
+        return copy
+
+    def fire(self, expr):
+        if not isinstance(expr, algebra.DeBroadcast):
+            return expr
+
+        if expr.input.partitioning().broadcasted:
+            if isinstance(expr.input, algebra.ZeroaryOperator):
+                # tell the Scan/ScanTemp to scan only one replica
+                copy = MoveDeBroadcast._copy_op(expr.input)
+                copy._debroadcast = True
+                return copy
+            elif isinstance(expr.input, algebra.UnaryOperator):
+                copy = MoveDeBroadcast._copy_op(expr.input)
+                exprcopy = MoveDeBroadcast._copy_op(expr)
+                exprcopy.input = copy.input
+                copy.input = exprcopy
+                return copy
+            elif isinstance(expr.input, algebra.BinaryOperator):
+                assert expr.input.left.partitioning().broadcasted and \
+                    expr.input.right.partitioning().broadcasted, "Expected broadcast" \
+                                                                 "output on binary operator" \
+                                                                 "only if the inputs are broadcast"
+                copybin = MoveDeBroadcast._copy_op(expr.input)
+                copyexpr1 = MoveDeBroadcast._copy_op(expr)
+                copyexpr2 = MoveDeBroadcast._copy_op(expr)
+                copyexpr1.input = copybin.left
+                copyexpr2.input = copybin.right
+                copybin.left = copyexpr1
+                copybin.right = copyexpr2
+                return copybin
+            else:
+                # leave it where it is
+                return expr
+        else:
+            # remove the debroadcast because it isn't needed
+            return expr.input
+
+    def __str__(self):
+        return "DeBroadcast(X) => X(DeBroadcast) or X"
+
+
+
+
