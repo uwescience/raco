@@ -375,6 +375,9 @@ class FakeDatabase(Catalog):
             except IndexError:
                 break
 
+    def debroadcast(self, op):
+        return self.evaluate(op.input)
+
     def store(self, op):
         assert isinstance(op.relation_key, relation_key.RelationKey)
 

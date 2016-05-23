@@ -385,10 +385,16 @@ class StatementProcessor(object):
         alias_expr = ("ALIAS", _id)
         child_op = self.ep.evaluate(alias_expr)
 
-        if how_partitioned:
-            scheme = child_op.scheme()
-            col_list = [get_unnamed_ref(a, scheme) for a in how_partitioned]
-            child_op = raco.algebra.Shuffle(child_op, col_list)
+        if how_partitioned == "BROADCAST":
+            child_op = raco.algebra.Broadcast(child_op)
+        else:
+            child_op = raco.algebra.DeBroadcast(child_op)
+
+            if how_partitioned:
+                scheme = child_op.scheme()
+                col_list = [get_unnamed_ref(a, scheme) for a in how_partitioned]
+                child_op = raco.algebra.Shuffle(child_op, col_list)
+
         op = raco.algebra.Store(rel_key, child_op)
 
         uses_set = self.ep.get_and_clear_uses_set()

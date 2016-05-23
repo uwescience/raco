@@ -154,6 +154,9 @@ class MyriaLanguage(Language):
 class MyriaOperator(object):
     language = MyriaLanguage
 
+    def reduceworkers(self):
+        return None
+
 
 def relation_key_to_json(relation_key):
     return {"userName": relation_key.user,
@@ -169,6 +172,12 @@ class MyriaScan(algebra.Scan, MyriaOperator):
             "relationKey": relation_key_to_json(self.relation_key),
         }
 
+    def reduceworkers(self):
+        if self._debroadcast:
+            return [0]
+        else:
+            None
+
 
 class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
 
@@ -177,6 +186,12 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
             "opType": "TempTableScan",
             "table": self.name,
         }
+
+    def reduceworkers(self):
+        if self._debroadcast:
+            return [0]
+        else:
+            None
 
 
 class MyriaFileScan(algebra.FileScan, MyriaOperator):
@@ -919,17 +934,20 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
     """A Myria Query Scan"""
 
     def __init__(self, sql, scheme, num_tuples=algebra.DEFAULT_CARDINALITY,
-                 partitioning=RepresentationProperties()):
+                 partitioning=RepresentationProperties(),
+                 debroadcast=False):
         self.sql = str(sql)
         self._scheme = scheme
         self._num_tuples = num_tuples
         self._partitioning = partitioning
+        self._debroadcast = debroadcast
 
     def __repr__(self):
-        return ("{op}({sql!r}, {sch!r}, {nt!r}, {part!r})"
+        return ("{op}({sql!r}, {sch!r}, {nt!r}, {part!r}, {db!r})"
                 .format(op=self.opname(), sql=self.sql,
                         sch=self._scheme, nt=self._num_tuples,
-                        part=self._partitioning))
+                        part=self._partitioning,
+                        db=self._debroadcast))
 
     def num_tuples(self):
         return self._num_tuples
@@ -949,6 +967,12 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
             "sql": self.sql,
             "schema": scheme_to_schema(self._scheme)
         }
+
+    def reduceworkers(self):
+        if self._debroadcast:
+            return [0]
+        else:
+            None
 
 
 class MyriaCalculateSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
@@ -1193,12 +1217,18 @@ class ShuffleBeforeJoin(rules.Rule):
         right_cols = [expression.UnnamedAttributeRef(i)
                       for i in right_cols]
 
+        print "SHUFFLE BEFORE JOIN ", expr
+
         if check_partition_equality(expr.left, left_cols):
+            new_left = expr.left
+        elif expr.left.partitioning().broadcasted:
             new_left = expr.left
         else:
             new_left = algebra.Shuffle(expr.left, left_cols)
 
         if check_partition_equality(expr.right, right_cols):
+            new_right = expr.right
+        elif expr.right.partitioning().broadcasted:
             new_right = expr.right
         else:
             new_right = algebra.Shuffle(expr.right, right_cols)
@@ -1629,6 +1659,15 @@ class GetCardinalities(rules.Rule):
         return expr
 
 
+class DeBroadcastToSelect(rules.Rule):
+
+    def fire(self, expr):
+        if isinstance(self, algebra.DeBroadcast):
+            return MyriaSelect(expression.EQ(expression.WORKERID, expression.NumericLiteral(0)))
+
+        return expr
+
+
 # 6. shuffle logics, hyper_cube_shuffle_logic is only used in HCAlgebra
 left_deep_tree_shuffle_logic = [
     ShuffleBeforeSetop(),
@@ -1636,6 +1675,7 @@ left_deep_tree_shuffle_logic = [
     BroadcastBeforeCross(),
     ShuffleAfterSingleton(),
     CollectBeforeLimit(),
+    rules.MoveDeBroadcast(),
 ]
 
 
@@ -1663,6 +1703,7 @@ myriafy = [
     rules.OneToOne(algebra.Difference, MyriaDifference),
     rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
     rules.OneToOne(algebra.Sink, MyriaSink),
+    DeBroadcastToSelect()
 ]
 
 # 9. break communication boundary
@@ -1907,8 +1948,24 @@ def compile_fragment(frag_root):
         return op_dict
 
     # Determine and encode the fragments.
-    return [{'operators': [call_compile_me(op) for op in frag]}
-            for frag in fragments(frag_root)]
+    results = []
+    for frag in fragments(frag_root):
+        frag_compilated = {'operators': [call_compile_me(op) for op in frag]}
+
+        reduceto = None
+        for op in frag:
+            v = op.reduceworkers()
+            if v:
+                assert reduceto is None, "Don't know how to deal with" \
+                                                "multiple declarations of reduced" \
+                                                "workers for one fragment"
+                reduceto = v
+
+        frag_compilated['overrideWorkers'] = reduceto
+
+        results.append(frag_compilated)
+
+    return results
 
 
 def compile_plan(plan_op):
