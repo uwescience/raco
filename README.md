@@ -74,7 +74,10 @@ Note that the commands below run the `myrial` utility from the included `scripts
 ### Show the logical plan of a Myrial program
 
 ```bash
-% python scripts/myrial -l examples/sigma-clipping-v0.myl
+python scripts/myrial -l examples/sigma-clipping-v0.myl
+```
+
+```
 Sequence
     StoreTemp(Good)[Scan(public:adhoc:sc_points)]
     StoreTemp(N)[Apply(2=2)[SingletonRelation]]
@@ -92,7 +95,10 @@ Sequence
 ### Show the Myria physical plan of a Myrial program
 
 ```bash
-% python scripts/myrial examples/sigma-clipping-v0.myl 
+python scripts/myrial examples/sigma-clipping-v0.myl
+```
+
+```
 Sequence
     StoreTemp(Good)[MyriaScan(public:adhoc:sc_points)]
     StoreTemp(N)[MyriaApply(2=2)[SingletonRelation]]
@@ -108,14 +114,33 @@ Sequence
 ```
 
 ### Visualize a Myria plan as a graph
-Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
+
+The `-d` option outputs a [dot file](www.graphviz.org/content/dot-language). The following command generates the plan for `join.myl` in a `png` image.
+
+```bash
+scripts/myrial -d examples/join.myl | dot -Tpng -o join.png
+```
+
+INSERT HERE
 
 ### Output the Myria physical plan as json
-Pass the `-j` option to `scripts/myrial`. Output omitted for brevity.
+
+You can get the Myria physical plan as JSON, which you can give to Myria through its REST API.
+
+```bash
+scripts/myrial -j examples/select.myl
+```
+
+```
+{"logicalRa": "MyriaStore(public:adhoc:OUTPUT)[MyriaSelect(($1 = 1))[MyriaScan(public:adhoc:employee)]]", "language": "myrial", "rawQuery": "Sequence[Store(public:adhoc:OUTPUT)[Select(($1 = 1))[Scan(public:adhoc:employee)]]]", "plan": {"fragments": [{"operators": [{"relationKey": {"userName": "public", "relationName": "employee", "programName": "adhoc"}, "opType": "TableScan", "opName": "MyriaScan(public:adhoc:employee)", "opId": 0}, {"opId": 1, "argPredicate": {"rootExpressionOperator": {"right": {"valueType": "LONG_TYPE", "type": "CONSTANT", "value": "1"}, "type": "EQ", "left": {"type": "VARIABLE", "columnIdx": 1}}}, "opType": "Filter", "opName": "MyriaSelect(($1 = 1))", "argChild": 0}, {"opType": "DbInsert", "argChild": 1, "argOverwriteTable": true, "relationKey": {"userName": "public", "relationName": "OUTPUT", "programName": "adhoc"}, "opName": "MyriaStore(public:adhoc:OUTPUT)", "opId": 2, "partitionFunction": null}]}], "type": "SubQuery"}}
+```
 
 ### Only run the parser
 ```bash
-% python scripts/myrial -p examples/sigma-clipping-v0.myl
+python scripts/myrial -p examples/sigma-clipping-v0.myl
+```
+
+```
 [('ASSIGN', 'Good', ('SCAN', 'public:adhoc:sc_points')), ('ASSIGN', 'N', ('TABLE', (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c04fd0>,))), ('DOWHILE', [('ASSIGN', 'mean', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c450>,))), ('ASSIGN', 'std', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c4d0>,))), ('ASSIGN', 'NewBad', ('BAGCOMP', [('Good', None)], (ABS((Good.v - Unbox)) > (Unbox * Unbox)), (<raco.myrial.emitarg.FullWildcardEmitArg object at 0x101c1c410>,))), ('ASSIGN', 'Good', ('DIFF', ('ALIAS', 'Good'), ('ALIAS', 'NewBad'))), ('ASSIGN', 'continue', ('BAGCOMP', [('NewBad', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c8d0>,)))], ('ALIAS', 'continue')), ('DUMP', 'Good')]
 ```
 
