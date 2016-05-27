@@ -403,6 +403,7 @@ class StagedTupleRef:
 
 
 class CBaseSelect(Pipelined, algebra.Select):
+
     def _compile_condition(self, t, state):
         condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
 
@@ -413,7 +414,6 @@ class CBaseSelect(Pipelined, algebra.Select):
         state.addInitializers(cond_inits)
         state.addDeclarations(cond_decls)
         return conditioncode
-
 
     def produce(self, state):
         self.input.produce(state)

@@ -256,7 +256,8 @@ class CompileState(object):
 
     def lookupTupleDef(self, sym):
         r = self.tupledefs.get(sym)
-        assert r is not None, "required tuple definition not found: {0}".format(sym)
+        assert r is not None, \
+            "required tuple definition not found: {0}".format(sym)
         return r
 
     def saveTupleDef(self, sym, tupledef):
@@ -267,6 +268,7 @@ class CompileState(object):
 
 
 class Pipelined(object):
+
     """
     Trait to provide the compilePipeline method
     for calling into pipeline style compilation.
@@ -298,6 +300,7 @@ class Pipelined(object):
         [_ for _ in root.postorder_traversal(markChildParent)]
 
     __isfrozen = False
+
     def __setattr__(self, key, value):
         """Overriden to allow objects to turn on assigned-once checks
 
@@ -309,17 +312,20 @@ class Pipelined(object):
         """
         if self.__isfrozen and key in self.assigned_attrs:
             if self.__getattribute__(key) == value:
-                LOG.warning('reassignment of self.{attr} but ignoring because assigned same value {value}'.format(
-                    attr=key,
-                    value=value
-                ))
+                LOG.warning(
+                    '''reassignment of self.{attr} but ignoring because
+                    assigned same value {value}'''.format(
+                        attr=key,
+                        value=value))
                 return
             else:
-                raise TypeError( "{obj} is a frozen object; self.{attr} = {oldval}; tried to assign {newval}".format(
-                    obj=self,
-                    attr=key,
-                    oldval=self.__getattribute__(key),
-                    newval=value))
+                raise TypeError(
+                    """{obj} is a frozen object; self.{attr} = {oldval};
+                    tried to assign {newval}""".format(
+                        obj=self,
+                        attr=key,
+                        oldval=self.__getattribute__(key),
+                        newval=value))
         # new set created here rather than __init__ because there
         # may be inconsistency in when Pipelined.__init__ is called relative
         # to assignments to instance variables
@@ -362,8 +368,8 @@ class Pipelined(object):
         self._markAllParents(**kwargs)
 
         compilerstate = {'push': CompileState,
-                 'iterator': IteratorCompileState
-        }[compiler]
+                         'iterator': IteratorCompileState
+                         }[compiler]
         state = compilerstate(self.language())
 
         state.addCode(
@@ -377,6 +383,7 @@ class Pipelined(object):
 
 
 class IteratorCompileState(CompileState):
+
     def __init__(self, lang, cse=True):
         super(IteratorCompileState, self).__init__(lang, cse)
         self.iterator_operators = []
@@ -386,10 +393,13 @@ class IteratorCompileState(CompileState):
 
     def addPipeline(self, p=None):
         # base class addPipeline takes code from the client,
-        # but the IteratorCompileState keeps track of the code itself in self.iterator_operators
-        if p is None: # None indicates an iterator pipeline
-            p = self.language.iterators_wrap(''.join(self.iterator_operators), self.current_pipeline_properties)
+        # but the IteratorCompileState keeps track of the code itself in
+        # self.iterator_operators
+        if p is None:  # None indicates an iterator pipeline
+            p = self.language.iterators_wrap(
+                ''.join(
+                    self.iterator_operators),
+                self.current_pipeline_properties)
 
         super(IteratorCompileState, self).addPipeline(p)
         self.iterator_operators = []
-
