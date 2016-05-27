@@ -1,0 +1,11 @@
+E = scan(TwitterK); -- edges
+V = select distinct E.$0 from E; -- vertices
+CC = [from V emit V.$0 as node_id, V.$0 as component_id]; -- initial node IDs and component IDs
+do
+  new_CC = [from E, CC where E.$0 = CC.$0 emit E.$1, CC.$1] + CC; -- join CC with the graph to propagate component IDs
+  new_CC = [from new_CC emit new_CC.$0, MIN(new_CC.$1)]; -- for each vertex, only keep the minimum component ID
+  delta = diff(CC, new_CC);
+  CC = new_CC;
+while [from delta emit count(*) > 0]; -- while we have update
+store(CC, CC);
+

@@ -227,6 +227,15 @@ class MyriaLPlatformTests(object):
         STORE(T1, OUTPUT);
         """, "scan")
 
+    def test_sink(self):
+        """
+        Sink still prints on verbose=2, so same as store for testing method
+        """
+        self.check_sub_tables("""
+        T1 = SCAN(%(T1)s);
+        SINK(T1);
+        """, "scan")
+
     def test_select(self):
         q = self.myrial_from_sql(['T1'], "select")
         self.check(q, "select")
@@ -427,6 +436,14 @@ class MyriaLPlatformTests(object):
     def test_aggregate_count(self):
         q = self.myrial_from_sql(["R1"], "aggregate_count")
         self.check(q, "aggregate_count")
+
+    def test_aggregate_min(self):
+        q = self.myrial_from_sql(["T2"], "aggregate_min")
+        self.check(q, "aggregate_min")
+
+    def test_aggregate_max(self):
+        q = self.myrial_from_sql(["T2"], "aggregate_max")
+        self.check(q, "aggregate_max")
 
     def test_aggregate_count_group_one(self):
         self.check_sub_tables("""
@@ -686,16 +703,11 @@ class MyriaLPlatformTests(object):
         STORE(a, OUTPUT);
         """, "union_then_aggregate")
 
-    def test_shuffle_hash_join(self):
+    def test_store_file(self):
         self.check_sub_tables("""
-        R2 = SCAN(%(R2)s);
-        S2 = SCAN(%(S2)s);
-        T2 = SCAN(%(T2)s);
-        j1 = JOIN(R2, b, S2, a);
-        j2 = JOIN(j1, $3, T2, a);
-        out = [FROM j2 WHERE $0 = $5 EMIT $0, $1, $3];
-        STORE(out, OUTPUT);
-        """, "directed_triangles", join_type='shuffle_hash')
+        T1 = SCAN(%(T1)s);
+        STORE(T1, OUTPUT);
+        """, "scan", emit_print='file')
 
     def test_q2(self):
         """

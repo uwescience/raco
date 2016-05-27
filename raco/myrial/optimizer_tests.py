@@ -1,16 +1,20 @@
 import collections
 import random
+import sys
+import re
 
 from raco.algebra import *
 from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.expression import StateVar
+from raco.expression import aggregate
 
-from raco.language.myrialang import (
+from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
-    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer)
-from raco.language.myrialang import (MyriaLeftDeepTreeAlgebra,
-                                     MyriaHyperCubeAlgebra)
+    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaDupElim,
+    MyriaGroupBy)
+from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
+                                 MyriaHyperCubeAlgebra)
 from raco.compile import optimize
 from raco import relation_key
 from raco.catalog import FakeCatalog
@@ -1003,3 +1007,170 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # (in general, info could be h($0) && h($2)
         self.assertEquals(pp.partitioning().hash_partitioned,
                           frozenset([AttIndex(0)]))
+
+    def test_no_shuffle_for_partitioned_distinct(self):
+        """Do not shuffle for Distinct if already partitioned"""
+
+        query = """
+        r = scan({part});
+        t = select distinct r.h from r;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        # shuffles should be removed and distinct not decomposed into two
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+        self.assertEquals(self.get_count(pp, MyriaDupElim), 1)
+
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        expected = dict([((h,), 1) for _, h, _ in self.part_data])
+        self.assertEquals(result, expected)
+
+    def test_no_shuffle_for_partitioned_groupby(self):
+        """Do not shuffle for groupby if already partitioned"""
+
+        query = """
+        r = scan({part});
+        t = select r.h, MIN(r.i) from r;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        # shuffles should be removed and the groupby not decomposed into two
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+        self.assertEquals(self.get_count(pp, MyriaGroupBy), 1)
+
+    def test_partition_aware_groupby_into_sql(self):
+        """No shuffle for groupby also causes it to be pushed into sql"""
+
+        query = """
+        r = scan({part});
+        t = select r.h, MIN(r.i) from r;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp, push_sql=True,
+                                      push_sql_grouping=True)
+
+        # shuffles should be removed and the groupby not decomposed into two
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+
+        # should be pushed
+        self.assertEquals(self.get_count(pp, MyriaGroupBy), 0)
+        self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
+
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        temp = dict([(h, sys.maxsize) for _, h, _ in self.part_data])
+        for _, h, i in self.part_data:
+            temp[h] = min(temp[h], i)
+        expected = dict(((h, i), 1) for h, i in temp.items())
+
+        self.assertEquals(result, expected)
+
+    def test_partition_aware_distinct_into_sql(self):
+        """No shuffle for distinct also causes it to be pushed into sql"""
+
+        query = """
+        r = scan({part});
+        t = select distinct r.h from r;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp, push_sql=True)
+
+        # shuffles should be removed and the groupby not decomposed into two
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
+
+        # should be pushed
+        self.assertEquals(self.get_count(pp, MyriaGroupBy), 0)  # sanity
+        self.assertEquals(self.get_count(pp, MyriaDupElim), 0)
+        self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
+
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        expected = dict([((h,), 1) for _, h, _ in self.part_data])
+        self.assertEquals(result, expected)
+
+    def test_push_half_groupby_into_sql(self):
+        """Push the first group by of decomposed group by into sql"""
+
+        query = """
+        r = scan({part});
+        t = select r.i, MIN(r.h) from r;
+        store(t, OUTPUT);""".format(part=self.part_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp, push_sql=True,
+                                      push_sql_grouping=True)
+
+        # wrong partition, so still has shuffle
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
+
+        # one group by should be pushed
+        self.assertEquals(self.get_count(pp, MyriaGroupBy), 1)
+        self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
+
+        self.db.evaluate(pp)
+        result = self.db.get_table('OUTPUT')
+        temp = dict([(i, sys.maxsize) for _, _, i in self.part_data])
+        for _, h, i in self.part_data:
+            temp[i] = min(temp[i], h)
+        expected = dict(((k, v), 1) for k, v in temp.items())
+
+        self.assertEquals(result, expected)
+
+    def _check_aggregate_functions_pushed(
+            self,
+            func,
+            expected,
+            override=False):
+        if override:
+            agg = func
+        else:
+            agg = "{func}(r.i)".format(func=func)
+
+        query = """
+        r = scan({part});
+        t = select r.h, {agg} from r;
+        store(t, OUTPUT);""".format(part=self.part_key, agg=agg)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp, push_sql=True,
+                                      push_sql_grouping=True)
+
+        self.assertEquals(self.get_count(pp, MyriaQueryScan), 1)
+
+        for op in pp.walk():
+            if isinstance(op, MyriaQueryScan):
+                self.assertTrue(re.search(expected, op.sql))
+
+    def test_aggregate_AVG_pushed(self):
+        """AVG is translated properly for postgresql. This is
+        a function not in SQLAlchemy"""
+        self._check_aggregate_functions_pushed(
+            aggregate.AVG.__name__, 'avg')
+
+    def test_aggregate_STDDEV_pushed(self):
+        """STDEV is translated properly for postgresql. This is
+        a function that is named differently in Raco and postgresql"""
+        self._check_aggregate_functions_pushed(
+            aggregate.STDEV.__name__, 'stddev_samp')
+
+    def test_aggregate_COUNTALL_pushed(self):
+        """COUNTALL is translated properly for postgresql. This is
+        a function that is expressed differently in Raco and postgresql"""
+
+        # MyriaL parses count(*) to Raco COUNTALL. And COUNTALL
+        # should currently (under the no nulls semantics of Raco/Myria)
+        # translate to COUNT(something)
+        self._check_aggregate_functions_pushed(
+            'count(*)', r'count[(][a-zA-Z.]+[)]', True)

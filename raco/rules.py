@@ -48,6 +48,58 @@ class Rule(object):
         """Apply this rule to the supplied expression tree"""
 
 
+class AbstractInterpretedValue:
+    def __init__(self):
+        self._values = set()
+
+    def appendValue(self, v):
+        self._values.add(v)
+
+    def setValues(self, values):
+        self._values = set(values)
+
+    def getValues(self):
+        return self._values
+
+
+class NumTuplesPropagation(Rule):
+    def fire(self, expr):
+        # TODO I really just want this to fire once on the top node...
+        if isinstance(expr, algebra.Sequence):
+            self._num_tuples_analysis(expr)
+        return expr
+
+    def _num_tuples_analysis(self, tree):
+        """Do an abstract interpretation of the tree to propagate StoreTemp
+        num_tuples to corresponding ScanTemps. This analysis mutates
+        the tree by tagging GrappaMemoryScan"""
+
+        # Right now, the abstract interpretation is not too interesting,
+        # as we ignore loops.
+        abstract_values = {}
+
+        def f(t):
+            if isinstance(t, algebra.StoreTemp):
+                if t.name not in abstract_values:
+                    abstract_values[t.name] = AbstractInterpretedValue()
+
+                abstract_values[t.name].appendValue(t.num_tuples())
+            elif isinstance(t, algebra.ScanTemp):
+                if t.name:
+                    assert t.name in abstract_values, "Saw a ScanTemp before" \
+                                                      "its StoreTemp"
+                    possible_values = \
+                        abstract_values[t.name].getValues()
+                    if len(possible_values) == 1:
+                        for v in possible_values:
+                            t.analyzed_num_tuples = v
+
+            yield None
+
+        # run it
+        [_ for _ in tree.preorder(f)]
+
+
 class CrossProduct2Join(Rule):
 
     """A rewrite rule for removing Cross Product"""
@@ -249,7 +301,7 @@ class DistinctToGroupBy(Rule):
         return expr
 
     def __str__(self):
-        return "Distinct => GroupBy"
+        return "Distinct => GroupBy(no groupings)"
 
 
 class EmptyGroupByToDistinct(Rule):
@@ -274,7 +326,7 @@ class EmptyGroupByToDistinct(Rule):
         return expr
 
     def __str__(self):
-        return "Distinct => GroupBy"
+        return "GroupBy(no groupings) => Distinct"
 
 
 class CountToCountall(Rule):
@@ -548,13 +600,19 @@ class PushApply(Rule):
                 return op
 
             unused_map = {i: j + num_grps for j, i in enumerate(accessed_aggs)}
-            child.aggregate_list = [child.aggregate_list[i - num_grps]
+
+            # copy the groupby operator so we can modify it
+            newgb = child.__class__()
+            newgb.copy(child)
+
+            # remove aggregates that are projected out
+            newgb.aggregate_list = [newgb.aggregate_list[i - num_grps]
                                     for i in accessed_aggs]
             for e in emits:
                 expression.reindex_expr(e, unused_map)
 
             return algebra.Apply(emitters=zip(op.get_names(), emits),
-                                 input=child)
+                                 input=newgb)
 
         return op
 
@@ -802,8 +860,8 @@ class DecomposeGroupBy(Rule):
     The local half of the aggregate before the shuffle step, whereas the remote
     half runs after the shuffle step.
 
-    TODO: omit this optimization if the data is already shuffled, or
-    if the cardinality of the grouping keys is high.
+    TODO: omit this optimization if
+          - the cardinality of the grouping keys is high.
     """
 
     def __init__(self, partition_groupby_class, only_fire_on_multi_key=None):
@@ -826,6 +884,17 @@ class DecomposeGroupBy(Rule):
             # Need to Shuffle
             op.input = algebra.Shuffle(op.input, group_fields)
 
+    @staticmethod
+    def check_no_shuffle(op):
+        """Check if no shuffle is needed"""
+
+        # Get an array of position references to columns in the child scheme
+        child_scheme = op.input.scheme()
+        group_fields = [expression.toUnnamed(ref, child_scheme)
+                        for ref in op.grouping_list]
+        return (len(group_fields) > 0 and
+                check_partition_equality(op.input, group_fields))
+
     def fire(self, op):
         # Punt if it's not a group by or we've already converted this into an
         # an instance of self.gb_class
@@ -834,6 +903,12 @@ class DecomposeGroupBy(Rule):
 
         if self._only_fire_on_multi_key and len(op.grouping_list) == 0:
             out_op = self._only_fire_on_multi_key()
+            out_op.copy(op)
+            return out_op
+
+        # Do not shuffle and do not decompose if the data is shuffled already
+        if DecomposeGroupBy.check_no_shuffle(op):
+            out_op = self._gb_class()
             out_op.copy(op)
             return out_op
 
@@ -955,3 +1030,14 @@ def distributed_group_by(
     ]
 
     return r
+
+
+def check_partition_equality(op, representation):
+    """Check to see if the operator has the required hash partitioning.
+    @param op operator
+    @param representation list of columns hash partitioned by,
+                        in the unnamed perspective
+    @return true if the op has an equal hash partitioning to representation
+    """
+
+    return op.partitioning().hash_partitioned == frozenset(representation)

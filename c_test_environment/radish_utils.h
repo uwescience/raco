@@ -6,6 +6,7 @@
 #include <tuple>
 #include <cstring>
 #include <array>
+#include <string>
 
 uint64_t identity_hash( int64_t k );
 

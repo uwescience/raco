@@ -1,10 +1,10 @@
 import unittest
-from testquery import checkquery
+from testquery import checkquery, checkstore
 from testquery import GrappalangRunner
 from generate_test_relations import generate_default
 from generate_test_relations import need_generate
-from raco.language.grappalang import GrappaAlgebra
-import raco.language.grappalang as grappalang
+from raco.backends.radish import GrappaAlgebra
+import raco.backends.radish as grappalang
 from raco.platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
 from raco.compile import compile
 from nose.plugins.skip import SkipTest
@@ -34,17 +34,22 @@ def raise_skip_test(query=None):
 
 
 class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
-    def check(self, query, name, **kwargs):
+    def check(self, query, name, join_type=None, emit_print='console', **kwargs):
         gname = "grappa_{name}".format(name=name)
 
-        if kwargs.get('join_type', None) == 'symmetric_hash':
+        if join_type is None:
+            pass
+        elif join_type == 'symmetric_hash':
             kwargs['join_type'] = grappalang.GrappaSymmetricHashJoin
-        elif kwargs.get('join_type', None) == 'shuffle_hash':
+        elif join_type == 'shuffle_hash':
             kwargs['join_type'] = grappalang.GrappaShuffleHashJoin
             # FIXME: see issue #348; always skipping shuffle tests because it got broken
-            raise SkipTest()
+            raise SkipTest(query)
+        else:
+            raise NotImplementedError(
+                "join_type {} not supported".format(join_type))
 
-        kwargs['target_alg'] = GrappaAlgebra()
+        kwargs['target_alg'] = GrappaAlgebra(emit_print=emit_print)
 
         plan = self.get_physical_plan(query, **kwargs)
         physical_dot = viz.operator_to_dot(plan)
@@ -65,10 +70,14 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
             f.write(code)
 
         #raise Exception()
+
         raise_skip_test(query)
 
         with Chdir("c_test_environment") as d:
-            checkquery(name, GrappalangRunner(binary_input=False))
+            if emit_print == 'file':
+                checkstore(name, GrappalangRunner(binary_input=False))
+            else:
+                checkquery(name, GrappalangRunner(binary_input=False))
 
     def setUp(self):
         super(MyriaLGrappaTest, self).setUp()
@@ -151,6 +160,97 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
     def test_symmetric_array_repr(self):
         q = self.myrial_from_sql(['T1'], "select")
         self.check(q, "select", scan_array_repr='symmetric_array')
+
+    def test_indexed_strings(self):
+        q = self.myrial_from_sql(["C3", "C3"], "join_string_key")
+        self.check(q, "join_string_key", external_indexing=True)
+
+    def test_shuffle_hash_join(self):
+        """
+        GrappaShuffleHashJoin is outdated.
+        For example, it only supports single attribute key.
+        """
+        self.check_sub_tables("""
+        T3 = SCAN(%(T3)s);
+        R3 = SCAN(%(R3)s);
+        out = JOIN(T3, b, R3, b);
+        out2 = [FROM out WHERE $3 = $5 EMIT $0, $3];
+        STORE(out2, OUTPUT);
+        """, "join", join_type='shuffle_hash')
+
+    def test_while(self):
+        """
+        Test a minimal while loop
+        """
+        self.check("""
+            i = [4];
+            do
+                i = [from i emit *i - 1];
+            while [from i where *i > 0 emit *i];
+            store(i, OUTPUT);
+        """, "while")
+
+    def test_while_union_all(self):
+        """
+        Test UNIONALL into StoreTemp in a While loop
+        """
+        self.check("""
+            m = [1234];
+            do
+                m = UNIONALL(m, m);
+                cnt = select count($0) as c from m;
+                eqfive = select case
+                                when c = 8 then 0
+                                else 1
+                                 end
+                        from cnt;
+            while [from eqfive where *eqfive emit *eqfive];
+            store(m, OUTPUT);
+        """, "while_union_all")
+
+    def _while_join_query(self):
+        return """
+            s = scan(%(T3)s);
+            i = [2];
+            do
+                i = [from i emit *i - 1];
+                s = select s1.b, s1.c, s1.a from s s1, s s2 where s1.a=s2.b;
+            while [from i where *i > 0 emit *i];
+            store(s, OUTPUT);
+        """
+
+    def test_while_repeat_hash_join(self):
+        self.check_sub_tables(self._while_join_query(), "while_repeat_join")
+
+    def test_while_repeat_sym_hash_join(self):
+        self.check_sub_tables(self._while_join_query(), "while_repeat_join", join_type='symmetric_hash' )
+    
+    def test_while_repeat_groupby(self):
+        self.check_sub_tables("""
+            s = scan(%(T3)s);
+            i = [2];
+            do
+                i = [from i emit *i - 1];
+                s = select SUM(s.a) as a,
+                    s.c as b,
+                    SUM(s.b) as c from s;
+            while [from i where *i > 0 emit *i];
+            store(s, OUTPUT);
+        """, "while_repeat_groupby")
+
+    def test_expr_singleton(self):
+        self.check("""
+        alpha = [.85];
+        N = [1000];
+        min_rank = [(1 - *alpha) / *N];
+        STORE(min_rank, OUTPUT);
+        """, "expr_singleton")
+
+    def test_singleton_constant(self):
+        self.check("""
+        alpha = [.85];
+        STORE(alpha, OUTPUT);
+        """, "singleton_constant")
 
 
 if __name__ == '__main__':
