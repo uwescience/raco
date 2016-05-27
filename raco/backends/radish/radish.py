@@ -2403,7 +2403,7 @@ class FuseGroupByShuffle(rules.Rule):
             self.global_groupby_class)
 
 
-def iteratorfy(emit_print, scan_array_repr):
+def iteratorfy(emit_print, scan_array_repr, groupby_class):
     return [
         FuseGroupByShuffle(IGrappaGroupBy),
 
@@ -2419,7 +2419,8 @@ def iteratorfy(emit_print, scan_array_repr):
         # TODO: obviously breaks semantics
         # rules.OneToOne(algebra.Union, GrappaUnionAll),
         cppcommon.StoreToBaseCStore(emit_print, IGrappaStore),
-        CrossProductWithSmall(IGrappaBroadcastCrossProduct)
+        CrossProductWithSmall(IGrappaBroadcastCrossProduct),
+        DistinctToGroupby(groupby_class)
     ]
 
 
