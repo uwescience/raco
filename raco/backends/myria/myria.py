@@ -1663,7 +1663,10 @@ class DeBroadcastToSelect(rules.Rule):
 
     def fire(self, expr):
         if isinstance(self, algebra.DeBroadcast):
-            return MyriaSelect(expression.EQ(expression.WORKERID, expression.NumericLiteral(0)))
+            return MyriaSelect(
+                expression.EQ(
+                    expression.WORKERID,
+                    expression.NumericLiteral(0)))
 
         return expr
 
@@ -1957,8 +1960,8 @@ def compile_fragment(frag_root):
             v = op.reduceworkers()
             if v:
                 assert reduceto is None, "Don't know how to deal with" \
-                                                "multiple declarations of reduced" \
-                                                "workers for one fragment"
+                    "multiple declarations of reduced" \
+                    "workers for one fragment"
                 reduceto = v
 
         frag_compilated['overrideWorkers'] = reduceto

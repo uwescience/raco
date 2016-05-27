@@ -357,7 +357,8 @@ class NaryJoin(NaryOperator):
 
         # TODO: being conservative, just take the left side because
         # TODO: we don't support conjuncs in partition info
-        return RepresentationProperties(hash_partitioned=self.args[0].partitioning().hash_partitioned)
+        return RepresentationProperties(
+            hash_partitioned=self.args[0].partitioning().hash_partitioned)
 
     def scheme(self):
         combined = reduce(operator.add, [c.scheme() for c in self.children()])
@@ -1241,6 +1242,7 @@ class Broadcast(UnaryOperator):
 
 
 class DeBroadcast(UnaryOperator):
+
     """Make a broadcasted relation not broadcasted"""
 
     def __init__(self, input=None):
@@ -1433,6 +1435,7 @@ class SingletonRelation(ZeroaryOperator):
 
     Used for constructing table literals.
     """
+
     def shortStr(self):
         return "SingletonRelation"
 
@@ -1535,7 +1538,9 @@ class Scan(ZeroaryOperator):
         return ("%s-%s" % (self.opname(), self.relation_key)).__hash__()
 
     def shortStr(self):
-        return "%s(%s, %s)" % (self.opname(), self.relation_key, "debroad" if self._debroadcast else "")
+        return "%s(%s, %s)" % (self.opname(),
+                               self.relation_key,
+                               "debroad" if self._debroadcast else "")
 
     def num_tuples(self):
         return self._cardinality
@@ -1545,8 +1550,12 @@ class Scan(ZeroaryOperator):
 
     def __repr__(self):
         return "{op}({rk!r}, {sch!r}, {card!r}, {part!r}, {db!r})".format(
-            op=self.opname(), rk=self.relation_key, sch=self._scheme,
-            card=self._cardinality, part=self._partitioning, db=self._debroadcast)
+            op=self.opname(),
+            rk=self.relation_key,
+            sch=self._scheme,
+            card=self._cardinality,
+            part=self._partitioning,
+            db=self._debroadcast)
 
     def copy(self, other):
         """deep copy"""
@@ -1712,9 +1721,9 @@ class ScanTemp(ZeroaryOperator):
 
     def __repr__(self):
         return "{op}({name!r}, {sch!r}, {db!r})".format(op=self.opname(),
-                                                name=self.name,
-                                                sch=self._scheme,
-                                                db=self._debroadcast)
+                                                        name=self.name,
+                                                        sch=self._scheme,
+                                                        db=self._debroadcast)
 
 
 class Sink(UnaryOperator):

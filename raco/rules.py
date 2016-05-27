@@ -49,6 +49,7 @@ class Rule(object):
 
 
 class AbstractInterpretedValue:
+
     def __init__(self):
         self._values = set()
 
@@ -63,6 +64,7 @@ class AbstractInterpretedValue:
 
 
 class NumTuplesPropagation(Rule):
+
     def fire(self, expr):
         # TODO I really just want this to fire once on the top node...
         if isinstance(expr, algebra.Sequence):
@@ -1044,6 +1046,7 @@ def check_partition_equality(op, representation):
 
 
 class MoveDeBroadcast(Rule):
+
     @staticmethod
     def _copy_op(other):
         try:
@@ -1092,7 +1095,3 @@ class MoveDeBroadcast(Rule):
 
     def __str__(self):
         return "DeBroadcast(X) => X(DeBroadcast) or X"
-
-
-
-
