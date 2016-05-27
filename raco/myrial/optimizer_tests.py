@@ -1188,8 +1188,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self._check_aggregate_functions_pushed(
             'count(*)', r'count[(][a-zA-Z.]+[)]', True)
 
-
-    def test_broadcasted_select(self):
+    def test_broadcasted_to_not_broadcast(self):
         """Test that no-broadcast storing a broadcasted relation pushes it into
         the scan"""
 
@@ -1225,6 +1224,22 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaBroadcastProducer), 1)
         self.assertEquals(pp.partitioning().broadcasted, RepresentationProperties(broadcasted=True).broadcasted)
 
+    def test_broadcast_join(self):
+        query = """
+        b = scan({broad});
+        x = scan({X});
+        o = select * from b, x where b.j==x.a;
+        store(o, OUTPUT);
+        """.format(X=self.x_key, broad=self.broad_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        self.assertEquals(self.get_count(pp, MyriaBroadcastProducer), 0)
+        self.assertEquals(self.get_count(pp, MyriaBroadcastConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
+        self.assertEquals(pp.partitioning().broadcasted, RepresentationProperties().broadcasted)
 
     def test_flatten_unionall(self):
         """Test flattening a chain of UnionAlls"""
@@ -1237,5 +1252,5 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # should be UNIONAll([UNIONAll([expr_1, expr_2]), expr_3])
         self.assertEquals(self.get_count(lp, UnionAll), 2)
         pp = self.logical_to_physical(lp)
-        # should be UNIONALL([expr_1, expr_2, expr_3])
-        self.assertEquals(self.get_count(pp, MyriaUnionAll), 1)
+        # should be UNIONALL([expr_1, expr_2, expr_
+3]       self.assertEquals(self.get_count(pp, MyriaUnionAll), 1)
