@@ -2545,7 +2545,6 @@ class GrappaAlgebra(Algebra):
             groupby_rules,
             grappify_rules,
             [rules.NumTuplesPropagation()],
-            [CrossProductWithSmall()]
         ]
 
         if SwapJoinSides:
