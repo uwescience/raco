@@ -823,7 +823,7 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
         self.func_name = other.func_name
         self.state_tuple = other.state_tuple
         self.input_syncname = other.input_syncname
-        # self.input_type_ref = other.input_type_ref
+        self.input_type_ref = other.input_type_ref
 
     def produce(self, state):
         # we distinguish between no-key and using a key cases
@@ -863,7 +863,7 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             self.state_tuple = GrappaStagedTupleRef(symbol,
                                                     self.aggregates_schema,
                                                     aligned=(not self.useKey))
-            # self.input_type_ref = state.createUnresolvedSymbol()
+            self.input_type_ref = state.createUnresolvedSymbol()
             state.saveExpr(self, self)
             state.addDeclarations([self.state_tuple.generateDefinition()])
 
