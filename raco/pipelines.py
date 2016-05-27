@@ -314,10 +314,7 @@ class CompileState(object):
         self.materialized[expr] = sym
 
     def lookupTupleDef(self, sym):
-        r = self.tupledefs.get(sym)
-        assert r is not None, \
-            "required tuple definition not found: {0}".format(sym)
-        return r
+        return self.tupledefs.get(sym)
 
     def saveTupleDef(self, sym, tupledef):
         self.tupledefs[sym] = tupledef
