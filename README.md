@@ -192,7 +192,7 @@ PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_
 ## More in depth on Raco
 To learn about calling Raco from python and manipulating plans, read [Using Raco directly](https://github.com/uwescience/raco/blob/master/docs/index.md)
 
-To learn about developing Raco, read [developer doc](https://github.com/uwescience/raco/blob/master/docs/developer/develop.md).
+To learn about developing Raco, read [developer doc](https://github.com/uwescience/raco/blob/master/docs/developers/develop.md).
 
 ## Authors and contact information
 
