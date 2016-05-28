@@ -1,11 +1,3 @@
----
-layout: default
-title: RACO
-group: "docs"
-weight: 4
-section: 4
----
-
 Raco, the Relational Algebra COmpiler
 =====================================
 
