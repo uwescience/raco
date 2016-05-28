@@ -199,6 +199,6 @@ print p
 
 - Explore how the example MyriaL queries (see `examples/*myl`) get translated
 - Try some of your own plan manipulations
-- If your plan manipulation is more general, consider [adding a rewrite rule to Raco](developers/develop.md).
-- If you plan to develop Raco, [read the docs](developers/develop.md).
+- If your plan manipulation is more general, consider [adding a rewrite rule to Raco](https://github.com/uwescience/raco/blob/master/docs/developers/develop.md).
+- If you plan to develop Raco, [read the docs](https://github.com/uwescience/raco/blob/master/docs/developers/develop.md).
 
