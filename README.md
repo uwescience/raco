@@ -121,8 +121,6 @@ The `-d` option outputs a [dot file](www.graphviz.org/content/dot-language). The
 scripts/myrial -d examples/join.myl | dot -Tpng -o join.png
 ```
 
-INSERT HERE
-
 ### Output the Myria physical plan as json
 
 You can get the Myria physical plan as JSON, which you can give to Myria through its REST API.
