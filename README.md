@@ -144,9 +144,9 @@ python scripts/myrial -p examples/sigma-clipping-v0.myl
 [('ASSIGN', 'Good', ('SCAN', 'public:adhoc:sc_points')), ('ASSIGN', 'N', ('TABLE', (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c04fd0>,))), ('DOWHILE', [('ASSIGN', 'mean', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c450>,))), ('ASSIGN', 'std', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c4d0>,))), ('ASSIGN', 'NewBad', ('BAGCOMP', [('Good', None)], (ABS((Good.v - Unbox)) > (Unbox * Unbox)), (<raco.myrial.emitarg.FullWildcardEmitArg object at 0x101c1c410>,))), ('ASSIGN', 'Good', ('DIFF', ('ALIAS', 'Good'), ('ALIAS', 'NewBad'))), ('ASSIGN', 'continue', ('BAGCOMP', [('NewBad', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c8d0>,)))], ('ALIAS', 'continue')), ('DUMP', 'Good')]
 ```
 
-## C++ and Grappa output (Radish)
+## Generate a C++ program
 
-Raco has backend compilers that emit C++ and [Grappa](http://grappa.io) programs. To find out how it works in depth, read the [UW technical report](http://www.cs.washington.edu/tr/2016/02/UW-CSE-16-02-02.pdf).
+Raco has a backend compiler that emits C++.
 
 ### Output C++ plan and source program
 ```
@@ -161,8 +161,21 @@ cd c_test_environment; make join.exe
 c_test_environment/join.exe INPUT_FILE.csv
 ```
 
-### Run the full MyriaL -> Grappa tests
-The default tests (just running `nosetests`) include tests for translation from MyriaL to Grappa code but do no checking of whether the Grappa program correctly executes the query. To actually run the Grappa queries: 
+## Generate a distributed C++/PGAS program
+
+Raco has a back end compiler, Radish, that emits distributed C++ programs. In particular, Radish targets *partitioned global address space (PGAS)* languages, like [Grappa](http://grappa.io). Read [Compiling queries for high-performance computing](http://www.cs.washington.edu/tr/2016/02/UW-CSE-16-02-02.pdf) for more information on the internals of Radish.
+
+### Generate a Grappa source program
+
+```bash
+scripts/myrial -c examples/join.myl
+```
+
+The query implemented in Grappa is now in `join.cpp`. To build and run the query, we recommend using [the Radish REST server](https://github.com/uwescience/radish-server).
+
+### Run the full MyriaL-to-Grappa tests
+
+The default tests (just running `nosetests`) include tests for *translation* from MyriaL to Grappa code but do no checking of whether the Grappa program correctly executes the query. To actually run the Grappa queries:
 
 1. `export RACO_HOME=/path/to/raco`
 2. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
@@ -170,12 +183,6 @@ The default tests (just running `nosetests`) include tests for translation from 
 4. run tests: run this command from the `$RACO_HOME` directory
 ```bash
 PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_myrial_tests.MyriaLGrappaTest
-```
-
-### Radish (Grappa) plan and source program
-```
-scripts/myrial -c examples/join.myl
-# the query implemented in Grappa is in join.cpp
 ```
 
 ## More in depth on Raco
