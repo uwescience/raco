@@ -30,6 +30,9 @@ using namespace Grappa;
 #include "TemporaryTable.hpp"
 #include "dowhile.hpp"
 
+//FIXME: prefer to include this only for Iterator codes
+#include "Operators.hpp"
+
 DEFINE_uint64( nt, 30, "hack: number of tuples");
 DEFINE_bool( jsonsplits, false, "interpret input file F as F/part-*,"
                              "and containing json records");
