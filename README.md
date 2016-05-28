@@ -183,6 +183,12 @@ The default tests (just running `nosetests`) include tests for *translation* fro
 PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_myrial_tests.MyriaLGrappaTest
 ```
 
+### More Radish examples
+
+- [TPC-H benchmark](https://github.com/uwescience/tpch-radish)
+- [Graph and matrix benchmarks](https://github.com/uwescience/sparseMatProjects/tree/master/myriaLQueries/radish)
+
+
 ## More in depth on Raco
 To learn about calling Raco from python and manipulating plans, read [Using Raco directly](https://github.com/uwescience/raco/blob/master/docs/index.md)
 
