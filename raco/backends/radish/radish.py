@@ -2547,6 +2547,7 @@ class GrappaAlgebra(Algebra):
             [rules.NumTuplesPropagation()],
         ]
 
+        # switch join order
         if SwapJoinSides:
             rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
