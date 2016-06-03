@@ -7,6 +7,7 @@ from raco.backends.radish import GrappaAlgebra
 import raco.backends.radish as grappalang
 from raco.platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
 from raco.compile import compile
+import raco.backends.radish as radish_alg
 from nose.plugins.skip import SkipTest
 
 import sys
@@ -34,9 +35,8 @@ def raise_skip_test(query=None):
 
 
 class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
-    def check(self, query, name, join_type=None, emit_print='console', **kwargs):
-        gname = "grappa_{name}".format(name=name)
 
+    def _get_grappa_physical_plan(self, query, join_type=None, emit_print='console', **kwargs):
         if join_type is None:
             pass
         elif join_type == 'symmetric_hash':
@@ -52,6 +52,13 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         kwargs['target_alg'] = GrappaAlgebra(emit_print=emit_print)
 
         plan = self.get_physical_plan(query, **kwargs)
+        return plan
+
+    def check(self, query, name, join_type=None, emit_print='console', **kwargs):
+        gname = "grappa_{name}".format(name=name)
+
+        plan = self._get_grappa_physical_plan(query, join_type, emit_print, **kwargs)
+
         physical_dot = viz.operator_to_dot(plan)
 
         with open(os.path.join("c_test_environment",
@@ -252,6 +259,41 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         STORE(alpha, OUTPUT);
         """, "singleton_constant")
 
+    def test_iterator_queries_on(self):
+        p = self._get_grappa_physical_plan("""
+        r = scan(%(R3)s);
+        s = scan(%(S3)s);
+        t = select count(*), r.a from r,s where r.b=1 and r.c=s.c;
+        STORE(t, OUTPUT);
+        """ % self.tables, compiler="iterator")
+
+        self.assertEquals(self.get_count(p, radish_alg.IGrappaSelect), 1)
+        self.assertEquals(self.get_count(p, radish_alg.IGrappaMemoryScan), 2)
+        self.assertEquals(self.get_count(p, radish_alg.IGrappaStore), 1)
+        self.assertEquals(self.get_count(p, radish_alg.IGrappaStore), 1)
+        self.assertEquals(self.get_count(p, radish_alg.IGrappaHashJoin), 1)
+        self.assertEquals(
+            self.get_count(p, radish_alg.IGrappaGroupBy) +
+            self.get_count(p, radish_alg.IGrappaPartitionGroupBy), 1)
+
+    def test_iterator_queries_generate(self):
+        self.check_sub_tables("""
+        r = scan(%(R3)s);
+        s = scan(%(S3)s);
+        t = select count(r.b), r.a from r,s where r.b=1 and r.c=s.c;
+        STORE(t, OUTPUT);
+        """, "NOSUCHQUERY", compiler="iterator")
+
+    @staticmethod
+    def get_count(op, claz):
+        """Return the count of operator instances within an operator tree."""
+
+        def count(_op):
+            if isinstance(_op, claz):
+                yield 1
+            else:
+                yield 0
+        return sum(op.postorder(count))
 
 if __name__ == '__main__':
     unittest.main()
