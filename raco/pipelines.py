@@ -36,7 +36,7 @@ class ResolvingSymbol:
         return code
 
 
-class CompileState:
+class CompileState(object):
 
     def __init__(self, lang, cse=True):
         self.language = lang
@@ -341,7 +341,7 @@ class Pipelined(object):
         # Ensure this class follows cooperative multiple inheritance
         super(Pipelined, self).__init__(*args)
 
-    def _markAllParents(self, test_mode=False):
+    def _markAllParents(self, test_mode=False, **kwargs):
         root = self
 
         def markChildParent(op):
@@ -369,15 +369,15 @@ class Pipelined(object):
         if self.__isfrozen and key in self.assigned_attrs:
             if self.__getattribute__(key) == value:
                 LOG.warning(
-                    'reassignment of self.{attr} but ignoring because '
-                    'assigned same value {value}'.format(
+                    '''reassignment of self.{attr} but ignoring because
+                    assigned same value {value}'''.format(
                         attr=key,
                         value=value))
                 return
             else:
                 raise TypeError(
-                    "{obj} is a frozen object; self.{attr} = {oldval}; "
-                    "tried to assign {newval}".format(
+                    """{obj} is a frozen object; self.{attr} = {oldval};
+                    tried to assign {newval}""".format(
                         obj=self,
                         attr=key,
                         oldval=self.__getattribute__(key),
@@ -424,11 +424,14 @@ class Pipelined(object):
         """Denotation for consuming a tuple"""
         return
 
-    def compilePipeline(self, **kwargs):
+    def compilePipeline(self, compiler='push', **kwargs):
         # run analyses
         self.run_analyses(**kwargs)
 
-        state = CompileState(self.language())
+        compilerstate = {'push': CompileState,
+                         'iterator': IteratorCompileState
+                         }[compiler]
+        state = compilerstate(self.language())
 
         state.addCode(
             self.language().comment("Compiled subplan for %s" % self))
@@ -438,3 +441,26 @@ class Pipelined(object):
         # state.addCode( self.language().log("Evaluating subplan %s" % self) )
 
         return state
+
+
+class IteratorCompileState(CompileState):
+
+    def __init__(self, lang, cse=True):
+        super(IteratorCompileState, self).__init__(lang, cse)
+        self.iterator_operators = []
+
+    def addOperator(self, code):
+        self.iterator_operators.append(code)
+
+    def addPipeline(self, p=None):
+        # base class addPipeline takes code from the client,
+        # but the IteratorCompileState keeps track of the code itself in
+        # self.iterator_operators
+        if p is None:  # None indicates an iterator pipeline
+            p = self.language.iterators_wrap(
+                ''.join(
+                    self.iterator_operators),
+                self.current_pipeline_properties)
+
+        super(IteratorCompileState, self).addPipeline(p)
+        self.iterator_operators = []

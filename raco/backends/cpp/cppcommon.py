@@ -409,12 +409,7 @@ class StagedTupleRef(object):
 
 class CBaseSelect(Pipelined, algebra.Select):
 
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
-        basic_select_template = _cgenv.get_template('select.cpp')
-
+    def _compile_condition(self, t, state):
         condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
 
         # compile the predicate into code
@@ -423,6 +418,15 @@ class CBaseSelect(Pipelined, algebra.Select):
                 condition_as_unnamed, tupleref=t)
         state.addInitializers(cond_inits)
         state.addDeclarations(cond_decls)
+        return conditioncode
+
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        basic_select_template = _cgenv.get_template('select.cpp')
+
+        conditioncode = self._compile_condition(t, state)
 
         inner_code_compiled = self.parent().consume(t, self, state)
 
@@ -485,17 +489,12 @@ class CBaseApply(Pipelined, algebra.Apply):
 
         self.input.produce(state)
 
-    def consume(self, t, src, state):
-        code = self.language().comment(self.shortStr())
-
+    def _apply_statements(self, t, state):
         assignment_template = _cgenv.get_template('assignment.cpp')
-
         dst_name = self.newtuple.name
         dst_type_name = self.newtuple.getTupleTypename()
 
-        # declaration of tuple instance
-        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
-
+        code = ""
         for dst_fieldnum, src_label_expr in enumerate(self.emitters):
             dst_set_func = self.newtuple.set_func_code(dst_fieldnum)
             src_label, src_expr = src_label_expr
@@ -510,6 +509,18 @@ class CBaseApply(Pipelined, algebra.Apply):
             state.addDeclarations(expr_decls)
 
             code += assignment_template.render(locals())
+        return code
+
+    def consume(self, t, src, state):
+        code = self.language().comment(self.shortStr())
+
+        dst_name = self.newtuple.name
+        dst_type_name = self.newtuple.getTupleTypename()
+
+        # declaration of tuple instance
+        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
+
+        code += self._apply_statements(t, state)
 
         innercode = self.parent().consume(self.newtuple, self, state)
         code += innercode
@@ -737,10 +748,13 @@ class CBaseStore(Pipelined, algebra.Store):
     def produce(self, state):
         self.input.produce(state)
 
-    def consume(self, t, src, state):
-        code = ""
+    def _add_result_declaration(self, t, state):
         resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
         state.addDeclarations([resdecl])
+
+    def consume(self, t, src, state):
+        code = ""
+        self._add_result_declaration(t, state)
         code += "result.push_back(%s);\n" % (t.name)
 
         if self.emit_print == EMIT_CONSOLE:

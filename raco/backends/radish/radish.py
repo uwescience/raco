@@ -119,6 +119,14 @@ class GrappaLanguage(CBaseLanguage):
         return code
 
     @staticmethod
+    def iterators_wrap(code, attrs):
+        code = GrappaLanguage.on_all(code)
+        code += """
+        iterate(&{fragment_symbol}, &{global_syncname});
+        """.format(**attrs)
+        return code
+
+    @staticmethod
     def pipeline_wrap(ident, plcode, attrs):
 
         def apply_wrappers(code, wrappers):
@@ -352,7 +360,7 @@ class GrappaSymmetricHashJoin(GrappaJoin, GrappaOperator):
         return name
 
     def __getHashName__(self):
-        name = "dhash_%s" % self.symBase
+        name = "%s_dhash_%s" % (self.__class__.__name__, self.symBase)
         return name
 
     def __init__(self, *args):
@@ -683,10 +691,10 @@ class GrappaShuffleHashJoin(algebra.Join, GrappaOperator):
 class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
     _i = 0
 
-    @staticmethod
-    def __genHashName__():
-        name = "group_hash_%03d" % GrappaGroupBy._i
-        GrappaGroupBy._i += 1
+    @classmethod
+    def __genHashName__(cls):
+        name = "%s_hash_%03d" % (cls.__name__, cls._i)
+        cls._i += 1
         return name
 
     def __init__(self, *args):
@@ -714,10 +722,115 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
         else:
             return r
 
+    def _reconstruct_aggregates_schema(self):
+        """
+         reconstruct the lost mapping of schema to aggregate
+         expressions/grouping list
+        """
+
+        # TODO: doesn't this exist somewhere in raco?
+        def resolve_name(ref, sch):
+            if isinstance(
+                    ref,
+                    expression.UnnamedAttributeRef)or isinstance(
+                    ref,
+                    expression.UnnamedAttributeRef):
+                return sch.get_names()[ref.position]
+            else:
+                return ref.name
+
+        inp_sch = self.input.scheme()
+
+        grouped_names = set([resolve_name(ref, inp_sch)
+                             for ref in self.grouping_list])
+        aggregates_types = [typ  # throw away the name because it is made up
+                            for name, typ in self.scheme()
+                            if name not in grouped_names]
+        aggregates_names = [
+            resolve_name(
+                a.input,
+                inp_sch) for a in self.aggregate_list]
+
+        return scheme.Scheme(zip(aggregates_names, aggregates_types))
+
+    def _assignment_code(self, output_tuple):
+        """
+         assign state type tuple to output type tuple
+         For 0key case they should just be treated the same,
+         i.e., self.state_tuple same as output_tuple for !self.useKey
+         except for name
+         """
+        assignmentcode = ""
+        for i in range(0, len(output_tuple.scheme)):
+            d = output_tuple.set_func_code(i)
+            s = output_tuple.get_code_with_name(
+                i, "{0}_tmp".format(
+                    output_tuple.name))
+            assignment_template = self._cgenv.get_template('assignment.cpp')
+            assignmentcode += assignment_template.render(
+                dst_set_func=d, src_expr_compiled=s)
+
+        return assignmentcode
+
+    def _impl_produce(self, state):
+        pipeline_sync = create_pipeline_synchronization(state)
+        get_pipeline_task_name(state)
+
+        if self.useKey:
+            inp_sch = self.input.scheme()
+
+            numkeys = len(self.grouping_list)
+            keytype = self._key_type(inp_sch)
+            mapping_var_name = gensym()
+            emit_type = self.state_tuple.getTupleTypename()
+
+            # pass in attribute values individually
+            produce_template = self._cgenv.get_template(
+                'multi_uda_scan.cpp')
+        else:
+            produce_template = self._cgenv.get_template(
+                'multi_uda_0key_output.cpp')
+
+        output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
+        output_tuple_name = output_tuple.name
+        output_tuple_type = output_tuple.getTupleTypename()
+        output_tuple_set_func = output_tuple.set_func_code(0)  # UNUSED??
+        state.addDeclarations([output_tuple.generateDefinition()])
+
+        inner_code = self.parent().consume(output_tuple, self, state)
+        comment = self.language().comment("scan of " + str(self))
+
+        assignmentcode = self._assignment_code(output_tuple)
+
+        hashname = self._hashname
+        state_type = self.state_tuple.getTupleTypename()
+        combine_func = self.combine_func
+
+        code = produce_template.render(locals())
+        state.setPipelineProperty("type", "in_memory")
+        state.addPipeline(code)
+
+    def _key_type(self, inp_sch):
+        return "std::tuple<{types}>".format(
+            types=','.join([self.language().typename(
+                g.typeof(inp_sch, None)) for g in self.grouping_list]))
+
+    def _init_template(self):
+        return self._cgenv.get_template('withkey_init.cpp')
+
+    def _reuse_properties(self, other):
+        self._hashname = other._hashname
+        self.func_name = other.func_name
+        self.state_tuple = other.state_tuple
+        self.input_syncname = other.input_syncname
+        self.input_type_ref = other.input_type_ref
+
     def produce(self, state):
+        # we distinguish between no-key and using a key cases
         self.useKey = len(self.grouping_list) > 0
         _LOG.debug("groupby uses keys? %s" % self.useKey)
 
+        # restrictions on aggregate support
         if not(self.useKey or
                all([not isinstance(exp, expression.UdaAggregateExpression)
                     for exp in self.aggregate_list])):
@@ -735,41 +848,12 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             does not have proper null semantics
             (unconditionally counts everything)""")
 
-        inp_sch = self.input.scheme()
-
-        # reconstruct the lost mapping of schema to aggregate
-        # expressions/grouping list
-        # TODO: doesn't this exist somewhere in raco?
-        def resolve_name(ref, sch):
-            if isinstance(
-                    ref,
-                    expression.UnnamedAttributeRef)or isinstance(
-                    ref,
-                    expression.UnnamedAttributeRef):
-                return sch.get_names()[ref.position]
-            else:
-                return ref.name
-
-        grouped_names = set([resolve_name(ref, inp_sch)
-                             for ref in self.grouping_list])
-        aggregates_types = [typ  # throw away the name because it is made up
-                            for name, typ in self.scheme()
-                            if name not in grouped_names]
-        aggregates_names = [
-            resolve_name(
-                a.input,
-                inp_sch) for a in self.aggregate_list]
-        self.aggregates_schema = scheme.Scheme(
-            zip(aggregates_names, aggregates_types))
+        self.aggregates_schema = self._reconstruct_aggregates_schema()
 
         hashtableInfo = state.lookupExpr(self)
         if hashtableInfo:
             subexpression_proxy = hashtableInfo
-            self._hashname = subexpression_proxy._hashname
-            self.func_name = subexpression_proxy.func_name
-            self.state_tuple = subexpression_proxy.state_tuple
-            self.input_syncname = subexpression_proxy.input_syncname
-            # self.input_type_ref = subexpression_proxy.input_type_ref
+            self._reuse_properties(subexpression_proxy)
         else:
             symbol = gensym()
             self._hashname = GrappaGroupBy.__genHashName__()
@@ -779,29 +863,32 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             self.state_tuple = GrappaStagedTupleRef(symbol,
                                                     self.aggregates_schema,
                                                     aligned=(not self.useKey))
-            # self.input_type_ref = state.createUnresolvedSymbol()
+            self.input_type_ref = state.createUnresolvedSymbol()
             state.saveExpr(self, self)
             state.addDeclarations([self.state_tuple.generateDefinition()])
 
         state_type = self.state_tuple.getTupleTypename()
         self.update_func = "{name}_update".format(name=self.func_name)
+        self.init_func = "{name}_init".format(name=self.func_name)
         # combine_func currently just for 0key_output
-        combine_func = "{name}_combine".format(name=self.func_name)
-
+        self.combine_func = "{name}_combine".format(name=self.func_name)
+        init_func = self.init_func
         update_func = self.update_func
+        combine_func = self.combine_func
+
+        inp_sch = self.input.scheme()
 
         if self.useKey:
             numkeys = len(self.grouping_list)
-            keytype = "std::tuple<{types}>".format(
-                types=','.join([self.language().typename(
-                    g.typeof(inp_sch, None)) for g in self.grouping_list]))
+            keytype = self._key_type(inp_sch)
 
         hashname = self._hashname
 
         if self.useKey:
-            decl_template = self._cgenv.get_template('withkey_decl.cpp')
-            init_template = self._cgenv.get_template('withkey_init.cpp')
+            init_template = self._init_template()
+            update_val_type = self.input_type_ref.getPlaceholder()
             valtype = state_type
+            decl_template = self._cgenv.get_template('withkey_decl.cpp')
             state.addDeclarations([decl_template.render(locals())])
         else:
             no_key_state_initializer = \
@@ -819,119 +906,74 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
             self.input.produce(state)
 
         # now that everything is aggregated, produce the tuples
+
         # assert len(self.column_list()) == 1 \
         #    or isinstance(self.column_list()[0],
         #                  expression.AttributeRef), \
         #    """assumes first column is the key and second is aggregate result
 #            column_list: %s""" % self.column_list()
 
-        if self.useKey:
-            mapping_var_name = gensym()
-            emit_type = self.state_tuple.getTupleTypename()
-
-            # pass in attribute values individually
-            produce_template = self._cgenv.get_template(
-                'multi_uda_scan.cpp')
-        else:
-            produce_template = self._cgenv.get_template(
-                'multi_uda_0key_output.cpp')
-
-        pipeline_sync = create_pipeline_synchronization(state)
-        get_pipeline_task_name(state)
-
         # add a dependence on the input aggregation pipeline
         for s in self.input_syncname:
             state.addToPipelinePropertySet('dependences', s)
 
-        output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
-        output_tuple_name = output_tuple.name
-        output_tuple_type = output_tuple.getTupleTypename()
-        output_tuple_set_func = output_tuple.set_func_code(0)  # UNUSED??
-        state.addDeclarations([output_tuple.generateDefinition()])
+        self._impl_produce(state)
 
-        inner_code = self.parent().consume(output_tuple, self, state)
-        comment = self.language().comment("scan of " + str(self))
+    class AggregateSetter:
 
-        # assign state type tuple to output type tuple
-        # For 0key case they should just be treated the same,
-        # i.e., self.state_tuple same as output_tuple for !self.useKey
-        # except for name
-        assignmentcode = ""
-        for i in range(0, len(output_tuple.scheme)):
-            d = output_tuple.set_func_code(i)
-            s = output_tuple.get_code_with_name(
-                i, "{0}_tmp".format(
-                    output_tuple.name))
-            assignment_template = self._cgenv.get_template('assignment.cpp')
-            assignmentcode += assignment_template.render(
-                dst_set_func=d, src_expr_compiled=s)
+        def __init__(self, name, expression):
+            self.name = name
+            self.expression = expression
 
-        code = produce_template.render(locals())
-        state.setPipelineProperty("type", "in_memory")
-        state.addPipeline(code)
+    def compile_assignments(self, assgns, inputTuple):
+        """
+        compile update statements
+        """
+        state_var_update_template = "auto {assignment};"
+        state_var_updates = []
+        state_vars = []
+        decls = []
+        inits = []
 
-    def consume(self, inputTuple, fromOp, state):
-        # save the inter-pipeline task name
-        # Needs to be a list because could be multiple input occurences
-        if not hasattr(self, 'input_syncname'):
-            self.input_syncname = []
-        self.input_syncname.append(get_pipeline_task_name(state))
+        for a in assgns:
+            # doesn't have to use inputTuple.name,
+            # but it will for simplicity
+            # If it is a UDA, we need to compile the expression
+            rhs = self.language().compile_expression(
+                a.expression,
+                # For resolving attributes of the consumed input tuple
+                tupleref=inputTuple,
+                # for resolving attributes of the state tuple
+                state_scheme=self.aggregates_schema)
+
+            # combine lhs, rhs with assignment
+            code = "{lhs} = {rhs}".format(lhs=a.name, rhs=rhs[0])
+
+            decls += rhs[1]
+            inits += rhs[2]
+
+            state_var_updates.append(
+                state_var_update_template.format(assignment=code))
+            state_vars.append(a.name)
+
+        return state_var_updates, state_vars, decls, inits
+
+    def _update_func(self, state, inputTuple):
+        # add Builtins updaters and to those
+        # from UDAs in self.updaters
+        updaters_map = dict((k, (k, v)) for k, v in self.updaters)
 
         inp_sch = self.input.scheme()
-
-        all_code_decls = []
-        all_code_inits = []
-
-        class AggregateSetter:
-
-            def __init__(self, name, expression):
-                self.name = name
-                self.expression = expression
-
-        # compile update statements
-        def compile_assignments(assgns):
-            state_var_update_template = "auto {assignment};"
-            state_var_updates = []
-            state_vars = []
-            decls = []
-            inits = []
-
-            for a in assgns:
-                # doesn't have to use inputTuple.name,
-                # but it will for simplicity
-                # If it is a UDA, we need to compile the expression
-                rhs = self.language().compile_expression(
-                    a.expression,
-                    # For resolving attributes of the consumed input tuple
-                    tupleref=inputTuple,
-                    # for resolving attributes of the state tuple
-                    state_scheme=self.aggregates_schema)
-
-                # combine lhs, rhs with assignment
-                code = "{lhs} = {rhs}".format(lhs=a.name, rhs=rhs[0])
-
-                decls += rhs[1]
-                inits += rhs[2]
-
-                state_var_updates.append(
-                    state_var_update_template.format(assignment=code))
-                state_vars.append(a.name)
-
-            return state_var_updates, state_vars, decls, inits
-
-        # add Builtins updaters and inits to those
-        # from UDAs in self.updaters and self.inits
-        updaters_map = dict((k, (k, v)) for k, v in self.updaters)
-        inits_map = dict((k, (k, v)) for k, v in self.inits)
 
         def aggregate_to_updater(index, aggr):
             if isinstance(aggr, aggregate.UdaAggregateExpression):
                 attr_ref = aggr.input
-                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                assert isinstance(
+                    attr_ref, aggregate.NamedStateAttributeRef), \
                     "type(attr_ref)={0} but must be {1}".format(
                     type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
                 name, expr = updaters_map[attr_ref.name]
-                return AggregateSetter(name, expr)
+                return self.AggregateSetter(name, expr)
             elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
                 # get update function
                 name = "_v{0}".format(index)
@@ -960,40 +1002,95 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
                     # get the aggregate input attribute (right)
                     aggr.input)
 
-                return AggregateSetter(name, update_as_expression)
+                return self.AggregateSetter(name, update_as_expression)
             else:
                 assert False, "expected every element of aggregate_list to " \
                               "be an aggregate"
 
+        all_updaters = [
+            aggregate_to_updater(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
+
+        update_updates, update_state_vars, update_decls, update_inits = \
+            self.compile_assignments(all_updaters, inputTuple)
+
+        update_def = self._cgenv.get_template(
+            'update_definition.cpp').render(
+            state_type=self.state_tuple.getTupleTypename(),
+            input_type=inputTuple.getTupleTypename(),
+            input_tuple_name=inputTuple.name,
+            update_updates=update_updates,
+            update_state_vars=update_state_vars,
+            name=self.func_name)
+
+        state.addDeclarations([update_def] + update_decls)
+        state.addInitializers(update_inits)
+        return update_state_vars
+
+    def _init_def(self, state, inputTuple):
+        # add Builtins inits and to those
+        # from UDAs in self.inits
+        inits_map = dict((k, (k, v)) for k, v in self.inits)
+        inp_sch = self.input.scheme()
+
         def aggregate_to_init(index, aggr):
             if isinstance(aggr, aggregate.UdaAggregateExpression):
                 attr_ref = aggr.input
-                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                assert isinstance(
+                    attr_ref, aggregate.NamedStateAttributeRef), \
                     "type(attr_ref)={0} but must be {1}".format(
                     type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
                 name, expr = inits_map[attr_ref.name]
-                return AggregateSetter(name, expr)
+                return self.AggregateSetter(name, expr)
             elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
                 name = "_v{0}".format(index)
                 state_type = self.language().typename(
                     aggr.typeof(inp_sch, None))
                 init_func = self._init_func_for_op(aggr) \
                     .format(state_type=state_type)
-                return AggregateSetter(name, expression.CustomZeroaryFunction(
-                    init_func,
-                    # get the output type
-                    self.aggregates_schema.get_types()[index]))
+                return self.AggregateSetter(
+                    name,
+                    expression.CustomZeroaryFunction(
+                        init_func,
+                        # get the output type
+                        self.aggregates_schema.get_types()[index]))
+
+        all_initers = [
+            aggregate_to_init(
+                i, a) for i, a in enumerate(
+                self.aggregate_list)]
+
+        init_updates, init_state_vars, init_decls, init_inits = \
+            self.compile_assignments(all_initers, inputTuple)
+
+        init_def = self._cgenv.get_template('init_definition.cpp').render(
+            state_type=self.state_tuple.getTupleTypename(),
+            init_updates=init_updates,
+            init_state_vars=init_state_vars,
+            name=self.func_name)
+
+        state.addDeclarations([init_def] + init_decls)
+        state.addInitializers(init_inits)
+        return init_state_vars
+
+    def _combine_def(self, state, inputTuple):
+        # add Builtins updaters and to those
+        # from UDAs in self.updaters
+        updaters_map = dict((k, (k, v)) for k, v in self.updaters)
+        inp_sch = self.input.scheme()
 
         def aggregate_to_combiner(index, aggr):
             if isinstance(aggr, aggregate.UdaAggregateExpression):
                 # TODO: Support decomposable aggregate state, instead of
                 # TODO: just using the same function from self.updaters
                 attr_ref = aggr.input
-                assert isinstance(attr_ref, aggregate.NamedStateAttributeRef),\
+                assert isinstance(
+                    attr_ref, aggregate.NamedStateAttributeRef), \
                     "type(attr_ref)={0} but must be {1}".format(
                     type(attr_ref), aggregate.NamedStateAttributeRef.__class__)
                 name, expr = updaters_map[attr_ref.name]
-                return AggregateSetter(name, expr)
+                return self.AggregateSetter(name, expr)
             elif isinstance(aggr, aggregate.BuiltinAggregateExpression):
                 # get combiner function
                 name = "_v{0}".format(index)
@@ -1029,81 +1126,77 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
                     # get the aggregate input attribute (right)
                     attribute1)
 
-                return AggregateSetter(name, combine_as_expression)
+                return self.AggregateSetter(name, combine_as_expression)
             else:
                 assert False, "expected every element of aggregate_list to " \
                               "be an aggregate"
 
-        all_updaters = [
-            aggregate_to_updater(
-                i, a) for i, a in enumerate(
-                self.aggregate_list)]
-        all_initers = [
-            aggregate_to_init(
-                i, a) for i, a in enumerate(
-                self.aggregate_list)]
         all_combiners = [
             aggregate_to_combiner(
                 i, a) for i, a in enumerate(
                 self.aggregate_list)]
-        ########################
 
-        update_updates, update_state_vars, update_decls, update_inits = \
-            compile_assignments(all_updaters)
-        init_updates, init_state_vars, init_decls, init_inits = \
-            compile_assignments(all_initers)
         combine_updates, combine_state_vars, combine_decls, combine_inits = \
-            compile_assignments(all_combiners)
-        assert set(update_state_vars) == set(init_state_vars) and \
-            set(update_state_vars) == set(combine_state_vars), \
-            """Initialized and update state vars are not the same \
-            {0} != {1} or {0} != {2}""".format(update_state_vars,
-                                               init_state_vars,
-                                               combine_state_vars)
-        # generate the update and init function definitions
-        state_tuple_decl = self.state_tuple.generateDefinition()
-        update_def = self._cgenv.get_template(
-            'update_definition.cpp').render(
-                state_type=self.state_tuple.getTupleTypename(),
-                input_type=inputTuple.getTupleTypename(),
-                input_tuple_name=inputTuple.name,
-                update_updates=update_updates,
-                update_state_vars=update_state_vars,
-                name=self.func_name)
-        init_def = self._cgenv.get_template('init_definition.cpp').render(
-            state_type=self.state_tuple.getTupleTypename(),
-            init_updates=init_updates,
-            init_state_vars=init_state_vars,
-            name=self.func_name)
+            self.compile_assignments(all_combiners, inputTuple)
+
         # currently only needed for 0key reduce, since there is no key-based
         # reduce in the grappalang streaming aggregate
         combine_def = self._cgenv.get_template(
             'combine_definition.cpp').render(
-                state_type=self.state_tuple.getTupleTypename(),
-                combine_updates=combine_updates,
-                combine_state_vars=combine_state_vars,
-                name=self.func_name)
+            state_type=self.state_tuple.getTupleTypename(),
+            combine_updates=combine_updates,
+            combine_state_vars=combine_state_vars,
+            name=self.func_name)
 
-        all_code_decls += [update_def, init_def]
-        all_code_decls += update_decls + init_decls
-        all_code_inits += update_inits + init_inits
+        state.addDeclarations([combine_def] + combine_decls)
+        state.addInitializers(combine_inits)
+        return combine_state_vars
+
+    def _key_access_code(self, inputTuple, inp_sch):
+        return [inputTuple.get_code(g.get_position(inp_sch))
+                for g in self.grouping_list]
+
+    def consume(self, inputTuple, fromOp, state):
+        # save the inter-pipeline task name
+        # Needs to be a list because could be multiple input occurences
+        if not hasattr(self, 'input_syncname'):
+            self.input_syncname = []
+        self.input_syncname.append(get_pipeline_task_name(state))
+
+        # not used, but must be resolved
+        state.resolveSymbol(self.input_type_ref, inputTuple.getTupleTypename())
+
+        inp_sch = self.input.scheme()
+
+        update_vars = self._update_func(state, inputTuple)
+        init_vars = self._init_def(state, inputTuple)
+
+        assert set(update_vars) == set(init_vars), \
+            """Initialized and update state vars are not the same \
+            {0} != {1}""".format(update_vars, init_vars)
 
         if not self.useKey:
             # if 0key then add the combiner codes, otherwise
             # omit it because it may be invalid code
-            all_code_decls += [combine_def]
-            all_code_decls += combine_decls
-            all_code_inits += combine_inits
+            combine_vars = self._combine_def(state, inputTuple)
+
+            assert set(update_vars) == set(combine_vars), \
+                """Combiner and update state vars are not the same \
+                {0} != {1}""".format(update_vars,
+                                     combine_vars)
+
+        # generate the update and init function definitions
+        state_tuple_decl = self.state_tuple.generateDefinition()
 
         # values for the materialize template (calling the update function)
-        init_func = "{name}_init".format(name=self.func_name)
+        init_func = self.init_func
+        update_func = self.update_func
         update_val = inputTuple.name
         input_type = inputTuple.getTupleTypename()
 
         if self.useKey:
             numkeys = len(self.grouping_list)
-            keygets = [inputTuple.get_code(g.get_position(inp_sch))
-                       for g in self.grouping_list]
+            keygets = self._key_access_code(inputTuple, inp_sch)
 
             materialize_template = self._cgenv.get_template('nkey_update.cpp')
         else:
@@ -1121,11 +1214,6 @@ class GrappaGroupBy(cppcommon.BaseCGroupby, GrappaOperator):
         hashname = self._hashname
         tuple_name = inputTuple.name
         pipeline_sync = state.getPipelineProperty("global_syncname")
-
-        state.addDeclarations(all_code_decls)
-        state.addInitializers(all_code_inits)
-
-        update_func = self.update_func
 
         comment = self.language().comment("insert of " + str(self))
 
@@ -1540,8 +1628,9 @@ class GrappaShuffle(algebra.Shuffle, GrappaOperator):
 
 class MemoryScanOfFileScan(rules.Rule):
 
-    def __init__(self, array_rep):
+    def __init__(self, array_rep, memory_scan_class=GrappaMemoryScan):
         self._array_rep = array_rep
+        self._memory_scan_class = memory_scan_class
         super(MemoryScanOfFileScan, self).__init__()
 
     """A rewrite rule for making a scan into materialization
@@ -1550,7 +1639,7 @@ class MemoryScanOfFileScan(rules.Rule):
     def fire(self, expr):
         if isinstance(expr, algebra.Scan) \
                 and not isinstance(expr, GrappaFileScan):
-            return GrappaMemoryScan(
+            return self._memory_scan_class(
                 GrappaFileScan(self._array_rep,
                                expr.relation_key,
                                expr.scheme()),
@@ -1598,6 +1687,15 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
         self.left.childtag = "left"
         self.left.produce(state)
 
+    def _declare_broadcast_tuple(self, t, state):
+        # declare global var and broadcast value
+        self.broadcast_tuple = t.copy_type()
+        var_decl = self.language().cgenv().get_template(
+            'tuple_declaration.cpp').render(
+            dst_type_name=self.broadcast_tuple.getTupleTypename(),
+            dst_name=self.broadcast_tuple.name)
+        state.addDeclarations([var_decl])
+
     def consume(self, t, src, state):
         if src.childtag == "right":
             # right to left dependency
@@ -1605,13 +1703,7 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
 
             code = self.language().comment(self.shortStr() + " RIGHT")
 
-            # declare global var and broadcast value
-            self.broadcast_tuple = t.copy_type()
-            var_decl = self.language().cgenv().get_template(
-                'tuple_declaration.cpp').render(
-                dst_type_name=self.broadcast_tuple.getTupleTypename(),
-                dst_name=self.broadcast_tuple.name)
-            state.addDeclarations([var_decl])
+            self._declare_broadcast_tuple(t, state)
 
             code += """on_all_cores([=] {{
                   {global_name} = {input_name};
@@ -1656,6 +1748,476 @@ class GrappaBroadcastCrossProduct(algebra.CrossProduct, GrappaOperator):
             inner_plan_compiled = self.parent().consume(output, self, state)
 
             return code + inner_plan_compiled
+
+        else:
+            assert False, "bad childtag: {0}".format(src.childtag)
+
+
+class Iterator(object):
+
+    def operator_code(self, **kwargs):
+        return self.iter_cgenv().get_template(
+            "instantiate_operator.cpp").render(kwargs)
+
+    def default_operator_code(self, **kwargs):
+        kwargs['call_constructor'] = "{class_symbol}({inputsym})".format(
+            **kwargs)
+        return self.operator_code(**kwargs)
+
+    def sink_operator_code(self, **kwargs):
+        return self.iter_cgenv().get_template(
+            "instantiate_sink.cpp").render(kwargs)
+
+    def declare_sink(self, state, cgenv=None):
+        if not cgenv:
+            cgenv = self.iter_cgenv()
+        symbol = "frag_{0}".format(gensym())
+        state.setPipelineProperty('fragment_symbol', symbol)
+        state.addDeclarations(
+            [cgenv.get_template("sink_declaration.cpp").render(symbol=symbol)])
+        return symbol
+
+    def assign_symbol(self):
+        self.symbol = gensym()
+
+    def iter_cgenv(cls, env=GrappaLanguage.cgenv()):
+        return cppcommon.prepend_template_relpath(
+            env, '{0}/iterators/'.format(GrappaLanguage._template_path))
+
+
+class IGrappaMemoryScan(GrappaMemoryScan, Iterator):
+
+    def _constructor(self, inputsym, state):
+        return "Scan<{type}>({inputsym})".format(
+            type=state.lookupTupleDef(inputsym).getTupleTypename(),
+            inputsym=inputsym)
+
+    def consume(self, inputsym, src, state):
+        _ = create_pipeline_synchronization(state)
+        _ = get_pipeline_task_name(state)
+
+        self.assign_symbol()
+        stagedTuple = state.lookupTupleDef(inputsym)
+        state.addOperator(self.operator_code(
+            produce_type=stagedTuple.getTupleTypename(),
+            symbol=self.symbol,
+            call_constructor=self._constructor(inputsym, state)
+        ))
+        self.parent().consume(stagedTuple, self, state)
+
+        state.addPipeline()
+        return None
+
+
+class IGrappaSelect(GrappaSelect, Iterator):
+
+    def consume(self, t, src, state):
+        class_symbol = "Select_{sym}".format(sym=gensym())
+        self.assign_symbol()
+        state.addDeclarations([self.iter_cgenv().get_template(
+            "select.cpp").render(
+            class_symbol=class_symbol,
+            consume_type=t.getTupleTypename(),
+            produce_type=t.getTupleTypename(),
+            consume_tuple_name=t.name,
+            expression=self._compile_condition(t, state)
+        )])
+        state.addOperator(self.default_operator_code(
+            produce_type=t.getTupleTypename(),
+            symbol=self.symbol,
+            inputsym=src.symbol,
+            class_symbol=class_symbol
+        ))
+        self.parent().consume(t, self, state)
+        return None
+
+
+class IGrappaStore(GrappaStore, Iterator):
+
+    def _constructor(self, t, inputsym, state):
+        return "Store<{type}>({inputsym}, &result)".format(
+            type=t.getTupleTypename(),
+            inputsym=inputsym)
+
+    def consume(self, t, src, state):
+        symbol = self.declare_sink(state)
+        self._add_result_declaration(t, state)
+        state.addOperator(self.sink_operator_code(
+            symbol=symbol,
+            call_constructor=self._constructor(t, src.symbol, state)
+        ))
+        return None
+
+
+class IGrappaApply(GrappaApply, Iterator):
+
+    def consume(self, t, src, state):
+        class_symbol = "Apply_{}".format(gensym())
+        self.symbol = gensym()
+
+        state.addDeclarations([self.iter_cgenv().get_template(
+            "apply.cpp").render(
+            class_symbol=class_symbol,
+            produce_type=self.newtuple.getTupleTypename(),
+            consume_type=t.getTupleTypename(),
+            produce_tuple_name=self.newtuple.name,
+            consume_tuple_name=t.name,
+            statements=self._apply_statements(t, state)
+        )])
+        state.addOperator(self.default_operator_code(
+            produce_type=self.newtuple.getTupleTypename(),
+            class_symbol=class_symbol,
+            symbol=self.symbol,
+            inputsym=src.symbol
+        ))
+
+        self.parent().consume(self.newtuple, self, state)
+
+        return None
+
+
+class IGrappaHashJoin(GrappaSymmetricHashJoin, Iterator):
+
+    def _constructor(self, inputsym, class_symbol):
+        return "{class_symbol}(&{hashname}, {inputsym})".format(
+            class_symbol=class_symbol,
+            hashname=self._hashname,
+            inputsym=inputsym
+        )
+
+    def produce(self, state):
+        super(IGrappaHashJoin, self).produce(state)
+
+        _ = create_pipeline_synchronization(state)
+        _ = get_pipeline_task_name(state)
+
+        # add dependences on left and right inputs
+        state.addToPipelinePropertySet('dependences', self.right_syncname)
+        state.addToPipelinePropertySet('dependences', self.left_syncname)
+
+        self.assign_symbol()
+        class_symbol = "HashJoinSource_{sym}".format(sym=gensym())
+        keytype = CKeyUtils._aggregate_type(
+            self.language(),
+            self.right.scheme(),
+            self.rightcols)
+        left_type = self.leftTypeRef.getPlaceholder()
+        right_type = self.rightTypeRef.getPlaceholder()
+        out_tuple_type = self.outTuple.getTupleTypename()
+
+        append_func_name, combine_function_def = \
+            GrappaStagedTupleRef.get_append(
+                out_tuple_type,
+                left_type, len(self.left.scheme()),
+                right_type, len(self.right.scheme()))
+
+        state.addDeclarations([combine_function_def])
+
+        state.addDeclarations([self.iter_cgenv().get_template(
+            "hashjoin_source.cpp").render(
+            class_symbol=class_symbol,
+            keytype=keytype,
+            left_tuple_type=left_type,
+            right_tuple_type=right_type,
+            out_tuple_type=out_tuple_type,
+            left_name=gensym(),
+            right_name=gensym(),
+            append_func_name=append_func_name
+        )])
+
+        state.addOperator(self.operator_code(
+            produce_type=out_tuple_type,
+            symbol=self.symbol,
+            call_constructor="{class_symbol}(&{hashname})".format(
+                class_symbol=class_symbol,
+                hashname=self._hashname)
+        ))
+
+        self.parent().consume(self.outTuple, self, state)
+        state.addPipeline()
+
+    def consume(self, t, src, state):
+        class_symbol_template = "HashJoinSink{side}_{sym}"
+        symbol = self.declare_sink(state)
+
+        if src.childtag == 'right':
+            side = 'Right'
+            class_symbol = class_symbol_template.format(
+                side=side,
+                sym=gensym())
+
+            keyval = CKeyUtils._aggregate_val(t, self.rightcols)
+            keytype = CKeyUtils._aggregate_type(
+                self.language(),
+                self.right.scheme(),
+                self.rightcols)
+            state.resolveSymbol(self.rightTypeRef, t.getTupleTypename())
+
+            # save to add after left type added
+            self.right_class_decl = self.iter_cgenv().get_template(
+                "hashjoin_sink.cpp").render(
+                class_symbol=class_symbol,
+                side=side,
+                keytype=keytype,
+                left_tuple_type=self.leftTypeRef.getPlaceholder(),
+                right_tuple_type=t.getTupleTypename(),
+                input_tuple_name=t.name,
+                keyval=keyval,
+                pipeline_sync=state.getPipelineProperty("global_syncname"))
+
+            self.right_syncname = get_pipeline_task_name(state)
+
+        elif src.childtag == 'left':
+            side = 'Left'
+            class_symbol = class_symbol_template.format(
+                side=side,
+                sym=gensym())
+
+            keyval = CKeyUtils._aggregate_val(t, self.leftcols)
+            keytype = CKeyUtils._aggregate_type(
+                self.language(),
+                self.left.scheme(),
+                self.leftcols)
+            state.resolveSymbol(self.leftTypeRef, t.getTupleTypename())
+
+            state.addDeclarations([self.iter_cgenv().get_template(
+                "hashjoin_sink.cpp").render(
+                class_symbol=class_symbol,
+                side=side,
+                keytype=keytype,
+                left_tuple_type=t.getTupleTypename(),
+                right_tuple_type=self.rightTypeRef.getPlaceholder(),
+                input_tuple_name=t.name,
+                keyval=keyval,
+                pipeline_sync=state.getPipelineProperty("global_syncname")
+                # add right side here now that left type declared
+            ), self.right_class_decl])
+
+            self.left_syncname = get_pipeline_task_name(state)
+
+        else:
+            assert False, "Invalid child tag: {}".format(src.childtag)
+
+        state.addOperator(self.sink_operator_code(
+            symbol=symbol,
+            call_constructor=self._constructor(src.symbol, class_symbol)
+        ))
+
+        return None
+
+
+class IGrappaGroupBy(GrappaGroupBy, Iterator):
+
+    def __init__(self, *args):
+        super(IGrappaGroupBy, self).__init__(*args)
+        self._igroupby_cgenv = self.iter_cgenv(env=self._cgenv)
+
+    def _reuse_properties(self, other):
+        super(IGrappaGroupBy, self)._reuse_properties(other)
+        # save additional properties
+        self.input_tuple_type = other.input_tuple_type
+
+    def _impl_produce(self, state):
+        pipeline_sync = create_pipeline_synchronization(state)
+        get_pipeline_task_name(state)
+
+        if self.useKey:
+            produce_template = self._igroupby_cgenv.get_template(
+                "multikey_groupby_source.cpp")
+            class_symbol = "AggregateSource_{}".format(gensym())
+        else:
+            produce_template = self._igroupby_cgenv.get_template(
+                "0key_groupby_source.cpp")
+            class_symbol = "ZeroKeyAggregateSource_{}".format(gensym())
+
+        output_tuple = GrappaStagedTupleRef(gensym(), self.scheme())
+        state.addDeclarations([output_tuple.generateDefinition()])
+
+        assignment_code = self._assignment_code(output_tuple)
+
+        self.assign_symbol()
+
+        inp_sch = self.input.scheme()
+
+        state.addDeclarations([produce_template.render(
+            class_symbol=class_symbol,
+            produce_type=output_tuple.getTupleTypename(),
+            produce_tuple_name=output_tuple.name,
+            keytype=self._key_type(inp_sch),
+            state_type=self.state_tuple.getTupleTypename(),
+            input_type=self.input_tuple_type,
+            assignment_code=assignment_code,
+            mapping_var_name=output_tuple.name + "_entry",
+            combine_func=self.combine_func,
+            state_tuple_name=output_tuple.name + "_tmp"
+        )])
+
+        state.addOperator(
+            self.operator_code(
+                produce_type=output_tuple.getTupleTypename(),
+                symbol=self.symbol,
+                call_constructor="{class_symbol}({hashname})".format(
+                    class_symbol=class_symbol,
+                    hashname=self._hashname)))
+
+        self.parent().consume(output_tuple, self, state)
+
+        state.setPipelineProperty("type", "in_memory")
+        state.addPipeline()
+
+    def _init_template(self):
+        return self._igroupby_cgenv.get_template('withkey_init.cpp')
+
+    def consume(self, t, src, state):
+        # save the inter-pipeline task name
+        if not hasattr(self, 'input_syncname'):
+            self.input_syncname = []
+        self.input_syncname.append(get_pipeline_task_name(state))
+
+        self.input_tuple_type = t.getTupleTypename()
+
+        state.resolveSymbol(self.input_type_ref, self.input_tuple_type)
+
+        inp_sch = self.input.scheme()
+
+        self._update_func(state, t)
+        self._init_def(state, t)
+
+        # generate class definition, if needed
+        if self.useKey:
+            class_symbol = "AggregateSink_{}".format(gensym())
+            state.addDeclarations([
+                self._igroupby_cgenv.get_template(
+                    "multikey_groupby_sink.cpp").render(
+                    class_symbol=class_symbol,
+                    consume_type=t.getTupleTypename(),
+                    keytype=self._key_type(inp_sch),
+                    state_type=self.state_tuple.getTupleTypename(),
+                    pipeline_sync=state.getPipelineProperty("global_syncname"),
+                    consume_tuple_name=t.name,
+                    keygets=self._key_access_code(t, inp_sch)
+                )
+            ])
+        else:
+            self._combine_def(state, t)
+
+        symbol = self.declare_sink(state, cgenv=self._igroupby_cgenv)
+
+        # generate instantiation
+        if self.useKey:
+            state.addOperator(
+                self.sink_operator_code(
+                    symbol=symbol,
+                    call_constructor="""
+                    {class_symbol}({inputsym}, {hashname})""".format(
+                        inputsym=src.symbol,
+                        class_symbol=class_symbol,
+                        hashname=self._hashname)))
+        else:
+            state.addOperator(
+                self.sink_operator_code(
+                    symbol=symbol,
+                    call_constructor="""
+                    ZeroKeyAggregateSink<{consume_type}, {state_type}>(
+                    {inputsym}, {hashname}, &{update_func}, &{init_func})
+                    """.format(
+                        inputsym=src.symbol,
+                        hashname=self._hashname,
+                        update_func=self.update_func,
+                        init_func=self.init_func,
+                        consume_type=t.getTupleTypename(),
+                        state_type=self.state_tuple.getTupleTypename())))
+
+        return None
+
+
+class IGrappaPartitionGroupBy(IGrappaGroupBy):
+
+    def __init__(self, *args):
+        super(IGrappaPartitionGroupBy, self).__init__(*args)
+        # Override some IGrappaGroupBy template with new ones.
+        # The rest of the generation logic is the same
+        self._igroupby_cgenv = cppcommon.prepend_template_relpath(
+            self._igroupby_cgenv,
+            '{0}/iterators/partition_groupby'.format(
+                GrappaLanguage._template_path))
+
+
+class IGrappaShuffle(algebra.Shuffle, GrappaOperator, Iterator):
+
+    def __init__(self, *args):
+        raise NotImplementedError(
+            "Should not be necessary currently, see {0}".format(
+                FuseGroupByShuffle))
+
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        # currently a no-op because IGroupBy takes care of the shuffle
+        self.parent().consume(t, src, state)
+        return None
+
+
+class IGrappaBroadcastCrossProduct(GrappaBroadcastCrossProduct, Iterator):
+
+    def consume(self, t, src, state):
+        if src.childtag == "right":
+            symbol = self.declare_sink(state)
+            # right to left dependency
+            self.right_syncname = get_pipeline_task_name(state)
+            self._declare_broadcast_tuple(t, state)
+            state.addOperator(
+                self.sink_operator_code(
+                    symbol=symbol,
+                    call_constructor="""BroadcastTupleSink<{consume_type}>
+                    ({inputsym}, &{broadcast_tuple})""".format(
+                        consume_type=t.getTupleTypename(),
+                        inputsym=src.symbol,
+                        broadcast_tuple=self.broadcast_tuple.name)))
+            return None
+
+        elif src.childtag == "left":
+            # right to left dependency
+            state.addToPipelinePropertySet('dependences', self.right_syncname)
+            output = GrappaStagedTupleRef(gensym(), self.scheme())
+
+            append_func_name, combine_function_def = \
+                GrappaStagedTupleRef.get_append(
+                    output.getTupleTypename(),
+                    t.getTupleTypename(),
+                    len(t.scheme),
+                    self.broadcast_tuple.getTupleTypename(),
+                    len(self.broadcast_tuple.scheme))
+
+            class_symbol = "BroadcastTupleStream_{}".format(gensym())
+
+            class_decl = self.iter_cgenv().get_template(
+                'broadcast_stream.cpp').render(
+                class_symbol=class_symbol,
+                left_type=t.getTupleTypename(),
+                right_type=self.broadcast_tuple.getTupleTypename(),
+                output_type=output.getTupleTypename(),
+                output_name=output.name,
+                append_func_name=append_func_name)
+
+            state.addDeclarations([output.generateDefinition(),
+                                   combine_function_def,
+                                   class_decl])
+
+            self.assign_symbol()
+            state.addOperator(
+                self.operator_code(
+                    produce_type=output.getTupleTypename(),
+                    symbol=self.symbol,
+                    call_constructor="""
+                    {class_symbol}({inputsym}, &{broadcast_tuple})""".format(
+                        class_symbol=class_symbol,
+                        broadcast_tuple=self.broadcast_tuple.name,
+                        inputsym=src.symbol)))
+
+            self.parent().consume(output, self, state)
+            return None
 
         else:
             assert False, "bad childtag: {0}".format(src.childtag)
@@ -1791,16 +2353,75 @@ class CrossProductWithSmall(rules.Rule):
     is just adding an attribute to every tuple from the other relation
     """
 
+    def __init__(
+            self,
+            broadcast_crossproduct_class=GrappaBroadcastCrossProduct):
+        self.op_class = broadcast_crossproduct_class
+
     def fire(self, expr):
         if isinstance(expr, algebra.CrossProduct):
             if expr.right.num_tuples() == 1:
-                return GrappaBroadcastCrossProduct(expr.left, expr.right)
+                return self.op_class(expr.left, expr.right)
 
         return expr
 
     def __str__(self):
         return "CrossProduct(big, singleton) => " \
-               "GrappaBroadcastCrossProduct(big, singleton)"
+               "{}(big, singleton)".format(self.op_class.__name__)
+
+
+class FuseGroupByShuffle(rules.Rule):
+
+    """
+    Global groupby is a fusion of a shuffle and a groupby
+    """
+
+    def __init__(self, global_groupby_class):
+        self.global_groupby_class = global_groupby_class
+
+    def fire(self, expr):
+        if isinstance(
+                expr,
+                algebra.GroupBy) and isinstance(
+                expr.input,
+                algebra.Shuffle):
+            # make sure the shuffle is for the groupby
+            if expr.grouping_list == expr.input.columnlist:
+                x = rules.OneToOne(
+                    algebra.GroupBy,
+                    self.global_groupby_class).fire(expr)
+                x.input = expr.input.input
+                return x
+            else:
+                _LOG.warning(
+                    "missed {0} because the shuffle isn't for the groupby")
+        else:
+            return expr
+
+    def __str__(self):
+        return "GroupBy($a..$z)[Shuffle($a..$z)] => {0}($a..$z)".format(
+            self.global_groupby_class)
+
+
+def iteratorfy(emit_print, scan_array_repr, groupby_class):
+    return [
+        FuseGroupByShuffle(IGrappaGroupBy),
+
+        rules.ProjectingJoinToProjectOfJoin(),
+
+        rules.OneToOne(algebra.Select, IGrappaSelect),
+        MemoryScanOfFileScan(scan_array_repr, IGrappaMemoryScan),
+        rules.OneToOne(algebra.Apply, IGrappaApply),
+        rules.OneToOne(algebra.Join, IGrappaHashJoin),
+        # rules.OneToOne(algebra.Shuffle, IGrappaShuffle),
+        # rules.OneToOne(algebra.Project, GrappaProject),
+        # rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
+        # TODO: obviously breaks semantics
+        # rules.OneToOne(algebra.Union, GrappaUnionAll),
+        cppcommon.StoreToBaseCStore(emit_print, IGrappaStore),
+        CrossProductWithSmall(IGrappaBroadcastCrossProduct),
+        DistinctToGroupby(groupby_class)
+    ]
 
 
 def grappify(join_type, emit_print,
@@ -1829,6 +2450,7 @@ def grappify(join_type, emit_print,
         # TODO: obviously breaks semantics
         rules.OneToOne(algebra.Union, GrappaUnionAll),
         cppcommon.StoreToBaseCStore(emit_print, GrappaStore),
+        CrossProductWithSmall(),
         rules.OneToOne(algebra.Sink, GrappaSink),
         rules.OneToOne(algebra.StoreTemp, GrappaStoreTemp),
         ScanTempToMemoryScan(),
@@ -1847,7 +2469,14 @@ class GrappaAlgebra(Algebra):
     def __init__(self, emit_print=cppcommon.EMIT_CONSOLE):
         self.emit_print = emit_print
 
-    def opt_rules(self, **kwargs):
+    def opt_rules(self,
+                  join_type=GrappaHashJoin,
+                  scan_array_repr=_ARRAY_REPRESENTATION.GLOBAL_ARRAY,
+                  compiler='push',
+                  SwapJoinSides=False,
+                  external_indexing=False,
+                  **kwargs):
+
         # datalog_rules = [
         # rules.removeProject(),
         #     rules.CrossProduct2Join(),
@@ -1867,22 +2496,43 @@ class GrappaAlgebra(Algebra):
         # rules.FreeMemory()
         # ]
 
-        join_type = kwargs.get('join_type', GrappaHashJoin)
-        scan_array_repr = kwargs.get('scan_array_repr',
-                                     _ARRAY_REPRESENTATION.GLOBAL_ARRAY)
+        if compiler == 'push':
+            groupby_classes = {
+                'global': GrappaGroupBy,
+                'partition': GrappaPartitionGroupBy}
+        elif compiler == 'iterator':
+            groupby_classes = {
+                'global': IGrappaGroupBy,
+                'partition': IGrappaPartitionGroupBy}
+        else:
+            raise ValueError(
+                "unsupported argument compiler={0}".format(compiler))
+
         groupby_sematics = kwargs.get('groupby_semantics', 'global')
         if groupby_sematics == 'global':
-            groupby_rules = [rules.OneToOne(algebra.GroupBy, GrappaGroupBy)]
-            groupby_class = GrappaGroupBy
+            groupby_rules = [
+                rules.OneToOne(
+                    algebra.GroupBy,
+                    groupby_classes['global'])]
+            groupby_class = groupby_classes['global'],
         elif groupby_sematics == 'partition':
             groupby_rules = rules.distributed_group_by(
-                GrappaPartitionGroupBy,
+                groupby_classes['partition'],
                 countall_rule=False,
-                only_fire_on_multi_key=GrappaGroupBy)
-            groupby_class = GrappaPartitionGroupBy
+                only_fire_on_multi_key=groupby_classes['global'])
+            groupby_class = groupby_classes['partition'],
         else:
             raise ValueError(
                 "groupby_semantics must be one of {global, partition}")
+
+        if compiler == 'push':
+            grappify_rules = grappify(
+                join_type,
+                self.emit_print,
+                scan_array_repr, groupby_class)
+        elif compiler == 'iterator':
+            grappify_rules = iteratorfy(self.emit_print, scan_array_repr,
+                                        groupby_class)
 
         # sequence that works for myrial
         rule_grps_sequence = [
@@ -1894,16 +2544,15 @@ class GrappaAlgebra(Algebra):
             rules.push_apply,
             groupby_rules,
             [rules.NumTuplesPropagation()],
-            grappify(join_type, self.emit_print, scan_array_repr,
-                     groupby_class),
-            [CrossProductWithSmall()]
+            grappify_rules
         ]
 
-        if kwargs.get('SwapJoinSides'):
+        # switch join order
+        if SwapJoinSides:
             rule_grps_sequence.insert(0, [rules.SwapJoinSides()])
 
         # set external indexing on (replacing strings with ints)
-        if kwargs.get('external_indexing'):
+        if external_indexing:
             CBaseLanguage.set_external_indexing(True)
 
         # flatten the rules lists
