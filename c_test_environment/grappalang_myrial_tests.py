@@ -263,14 +263,19 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         p = self._get_grappa_physical_plan("""
         r = scan(%(R3)s);
         s = scan(%(S3)s);
-        t = select count(*), r.a from r,s where r.b=1 and r.c=s.c;
-        STORE(t, OUTPUT);
+        t = select count(b) as cnt from r,s where r.b=1 and r.c=s.c;
+        z = select r.a * t.cnt from r, t;
+        STORE(z, OUTPUT);
         """ % self.tables, compiler="iterator")
 
-        self.assertEquals(self.get_count(p, radish_alg.IGrappaSelect), 1)
-        self.assertEquals(self.get_count(p, radish_alg.IGrappaMemoryScan), 2)
+        self.assertGreaterEqual(
+            self.get_count(p, radish_alg.IGrappaSelect), 1)
+        self.assertGreaterEqual(
+            self.get_count(p, radish_alg.IGrappaMemoryScan), 2)
         self.assertEquals(self.get_count(p, radish_alg.IGrappaStore), 1)
         self.assertEquals(self.get_count(p, radish_alg.IGrappaStore), 1)
+        self.assertEquals(self.get_count(
+            p, radish_alg.IGrappaBroadcastCrossProduct), 1)
         self.assertEquals(self.get_count(p, radish_alg.IGrappaHashJoin), 1)
         self.assertEquals(
             self.get_count(p, radish_alg.IGrappaGroupBy) +
@@ -280,8 +285,10 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         self.check_sub_tables("""
         r = scan(%(R3)s);
         s = scan(%(S3)s);
-        t = select count(r.b), r.a from r,s where r.b=1 and r.c=s.c;
-        STORE(t, OUTPUT);
+        alpha = [.85];
+        t = select count(b) as cnt from r,s where r.b=1 and r.c=s.c;
+        z = select r.a * t.cnt from r, t;
+        STORE(z, OUTPUT);
         """, "NOSUCHQUERY", compiler="iterator")
 
     @staticmethod
