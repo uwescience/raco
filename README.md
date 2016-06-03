@@ -10,24 +10,23 @@ Raco takes as input a number of source languages and has a growing number of out
 
 Source languages include:
 
+* MyriaL (includes SQL subset), the language for the UW Myria project
 * Datalog
-* SQL (Subset)
-* MyriaL, the language for the UW Myria project
 
 Output languages include:
 
 * Logical relational algebra (+ while loop)
 * The Myria physical algebra (in JSON)
-* C++ physical algebra, C++ source code
-* [Grappa](http://grappa.io) (distributed C++) physical algebra, Grappa source code
+* [Grappa](http://grappa.io) (distributed C++) source code programs
+* C++ physical algebra, C++ source code programs
 * Pseudocode algebra
 * Python physical algebra
-* SPARQL (partial)
+* Experimental: [SPARQL](https://www.w3.org/TR/rdf-sparql-query/), [SciDB](http://paradigm4.com/HTMLmanual/13.3/scidb_ug/ch01s04s01.html), [Spark dataframes](http://spark.apache.org/docs/latest/sql-programming-guide.html).
 
 Users can of course author programs by directly instantiating one of the intermediate or output algebras as well as one of the source languages.
 
 
-# Setup
+## Setup
 Requires Python 2.7 or higher 2.x
 
 For development use:
@@ -44,7 +43,12 @@ python setup.py install
 ```
 
 
-# Run tests
+## Run tests
+
+Additional requirements for C++ back end tests
+
+- C++11 compiler, i.e. gcc-4.7 or later, clang-3.3 or later
+- sqlite3
 
 To execute the tests, run `nosetests` in the root directory of the repository. 
 
@@ -59,28 +63,21 @@ nosetests -x -v
 
 See `nosetests -h` for more options or consult the [nose documentation](https://nose.readthedocs.org).
 
-
-#### Requirements for C++ backend tests
-- C++11 compiler, i.e. gcc-4.7 or later, clang-3.3 or later
-- sqlite3
-
-# Example
+## Example
 
 Raco is the compiler for Myria. To try parsing and understanding a program written in the Myria language, use the included `myrial` utility.
 
 Note that the commands below run the `myrial` utility from the included `scripts` directory. However, the install command above will in fact install `myrial` in your `$PATH`.
 
 
-### Parse a Myrial program
-```bash
-% python scripts/myrial -p examples/sigma-clipping-v0.myl
-[('ASSIGN', 'Good', ('SCAN', 'public:adhoc:sc_points')), ('ASSIGN', 'N', ('TABLE', (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c04fd0>,))), ('DOWHILE', [('ASSIGN', 'mean', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c450>,))), ('ASSIGN', 'std', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c4d0>,))), ('ASSIGN', 'NewBad', ('BAGCOMP', [('Good', None)], (ABS((Good.v - Unbox)) > (Unbox * Unbox)), (<raco.myrial.emitarg.FullWildcardEmitArg object at 0x101c1c410>,))), ('ASSIGN', 'Good', ('DIFF', ('ALIAS', 'Good'), ('ALIAS', 'NewBad'))), ('ASSIGN', 'continue', ('BAGCOMP', [('NewBad', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c8d0>,)))], ('ALIAS', 'continue')), ('DUMP', 'Good')]
-```
 
 ### Show the logical plan of a Myrial program
 
 ```bash
-% python scripts/myrial -l examples/sigma-clipping-v0.myl
+python scripts/myrial -l examples/sigma-clipping-v0.myl
+```
+
+```
 Sequence
     StoreTemp(Good)[Scan(public:adhoc:sc_points)]
     StoreTemp(N)[Apply(2=2)[SingletonRelation]]
@@ -98,7 +95,10 @@ Sequence
 ### Show the Myria physical plan of a Myrial program
 
 ```bash
-% python scripts/myrial examples/sigma-clipping-v0.myl 
+python scripts/myrial examples/sigma-clipping-v0.myl
+```
+
+```
 Sequence
     StoreTemp(Good)[MyriaScan(public:adhoc:sc_points)]
     StoreTemp(N)[MyriaApply(2=2)[SingletonRelation]]
@@ -114,13 +114,37 @@ Sequence
 ```
 
 ### Visualize a Myria plan as a graph
-Pass the `-d` option to `scripts/myrial`. Output omitted for brevity.
 
-### Output the Myria physical plan as json (what MyriaX understands)
-Pass the `-j` option to `scripts/myrial`. Output omitted for brevity.
+The `-d` option outputs a [dot file](www.graphviz.org/content/dot-language). The following command generates the plan for `join.myl` in a `png` image.
 
-# C++ and Grappa output (Radish)
-Raco has backend compilers that emit C++ and [Grappa](http://grappa.io) programs. To find out how it works in depth, read the [UW technical report](https://homes.cs.washington.edu/~bdmyers/papers/UW-CSE-14-10-01.pdf).
+```bash
+scripts/myrial -d examples/join.myl | dot -Tpng -o join.png
+```
+
+### Output the Myria physical plan as json
+
+You can get the Myria physical plan as JSON, which you can give to Myria through its REST API.
+
+```bash
+scripts/myrial -j examples/select.myl
+```
+
+```
+{"logicalRa": "MyriaStore(public:adhoc:OUTPUT)[MyriaSelect(($1 = 1))[MyriaScan(public:adhoc:employee)]]", "language": "myrial", "rawQuery": "Sequence[Store(public:adhoc:OUTPUT)[Select(($1 = 1))[Scan(public:adhoc:employee)]]]", "plan": {"fragments": [{"operators": [{"relationKey": {"userName": "public", "relationName": "employee", "programName": "adhoc"}, "opType": "TableScan", "opName": "MyriaScan(public:adhoc:employee)", "opId": 0}, {"opId": 1, "argPredicate": {"rootExpressionOperator": {"right": {"valueType": "LONG_TYPE", "type": "CONSTANT", "value": "1"}, "type": "EQ", "left": {"type": "VARIABLE", "columnIdx": 1}}}, "opType": "Filter", "opName": "MyriaSelect(($1 = 1))", "argChild": 0}, {"opType": "DbInsert", "argChild": 1, "argOverwriteTable": true, "relationKey": {"userName": "public", "relationName": "OUTPUT", "programName": "adhoc"}, "opName": "MyriaStore(public:adhoc:OUTPUT)", "opId": 2, "partitionFunction": null}]}], "type": "SubQuery"}}
+```
+
+### Only run the parser
+```bash
+python scripts/myrial -p examples/sigma-clipping-v0.myl
+```
+
+```
+[('ASSIGN', 'Good', ('SCAN', 'public:adhoc:sc_points')), ('ASSIGN', 'N', ('TABLE', (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c04fd0>,))), ('DOWHILE', [('ASSIGN', 'mean', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c450>,))), ('ASSIGN', 'std', ('BAGCOMP', [('Good', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c4d0>,))), ('ASSIGN', 'NewBad', ('BAGCOMP', [('Good', None)], (ABS((Good.v - Unbox)) > (Unbox * Unbox)), (<raco.myrial.emitarg.FullWildcardEmitArg object at 0x101c1c410>,))), ('ASSIGN', 'Good', ('DIFF', ('ALIAS', 'Good'), ('ALIAS', 'NewBad'))), ('ASSIGN', 'continue', ('BAGCOMP', [('NewBad', None)], None, (<raco.myrial.emitarg.SingletonEmitArg object at 0x101c1c8d0>,)))], ('ALIAS', 'continue')), ('DUMP', 'Good')]
+```
+
+## Generate a C++ program
+
+Raco has a backend compiler that emits C++.
 
 ### Output C++ plan and source program
 ```
@@ -135,8 +159,21 @@ cd c_test_environment; make join.exe
 c_test_environment/join.exe INPUT_FILE.csv
 ```
 
-### Run the full MyriaL -> Grappa tests
-The default tests (just running `nosetests`) include tests for translation from MyriaL to Grappa code but do no checking of whether the Grappa program correctly executes the query. To actually run the Grappa queries: 
+## Generate a distributed C++/PGAS program
+
+Raco has a back end compiler, Radish, that emits distributed C++ programs. In particular, Radish targets *partitioned global address space (PGAS)* languages, like [Grappa](http://grappa.io). Read [Compiling queries for high-performance computing](http://www.cs.washington.edu/tr/2016/02/UW-CSE-16-02-02.pdf) for more information on the internals of Radish.
+
+### Generate a Grappa source program
+
+```bash
+scripts/myrial -c examples/join.myl
+```
+
+The query implemented in Grappa is now in `join.cpp`. To build and run the query, we recommend using [the Radish REST server](https://github.com/uwescience/radish-server).
+
+### Run the full MyriaL-to-Grappa tests
+
+The default tests (just running `nosetests`) include tests for *translation* from MyriaL to Grappa code but do no checking of whether the Grappa program correctly executes the query. To actually run the Grappa queries:
 
 1. `export RACO_HOME=/path/to/raco`
 2. get Grappa https://github.com/uwsampa/grappa and follow installation instructions in its BUILD.md
@@ -146,17 +183,17 @@ The default tests (just running `nosetests`) include tests for translation from 
 PYTHONPATH=c_test_environment RACO_GRAPPA_TESTS=1 python -m unittest grappalang_myrial_tests.MyriaLGrappaTest
 ```
 
+### More Radish examples
 
-### Output Radish (Grappa) plan and source program
-```
-scripts/myrial -c examples/join.myl
-# the query implemented in Grappa is in join.cpp
-```
+- [TPC-H benchmark](https://github.com/uwescience/tpch-radish)
+- [Graph and matrix benchmarks](https://github.com/uwescience/sparseMatProjects/tree/master/myriaLQueries/radish)
 
-# More Raco
-using Raco, manipulating plans, adding optimizer rules, developing Raco
-see [Raco in depth](https://github.com/uwescience/raco/blob/master/raco.markdown)
 
-# Authors and contact information
+## More in depth on Raco
+To learn about calling Raco from python and manipulating plans, read [Using Raco directly](https://github.com/uwescience/raco/blob/master/docs/index.md)
+
+To learn about developing Raco, read [developer doc](https://github.com/uwescience/raco/blob/master/docs/developers/develop.md).
+
+## Authors and contact information
 
 Raco's authors include Bill Howe, Andrew Whitaker, Daniel Halperin, Brandon Myers and Dominik Moritz at the University of Washington. Contact us at <raco@cs.washington.edu>.
