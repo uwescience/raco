@@ -51,7 +51,11 @@ There is also a python string representation of the query plan. This is valid
 python code that you can give back to Raco.
 
 ```bash
-scripts/myrial -r example/join.myl
+# output the plan for the query (join.raco is just a file containing python code)
+scripts/myrial -r example/join.myl >join.raco
+cat join.raco
+# run raco on the plan in join.raco instead of on a MyriaL query
+scripts/myrial --plan join.raco
 ```
 
 ## Use Raco from python
