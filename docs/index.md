@@ -19,20 +19,31 @@ This document explains usage of the Raco library. Most users of Myria will inter
 
 `scripts/myrial` provides Raco functionality on the command line.
 
-help
+### Help
+
+Print the help message
+
 ```bash
 scripts/myrial -h
 ```
 
-generate a logical plan for a MyriaL query in examples/
+### Logical plan
+
+Generate a logical plan for a MyriaL query in examples/
+
 ```bash
 scripts/myrial -l examples/join.myl
 ```
 
-see the physical plan, MyriaX is the default algebra to use
+### Physical plan
+
+See the physical plan, MyriaX is the default algebra to use
+
 ```bash
 scripts/myrial examples/join.myl
 ```
+
+### Catalog
 
 Raco requires a catalog for MyriaL queries. All of the example queries in `examples/`
 use the catalog defined in `examples/catalog.py`. See `examples/catalog.py` and `raco/catalog.py` for formatting information.
@@ -42,10 +53,16 @@ as the provided query. You can also provide a custom path.
 scripts/myrial --catalog=examples/catalog.py -l examples/join.myl
 ```
 
-get the JSON used to submit the query plan to MyriaX REST interface
+To connect to the real catalog of a Myria instance, see ((())).
+
+### Compiled plan
+
+Get the JSON used to submit the query plan to MyriaX REST interface
 ```bash
 scripts/myrial -j example/join.myl
 ```
+
+### Intermediate plan files
 
 There is also a python string representation of the query plan. This is valid
 python code that you can give back to Raco.
