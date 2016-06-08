@@ -53,7 +53,7 @@ as the provided query. You can also provide a custom path.
 scripts/myrial --catalog=examples/catalog.py -l examples/join.myl
 ```
 
-To connect to the real catalog of a Myria instance, see ((())).
+To connect to the real catalog of a Myria instance, see [using Raco from python](https://github.com/uwescience/raco/blob/master/docs/index.md#use-raco-from-python).
 
 ### Compiled plan
 
