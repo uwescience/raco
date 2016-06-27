@@ -3,7 +3,7 @@ A RACO language to compile expressions to SQL.
 """
 
 from sqlalchemy import (Column, Table, MetaData, Integer, String,
-                        Float, Boolean, DateTime, select, func,
+                        Float, Boolean, DateTime, LargeBinary, select, func,
                         literal, case)
 
 import raco.algebra as algebra
@@ -19,7 +19,8 @@ type_to_raco = {Integer: types.LONG_TYPE,
                 String: types.STRING_TYPE,
                 Float: types.FLOAT_TYPE,
                 Boolean: types.BOOLEAN_TYPE,
-                DateTime: types.DATETIME_TYPE}
+                DateTime: types.DATETIME_TYPE,
+                LargeBinary: types.BYTES_TYPE}
 
 
 raco_to_type = {types.LONG_TYPE: Integer,
@@ -28,7 +29,8 @@ raco_to_type = {types.LONG_TYPE: Integer,
                 types.FLOAT_TYPE: Float,
                 types.DOUBLE_TYPE: Float,
                 types.BOOLEAN_TYPE: Boolean,
-                types.DATETIME_TYPE: DateTime}
+                types.DATETIME_TYPE: DateTime,
+                types.BYTES_TYPE: LargeBinary}
 
 
 class SQLFunctionProvider(object):
