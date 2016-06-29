@@ -297,3 +297,27 @@ class LEN(UnaryFunction):
             raise TypeSafetyViolation("Must be a string for %s" % (
                 self.__class__,))
         return types.LONG_TYPE
+
+# # ###############
+class PYUDF(BinaryFunction):
+
+    literals = []
+
+    def __init__(self, name,  left, right):
+        #print(name)
+        self.name = name
+        super(PYUDF, self).__init__(left, right)
+
+    def __repr__(self):
+        return "{op}({n!r}, {l!r}, {r!r})".format(op=self.opname(),
+                                                         n=self.name,
+                                                         l=self.left,
+                                                         r=self.right)
+
+    def typeof(self, scheme, state_scheme):
+        #get Type of from catalog
+        return types.BYTES_TYPE
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return PYUDF(self.name, self.left.evaluate(_tuple, scheme, state),
+                   self.right.evaluate(_tuple, scheme, state))

@@ -102,6 +102,12 @@ class ExpressionProcessor(object):
         return raco.algebra.Scan(rel_key, scheme,
                                  self.catalog.num_tuples(rel_key),
                                  self.catalog.partitioning(rel_key))
+    def pyudf(self, expr):
+        """retrieve a python UDF from catalog"""
+        print("called the pyudf thing in the interpreter.")
+
+        print("function name? "+ str(expr.name))
+
 
     def samplescan(self, rel_key, samp_size, is_pct, samp_type):
         """Sample a base relation."""
@@ -179,7 +185,9 @@ class ExpressionProcessor(object):
         emit_clause: A list of EmitArg instances, each defining one or more
         output columns.
         """
-
+        print ("from clause "+ str(from_clause)+'/n')
+        print ("where clause "+ str(where_clause)+'/n')
+        print("emit_clause "+ str(emit_clause)+'/n')
         # Make sure no aliases were reused: [FROM X, X EMIT *] is illegal
         from_aliases = set([x[0] for x in from_clause])
         if len(from_aliases) != len(from_clause):
@@ -236,6 +244,12 @@ class ExpressionProcessor(object):
                      for (name, sexpr) in emit_args]
 
         statemods = multiway.rewrite_statemods(statemods, from_args, info)
+
+
+        for (name, ex) in emit_args:
+            if raco.expression.expression_contains_pyudf(ex):
+                print("found a python expression -- now we need to find name and look up in catalog")
+                self.pyudf(ex)
 
         if any(raco.expression.expression_contains_aggregate(ex)
                for name, ex in emit_args):
@@ -336,6 +350,7 @@ class StatementProcessor(object):
         for statement in statements:
             # Switch on the first tuple entry
             method = getattr(self, statement[0].lower())
+            print(method)
             method(*statement[1:])
 
     def __evaluate_expr(self, expr, _def):
@@ -347,7 +362,7 @@ class StatementProcessor(object):
                      non-statements
         :type _def: string
         """
-
+        print(expr)
         op = self.ep.evaluate(expr)
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, _def, uses_set)
@@ -362,7 +377,7 @@ class StatementProcessor(object):
         :param expr: The relational expression to evaluate
         :type expr: A Myrial expression AST node tuple
         """
-
+        print("expression in __do_assignment "+str(expr))
         child_op = self.ep.evaluate(expr)
         if _id in self.symbols:
             check_assignment_compatability(child_op, self.symbols[_id])

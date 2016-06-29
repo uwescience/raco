@@ -271,6 +271,7 @@ class Parser(object):
         :param body_exprs: A list of scalar expressions containing the body
         :type body_exprs: list of raco.expression.Expression
         """
+        print("found a udf, name: "+ name)
         if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno(0))
 
@@ -283,6 +284,8 @@ class Parser(object):
             emit_op = TupleExpression(body_exprs)
 
         Parser.check_for_undefined(p, name, emit_op, args)
+        print(args)
+        print(emit_op)
 
         Parser.udf_functions[name] = Function(args, emit_op)
         return emit_op
@@ -374,6 +377,7 @@ class Parser(object):
         'unreserved_id : ID'
         Parser.check_for_reserved(p, p[1])
         p[0] = p[1]
+
 
     @staticmethod
     def p_unreserved_id_list(p):
@@ -1002,12 +1006,18 @@ class Parser(object):
         :type args: list of raco.expression.Expression instances
         :return: An expression with no free variables.
         """
-
+        print (expr_lib)
         # try to get function from udf or system defined functions
         if name in Parser.udf_functions:
             func = Parser.udf_functions[name]
         else:
             func = expr_lib.lookup(name, len(args))
+        
+        # else:
+        #     print("assume this is a python UDF")
+        #     func =
+            #check to see if this function exists in the myria catalog
+            #if it does, create a PyUDF with appropriate things!
 
         if func is None:
             raise NoSuchFunctionException(name, p.lineno(0))
@@ -1090,6 +1100,8 @@ class Parser(object):
         else:
             p[0] = sexpr.COUNT(p[3])
 
+
+
     @staticmethod
     def p_sexpr_cast(p):
         """sexpr : type_name LPAREN sexpr RPAREN"""
@@ -1144,7 +1156,7 @@ class Parser(object):
         scanner.lexer.lineno = 1
         Parser.udf_functions = {}
         Parser.decomposable_aggs = {}
-        parser = yacc.yacc(module=self, debug=False, optimize=False)
+        parser = yacc.yacc(module=self, debug=True, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 
         # Strip out the remnants of parsed functions to leave only a list of

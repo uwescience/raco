@@ -5,6 +5,7 @@ import csv
 from time import sleep
 import logging
 import urllib
+import cloud
 from urlparse import urlparse, ParseResult
 from .errors import MyriaError
 
@@ -22,6 +23,9 @@ POST = 'POST'
 # Enable or configure logging
 logging.basicConfig(level=logging.WARN)
 
+class functionTypes(object):
+  POSTGRES = 0
+  PYTHON = 1
 
 class MyriaConnection(object):
     """Contains a connection the Myria REST server."""
@@ -476,3 +480,36 @@ class MyriaConnection(object):
             raise MyriaError('Error %d: %s'
                              % (r.status_code, r.text))
         return r.json()
+
+    def list_function(self, name):
+        return self._wrap_get('/function/{}'
+                            .format(name))
+
+
+    def create_function(self, name,text, outSchema,inSchema,lang,binary=None):
+        """Register a User Defined Function with Myria """
+        body = None
+
+        if(lang==functionTypes.POSTGRES):
+            body = {'name': name,
+                    'text': text,
+                    'outputSchema': outSchema.to_dict(),
+                    'inputSchema':inSchema.to_dict(),
+                    'lang': functionTypes.POSTGRES}
+        elif(lang==functionTypes.PYTHON):
+            if(binary==None or outSchema==None):
+                raise MyriaError("Cannot create a python function without binary or input schema.")
+            else :
+                functionBody = cloud.serialization.cloudpickle.dumps(binary, 2)
+                encodedFunctionBody = base64.urlsafe_b64encode(functionBody)
+                body = {'name':name,
+                        'text':text,
+                        'outputSchema':outSchema.to_dict(),
+                        'inputSchema':inSchema.to_dict(),
+                        'lang':functionTypes.PYTHON,
+                        'binary': encodedFunctionBody }
+
+        if (body==None):
+            raise MyriaError("Unsupported language for user function.")
+
+        return self._make_request(POST, '/function/register', json.dumps(body))

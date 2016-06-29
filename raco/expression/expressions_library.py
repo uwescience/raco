@@ -66,7 +66,11 @@ EXPRESSIONS_CASE = {
                                      NumericLiteral(0)),
                              LEN(NamedAttributeRef('str'))
                              ])),
-    'flip': Function(['p'], LT(RANDOM(), NamedAttributeRef('p')))
+    'flip': Function(['p'], LT(RANDOM(), NamedAttributeRef('p'))),
+    'pyudf': Function(['str', 'arg0','arg1'],
+                      PYUDF(StringLiteral('str'),
+                             NamedAttributeRef('arg0'),
+                             NamedAttributeRef('arg1')))
 }
 
 
@@ -90,6 +94,7 @@ def one_to_one_function(func_name):
     arity = get_arity(func_class)
     function_args = ['arg%d' % i for i in range(arity)]
     expression_args = [NamedAttributeRef(x) for x in function_args]
+
     return Function(function_args, func_class(*expression_args))
 
 # Simple functions that map to a single Myria expression; the names here

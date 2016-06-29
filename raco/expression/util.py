@@ -5,6 +5,7 @@ Utility functions for use in Raco expressions
 from .expression import (Expression, BinaryOperator, AttributeRef,
                          NamedAttributeRef, UnnamedAttributeRef,
                          NamedStateAttributeRef)
+from .function import (PYUDF)
 from .aggregate import BuiltinAggregateExpression, AggregateExpression
 
 import copy
@@ -207,6 +208,12 @@ def reindex_expr(expr, index_map):
 def expression_contains_aggregate(ex):
     """Return True if the expression contains an aggregate."""
     return any(isinstance(sx, AggregateExpression) for sx in ex.walk())
+
+def expression_contains_pyudf(ex):
+    """Return True if the expression contains a pythonudf."""
+    return any(isinstance(sx, PYUDF) for sx in ex.walk())
+
+
 
 
 def check_no_aggregate(ex, lineno):
