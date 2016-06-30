@@ -304,19 +304,31 @@ class PYUDF(BinaryFunction):
     literals = []
 
     def __init__(self, name,  left, right):
-        #print(name)
         self.name = name
+        self.typ = types.BYTES_TYPE
         super(PYUDF, self).__init__(left, right)
 
+    def __str__(self):
+        return "%s(%s, %s, %s, %s)" % (self.__class__.__name__, self.name, self.typ, self.left, self.right)
+
+
     def __repr__(self):
-        return "{op}({n!r}, {l!r}, {r!r})".format(op=self.opname(),
+        return "{op}({n!r}, {t!r}, {l!r}, {r!r})".format(op=self.opname(),
                                                          n=self.name,
+                                                         t=self.typ,
                                                          l=self.left,
                                                          r=self.right)
 
     def typeof(self, scheme, state_scheme):
-        #get Type of from catalog
-        return types.BYTES_TYPE
+        return self.typ
+
+    def set_typ(self,typ):
+        self.typ = typ
+
+    def apply(self, f):
+        self.name = f(self.name)
+        self.left = f(self.left)
+        self.right = f(self.right)
 
     def evaluate(self, _tuple, scheme, state=None):
         return PYUDF(self.name, self.left.evaluate(_tuple, scheme, state),

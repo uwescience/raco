@@ -1012,7 +1012,7 @@ class Parser(object):
             func = Parser.udf_functions[name]
         else:
             func = expr_lib.lookup(name, len(args))
-        
+
         # else:
         #     print("assume this is a python UDF")
         #     func =
@@ -1156,9 +1156,9 @@ class Parser(object):
         scanner.lexer.lineno = 1
         Parser.udf_functions = {}
         Parser.decomposable_aggs = {}
-        parser = yacc.yacc(module=self, debug=True, optimize=False)
+        parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
-
+        
         # Strip out the remnants of parsed functions to leave only a list of
         # statements
         return [st for st in stmts if st is not None]

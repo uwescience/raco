@@ -486,25 +486,25 @@ class MyriaConnection(object):
                             .format(name))
 
 
-    def create_function(self, name,text, outSchema,inSchema,lang,binary=None):
+    def create_function(self, name,text, inSchema, outType, lang,binary=None):
         """Register a User Defined Function with Myria """
         body = None
 
         if(lang==functionTypes.POSTGRES):
             body = {'name': name,
                     'text': text,
-                    'outputSchema': outSchema.to_dict(),
+                    'outputType': outType,
                     'inputSchema':inSchema.to_dict(),
                     'lang': functionTypes.POSTGRES}
         elif(lang==functionTypes.PYTHON):
-            if(binary==None or outSchema==None):
-                raise MyriaError("Cannot create a python function without binary or input schema.")
+            if(binary==None or outType==None):
+                raise MyriaError("Cannot create a python function without binary or output schema.")
             else :
                 functionBody = cloud.serialization.cloudpickle.dumps(binary, 2)
                 encodedFunctionBody = base64.urlsafe_b64encode(functionBody)
                 body = {'name':name,
                         'text':text,
-                        'outputSchema':outSchema.to_dict(),
+                        'outputType':outType,
                         'inputSchema':inSchema.to_dict(),
                         'lang':functionTypes.PYTHON,
                         'binary': encodedFunctionBody }

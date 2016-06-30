@@ -233,3 +233,12 @@ def check_no_nested_aggregate(ex, lineno):
             descend(child, is_aggregate or in_aggregate)
 
     descend(ex, False)
+
+def set_function_outType(ex, catalog):
+    """Retrieve a python UDF from catalog and set the output type."""
+    #print("called the pyudf thing in the interpreter.")
+    #print("function name? "+ str(expr.name))
+    #print (ex.name)
+    func_info = catalog.get_function(ex.name)
+    #print(func_info['outputType'])
+    ex.set_typ(str(func_info['outputType']))
