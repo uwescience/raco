@@ -36,7 +36,7 @@ class MyriaCatalog(Catalog):
     def get_function(self, name):
         if not self.connection:
             raise RuntimeError("no connection.")
-        #print ("name of the function: "+ str(name))
+        
         try:
             function_info = self.connection.list_function(name)
         except MyriaError:

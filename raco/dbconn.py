@@ -37,6 +37,20 @@ class DBConnection(object):
         self.engine = create_engine(connection_string, echo=echo)
         self.metadata = MetaData()
         self.metadata.bind = self.engine
+        self.__add_function_rel__()
+
+    def __add_function_rel__(self):
+        functions_schema = Scheme([("name", types.STRING_TYPE),
+                                    ("text", types.STRING_TYPE),
+                                    ("lang", types.INT_TYPE),
+                                    ("inputSchema", types.STRING_TYPE),
+                                    ("outputType", types.STRING_TYPE),
+                                    ("binary", types.BYTES_TYPE)])
+
+        columns = [Column(n, raco_to_type[t](), nullable=False)
+                   for n, t in functions_schema.attributes]
+        table = Table("registered_udfs", self.metadata, *columns)
+        table.create(self.engine)
 
     def get_scheme(self, rel_key):
         """Return the schema associated with a relation key."""
@@ -95,3 +109,14 @@ class DBConnection(object):
         """Retrieve the result of a query as a bag (Counter)."""
         s = text(sql)
         return collections.Counter(tuple(t) for t in self.engine.execute(s))
+
+    def get_function(self, name):
+        s = "select * from registered_udfs where name='" +str(name)+"'"
+        return dict(self.engine.execute(s).first())
+
+    def register_function(self,tup):
+        #tup = (name,text,lang,inputSchema,outType,binary)
+        table = self.metadata.tables['registered_udfs']
+        scheme = self.get_scheme('registered_udfs')
+        func = [{n: v for n, v in zip(scheme.get_names(), tup)}]
+        self.engine.execute(table.insert(),func)

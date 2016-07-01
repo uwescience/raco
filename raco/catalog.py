@@ -58,6 +58,7 @@ class Catalog(object):
         return RepresentationProperties()
 
 
+
 # Some useful Catalog implementations
 
 class FakeCatalog(Catalog):
@@ -65,19 +66,24 @@ class FakeCatalog(Catalog):
     """ fake catalog, should only be used in test """
 
     def __init__(self, num_servers, child_sizes=None,
-                 child_partitionings=None):
+                 child_partitionings=None, child_functions=None):
         self.num_servers = num_servers
         # default sizes
         self.sizes = {}
         # default partitionings
         self.partitionings = {}
         # overwrite default sizes if necessary
+        self.functions={}
+
         if child_sizes:
             for child, size in child_sizes.items():
                 self.sizes[RelationKey(child)] = size
         if child_partitionings:
             for child, part in child_partitionings.items():
                 self.partitionings[RelationKey(child)] = frozenset(part)
+        if child_functions:
+            for child, typ in child_functions.items():
+                self.functions[child] = funcObj
 
     def get_num_servers(self):
         return self.num_servers
@@ -95,6 +101,14 @@ class FakeCatalog(Catalog):
 
     def get_scheme(self, rel_key):
         raise NotImplementedError()
+
+
+    def get_function(self, funcName):
+        """Return UDF with name = funcName"""
+        if funcName in self.functions:
+            return self.functions[funcName]
+
+
 
 
 class FromFileCatalog(Catalog):

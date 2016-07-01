@@ -45,3 +45,5 @@ class FakeData(object):
                                     ("val", types.DOUBLE_TYPE)])
 
     numbers_key = "public:adhoc:numbers"
+
+    test_function = ("test","function_text", 1, "id (INT_TYPE), dept_id (INT_TYPE)","INT_TYPE", "test_body")

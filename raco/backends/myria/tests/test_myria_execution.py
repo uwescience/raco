@@ -143,6 +143,12 @@ def local_mock(url, request):
     elif url.path == '/logs/profiling' and request.method == 'GET':
         # lazy test
         return {'status_code': 200, 'content': request.body or ""}
+
+    elif url.path == '/function/register' and request.method == 'POST':
+        return {'status_code':200, 'content': request.body or ""}
+    elif url.path =='/function/test' and request.method =='GET':
+        return {'status_code':200, 'content':""}
+
     elif url.path == '/execute' and request.method == 'POST':
         return {'status_code': 200, 'content': request.body or ""}
 
@@ -212,6 +218,23 @@ class TestQuery(unittest.TestCase):
             status = self.connection.get_profiling_log(17)
             self.assertNotEquals(status, None)
 
+if(lang==functionTypes.POSTGRES):
+    body = {'name': name,
+            'text': text,
+            'outputType': outType,
+            'inputSchema':inSchema.to_dict(),
+            'lang': functionTypes.POSTGRES}
+
+    def test_reg_function(self):
+        with HTTMock(local_mock):
+            status = self.connection.create_function('test','function text','INT_TYPE', none, "function binary")
+            self.assertNotEquals(status, None)
+
+    def test_get_function(self):
+        with HTTMock(local_mock):
+            status = self.connection.list_function("test")
+            self.assertNotEquals(status, None)
+
     def test_get_profiling_log_roots(self):
         with HTTMock(local_mock):
             status = self.connection.get_profiling_log_roots(17, 1)
@@ -243,6 +266,8 @@ class TestQuery(unittest.TestCase):
             query_request = query(self.connection)
             result = self.connection.queries()
             self.assertNotEqual(result, None)
+    def test_function(self):
+
 
 if __name__ == '__main__':
     unittest.main()

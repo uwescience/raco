@@ -271,7 +271,6 @@ class Parser(object):
         :param body_exprs: A list of scalar expressions containing the body
         :type body_exprs: list of raco.expression.Expression
         """
-        print("found a udf, name: "+ name)
         if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, p.lineno(0))
 
@@ -1158,7 +1157,7 @@ class Parser(object):
         Parser.decomposable_aggs = {}
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
-        
+
         # Strip out the remnants of parsed functions to leave only a list of
         # statements
         return [st for st in stmts if st is not None]

@@ -313,11 +313,8 @@ class PYUDF(BinaryFunction):
 
 
     def __repr__(self):
-        return "{op}({n!r}, {t!r}, {l!r}, {r!r})".format(op=self.opname(),
-                                                         n=self.name,
-                                                         t=self.typ,
-                                                         l=self.left,
-                                                         r=self.right)
+        return "{op}({n!r}, {l!r}, {r!r})".format(op=self.opname(), n=self.name, l=self.left,
+                                           r=self.right)
 
     def typeof(self, scheme, state_scheme):
         return self.typ
