@@ -43,7 +43,6 @@ class FakeDatabase(Catalog):
         # partitionings
         self.partitionings = {}
 
-
     def get_num_servers(self):
         return 1
 
@@ -97,7 +96,6 @@ class FakeDatabase(Catalog):
         assert isinstance(rel_key, relation_key.RelationKey)
 
         return self.tables.get_scheme(rel_key)
-
 
     def get_table(self, rel_key):
         """Retrieve the contents of table.

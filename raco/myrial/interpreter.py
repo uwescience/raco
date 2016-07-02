@@ -103,8 +103,6 @@ class ExpressionProcessor(object):
                                  self.catalog.num_tuples(rel_key),
                                  self.catalog.partitioning(rel_key))
 
-
-
     def samplescan(self, rel_key, samp_size, is_pct, samp_type):
         """Sample a base relation."""
         assert isinstance(rel_key, relation_key.RelationKey)
@@ -181,9 +179,7 @@ class ExpressionProcessor(object):
         emit_clause: A list of EmitArg instances, each defining one or more
         output columns.
         """
-        # print ("from clause "+ str(from_clause)+'/n')
-        # print ("where clause "+ str(where_clause)+'/n')
-        # print("emit_clause "+ str(emit_clause)+'/n')
+
         # Make sure no aliases were reused: [FROM X, X EMIT *] is illegal
         from_aliases = set([x[0] for x in from_clause])
         if len(from_aliases) != len(from_clause):
@@ -240,7 +236,6 @@ class ExpressionProcessor(object):
                      for (name, sexpr) in emit_args]
 
         statemods = multiway.rewrite_statemods(statemods, from_args, info)
-
 
         for (name, ex) in emit_args:
             for sx in ex.walk():
@@ -371,6 +366,7 @@ class StatementProcessor(object):
         :param expr: The relational expression to evaluate
         :type expr: A Myrial expression AST node tuple
         """
+        
         child_op = self.ep.evaluate(expr)
         if _id in self.symbols:
             check_assignment_compatability(child_op, self.symbols[_id])

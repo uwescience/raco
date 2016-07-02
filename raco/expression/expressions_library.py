@@ -73,7 +73,6 @@ EXPRESSIONS_CASE = {
                              NamedAttributeRef('arg2')))
 }
 
-
 def get_arity(func_class):
     """Return the arity of built-in Myria expressions."""
 
@@ -87,14 +86,12 @@ def get_arity(func_class):
         # Don't handle n-ary functions automatically
         assert False
 
-
 def one_to_one_function(func_name):
     """Emit a Function object that wraps a Myria built-in expression."""
     func_class = getattr(raco.expression, func_name)
     arity = get_arity(func_class)
     function_args = ['arg%d' % i for i in range(arity)]
     expression_args = [NamedAttributeRef(x) for x in function_args]
-
     return Function(function_args, func_class(*expression_args))
 
 # Simple functions that map to a single Myria expression; the names here

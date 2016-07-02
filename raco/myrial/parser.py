@@ -348,7 +348,6 @@ class Parser(object):
             Parser.check_for_undefined(p, name, init_expr, [])
             Parser.check_for_undefined(p, name, update_expr, allvars)
 
-
         if emitters is None:
             emitters = [sexpr.NamedAttributeRef(v) for v in statemods.keys()]
 
@@ -375,7 +374,6 @@ class Parser(object):
         'unreserved_id : ID'
         Parser.check_for_reserved(p, p[1])
         p[0] = p[1]
-
 
     @staticmethod
     def p_unreserved_id_list(p):
@@ -843,8 +841,6 @@ class Parser(object):
             raise JoinColumnCountMismatchException()
         p[0] = ('JOIN', p[3], p[5])
 
-
-
     @staticmethod
     def p_join_argument_list(p):
         'join_argument : expression COMMA LPAREN column_ref_list RPAREN'
@@ -974,7 +970,6 @@ class Parser(object):
         :return: An emit expression and a StateVar list.  All expressions
         have no free variables.
         """
-
         assert isinstance(func, StatefulFunc)
         state_var_names = func.statemods.keys()
 
@@ -987,7 +982,6 @@ class Parser(object):
             # Convert state mod references into appropriate expressions
             update_expr = sexpr.resolve_state_vars(update_expr,  # noqa
                 state_var_names, mangle_dict)
-
             # Convert argument references into appropriate expressions
             update_expr = sexpr.resolve_function(update_expr,  # noqa
                 dict(zip(func.args, args)))
@@ -1095,8 +1089,6 @@ class Parser(object):
             p[0] = sexpr.COUNTALL()
         else:
             p[0] = sexpr.COUNT(p[3])
-
-
 
     @staticmethod
     def p_sexpr_cast(p):

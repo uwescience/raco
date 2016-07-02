@@ -6,7 +6,6 @@ import math
 import md5
 import random
 
-
 from .expression import (ZeroaryOperator, UnaryOperator, BinaryOperator,
                          NaryOperator, types, check_is_numeric, check_type,
                          TypeSafetyViolation)
@@ -328,6 +327,5 @@ class PYUDF(BinaryFunction):
 
 
     def evaluate(self, _tuple, scheme, state=None):
-        print ('Pyudf evaluate called')
         return PYUDF(self.name, self.left.evaluate(_tuple, scheme, state),
                    self.right.evaluate(_tuple, scheme, state))

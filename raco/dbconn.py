@@ -37,9 +37,9 @@ class DBConnection(object):
         self.engine = create_engine(connection_string, echo=echo)
         self.metadata = MetaData()
         self.metadata.bind = self.engine
-        self.__add_function_rel__()
+        self.__add_function_registry__()
 
-    def __add_function_rel__(self):
+    def __add_function_registry__(self):
         functions_schema = Scheme([("name", types.STRING_TYPE),
                                     ("text", types.STRING_TYPE),
                                     ("lang", types.INT_TYPE),

@@ -108,9 +108,6 @@ class FakeCatalog(Catalog):
         if funcName in self.functions:
             return self.functions[funcName]
 
-
-
-
 class FromFileCatalog(Catalog):
 
     """ Catalog that is created from a python file.

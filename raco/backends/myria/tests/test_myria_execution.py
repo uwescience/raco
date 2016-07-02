@@ -266,8 +266,6 @@ if(lang==functionTypes.POSTGRES):
             query_request = query(self.connection)
             result = self.connection.queries()
             self.assertNotEqual(result, None)
-    def test_function(self):
-
 
 if __name__ == '__main__':
     unittest.main()

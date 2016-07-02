@@ -32,11 +32,10 @@ class MyriaCatalog(Catalog):
             raise RuntimeError("no connection.")
         return len(self.connection.workers_alive())
 
-
     def get_function(self, name):
         if not self.connection:
             raise RuntimeError("no connection.")
-        
+
         try:
             function_info = self.connection.list_function(name)
         except MyriaError:

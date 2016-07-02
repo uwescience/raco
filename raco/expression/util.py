@@ -130,6 +130,7 @@ def resolve_function(func_expr, arg_dict):
     :type arg_dict: A dictionary mapping string to Expression
     :returns: An expression with no variables
     """
+
     def convert(n):
         if isinstance(n, NamedAttributeRef):
             n = copy.deepcopy(arg_dict[n.name])
@@ -209,7 +210,7 @@ def expression_contains_aggregate(ex):
     return any(isinstance(sx, AggregateExpression) for sx in ex.walk())
 
 def set_function_outputType(ex, catalog):
-    """Return True if the expression contains a pythonudf."""
+    """Set output type for pythonUDF from Catalog."""
     if(isinstance(ex,PYUDF)):
         func_info = catalog.get_function(str(ex.name))
         ex.set_typ(str(func_info['outputType']))
