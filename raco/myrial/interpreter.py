@@ -243,13 +243,8 @@ class ExpressionProcessor(object):
 
 
         for (name, ex) in emit_args:
-            if raco.expression.expression_contains_pyudf(ex):
-                # print("found a python expression -- now we need to find name and look up in catalog")
-                # print(ex.name)
-                # print(str(ex.name))
-                fun_info = self.catalog.get_function(ex.name)
-                # print(fun_info)
-                raco.expression.util.set_function_outType(ex, self.catalog)
+            for sx in ex.walk():
+                raco.expression.set_function_outputType(sx, self.catalog)
 
         if any(raco.expression.expression_contains_aggregate(ex)
                for name, ex in emit_args):
@@ -350,7 +345,6 @@ class StatementProcessor(object):
         for statement in statements:
             # Switch on the first tuple entry
             method = getattr(self, statement[0].lower())
-            #print(method)
             method(*statement[1:])
 
     def __evaluate_expr(self, expr, _def):
@@ -362,7 +356,7 @@ class StatementProcessor(object):
                      non-statements
         :type _def: string
         """
-        #print(expr)
+
         op = self.ep.evaluate(expr)
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, _def, uses_set)
@@ -377,7 +371,6 @@ class StatementProcessor(object):
         :param expr: The relational expression to evaluate
         :type expr: A Myrial expression AST node tuple
         """
-        #print("expression in __do_assignment "+str(expr))
         child_op = self.ep.evaluate(expr)
         if _id in self.symbols:
             check_assignment_compatability(child_op, self.symbols[_id])

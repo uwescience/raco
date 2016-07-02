@@ -2883,7 +2883,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         self.check_result(query, expected, output="powersOfTwo")
 
     def test_pyUDF(self):
-
         query = """
         T1=scan(%s);
         out = [from T1 emit PYUDF(test, T1.id, T1.dept_id) As ratio];
@@ -2891,18 +2890,18 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         """ % self.emp_key
 
         val = self.get_physical_plan(query)
-        print (val)
+
 
 
     def test_pyUDF_uda(self):
         query = """
-        uda Foo(x) {
-          [0 as _count, 0 as _sum];
-          [_count+1, PYUDF(test, _sum,x) ];
-          [PYUDF(test,_sum,_count)];
+        uda Foo(x){
+        [0 as _count,0 as _sum];
+        [ _count+1, PYUDF("test",_sum,x)];
+        [ PYUDF("test",_sum,_count) ];
         };
-        out = [FROM SCAN(%s) AS t EMIT Foo(t.id)];
-        STORE(out, OUTPUT);
+
+        T1 = [from scan(%s) as t emit Foo(t.id) As mask];
+        store(T1, out);
         """ % self.emp_key
         val = self.get_physical_plan(query)
-        print (val)

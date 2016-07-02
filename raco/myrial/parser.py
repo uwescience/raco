@@ -283,8 +283,6 @@ class Parser(object):
             emit_op = TupleExpression(body_exprs)
 
         Parser.check_for_undefined(p, name, emit_op, args)
-        print(args)
-        print(emit_op)
 
         Parser.udf_functions[name] = Function(args, emit_op)
         return emit_op
@@ -349,6 +347,7 @@ class Parser(object):
         for init_expr, update_expr in statemods.itervalues():
             Parser.check_for_undefined(p, name, init_expr, [])
             Parser.check_for_undefined(p, name, update_expr, allvars)
+
 
         if emitters is None:
             emitters = [sexpr.NamedAttributeRef(v) for v in statemods.keys()]
@@ -844,6 +843,8 @@ class Parser(object):
             raise JoinColumnCountMismatchException()
         p[0] = ('JOIN', p[3], p[5])
 
+
+
     @staticmethod
     def p_join_argument_list(p):
         'join_argument : expression COMMA LPAREN column_ref_list RPAREN'
@@ -973,6 +974,7 @@ class Parser(object):
         :return: An emit expression and a StateVar list.  All expressions
         have no free variables.
         """
+
         assert isinstance(func, StatefulFunc)
         state_var_names = func.statemods.keys()
 
@@ -985,6 +987,7 @@ class Parser(object):
             # Convert state mod references into appropriate expressions
             update_expr = sexpr.resolve_state_vars(update_expr,  # noqa
                 state_var_names, mangle_dict)
+
             # Convert argument references into appropriate expressions
             update_expr = sexpr.resolve_function(update_expr,  # noqa
                 dict(zip(func.args, args)))
@@ -1005,18 +1008,12 @@ class Parser(object):
         :type args: list of raco.expression.Expression instances
         :return: An expression with no free variables.
         """
-        print (expr_lib)
+
         # try to get function from udf or system defined functions
         if name in Parser.udf_functions:
             func = Parser.udf_functions[name]
         else:
             func = expr_lib.lookup(name, len(args))
-
-        # else:
-        #     print("assume this is a python UDF")
-        #     func =
-            #check to see if this function exists in the myria catalog
-            #if it does, create a PyUDF with appropriate things!
 
         if func is None:
             raise NoSuchFunctionException(name, p.lineno(0))

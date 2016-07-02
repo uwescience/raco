@@ -255,5 +255,4 @@ class SQLCatalog(Catalog):
 
     def evaluate(self, plan):
         statement = self.get_sql(plan)
-        print statement
         return (tuple(t) for t in self.engine.execute(statement))

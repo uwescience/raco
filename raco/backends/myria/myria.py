@@ -18,6 +18,7 @@ from raco.expression import UnnamedAttributeRef
 from raco.expression import WORKERID, COUNTALL
 from raco.representation import RepresentationProperties
 from raco.rules import distributed_group_by, check_partition_equality
+from raco.expression import util
 
 LOGGER = logging.getLogger(__name__)
 
