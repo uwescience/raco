@@ -267,5 +267,6 @@ if(lang==functionTypes.POSTGRES):
             result = self.connection.queries()
             self.assertNotEqual(result, None)
 
+
 if __name__ == '__main__':
     unittest.main()

@@ -2885,7 +2885,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def test_pyUDF(self):
         query = """
         T1=scan(%s);
-        out = [from T1 emit PYUDF(test, T1.id, T1.dept_id) As ratio];
+        out = [from T1 emit PYUDF('test', T1.id, T1.dept_id) As ratio];
         store(out, OUTPUT);
         """ % self.emp_key
 
