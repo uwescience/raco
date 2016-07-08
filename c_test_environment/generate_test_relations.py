@@ -122,15 +122,11 @@ def gen_files():
 
 
 def need_generate(cpdir=''):
-    if not os.path.isfile(os.path.join(cpdir, 'test.db')):
-        return True
+    if os.path.isfile(os.path.join(cpdir, 'test.db')):
+        os.remove(os.path.join(cpdir, 'test.db'))
 
-    for n, _, _, nf in gen_files():
-        fname = get_name(n, nf)
-        if not os.path.isfile(os.path.join(cpdir, fname)):
-            return True
-
-    return False
+    # always re-generate the inputs
+    return True
 
 
 def generate_default(cpdir=None):
