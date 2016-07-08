@@ -818,16 +818,30 @@ class Parser(object):
         p[0] = (p[1], p[3], p[5])
 
     @staticmethod
+    def p_expression_unionall(p):
+        'expression : UNIONALL LPAREN expression_list RPAREN'
+        p[0] = ('UNIONALL', p[3])
+
+    @staticmethod
+    def p_expression_list(p):
+        """expression_list : expression COMMA expression_list
+                           | expression"""
+        if len(p) == 4:
+            p[0] = [p[1]] + p[3]
+        else:
+            p[0] = [p[1]]
+
+    @staticmethod
     def p_setop(p):
         """setop : INTERSECT
                  | DIFF
-                 | UNIONALL"""
+                 | UNION"""
         p[0] = p[1]
 
     @staticmethod
-    def p_expression_unionall_inline(p):
+    def p_expression_unionall_plus_inline(p):
         """expression : expression PLUS expression"""
-        p[0] = ('UNIONALL', p[1], p[3])
+        p[0] = ('UNIONALL', [p[1], p[3]])
 
     @staticmethod
     def p_expression_cross(p):

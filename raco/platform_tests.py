@@ -347,7 +347,7 @@ class MyriaLPlatformTests(object):
         self.check_sub_tables("""
         T1 = SCAN(%(T1)s);
         R1 = SCAN(%(R1)s);
-        un = UNIONALL(T1, R1);
+        un = UNION(T1, R1);
         STORE(un, OUTPUT);
         """, "union")
 
@@ -384,7 +384,7 @@ class MyriaLPlatformTests(object):
         A1 = [FROM Aj1 WHERE $1 < 4 EMIT $0 as x, $1 as y];
         Aj2 = JOIN(R2, a, T1, a);
         A2 = [FROM Aj2 EMIT $0 as x, $1 as y];
-        AU = UNIONALL(A1, A2);
+        AU = UNION(A1, A2);
         B = JOIN(AU, $1, AU, $0);
         out = [FROM B EMIT $0 as x, $1 as y, $3 as t];
         STORE(out, OUTPUT);""", "union_apply_and_self_join")
@@ -396,7 +396,7 @@ class MyriaLPlatformTests(object):
         A1 = [FROM T2 EMIT a, b];
         A2 = JOIN(R2, b, T2, a);
         A2b = [FROM A2 EMIT $0, $3];
-        out = UNIONALL(A1, A2b);
+        out = UNION(A1, A2b);
         STORE(out, OUTPUT);""",
                               "union_of_join")
 
@@ -405,7 +405,7 @@ class MyriaLPlatformTests(object):
         T2 = SCAN(%(T2)s);
         R2 = SCAN(%(R2)s);
         S1 = SCAN(%(S1)s);
-        A = UNIONALL(T2, R2);
+        A = UNION(T2, R2);
         B = JOIN(A, $0, S1, $0);
         out = [FROM B EMIT $0];
         STORE(out, OUTPUT);
@@ -415,7 +415,7 @@ class MyriaLPlatformTests(object):
         self.check_sub_tables("""
         T2 = SCAN(%(T2)s);
         R2 = SCAN(%(R2)s);
-        A = UNIONALL(T2, R2);
+        A = UNION(T2, R2);
         B = JOIN(A, $0, A, $0);
         out = [FROM B EMIT $0];
         STORE(out, OUTPUT);
@@ -624,7 +624,7 @@ class MyriaLPlatformTests(object):
         D3 = SCAN(%(D3)s);
         ma = select MAX(b-c) from D3;
         mi = select MIN(c-b) from D3;
-        out = UNIONALL(ma, mi);
+        out = UNION(ma, mi);
         STORE(out, OUTPUT);
         """, "aggregate_of_binop_no_key_union_double")
 

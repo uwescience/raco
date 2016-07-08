@@ -10,9 +10,5 @@ T4 = samplescan(public:adhoc:employee, .5%, WoR);
 T5 = samplescan(public:adhoc:employee, 1);
 T6 = samplescan(public:adhoc:employee, 1%);
 
-T = unionall(T1, T2);
-T = unionall(T, T3);
-T = unionall(T, T4);
-T = unionall(T, T5);
-T = unionall(T, T6);
+T = unionall(T1, T2, T3, T4, T5, T6);
 Store(T, samplescanquery);

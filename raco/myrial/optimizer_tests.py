@@ -11,8 +11,8 @@ from raco.expression import aggregate
 
 from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
-    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaDupElim,
-    MyriaGroupBy)
+    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaUnionAll,
+    MyriaDupElim, MyriaGroupBy)
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
                                  MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -1174,3 +1174,17 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # translate to COUNT(something)
         self._check_aggregate_functions_pushed(
             'count(*)', r'count[(][a-zA-Z.]+[)]', True)
+
+    def test_flatten_unionall(self):
+        """Test flattening a chain of UnionAlls"""
+        query = """
+        X = scan({x});
+        a = (select $0 from X) + [from X emit $0] + [from X emit $1];
+        store(a, a);
+        """.format(x=self.x_key)
+        lp = self.get_logical_plan(query)
+        # should be UNIONAll([UNIONAll([expr_1, expr_2]), expr_3])
+        self.assertEquals(self.get_count(lp, UnionAll), 2)
+        pp = self.logical_to_physical(lp)
+        # should be UNIONALL([expr_1, expr_2, expr_3])
+        self.assertEquals(self.get_count(pp, MyriaUnionAll), 1)
