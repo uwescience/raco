@@ -454,7 +454,7 @@ def createTupleTypeConversion(lang, state, input_tuple, result_tuple):
     )
 
 
-class CBaseUnionAll(Pipelined, algebra.Union):
+class CBaseUnion(Pipelined, algebra.Union):
 
     def produce(self, state):
         self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
@@ -462,6 +462,29 @@ class CBaseUnionAll(Pipelined, algebra.Union):
 
         self.right.produce(state)
         self.left.produce(state)
+
+    def consume(self, t, src, state):
+        unified_tuple = self.unifiedTupleType
+
+        assignment_code = \
+            createTupleTypeConversion(self.language(),
+                                      state,
+                                      t,
+                                      unified_tuple)
+
+        inner_plan_compiled = \
+            self.parent().consume(self.unifiedTupleType, self, state)
+        return assignment_code + inner_plan_compiled
+
+
+class CBaseUnionAll(Pipelined, algebra.UnionAll):
+
+    def produce(self, state):
+        self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
+        state.addDeclarations([self.unifiedTupleType.generateDefinition()])
+
+        for arg in self.args:
+            arg.produce(state)
 
     def consume(self, t, src, state):
         unified_tuple = self.unifiedTupleType

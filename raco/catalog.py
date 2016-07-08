@@ -178,6 +178,7 @@ class FromFileCatalog(Catalog):
                 current_dict = literal_eval(s)
                 current_dict[new_rel_key] = columns
                 json.dump(current_dict, schema_write)
+                schema_write.write("\n")
                 schema_write.close()
             else:
                 raise IOError("file {0} exists".format(path))
@@ -186,6 +187,7 @@ class FromFileCatalog(Catalog):
                 d = {}
                 d[new_rel_key] = columns
                 json.dump(d, fh)
+                fh.write("\n")
             fh.close()
 
     def get_num_servers(self):
