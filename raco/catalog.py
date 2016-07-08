@@ -8,7 +8,6 @@ from raco.representation import RepresentationProperties
 from raco.relation_key import RelationKey
 from raco.scheme import Scheme
 
-
 class Relation(object):
 
     def __init__(self, name, sch):
@@ -22,14 +21,11 @@ class Relation(object):
     def scheme(self):
         return self._scheme
 
-
 class FileRelation(Relation):
     pass
 
-
 class ASCIIFile(FileRelation):
     pass
-
 
 class Catalog(object):
     __metaclass__ = ABCMeta

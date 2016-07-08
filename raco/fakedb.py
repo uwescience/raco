@@ -81,12 +81,12 @@ class FakeDatabase(Catalog):
         self.partitionings[rel_key] = partitioning
 
     def add_function(self,tup):
+        print ("added function")
         return self.tables.register_function(tup)
 
     def get_function(self, name):
         if name=="":
             raise ValueError("Invalid UDF name.")
-
         return self.tables.get_function(name)
 
     def get_scheme(self, rel_key):

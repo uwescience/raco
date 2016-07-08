@@ -10,7 +10,6 @@ from raco.representation import RepresentationProperties
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra
-
 import os
 
 
@@ -146,6 +145,7 @@ def local_mock(url, request):
 
     elif url.path == '/function/register' and request.method == 'POST':
         return {'status_code':200, 'content': request.body or ""}
+
     elif url.path =='/function/test' and request.method =='GET':
         return {'status_code':200, 'content':""}
 
@@ -218,16 +218,9 @@ class TestQuery(unittest.TestCase):
             status = self.connection.get_profiling_log(17)
             self.assertNotEquals(status, None)
 
-if(lang==functionTypes.POSTGRES):
-    body = {'name': name,
-            'text': text,
-            'outputType': outType,
-            'inputSchema':inSchema.to_dict(),
-            'lang': functionTypes.POSTGRES}
-
     def test_reg_function(self):
         with HTTMock(local_mock):
-            status = self.connection.create_function('test','function text','INT_TYPE', none, "function binary")
+            status = self.connection.create_function('test','function text','INT_TYPE', 1, "function binary")
             self.assertNotEquals(status, None)
 
     def test_get_function(self):

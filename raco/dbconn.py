@@ -112,6 +112,7 @@ class DBConnection(object):
 
     def get_function(self, name):
         s = "select * from registered_udfs where name='" +str(name)+"'"
+        
         return dict(self.engine.execute(s).first())
 
     def register_function(self,tup):

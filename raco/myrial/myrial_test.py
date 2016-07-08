@@ -16,9 +16,9 @@ class MyrialTestCase(unittest.TestCase):
 
     def setUp(self):
         self.db = self.create_db()
-
         self.parser = parser.Parser()
         self.processor = interpreter.StatementProcessor(self.db)
+
 
     def parse(self, query):
         """Parse a query"""

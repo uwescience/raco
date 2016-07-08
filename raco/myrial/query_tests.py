@@ -23,6 +23,8 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
     def setUp(self):
         super(TestQueryFunctions, self).setUp()
 
+        self.db.add_function(TestQueryFunctions.test_function)
+
         self.db.ingest(TestQueryFunctions.emp_key,
                        TestQueryFunctions.emp_table,
                        TestQueryFunctions.emp_schema)
@@ -35,7 +37,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
                        TestQueryFunctions.numbers_table,
                        TestQueryFunctions.numbers_schema)
 
-        self.db.add_function(TestQueryFunctions.test_function)
+
 
     def test_scan_emp(self):
         query = """

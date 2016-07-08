@@ -486,7 +486,7 @@ class MyriaConnection(object):
                             .format(name))
 
 
-    def create_function(self, name,text, inSchema, outType, lang,binary=None):
+    def create_function(self, name,text, inSchema, outType, lang, binary=None):
         """Register a User Defined Function with Myria """
         body = None
 
