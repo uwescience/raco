@@ -37,8 +37,6 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
                        TestQueryFunctions.numbers_table,
                        TestQueryFunctions.numbers_schema)
 
-
-
     def test_scan_emp(self):
         query = """
         emp = SCAN(%s);
@@ -2893,14 +2891,12 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
         val = self.get_physical_plan(query)
 
-
-
     def test_pyUDF_uda(self):
         query = """
         uda Foo(x){
         [0 as _count,0 as _sum];
         [ _count+1, PYUDF("test",_sum,x)];
-        [ PYUDF("test",_sum,_count) ];
+        [ PYUDF('test',_sum,_count) ];
         };
 
         T1 = [from scan(%s) as t emit Foo(t.id) As mask];

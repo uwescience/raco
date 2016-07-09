@@ -7,7 +7,8 @@ representation.
 import collections
 
 from sqlalchemy import (Column, Table, MetaData, Integer, String, DateTime,
-                        Float, Boolean, LargeBinary, create_engine, select, text)
+                        Float, Boolean, LargeBinary, create_engine, select,
+                        text)
 
 from raco.scheme import Scheme
 import raco.types as types
@@ -41,11 +42,11 @@ class DBConnection(object):
 
     def __add_function_registry__(self):
         functions_schema = Scheme([("name", types.STRING_TYPE),
-                                    ("text", types.STRING_TYPE),
-                                    ("lang", types.INT_TYPE),
-                                    ("inputSchema", types.STRING_TYPE),
-                                    ("outputType", types.STRING_TYPE),
-                                    ("binary", types.BYTES_TYPE)])
+                                   ("text", types.STRING_TYPE),
+                                   ("lang", types.INT_TYPE),
+                                   ("inputSchema", types.STRING_TYPE),
+                                   ("outputType", types.STRING_TYPE),
+                                   ("binary", types.BYTES_TYPE)])
 
         columns = [Column(n, raco_to_type[t](), nullable=False)
                    for n, t in functions_schema.attributes]
@@ -111,13 +112,13 @@ class DBConnection(object):
         return collections.Counter(tuple(t) for t in self.engine.execute(s))
 
     def get_function(self, name):
-        s = "select * from registered_udfs where name='" +str(name)+"'"
-        
+        """Retrieve a function from catalog."""
+        s = "select * from registered_udfs where name=" + str(name)
         return dict(self.engine.execute(s).first())
 
-    def register_function(self,tup):
-        #tup = (name,text,lang,inputSchema,outType,binary)
+    def register_function(self, tup):
+        """Register a function in the catalog."""
         table = self.metadata.tables['registered_udfs']
         scheme = self.get_scheme('registered_udfs')
         func = [{n: v for n, v in zip(scheme.get_names(), tup)}]
-        self.engine.execute(table.insert(),func)
+        self.engine.execute(table.insert(), func)

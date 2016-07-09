@@ -112,8 +112,8 @@ def compile_expr(op, child_scheme, state_scheme):
         print(op)
         return {
             'type': op.opname(),
-            'name':op.name.get_val(),
-            'outputType':op.typ,
+            'name': op.name.get_val(),
+            'outputType': op.typ,
             'left': compile_expr(op.left, child_scheme, state_scheme),
             'right': compile_expr(op.right, child_scheme, state_scheme)
         }

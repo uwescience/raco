@@ -43,7 +43,9 @@ class FakeData(object):
 
     numbers_schema = scheme.Scheme([("id", types.LONG_TYPE),
                                     ("val", types.DOUBLE_TYPE)])
-                                    
+
     numbers_key = "public:adhoc:numbers"
 
-    test_function = ("test","function_text", 1, "id (INT_TYPE), dept_id (INT_TYPE)","INT_TYPE", "test_body")
+    test_function = ("test", "function_text", 1,
+                     "id (INT_TYPE), dept_id (INT_TYPE)",
+                     "INT_TYPE", "test_body")

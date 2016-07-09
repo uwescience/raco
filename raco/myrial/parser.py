@@ -61,7 +61,7 @@ myrial_type_map = {
     "INT": raco.types.LONG_TYPE,
     "FLOAT": raco.types.DOUBLE_TYPE,
     "BOOLEAN": raco.types.BOOLEAN_TYPE,
-    "BLOB":raco.types.BYTES_TYPE
+    "BLOB": raco.types.BYTES_TYPE
 }
 
 

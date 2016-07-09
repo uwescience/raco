@@ -209,12 +209,13 @@ def expression_contains_aggregate(ex):
     """Return True if the expression contains an aggregate."""
     return any(isinstance(sx, AggregateExpression) for sx in ex.walk())
 
+
 def set_function_outputType(ex, catalog):
     """Set output type for pythonUDF from Catalog."""
-    if(isinstance(ex,PYUDF)):
+    if(isinstance(ex, PYUDF)):
         func_info = catalog.get_function(str(ex.name))
         ex.set_typ(str(func_info['outputType']))
-        return isinstance(ex,PYUDF)
+        return isinstance(ex, PYUDF)
 
 
 def check_no_aggregate(ex, lineno):

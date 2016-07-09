@@ -67,11 +67,12 @@ EXPRESSIONS_CASE = {
                              LEN(NamedAttributeRef('str'))
                              ])),
     'flip': Function(['p'], LT(RANDOM(), NamedAttributeRef('p'))),
-    'pyudf': Function(['arg0', 'arg1','arg2'],
+    'pyudf': Function(['arg0', 'arg1', 'arg2'],
                       PYUDF(NamedAttributeRef('arg0'),
-                             NamedAttributeRef('arg1'),
-                             NamedAttributeRef('arg2')))
+                      NamedAttributeRef('arg1'),
+                      NamedAttributeRef('arg2')))
 }
+
 
 def get_arity(func_class):
     """Return the arity of built-in Myria expressions."""
@@ -85,6 +86,7 @@ def get_arity(func_class):
     else:
         # Don't handle n-ary functions automatically
         assert False
+
 
 def one_to_one_function(func_name):
     """Emit a Function object that wraps a Myria built-in expression."""

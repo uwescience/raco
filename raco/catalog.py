@@ -8,6 +8,7 @@ from raco.representation import RepresentationProperties
 from raco.relation_key import RelationKey
 from raco.scheme import Scheme
 
+
 class Relation(object):
 
     def __init__(self, name, sch):
@@ -21,11 +22,14 @@ class Relation(object):
     def scheme(self):
         return self._scheme
 
+
 class FileRelation(Relation):
     pass
 
+
 class ASCIIFile(FileRelation):
     pass
+
 
 class Catalog(object):
     __metaclass__ = ABCMeta
@@ -54,11 +58,8 @@ class Catalog(object):
         return RepresentationProperties()
 
 
-
 # Some useful Catalog implementations
-
 class FakeCatalog(Catalog):
-
     """ fake catalog, should only be used in test """
 
     def __init__(self, num_servers, child_sizes=None,
@@ -69,7 +70,7 @@ class FakeCatalog(Catalog):
         # default partitionings
         self.partitionings = {}
         # overwrite default sizes if necessary
-        self.functions={}
+        self.functions = {}
 
         if child_sizes:
             for child, size in child_sizes.items():
@@ -98,11 +99,11 @@ class FakeCatalog(Catalog):
     def get_scheme(self, rel_key):
         raise NotImplementedError()
 
-
     def get_function(self, funcName):
         """Return UDF with name = funcName"""
         if funcName in self.functions:
             return self.functions[funcName]
+
 
 class FromFileCatalog(Catalog):
 

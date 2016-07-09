@@ -298,26 +298,29 @@ class LEN(UnaryFunction):
                 self.__class__,))
         return types.LONG_TYPE
 
+
 class PYUDF(BinaryFunction):
 
     literals = []
 
-    def __init__(self, name,  left, right):
+    def __init__(self, name, left, right):
         self.name = name
         self.typ = types.BYTES_TYPE
         super(PYUDF, self).__init__(left, right)
 
     def __str__(self):
-        return "%s( %s, %s)" % (self.__class__.__name__,  self.left, self.right)
+        return "%s( %s, %s)" % (self.__class__.__name__, self.left, self.right)
 
     def __repr__(self):
-        return "{op}({n!r}, {l!r}, {r!r})".format(op=self.opname(), n=self.name, l=self.left,
-                                           r=self.right)
+        return "{op}({n!r}, {l!r}, {r!r})".format(op=self.opname(),
+                                                  n=self.name,
+                                                  l=self.left,
+                                                  r=self.right)
 
     def typeof(self, scheme, state_scheme):
         return self.typ
 
-    def set_typ(self,typ):
+    def set_typ(self, typ):
         self.typ = typ
 
     def apply(self, f):
@@ -325,7 +328,6 @@ class PYUDF(BinaryFunction):
         self.left = f(self.left)
         self.right = f(self.right)
 
-
     def evaluate(self, _tuple, scheme, state=None):
         return PYUDF(self.name, self.left.evaluate(_tuple, scheme, state),
-                   self.right.evaluate(_tuple, scheme, state))
+                     self.right.evaluate(_tuple, scheme, state))

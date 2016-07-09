@@ -23,9 +23,11 @@ POST = 'POST'
 # Enable or configure logging
 logging.basicConfig(level=logging.WARN)
 
+
 class functionTypes(object):
-  POSTGRES = 0
-  PYTHON = 1
+    POSTGRES = 0
+    PYTHON = 1
+
 
 class MyriaConnection(object):
     """Contains a connection the Myria REST server."""
@@ -483,33 +485,38 @@ class MyriaConnection(object):
 
     def list_function(self, name):
         return self._wrap_get('/function/{}'
-                            .format(name))
+                              .format(name))
 
-
-    def create_function(self, name,text, inSchema, outType, lang, binary=None):
+    def create_function(self, name, text, outType, lang, inSchema=None,
+                        binary=None):
         """Register a User Defined Function with Myria """
         body = None
 
-        if(lang==functionTypes.POSTGRES):
+        if (inSchema is None or inSchema == ""):
+            inputSchema = ""
+        else:
+            inputschema = inSchema.to_dict()
+
+        if(lang == functionTypes.POSTGRES):
             body = {'name': name,
                     'text': text,
                     'outputType': outType,
-                    'inputSchema':inSchema.to_dict(),
+                    'inputSchema': inputSchema,
                     'lang': functionTypes.POSTGRES}
-        elif(lang==functionTypes.PYTHON):
-            if(binary==None or outType==None):
-                raise MyriaError("Cannot create a python function without binary or output schema.")
-            else :
+        elif(lang == functionTypes.PYTHON):
+            if(binary is None or outType is None):
+                raise MyriaError("Cannot create a python function.")
+            else:
                 functionBody = cloud.serialization.cloudpickle.dumps(binary, 2)
                 encodedFunctionBody = base64.urlsafe_b64encode(functionBody)
-                body = {'name':name,
-                        'text':text,
-                        'outputType':outType,
-                        'inputSchema':inSchema.to_dict(),
-                        'lang':functionTypes.PYTHON,
-                        'binary': encodedFunctionBody }
+                body = {'name': name,
+                        'text': text,
+                        'outputType': outType,
+                        'inputSchema': inputSchema,
+                        'lang': functionTypes.PYTHON,
+                        'binary': encodedFunctionBody}
 
-        if (body==None):
+        if (body is None):
             raise MyriaError("Unsupported language for user function.")
 
         return self._make_request(POST, '/function/register', json.dumps(body))
