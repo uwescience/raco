@@ -2514,13 +2514,13 @@ class GrappaAlgebra(Algebra):
                 rules.OneToOne(
                     algebra.GroupBy,
                     groupby_classes['global'])]
-            groupby_class = groupby_classes['global'],
+            groupby_class = groupby_classes['global']
         elif groupby_sematics == 'partition':
             groupby_rules = rules.distributed_group_by(
                 groupby_classes['partition'],
                 countall_rule=False,
                 only_fire_on_multi_key=groupby_classes['global'])
-            groupby_class = groupby_classes['partition'],
+            groupby_class = groupby_classes['partition']
         else:
             raise ValueError(
                 "groupby_semantics must be one of {global, partition}")
