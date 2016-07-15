@@ -1,5 +1,6 @@
 from raco import expression
 from raco import scheme
+from raco import types
 from raco.utility import Printable, real_str
 
 from abc import ABCMeta, abstractmethod
@@ -657,7 +658,9 @@ class StringSplit(UnaryOperator):
         UnaryOperator.copy(self, other)
 
     def scheme(self):
-        return self.input.scheme()
+        split_column_name = self.input.scheme().getName(self.split_column.get_position(self.input.scheme()))
+        split_values_column_name = "%s_splits" % split_column_name
+        return self.input.scheme() + scheme.Scheme(attributes=[(split_values_column_name, types.STRING_TYPE)])
 
     def shortStr(self):
         return "%s(%s, '%s')" % (self.opname(), self.split_column.get_position(self.scheme()), self.regex)
