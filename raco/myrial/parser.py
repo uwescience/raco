@@ -659,6 +659,11 @@ class Parser(object):
         p[0] = (p[1], p[3])
 
     @staticmethod
+    def p_string_split(p):
+        'expression : SPLIT LPAREN unreserved_id COMMA column_ref COMMA STRING_LITERAL RPAREN'
+        p[0] = ('SPLIT', p[3], p[5], p[7])
+
+    @staticmethod
     def p_literal_arg(p):
         """literal_arg : STRING_LITERAL
                        | INTEGER_LITERAL

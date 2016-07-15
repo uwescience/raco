@@ -316,6 +316,11 @@ class ExpressionProcessor(object):
         condition = reduce(andify, join_conditions)
         return raco.algebra.Join(condition, left, right)
 
+    def split(self, _id, column_ref, regex):
+        alias_expr = ("ALIAS", _id)
+        child_op = self.evaluate(alias_expr)
+        split_column = get_unnamed_ref(column_ref, child_op.scheme(), 0)
+        return raco.algebra.StringSplit(input=child_op, split_column=split_column, regex=regex)
 
 class StatementProcessor(object):
 
