@@ -194,7 +194,7 @@ class SparkConnection(object):
             return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition))
         if isinstance(plan, SparkStore):
             # change with actual save later
-            self.execute_rec(plan.input).count()
+            print self.execute_rec(plan.input).count()
             # return self.execute_rec(plan.input).rdd.saveAsTextFile(plan.relation_key.split(':')[-1])
         if isinstance(plan, SparkStoreTemp):
             print 'SparkStoreTemp', plan.name
