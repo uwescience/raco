@@ -197,7 +197,7 @@ class SparkConnection(object):
             result = self.execute_rec(plan.input)
             print result.count()
             result.show(n=10)
-            result.rdd.saveAsTextFile(plan.relation_key.split(':')[-1])
+            result.rdd.saveAsTextFile(str(plan.relation_key).split(':')[-1])
             # return self.execute_rec(plan.input).rdd.saveAsTextFile(plan.relation_key.split(':')[-1])
         if isinstance(plan, SparkStoreTemp):
             print 'SparkStoreTemp', plan.name
