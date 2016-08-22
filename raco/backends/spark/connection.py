@@ -37,6 +37,7 @@ class SparkConnection(object):
     def get_df(self, df_name):
         rel_location="hdfs://{master}:9010/user/root/{rel}".format(master=self.masterhostname, rel=df_name)
         time_start = time.time()
+        print rel_location
         df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(rel_location)
         df.cache()
         time_end = time.time()
