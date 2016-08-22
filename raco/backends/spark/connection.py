@@ -33,16 +33,6 @@ class SparkConnection(object):
         self.context.setLogLevel("WARN")
         self.sqlcontext = SQLContext(self.context)
         self.singletons = []
-        #print self.sqlcontext.getConf('tungsten.enabled', 'sad')
-        #print self.sqlcontext.getConf('inMemoryColumnarStorage.batchSize', '999999')
-        #print self.sqlcontext.getConf('autoBroadcastJoinThreshold', '999999')
-        #self.sqlcontext.setConf('tungsten.enabled','false')
-        #self.sqlcontext.setConf('inMemoryColumnarStorage.batchSize','1000000')
-        #self.sqlcontext.setConf('autoBroadcastJoinThreshold','104857600')
-        ##self.sqlcontext.setConf('spark.sql.tungsten.enabled','false')
-        #print self.sqlcontext.getConf('tungsten.enabled', 'sad')
-        #print self.sqlcontext.getConf('inMemoryColumnarStorage.batchSize', '999999')
-        #print self.sqlcontext.getConf('autoBroadcastJoinThreshold', '999999')
 
     def get_df(self, df_name):
         time_start = time.time()
@@ -156,7 +146,7 @@ class SparkConnection(object):
             self.sqlcontext.registerDataFrameAsTable(self.execute_rec(plan.input), temp_table_name)
             # Todo: Fix expr to have proper aliases
             rename_str = ', '.join([remove_unnamed_literals(plan.input, expr) + ' as ' + str(col) for (col, expr) in plan.emitters])
-            # print rename_str
+            print rename_str
             return self.sqlcontext.sql('select {} from {}'.format(rename_str, temp_table_name))
         if isinstance(plan, SparkGroupBy):
             agg_dict = {}

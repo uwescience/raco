@@ -19,18 +19,16 @@ import raco.viz
 import os
 
 def get_myria_connection():
-    rest_url = 'https://rest.myria.cs.washington.edu:1776'
-    execution_url = 'http://demo.myria.cs.washington.edu'
-    connection = MyriaConnection(rest_url=rest_url,
-                                 execution_url=execution_url)
+    execution_url = os.environ.get('MYRIAX_REST_HOST', 'localhost')
+    connection = MyriaConnection(hostname=execution_url, port=8753)
     return connection
 
 def get_spark_connection():
-    master = open("/root/spark-ec2/cluster-url").read().strip()
-    connection = SparkConnection(master)
-    return connection
+    masterHostname = os.environ.get('sparkurl', 'localhost')
+    return SparkConnection("spark://{masterHostname}:7077".format(masterHostname=masterHostname))
 
-masterHostname = open("/root/spark-ec2/masters").read().strip()
+# masterHostname = open("/root/spark-ec2/masters").read().strip()
+masterHostname = os.environ.get('sparkurl', 'localhost')
 
 program_mcl = """
 matA = scan('hdfs://{masterhostname}:9000/data/undirNet_1000.matrix_small.dat');
@@ -91,13 +89,18 @@ while continue;
 store (newchaos, '/users/shrainik/downloads/output.dat');
 """.format(masterhostname=masterHostname)
 
+program="""
+t = scan('hdfs://{masterhostname}:9000/data');
+store(t, test1);
+""".format(masterhostname=masterHostname)
+
 myriaconn = get_myria_connection()
 sparkconn = get_spark_connection()
 
 myriacatalog = MyriaCatalog(myriaconn)
 sparkcatalog = SparkCatalog(sparkconn)
 
-myrial_code = program_mcl
+myrial_code = program
 
 catalog = FederatedCatalog([myriacatalog, sparkcatalog])
 parser = myrialparser.Parser()
