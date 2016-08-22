@@ -18,12 +18,7 @@ class SparkCatalog(Catalog):
                 "no schema for relation %s because no connection" % rel_key)
 
         try:
-            print str(rel_key)
-            if str(rel_key).startswith('hdfs://'):
-                df = self.connection.get_df(str(rel_key))
-                df_scheme = df.dtypes
-            else:
-                df_scheme = self.connection.get_df(rel_key.relation).dtypes
+            df_scheme = self.connection.get_df(rel_key.relation).dtypes
             return scheme.Scheme([(i, self.types_dict[j]) for (i, j) in df_scheme])
         except Exception as e:
             # TODO: pass through other errors.
@@ -39,10 +34,7 @@ class SparkCatalog(Catalog):
 
         try:
             return 10000
-            if str(rel_key).startswith('hdfs://'):
-                return self.connection.get_df(str(rel_key)).count()
-            else:
-                return self.connection.get_df(rel_key.relation).count()
+            return self.connection.get_df(rel_key.relation).count()
         except:
             # TODO: pass through other errors.
             raise LookupError('No relation {} in the catalog'.format(rel_key))

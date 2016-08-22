@@ -35,8 +35,9 @@ class SparkConnection(object):
         self.singletons = []
 
     def get_df(self, df_name):
+        rel_location="hdfs://{master}:9000/{rel}".format(master=self.connection.masterhostname, rel=df_name)
         time_start = time.time()
-        df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(df_name)
+        df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(rel_location)
         df.cache()
         time_end = time.time()
         print (time_end-time_start)  
@@ -118,11 +119,7 @@ class SparkConnection(object):
 
     def execute_rec(self, plan):
         if isinstance(plan, SparkScan):
-            print str(plan.relation_key)
-            if str(plan.relation_key).startswith('hdfs://'):
-                return self.get_df(str(plan.relation_key))
-            else:
-                return self.get_df(str(plan.relation_key).split(':')[-1])
+            return self.get_df(plan.relation_key.relation)
         if isinstance(plan, SparkScanTemp):
             df_temp = self.sqlcontext.sql("Select * from {}".format(plan.name))
             # if plan.name == 'prunedA':
