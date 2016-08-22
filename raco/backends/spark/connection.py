@@ -35,7 +35,7 @@ class SparkConnection(object):
         self.singletons = []
 
     def get_df(self, df_name):
-        rel_location="hdfs://{master}:9010/{rel}".format(master=self.masterhostname, rel=df_name)
+        rel_location="hdfs://{master}:9000/{rel}".format(master=self.masterhostname, rel=df_name)
         time_start = time.time()
         print rel_location
         df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(rel_location)
