@@ -18,6 +18,7 @@ class SparkCatalog(Catalog):
                 "no schema for relation %s because no connection" % rel_key)
 
         try:
+            print str(rel_key)
             if str(rel_key).startswith('hdfs://'):
                 df = self.connection.get_df(str(rel_key))
                 df_scheme = df.dtypes

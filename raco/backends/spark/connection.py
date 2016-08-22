@@ -118,6 +118,7 @@ class SparkConnection(object):
 
     def execute_rec(self, plan):
         if isinstance(plan, SparkScan):
+            print str(plan.relation_key)
             if str(plan.relation_key).startswith('hdfs://'):
                 return self.get_df(str(plan.relation_key))
             else:
