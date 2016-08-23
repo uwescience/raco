@@ -25,7 +25,6 @@ class FederatedCatalog(Catalog):
         for cat in self.catalogs:
             try:
                 response = getattr(cat, method)(rel_key)
-                print response
                 return (cat, response)
             except LookupError:
                 continue
