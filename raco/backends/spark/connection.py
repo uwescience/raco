@@ -10,7 +10,7 @@ __all__ = ['FederatedConnection']
 # Append pyspark to Python Path
 #sys.path.append(os.path.join(os.environ['SPARK_HOME'],"python"))
 
-
+import os
 from pyspark import SparkContext
 from pyspark import SparkConf
 from pyspark.sql.types import *
@@ -182,6 +182,8 @@ class SparkConnection(object):
             result = self.execute_rec(plan.input)
             count =  result.count()
             result.show(n=10)
+            # TEMP FIX to support overwrite
+            os.system('~/ephemeral-hdfs/bin/hadoop fs -rmr /user/root/'+str(plan.relation_key).split(':')[-1]);
             result.rdd.saveAsTextFile(str(plan.relation_key).split(':')[-1])
             return (count, str(plan.relation_key).split(':')[-1])
         if isinstance(plan, SparkStoreTemp):
