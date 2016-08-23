@@ -26,7 +26,10 @@ class FederatedCatalog(Catalog):
             try:
                 response = getattr(cat, method)(rel_key)
                 return (cat, response)
-            except MyriaError, LookupError:
+            except LookupError:
+                continue
+            except MyriaError:
+                print 'Relation not present in Myria'
                 continue
 
         if not sch:
