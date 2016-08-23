@@ -236,22 +236,25 @@ class SparkConnection(object):
             return
         if isinstance(plan, SparkSequence):
             for child in plan.children():
-                self.execute_rec(child)
+                count, name = self.execute_rec(child)
+            return (count, name)
         if isinstance(plan, SparkDoWhile):
             cond = True
             num_children = len(plan.children())
             num_iterations = 4
             itercount = 1
+            count = None
+            name = None
             while(cond and itercount<num_iterations):
                 for i in range(0,num_children-1):
                     print 'child: ', i,':      ', plan.children()[i]
-                    self.execute_rec(plan.children()[i])
+                    count, name = self.execute_rec(plan.children()[i])
                 print 'Evaluating condition: ', plan.children()[-1]
                 cond = self.execute_rec(plan.children()[-1]).first()['_COLUMN0_']
                 #cond = self.execute_rec(plan.children()[-1]).collect()[0]['_COLUMN0_']
                 num_iterations += 1
                 # print cond, type(cond)
-
+            return (count, name)
     def remove_unnamed_literals(scheme, expression):
         ex = str(expression)
         for i in range(len(scheme)):
