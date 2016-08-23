@@ -4,6 +4,7 @@ from raco.backends.scidb.catalog import SciDBCatalog
 from raco.backends.spark.catalog import SparkCatalog
 from raco.types import INT_TYPE, FLOAT_TYPE
 from raco.representation import RepresentationProperties
+from raco.backends.myria.errors import MyriaError
 
 class FederatedCatalog(Catalog):
 
@@ -25,7 +26,7 @@ class FederatedCatalog(Catalog):
             try:
                 response = getattr(cat, method)(rel_key)
                 return (cat, response)
-            except LookupError:
+            except MyriaError, LookupError:
                 continue
 
         if not sch:
