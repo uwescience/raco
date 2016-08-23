@@ -27,6 +27,7 @@ class FederatedCatalog(Catalog):
                 response = getattr(cat, method)(rel_key)
                 return (cat, response)
             except LookupError:
+                print 'this shouldnt happen'
                 continue
             except Exception:
                 print 'Relation not present try other catalogs'
