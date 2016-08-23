@@ -97,7 +97,7 @@ class SparkConnection(object):
         # print 'dot version after spark rules'
         # print raco.viz.operator_to_dot(physical_plan)
         #
-        self.execute_rec(query)
+        return self.execute_rec(query)
 
     def condExprToSparkCond(self, leftdf, rightdf, plan, condition):
         # TODO: GENERALIZE TO OTHER CONDITIONS
