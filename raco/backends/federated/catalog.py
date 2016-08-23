@@ -28,8 +28,8 @@ class FederatedCatalog(Catalog):
                 return (cat, response)
             except LookupError:
                 continue
-            except MyriaError:
-                print 'Relation not present in Myria'
+            except Exception:
+                print 'Relation not present try other catalogs'
                 continue
 
         if not sch:
