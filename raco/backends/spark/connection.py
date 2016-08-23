@@ -36,12 +36,9 @@ class SparkConnection(object):
 
     def get_df(self, df_name):
         rel_location="hdfs://{master}:9000/{rel}".format(master=self.masterhostname, rel=df_name)
-        time_start = time.time()
         print rel_location
         df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(rel_location)
         df.cache()
-        time_end = time.time()
-        print (time_end-time_start)  
         return df
 
     def workers(self):
