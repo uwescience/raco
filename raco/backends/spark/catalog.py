@@ -2,7 +2,7 @@ from raco.catalog import Catalog
 import raco.scheme as scheme
 from operator import mul
 
-from raco.types import INT_TYPE, FLOAT_TYPE
+from raco.types import INT_TYPE, FLOAT_TYPE, STRING_TYPE
 from raco.representation import RepresentationProperties
 
 class SparkCatalog(Catalog):
@@ -10,7 +10,7 @@ class SparkCatalog(Catalog):
 
     def __init__(self, connection):
         self.connection = connection
-        self.types_dict = {'int64':INT_TYPE, 'int32': INT_TYPE, 'int16': INT_TYPE, 'int': INT_TYPE, 'float64': FLOAT_TYPE, 'float': FLOAT_TYPE, 'double': FLOAT_TYPE}
+        self.types_dict = {'int64':INT_TYPE, 'int32': INT_TYPE, 'int16': INT_TYPE, 'int': INT_TYPE, 'float64': FLOAT_TYPE, 'float': FLOAT_TYPE, 'double': FLOAT_TYPE, 'string':STRING_TYPE}
 
     def get_scheme(self, rel_key):
         if not self.connection:
@@ -19,7 +19,6 @@ class SparkCatalog(Catalog):
 
         try:
             df_scheme = self.connection.get_df(rel_key.relation).dtypes
-            print df_scheme
             return scheme.Scheme([(i, self.types_dict[j]) for (i, j) in df_scheme])
         except Exception as e:
             # TODO: pass through other errors.
