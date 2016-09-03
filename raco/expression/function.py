@@ -297,3 +297,27 @@ class LEN(UnaryFunction):
             raise TypeSafetyViolation("Must be a string for %s" % (
                 self.__class__,))
         return types.LONG_TYPE
+
+
+class SPLIT(BinaryFunction):
+    literals = ["SPLIT"]
+
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        return types.STRING_TYPE
+
+
+class SEQUENCE(UnaryFunction):
+    literals = ["SEQUENCE"]
+
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        if input_type != types.LONG_TYPE:
+            raise TypeSafetyViolation("Must be an integer for %s" % (
+                self.__class__,))
+        return types.LONG_TYPE
