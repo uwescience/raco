@@ -199,17 +199,19 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
             }
 
         else:
-            encoding = dict({
-                "opType": "FileScan",
-                "schema": scheme_to_schema(self.scheme()),
-                "source": self.get_source(self.path)
-            }, **self.options)
+            encoding = {
+                "opType": "TupleSource",
+                "reader": dict({
+                    "readerType": "CSV",
+                    "schema": scheme_to_schema(self.scheme())
+                }, **self.options),
+                "source": {
+                    "dataType": "URI",
+                    "uri": self.path
+                }
+            }
 
         return encoding
-
-    @staticmethod
-    def get_source(uri, type='URI'):
-        return {"dataType": type, "uri": uri}
 
 
 class MyriaLimit(algebra.Limit, MyriaOperator):
@@ -347,7 +349,7 @@ class MyriaSink(algebra.Sink, MyriaOperator):
 
     def compileme(self, inputid):
         return {
-            "opType": "SinkRoot",
+            "opType": "EmptySink",
             "argChild": inputid,
         }
 
