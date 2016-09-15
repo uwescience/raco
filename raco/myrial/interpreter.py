@@ -438,6 +438,15 @@ class StatementProcessor(object):
         uses_set = self.ep.get_and_clear_uses_set()
         self.cfg.add_op(op, None, uses_set)
 
+    def stream(self, _id):
+        alias_expr = ("ALIAS", _id)
+        child_op = self.ep.evaluate(alias_expr)
+
+        op = raco.algebra.Stream(child_op)
+
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, None, uses_set)
+
     def dump(self, _id):
         alias_expr = ("ALIAS", _id)
         child_op = self.ep.evaluate(alias_expr)

@@ -1941,6 +1941,26 @@ class Sink(UnaryOperator):
         return "{op}({pl!r})".format(op=self.opname(), pl=self.input)
 
 
+class Stream(UnaryOperator):
+
+    """Stream query results back to the client."""
+
+    def __init__(self, input=None):
+        UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
+
+    def shortStr(self):
+        return "{op}".format(op=self.opname())
+
+    def __repr__(self):
+        return "{op}({pl!r})".format(op=self.opname(), pl=self.input)
+
+
 class Parallel(NaryOperator):
 
     """Execute a set of independent plans in parallel."""

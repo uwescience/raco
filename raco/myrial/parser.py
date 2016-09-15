@@ -566,6 +566,11 @@ class Parser(object):
         p[0] = ('SINK', p[3])
 
     @staticmethod
+    def p_statement_stream(p):
+        'statement : STREAM LPAREN unreserved_id RPAREN SEMI'  # noqa
+        p[0] = ('STREAM', p[3])
+
+    @staticmethod
     def p_statement_dump(p):
         'statement : DUMP LPAREN unreserved_id RPAREN SEMI'
         p[0] = ('DUMP', p[3])

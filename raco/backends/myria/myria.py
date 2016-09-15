@@ -388,6 +388,33 @@ class MyriaSink(algebra.Sink, MyriaOperator):
         }
 
 
+class MyriaStreamingSink(algebra.Stream, MyriaOperator):
+
+    """A Myria StreamingSink"""
+
+    def __init__(self, input):
+        algebra.UnaryOperator.__init__(self, input)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def partitioning(self):
+        # TODO: have a way to say it is on a specific worker
+        return RepresentationProperties()
+
+    def shortStr(self):
+        return "%s" % self.opname()
+
+    def compileme(self, inputid):
+        return {
+            "opType": "StreamingSink",
+            "argChild": inputid,
+        }
+
+    def __repr__(self):
+        return "{op}({inp!r})".format(op=self.opname(), inp=self.input)
+
+
 class MyriaAppendTemp(algebra.AppendTemp, MyriaOperator):
 
     def compileme(self, inputid):
@@ -620,6 +647,14 @@ class MyriaCollect(algebra.Collect, MyriaOperator):
 
     def compileme(self, inputid):
         raise NotImplementedError('shouldn''t ever get here, should be turned into CP-CC pair')  # noqa
+
+
+class MyriaStream(algebra.Stream, MyriaOperator):
+
+    """Represents a streaming sink operator"""
+
+    def compileme(self, inputid):
+        raise NotImplementedError('shouldn''t ever get here, should be turned into CP-CC-StreamingSink triple')  # noqa
 
 
 class MyriaDupElim(algebra.Distinct, MyriaOperator):
@@ -1838,6 +1873,18 @@ class GetCardinalities(rules.Rule):
         return expr
 
 
+class ExpandStreamSink(rules.Rule):
+
+    def fire(self, expr):
+        if not isinstance(expr, MyriaStream):
+            return expr
+
+        producer = MyriaCollectProducer(expr.input, None)
+        consumer = MyriaCollectConsumer(producer)
+        sink = MyriaStreamingSink(consumer)
+        return sink
+
+
 # 6. shuffle logics, hyper_cube_shuffle_logic is only used in HCAlgebra
 left_deep_tree_shuffle_logic = [
     ShuffleBeforeSetop(),
@@ -1875,6 +1922,7 @@ myriafy = [
     rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
     rules.OneToOne(algebra.Limit, MyriaLimit),
     rules.OneToOne(algebra.Sink, MyriaSink),
+    rules.OneToOne(algebra.Stream, MyriaStream),
     rules.OneToOne(algebra.IDBController, MyriaIDBController),
 ]
 
@@ -1904,7 +1952,7 @@ class MyriaAlgebra(Algebra):
         MyriaScanTemp,
         MyriaFileScan,
         MyriaEmptyRelation,
-        MyriaSingleton
+        MyriaSingleton,
     )
 
 
@@ -2189,6 +2237,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             [AddAppendTemp()],
             break_communication,
             idb_until_convergence(kwargs.get('async_ft')),
+            [ExpandStreamSink()],
         ]
 
         if kwargs.get('add_splits', True):
@@ -2243,7 +2292,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             rules.push_select,
             distributed_group_by(MyriaGroupBy),
             [rules.DeDupBroadcastInputs()],
-            hyper_cube_shuffle_logic
+            hyper_cube_shuffle_logic,
         ]
 
         if kwargs.get('push_sql', False):
@@ -2252,7 +2301,8 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
         compile_grps_sequence = [
             myriafy,
             [AddAppendTemp()],
-            break_communication
+            break_communication,
+            [ExpandStreamSink()],
         ]
 
         if kwargs.get('add_splits', True):
@@ -2430,7 +2480,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan,
     string and passed along unchanged."""
 
     # Store/StoreTemp is a reasonable physical plan... for now.
-    root_ops = (algebra.Store, algebra.StoreTemp, algebra.Sink)
+    root_ops = (algebra.Store, algebra.StoreTemp, algebra.Sink, algebra.Stream)
     if isinstance(physical_plan, root_ops):
         physical_plan = algebra.Parallel([physical_plan])
 
