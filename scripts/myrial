@@ -61,8 +61,6 @@ def parse_options(args):
                        action='store_true')
     group.add_argument('-j', dest='json',
                        help="Encode plan as JSON", action='store_true')
-    group.add_argument('-r', dest='repr',
-                       help="Encode plan as Python repr", action='store_true')
     group.add_argument('-f', dest='standalone', action='store_true',
                        help='Execute the program in standalone mode')
     group.add_argument('-c', dest='radish', action='store_true',
@@ -71,6 +69,8 @@ def parse_options(args):
                        help='Output physical plan for C++ and save source program to file')
     group.add_argument('-s', dest='sparql', action='store_true',
                        help='Output an attempt at a SPARQL translation of the input program')
+    arg_parser.add_argument('-r', dest='repr',
+                            help="Encode plan as Python repr", action='store_true')
     arg_parser.add_argument('-v', dest='verbose', action='store_true',
                        help='Turn on verbose DEBUG logging')
     arg_parser.add_argument('--dot-radish', dest='dot_radish', action='store_true', help='print out dot for Grappa plan')
@@ -139,40 +139,53 @@ def main(args):
         if opt.logical:
             if opt.from_repr:
                 raise "Options logical and --plan are incompatible"
-            print_pretty_plan(processor.get_logical_plan())
+            if opt.repr:
+                print repr(processor.get_logical_plan())
+            else:
+                print_pretty_plan(processor.get_logical_plan())
 
         elif opt.dot:
             if opt.from_repr:
                 raise "Options dot and --plan are incompatible"
-
+            if opt.repr:
+                raise "Options dot and -r are incompatible"
             print operator_to_dot(processor.get_logical_plan())
         elif opt.opt_dot:
             if opt.from_repr:
                 raise "Options opt_dot and --plan are incompatible"
-
+            if opt.repr:
+                raise "Options opt_dot and -r are incompatible"
             print operator_to_dot(processor.get_physical_plan(
                 target_alg=OptLogicalAlgebra(), **kwargs))
         elif opt.dot_radish:
             if opt.from_repr:
-                raise "Options dot and --plan are incompatible"
-
+                raise "Options dot_radish and --plan are incompatible"
+            if opt.repr:
+                raise "Options dot_radish and -r are incompatible"
             print operator_to_dot(pd.get_physical_plan(target_alg=GrappaAlgebra(),**kwargs))
         elif opt.json:
+            if opt.repr:
+                raise "Options json and -r are incompatible"
             ppj = pd.get_json()
             print(json.dumps(ppj))
         elif opt.standalone:
+            if opt.repr:
+                raise "Options standalone and -r are incompatible"
             pp = pd.get_physical_plan(**kwargs)
             db = FakeDatabase()
             db.evaluate(pp)
-        elif opt.repr:
-            pp = pd.get_physical_plan(**kwargs)
-            print repr(pp)
         elif opt.opt_logical:
             if opt.from_repr:
                 raise "Options opt_logical and --plan are incompatible"
-            print_pretty_plan(processor.get_physical_plan(
-                target_alg=OptLogicalAlgebra(), **kwargs))
+            if opt.repr:
+                print repr(processor.get_physical_plan(
+                    target_alg=OptLogicalAlgebra(), **kwargs))
+            else:
+                print_pretty_plan(processor.get_physical_plan(
+                    target_alg=OptLogicalAlgebra(), **kwargs))
         elif opt.radish:
+            if opt.repr:
+                raise "Options radish and -r are incompatible"
             # some useful kwargs
             # scan_array_repr='symmetric_array'
             pp = pd.get_physical_plan(target_alg=GrappaAlgebra(),
@@ -183,15 +196,8 @@ def main(args):
             with open(fname, 'w') as f:
                 f.write(c)
         elif opt.cpp:
-            # some useful kwargs
-            # scan_array_repr='symmetric_array'
-            pp = pd.get_physical_plan(target_alg=CCAlgebra(), **kwargs)
-            print_pretty_plan(pp)
-            c = compile(pp)
-            fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
-            with open(fname, 'w') as f:
-                f.write(c)
-        elif opt.cpp:
+            if opt.repr:
+                raise "Options cpp and -r are incompatible"
             # some useful kwargs
             # scan_array_repr='symmetric_array'
             pp = pd.get_physical_plan(target_alg=CCAlgebra(), **kwargs)
@@ -201,9 +207,14 @@ def main(args):
             with open(fname, 'w') as f:
                 f.write(c)
         elif opt.sparql:
+            if opt.repr:
+                raise "Options sparql and -r are incompatible"
             pp = pd.get_physical_plan(target_alg=SPARQLAlgebra(), **kwargs)
             c = compile(pp)
             print c
+        elif opt.repr:
+            pp = pd.get_physical_plan(**kwargs)
+            print repr(pp)
         else:
             print_pretty_plan(pd.get_physical_plan(**kwargs))
 
