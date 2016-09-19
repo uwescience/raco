@@ -182,6 +182,7 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
 class MyriaFileScan(algebra.FileScan, MyriaOperator):
 
     def compileme(self):
+        print self
         if self.format == 'OPP':
             encoding = dict({
                 "opType": "SeaFlowScan",
@@ -197,19 +198,15 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
                     ".grp" if "group" not in self.options
                     else ".{}.grp".format(self.options["group"]))
             }
-
         else:
-            encoding = {
-                "opType": "TupleSource",
-                "reader": dict({
-                    "readerType": "CSV",
-                    "schema": scheme_to_schema(self.scheme())
-                }, **self.options),
+            encoding = dict({
+                "opType": "CSVFileScanFragment",
+                "schema": scheme_to_schema(self.scheme()),
                 "source": {
-                    "dataType": "URI",
-                    "uri": self.path
-                }
-            }
+                    "dataType": "S3",
+                    "s3Uri": self.path
+                },
+            }, **self.options)
 
         return encoding
 
@@ -1731,6 +1728,9 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             [AddAppendTemp()],
             break_communication
         ]
+
+        if kwargs.get('type2', True):
+            opt_grps_sequence.append([rules.removeShufflesType2()])
 
         if kwargs.get('add_splits', True):
             compile_grps_sequence.append([InsertSplit()])

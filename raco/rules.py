@@ -127,6 +127,18 @@ class removeProject(Rule):
     def __str__(self):
         return "Project => ()"
 
+class removeShufflesType2(Rule):
+
+    """A rewrite rule for removing Shuffles (only those not in lineitem)"""
+    def fire(self, expr):
+        #raco.language.myrialang.MyriaQueryScan 
+        if isinstance(expr, algebra.Shuffle):
+            return expr.input
+        return expr
+
+    def __str__(self):
+        return "Shuffle => ()"
+
 
 class OneToOne(Rule):
 
