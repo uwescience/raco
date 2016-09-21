@@ -28,15 +28,21 @@ class SparkConnection(object):
             url: Spark URL
         """
         self.url = url
-        self.masterhostname = url.split(':')[1][2:]
+        if url == 'localhost':
+            self.masterhostname = url
+            self.url = 'local[4]'
+        else:
+            self.masterhostname = url.split(':')[1][2:]
         self.context = SparkContext(self.url)
         self.context.setLogLevel("WARN")
         self.sqlcontext = SQLContext(self.context)
         self.singletons = []
 
     def get_df(self, df_name):
-        rel_location="hdfs://{master}:9000/{rel}".format(master=self.masterhostname, rel=df_name)
-        print rel_location
+        if self.masterhostname=='localhost':
+            rel_location = df_name
+        else:
+            rel_location="hdfs://{master}:9000/{rel}".format(master=self.masterhostname, rel=df_name)
         df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(rel_location)
         df.cache()
         return df
@@ -115,6 +121,23 @@ class SparkConnection(object):
                 r_df = rightdf
             return [getattr(l_df, left_cond) == getattr(r_df, right_cond)]
 
+    def matchOperatorAndDataFrameScheme(self, plan, leftdf, rightdf):
+        n_leftdf = leftdf
+        n_rightdf = rightdf
+        plan_scheme = plan.scheme()
+        # Change the right df, ie, rename columns, if necessary, nothing required to be done for left df.
+        assert len(n_leftdf.columns) == len(plan.left.scheme().get_names())
+        assert len(n_rightdf.columns) == len(plan.right.scheme().get_names())
+        cols = plan_scheme.get_names()
+        if len(n_rightdf.columns) > 0:
+            c = 0
+            proj_list = []
+            for i in range(len(n_rightdf.columns), len(cols)):
+                proj_list.append('{col} as {n_col}'.format(col=n_rightdf.columns[c], n_col=cols[i]))
+                c+=1
+            n_rightdf = rightdf.selectExpr(*(proj_list))
+        return (n_leftdf, n_rightdf)
+
     def execute_rec(self, plan):
         if isinstance(plan, SparkScan):
             return self.get_df(plan.relation_key.relation)
@@ -146,7 +169,6 @@ class SparkConnection(object):
             return self.sqlcontext.sql('select {} from {}'.format(rename_str, temp_table_name))
         if isinstance(plan, SparkGroupBy):
             agg_dict = {}
-            print 'SparkGroupBy: ', plan
             for agg in plan.aggregate_list:
                 if isinstance(agg, MIN):
                     agg_dict[str(agg.input)] = 'min'
@@ -175,6 +197,7 @@ class SparkConnection(object):
             # Todo: write separate cases for different types of join
             left = self.execute_rec(plan.left)
             right = self.execute_rec(plan.right)
+            left, right = self.matchOperatorAndDataFrameScheme(plan, left, right)
             if remove_unnamed_literals(plan, plan.condition) == "(1 = 1)": # (I don't know why the condition is 1=1 cross product)
                 return left.join(right)
             return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition))
@@ -183,6 +206,8 @@ class SparkConnection(object):
             count =  result.count()
             result.show(n=10)
             # TEMP FIX to support overwrite
+            if self.masterhostname == 'localhost':
+                return (count, str(plan.relation_key).split(':')[-1])
             os.system('~/ephemeral-hdfs/bin/hadoop fs -rmr /user/root/'+str(plan.relation_key).split(':')[-1]);
             result.rdd.saveAsTextFile(str(plan.relation_key).split(':')[-1])
             return (count, str(plan.relation_key).split(':')[-1])
