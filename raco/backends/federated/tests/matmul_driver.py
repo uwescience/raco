@@ -42,7 +42,7 @@ store(outMat, 'outMat.dat');
 program_fix = """
 matA = scan('{dataset1}');
 matB = scan('{dataset2}');
-outMat = [from matA a, matB b emit a.row as arow, b.col as bcol];
+outMat = [from matA a, matB b where a.col == b.row emit a.row as row, b.col as col, SUM(a.value*b.value) as value];
 store(outMat, 'outMat.dat');
 """
 # dataset = 'hdfs://{masterhostname}:9000/data/{mat}'

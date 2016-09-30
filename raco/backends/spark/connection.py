@@ -111,13 +111,13 @@ class SparkConnection(object):
         left_cond = remove_unnamed_literals(plan, condition.left)
         right_cond = remove_unnamed_literals(plan, condition.right)
         if isinstance(condition, EQ):
-            if left_cond in map(lambda p: p[0], plan.left.scheme().attributes):
+            if left_cond in map(lambda p: p[0], leftdf.dtypes):
                 l_df = leftdf
-            elif left_cond in map(lambda p: p[0], plan.right.scheme().attributes):
+            elif left_cond in map(lambda p: p[0], rightdf.dtypes):
                 l_df = rightdf
-            if right_cond in map(lambda p: p[0], plan.left.scheme().attributes):
+            if right_cond in map(lambda p: p[0], leftdf.dtypes):
                 r_df = leftdf
-            elif right_cond in map(lambda p: p[0], plan.right.scheme().attributes):
+            elif right_cond in map(lambda p: p[0], rightdf.dtypes):
                 r_df = rightdf
             return [getattr(l_df, left_cond) == getattr(r_df, right_cond)]
 
