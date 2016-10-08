@@ -431,10 +431,6 @@ def indentby(code, level):
 
 # iteration  over table + insertion into hash table with filter
 
-class CUnion(cppcommon.CBaseUnion, CCOperator):
-    pass
-
-
 class CUnionAll(cppcommon.CBaseUnionAll, CCOperator):
     pass
 
@@ -551,8 +547,6 @@ def clangify(emit_print):
         rules.OneToOne(algebra.GroupBy, CGroupBy),
         rules.OneToOne(algebra.Project, CProject),
         rules.OneToOne(algebra.UnionAll, CUnionAll),
-        # TODO: obviously breaks semantics
-        rules.OneToOne(algebra.Union, CUnion),
         cppcommon.StoreToBaseCStore(emit_print, CStore),
         rules.OneToOne(algebra.Sink, CSink),
 

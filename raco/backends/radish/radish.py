@@ -1412,10 +1412,6 @@ class GrappaUnionAll(cppcommon.CBaseUnionAll, GrappaOperator):
     pass
 
 
-class GrappaUnion(cppcommon.CBaseUnion, GrappaOperator):
-    pass
-
-
 # Basic materialized copy based project like serial C++
 class GrappaProject(cppcommon.CBaseProject, GrappaOperator):
     pass
@@ -2420,8 +2416,6 @@ def iteratorfy(emit_print, scan_array_repr, groupby_class):
         # rules.OneToOne(algebra.Shuffle, IGrappaShuffle),
         # rules.OneToOne(algebra.Project, GrappaProject),
         # rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
-        # TODO: obviously breaks semantics
-        # rules.OneToOne(algebra.Union, GrappaUnion),
         cppcommon.StoreToBaseCStore(emit_print, IGrappaStore),
         CrossProductWithSmall(IGrappaBroadcastCrossProduct),
         DistinctToGroupby(groupby_class)
@@ -2451,8 +2445,6 @@ def grappify(join_type, emit_print,
         rules.OneToOne(algebra.Project, GrappaProject),
         rules.OneToOne(algebra.Shuffle, GrappaShuffle),
         rules.OneToOne(algebra.UnionAll, GrappaUnionAll),
-        # TODO: obviously breaks semantics
-        rules.OneToOne(algebra.Union, GrappaUnion),
         cppcommon.StoreToBaseCStore(emit_print, GrappaStore),
         CrossProductWithSmall(),
         rules.OneToOne(algebra.Sink, GrappaSink),
