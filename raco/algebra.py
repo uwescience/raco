@@ -429,6 +429,13 @@ class UnionAll(NaryOperator):
         NaryOperator.__init__(self, children)
 
     def partitioning(self):
+        """keep the partitioning if all children are identically partitioned"""
+        for child in self.args:
+            if child.partitioning.hash_partitioned != self.args[0].partitioning.hash_partitioned:
+                return RepresentationProperties()
+        return self.args[0].partitioning
+
+    def partitioning(self):
         return RepresentationProperties()
 
     def num_tuples(self):

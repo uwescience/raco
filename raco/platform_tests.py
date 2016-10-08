@@ -63,10 +63,9 @@ class DatalogPlatformTest(object):
             "A(s1,s2,s3) :- T3(s1,s2,s3), R2(s3,s4), s1<s2, s4<9",
             "select_then_join"),
 
-    # TODO: All unions are currently treated as unionAll
-    def test_union(self):
+    def test_unionall(self):
         self.check("""A(s1) :- T1(s1)
-    A(s1) :- R1(s1)""", "union")
+    A(s1) :- R1(s1)""", "unionall")
 
     def test_swap(self):
         self.check("A(y,x) :- R2(x,y)", "swap"),
@@ -79,24 +78,24 @@ class DatalogPlatformTest(object):
         self.check("""A(x,z) :- T3(x,y,z), y < 4
     B(x,t) :- A(x,z), A(z,t)""", "apply_and_self_join")
 
-    def test_union_apply_and_self_join(self):
+    def test_unionall_apply_and_self_join(self):
         self.check("""A(x,y) :- T2(x,y), R1(x), y < 4
             A(x,y) :- R2(x,y), T1(x)
-    B(x,z,t) :- A(x,z), A(z,t)""", "union_apply_and_self_join")
+    B(x,z,t) :- A(x,z), A(z,t)""", "unionall_apply_and_self_join")
 
-    def test_union_of_join(self):
+    def test_unionall_of_join(self):
         self.check("""A(s1,s2) :- T2(s1,s2)
-    A(s1,s2) :- R2(s1,s3), T2(s3,s2)""", "union_of_join")
+    A(s1,s2) :- R2(s1,s3), T2(s3,s2)""", "unionall_of_join")
 
-    def test_union_then_join(self):
-        self.check("""A(s1,s2) :- T2(s1,s2)
-    A(s1,s2) :- R2(s1,s2)
-    B(s1) :- A(s1,s2), S1(s1)""", "union_then_join")
-
-    def test_join_of_two_unions(self):
+    def test_unionall_then_join(self):
         self.check("""A(s1,s2) :- T2(s1,s2)
     A(s1,s2) :- R2(s1,s2)
-    B(s1) :- A(s1,s2), A(s1,s3)""", "join_of_two_unions")
+    B(s1) :- A(s1,s2), S1(s1)""", "unionall_then_join")
+
+    def test_join_of_two_unionalls(self):
+        self.check("""A(s1,s2) :- T2(s1,s2)
+    A(s1,s2) :- R2(s1,s2)
+    B(s1) :- A(s1,s2), A(s1,s3)""", "join_of_two_unionalls")
 
     def test_join_swap_indexing(self):
         self.check(
@@ -342,14 +341,13 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "select_then_join")
 
-    # TODO: All unions are currently treated as unionAll
-    def test_union(self):
+    def test_unionall(self):
         self.check_sub_tables("""
         T1 = SCAN(%(T1)s);
         R1 = SCAN(%(R1)s);
-        un = UNION(T1, R1);
+        un = UNIONALL(T1, R1);
         STORE(un, OUTPUT);
-        """, "union")
+        """, "unionall")
 
     def test_swap(self):
         self.check_sub_tables("""
@@ -374,7 +372,7 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(['T3'], "apply_and_self_join")
         self.check(q, "apply_and_self_join")
 
-    def test_union_apply_and_self_join(self):
+    def test_unionall_apply_and_self_join(self):
         self.check_sub_tables("""
         T2 = SCAN(%(T2)s);
         R1 = SCAN(%(R1)s);
@@ -384,42 +382,42 @@ class MyriaLPlatformTests(object):
         A1 = [FROM Aj1 WHERE $1 < 4 EMIT $0 as x, $1 as y];
         Aj2 = JOIN(R2, a, T1, a);
         A2 = [FROM Aj2 EMIT $0 as x, $1 as y];
-        AU = UNION(A1, A2);
+        AU = UNIONALL(A1, A2);
         B = JOIN(AU, $1, AU, $0);
         out = [FROM B EMIT $0 as x, $1 as y, $3 as t];
-        STORE(out, OUTPUT);""", "union_apply_and_self_join")
+        STORE(out, OUTPUT);""", "unionall_apply_and_self_join")
 
-    def test_union_of_join(self):
+    def test_unionall_of_join(self):
         self.check_sub_tables("""
         T2 = SCAN(%(T2)s);
         R2 = SCAN(%(R2)s);
         A1 = [FROM T2 EMIT a, b];
         A2 = JOIN(R2, b, T2, a);
         A2b = [FROM A2 EMIT $0, $3];
-        out = UNION(A1, A2b);
+        out = UNIONALL(A1, A2b);
         STORE(out, OUTPUT);""",
-                              "union_of_join")
+                              "unionall_of_join")
 
-    def test_union_then_join(self):
+    def test_unionall_then_join(self):
         self.check_sub_tables("""
         T2 = SCAN(%(T2)s);
         R2 = SCAN(%(R2)s);
         S1 = SCAN(%(S1)s);
-        A = UNION(T2, R2);
+        A = UNIONALL(T2, R2);
         B = JOIN(A, $0, S1, $0);
         out = [FROM B EMIT $0];
         STORE(out, OUTPUT);
-        """, "union_then_join")
+        """, "unionall_then_join")
 
-    def test_join_of_two_unions(self):
+    def test_join_of_two_unionalls(self):
         self.check_sub_tables("""
         T2 = SCAN(%(T2)s);
         R2 = SCAN(%(R2)s);
-        A = UNION(T2, R2);
+        A = UNIONALL(T2, R2);
         B = JOIN(A, $0, A, $0);
         out = [FROM B EMIT $0];
         STORE(out, OUTPUT);
-        """, "join_of_two_unions")
+        """, "join_of_two_unionalls")
 
     def test_join_swap_indexing(self):
         q = self.myrial_from_sql(["T3", "S3", "R3"], "join_swap_indexing")
@@ -619,14 +617,14 @@ class MyriaLPlatformTests(object):
         STORE(out, OUTPUT);
         """, "aggregate_of_binop_double")
 
-    def test_aggregate_of_binop_no_key_union_double(self):
+    def test_aggregate_of_binop_no_key_unionall_double(self):
         self.check_sub_tables("""
         D3 = SCAN(%(D3)s);
         ma = select MAX(b-c) from D3;
         mi = select MIN(c-b) from D3;
-        out = UNION(ma, mi);
+        out = UNIONALL(ma, mi);
         STORE(out, OUTPUT);
-        """, "aggregate_of_binop_no_key_union_double")
+        """, "aggregate_of_binop_no_key_unionall_double")
 
     def test_turn_off_optimizations(self):
         # just testing that it doesn't break anything
@@ -694,14 +692,14 @@ class MyriaLPlatformTests(object):
         STORE(a, OUTPUT);
         """, "join_then_aggregate", join_type='symmetric_hash')
 
-    def test_union_then_aggregate(self):
+    def test_unionall_then_aggregate(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
         S2 = SCAN(%(S2)s);
         u = UNIONALL(R2, S2);
         a = select SUM($0), $1 from u;
         STORE(a, OUTPUT);
-        """, "union_then_aggregate")
+        """, "unionall_then_aggregate")
 
     def test_store_file(self):
         self.check_sub_tables("""
