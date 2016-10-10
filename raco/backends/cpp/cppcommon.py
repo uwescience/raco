@@ -170,7 +170,8 @@ class CBaseLanguage(Language):
 
         # special cases where name is not just the name,
         # for example there is a namespace preceding it
-        name = {'year': 'dates::year'}.get(name, name)
+        name = {'year': 'dates::year',
+                'abs': 'std::abs'}.get(name, name)
 
         code = "{name}({argscode})".format(
             name=name, argscode=argscode)
@@ -350,9 +351,12 @@ class StagedTupleRef(object):
         if self.__typename is None:
             fields = ""
             relsym = self.relsym
-            for i in range(0, len(self.scheme)):
-                fieldnum = i
-                fields += "_%(fieldnum)s" % locals()
+            if len(self.scheme) == 0:
+                fields = "ZERO"
+            else:
+                for i in range(0, len(self.scheme)):
+                    fieldnum = i
+                    fields += "_%(fieldnum)s" % locals()
 
             self.__typename = "MaterializedTupleRef_%(relsym)s%(fields)s" \
                               % locals()
@@ -405,12 +409,7 @@ class StagedTupleRef(object):
 
 class CBaseSelect(Pipelined, algebra.Select):
 
-    def produce(self, state):
-        self.input.produce(state)
-
-    def consume(self, t, src, state):
-        basic_select_template = _cgenv.get_template('select.cpp')
-
+    def _compile_condition(self, t, state):
         condition_as_unnamed = expression.ensure_unnamed(self.condition, self)
 
         # compile the predicate into code
@@ -419,11 +418,40 @@ class CBaseSelect(Pipelined, algebra.Select):
                 condition_as_unnamed, tupleref=t)
         state.addInitializers(cond_inits)
         state.addDeclarations(cond_decls)
+        return conditioncode
+
+    def produce(self, state):
+        self.input.produce(state)
+
+    def consume(self, t, src, state):
+        basic_select_template = _cgenv.get_template('select.cpp')
+
+        conditioncode = self._compile_condition(t, state)
 
         inner_code_compiled = self.parent().consume(t, self, state)
 
         code = basic_select_template.render(locals())
         return code
+
+
+def createTupleTypeConversion(lang, state, input_tuple, result_tuple):
+    # add declaration for function to convert from one type to the other
+    type1 = input_tuple.getTupleTypename()
+    type1numfields = len(input_tuple.scheme)
+    convert_func_name = "create_" + gensym()
+    result_type = result_tuple.getTupleTypename()
+    result_name = result_tuple.name
+    input_tuple_name = input_tuple.name
+    convert_func = lang._cgenv.get_template(
+        'materialized_tuple_create_one.cpp').render(locals())
+    state.addDeclarations([convert_func])
+
+    return lang._cgenv.get_template('tuple_type_convert.cpp').render(
+        result_type=result_type,
+        result_name=result_name,
+        convert_func_name=convert_func_name,
+        input_tuple_name=input_tuple_name
+    )
 
 
 class CBaseUnionAll(Pipelined, algebra.Union):
@@ -436,24 +464,17 @@ class CBaseUnionAll(Pipelined, algebra.Union):
         self.left.produce(state)
 
     def consume(self, t, src, state):
-        union_template = _cgenv.get_template('union.cpp')
+        unified_tuple = self.unifiedTupleType
 
-        unified_tuple_typename = self.unifiedTupleType.getTupleTypename()
-        unified_tuple_name = self.unifiedTupleType.name
-        src_tuple_name = t.name
-
-        # add declaration for function to convert from one type to the other
-        type1 = t.getTupleTypename()
-        type1numfields = len(t.scheme)
-        convert_func_name = "create_" + gensym()
-        result_type = unified_tuple_typename
-        convert_func = _cgenv.get_template(
-            'materialized_tuple_create_one.cpp').render(locals())
-        state.addDeclarations([convert_func])
+        assignment_code = \
+            createTupleTypeConversion(self.language(),
+                                      state,
+                                      t,
+                                      unified_tuple)
 
         inner_plan_compiled = \
             self.parent().consume(self.unifiedTupleType, self, state)
-        return union_template.render(locals())
+        return assignment_code + inner_plan_compiled
 
 
 class CBaseApply(Pipelined, algebra.Apply):
@@ -468,17 +489,12 @@ class CBaseApply(Pipelined, algebra.Apply):
 
         self.input.produce(state)
 
-    def consume(self, t, src, state):
-        code = self.language().comment(self.shortStr())
-
+    def _apply_statements(self, t, state):
         assignment_template = _cgenv.get_template('assignment.cpp')
-
         dst_name = self.newtuple.name
         dst_type_name = self.newtuple.getTupleTypename()
 
-        # declaration of tuple instance
-        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
-
+        code = ""
         for dst_fieldnum, src_label_expr in enumerate(self.emitters):
             dst_set_func = self.newtuple.set_func_code(dst_fieldnum)
             src_label, src_expr = src_label_expr
@@ -493,6 +509,18 @@ class CBaseApply(Pipelined, algebra.Apply):
             state.addDeclarations(expr_decls)
 
             code += assignment_template.render(locals())
+        return code
+
+    def consume(self, t, src, state):
+        code = self.language().comment(self.shortStr())
+
+        dst_name = self.newtuple.name
+        dst_type_name = self.newtuple.getTupleTypename()
+
+        # declaration of tuple instance
+        code += _cgenv.get_template('tuple_declaration.cpp').render(locals())
+
+        code += self._apply_statements(t, state)
 
         innercode = self.parent().consume(self.newtuple, self, state)
         code += innercode
@@ -542,6 +570,8 @@ from raco.algebra import ZeroaryOperator
 
 class CBaseFileScan(Pipelined, algebra.Scan):
 
+    __metaclass__ = abc.ABCMeta
+
     @abc.abstractmethod
     def __get_ascii_scan_template__(self):
         return
@@ -549,6 +579,9 @@ class CBaseFileScan(Pipelined, algebra.Scan):
     @abc.abstractmethod
     def __get_binary_scan_template__(self):
         return
+
+    def _get_input_aux_decls_template(self):
+        return None
 
     def __get_relation_decl_template__(self, name):
         """
@@ -564,7 +597,8 @@ class CBaseFileScan(Pipelined, algebra.Scan):
         # Common subexpression elimination
         # don't scan the same file twice
         resultsym = state.lookupExpr(self)
-        _LOG.debug("lookup %s(h=%s) => %s", self, self.__hash__(), resultsym)
+        _LOG.debug("lookup %s(h=%s) => %s", self, self.__hash__(),
+                   resultsym)
         if not resultsym:
             # TODO for now this will break
             # whatever relies on self.bound like reusescans
@@ -589,6 +623,11 @@ class CBaseFileScan(Pipelined, algebra.Scan):
             rel_decl_template = self.__get_relation_decl_template__(name)
             if rel_decl_template:
                 state.addDeclarations([rel_decl_template.render(locals())])
+
+            rel_aux_decl_template = self._get_input_aux_decls_template()
+
+            if rel_aux_decl_template:
+                state.addDeclarations([rel_aux_decl_template.render(locals())])
 
             # now that we have the type, format this in;
             state.setPipelineProperty('type', 'scan')
@@ -709,10 +748,13 @@ class CBaseStore(Pipelined, algebra.Store):
     def produce(self, state):
         self.input.produce(state)
 
-    def consume(self, t, src, state):
-        code = ""
+    def _add_result_declaration(self, t, state):
         resdecl = "std::vector<%s> result;\n" % (t.getTupleTypename())
         state.addDeclarations([resdecl])
+
+    def consume(self, t, src, state):
+        code = ""
+        self._add_result_declaration(t, state)
         code += "result.push_back(%s);\n" % (t.name)
 
         if self.emit_print == EMIT_CONSOLE:

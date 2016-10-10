@@ -56,6 +56,9 @@ def parse_options(args):
     group.add_argument('-d', dest='dot',
                        help="Generate dot output for logical plan",
                        action='store_true')
+    group.add_argument('-D', dest='opt_dot',
+                       help="Generate dot output for optimized logical plan",
+                       action='store_true')
     group.add_argument('-j', dest='json',
                        help="Encode plan as JSON", action='store_true')
     group.add_argument('-r', dest='repr',
@@ -143,6 +146,12 @@ def main(args):
                 raise "Options dot and --plan are incompatible"
 
             print operator_to_dot(processor.get_logical_plan())
+        elif opt.opt_dot:
+            if opt.from_repr:
+                raise "Options opt_dot and --plan are incompatible"
+
+            print operator_to_dot(processor.get_physical_plan(
+                target_alg=OptLogicalAlgebra(), **kwargs))
         elif opt.dot_radish:
             if opt.from_repr:
                 raise "Options dot and --plan are incompatible"
@@ -166,7 +175,17 @@ def main(args):
         elif opt.radish:
             # some useful kwargs
             # scan_array_repr='symmetric_array'
-            pp = pd.get_physical_plan(target_alg=GrappaAlgebra(), **kwargs)
+            pp = pd.get_physical_plan(target_alg=GrappaAlgebra(),
+                                      **kwargs)
+            print_pretty_plan(pp)
+            c = compile(pp, **kwargs)
+            fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])
+            with open(fname, 'w') as f:
+                f.write(c)
+        elif opt.cpp:
+            # some useful kwargs
+            # scan_array_repr='symmetric_array'
+            pp = pd.get_physical_plan(target_alg=CCAlgebra(), **kwargs)
             print_pretty_plan(pp)
             c = compile(pp)
             fname = '{0}.cpp'.format(os.path.splitext(os.path.basename(opt.file))[0])

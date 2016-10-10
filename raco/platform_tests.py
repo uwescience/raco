@@ -437,6 +437,14 @@ class MyriaLPlatformTests(object):
         q = self.myrial_from_sql(["R1"], "aggregate_count")
         self.check(q, "aggregate_count")
 
+    def test_aggregate_min(self):
+        q = self.myrial_from_sql(["T2"], "aggregate_min")
+        self.check(q, "aggregate_min")
+
+    def test_aggregate_max(self):
+        q = self.myrial_from_sql(["T2"], "aggregate_max")
+        self.check(q, "aggregate_max")
+
     def test_aggregate_count_group_one(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
@@ -630,6 +638,38 @@ class MyriaLPlatformTests(object):
                               no_SplitSelects=True,
                               no_MergeSelects=True,
                               no_PushSelects=True)
+
+    def test_iterator_select(self):
+        q = self.myrial_from_sql(['T1'], "select")
+        self.check(q, "select", compiler='iterator')
+
+    def test_iterator_apply(self):
+        self.check_sub_tables("""
+        T2 = SCAN(%(T2)s);
+        interm = [FROM T2 EMIT $0, $1];
+        out = [FROM interm EMIT $1];
+        STORE(out, OUTPUT);
+        """, "apply", compiler='iterator')
+
+    def test_iterator_join(self):
+        self.check_sub_tables("""
+        T3 = SCAN(%(T3)s);
+        R3 = SCAN(%(R3)s);
+        out = JOIN(T3, b, R3, b);
+        out2 = [FROM out WHERE $3 = $5 EMIT $0, $3];
+        STORE(out2, OUTPUT);
+        """, "join", compiler='iterator')
+
+    def test_iterator_aggregate_sum(self):
+        q = self.myrial_from_sql(["R1"], "aggregate_sum")
+        self.check(q, "aggregate_sum", compiler='iterator')
+
+    def test_iterator_aggregate_count_group_one(self):
+        self.check_sub_tables("""
+        R2 = SCAN(%(R2)s);
+        out = [FROM R2 EMIT b, COUNT(a)];
+        STORE(out, OUTPUT);
+        """, "aggregate_count_group_one", compiler='iterator')
 
     def test_symmetric_hash_join(self):
         self.check_sub_tables("""

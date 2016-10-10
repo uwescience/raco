@@ -17,7 +17,9 @@
         const {{tupletypename}} _t;
         return
 
-        {% if numfields == 1 %}
+        {% if numfields == 0 %}
+            0;
+        {% elif numfields == 1 %}
             sizeof(_t.f0);
          {% else %}
             ((char*)&_t.f{{numfields-1}}) + sizeof(_t.f{{numfields-1}}) - ((char*)&_t);
@@ -28,7 +30,9 @@
     static void print_representation() {
         const {{tupletypename}} _t;
 
-        {% if numfields == 1 %}
+        {% if numfields == 0 %}
+            // noop
+        {% elif numfields == 1 %}
         std::cout << _t.fieldsSize() << std::endl;
         {% else %}
         {% for i in range(1, numfields) %}
@@ -49,6 +53,7 @@
     //{{tupletypename}} (const OT& other) {
     //  std::memcpy(this, &other, sizeof({{tupletypename}}));
     //}
+    {% if numfields > 0 %}
     {{tupletypename}} ({% for ft in fieldtypes %}
                                const {{ft}}& a{{loop.index-1}}
                                {% if not loop.last %},{% endif %}
@@ -68,6 +73,7 @@
         {% endfor %}
     {% endset %}
     #}
+    {% endif %}
 
 
     {{tupletypename}}(const std::tuple<
@@ -139,10 +145,15 @@
 
     void toOStreamAscii(std::ostream& os) const {
         os
+        {% if numfields == 0 %}
+           << "" <<
+        {% else %}
         {% for i in range(numfields-1) %}
         << f{{i}} << " "
         {% endfor %}
-        << f{{numfields-1}} << std::endl;
+        << f{{numfields-1}} <<
+        {% endif %}
+        std::endl;
     }
 
     //template <typename Tuple, typename T>

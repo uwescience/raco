@@ -1,64 +1,113 @@
-# Raco in depth
+---
+layout: default
+title: RACO
+group: "docs"
+weight: 4
+section: 4
+---
 
-This document explains more usage of Raco and how to develop it (add rules, new compiler backends, new operators).
+# Using Raco directly
 
-## Command line usage
+This document explains usage of the Raco library. Most users of Myria will interact through [Myria python](http://myria.cs.washington.edu/docs/myria-python/), so who is this document for?
+
+- Users of Myria that need to hack their query plan (**no need** to edit JSON query plans manually!)
+- Developers hoping for an introduction to Raco
+- Developers that plan to write a new back end for Raco
+
+
+## Use Raco from the command line
 
 `scripts/myrial` provides Raco functionality on the command line.
 
-help
+### Help
+
+Print the help message
+
 ```bash
 scripts/myrial -h
 ```
 
-generate a logical plan for a MyriaL query in examples/
+### Logical plan
+
+Generate a logical plan for a MyriaL query in examples/
+
 ```bash
 scripts/myrial -l examples/join.myl
 ```
 
-see the physical plan, MyriaX is the default algebra to use
+### Physical plan
+
+See the physical plan, MyriaX is the default algebra to use
+
 ```bash
 scripts/myrial examples/join.myl
 ```
 
-Raco requires a catalog for MyriaL queries. All of the example queries
-use a catalog given in examples/catalog.py. See examples/catalog.py and raco/catalog.py for formatting information.
-scripts/myrial automatically searches for a catalog.py in the same directory
+### Catalog
+
+Raco requires a catalog for MyriaL queries. All of the example queries in `examples/`
+use the catalog defined in `examples/catalog.py`. See `examples/catalog.py` and `raco/catalog.py` for formatting information.
+`scripts/myrial` automatically searches for a `catalog.py` file in the same directory
 as the provided query. You can also provide a custom path.
 ```bash
 scripts/myrial --catalog=examples/catalog.py -l examples/join.myl
 ```
 
-(soon) you will also be able to specify a url of a json catalog
-or the url of a myria instance
-TODO
+To connect to the real catalog of a Myria instance, see [using Raco from python](https://github.com/uwescience/raco/blob/master/docs/index.md#use-raco-from-python).
 
-get the JSON used to submit the query plan to MyriaX REST interface
+### Compiled plan
+
+Get the JSON used to submit the query plan to MyriaX REST interface
 ```bash
 scripts/myrial -j example/join.myl
 ```
 
+### Intermediate plan files
+
 There is also a python string representation of the query plan. This is valid
 python code that you can give back to Raco.
 
-## Rule-based optimization
+```bash
+# output the plan for the query (join.raco is just a file containing python code)
+scripts/myrial -r example/join.myl >join.raco
+cat join.raco
+# run raco on the plan in join.raco instead of on a MyriaL query
+scripts/myrial --plan join.raco
+```
 
-The (non-experimental) optimization of query plans is done with a heuristic rule-based planner.
-Raco provides many useful rules in `raco/rules.py`. `Rule` is the super class of all rules. 
+## Use Raco from python
 
+You can write python scripts to construct query plans and compile them to back end systems like the Myria JSON format.
 
-### How optimization works
+Below is the boilerplate template for going from MyriaL query to JSON query plan, using the catalog from [a running Myria instance](http://myria.cs.washington.edu/docs/). Fill in your Myria hostname and the query to translate.
 
-A physical algebra provides an implementation of `opt_rules`, which just returns an ordered list
-of rules to apply. The optimizer applies each rule breadth first to the entire query plan tree, in the order specified by the list.
-This algorithm is very simplistic, but it works out okay right now (see `raco/compile.py`).
+```python
+import raco.myrial.parser as parser
+import raco.myrial.interpreter as interpreter
+from raco.backends.myria.catalog import MyriaCatalog
+from raco.backends.myria.connection import MyriaConnection
 
-### How to add a rule
+# connect to your Myria instance's catalog
+connection = MyriaConnection(
+   hostname=<url of your myria instance>,
+   port=8753,
+   ssl=False)
+catalog = MyriaCatalog(connection)
 
-1. first, just check that the rule you need or something very close doesn't already exist in `raco/rules.py` or one of the languages in `raco/language/*.py`. If it is a generic rule and you find it in one of the languages, please [submit a pull request]( moving it to `raco/rules.py`https://github.com/uwescience/raco/compare).
-2. If adding a rule, subclass `Rule` from `raco/rules.py`. You must implement two methods: `_str_` and `fire`.
-`fire` checks if the rule is applicable to the given tree. If not then it should return the tree itself. If the rule does apply then `fire` should return a transformed tree. It is okay to mutate the input tree and return it: most of Raco's rules are currently doing this instead of keeping the input immutable and copying the whole tree.
-3. Go to your algebra (e.g., `MyriaLeftDeepJoinAlgebra` in `raco/backends/myria/myria.py`) and instantiate your rule somewhere in the list returned by `opt_rules`.
+_parser = parser.Parser()
+
+statement_list = _parser.parse("""
+<put myrial query here>
+""")
+
+processor = interpreter.StatementProcessor(catalog, True)
+processor.evaluate(statement_list)
+
+# here we print the logical, physical, and json versions of the plan for illustration purposes
+print processor.get_logical_plan()
+print processor.get_physical_plan()
+print processor.get_json()
+```
 
 ### Plan manipulation
 
@@ -166,11 +215,11 @@ p = processor.get_json()
 print p
 ```
 
-## Raco development
+# Raco development
 
 Here we provide information on extending Raco.
 
-### Add a compiler backend
+## Add a compiler backend
 
 Raco currently emits code for MyriaX (+ SQL query push down into Postgres), Grappa/C++, and SQL databases. It has limited support for SciDB and SPARQL.
 
@@ -189,8 +238,25 @@ raco/backends/myria/__init__.py: provides convenient import of public members us
 Compilation from a tree of `Operator`s to the target language can be implemented in any way you want.
 For examples, see `MyriaOperator`'s `compileme` method and `GrappaOperator`'s `produce` and `consume` method.
 
-### Add a new operator
+## Add a new operator
 
 Put your new operator for `<backend>` into `raco/backends/<backend>/<backend>.py`.
 If you need to also add an operator to the logical operator, put it in `raco/algebra.py`.
+
+## Rule-based optimization
+
+The (non-experimental) optimization of query plans is done with a heuristic rule-based planner.
+Raco provides many useful rules in `raco/rules.py`. `Rule` is the super class of all rules.
+
+A physical algebra provides an implementation of `opt_rules`, which just returns an ordered list
+of rules to apply. The optimizer applies each rule breadth first to the entire query plan tree, in the order specified by the list.
+This algorithm is very simplistic, but it works out okay right now (see `raco/compile.py`).
+
+### How to add a rule
+
+1. first, just check that the rule you need or something very close doesn't already exist in `raco/rules.py` or one of the languages in `raco/language/*.py`. If it is a generic rule and you find it in one of the languages, please [submit a pull request]( moving it to `raco/rules.py`https://github.com/uwescience/raco/compare).
+2. If adding a rule, subclass `Rule` from `raco/rules.py`. You must implement two methods: `_str_` and `fire`.
+`fire` checks if the rule is applicable to the given tree. If not then it should return the tree itself. If the rule does apply then `fire` should return a transformed tree. It is okay to mutate the input tree and return it: most of Raco's rules are currently doing this instead of keeping the input immutable and copying the whole tree.
+3. Go to your algebra (e.g., `MyriaLeftDeepJoinAlgebra` in `raco/backends/myria/myria.py`) and instantiate your rule somewhere in the list returned by `opt_rules`.
+
 

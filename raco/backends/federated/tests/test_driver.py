@@ -15,20 +15,21 @@ import raco.myrial.parser as myrialparser
 from optparse import OptionParser
 
 import raco.viz
-
+import time
 import os
 
+masterHostname = os.environ.get('sparkurl', 'localhost')
 def get_myria_connection():
     execution_url = os.environ.get('MYRIAX_REST_HOST', 'localhost')
     connection = MyriaConnection(hostname=execution_url, port=8753)
     return connection
 
 def get_spark_connection():
-    masterHostname = os.environ.get('sparkurl', 'localhost')
+    if masterHostname == 'localhost':
+        return SparkConnection(masterHostname)
     return SparkConnection("spark://{masterHostname}:7077".format(masterHostname=masterHostname))
 
 # masterHostname = open("/root/spark-ec2/masters").read().strip()
-masterHostname = os.environ.get('sparkurl', 'localhost')
 
 program_mcl = """
 matA = scan('hdfs://{masterhostname}:9000/data/undirNet_1000.matrix_small.dat');
@@ -90,35 +91,39 @@ store (newchaos, '/users/shrainik/downloads/output.dat');
 """.format(masterhostname=masterHostname)
 
 program="""
-t = scan('hdfs://{masterhostname}:9000/data');
-store(t, test1);
-""".format(masterhostname=masterHostname)
-
+graph = scan('{dataset}');
+gammas = select a.row as u, b.row as v, count(*) as gamma from graph a, graph b where a.col = b.col;
+out_d = select row, count(*) as od from graph;
+out_d_sum = select a.row as u, b.row as v, a.od+b.od as sod from out_d a, out_d b where a.row != b.row;
+biggamma = select a.u, a.v, a.gamma/(b.sod - a.gamma) from gammas a, out_d_sum b where a.u = b.u and a.v = b.v;
+store(biggamma, 'outMat.dat');
+""".format(dataset='/Users/shrainik/Documents/Data/mat1')
+print program
 myriaconn = get_myria_connection()
 sparkconn = get_spark_connection()
 
 myriacatalog = MyriaCatalog(myriaconn)
 sparkcatalog = SparkCatalog(sparkconn)
 
-myrial_code = program
-
 catalog = FederatedCatalog([myriacatalog, sparkcatalog])
+start = time.time()
 parser = myrialparser.Parser()
 processor = interpreter.StatementProcessor(catalog, True)
-statement_list = parser.parse(myrial_code)
+statement_list = parser.parse(program)
 processor.evaluate(statement_list)
 
 algebras = [MyriaLeftDeepTreeAlgebra(), SparkAlgebra()]
 falg = FederatedAlgebra(algebras, catalog)
 
 logical = processor.get_logical_plan()
+print 'Logical Plan: '
+print logical
 federated_plan = processor.get_physical_plan(target_alg=falg)
-
-dot_logical = raco.viz.operator_to_dot_object(logical)
-dot_federated = raco.viz.operator_to_dot_object(federated_plan)
-
 physical_plan_spark = optimize(federated_plan, SparkAlgebra())
-phys_dot = raco.viz.operator_to_dot_object(physical_plan_spark)
+print 'Physical Plan:'
 print physical_plan_spark
 sparkconn.execute_query(physical_plan_spark)
+end = time.time()
+total = end-start
+print 'Time Taken for just execute: ', total
 

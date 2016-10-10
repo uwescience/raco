@@ -1,0 +1,59 @@
+const partition: 0.5;
+const epsilon: 0.0000106;
+
+def mod(x, n): x - int(x/n)*n;
+def cell(v): int((v - mod(v, partition)) * (1/partition));
+def is_ghost(xoffset, yoffset, zoffset):
+  case when xoffset = 0 and
+            yoffset = 0 and
+            zoffset = 0 then 0 else 1 end;
+def is_replicated(x, y, z, xoffset, yoffset, zoffset):
+  is_ghost(xoffset, yoffset, zoffset) = 0 or
+  cell(x + epsilon*xoffset) != cell(x) or
+  cell(y + epsilon*yoffset) != cell(y) or
+  cell(z + epsilon*zoffset) != cell(z);
+def distance(x1, x2, y1, y2, z1, z2): sqrt((x1-x2)*(x1-x2) +
+                                           (y1-y2)*(y1-y2) +
+                                           (z1-z2)*(z1-z2));
+
+points = load("https://s3-us-west-2.amazonaws.com/uwdb/sampleData/sampleCrossmatch/points.txt",
+              csv(schema(id:int,
+                         x:float,
+                         y:float,
+                         z:float), skip=0));
+permutations = load("https://s3-us-west-2.amazonaws.com/myria/permutations",
+                    csv(schema(xoffset:int,
+                               yoffset:int,
+                               zoffset:int), skip=0));
+
+-- Partition into a grid with edges of size partition
+-- Replicate any point that falls within epsilon of a partition boundary
+
+partitions = [from points, permutations
+              where is_replicated(x, y, z, xoffset, yoffset, zoffset)
+              emit id, x, y, z,
+                   cell(x) + xoffset as px,
+                   cell(y) + yoffset as py,
+                   cell(z) + zoffset as pz,
+                   is_ghost(xoffset, yoffset, zoffset) as ghost];
+
+-------------------------------------------
+
+-- Cross product on partition + ghost cells; no shuffle required
+local = [from partitions left,
+              partitions right
+         where left.px = right.px and
+               left.py = right.py and
+               left.pz = right.pz
+         emit *];
+
+-- Calculate distances within each local pair and filter outliers
+distances = [from local
+             where id < id1 and
+                   ghost = 0 and
+                   distance(x, x1, y, y1, z, z1) <= epsilon
+             emit id as id1,
+                  id1 as id2,
+                  distance(x, x1, y, y1, z, z1) as distance];
+
+store(distances, distances);

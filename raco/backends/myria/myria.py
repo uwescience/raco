@@ -1,23 +1,23 @@
 import itertools
 import logging
 from collections import defaultdict, deque
+from functools import reduce
 from operator import mul
 
 from sqlalchemy.dialects import postgresql
 
 from raco import algebra, expression, rules, scheme
-from raco.algebra import convertcondition
-from raco.algebra import Shuffle
-from raco.catalog import Catalog
-from raco.representation import RepresentationProperties
-from raco.backends import Language, Algebra
-from raco.backends.sql.catalog import SQLCatalog
-from raco.expression import WORKERID, COUNTALL
-from raco.expression import UnnamedAttributeRef
-from raco.datastructure.UnionFind import UnionFind
 from raco import types
-from raco.rules import distributed_group_by
-from functools import reduce
+from raco.algebra import Shuffle
+from raco.algebra import convertcondition
+from raco.backends import Language, Algebra
+from raco.backends.sql.catalog import SQLCatalog, PostgresSQLFunctionProvider
+from raco.catalog import Catalog
+from raco.datastructure.UnionFind import UnionFind
+from raco.expression import UnnamedAttributeRef
+from raco.expression import WORKERID, COUNTALL
+from raco.representation import RepresentationProperties
+from raco.rules import distributed_group_by, check_partition_equality
 
 LOGGER = logging.getLogger(__name__)
 
@@ -182,17 +182,35 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
 class MyriaFileScan(algebra.FileScan, MyriaOperator):
 
     def compileme(self):
-        encoding = dict({
-            "opType": "FileScan",
-            "source": {
-                "dataType": "URI",
-                "uri": self.path,
-            },
-        }, **self.options)
         if self.format == 'OPP':
-            encoding['opType'] = "SeaFlowScan"
+            encoding = dict({
+                "opType": "SeaFlowScan",
+                "source": self.get_source(self.path)
+            }, **self.options)
+
+        elif self.format == 'TIPSY':
+            encoding = {
+                "opType": "TipsyFileScan",
+                "tipsyFilename": self.path,
+                "iorderFilename": self.path + ".iord",
+                "grpFilename": self.path + (
+                    ".grp" if "group" not in self.options
+                    else ".{}.grp".format(self.options["group"]))
+            }
+
         else:
-            encoding['schema'] = scheme_to_schema(self.scheme())
+            encoding = {
+                "opType": "TupleSource",
+                "reader": dict({
+                    "readerType": "CSV",
+                    "schema": scheme_to_schema(self.scheme())
+                }, **self.options),
+                "source": {
+                    "dataType": "URI",
+                    "uri": self.path
+                }
+            }
+
         return encoding
 
 
@@ -331,7 +349,7 @@ class MyriaSink(algebra.Sink, MyriaOperator):
 
     def compileme(self, inputid):
         return {
-            "opType": "SinkRoot",
+            "opType": "EmptySink",
             "argChild": inputid,
         }
 
@@ -1133,17 +1151,6 @@ class CollectBeforeLimit(rules.Rule):
         return exp
 
 
-def check_partition_equality(op, representation):
-    """Check to see if the operator has the required hash partitioning.
-    @param op operator
-    @param representation list of columns hash partitioned by,
-                        in the unnamed perspective
-    @return true if the op has an equal hash partitioning to representation
-    """
-
-    return op.partitioning().hash_partitioned == frozenset(representation)
-
-
 class ShuffleBeforeSetop(rules.Rule):
 
     def fire(self, exp):
@@ -1481,14 +1488,16 @@ class AddAppendTemp(rules.Rule):
 
 class PushIntoSQL(rules.Rule):
 
-    def __init__(self, dialect=None):
+    def __init__(self, dialect=None, push_grouping=False):
         self.dialect = dialect or postgresql.dialect()
+        self.push_grouping = push_grouping
         super(PushIntoSQL, self).__init__()
 
     def fire(self, expr):
         if isinstance(expr, (algebra.Scan, algebra.ScanTemp)):
             return expr
-        cat = SQLCatalog()
+        cat = SQLCatalog(provider=PostgresSQLFunctionProvider(),
+                         push_grouping=self.push_grouping)
         try:
             sql_plan = cat.get_sql(expr)
             sql_string = sql_plan.compile(dialect=self.dialect)
@@ -1713,7 +1722,9 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
 
         if kwargs.get('push_sql', False):
             opt_grps_sequence.append([
-                PushIntoSQL(dialect=kwargs.get('dialect'))])
+                PushIntoSQL(dialect=kwargs.get('dialect'),
+                            push_grouping=kwargs.get(
+                                'push_sql_grouping', False))])
 
         compile_grps_sequence = [
             myriafy,

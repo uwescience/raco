@@ -105,12 +105,18 @@ class SparkConnection(object):
         #
         return self.execute_rec(query)
 
+    def remove_unnamed_literals(scheme, expression):
+        ex = str(expression)
+        for i in range(len(scheme)):
+                unnamed_literal = "$" + str(i)
+                ex = ex.replace(unnamed_literal, scheme.getName(i))
+        return ex
+
     def condExprToSparkCond(self, leftdf, rightdf, plan, condition):
         # TODO: GENERALIZE TO OTHER CONDITIONS
-        condition = condition.right
-        left_cond = remove_unnamed_literals(plan, condition.left)
-        right_cond = remove_unnamed_literals(plan, condition.right)
         if isinstance(condition, EQ):
+            left_cond = remove_unnamed_literals(plan, condition.left)
+            right_cond = remove_unnamed_literals(plan, condition.right)
             if left_cond in map(lambda p: p[0], leftdf.dtypes):
                 l_df = leftdf
             elif left_cond in map(lambda p: p[0], rightdf.dtypes):
@@ -120,6 +126,22 @@ class SparkConnection(object):
             elif right_cond in map(lambda p: p[0], rightdf.dtypes):
                 r_df = rightdf
             return [getattr(l_df, left_cond) == getattr(r_df, right_cond)]
+        elif isinstance(condition, NEQ):
+            left_cond = remove_unnamed_literals(plan, condition.left)
+            right_cond = remove_unnamed_literals(plan, condition.right)
+            if left_cond in map(lambda p: p[0], leftdf.dtypes):
+                l_df = leftdf
+            elif left_cond in map(lambda p: p[0], rightdf.dtypes):
+                l_df = rightdf
+            if right_cond in map(lambda p: p[0], leftdf.dtypes):
+                r_df = leftdf
+            elif right_cond in map(lambda p: p[0], rightdf.dtypes):
+                r_df = rightdf
+            return [getattr(l_df, left_cond) != getattr(r_df, right_cond)]
+        elif isinstance(condition, AND):
+            l = self.condExprToSparkCond(leftdf, rightdf, plan, condition.left)
+            r = self.condExprToSparkCond(leftdf, rightdf, plan, condition.right)
+            return l + r
 
     def matchOperatorAndDataFrameScheme(self, plan, leftdf, rightdf):
         n_leftdf = leftdf
@@ -200,7 +222,7 @@ class SparkConnection(object):
             left, right = self.matchOperatorAndDataFrameScheme(plan, left, right)
             if remove_unnamed_literals(plan, plan.condition) == "(1 = 1)": # (I don't know why the condition is 1=1 cross product)
                 return left.join(right)
-            return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition))
+            return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition.right))
         if isinstance(plan, SparkStore):
             result = self.execute_rec(plan.input)
             count =  result.count()
@@ -280,12 +302,6 @@ class SparkConnection(object):
                 num_iterations += 1
                 # print cond, type(cond)
             return (count, name)
-    def remove_unnamed_literals(scheme, expression):
-        ex = str(expression)
-        for i in range(len(scheme)):
-                unnamed_literal = "$" + str(i)
-                ex = ex.replace(unnamed_literal, scheme.getName(i))
-        return ex
 
     def validate_query(self, query):
         """Submit the query to Myria for validation only.

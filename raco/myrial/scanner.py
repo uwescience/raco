@@ -7,7 +7,7 @@ import raco.myrial.exceptions
 
 keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
             'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CSV', 'SCHEMA',
-            'OPP', 'UDA', 'TRUE', 'FALSE', 'CONNECT', 'EXPORTMYRIATOSCIDB']
+            'OPP', 'UDA', 'TRUE', 'FALSE', 'CONNECT', 'TIPSY', 'EXPORTMYRIATOSCIDB']
 
 types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN']
 

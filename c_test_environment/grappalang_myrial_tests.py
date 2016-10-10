@@ -7,6 +7,7 @@ from raco.backends.radish import GrappaAlgebra
 import raco.backends.radish as grappalang
 from raco.platform_tests import MyriaLPlatformTestHarness, MyriaLPlatformTests
 from raco.compile import compile
+import raco.backends.radish as radish_alg
 from nose.plugins.skip import SkipTest
 
 import sys
@@ -34,19 +35,30 @@ def raise_skip_test(query=None):
 
 
 class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
-    def check(self, query, name, join_type=None, emit_print='console', **kwargs):
-        gname = "grappa_{name}".format(name=name)
 
-        if join_type == 'symmetric_hash':
+    def _get_grappa_physical_plan(self, query, join_type=None, emit_print='console', **kwargs):
+        if join_type is None:
+            pass
+        elif join_type == 'symmetric_hash':
             kwargs['join_type'] = grappalang.GrappaSymmetricHashJoin
         elif join_type == 'shuffle_hash':
             kwargs['join_type'] = grappalang.GrappaShuffleHashJoin
             # FIXME: see issue #348; always skipping shuffle tests because it got broken
             raise SkipTest(query)
+        else:
+            raise NotImplementedError(
+                "join_type {} not supported".format(join_type))
 
         kwargs['target_alg'] = GrappaAlgebra(emit_print=emit_print)
 
         plan = self.get_physical_plan(query, **kwargs)
+        return plan
+
+    def check(self, query, name, join_type=None, emit_print='console', **kwargs):
+        gname = "grappa_{name}".format(name=name)
+
+        plan = self._get_grappa_physical_plan(query, join_type, emit_print, **kwargs)
+
         physical_dot = viz.operator_to_dot(plan)
 
         with open(os.path.join("c_test_environment",
@@ -56,7 +68,7 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         # generate code in the target language
         # test_mode=True turns on extra checks like assign-once instance
         #    variables for operators
-        code = compile(plan, test_mode=True)
+        code = compile(plan, test_mode=True, **kwargs)
 
         fname = os.path.join("c_test_environment", "{gname}.cpp".format(gname=gname))
         if os.path.exists(fname):
@@ -173,6 +185,122 @@ class MyriaLGrappaTest(MyriaLPlatformTestHarness, MyriaLPlatformTests):
         STORE(out2, OUTPUT);
         """, "join", join_type='shuffle_hash')
 
+    def test_while(self):
+        """
+        Test a minimal while loop
+        """
+        self.check("""
+            i = [4];
+            do
+                i = [from i emit *i - 1];
+            while [from i where *i > 0 emit *i];
+            store(i, OUTPUT);
+        """, "while")
+
+    def test_while_union_all(self):
+        """
+        Test UNIONALL into StoreTemp in a While loop
+        """
+        self.check("""
+            m = [1234];
+            do
+                m = UNIONALL(m, m);
+                cnt = select count($0) as c from m;
+                eqfive = select case
+                                when c = 8 then 0
+                                else 1
+                                 end
+                        from cnt;
+            while [from eqfive where *eqfive emit *eqfive];
+            store(m, OUTPUT);
+        """, "while_union_all")
+
+    def _while_join_query(self):
+        return """
+            s = scan(%(T3)s);
+            i = [2];
+            do
+                i = [from i emit *i - 1];
+                s = select s1.b, s1.c, s1.a from s s1, s s2 where s1.a=s2.b;
+            while [from i where *i > 0 emit *i];
+            store(s, OUTPUT);
+        """
+
+    def test_while_repeat_hash_join(self):
+        self.check_sub_tables(self._while_join_query(), "while_repeat_join")
+
+    def test_while_repeat_sym_hash_join(self):
+        self.check_sub_tables(self._while_join_query(), "while_repeat_join", join_type='symmetric_hash' )
+    
+    def test_while_repeat_groupby(self):
+        self.check_sub_tables("""
+            s = scan(%(T3)s);
+            i = [2];
+            do
+                i = [from i emit *i - 1];
+                s = select SUM(s.a) as a,
+                    s.c as b,
+                    SUM(s.b) as c from s;
+            while [from i where *i > 0 emit *i];
+            store(s, OUTPUT);
+        """, "while_repeat_groupby")
+
+    def test_expr_singleton(self):
+        self.check("""
+        alpha = [.85];
+        N = [1000];
+        min_rank = [(1 - *alpha) / *N];
+        STORE(min_rank, OUTPUT);
+        """, "expr_singleton")
+
+    def test_singleton_constant(self):
+        self.check("""
+        alpha = [.85];
+        STORE(alpha, OUTPUT);
+        """, "singleton_constant")
+
+    def test_iterator_queries_on(self):
+        p = self._get_grappa_physical_plan("""
+        r = scan(%(R3)s);
+        s = scan(%(S3)s);
+        t = select count(b) as cnt from r,s where r.b=1 and r.c=s.c;
+        z = select r.a * t.cnt from r, t;
+        STORE(z, OUTPUT);
+        """ % self.tables, compiler="iterator")
+
+        self.assertGreaterEqual(
+            self.get_count(p, radish_alg.IGrappaSelect), 1)
+        self.assertGreaterEqual(
+            self.get_count(p, radish_alg.IGrappaMemoryScan), 2)
+        self.assertEquals(self.get_count(p, radish_alg.IGrappaStore), 1)
+        self.assertEquals(self.get_count(p, radish_alg.IGrappaStore), 1)
+        self.assertEquals(self.get_count(
+            p, radish_alg.IGrappaBroadcastCrossProduct), 1)
+        self.assertEquals(self.get_count(p, radish_alg.IGrappaHashJoin), 1)
+        self.assertEquals(
+            self.get_count(p, radish_alg.IGrappaGroupBy) +
+            self.get_count(p, radish_alg.IGrappaPartitionGroupBy), 1)
+
+    def test_iterator_queries_generate(self):
+        self.check_sub_tables("""
+        r = scan(%(R3)s);
+        s = scan(%(S3)s);
+        alpha = [.85];
+        t = select count(b) as cnt from r,s where r.b=1 and r.c=s.c;
+        z = select r.a * t.cnt from r, t;
+        STORE(z, OUTPUT);
+        """, "NOSUCHQUERY", compiler="iterator")
+
+    @staticmethod
+    def get_count(op, claz):
+        """Return the count of operator instances within an operator tree."""
+
+        def count(_op):
+            if isinstance(_op, claz):
+                yield 1
+            else:
+                yield 0
+        return sum(op.postorder(count))
 
 if __name__ == '__main__':
     unittest.main()

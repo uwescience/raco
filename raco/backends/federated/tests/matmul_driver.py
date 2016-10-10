@@ -41,8 +41,7 @@ store(outMat, 'outMat.dat');
 """
 program_fix = """
 matA = scan('{dataset1}');
-matB = scan('{dataset2}');
-outMat = [from matA a, matB b where a.col == b.row emit a.row as row, b.col as col, SUM(a.value*b.value) as value];
+outMat = [from matA a, matA b where a.col == b.row emit a.row as row, b.col as col, SUM(a.value*b.value) as value];
 store(outMat, 'outMat.dat');
 """
 # dataset = 'hdfs://{masterhostname}:9000/data/{mat}'
@@ -78,11 +77,7 @@ for mat in matrices:
     print logical
     federated_plan = processor.get_physical_plan(target_alg=falg)
     
-    dot_logical = raco.viz.operator_to_dot_object(logical)
-    dot_federated = raco.viz.operator_to_dot_object(federated_plan)
-    
     physical_plan_spark = optimize(federated_plan, SparkAlgebra())
-    phys_dot = raco.viz.operator_to_dot_object(physical_plan_spark)
     print 'Physical Plan:'
     print physical_plan_spark
     sparkconn.execute_query(physical_plan_spark)

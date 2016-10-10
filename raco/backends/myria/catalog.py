@@ -2,6 +2,7 @@ from raco.catalog import Catalog
 import raco.scheme as scheme
 from raco.representation import RepresentationProperties
 from raco.expression import UnnamedAttributeRef as AttIndex
+from raco.catalog import DEFAULT_CARDINALITY
 from .errors import MyriaError
 
 
