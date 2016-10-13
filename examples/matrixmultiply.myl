@@ -1,0 +1,3 @@
+matA = scan(matrix);
+outMat = [from matA a, matA b where a.col == b.row emit a.row as row, b.col as col, SUM(a.value*b.value) as value];
+store(outMat, 'outMat.dat');

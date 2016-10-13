@@ -118,14 +118,14 @@ class GroupByToGroupByApply(rules.Rule):
     def fire(self, expr):
         if isinstance(expr, algebra.GroupBy):
             for aggr in expr.aggregate_list:
-                if not (isinstance(aggr.input, NamedAttributeRef) or isinstance(aggr.input, UnnamedAttributeRef)):
+                if not (isinstance(aggr, COUNTALL) or isinstance(aggr.input, NamedAttributeRef) or isinstance(aggr.input, UnnamedAttributeRef)):
                     # print type(aggr.input)
                     # The aggr is a function.
                     # Spark doesn't support this, so we will add an apply below groupby to evaluate the expr
                     prev_input = expr.input
                     new_col_name = aggr.__class__.__name__ + str(random.randint(1, 1000000))
-
-                    gp_col_list = map(lambda col: (str(col), UnnamedAttributeRef(expr.input.scheme().getPosition(str(col)))), expr.grouping_list)
+                    print expr.grouping_list
+                    gp_col_list = map(lambda col: (col.debug_info, col), expr.grouping_list)
                     new_input = SparkApply(gp_col_list + [(new_col_name, aggr.input)], prev_input)
                     aggr.input = NamedAttributeRef(new_col_name)
                     new_gp_list = []
@@ -242,6 +242,7 @@ def remove_unnamed_literals(plan, expression):
                 if scheme.getName(i) == '_COLUMN{}_'.format(str(i)):
                     s = str(plan.aggregate_list[i - len(plan.grouping_list)])
                     repl_str = '`{}({})`'.format(s.split('(')[0].lower(), s.split('(')[1][:-1])
+                    repl_str = remove_unnamed_literals(plan.input, repl_str) #remove recursive references
 
             ex = ex.replace(unnamed_literal, repl_str)
     return ex

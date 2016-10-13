@@ -113,10 +113,14 @@ class SparkConnection(object):
         return ex
 
     def condExprToSparkCond(self, leftdf, rightdf, plan, condition):
+        # print condition
+        # print type(condition)
         # TODO: GENERALIZE TO OTHER CONDITIONS
         if isinstance(condition, EQ):
             left_cond = remove_unnamed_literals(plan, condition.left)
             right_cond = remove_unnamed_literals(plan, condition.right)
+            if left_cond == '1' and right_cond == '1':
+                return [True]
             if left_cond in map(lambda p: p[0], leftdf.dtypes):
                 l_df = leftdf
             elif left_cond in map(lambda p: p[0], rightdf.dtypes):
@@ -141,6 +145,7 @@ class SparkConnection(object):
         elif isinstance(condition, AND):
             l = self.condExprToSparkCond(leftdf, rightdf, plan, condition.left)
             r = self.condExprToSparkCond(leftdf, rightdf, plan, condition.right)
+            print l + r
             return l + r
 
     def matchOperatorAndDataFrameScheme(self, plan, leftdf, rightdf):
@@ -187,23 +192,22 @@ class SparkConnection(object):
             self.sqlcontext.registerDataFrameAsTable(self.execute_rec(plan.input), temp_table_name)
             # Todo: Fix expr to have proper aliases
             rename_str = ', '.join([remove_unnamed_literals(plan.input, expr) + ' as ' + str(col) for (col, expr) in plan.emitters])
-            print rename_str
             return self.sqlcontext.sql('select {} from {}'.format(rename_str, temp_table_name))
         if isinstance(plan, SparkGroupBy):
             agg_dict = {}
             for agg in plan.aggregate_list:
                 if isinstance(agg, MIN):
-                    agg_dict[str(agg.input)] = 'min'
+                    agg_dict[remove_unnamed_literals(plan.input, agg.input)] = 'min'
                 elif isinstance(agg, MAX):
-                    agg_dict[str(agg.input)] = 'max'
+                    agg_dict[remove_unnamed_literals(plan.input, agg.input)] = 'max'
                 elif isinstance(agg, AVG):
-                    agg_dict[str(agg.input)] = 'avg'
+                    agg_dict[remove_unnamed_literals(plan.input, agg.input)] = 'avg'
                 elif isinstance(agg, COUNT):
-                    agg_dict[str(agg.input)] = 'count'
+                    agg_dict[remove_unnamed_literals(plan.input, agg.input)] = 'count'
                 elif isinstance(agg, COUNTALL):
                     agg_dict['*'] = 'count'
                 elif isinstance(agg, SUM):
-                    agg_dict[str(agg.input)] = 'sum'
+                    agg_dict[remove_unnamed_literals(plan.input, agg.input)] = 'sum'
                 else:
                     raise NotImplementedError("Aggregate not supported %s" % str(agg))
             if len(plan.grouping_list) == 0:
@@ -212,7 +216,7 @@ class SparkConnection(object):
             else:
                 gp_list = []
                 for col in plan.grouping_list:
-                    gp_list.append(str(col))
+                    gp_list.append(remove_unnamed_literals(plan.input, col))
                 # self.execute_rec(plan.input).groupBy(gp_list).agg(agg_dict).show()
                 return self.execute_rec(plan.input).groupBy(gp_list).agg(agg_dict)
         if isinstance(plan, SparkJoin):
@@ -220,13 +224,14 @@ class SparkConnection(object):
             left = self.execute_rec(plan.left)
             right = self.execute_rec(plan.right)
             left, right = self.matchOperatorAndDataFrameScheme(plan, left, right)
+            print left, right, plan.condition
             if remove_unnamed_literals(plan, plan.condition) == "(1 = 1)": # (I don't know why the condition is 1=1 cross product)
                 return left.join(right)
-            return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition.right))
+            return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition)[1:])
         if isinstance(plan, SparkStore):
             result = self.execute_rec(plan.input)
             count =  result.count()
-            result.show(n=10)
+            result.show(n=1000)
             # TEMP FIX to support overwrite
             if self.masterhostname == 'localhost':
                 return (count, str(plan.relation_key).split(':')[-1])

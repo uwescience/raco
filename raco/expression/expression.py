@@ -381,6 +381,7 @@ class UnnamedAttributeRef(AttributeRef):
         self.position = position
 
     def __str__(self):
+        return "${pos}".format(pos=self.position)
         if not self.debug_info:
             return "${pos}".format(pos=self.position)
         return "{dbg}".format(dbg=self.debug_info)

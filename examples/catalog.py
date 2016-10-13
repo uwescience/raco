@@ -17,4 +17,8 @@
     'public:adhoc:links_jstor' : [('p1', 'LONG_TYPE'), ('p2','LONG_TYPE')],
     'dhalperi:lineage:top_papers_jstor' : [('paper_id', 'LONG_TYPE')],
     'public:adhoc:sp2bench' : [('subject', 'STRING_TYPE'), ('predicate','STRING_TYPE'), ('object','STRING_TYPE')],
+    'public:adhoc:matrix': [('row', 'LONG_TYPE'), ('col', 'LONG_TYPE'), ('value', 'LONG_TYPE')],
+    'public:adhoc:/Users/shrainik/Documents/Data/mat1': [('row', 'LONG_TYPE'), ('col', 'LONG_TYPE'), ('value', 'LONG_TYPE')],
+    'public:adhoc:/Users/shrainik/Documents/Data/mat2': [('row', 'LONG_TYPE'), ('col', 'LONG_TYPE'), ('value', 'LONG_TYPE')],
+    'public:adhoc:/Users/shrainik/Documents/Data/btwnCent_toy_graph.matrix.dat': [('row', 'LONG_TYPE'), ('col', 'LONG_TYPE'), ('value', 'DOUBLE_TYPE')]
 }

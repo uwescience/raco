@@ -8,6 +8,7 @@ from raco.backends.federated.connection import FederatedConnection
 from raco.backends.federated.catalog import FederatedCatalog
 from raco.backends.federated import FederatedAlgebra
 from raco.backends.federated.algebra import FederatedExec
+from raco.catalog import FromFileCatalog
 from raco.compile import optimize
 
 import raco.myrial.interpreter as interpreter
@@ -90,26 +91,38 @@ while continue;
 store (newchaos, '/users/shrainik/downloads/output.dat');
 """.format(masterhostname=masterHostname)
 
+program_complete="""
+graph = scan('{dataset}');
+gammas = select a.row as u, b.row as v, count(b.value) as gamma from graph a, graph b where a.col == b.col;
+out_d = select row, count(value) as od from graph;
+out_d_sum = select a.row as u, b.row as v, a.od+b.od as sod from out_d a, out_d b;
+biggamma = select a.u, a.v, a.gamma/(b.sod - a.gamma) as jaccard_coeff from gammas a, out_d_sum b where (a.u == b.u and a.v == b.v);
+store(biggamma, 'outMat.dat');
+""".format(dataset='/Users/shrainik/Documents/Data/mat1')
+
 program="""
 graph = scan('{dataset}');
-gammas = select a.row as u, b.row as v, count(*) as gamma from graph a, graph b where a.col = b.col;
-out_d = select row, count(*) as od from graph;
-out_d_sum = select a.row as u, b.row as v, a.od+b.od as sod from out_d a, out_d b where a.row != b.row;
-biggamma = select a.u, a.v, a.gamma/(b.sod - a.gamma) from gammas a, out_d_sum b where a.u = b.u and a.v = b.v;
-store(biggamma, 'outMat.dat');
+gammas = select a.row as u, b.row as v, count(b.value) as gamma from graph a, graph b where a.col == b.col;
+out_d = select row, count(col) as od from graph;
+out_d_sum = select a.row as u, b.row as v, a.od+b.od as sod from out_d a, out_d b;
+store(gammas, 'outMat.dat');
 """.format(dataset='/Users/shrainik/Documents/Data/mat1')
 print program
 myriaconn = get_myria_connection()
 sparkconn = get_spark_connection()
 
 myriacatalog = MyriaCatalog(myriaconn)
-sparkcatalog = SparkCatalog(sparkconn)
+# sparkcatalog = SparkCatalog(sparkconn)
+# catalog = FederatedCatalog([myriacatalog, sparkcatalog])
 
-catalog = FederatedCatalog([myriacatalog, sparkcatalog])
+catalog_path = os.path.join(os.path.dirname('/Users/shrainik/Dropbox/raco/examples/'), 'catalog.py')
+catalog = FromFileCatalog.load_from_file(catalog_path)
+catalog = FederatedCatalog([myriacatalog, catalog])
+
 start = time.time()
 parser = myrialparser.Parser()
 processor = interpreter.StatementProcessor(catalog, True)
-statement_list = parser.parse(program)
+statement_list = parser.parse(program_complete)
 processor.evaluate(statement_list)
 
 algebras = [MyriaLeftDeepTreeAlgebra(), SparkAlgebra()]
@@ -120,6 +133,7 @@ print 'Logical Plan: '
 print logical
 federated_plan = processor.get_physical_plan(target_alg=falg)
 physical_plan_spark = optimize(federated_plan, SparkAlgebra())
+dot_spark = raco.viz.operator_to_dot_object(physical_plan_spark)
 print 'Physical Plan:'
 print physical_plan_spark
 sparkconn.execute_query(physical_plan_spark)
