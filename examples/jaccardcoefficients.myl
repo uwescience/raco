@@ -1,6 +1,5 @@
 graph = scan(matrix);
-gammas = select a.row as u, b.row as v, count(b.value) as gamma from graph a, graph b;
+gammas = select a.row as u, b.row as v, count(b.value) as gamma from graph a, graph b where a.col == b.col;
 out_d = select row, count(value) as od from graph;
-out_d_sum = select a.row as u, b.row as v, a.od+b.od as sod from out_d a, out_d b;
-biggamma = select a.u, a.v, a.gamma/(b.sod - a.gamma) as jaccard_coeff from gammas a, out_d_sum b where a.u = b.u and a.v = b.v;
+biggamma = select a.u, a.v, a.gamma/(b.od + c.od - a.gamma) as jaccard_coeff from gammas a, out_d b, out_d c where (a.u == b.row and a.v == c.row);
 store(biggamma, outMat);
