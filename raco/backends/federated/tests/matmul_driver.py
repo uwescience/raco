@@ -8,6 +8,7 @@ from raco.backends.federated.connection import FederatedConnection
 from raco.backends.federated.catalog import FederatedCatalog
 from raco.backends.federated import FederatedAlgebra
 from raco.backends.federated.algebra import FederatedExec
+from raco.catalog import FromFileCatalog
 from raco.compile import optimize
 
 import raco.myrial.interpreter as interpreter
@@ -44,20 +45,26 @@ matA = scan('{dataset1}');
 outMat = [from matA a, matA b where a.col == b.row emit a.row as row, b.col as col, SUM(a.value*b.value) as value];
 store(outMat, 'outMat.dat');
 """
+program_fix2 = """
+matA = scan('{dataset1}');
+matB = scan('{dataset1}');
+outMat = [from matA a, matB b where a.col == b.row emit a.row as row, b.col as col];
+store(outMat, 'outMat.dat');
+"""
 # dataset = 'hdfs://{masterhostname}:9000/data/{mat}'
 
 myriaconn = get_myria_connection()
 sparkconn = get_spark_connection()
 
 myriacatalog = MyriaCatalog(myriaconn)
-sparkcatalog = SparkCatalog(sparkconn)
+# sparkcatalog = SparkCatalog(sparkconn)
+# catalog = FederatedCatalog([myriacatalog, sparkcatalog])
 
+catalog_path = os.path.join(os.path.dirname('/Users/shrainik/Dropbox/raco/examples/'), 'catalog.py')
+catalog = FromFileCatalog.load_from_file(catalog_path)
+catalog = FederatedCatalog([myriacatalog, catalog])
 
-catalog = FederatedCatalog([myriacatalog, sparkcatalog])
-
-#matrices = ['random_N_10k_r_1.2.matrix.dat', 'random_N_50k_r_1.6.matrix.dat']
-matrices = ['/Users/shrainik/Documents/Data/mat1','/Users/shrainik/Documents/Data/mat2']
-#matrices = ['random_N_10k_r_1.2.matrix.dat', 'random_N_10k_r_1.2.matrix.dat', 'random_N_10k_r_1.3.matrix.dat', 'random_N_10k_r_1.4.matrix.dat', 'random_N_10k_r_1.5.matrix.dat', 'random_N_10k_r_1.6.matrix.dat', 'random_N_20k_r_1.2.matrix.dat', 'random_N_20k_r_1.3.matrix.dat', 'random_N_20k_r_1.4.matrix.dat', 'random_N_20k_r_1.5.matrix.dat', 'random_N_20k_r_1.6.matrix.dat', 'random_N_50k_r_1.2.matrix.dat', 'random_N_50k_r_1.3.matrix.dat', 'random_N_50k_r_1.4.matrix.dat', 'random_N_50k_r_1.5.matrix.dat', 'random_N_50k_r_1.6.matrix.dat' ]
+matrices = ['/Users/shrainik/Documents/Data/btwnCent_toy_graph.matrix.dat']
 
 print 'First experiment is just to startup spark... '
 for mat in matrices:
@@ -78,6 +85,8 @@ for mat in matrices:
     federated_plan = processor.get_physical_plan(target_alg=falg)
     
     physical_plan_spark = optimize(federated_plan, SparkAlgebra())
+    dot_spark = raco.viz.operator_to_dot_object(physical_plan_spark)
+    print dot_spark
     print 'Physical Plan:'
     print physical_plan_spark
     sparkconn.execute_query(physical_plan_spark)
