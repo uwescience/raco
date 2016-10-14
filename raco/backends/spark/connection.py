@@ -113,8 +113,6 @@ class SparkConnection(object):
         return ex
 
     def condExprToSparkCond(self, leftdf, rightdf, plan, condition):
-        # print condition
-        # print type(condition)
         # TODO: GENERALIZE TO OTHER CONDITIONS
         if isinstance(condition, EQ):
             left_cond = remove_unnamed_literals(plan, condition.left)
@@ -145,7 +143,6 @@ class SparkConnection(object):
         elif isinstance(condition, AND):
             l = self.condExprToSparkCond(leftdf, rightdf, plan, condition.left)
             r = self.condExprToSparkCond(leftdf, rightdf, plan, condition.right)
-            print l + r
             return l + r
 
     def matchOperatorAndDataFrameScheme(self, plan, leftdf, rightdf):
@@ -159,7 +156,7 @@ class SparkConnection(object):
         if len(n_rightdf.columns) > 0:
             c = 0
             proj_list = []
-            for i in range(len(n_rightdf.columns), len(cols)):
+            for i in range(len(n_leftdf.columns), len(cols)):
                 proj_list.append('{col} as {n_col}'.format(col=n_rightdf.columns[c], n_col=cols[i]))
                 c+=1
             n_rightdf = rightdf.selectExpr(*(proj_list))
@@ -224,7 +221,6 @@ class SparkConnection(object):
             left = self.execute_rec(plan.left)
             right = self.execute_rec(plan.right)
             left, right = self.matchOperatorAndDataFrameScheme(plan, left, right)
-            print left, right, plan.condition
             if remove_unnamed_literals(plan, plan.condition) == "(1 = 1)": # (I don't know why the condition is 1=1 cross product)
                 return left.join(right)
             return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition)[1:])

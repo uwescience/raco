@@ -584,6 +584,7 @@ class CCAlgebra(Algebra):
             rules.remove_trivial_sequences,
             rules.simple_group_by,
             cppcommon.clang_push_select,
+            [rules.CrossProduct2Join()],
             [rules.ProjectToDistinctColumnSelect(),
              rules.JoinToProjectingJoin()],
             rules.push_apply,

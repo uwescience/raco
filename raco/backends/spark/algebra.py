@@ -245,6 +245,8 @@ def remove_unnamed_literals(plan, expression):
                     repl_str = remove_unnamed_literals(plan.input, repl_str) #remove recursive references
 
             ex = ex.replace(unnamed_literal, repl_str)
+    while "$" in ex:
+        ex = ex.replace(ex[ex.index('$'):ex.index('$') + 2], plan.scheme().getName(ex.index('$') + 1))
     return ex
 
 def compile_expr(op, child_scheme, state_scheme):
