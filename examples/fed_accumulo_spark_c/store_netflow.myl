@@ -1,0 +1,6 @@
+T = load("file:///home/gridsan/dhutchison/botnet-capture-20110810-neris.pcap.subset.csv",
+csv(schema(
+StartTime:string,Dur:float,Proto:string,SrcAddr:string,Sport:string,Dir:string,DstAddr:string,Dport:string,State:string,sTos:int,dTos:int,TotPkts:int,TotBytes:float,SrcBytes:int,Label:string),skip=1));
+store(T, matrix);
+
+-- ,__DAP__:int,__LAP__:int
