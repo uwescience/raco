@@ -120,7 +120,14 @@ J = select a.u as src_name, a.v as dst_name, a.gamma/(b.od + c.od - a.gamma) as 
 
 store(J, nameJaccard);
 """
-print program
+program_fquery_simple ="""
+NF = scan(netflow);
+NFSUB = select SrcAddr as src_ip, SrcAddr as dst_ip, 1.0 as value from NF where TotBytes > 500;
+DNS = scan('/Users/shrainik/Documents/Data/dnssample_parsed.txt');
+graph = select d1.dns as row, d2.dns as col, n.value from NFSUB n, DNS d1, DNS d2
+    where n.src_ip = d1.ip and n.dst_ip = d2.ip;
+store(graph, ipGraph);
+"""
 myriaconn = get_myria_connection()
 sparkconn = get_spark_connection()
 
@@ -135,7 +142,7 @@ catalog = FederatedCatalog([myriacatalog, sparkcatalog])
 start = time.time()
 parser = myrialparser.Parser()
 processor = interpreter.StatementProcessor(catalog, True)
-statement_list = parser.parse(program_fquery)
+statement_list = parser.parse(program_fquery_simple)
 processor.evaluate(statement_list)
 
 algebras = [OptLogicalAlgebra(), MyriaLeftDeepTreeAlgebra(), SparkAlgebra()]
@@ -145,6 +152,7 @@ logical = processor.get_logical_plan()
 print 'Logical Plan: '
 print logical
 dot_logical_spark = raco.viz.operator_to_dot_object(logical)
+print dot_logical_spark
 # myrial_physical_plan = processor.get_physical_plan(target_alg=OptLogicalAlgebra())
 # print dot_logical_spark
 # dot_physical_myrial = raco.viz.operator_to_dot_object(myrial_physical_plan)
@@ -152,10 +160,12 @@ dot_logical_spark = raco.viz.operator_to_dot_object(logical)
 #     f.write(str(dot_physical_myrial))
 federated_plan = processor.get_physical_plan(target_alg=falg)
 print raco.viz.operator_to_dot_object(federated_plan)
+print federated_plan.args[0].plan
 physical_plan_spark = optimize(federated_plan, SparkAlgebra())
 dot_spark = raco.viz.operator_to_dot_object(physical_plan_spark)
 print 'Physical Plan:'
 print physical_plan_spark
+time.sleep(30)
 sparkconn.execute_query(physical_plan_spark)
 end = time.time()
 total = end-start

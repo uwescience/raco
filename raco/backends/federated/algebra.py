@@ -334,6 +334,9 @@ Maybe rule traversal is not bottom-up?"
         self.federatedcatalog = catalog
         super(self.__class__, self).__init__()
 
+    def __str__(self):
+        return "SplitSparkToMyria"
+
     @classmethod
     def checkchild(cls, child):
         if not isinstance(child, FederatedOperator):
@@ -395,27 +398,28 @@ Maybe rule traversal is not bottom-up?"
                    # Give it a name
                    movedrelation = RelationKey(raco.algebra.gensym())
 
-                   # Add a store operation on the Spark side
-                   sparkwork = op.right
-                   sparkwork.plan = raco.algebra.Store(movedrelation, sparkwork.plan)
+                   # Add a store operation on the Myria side
+                   myriawork = op.left
+                   myriawork.plan = raco.algebra.Store(movedrelation, myriawork.plan)
 
 
                    # Create the Move operator
                    mover = FederatedMove(movedrelation,
-                                         rightcatalog,
+                                         leftcatalog,
                                          movedrelation,
-                                         leftcatalog)
+                                         rightcatalog)
 
-                   # Wrap the current operator on Myria
-                   myriawork = op.left
-                   op.left = op.left.plan
-                   # insert a scan of the moved relation on the Myria side
-                   op.right = raco.algebra.Scan(movedrelation)
-                   myriawork.plan = op
+                   # Wrap the current operator on Spark
+                   sparkwork = op.right
+                   op.right = op.right.plan
+                   # insert a scan of the moved relation on the Spark side
+                   op.left = raco.algebra.Scan(movedrelation, myriawork.plan.scheme())
+                   sparkwork.plan = op
 
                    # Create a Sequence operator to define execution order
-                   federatedplan = FederatedSequence([sparkwork, mover, myriawork])
-
+                   federatedplan = FederatedSequence([myriawork, mover, sparkwork])
+                   print myriawork.plan.scheme()
+                   print myriawork.plan.__repr__()
                    return federatedplan
 
                elif isinstance(rightcatalog, MyriaCatalog) and \
@@ -426,27 +430,28 @@ Maybe rule traversal is not bottom-up?"
                    # Give it a name
                    movedrelation = RelationKey(raco.algebra.gensym())
 
-                   # Add a store operation on the Spark side
-                   sparkwork = op.left
-                   sparkwork.plan = raco.algebra.Store(movedrelation, sparkwork.plan)
+                   # Add a store operation on the Myria side
+                   myriawork = op.right
+                   myriawork.plan = raco.algebra.Store(movedrelation, myriawork.plan)
 
 
                    # Create the Move operator
                    mover = FederatedMove(movedrelation,
-                                         leftcatalog,
+                                         rightcatalog,
                                          movedrelation,
-                                         rightcatalog)
+                                         leftcatalog)
 
-                   # Wrap the current operator on Myria
-                   myriawork = op.right
-                   op.right = op.right.plan
-                   # insert a scan of the moved relation on the Myria side
-                   op.left = raco.algebra.Scan(movedrelation)
-                   myriawork.plan = op
+                   # Wrap the current operator on Spark
+                   sparkwork = op.left
+                   op.left = op.left.plan
+                   # insert a scan of the moved relation on the Spark side
+                   op.right = raco.algebra.Scan(movedrelation, myriawork.plan.scheme())
+                   sparkwork.plan = op
 
                    # Create a Sequence operator to define execution order
-                   federatedplan = FederatedSequence([sparkwork, mover, myriawork])
-
+                   federatedplan = FederatedSequence([myriawork, mover, sparkwork])
+                   print myriawork.plan.scheme()
+                   print myriawork.plan.__repr__()
                    return federatedplan
 
                else:
@@ -491,7 +496,7 @@ class FederatedAlgebra(Algebra):
         self.federatedcatalog = catalog
 
     def opt_rules(self, **kwargs):
-        fedrules = [[rules.RemoveTrivialSequences(),
+        opt_logical_rules = [rules.RemoveTrivialSequences(),
                 rules.SimpleGroupBy(),
                 rules.SplitSelects(),
                 rules.PushSelects(),
@@ -502,8 +507,13 @@ class FederatedAlgebra(Algebra):
                 rules.RemoveUnusedColumns(),
                 rules.PushApply(),
                 rules.RemoveUnusedColumns(),
-                rules.PushApply()],
-        [SplitSparkToMyria(self.federatedcatalog)],
-        [FlattenSingletonFederatedSequence()]]
-                    #Dispatch()]
+                rules.PushApply()]
+
+        fedrules = [
+            # opt_logical_rules,
+            [rules.CrossProduct2Join()],
+            rules.push_select,
+            [SplitSparkToMyria(self.federatedcatalog)]]
+            # [FlattenSingletonFederatedSequence()]]
+            #Dispatch()]
         return list(itertools.chain(*fedrules))
