@@ -491,9 +491,18 @@ class FederatedAlgebra(Algebra):
         self.federatedcatalog = catalog
 
     def opt_rules(self, **kwargs):
-        fedrules = [
-        [rules.CrossProduct2Join()],
-        rules.push_select,
+        fedrules = [[rules.RemoveTrivialSequences(),
+                rules.SimpleGroupBy(),
+                rules.SplitSelects(),
+                rules.PushSelects(),
+                rules.MergeSelects(),
+                rules.ProjectToDistinctColumnSelect(),
+                rules.JoinToProjectingJoin(),
+                rules.PushApply(),
+                rules.RemoveUnusedColumns(),
+                rules.PushApply(),
+                rules.RemoveUnusedColumns(),
+                rules.PushApply()],
         [SplitSparkToMyria(self.federatedcatalog)],
         [FlattenSingletonFederatedSequence()]]
                     #Dispatch()]

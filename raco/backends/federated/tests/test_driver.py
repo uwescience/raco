@@ -1,3 +1,4 @@
+from raco.backends.logical import OptLogicalAlgebra
 from raco.backends.spark.connection import SparkConnection
 from raco.backends.spark.catalog import SparkCatalog
 from raco.backends.spark.algebra import SparkAlgebra
@@ -106,31 +107,51 @@ out_d = select row, count(col) as od from graph;
 out_d_sum = select a.row as u, b.row as v, a.od+b.od as sod from out_d a, out_d b;
 store(gammas, 'outMat.dat');
 """.format(dataset='/Users/shrainik/Documents/Data/mat1')
+
+program_fquery="""
+NF = scan(netflow);
+NFSUB = select SrcAddr as src_ip, SrcAddr as dst_ip, 1.0 as value from NF where TotBytes > 500;
+DNS = scan('/Users/shrainik/Documents/Data/dnssample_parsed.txt');
+graph = select d1.dns as row, d2.dns as col, n.value from NFSUB n, DNS d1, DNS d2
+    where n.src_ip = d1.ip and n.dst_ip = d2.ip;
+gammas = select a.row as u, b.row as v, count(b.value) as gamma from graph a, graph b where a.col == b.col;
+out_d = select row, count(value) as od from graph;
+J = select a.u as src_name, a.v as dst_name, a.gamma/(b.od + c.od - a.gamma) as jaccard_coeff from gammas a, out_d b, out_d c where a.u = b.row and a.v = c.row;
+
+store(J, nameJaccard);
+"""
 print program
 myriaconn = get_myria_connection()
 sparkconn = get_spark_connection()
 
 myriacatalog = MyriaCatalog(myriaconn)
-# sparkcatalog = SparkCatalog(sparkconn)
-# catalog = FederatedCatalog([myriacatalog, sparkcatalog])
-
 catalog_path = os.path.join(os.path.dirname('/Users/shrainik/Dropbox/raco/examples/'), 'catalog.py')
-catalog = FromFileCatalog.load_from_file(catalog_path)
-catalog = FederatedCatalog([myriacatalog, catalog])
+sparkcatalog = SparkCatalog.load_from_file(catalog_path)
+catalog = FederatedCatalog([myriacatalog, sparkcatalog])
+
+# catalog = FromFileCatalog.load_from_file(catalog_path)
+# catalog = FederatedCatalog([myriacatalog, catalog])
 
 start = time.time()
 parser = myrialparser.Parser()
 processor = interpreter.StatementProcessor(catalog, True)
-statement_list = parser.parse(program_complete)
+statement_list = parser.parse(program_fquery)
 processor.evaluate(statement_list)
 
-algebras = [MyriaLeftDeepTreeAlgebra(), SparkAlgebra()]
+algebras = [OptLogicalAlgebra(), MyriaLeftDeepTreeAlgebra(), SparkAlgebra()]
 falg = FederatedAlgebra(algebras, catalog)
 
 logical = processor.get_logical_plan()
 print 'Logical Plan: '
 print logical
+dot_logical_spark = raco.viz.operator_to_dot_object(logical)
+# myrial_physical_plan = processor.get_physical_plan(target_alg=OptLogicalAlgebra())
+# print dot_logical_spark
+# dot_physical_myrial = raco.viz.operator_to_dot_object(myrial_physical_plan)
+# with open('dns-physical-myria.dot', 'w') as f:
+#     f.write(str(dot_physical_myrial))
 federated_plan = processor.get_physical_plan(target_alg=falg)
+print raco.viz.operator_to_dot_object(federated_plan)
 physical_plan_spark = optimize(federated_plan, SparkAlgebra())
 dot_spark = raco.viz.operator_to_dot_object(physical_plan_spark)
 print 'Physical Plan:'

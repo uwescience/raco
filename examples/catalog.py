@@ -20,5 +20,6 @@
     'public:adhoc:matrix': [('row', 'LONG_TYPE'), ('col', 'LONG_TYPE'), ('value', 'LONG_TYPE')],
     'public:adhoc:/Users/shrainik/Documents/Data/mat1': [('row', 'LONG_TYPE'), ('col', 'LONG_TYPE'), ('value', 'LONG_TYPE')],
     'public:adhoc:/Users/shrainik/Documents/Data/mat2': [('row', 'LONG_TYPE'), ('col', 'LONG_TYPE'), ('value', 'LONG_TYPE')],
-    'public:adhoc:/Users/shrainik/Documents/Data/btwnCent_toy_graph.matrix.dat': [('row', 'LONG_TYPE'), ('col', 'LONG_TYPE'), ('value', 'DOUBLE_TYPE')]
+    'public:adhoc:/Users/shrainik/Documents/Data/btwnCent_toy_graph.matrix.dat': [('row', 'LONG_TYPE'), ('col', 'LONG_TYPE'), ('value', 'DOUBLE_TYPE')],
+    'public:adhoc:/Users/shrainik/Documents/Data/dnssample_parsed.txt': [('id', 'STRING_TYPE'), ('ip', 'STRING_TYPE'), ('dns', 'STRING_TYPE')]
 }
