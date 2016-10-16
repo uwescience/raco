@@ -63,4 +63,5 @@ class FederatedCatalog(Catalog):
         return self._return_first("num_tuples", rel_key)
 
     def partitioning(self, rel_key):
-        return RepresentationProperties()
+        cat, _ = self._return_first("get_scheme", rel_key)
+        return cat.partitioning(rel_key)

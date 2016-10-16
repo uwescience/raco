@@ -1,4 +1,5 @@
 import os
+import time
 from raco import algebra
 from raco import rules
 from raco.relation_key import RelationKey
@@ -420,6 +421,10 @@ Maybe rule traversal is not bottom-up?"
                    # Create a Sequence operator to define execution order
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
                    print myriawork.plan.__repr__()
+                   while(True):
+                       if os.path.exists(os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation)):
+                           break
+                   time.sleep(2)
                    return federatedplan
 
                elif isinstance(rightcatalog, MyriaCatalog) and \
@@ -451,6 +456,10 @@ Maybe rule traversal is not bottom-up?"
                    # Create a Sequence operator to define execution order
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
                    print myriawork.plan.__repr__()
+                   while(True):
+                       if os.path.exists(os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation)):
+                           break
+                       time.sleep(2)
                    return federatedplan
 
                else:
