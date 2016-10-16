@@ -1389,6 +1389,48 @@ class Store(UnaryOperator):
         self.relation_key = other.relation_key
         UnaryOperator.copy(self, other)
 
+class FileStore(UnaryOperator):
+
+    """Store output to a file.
+
+    relation_key is a string of the form "program:user:relation".
+    """
+
+    def __init__(self, path=None, format=None, options={}, plan=None):
+        UnaryOperator.__init__(self, plan)
+        self.path = path
+        self.format = format
+        self.options = options
+
+    def __eq__(self, other):
+        return (UnaryOperator.__eq__(self, other)
+                and self.path == other.path
+                and self.format == other.format
+                and self.options == other.options)
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.relation_key)
+
+    def __repr__(self):
+        return "{op}({path!r}, {fmt!r}, {opt!r}, {pl!r})".format(
+            op=self.opname(),
+            path=self.path,
+            fmt=self.format,
+            opt=self.options,
+            pl=self.input)
+
+    def copy(self, other):
+        """deep copy"""
+        self.path = other.path
+        self.format = other.format
+        self.options = other.options
+        UnaryOperator.copy(self, other)
 
 class Dump(UnaryOperator):
 

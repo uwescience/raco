@@ -1,3 +1,4 @@
+import os
 from raco import algebra
 from raco import rules
 from raco.relation_key import RelationKey
@@ -400,7 +401,7 @@ Maybe rule traversal is not bottom-up?"
 
                    # Add a store operation on the Myria side
                    myriawork = op.left
-                   myriawork.plan = raco.algebra.Store(movedrelation, myriawork.plan)
+                   myriawork.plan = raco.algebra.FileStore(path=os.path.join(os.path.curdir, movedrelation.relation),  plan=myriawork.plan)
 
 
                    # Create the Move operator
@@ -418,7 +419,6 @@ Maybe rule traversal is not bottom-up?"
 
                    # Create a Sequence operator to define execution order
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
-                   print myriawork.plan.scheme()
                    print myriawork.plan.__repr__()
                    return federatedplan
 
@@ -432,7 +432,7 @@ Maybe rule traversal is not bottom-up?"
 
                    # Add a store operation on the Myria side
                    myriawork = op.right
-                   myriawork.plan = raco.algebra.Store(movedrelation, myriawork.plan)
+                   myriawork.plan = raco.algebra.FileStore(path=os.path.join(os.path.curdir, movedrelation.relation),  plan=myriawork.plan)
 
 
                    # Create the Move operator
@@ -450,7 +450,6 @@ Maybe rule traversal is not bottom-up?"
 
                    # Create a Sequence operator to define execution order
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
-                   print myriawork.plan.scheme()
                    print myriawork.plan.__repr__()
                    return federatedplan
 

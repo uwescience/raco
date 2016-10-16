@@ -149,25 +149,26 @@ algebras = [OptLogicalAlgebra(), MyriaLeftDeepTreeAlgebra(), SparkAlgebra()]
 falg = FederatedAlgebra(algebras, catalog)
 
 logical = processor.get_logical_plan()
-print 'Logical Plan: '
-print logical
-dot_logical_spark = raco.viz.operator_to_dot_object(logical)
-print dot_logical_spark
+# print 'Logical Plan: '
+# print logical
+# dot_logical_spark = raco.viz.operator_to_dot_object(logical)
+# print dot_logical_spark
 # myrial_physical_plan = processor.get_physical_plan(target_alg=OptLogicalAlgebra())
 # print dot_logical_spark
 # dot_physical_myrial = raco.viz.operator_to_dot_object(myrial_physical_plan)
 # with open('dns-physical-myria.dot', 'w') as f:
 #     f.write(str(dot_physical_myrial))
 federated_plan = processor.get_physical_plan(target_alg=falg)
-print raco.viz.operator_to_dot_object(federated_plan)
-print federated_plan.args[0].plan
+# print raco.viz.operator_to_dot_object(federated_plan)
+# print federated_plan.args[0].plan
 physical_plan_spark = optimize(federated_plan, SparkAlgebra())
-dot_spark = raco.viz.operator_to_dot_object(physical_plan_spark)
-print 'Physical Plan:'
+# dot_spark = raco.viz.operator_to_dot_object(physical_plan_spark)
+# print 'Physical Plan:'
 print physical_plan_spark
+exit()
 time.sleep(30)
 sparkconn.execute_query(physical_plan_spark)
 end = time.time()
 total = end-start
-print 'Time Taken for just execute: ', total
+# print 'Time Taken for just execute: ', total
 
