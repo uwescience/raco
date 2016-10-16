@@ -496,12 +496,13 @@ class FederatedAlgebra(Algebra):
 
     operators = [FederatedExec, FederatedMove, FederatedSequence]
 
-    def __init__(self, algebras, catalog):
+    def __init__(self, algebras, catalog, crossproducts=True):
         '''
         A list of algebras and a federated catalog
         '''
         self.algebras = algebras
         self.federatedcatalog = catalog
+        self.crossproducts = crossproducts
 
     def opt_rules(self, **kwargs):
         opt_logical_rules = [rules.RemoveTrivialSequences(),
@@ -516,12 +517,14 @@ class FederatedAlgebra(Algebra):
                 rules.PushApply(),
                 rules.RemoveUnusedColumns(),
                 rules.PushApply()]
-
-        fedrules = [
-            # opt_logical_rules,
-            [rules.CrossProduct2Join()],
-            rules.push_select,
-            [SplitSparkToMyria(self.federatedcatalog)]]
-            # [FlattenSingletonFederatedSequence()]]
-            #Dispatch()]
+        if self.crossproducts:
+            fedrules = [
+                # opt_logical_rules,
+                [rules.CrossProduct2Join()],
+                rules.push_select,
+                [SplitSparkToMyria(self.federatedcatalog)]]
+                # [FlattenSingletonFederatedSequence()]]
+                #Dispatch()]
+        else:
+            fedrules = [rules.push_select, [SplitSparkToMyria(self.federatedcatalog)]]
         return list(itertools.chain(*fedrules))
