@@ -401,7 +401,7 @@ Maybe rule traversal is not bottom-up?"
 
                    # Add a store operation on the Myria side
                    myriawork = op.left
-                   myriawork.plan = raco.algebra.FileStore(path=os.path.join(os.path.curdir, movedrelation.relation),  plan=myriawork.plan)
+                   myriawork.plan = raco.algebra.FileStore(path=os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation), format='CSV',  plan=myriawork.plan)
 
 
                    # Create the Move operator
@@ -432,7 +432,7 @@ Maybe rule traversal is not bottom-up?"
 
                    # Add a store operation on the Myria side
                    myriawork = op.right
-                   myriawork.plan = raco.algebra.FileStore(path=os.path.join(os.path.curdir, movedrelation.relation),  plan=myriawork.plan)
+                   myriawork.plan = raco.algebra.FileStore(path=os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation), format='CSV',  plan=myriawork.plan)
 
 
                    # Create the Move operator
