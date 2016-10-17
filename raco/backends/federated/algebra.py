@@ -420,6 +420,7 @@ Maybe rule traversal is not bottom-up?"
 
                    # Create a Sequence operator to define execution order
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
+                       # Insert shell command here to run Accumulo and generate file
                    print myriawork.plan.__repr__()
                    while(True):
                        if os.path.exists(os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation)):
@@ -455,6 +456,7 @@ Maybe rule traversal is not bottom-up?"
 
                    # Create a Sequence operator to define execution order
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
+                   # Insert shell command here to run Accumulo and generate file
                    print myriawork.plan.__repr__()
                    while(True):
                        if os.path.exists(os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation)):

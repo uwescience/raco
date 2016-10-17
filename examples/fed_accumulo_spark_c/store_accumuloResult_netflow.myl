@@ -1,0 +1,3 @@
+matA = load("https://s3-us-west-2.amazonaws.com/temp1123231231/netflow.csv", csv(schema(TotBytes:float,StartTime:string,SrcAddr:string,DstAddr:string,RATE:float,Dur:float,Dir:string,Proto:string,Sport:string,Dport:string,State:string,sTos:int,dTos:int,TotPkts:int,SrcBytes:int,Label:string), skip=1));
+store(matA, netflow);
+
