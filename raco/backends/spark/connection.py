@@ -39,6 +39,7 @@ class SparkConnection(object):
         self.singletons = []
 
     def get_df(self, df_name):
+        print self.masterhostname, df_name # temporary to check masterhostname assignment
         if self.masterhostname=='localhost':
             rel_location = df_name
         else:

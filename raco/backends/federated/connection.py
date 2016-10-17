@@ -11,12 +11,10 @@ import numpy as np
 import time
 
 from raco.backends.myria.connection import MyriaConnection
-from raco.backends.scidb.connection import SciDBConnection
+# from raco.backends.scidb.connection import SciDBConnection
 from raco.backends.federated.catalog import FederatedCatalog
 from raco.backends.myria.catalog import MyriaCatalog
-from raco.backends.scidb.catalog import SciDBCatalog
 from raco.backends.myria.myria import MyriaLeftDeepTreeAlgebra
-from raco.backends.scidb.algebra import SciDBAFLAlgebra
 
 import raco.myrial.parser as myrialparser
 import raco.myrial.interpreter as interpreter
@@ -97,10 +95,10 @@ class FederatedConnection(object):
             if isinstance(c, MyriaConnection):
                 return c
 
-    def get_scidb_connection(self):
-        for c in self.connections:
-            if isinstance(c, SciDBConnection):
-                return c
+    # def get_scidb_connection(self):
+    #     for c in self.connections:
+    #         if isinstance(c, SciDBConnection):
+    #             return c
 
     def workers(self):
         """Return a dictionary of the workers"""

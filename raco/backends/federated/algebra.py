@@ -11,6 +11,7 @@ from raco.backends.myria import compile_to_json
 from raco.backends.scidb import SciDBAFLAlgebra
 import raco.algebra
 import itertools
+import subprocess
 
 from raco.backends.myria.catalog import MyriaCatalog
 from raco.backends.scidb.catalog import SciDBCatalog
@@ -422,6 +423,10 @@ Maybe rule traversal is not bottom-up?"
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
                        # Insert shell command here to run Accumulo and generate file
                    print myriawork.plan.__repr__()
+
+
+                   subprocess.call('java -cp /home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar edu.washington.cs.laragraphulo.Main \"{}\"'.format(myriawork.plan.__repr__()), shell=True)
+
                    while(True):
                        if os.path.exists(os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation)):
                            break
@@ -458,6 +463,11 @@ Maybe rule traversal is not bottom-up?"
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
                    # Insert shell command here to run Accumulo and generate file
                    print myriawork.plan.__repr__()
+
+
+                   subprocess.call('java -cp /home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar edu.washington.cs.laragraphulo.Main \"{}\"'.format(myriawork.plan.__repr__()), shell=True)
+
+
                    while(True):
                        if os.path.exists(os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation)):
                            break
