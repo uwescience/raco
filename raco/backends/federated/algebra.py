@@ -418,14 +418,14 @@ Maybe rule traversal is not bottom-up?"
 
                    # Create a Sequence operator to define execution order
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
-                   raco.viz.operator_to_dot_object(myriawork.plan).render(movedrelation.relation, view=True)
+                   raco.viz.operator_to_dot_object(myriawork.plan).render(movedrelation.relation + 'dot', view=True)
                    # subprocess.call('cp samp-int-data {}'.format(movedrelation.relation), shell=True)
                    subprocess.call('java -cp /home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar edu.washington.cs.laragraphulo.Main \"{}\"'.format(myriawork.plan.__repr__()), shell=True)
 
                    while(True):
                        if os.path.exists(os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation)):
                            break
-                   time.sleep(2)
+                       time.sleep(2)
                    return federatedplan
 
                elif isinstance(rightcatalog, MyriaCatalog) and \
@@ -456,7 +456,7 @@ Maybe rule traversal is not bottom-up?"
 
                    # Create a Sequence operator to define execution order
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
-                   raco.viz.operator_to_dot_object(myriawork.plan).render(movedrelation.relation, view=True)
+                   raco.viz.operator_to_dot_object(myriawork.plan).render(movedrelation.relation + 'dot', view=True)
                    # subprocess.call('cp samp-int-data {}'.format(movedrelation.relation), shell=True)
                    subprocess.call('java -cp /home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar edu.washington.cs.laragraphulo.Main \"{}\"'.format(myriawork.plan.__repr__()), shell=True)
 
@@ -486,6 +486,172 @@ Maybe rule traversal is not bottom-up?"
         assert False, "{op} --- is not supported".format(op = op)
         return op
 
+class Split2Backends(rules.BottomUpRule):
+    err = "Expected child op {} to be a federated plan.  \
+Maybe rule traversal is not bottom-up?"
+
+    def __init__(self, catalog):
+        # Assumes this is a Federated Catalog
+        self.federatedcatalog = catalog
+        self.catalog1 = self.federatedcatalog.catalogs[0]
+        self.catalog2 = self.federatedcatalog.catalogs[1]
+        super(self.__class__, self).__init__()
+
+    def __str__(self):
+        return "SplitSparkToMyria"
+
+    @classmethod
+    def checkchild(cls, child):
+        if not isinstance(child, FederatedOperator):
+            raise ValueError(cls.err.format(child))
+
+    def fire(self, op):
+        # print type(op)
+        if isinstance(op, raco.algebra.Scan):
+            # TODO: Assumes each relation is in only one catalog
+            cat = self.federatedcatalog.sourceof(op.relation_key)
+            newop = FederatedExec(op, cat)
+            return newop
+
+        if isinstance(op, raco.algebra.ScanTemp):
+            # TODO: Assumes each relation is in only one catalog
+            cat = self.federatedcatalog.get_catalog(op.name)
+            newop = FederatedExec(op, cat)
+            return newop
+
+        if isinstance(op, raco.algebra.EmptyRelation):
+            # Assuming empty relations are spark for now
+            return FederatedExec(op, self.federatedcatalog.get_spark_catalog())
+
+        if isinstance(op, raco.algebra.SingletonRelation):
+            # Assuming singleton relations are spark for now
+            return FederatedExec(FederatedSingletonRelation(), self.federatedcatalog.get_spark_catalog())
+
+        if isinstance(op, raco.algebra.UnaryOperator):
+           self.checkchild(op.input)
+
+           if isinstance(op, raco.algebra.StoreTemp):
+               self.federatedcatalog.add_to_temp_relations(op.name, op.input.catalog)
+
+           execop = op.input
+           # Absorb the current operator into the Exec
+           op.input = op.input.plan
+           execop.plan = op
+
+           return execop
+
+        if isinstance(op, raco.algebra.BinaryOperator):
+           self.checkchild(op.left)
+           self.checkchild(op.right)
+
+           leftcatalog = op.left.catalog
+           rightcatalog = op.right.catalog
+
+           if leftcatalog == rightcatalog:
+               op.left = op.left.plan
+               op.right = op.right.plan
+               newexec = FederatedExec(op, leftcatalog)
+               return newexec
+
+           else:
+               if isinstance(leftcatalog, type(self.catalog1)) and \
+                             isinstance(rightcatalog, type(self.catalog2)):
+                       # We need to move a dataset
+
+                   # Give it a name
+                   movedrelation = RelationKey(raco.algebra.gensym())
+
+                   # Add a store operation on the Myria side
+                   myriawork = op.left
+                   myriawork.plan = raco.algebra.FileStore(path=os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation), format='CSV',  plan=myriawork.plan)
+
+
+                   # Create the Move operator
+                   mover = FederatedMove(movedrelation,
+                                         leftcatalog,
+                                         movedrelation,
+                                         rightcatalog)
+
+                   # Wrap the current operator on Spark
+                   sparkwork = op.right
+                   op.right = op.right.plan
+                   # insert a scan of the moved relation on the Spark side
+                   op.left = raco.algebra.Scan(movedrelation, myriawork.plan.scheme())
+                   sparkwork.plan = op
+
+                   # Create a Sequence operator to define execution order
+                   federatedplan = FederatedSequence([myriawork, mover, sparkwork])
+                   raco.viz.operator_to_dot_object(myriawork.plan).render(movedrelation.relation + 'dot', view=True)
+                   if os.path.exists('/home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar'):
+                       subprocess.call('java -cp /home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar edu.washington.cs.laragraphulo.Main \"{}\"'.format(myriawork.plan.__repr__()), shell=True)
+                   else:
+                       subprocess.call('cp samp-int-data {}'.format(movedrelation.relation), shell=True)
+
+
+                   while(True):
+                       if os.path.exists(os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation)):
+                           break
+                       time.sleep(2)
+                   return federatedplan
+
+               elif isinstance(rightcatalog, type(self.catalog1)) and \
+                             isinstance(leftcatalog, type(self.catalog2)):
+                   # We need to move a dataset; flipped repetition of above
+                   # TODO: abstract this better
+
+                   # Give it a name
+                   movedrelation = RelationKey(raco.algebra.gensym())
+
+                   # Add a store operation on the Myria side
+                   myriawork = op.right
+                   myriawork.plan = raco.algebra.FileStore(path=os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation), format='CSV',  plan=myriawork.plan)
+
+
+                   # Create the Move operator
+                   mover = FederatedMove(movedrelation,
+                                         rightcatalog,
+                                         movedrelation,
+                                         leftcatalog)
+
+                   # Wrap the current operator on Spark
+                   sparkwork = op.left
+                   op.left = op.left.plan
+                   # insert a scan of the moved relation on the Spark side
+                   op.right = raco.algebra.Scan(movedrelation, myriawork.plan.scheme())
+                   sparkwork.plan = op
+
+                   # Create a Sequence operator to define execution order
+                   federatedplan = FederatedSequence([myriawork, mover, sparkwork])
+                   raco.viz.operator_to_dot_object(myriawork.plan).render(movedrelation.relation + 'dot', view=True)
+                   if os.path.exists('/home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar'):
+                       subprocess.call('java -cp /home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar edu.washington.cs.laragraphulo.Main \"{}\"'.format(myriawork.plan.__repr__()), shell=True)
+                   else:
+                       subprocess.call('cp samp-int-data {}'.format(movedrelation.relation), shell=True)
+                   while(True):
+                       if os.path.exists(os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation)):
+                           break
+                       time.sleep(2)
+                   return federatedplan
+
+               else:
+                   template = "Expected Myria or Spark catalogs, got {}, {}"
+                   msg = template.format(leftcatalog, rightcatalog)
+                   raise NotImplementedError(msg)
+
+        elif isinstance(op, raco.algebra.NaryOperator):
+            # We have a hybrid plan
+            if isinstance(op, raco.algebra.Sequence):
+                return FederatedSequence(op.args)
+
+            if isinstance(op, raco.algebra.Parallel):
+                return FederatedParallel(op.args)
+
+            if isinstance(op, raco.algebra.DoWhile):
+                return FederatedDoWhile(op.args)
+
+
+        assert False, "{op} --- is not supported".format(op = op)
+        return op
 
 class FlattenSingletonFederatedSequence(rules.TopDownRule):
     def fire(self, op):
@@ -526,10 +692,10 @@ class FederatedAlgebra(Algebra):
                 # opt_logical_rules,
                 [rules.CrossProduct2Join()],
                 rules.push_select,
-                [SplitSparkToMyria(self.federatedcatalog)]]
+                [Split2Backends(self.federatedcatalog)]]
                 # [FlattenSingletonFederatedSequence()]]
                 #Dispatch()]
         else:
-            fedrules = [rules.push_select, [SplitSparkToMyria(self.federatedcatalog)]]
+            fedrules = [rules.push_select, [Split2Backends(self.federatedcatalog)]]
 
         return list(itertools.chain(*fedrules)) + self.algebras[2].opt_rules()

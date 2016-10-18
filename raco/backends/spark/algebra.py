@@ -3,7 +3,7 @@ import itertools
 
 from raco import rules
 from raco.backends import Language, Algebra
-from raco.backends.federated import *
+from raco.backends.federated.algebra import FederatedExec, FederatedSequence, FederatedDoWhile
 from raco import algebra
 from raco.scheme import Scheme
 from raco.expression import *
