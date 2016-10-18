@@ -1,5 +1,6 @@
 from raco import expression
 from raco import scheme
+from raco.relation_key import RelationKey
 from raco.utility import Printable, real_str
 
 from abc import ABCMeta, abstractmethod
@@ -1401,6 +1402,7 @@ class FileStore(UnaryOperator):
         self.path = path
         self.format = format
         self.options = options
+        self.relation_key = RelationKey(path)
 
     def __eq__(self, other):
         return (UnaryOperator.__eq__(self, other)

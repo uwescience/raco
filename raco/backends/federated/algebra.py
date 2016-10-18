@@ -423,6 +423,9 @@ Maybe rule traversal is not bottom-up?"
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
                        # Insert shell command here to run Accumulo and generate file
                    print myriawork.plan.__repr__()
+                   d = raco.viz.operator_to_dot_object(myriawork.plan)
+                   d.render('{}-dot.pdf'.format(movedrelation.relation), view=True)
+                   # subprocess.call('cp samp-int-data {}'.format(movedrelation.relation), shell=True)
 
 
                    subprocess.call('java -cp /home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar edu.washington.cs.laragraphulo.Main \"{}\"'.format(myriawork.plan.__repr__()), shell=True)
@@ -463,7 +466,9 @@ Maybe rule traversal is not bottom-up?"
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
                    # Insert shell command here to run Accumulo and generate file
                    print myriawork.plan.__repr__()
-
+                   d = raco.viz.operator_to_dot_object(myriawork.plan)
+                   d.render('{}-dot.pdf'.format(movedrelation.relation), view=True)
+                   # subprocess.call('cp samp-int-data {}'.format(movedrelation.relation), shell=True)
 
                    subprocess.call('java -cp /home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar edu.washington.cs.laragraphulo.Main \"{}\"'.format(myriawork.plan.__repr__()), shell=True)
 

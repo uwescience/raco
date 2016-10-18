@@ -133,7 +133,7 @@ myriaconn = get_myria_connection()
 sparkconn = get_spark_connection()
 
 myriacatalog = MyriaCatalog(myriaconn)
-catalog_path = os.path.join(os.path.dirname('/home/dhutchis/gits/raco/examples/'), 'catalog.py')
+catalog_path = os.path.join(os.path.dirname(os.path.abspath('../../../../examples/')), 'catalog.py')
 sparkcatalog = SparkCatalog.load_from_file(catalog_path)
 catalog = FederatedCatalog([myriacatalog, sparkcatalog])
 
