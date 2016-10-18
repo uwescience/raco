@@ -4,11 +4,7 @@ from raco import algebra
 from raco import rules
 from raco.relation_key import RelationKey
 from raco.backends import Language, Algebra
-from raco.backends.myria import MyriaLeftDeepTreeAlgebra as MyriaAlgebra
-from raco.compile import optimize
 from raco.viz import operator_to_dot
-from raco.backends.myria import compile_to_json
-from raco.backends.scidb import SciDBAFLAlgebra
 import raco.algebra
 import itertools
 import subprocess
@@ -177,15 +173,16 @@ class Dispatch(rules.Rule):
             return dispatchmap[expr.languagetag](expr.command, expr.connection)
 
         if isinstance(expr, FederatedExec):
-            if isinstance(expr.catalog, MyriaCatalog):
-                pp = optimize(expr, target=MyriaAlgebra())
-                json = compile_to_json("raw query", "logical plan", pp)
-                return RunMyria(json)
-
-            if isinstance(expr.catalog, SciDBCatalog):
-                pp = optimize(expr, target=SciDBAFLAlgebra())
-                aql = compile_to_aql(pp)
-                return RunAQL(aql, expr.catalog)
+            pass
+            # if isinstance(expr.catalog, MyriaCatalog):
+            #     pp = optimize(expr, target=MyriaAlgebra())
+            #     json = compile_to_json("raw query", "logical plan", pp)
+            #     return RunMyria(json)
+            #
+            # if isinstance(expr.catalog, SciDBCatalog):
+            #     pp = optimize(expr, target=SciDBAFLAlgebra())
+            #     aql = compile_to_aql(pp)
+            #     return RunAQL(aql, expr.catalog)
 
 
 class SplitBackend(rules.BottomUpRule):
@@ -421,13 +418,8 @@ Maybe rule traversal is not bottom-up?"
 
                    # Create a Sequence operator to define execution order
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
-                       # Insert shell command here to run Accumulo and generate file
-                   print myriawork.plan.__repr__()
-                   d = raco.viz.operator_to_dot_object(myriawork.plan)
-                   d.render('{}-dot.pdf'.format(movedrelation.relation), view=True)
+                   raco.viz.operator_to_dot_object(myriawork.plan).render(movedrelation.relation, view=True)
                    # subprocess.call('cp samp-int-data {}'.format(movedrelation.relation), shell=True)
-
-
                    subprocess.call('java -cp /home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar edu.washington.cs.laragraphulo.Main \"{}\"'.format(myriawork.plan.__repr__()), shell=True)
 
                    while(True):
@@ -464,14 +456,9 @@ Maybe rule traversal is not bottom-up?"
 
                    # Create a Sequence operator to define execution order
                    federatedplan = FederatedSequence([myriawork, mover, sparkwork])
-                   # Insert shell command here to run Accumulo and generate file
-                   print myriawork.plan.__repr__()
-                   d = raco.viz.operator_to_dot_object(myriawork.plan)
-                   d.render('{}-dot.pdf'.format(movedrelation.relation), view=True)
+                   raco.viz.operator_to_dot_object(myriawork.plan).render(movedrelation.relation, view=True)
                    # subprocess.call('cp samp-int-data {}'.format(movedrelation.relation), shell=True)
-
                    subprocess.call('java -cp /home/dhutchis/gits/lara-graphulo/target/lara-graphulo-1.0-SNAPSHOT-all.jar edu.washington.cs.laragraphulo.Main \"{}\"'.format(myriawork.plan.__repr__()), shell=True)
-
 
                    while(True):
                        if os.path.exists(os.path.join(os.path.abspath(os.path.curdir), movedrelation.relation)):
@@ -544,4 +531,5 @@ class FederatedAlgebra(Algebra):
                 #Dispatch()]
         else:
             fedrules = [rules.push_select, [SplitSparkToMyria(self.federatedcatalog)]]
-        return list(itertools.chain(*fedrules))
+
+        return list(itertools.chain(*fedrules)) + self.algebras[2].opt_rules()

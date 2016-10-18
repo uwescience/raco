@@ -6,6 +6,7 @@ from raco import expression
 from raco.backends import Algebra
 from raco.backends.cpp import cppcommon
 from raco import rules
+from raco.backends.federated import FederatedExec, FederatedSequence, FederatedDoWhile
 from raco.pipelines import Pipelined
 from raco.backends.cpp.cppcommon import StagedTupleRef, CBaseLanguage
 
@@ -535,6 +536,15 @@ class MemoryScanOfFileScan(rules.Rule):
     def __str__(self):
         return "Scan => MemoryScan[FileScan]"
 
+class ConsumeFederatedOps(rules.Rule):
+    def fire(self, expr):
+        if isinstance(expr, FederatedExec):
+            return expr.plan
+        if isinstance(expr, FederatedSequence):
+            return algebra.Sequence(expr.args)
+        if isinstance(expr, FederatedDoWhile):
+            return algebra.DoWhile(expr.args)
+        return expr
 
 def clangify(emit_print):
     return [
@@ -581,6 +591,7 @@ class CCAlgebra(Algebra):
 
         # sequence that works for myrial
         rule_grps_sequence = [
+            [ConsumeFederatedOps()],
             rules.remove_trivial_sequences,
             rules.simple_group_by,
             cppcommon.clang_push_select,

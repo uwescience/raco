@@ -39,7 +39,6 @@ class SparkConnection(object):
         self.singletons = []
 
     def get_df(self, df_name):
-        print self.masterhostname, df_name # temporary to check masterhostname assignment
         if self.masterhostname=='localhost':
             rel_location = 'file://' + os.path.join(os.path.abspath(os.curdir), df_name)
         else:
