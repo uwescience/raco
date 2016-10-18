@@ -111,7 +111,7 @@ store(gammas, 'outMat.dat');
 
 program_fquery="""
 NF = scan(netflow);
-NFSUB = select SrcAddr as src_ip, SrcAddr as dst_ip, 1.0 as value from NF where TotBytes > 500;
+NFSUB = select SrcAddr as src_ip, SrcAddr as dst_ip, 1.0 as value from NF where TotBytes > 5120;
 DNS = scan('/Users/shrainik/Documents/Data/dnssample_parsed.txt');
 graph = select d1.dns as row, d2.dns as col, n.value from NFSUB n, DNS d1, DNS d2
     where n.src_ip = d1.ip and n.dst_ip = d2.ip;
@@ -123,7 +123,7 @@ store(J, nameJaccard);
 """
 program_fquery_simple ="""
 NF = scan(netflow);
-NFSUB = select SrcAddr as src_ip, DstAddr as dst_ip, 1.0 as value from NF where TotBytes > 500;
+NFSUB = select SrcAddr as src_ip, DstAddr as dst_ip, 1.0 as value from NF where TotBytes > 5120;
 DNS = scan('/Users/shrainik/Documents/Data/dnssample_parsed.txt');
 graph = select d1.dns as row, d2.dns as col, n.value from NFSUB n, DNS d1, DNS d2
     where n.src_ip = d1.ip and n.dst_ip = d2.ip;

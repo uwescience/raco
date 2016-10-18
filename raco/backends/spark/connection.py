@@ -41,7 +41,7 @@ class SparkConnection(object):
     def get_df(self, df_name):
         print self.masterhostname, df_name # temporary to check masterhostname assignment
         if self.masterhostname=='localhost':
-            rel_location = df_name
+            rel_location = 'file://' + os.path.join(os.path.abspath(os.curdir), df_name)
         else:
             rel_location="hdfs://{master}:9000/{rel}".format(master=self.masterhostname, rel=df_name)
         df = self.sqlcontext.read.format('com.databricks.spark.csv').options(header='true', inferschema='true').load(rel_location)
