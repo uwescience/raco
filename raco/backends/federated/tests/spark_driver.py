@@ -111,7 +111,7 @@ store(gammas, 'outMat.dat');
 
 program_fquery="""
 NF = scan(netflow);
-NFSUB = select SrcAddr as src_ip, SrcAddr as dst_ip, 1.0 as value from NF where TotBytes > 500;
+NFSUB = select SrcAddr as src_ip, SrcAddr as dst_ip, 1.0 as value from NF where TotBytes > 5120;
 DNS = scan('/home/dhutchis/gits/raco/examples/fed_accumulo_spark_c/dnssample_parsed.txt');
 graph = select d1.dns as row, d2.dns as col, n.value from NFSUB n, DNS d1, DNS d2
     where n.src_ip = d1.ip and n.dst_ip = d2.ip;
