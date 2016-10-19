@@ -1,80 +1,11 @@
-#from multiprocessing import Pool  # need to have GAE support it
-
-from raco.backends.federated.algebra import FederatedAlgebra
-#from raco.backends.federated.algebra import ExportMyriaToScidb
 from raco.algebra import Sequence
-from raco.backends.logical import OptLogicalAlgebra
 from algebra import FederatedSequence, FederatedParallel, FederatedMove, FederatedExec
-
-import logging
-import numpy as np
-import time
-
 from raco.backends.myria.connection import MyriaConnection
-# from raco.backends.scidb.connection import SciDBConnection
-from raco.backends.federated.catalog import FederatedCatalog
-from raco.backends.myria.catalog import MyriaCatalog
-from raco.backends.myria.myria import MyriaLeftDeepTreeAlgebra
-
-import raco.myrial.parser as myrialparser
-import raco.myrial.interpreter as interpreter
-
-insert_loads = """
-------------------------------------------------------------------------------------
--- Import from SciDB
-------------------------------------------------------------------------------------
-symbols0x1 = load("file:///home/gridsan/bhaynes/out/0/transform_1", csv(schema(id:int, index:int, value:int)));
-symbols1x1 = load("file:///home/gridsan/bhaynes/out/1/transform_1", csv(schema(id:int, index:int, value:int)));
-symbols0x2 = load("file:///home/gridsan/bhaynes/out/0/transform_2", csv(schema(id:int, index:int, value:int)));
-symbols1x2 = load("file:///home/gridsan/bhaynes/out/1/transform_2", csv(schema(id:int, index:int, value:int)));
-symbols0x3 = load("file:///home/gridsan/bhaynes/out/0/transform_3", csv(schema(id:int, index:int, value:int)));
-symbols1x3 = load("file:///home/gridsan/bhaynes/out/1/transform_3", csv(schema(id:int, index:int, value:int)));
-symbols0x4 = load("file:///home/gridsan/bhaynes/out/0/transform_4", csv(schema(id:int, index:int, value:int)));
-symbols1x4 = load("file:///home/gridsan/bhaynes/out/1/transform_4", csv(schema(id:int, index:int, value:int)));
-symbols0x5 = load("file:///home/gridsan/bhaynes/out/0/transform_5", csv(schema(id:int, index:int, value:int)));
-symbols1x5 = load("file:///home/gridsan/bhaynes/out/1/transform_5", csv(schema(id:int, index:int, value:int)));
-symbols0x6 = load("file:///home/gridsan/bhaynes/out/0/transform_6", csv(schema(id:int, index:int, value:int)));
-symbols1x6 = load("file:///home/gridsan/bhaynes/out/1/transform_6", csv(schema(id:int, index:int, value:int)));
-symbols0x7 = load("file:///home/gridsan/bhaynes/out/0/transform_7", csv(schema(id:int, index:int, value:int)));
-symbols1x7 = load("file:///home/gridsan/bhaynes/out/1/transform_7", csv(schema(id:int, index:int, value:int)));
-symbols0x8 = load("file:///home/gridsan/bhaynes/out/0/transform_8", csv(schema(id:int, index:int, value:int)));
-symbols1x8 = load("file:///home/gridsan/bhaynes/out/1/transform_8", csv(schema(id:int, index:int, value:int)));
-
---symbols2x1 = load("file:///home/gridsan/bhaynes/out/2/transform_1", csv(schema(id:int, index:int, value:int)));
---symbols3x1 = load("file:///home/gridsan/bhaynes/out/3/transform_1", csv(schema(id:int, index:int, value:int)));
---symbols2x2 = load("file:///home/gridsan/bhaynes/out/2/transform_2", csv(schema(id:int, index:int, value:int)));
---symbols3x2 = load("file:///home/gridsan/bhaynes/out/3/transform_2", csv(schema(id:int, index:int, value:int)));
---symbols2x3 = load("file:///home/gridsan/bhaynes/out/2/transform_3", csv(schema(id:int, index:int, value:int)));
---symbols3x3 = load("file:///home/gridsan/bhaynes/out/3/transform_3", csv(schema(id:int, index:int, value:int)));
---symbols2x4 = load("file:///home/gridsan/bhaynes/out/2/transform_4", csv(schema(id:int, index:int, value:int)));
---symbols3x4 = load("file:///home/gridsan/bhaynes/out/3/transform_4", csv(schema(id:int, index:int, value:int)));
---symbols2x5 = load("file:///home/gridsan/bhaynes/out/2/transform_5", csv(schema(id:int, index:int, value:int)));
---symbols3x5 = load("file:///home/gridsan/bhaynes/out/3/transform_5", csv(schema(id:int, index:int, value:int)));
---symbols2x6 = load("file:///home/gridsan/bhaynes/out/2/transform_6", csv(schema(id:int, index:int, value:int)));
---symbols3x6 = load("file:///home/gridsan/bhaynes/out/3/transform_6", csv(schema(id:int, index:int, value:int)));
---symbols2x7 = load("file:///home/gridsan/bhaynes/out/2/transform_7", csv(schema(id:int, index:int, value:int)));
---symbols3x7 = load("file:///home/gridsan/bhaynes/out/3/transform_7", csv(schema(id:int, index:int, value:int)));
---symbols2x8 = load("file:///home/gridsan/bhaynes/out/2/transform_8", csv(schema(id:int, index:int, value:int)));
---symbols3x8 = load("file:///home/gridsan/bhaynes/out/3/transform_8", csv(schema(id:int, index:int, value:int)));
-
-symbols = symbols0x1 + symbols0x2 + symbols0x3 + symbols0x4 +
-          symbols0x5 + symbols0x6 + symbols0x7 + symbols0x8 +
-          symbols1x1 + symbols1x2 + symbols1x3 + symbols1x4 +
-          symbols1x5 + symbols1x6 + symbols1x7 + symbols1x8
-          ;
---          +
---          symbols2x1 + symbols2x2 + symbols2x3 + symbols2x4 +
---          symbols2x5 + symbols2x6 + symbols2x7 + symbols2x8 +
---          symbols3x1 + symbols3x2 + symbols3x3 + symbols3x4 +
---          symbols3x5 + symbols3x6 + symbols3x7 + symbols3x8;
-store(symbols, symbols);
-symbols = scan(symbols);
-"""#.format(path_prefix = 'state/partition1/scidb-bhaynes/data/000') # FOR scidb on txe1.
-# """.format(path_prefix = 'home/scidb')  # FOR scidb on ec2.
+from raco.backends.spark.algebra import SparkOperator
+from raco.backends.spark.connection import SparkConnection
 
 
 __all__ = ['FederatedConnection']
-
 
 class FederatedConnection(object):
     """Federates a collection of connections"""
@@ -93,6 +24,11 @@ class FederatedConnection(object):
     def get_myria_connection(self):
         for c in self.connections:
             if isinstance(c, MyriaConnection):
+                return c
+
+    def get_spark_connection(self):
+        for c in self.connections:
+            if isinstance(c, SparkConnection):
                 return c
 
     # def get_scidb_connection(self):
@@ -195,6 +131,8 @@ class FederatedConnection(object):
         #
         # return run_myria()
 
+        if isinstance(query, SparkOperator):
+            self.get_spark_connection().execute_query(query)
 
         if isinstance(query, FederatedSequence):
             # execute each statement in the sequence, and return
