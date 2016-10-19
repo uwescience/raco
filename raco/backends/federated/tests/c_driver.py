@@ -39,11 +39,9 @@ graph = select d1.dns as row, d2.dns as col, n.value from NFSUB n, DNS d1, DNS d
 store(graph, ipGraph);
 """
 myriaconn = get_myria_connection()
-
 myriacatalog = MyriaCatalog(myriaconn)
-catalog_path = os.path.join(os.path.dirname('/Users/shrainik/Dropbox/raco/examples/'), 'catalog.py')
 
-catalog = FromFileCatalog.load_from_file(catalog_path)
+catalog = FromFileCatalog.load_from_file(os.path.join(os.path.dirname('/Users/shrainik/Dropbox/raco/examples/'), 'catalog.py'))
 catalog = FederatedCatalog([myriacatalog, catalog])
 
 parser = myrialparser.Parser()

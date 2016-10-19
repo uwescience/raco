@@ -140,6 +140,7 @@ class FederatedConnection(object):
             c = racocompile.compile(query)
             with open('jaccard.cpp', 'w') as f:
                 f.write(c)
+            print c
             return
 
         if isinstance(query, FederatedSequence):
