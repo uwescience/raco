@@ -222,8 +222,8 @@ class SparkConnection(object):
             right = self.execute_rec(plan.right)
             left, right = self.matchOperatorAndDataFrameScheme(plan, left, right)
             if remove_unnamed_literals(plan, plan.condition) == "(1 = 1)": # (I don't know why the condition is 1=1 cross product)
-                return left.join(right)
-            return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition)[1:])
+                return left.join(right).distinct()
+            return left.join(right, self.condExprToSparkCond(left, right, plan, plan.condition)[1:]).distinct()
         if isinstance(plan, SparkStore):
             result = self.execute_rec(plan.input)
             count =  result.count()
