@@ -132,7 +132,7 @@ class FederatedConnection(object):
         # return run_myria()
 
         if isinstance(query, SparkOperator):
-            self.get_spark_connection().execute_query(query)
+            return self.get_spark_connection().execute_query(query)
 
         if isinstance(query, FederatedSequence):
             # execute each statement in the sequence, and return
