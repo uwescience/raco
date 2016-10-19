@@ -1,8 +1,9 @@
 from raco.catalog import Catalog
-import raco.scheme as scheme
 from raco.representation import RepresentationProperties
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.catalog import DEFAULT_CARDINALITY
+from raco.scheme import Scheme
+
 
 class AccumuloCatalog(Catalog):
 
@@ -10,6 +11,7 @@ class AccumuloCatalog(Catalog):
         self.connection = connection
 
     def get_scheme(self, rel_key):
+        #print rel_key
         accumulo_rel_key = '{}_{}_{}'.format(rel_key.user, rel_key.program, rel_key.relation)
 
         if not self.connection:
@@ -17,12 +19,8 @@ class AccumuloCatalog(Catalog):
                 "no schema for relation %s because no connection" % rel_key)
 
         props = self.connection.getTableProperties(accumulo_rel_key)
-            #self.connection.client.getTableProperties(self.connection.self.login, accumulo_rel_key)
-        print props
-
-        # todo return list of tuples and types
-        # props.scheme
-        return scheme.Scheme(  )
+        scheme = props['table.custom.scheme']
+        return Scheme(eval(scheme))
 
     def get_num_servers(self):
         # todo
@@ -39,11 +37,14 @@ class AccumuloCatalog(Catalog):
                 "no schema for relation %s because no connection" % rel_key)
 
         props = self.connection.getTableProperties(accumulo_rel_key)
-        # self.connection.client.getTableProperties(self.connection.self.login, accumulo_rel_key)
-        print props
+        howPartitioned = props['table.custom.howPartitioned']
 
-        # todo return list of tuples and types
-        # props.howPartitioned
         return RepresentationProperties(
-            hash_partitioned=frozenset( [] ))
+            hash_partitioned=frozenset( eval(howPartitioned) ))
+
+#conn.setTableProperty('public_adhoc_netflow','table.custom.scheme','[("TotBytes","LONG_TYPE"),("StartTime","STRING_TYPE"),("SrcAddr","STRING_TYPE"),("DstAddr","STRING_TYPE"),("RATE","DOUBLE_TYPE"),("Dur","DOUBLE_TYPE"),("Dir","STRING_TYPE"),("Proto","STRING_TYPE"),("Sport","STRING_TYPE"),("Dport","STRING_TYPE"),("State","STRING_TYPE"),("sTos","LONG_TYPE"),("dTos","LONG_TYPE"),("TotPkts","LONG_TYPE"),("SrcBytes","LONG_TYPE"),("Label","STRING_TYPE")]')
+#conn.setTableProperty('public_adhoc_netflow','table.custom.howPartitioned','["TotBytes", "StartTime"]')
+
+
+
 

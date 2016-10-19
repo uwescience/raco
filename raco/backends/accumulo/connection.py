@@ -8,7 +8,8 @@ from thrift.transport import TTransport
 from thrift.protocol import TCompactProtocol
 
 #PYTHONPATH=$ACCUMULO_HOME/proxy/thrift/gen-py/accumulo
-from accumulo import AccumuloProxy
+import accumulo
+import accumulo.AccumuloProxy
 from accumulo.ttypes import *
 
 logging.basicConfig(level=logging.WARN)
@@ -41,11 +42,15 @@ class AccumuloConnection(object):
         transport = TSocket.TSocket('localhost', 42424)
         transport = TTransport.TFramedTransport(transport)
         protocol = TCompactProtocol.TCompactProtocol(transport)
-        self.client = AccumuloProxy.Client(protocol)
+        self.client = accumulo.AccumuloProxy.Client(protocol)
         transport.open()
         self.login = self.client.login('root', {'password': 'secret'})
-        print self.client.listTables(self.login)
+        #print self.client.listTables(self.login)
 
     def getTableProperties(self, table):
         return self.client.getTableProperties(self.login, table)
+
+    def setTableProperty(self, table, prop, value):
+        return self.client.setTableProperty(self.login, table, prop, value)
+
 
