@@ -96,6 +96,12 @@ int main(int argc, char **argv) {
 
     printf("post-query stdout\n");fflush(stdout);
 
+    std::ofstream outputfile;
+    outputfile.open("matrix_output");
+    for (auto outTuple : result) {
+        outTuple.toOStreamAscii(outputfile);
+    }
+    outputfile.close();
 #ifdef ZAPPA
 //  printrelation(&resultInfo);
 #endif
