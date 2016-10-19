@@ -63,8 +63,8 @@ class AccumuloCatalog(Catalog):
             hash_partitioned=frozenset(hp))
             # hash_partitioned=frozenset( eval(howPartitioned) ))
 
-#conn.setTableProperty('public_adhoc_netflow','table.custom.scheme','[("TotBytes","INT_TYPE"),("StartTime","STRING_TYPE"),("SrcAddr","STRING_TYPE"),("DstAddr","STRING_TYPE"),("RATE","DOUBLE_TYPE"),("Dur","DOUBLE_TYPE"),("Dir","STRING_TYPE"),("Proto","STRING_TYPE"),("Sport","STRING_TYPE"),("Dport","STRING_TYPE"),("State","STRING_TYPE"),("sTos","INT_TYPE"),("dTos","INT_TYPE"),("TotPkts","INT_TYPE"),("SrcBytes","INT_TYPE"),("Label","STRING_TYPE")]')
-#conn.setTableProperty('public_adhoc_netflow','table.custom.howPartitioned','["TotBytes", "StartTime"]')
+#accumuloconn.setTableProperty('public_adhoc_netflow','table.custom.scheme','[("TotBytes","LONG_TYPE"),("StartTime","STRING_TYPE"),("SrcAddr","STRING_TYPE"),("DstAddr","STRING_TYPE"),("RATE","DOUBLE_TYPE"),("Dur","DOUBLE_TYPE"),("Dir","STRING_TYPE"),("Proto","STRING_TYPE"),("Sport","STRING_TYPE"),("Dport","STRING_TYPE"),("State","STRING_TYPE"),("sTos","LONG_TYPE"),("dTos","LONG_TYPE"),("TotPkts","LONG_TYPE"),("SrcBytes","LONG_TYPE"),("Label","STRING_TYPE")]')
+#accumuloconn.setTableProperty('public_adhoc_netflow','table.custom.howPartitioned','["TotBytes", "StartTime"]')
 
 
 
