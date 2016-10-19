@@ -1609,10 +1609,27 @@ class Scan(ZeroaryOperator):
             self.originalterm = other.originalterm
         ZeroaryOperator.copy(self, other)
 
+
     def scheme(self):
         """Scheme of the result, which is just the scheme of the relation."""
         return self._scheme
 
+    # TODO: manual deep copy in order to avoid a weird bug
+    def __deepcopy__(self, memodict={}):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memodict[id(self)] = result
+        # for k, v in self.__dict__.items():
+        #     setattr(result, k, copy.deepcopy(v, memodict))
+        result.relation_key = self.relation_key
+        result._scheme = self._scheme
+        result._cardinality = self._cardinality
+        result._partitioning = self._partitioning
+        result._trace = []
+        result.bound = None
+        result.cleanup = ""
+        result.alias = self
+        return result
 
 class SampleScan(ZeroaryOperator):
 
