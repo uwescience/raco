@@ -6,7 +6,7 @@ from raco import expression
 from raco.backends import Algebra
 from raco.backends.cpp import cppcommon
 from raco import rules
-from raco.backends.federated import FederatedExec, FederatedSequence, FederatedDoWhile
+from raco.backends.federated.algebra import FederatedExec, FederatedSequence, FederatedDoWhile
 from raco.pipelines import Pipelined
 from raco.backends.cpp.cppcommon import StagedTupleRef, CBaseLanguage
 

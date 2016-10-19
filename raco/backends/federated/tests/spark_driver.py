@@ -6,7 +6,7 @@ from raco.backends.myria.connection import MyriaConnection
 from raco.backends.myria.catalog import MyriaCatalog
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra
 from raco.backends.federated.catalog import FederatedCatalog
-from raco.backends.federated import FederatedAlgebra
+from raco.backends.federated.algebra import FederatedAlgebra
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
 
