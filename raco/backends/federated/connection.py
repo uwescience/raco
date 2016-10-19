@@ -1,8 +1,10 @@
 from raco.algebra import Sequence
 from algebra import FederatedSequence, FederatedParallel, FederatedMove, FederatedExec
+from raco.backends.cpp.cpp import CCOperator
 from raco.backends.myria.connection import MyriaConnection
 from raco.backends.spark.algebra import SparkOperator
 from raco.backends.spark.connection import SparkConnection
+import raco.compile as racocompile
 
 
 __all__ = ['FederatedConnection']
@@ -133,6 +135,12 @@ class FederatedConnection(object):
 
         if isinstance(query, SparkOperator):
             return self.get_spark_connection().execute_query(query)
+
+        if isinstance(query, CCOperator):
+            c = racocompile.compile(query)
+            with open('jaccard.cpp', 'w') as f:
+                f.write(c)
+            return
 
         if isinstance(query, FederatedSequence):
             # execute each statement in the sequence, and return

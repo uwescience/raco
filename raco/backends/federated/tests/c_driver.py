@@ -1,4 +1,5 @@
 from raco.backends.cpp.cpp import CCAlgebra
+from raco.backends.federated.connection import FederatedConnection
 from raco.backends.logical import OptLogicalAlgebra
 from raco.backends.myria.connection import MyriaConnection
 from raco.backends.myria.catalog import MyriaCatalog
@@ -54,6 +55,5 @@ algebras = [OptLogicalAlgebra(), MyriaLeftDeepTreeAlgebra(), CCAlgebra()]
 falg = FederatedAlgebra(algebras, catalog, crossproducts=False)
 
 federated_plan = processor.get_physical_plan(target_alg=falg)
-c = compile(federated_plan)
-with open('jaccard.cpp', 'w') as f:
-    f.write(c)
+fed_conn = FederatedConnection([myriaconn])
+fed_conn.execute_query(federated_plan)
