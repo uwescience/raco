@@ -349,6 +349,15 @@ class MyriaLPlatformTests(object):
         STORE(un, OUTPUT);
         """, "unionall")
 
+    def test_unionall_3(self):
+        self.check_sub_tables("""
+        T1 = SCAN(%(T1)s);
+        R1 = SCAN(%(R1)s);
+        S1 = SCAN(%(S1)s);
+        un = UNIONALL(T1, R1, S1);
+        STORE(un, OUTPUT);
+        """, "unionall_3")
+
     def test_swap(self):
         self.check_sub_tables("""
         R2 = SCAN(%(R2)s);
