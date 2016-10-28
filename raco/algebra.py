@@ -437,9 +437,6 @@ class UnionAll(NaryOperator):
                 return RepresentationProperties()
         return self.args[0].partitioning
 
-    def partitioning(self):
-        return RepresentationProperties()
-
     def num_tuples(self):
         sum = 0
         for op in self.args:
