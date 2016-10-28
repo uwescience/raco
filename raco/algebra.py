@@ -438,10 +438,7 @@ class UnionAll(NaryOperator):
         return self.args[0].partitioning
 
     def num_tuples(self):
-        sum = 0
-        for op in self.args:
-            sum = sum + op.num_tuples()
-        return sum
+        return sum([op.num_tuples() for op in self.args])
 
     def copy(self, other):
         """deep copy"""
