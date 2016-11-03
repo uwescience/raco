@@ -7,7 +7,8 @@ representation.
 import collections
 
 from sqlalchemy import (Column, Table, MetaData, Integer, String, DateTime,
-                        Float, Boolean, create_engine, select, text)
+                        Float, Boolean, LargeBinary, create_engine, select,
+                        text)
 
 from raco.scheme import Scheme
 import raco.types as types
@@ -16,7 +17,8 @@ type_to_raco = {Integer: types.LONG_TYPE,
                 String: types.STRING_TYPE,
                 Float: types.FLOAT_TYPE,
                 Boolean: types.BOOLEAN_TYPE,
-                DateTime: types.DATETIME_TYPE}
+                DateTime: types.DATETIME_TYPE,
+                LargeBinary: types.BLOB_TYPE}
 
 
 raco_to_type = {types.LONG_TYPE: Integer,
@@ -25,7 +27,8 @@ raco_to_type = {types.LONG_TYPE: Integer,
                 types.FLOAT_TYPE: Float,
                 types.DOUBLE_TYPE: Float,
                 types.BOOLEAN_TYPE: Boolean,
-                types.DATETIME_TYPE: DateTime}
+                types.DATETIME_TYPE: DateTime,
+                types.BLOB_TYPE: LargeBinary}
 
 
 class DBConnection(object):
@@ -35,6 +38,19 @@ class DBConnection(object):
         self.engine = create_engine(connection_string, echo=echo)
         self.metadata = MetaData()
         self.metadata.bind = self.engine
+        self.__add_function_registry__()
+
+    def __add_function_registry__(self):
+        functions_schema = Scheme([("name", types.STRING_TYPE),
+                                   ("description", types.STRING_TYPE),
+                                   ("outputType", types.STRING_TYPE),
+                                   ("lang", types.INT_TYPE),
+                                   ("binary", types.BLOB_TYPE)])
+
+        columns = [Column(n, raco_to_type[t](), nullable=False)
+                   for n, t in functions_schema.attributes]
+        table = Table("registered_functions", self.metadata, *columns)
+        table.create(self.engine)
 
     def get_scheme(self, rel_key):
         """Return the schema associated with a relation key."""
@@ -93,3 +109,15 @@ class DBConnection(object):
         """Retrieve the result of a query as a bag (Counter)."""
         s = text(sql)
         return collections.Counter(tuple(t) for t in self.engine.execute(s))
+
+    def get_function(self, name):
+        """Retrieve a function from catalog."""
+        s = "select * from registered_functions where name=" + str(name)
+        return dict(self.engine.execute(s).first())
+
+    def register_function(self, tup):
+        """Register a function in the catalog."""
+        table = self.metadata.tables['registered_functions']
+        scheme = self.get_scheme('registered_functions')
+        func = [{n: v for n, v in zip(scheme.get_names(), tup)}]
+        self.engine.execute(table.insert(), func)

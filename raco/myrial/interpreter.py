@@ -330,6 +330,7 @@ class StatementProcessor(object):
 
         assert isinstance(catalog, raco.catalog.Catalog)
         self.catalog = catalog
+
         self.ep = ExpressionProcessor(self.symbols, catalog, use_dummy_schema)
 
         self.cfg = ControlFlowGraph()
@@ -359,7 +360,6 @@ class StatementProcessor(object):
     def __do_assignment(self, _id, expr):
         """Process an assignment statement; add a node to the control flow
         graph.
-
         :param _id: The target variable name.
         :type _id: string
         :param expr: The relational expression to evaluate

@@ -6,9 +6,11 @@ import math
 import md5
 import random
 
+from raco.expression.udf import Function
+
 from .expression import (ZeroaryOperator, UnaryOperator, BinaryOperator,
                          NaryOperator, types, check_is_numeric, check_type,
-                         TypeSafetyViolation)
+                         TypeSafetyViolation, NamedAttributeRef)
 
 
 class UnaryFunction(UnaryOperator):
@@ -165,6 +167,23 @@ class UnaryTypePreservingFunction(UnaryFunction):
         return input_type
 
 
+class VariadicFunction(object):
+    def __init__(self, ftype, name, typ, **kwargs):
+        self.ftype = ftype
+        self.name = name
+        self.typ = typ
+        self.kwargs = kwargs
+
+    def bind(self, *args):
+        return Function(
+            ['arg{}'.format(i) for i in xrange(len(args))],
+            self.ftype(self.name,
+                       self.typ,
+                       *[NamedAttributeRef('arg{}'.format(i))
+                         for i in xrange(len(args))],
+                       **self.kwargs))
+
+
 class ABS(UnaryTypePreservingFunction):
 
     def evaluate(self, _tuple, scheme, state=None):
@@ -299,6 +318,57 @@ class LEN(UnaryFunction):
         return types.LONG_TYPE
 
 
+class PYUDF(NaryFunction):
+
+    literals = []
+
+    def __init__(self, name, typ, *args, **kwargs):
+        super(PYUDF, self).__init__(tuple(args))
+        self.name = name
+        self.source = kwargs.get('source', None)
+        self.func = eval(self.source) if self.source else None
+        self.typ = typ
+
+    def __str__(self):
+        return "%s(%s, %s, %s)" % (self.__class__.__name__,
+                                   self.name,
+                                   map(str, self.arguments),
+                                   self.typ)
+
+    def __repr__(self):
+        return "{op}({n!r},{t!r},*{a!r}, source={s!r})".format(
+            op=self.opname(),
+            n=self.name,
+            a=self.arguments,
+            t=self.typ,
+            s=self.source)
+
+    @property
+    def arguments(self):
+        return self.operands
+
+    @arguments.setter
+    def arguments(self, value):
+        self.operands = value
+
+    def apply(self, f):
+        super(PYUDF, self).apply(f)
+        self.arguments = tuple(self.arguments)
+
+    def typeof(self, scheme, state_scheme):
+        return self.typ
+
+    def set_typ(self, typ):
+        self.typ = typ
+
+    def evaluate(self, _tuple, scheme, state=None):
+        if self.func:
+            return self.func(*map(lambda a: a.evaluate(_tuple, scheme, state),
+                                  self.arguments))
+        else:
+            raise NotImplementedError()
+
+
 class SPLIT(BinaryFunction):
     literals = ["SPLIT"]
 
@@ -342,3 +412,4 @@ class NGRAM(BinaryFunction):
         rt = self.right.typeof(scheme, state_scheme)
         check_type(rt, types.LONG_TYPE)
         return types.STRING_TYPE
+

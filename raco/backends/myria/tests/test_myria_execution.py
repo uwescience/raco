@@ -10,7 +10,7 @@ from raco.representation import RepresentationProperties
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra
-
+from raco.backends.myria.connection import FunctionTypes
 import os
 
 
@@ -143,6 +143,13 @@ def local_mock(url, request):
     elif url.path == '/logs/profiling' and request.method == 'GET':
         # lazy test
         return {'status_code': 200, 'content': request.body or ""}
+
+    elif url.path == '/function' and request.method == 'POST':
+        return {'status_code': 200, 'content': json.dumps([5])}
+
+    elif url.path == '/function/test' and request.method == 'GET':
+        return {'status_code': 200, 'content': json.dumps(['test'])}
+
     elif url.path == '/execute' and request.method == 'POST':
         return {'status_code': 200, 'content': request.body or ""}
 
@@ -212,6 +219,22 @@ class TestQuery(unittest.TestCase):
             status = self.connection.get_profiling_log(17)
             self.assertNotEquals(status, None)
 
+    def test_reg_function(self):
+        with HTTMock(local_mock):
+            status = self.connection.create_function({
+                'name': 'test',
+                'description': 'function text',
+                'outputType': 'INT_TYPE',
+                'lang': FunctionTypes.PYTHON,
+                'binary': "function binary"})
+            print status
+            self.assertNotEquals(status, None)
+
+    def test_get_function(self):
+        with HTTMock(local_mock):
+            status = self.connection.get_function("test")
+            self.assertNotEquals(status, None)
+
     def test_get_profiling_log_roots(self):
         with HTTMock(local_mock):
             status = self.connection.get_profiling_log_roots(17, 1)
@@ -243,6 +266,15 @@ class TestQuery(unittest.TestCase):
             query_request = query(self.connection)
             result = self.connection.queries()
             self.assertNotEqual(result, None)
+
+    def test_add_udf(self):
+        with HTTMock(local_mock):
+            name = 'myudf'
+            self.assertFalse(name in myrialparser.Parser.udf_functions)
+            self.connection.create_function({'name': name,
+                                             'outputType': 'STRING_TYPE'})
+            self.assertTrue(name in myrialparser.Parser.udf_functions)
+
 
 if __name__ == '__main__':
     unittest.main()
