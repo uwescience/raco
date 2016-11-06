@@ -8,10 +8,13 @@ from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.expression import StateVar
 from raco.expression import aggregate
+import raco.expression
 
 from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
-    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaDupElim,
+    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaDupElim, MyriaScan,
+    MyriaGroupBy, MyriaSelect,
+    MyriaBroadcastConsumer, MyriaBroadcastProducer, MyriaQueryScan, MyriaSplitConsumer, MyriaDupElim,
     MyriaGroupBy)
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
                                  MyriaHyperCubeAlgebra)
@@ -29,11 +32,16 @@ class OptimizerTest(myrial_test.MyrialTestCase):
     x_scheme = scheme.Scheme([("a", types.LONG_TYPE), ("b", types.LONG_TYPE), ("c", types.LONG_TYPE)])  # noqa
     y_scheme = scheme.Scheme([("d", types.LONG_TYPE), ("e", types.LONG_TYPE), ("f", types.LONG_TYPE)])  # noqa
     part_scheme = scheme.Scheme([("g", types.LONG_TYPE), ("h", types.LONG_TYPE), ("i", types.LONG_TYPE)])  # noqa
+    broad_scheme = scheme.Scheme([("j", types.LONG_TYPE), ("k", types.LONG_TYPE), ("l", types.LONG_TYPE)])  # noqa
     x_key = relation_key.RelationKey.from_string("public:adhoc:X")
     y_key = relation_key.RelationKey.from_string("public:adhoc:Y")
     part_key = relation_key.RelationKey.from_string("public:adhoc:part")
     part_partition = RepresentationProperties(
         hash_partitioned=frozenset([AttIndex(1)]))
+    broad_key = relation_key.RelationKey.from_string("public:adhoc:broad")
+    broad_partition = RepresentationProperties(
+        broadcasted=True
+    )
 
     def setUp(self):
         super(OptimizerTest, self).setUp()
@@ -50,6 +58,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.part_data = collections.Counter(
             [(random.randrange(rng), random.randrange(rng),
               random.randrange(rng)) for _ in range(count)])
+        self.broad_data = collections.Counter(
+            [(random.randrange(rng), random.randrange(rng),
+              random.randrange(rng)) for _ in range(count)])
 
         self.db.ingest(OptimizerTest.x_key,
                        self.x_data,
@@ -61,6 +72,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                        self.part_data,
                        OptimizerTest.part_scheme,
                        self.part_partition)  # "partitioned" table
+        self.db.ingest(OptimizerTest.broad_key,
+                       self.broad_data,
+                       OptimizerTest.broad_scheme,
+                       self.broad_partition)
 
         self.expected = collections.Counter(
             [(a, b, c, d, e, f) for (a, b, c) in self.x_data
@@ -1174,3 +1189,57 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # translate to COUNT(something)
         self._check_aggregate_functions_pushed(
             'count(*)', r'count[(][a-zA-Z.]+[)]', True)
+
+    def test_broadcasted_to_not_broadcast(self):
+        """Test that no-broadcast storing a broadcasted relation pushes it into
+        the scan"""
+
+        query = """
+        a = scan({broad});
+        b = select j,k,l from a where j < 5;
+        store(b, OUTPUT);""".format(broad=self.broad_key)
+
+        pp = self.get_physical_plan(query)
+
+        def find_scan(_op):
+            if isinstance(_op, MyriaQueryScan) or isinstance(_op, MyriaScan):
+                if _op._debroadcast:
+                    yield True
+                else:
+                    yield False
+            else:
+                yield False
+
+        self.assertEquals(self.get_count(pp, MyriaSelect), 1)
+        self.assertTrue(any(pp.postorder(find_scan)))
+
+    def test_broadcast_store(self):
+        query = """
+        r = scan({X});
+        store(r, OUTPUT, broadcast);
+        """.format(X=self.x_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        self.assertEquals(self.get_count(pp, MyriaBroadcastConsumer), 1)
+        self.assertEquals(self.get_count(pp, MyriaBroadcastProducer), 1)
+        self.assertEquals(pp.partitioning().broadcasted, RepresentationProperties(broadcasted=True).broadcasted)
+
+    def test_broadcast_join(self):
+        query = """
+        b = scan({broad});
+        x = scan({X});
+        o = select * from b, x where b.j==x.a;
+        store(o, OUTPUT);
+        """.format(X=self.x_key, broad=self.broad_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        self.assertEquals(self.get_count(pp, MyriaBroadcastProducer), 0)
+        self.assertEquals(self.get_count(pp, MyriaBroadcastConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
+        self.assertEquals(pp.partitioning().broadcasted, RepresentationProperties().broadcasted)
+
