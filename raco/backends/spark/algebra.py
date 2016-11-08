@@ -194,40 +194,13 @@ class SparkAlgebra(Algebra):
             rules.OneToOne(algebra.DoWhile, SparkDoWhile),
             rules.OneToOne(algebra.Sequence, SparkSequence)
         ]
-        all_rules = [ConsumeFederatedOps()] + sparkify + [GroupByToGroupByApply(), ScanTempToSparkScanTemp()]
+        all_rules = [ConsumeFederatedOps()] +[rules.CrossProduct2Join()] + \
+                    rules.push_select+ sparkify + [GroupByToGroupByApply(), ScanTempToSparkScanTemp()]
 
         return all_rules
 
     def __init__(self, catalog=None):
         self.catalog = catalog
-
-def compile_to_scala(plan):
-    pass
-
-def compile_plan(plan):
-    pass
-    # if isinstance(plan, SciDBStore):
-    #     return "\nstore(" + compile_plan(plan.input, scidb_out_relation, temp_out_name) + \
-    #           ", {scidb_out_relation});".format(scidb_out_relation=str(plan.relation_key).replace(':', '__'))
-    # if isinstance(plan, SciDBRegrid):
-    #     return plan.compileme(compile_plan(plan.input, scidb_out_relation, temp_out_name))
-    # if isinstance(plan, SciDBRedimension):
-    #     # plan.template_array = temp_out_name
-    #     return plan.compileme(compile_plan(plan.input, scidb_out_relation, temp_out_name))
-    # if isinstance(plan, (SciDBSelect, SciDBProject, SciDBApply)):
-    #     return plan.compileme(compile_plan(plan.input, scidb_out_relation, temp_out_name))
-    # if isinstance(plan, SciDBScan):
-    #     return plan.compileme()
-    # if isinstance(plan, SciDBJoin):
-    #     return plan.compileme(compile_plan(plan.left, scidb_out_relation, temp_out_name),
-    #                           compile_plan(plan.right, scidb_out_relation, temp_out_name))
-    # if isinstance(plan, SciDBAggregate):
-    #     return plan.compileme(compile_plan(plan.input, scidb_out_relation, temp_out_name))
-    # if isinstance(plan, SciDbMult):
-    #     return plan.compileme(compile_plan(plan.left, scidb_out_relation, temp_out_name), compile_plan(plan.right, scidb_out_relation, temp_out_name))
-    # print plan.scheme()
-    # raise NotImplementedError("Compiling expr of class %s" % plan.__class__)
-
 
 ### HELPER METHODS
 

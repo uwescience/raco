@@ -91,19 +91,15 @@ class SparkConnection(object):
         Args:
             query: a physical plan as a Python object.
         """
-        # Assuming that the scidb part of the query plan will always be an store,
-        # as we will do something with the result of scidb in myria,
-        # hardcoding to optimize only the relation_key within store.
-        # This relation_key is the plan for the entire scidb operation.
-
-        # return self.connection.query(compile_to_afl(physical_plan))
-
-        # print "AFTER Spark RULES"
-        # print physical_plan
-        # print 'dot version after spark rules'
-        # print raco.viz.operator_to_dot(physical_plan)
-        #
         return self.execute_rec(query)
+
+    def compile_to_scala(plan):
+        pass
+
+    def compile_plan(plan):
+        pass
+
+
 
     def remove_unnamed_literals(scheme, expression):
         ex = str(expression)
