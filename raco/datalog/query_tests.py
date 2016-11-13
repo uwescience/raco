@@ -167,8 +167,8 @@ class TestQueryFunctions(datalog_test.DatalogTestCase):
         OUTPUT(b) :- {edge}(b, a)
         """.format(emp=self.emp_key, edge=self.edge_key)
         expected = collections.Counter(
-            set([(b,) for (a, b, c, d) in self.emp_table]
-                + [(b,) for (b, a) in self.edge_table])
+            [(b,) for (a, b, c, d) in self.emp_table] +
+            [(b,) for (b, a) in self.edge_table]
         )
         self.check_result(query, expected, test_logical=True)
 

@@ -226,10 +226,10 @@ class MyriaLimit(algebra.Limit, MyriaOperator):
 
 class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
 
-    def compileme(self, leftid, rightid):
+    def compileme(self, *args):
         return {
             "opType": "UnionAll",
-            "argChildren": [leftid, rightid]
+            "argChildren": args
         }
 
 
@@ -1470,8 +1470,12 @@ class AddAppendTemp(rules.Rule):
         if not isinstance(child, MyriaUnionAll):
             return op
 
-        left = child.left
-        right = child.right
+        # TODO: handle multiple children.
+        if len(child.args) != 2:
+            return op
+
+        left = child.args[0]
+        right = child.args[1]
         rel_name = op.name
 
         is_scan = lambda op: isinstance(
@@ -1697,6 +1701,26 @@ class MyriaAlgebra(Algebra):
     )
 
 
+class FlattenUnionAll(rules.Rule):
+
+    @staticmethod
+    def collect_children(op):
+        if isinstance(op, algebra.UnionAll):
+            children = []
+            for child in op.args:
+                children += FlattenUnionAll.collect_children(child)
+            return children
+        return [op]
+
+    def fire(self, op):
+        if not isinstance(op, algebra.UnionAll):
+            return op
+        children = FlattenUnionAll.collect_children(op)
+        if len(children) == 1:
+            return children[0]
+        return algebra.UnionAll(children)
+
+
 class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
 
     """Myria physical algebra using left deep tree pipeline and 1-D shuffle"""
@@ -1718,6 +1742,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             distributed_group_by(MyriaGroupBy),
             [rules.PushApply()],
             [LogicalSampleToDistributedSample()],
+            [FlattenUnionAll()],
         ]
 
         if kwargs.get('push_sql', False):

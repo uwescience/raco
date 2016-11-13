@@ -48,17 +48,17 @@ class SetopTestFunctions(myrial_test.MyrialTestCase):
 
     def test_unionall(self):
         query = """
-        out = UNIONALL(SCAN(%s), SCAN(%s));
+        out = SCAN(%s) + SCAN(%s);
         STORE(out, OUTPUT);
         """ % (self.emp_key1, self.emp_key2)
 
         expected = self.emp_table1 + self.emp_table2
         self.check_result(query, expected)
 
-    def test_unionall_schema_mismatch(self):
+    def test_union_schema_mismatch(self):
         query = """
         T1 = [FROM SCAN(%s) AS X EMIT id, dept_id, name, salary, 7 as seven];
-        out = UNIONALL(T1, SCAN(%s));
+        out = UNION(T1, SCAN(%s));
         STORE(out, OUTPUT);
         """ % (self.emp_key1, self.emp_key2)
 

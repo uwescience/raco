@@ -421,22 +421,39 @@ class Union(IdenticalSchemeBinaryOperator):
         return self.opname()
 
 
-class UnionAll(IdenticalSchemeBinaryOperator):
+class UnionAll(NaryOperator):
 
     """Bag union."""
 
-    def __init__(self, left=None, right=None):
-        BinaryOperator.__init__(self, left, right)
+    def __init__(self, children=None):
+        NaryOperator.__init__(self, children)
+
+    def partitioning(self):
+        """keep the partitioning if all children are identically
+        partitioned"""
+        for child in self.args:
+            if child.partitioning().hash_partitioned != \
+                    self.args[0].partitioning().hash_partitioned:
+                return RepresentationProperties()
+        return self.args[0].partitioning()
 
     def num_tuples(self):
-        return self.left.num_tuples() + self.right.num_tuples()
+        return sum([op.num_tuples() for op in self.args])
 
     def copy(self, other):
         """deep copy"""
-        BinaryOperator.copy(self, other)
+        NaryOperator.copy(self, other)
 
     def shortStr(self):
         return self.opname()
+
+    def scheme(self):
+        for child in self.args:
+            assert all(
+                la[1] == ra[1] for la, ra in zip(child.scheme(), self.args[0].scheme())), \
+                "Must be same scheme types: {left} != {right}".format(
+                    left=child.scheme(), right=self.args[0].scheme())
+        return self.args[0].scheme()
 
 
 class Intersection(IdenticalSchemeBinaryOperator):

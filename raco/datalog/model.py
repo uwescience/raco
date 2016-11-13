@@ -87,7 +87,7 @@ class Program(object):
         else:
             rules = self.idbs[idb]
             plans = [r.toRA(self) for r in rules]
-            ra = reduce(algebra.Union, plans)
+            ra = algebra.UnionAll(plans)
             self.compiledidbs[self] = ra
             return ra
 
