@@ -331,3 +331,43 @@ class PYUDF(BinaryFunction):
     def evaluate(self, _tuple, scheme, state=None):
         return PYUDF(self.name, self.left.evaluate(_tuple, scheme, state),
                      self.right.evaluate(_tuple, scheme, state))
+
+
+class PYNaryUDF(NaryFunction):
+
+    literals = []
+
+    def __init__(self, name, type, *args):
+        super(PYNaryUDF, self).__init__([name, type] + list(args))
+        self.name = name
+        self.typ = type
+        self.argument_names = args
+
+    def __str__(self):
+        return "%s(%s([%s]):%s)" % (self.__class__.__name__,
+                                    self.name,
+                                    self.argument_names,
+                                    self.typ)
+
+    def __repr__(self):
+        return "{op}({n!r}, {a!r}, {t!r})".format(op=self.opname(),
+                                                  n=self.name,
+                                                  a=self.argument_names,
+                                                  t=self.typ)
+
+    def typeof(self, scheme, state_scheme):
+        return self.typ
+
+    def set_typ(self, type):
+        self.typ = type
+
+    def apply(self, f):
+        self.name = f(self.name)
+        self.type = f(self.type)
+        map(lambda a: f(a), self.argument_names)
+
+    def evaluate(self, _tuple, scheme, state=None):
+        return PYNaryUDF(self.name.evalute(_tuple, scheme, state),
+                         self.typ.evalute(_tuple, scheme, state),
+                         map(lambda a: a.evaluate(_tuple, scheme, state),
+                             self.argument_names))
