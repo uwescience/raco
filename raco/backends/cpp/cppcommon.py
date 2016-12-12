@@ -454,14 +454,14 @@ def createTupleTypeConversion(lang, state, input_tuple, result_tuple):
     )
 
 
-class CBaseUnionAll(Pipelined, algebra.Union):
+class CBaseUnionAll(Pipelined, algebra.UnionAll):
 
     def produce(self, state):
         self.unifiedTupleType = self.new_tuple_ref(gensym(), self.scheme())
         state.addDeclarations([self.unifiedTupleType.generateDefinition()])
 
-        self.right.produce(state)
-        self.left.produce(state)
+        for arg in self.args:
+            arg.produce(state)
 
     def consume(self, t, src, state):
         unified_tuple = self.unifiedTupleType

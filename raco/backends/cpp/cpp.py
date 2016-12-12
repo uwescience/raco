@@ -547,8 +547,6 @@ def clangify(emit_print):
         rules.OneToOne(algebra.GroupBy, CGroupBy),
         rules.OneToOne(algebra.Project, CProject),
         rules.OneToOne(algebra.UnionAll, CUnionAll),
-        # TODO: obviously breaks semantics
-        rules.OneToOne(algebra.Union, CUnionAll),
         cppcommon.StoreToBaseCStore(emit_print, CStore),
         rules.OneToOne(algebra.Sink, CSink),
 

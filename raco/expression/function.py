@@ -371,3 +371,47 @@ class PYNaryUDF(NaryFunction):
                          self.typ.evalute(_tuple, scheme, state),
                          map(lambda a: a.evaluate(_tuple, scheme, state),
                              self.argument_names))
+
+class SPLIT(BinaryFunction):
+    literals = ["SPLIT"]
+
+    # TODO: implement once fakedb can handle flatmap functions
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        lt = self.left.typeof(scheme, state_scheme)
+        check_type(lt, types.STRING_TYPE)
+        rt = self.right.typeof(scheme, state_scheme)
+        check_type(rt, types.STRING_TYPE)
+        return types.STRING_TYPE
+
+
+class SEQUENCE(UnaryFunction):
+    literals = ["SEQUENCE"]
+
+    # TODO: implement once fakedb can handle flatmap functions
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        if input_type != types.LONG_TYPE:
+            raise TypeSafetyViolation("Must be an integer for %s" % (
+                self.__class__,))
+        return types.LONG_TYPE
+
+
+class NGRAM(BinaryFunction):
+    literals = ["NGRAM"]
+
+    # TODO: implement once fakedb can handle flatmap functions
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        lt = self.left.typeof(scheme, state_scheme)
+        check_type(lt, types.STRING_TYPE)
+        rt = self.right.typeof(scheme, state_scheme)
+        check_type(rt, types.LONG_TYPE)
+        return types.STRING_TYPE
