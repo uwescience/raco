@@ -15,7 +15,7 @@ from raco.expression.udf import Function, StatefulFunc
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
-from raco.expression import StateVar
+from raco.expression import StateVar, PythonUDF, UnnamedAttributeRef
 
 
 class JoinColumnCountMismatchException(Exception):
@@ -287,6 +287,28 @@ class Parser(object):
 
         Parser.udf_functions[name] = Function(args, emit_op)
         return emit_op
+
+    @staticmethod
+    def add_python_udf(name, arity, typ, **kwargs):
+        """Add a Python user-defined function to the global function table.
+
+        :param name: The name of the function
+        :type name: string
+        :param arity: Number of function arguments
+        :type arity: int
+        :param typ: The output type of the function
+        :type typ: string
+        """
+        if name in Parser.udf_functions:
+            raise DuplicateFunctionDefinitionException(name, -1)
+
+        args = ['arg_{}'.format(i) for i in xrange(arity)]
+        body = PythonUDF(name, typ,
+                         *[UnnamedAttributeRef(i) for i in xrange(arity)],
+                         source=kwargs.get('source', None))
+
+        Parser.udf_functions[name] = Function(args, body)
+        return body
 
     @staticmethod
     def mangle(name):
@@ -1155,10 +1177,11 @@ class Parser(object):
         'empty :'
         pass
 
-    def parse(self, s):
+    def parse(self, s, udas=None):
         scanner.lexer.lineno = 1
         Parser.udf_functions = {}
         Parser.decomposable_aggs = {}
+        map(lambda uda: self.add_python_udf(*uda), udas or [])
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 

@@ -237,10 +237,6 @@ class ExpressionProcessor(object):
 
         statemods = multiway.rewrite_statemods(statemods, from_args, info)
 
-        for (name, ex) in emit_args:
-            for sx in ex.walk():
-                raco.expression.set_function_outputType(sx, self.catalog)
-
         if any(raco.expression.expression_contains_aggregate(ex)
                for name, ex in emit_args):
             return groupby.groupby(op, emit_args, implicit_group_by_cols,

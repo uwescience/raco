@@ -10,7 +10,7 @@ from raco.representation import RepresentationProperties
 import raco.myrial.interpreter as interpreter
 import raco.myrial.parser as myrialparser
 from raco.backends.myria import MyriaLeftDeepTreeAlgebra
-from raco.backends.myria.connection import functionTypes
+from raco.backends.myria.connection import FunctionTypes
 import os
 
 
@@ -221,16 +221,17 @@ class TestQuery(unittest.TestCase):
 
     def test_reg_function(self):
         with HTTMock(local_mock):
-            status = self.connection.create_function('test',
-                                                     'function text',
-                                                     'INT_TYPE',
-                                                     functionTypes.PYTHON,
-                                                     "", "function binary")
+            status = self.connection.create_function({
+                'name': 'test',
+                'text': 'function text',
+                'outputType': 'INT_TYPE',
+                'lang': FunctionTypes.PYTHON,
+                'binary': "function binary"})
             self.assertNotEquals(status, None)
 
     def test_get_function(self):
         with HTTMock(local_mock):
-            status = self.connection.list_function("test")
+            status = self.connection.get_function("test")
             self.assertNotEquals(status, None)
 
     def test_get_profiling_log_roots(self):

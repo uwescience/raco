@@ -66,11 +66,7 @@ EXPRESSIONS_CASE = {
                                      NumericLiteral(0)),
                              LEN(NamedAttributeRef('str'))
                              ])),
-    'flip': Function(['p'], LT(RANDOM(), NamedAttributeRef('p'))),
-    'pyudf': Function(['arg0', 'arg1', 'arg2'],
-                      PYUDF(NamedAttributeRef('arg0'),
-                      NamedAttributeRef('arg1'),
-                      NamedAttributeRef('arg2')))
+    'flip': Function(['p'], LT(RANDOM(), NamedAttributeRef('p')))
 }
 
 

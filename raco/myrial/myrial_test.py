@@ -19,6 +19,9 @@ class MyrialTestCase(unittest.TestCase):
         self.parser = parser.Parser()
         self.processor = interpreter.StatementProcessor(self.db)
 
+    def register_python_udf(self, name, arity, typ):
+        self.parser.add_python_udf(name, arity, typ)
+
     def parse(self, query):
         """Parse a query"""
         statements = self.parser.parse(query)
@@ -26,7 +29,8 @@ class MyrialTestCase(unittest.TestCase):
 
     def get_plan(self, query, **kwargs):
         """Get the MyriaL query plan for a query"""
-        statements = self.parser.parse(query)
+        statements = self.parser.parse(query, udas=kwargs.get('udas', None))
+
         print statements
         self.processor.evaluate(statements)
         if kwargs.get('logical', False):

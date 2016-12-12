@@ -299,23 +299,31 @@ class LEN(UnaryFunction):
         return types.LONG_TYPE
 
 
-class PYUDF(BinaryFunction):
+class PythonUDF(NaryFunction):
 
     literals = []
 
-    def __init__(self, name, left, right):
+    def __init__(self, name, typ, *args, **kwargs):
+        super(PythonUDF, self).__init__(args)
         self.name = name
-        self.typ = types.BYTES_TYPE
-        super(PYUDF, self).__init__(left, right)
+        self.source = kwargs.get('source', None)
+        self.func = eval(self.source) if self.source else None
+        self.typ = typ
+        self.arguments = tuple(args)
 
     def __str__(self):
-        return "%s( %s, %s)" % (self.__class__.__name__, self.left, self.right)
+        return "%s(%s, %s, %s)" % (self.__class__.__name__,
+                                   self.name,
+                                   map(str, self.arguments),
+                                   self.typ)
 
     def __repr__(self):
-        return "{op}({n!r}, {l!r}, {r!r})".format(op=self.opname(),
-                                                  n=self.name,
-                                                  l=self.left,
-                                                  r=self.right)
+        return "{op}({n!r},{t!r},*{a!r}, source={s!r})".format(
+            op=self.opname(),
+            n=self.name,
+            a=self.arguments,
+            t=self.typ,
+            s=self.source)
 
     def typeof(self, scheme, state_scheme):
         return self.typ
@@ -324,53 +332,15 @@ class PYUDF(BinaryFunction):
         self.typ = typ
 
     def apply(self, f):
-        self.name = f(self.name)
-        self.left = f(self.left)
-        self.right = f(self.right)
+        map(lambda a: f(a), self.arguments)
 
     def evaluate(self, _tuple, scheme, state=None):
-        return PYUDF(self.name, self.left.evaluate(_tuple, scheme, state),
-                     self.right.evaluate(_tuple, scheme, state))
+        if self.func:
+            return self.func(*map(lambda a: a.evaluate(_tuple, scheme, state),
+                                  self.arguments))
+        else:
+            raise NotImplementedError()
 
-
-class PYNaryUDF(NaryFunction):
-
-    literals = []
-
-    def __init__(self, name, type, *args):
-        super(PYNaryUDF, self).__init__([name, type] + list(args))
-        self.name = name
-        self.typ = type
-        self.argument_names = args
-
-    def __str__(self):
-        return "%s(%s([%s]):%s)" % (self.__class__.__name__,
-                                    self.name,
-                                    self.argument_names,
-                                    self.typ)
-
-    def __repr__(self):
-        return "{op}({n!r}, {a!r}, {t!r})".format(op=self.opname(),
-                                                  n=self.name,
-                                                  a=self.argument_names,
-                                                  t=self.typ)
-
-    def typeof(self, scheme, state_scheme):
-        return self.typ
-
-    def set_typ(self, type):
-        self.typ = type
-
-    def apply(self, f):
-        self.name = f(self.name)
-        self.type = f(self.type)
-        map(lambda a: f(a), self.argument_names)
-
-    def evaluate(self, _tuple, scheme, state=None):
-        return PYNaryUDF(self.name.evalute(_tuple, scheme, state),
-                         self.typ.evalute(_tuple, scheme, state),
-                         map(lambda a: a.evaluate(_tuple, scheme, state),
-                             self.argument_names))
 
 class SPLIT(BinaryFunction):
     literals = ["SPLIT"]

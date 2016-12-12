@@ -108,14 +108,13 @@ def compile_expr(op, child_scheme, state_scheme):
             'type': op.opname(),
             'children': children
         }
-    elif isinstance(op, expression.PYUDF):
-        print(op)
+    elif isinstance(op, expression.PythonUDF):
         return {
             'type': op.opname(),
-            'name': op.name.get_val(),
+            'name': op.name,
             'outputType': op.typ,
-            'left': compile_expr(op.left, child_scheme, state_scheme),
-            'right': compile_expr(op.right, child_scheme, state_scheme)
+            'arguments': [compile_expr(arg, child_scheme, state_scheme)
+                          for arg in op.arguments]
         }
 
     ####

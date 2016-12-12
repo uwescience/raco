@@ -33,11 +33,12 @@ class MyriaCatalog(Catalog):
         return len(self.connection.workers_alive())
 
     def get_function(self, name):
+        """ Get user defined function metadata """
         if not self.connection:
             raise RuntimeError("no connection.")
 
         try:
-            function_info = self.connection.list_function(name)
+            function_info = self.connection.get_function(name)
         except MyriaError:
             raise ValueError("Function does not exist.")
 
