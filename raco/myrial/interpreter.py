@@ -382,20 +382,19 @@ class StatementProcessor(object):
         """Map a variable to the value of an expression."""
         self.__do_assignment(_id, expr)
 
-    def store(self, _id, rel_key, how_partitioned):
+    def store(self, _id, rel_key, how_distributed):
         assert isinstance(rel_key, relation_key.RelationKey)
 
         alias_expr = ("ALIAS", _id)
         child_op = self.ep.evaluate(alias_expr)
 
-        if how_partitioned == "BROADCAST":
+        # TODO: add other types
+        if how_distributed == "BROADCAST":
             child_op = raco.algebra.Broadcast(child_op)
-        elif how_partitioned:
+        elif how_distributed:
             scheme = child_op.scheme()
-            col_list = [
-                get_unnamed_ref(a, scheme) for a in how_partitioned]
+            col_list = [get_unnamed_ref(a, scheme) for a in how_distributed]
             child_op = raco.algebra.Shuffle(child_op, col_list)
-
         op = raco.algebra.Store(rel_key, child_op)
 
         uses_set = self.ep.get_and_clear_uses_set()

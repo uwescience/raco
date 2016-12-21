@@ -321,6 +321,10 @@ class MyriaStore(algebra.Store, MyriaOperator):
             distributeFunction = {
                 "type": "Broadcast"
             }
+        else:
+            distributeFunction = {
+                "type": "RoundRobin"
+            }
         return {
             "opType": "DbInsert",
             "relationKey": relation_key_to_json(self.relation_key),
@@ -344,6 +348,10 @@ class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
         elif self.partitioning().broadcasted:
             distributeFunction = {
                 "type": "Broadcast"
+            }
+        else:
+            distributeFunction = {
+                "type": "RoundRobin"
             }
         return {
             "opType": "TempInsert",
@@ -721,9 +729,9 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     def __init__(self, input, hash_columns, shuffle_type=None):
         algebra.UnaryOperator.__init__(self, input)
         # If no specified shuffle type, it's a hash.
+        # TODO: add support for more types, do not use None for Hash
         if shuffle_type is None:
             shuffle_type = Shuffle.ShuffleType.Hash
-        # Single field ShuffleTypes must have only one hash_column.
         if shuffle_type == Shuffle.ShuffleType.Identity:
             assert len(hash_columns) == 1
         self.shuffle_type = shuffle_type
@@ -732,8 +740,11 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
     def shortStr(self):
         if self.shuffle_type == Shuffle.ShuffleType.Identity:
             return "%s(%s)" % (self.opname(), self.hash_columns[0])
-        hash_string = ','.join([str(x) for x in self.hash_columns])
-        return "%s(h(%s))" % (self.opname(), hash_string)
+        if self.shuffle_type == Shuffle.ShuffleType.RoundRobin:
+            return "%s" % self.opname()
+        if self.shuffle_type == Shuffle.ShuffleType.Hash:
+            hash_string = ','.join([str(x) for x in self.hash_columns])
+            return "%s(h(%s))" % (self.opname(), hash_string)
 
     def __repr__(self):
         return "{op}({inp!r}, {hc!r})".format(op=self.opname(), inp=self.input,
@@ -759,7 +770,12 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
                 "type": "Identity",
                 "index": self.hash_columns[0].position
             }
+        elif self.shuffle_type == Shuffle.ShuffleType.RoundRobin:
+            df = {
+                "type": "RoundRobin"
+            }
         else:
+            # TODO: add other shuffle types
             raise ValueError("Invalid ShuffleType")
 
         return {
