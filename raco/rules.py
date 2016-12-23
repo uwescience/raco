@@ -1,14 +1,13 @@
 import re
 
 from raco import algebra, expression
-from raco import expression
+from raco.representation import RepresentationProperties
 from .expression import (accessed_columns, UnnamedAttributeRef,
-                         to_unnamed_recursive, RANDOM)
+                         rebase_local_aggregate_output, rebase_finalizer,
+                         to_unnamed_recursive, StateVar, RANDOM)
 
 from abc import ABCMeta, abstractmethod
 import itertools
-from raco.expression import rebase_local_aggregate_output, StateVar, \
-    rebase_finalizer, UnnamedAttributeRef
 
 
 class Rule(object):
@@ -1045,6 +1044,40 @@ def check_partition_equality(op, representation):
     return op.partitioning().hash_partitioned == frozenset(representation)
 
 
+class InsertDeBroadcast(Rule):
+
+    def fire(self, expr):
+        def is_nonlocal_exchange_op(expr):
+            return isinstance(expr, (
+                algebra.Shuffle,
+                algebra.HyperCubeShuffle,
+                algebra.Collect,
+                algebra.Broadcast,
+            ))
+
+        if (is_nonlocal_exchange_op(expr) and
+                expr.input.partitioning().broadcasted):
+            child = algebra.DeBroadcast(expr.input)
+            expr.input = child
+            return expr
+        return expr
+
+    def __str__(self):
+        return "X => X(DeBroadcast) or X"
+
+
+class RemoveBroadcast(Rule):
+
+    def fire(self, expr):
+        if (isinstance(expr, algebra.Broadcast) and
+                isinstance(expr.input, algebra.DeBroadcast)):
+            return expr.input.input
+        return expr
+
+    def __str__(self):
+        return "Broadcast(DeBroadcast(X)) => X"
+
+
 class MoveDeBroadcast(Rule):
 
     @staticmethod
@@ -1066,6 +1099,7 @@ class MoveDeBroadcast(Rule):
                 # tell the Scan/ScanTemp to scan only one replica
                 copy = MoveDeBroadcast._copy_op(expr.input)
                 copy._debroadcast = True
+                copy._partitioning = RepresentationProperties()
                 return copy
             elif isinstance(expr.input, algebra.UnaryOperator):
                 copy = MoveDeBroadcast._copy_op(expr.input)
@@ -1095,3 +1129,11 @@ class MoveDeBroadcast(Rule):
 
     def __str__(self):
         return "DeBroadcast(X) => X(DeBroadcast) or X"
+
+
+# these rules must always be run together in the same order
+fixup_broadcast = [
+    InsertDeBroadcast(),
+    RemoveBroadcast(),
+    MoveDeBroadcast()
+]

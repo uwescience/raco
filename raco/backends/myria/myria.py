@@ -174,7 +174,7 @@ class MyriaScan(algebra.Scan, MyriaOperator):
 
     def reduceworkers(self):
         if self._debroadcast:
-            return [0]
+            return [1]
         else:
             None
 
@@ -189,7 +189,7 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
 
     def reduceworkers(self):
         if self._debroadcast:
-            return [0]
+            return [1]
         else:
             None
 
@@ -309,54 +309,48 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
 class MyriaStore(algebra.Store, MyriaOperator):
 
     def compileme(self, inputid):
-        partitionFunction = None
+        distributeFunction = None
         attributes = self.partitioning().hash_partitioned
         if attributes:
             indexes = [attr.get_position(self.scheme()) for attr in attributes]
-            if len(indexes) == 1:
-                partitionFunction = {
-                    "type": "SingleFieldHash",
-                    "index": indexes[0]
-                }
-            else:
-                partitionFunction = {
-                    "type": "MultiFieldHash",
-                    "indexes": indexes
-                }
-
+            distributeFunction = {
+                "type": "Hash",
+                "indexes": indexes
+            }
+        elif self.partitioning().broadcasted:
+            distributeFunction = {
+                "type": "Broadcast"
+            }
         return {
             "opType": "DbInsert",
             "relationKey": relation_key_to_json(self.relation_key),
             "argOverwriteTable": True,
             "argChild": inputid,
-            "partitionFunction": partitionFunction
+            "distributeFunction": distributeFunction
         }
 
 
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
 
     def compileme(self, inputid):
-        partitionFunction = None
+        distributeFunction = None
         attributes = self.partitioning().hash_partitioned
         if attributes:
             indexes = [attr.get_position(self.scheme()) for attr in attributes]
-            if len(indexes) == 1:
-                partitionFunction = {
-                    "type": "SingleFieldHash",
-                    "index": indexes[0]
-                }
-            else:
-                partitionFunction = {
-                    "type": "MultiFieldHash",
-                    "indexes": indexes
-                }
-
+            distributeFunction = {
+                "type": "Hash",
+                "indexes": indexes
+            }
+        elif self.partitioning().broadcasted:
+            distributeFunction = {
+                "type": "Broadcast"
+            }
         return {
             "opType": "TempInsert",
             "table": self.name,
             "argOverwriteTable": True,
             "argChild": inputid,
-            "partitionFunction": partitionFunction
+            "distributeFunction": distributeFunction
         }
 
 
@@ -726,19 +720,17 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
     def __init__(self, input, hash_columns, shuffle_type=None):
         algebra.UnaryOperator.__init__(self, input)
-        # If no specified shuffle type, it's a single/multi field hash.
+        # If no specified shuffle type, it's a hash.
         if shuffle_type is None:
-            shuffle_type = Shuffle.ShuffleType.SingleFieldHash if len(
-                hash_columns) == 1 else Shuffle.ShuffleType.MultiFieldHash
+            shuffle_type = Shuffle.ShuffleType.Hash
         # Single field ShuffleTypes must have only one hash_column.
-        if shuffle_type in (Shuffle.ShuffleType.IdentityHash,
-                            Shuffle.ShuffleType.SingleFieldHash):
+        if shuffle_type == Shuffle.ShuffleType.Identity:
             assert len(hash_columns) == 1
         self.shuffle_type = shuffle_type
         self.hash_columns = hash_columns
 
     def shortStr(self):
-        if self.shuffle_type == Shuffle.ShuffleType.IdentityHash:
+        if self.shuffle_type == Shuffle.ShuffleType.Identity:
             return "%s(%s)" % (self.opname(), self.hash_columns[0])
         hash_string = ','.join([str(x) for x in self.hash_columns])
         return "%s(h(%s))" % (self.opname(), hash_string)
@@ -757,19 +749,14 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         return self.input.num_tuples()
 
     def compileme(self, inputid):
-        if self.shuffle_type == Shuffle.ShuffleType.SingleFieldHash:
-            pf = {
-                "type": "SingleFieldHash",
-                "index": self.hash_columns[0].position
-            }
-        elif self.shuffle_type == Shuffle.ShuffleType.MultiFieldHash:
-            pf = {
-                "type": "MultiFieldHash",
+        if self.shuffle_type == Shuffle.ShuffleType.Hash:
+            df = {
+                "type": "Hash",
                 "indexes": [x.position for x in self.hash_columns]
             }
-        elif self.shuffle_type == Shuffle.ShuffleType.IdentityHash:
-            pf = {
-                "type": "IdentityHash",
+        elif self.shuffle_type == Shuffle.ShuffleType.Identity:
+            df = {
+                "type": "Identity",
                 "index": self.hash_columns[0].position
             }
         else:
@@ -778,7 +765,7 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         return {
             "opType": "ShuffleProducer",
             "argChild": inputid,
-            "argPf": pf
+            "distributeFunction": df
         }
 
 
@@ -972,7 +959,7 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
 
     def reduceworkers(self):
         if self._debroadcast:
-            return [0]
+            return [1]
         else:
             None
 
@@ -1090,7 +1077,7 @@ class LogicalSampleToDistributedSample(rules.Rule):
                                                            is_pct, samp_type)
             # Master sends out how much each worker should sample.
             shuff = MyriaShuffle(samp_dist, [UnnamedAttributeRef(0)],
-                                 Shuffle.ShuffleType.IdentityHash)
+                                 Shuffle.ShuffleType.Identity)
             # Workers perform actual sampling.
             samp = MyriaSample(shuff, scan_r, samp_size, is_pct, samp_type)
             return samp
@@ -1684,7 +1671,6 @@ left_deep_tree_shuffle_logic = [
     BroadcastBeforeCross(),
     ShuffleAfterSingleton(),
     CollectBeforeLimit(),
-    rules.MoveDeBroadcast(),
 ]
 
 
@@ -1787,6 +1773,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             [rules.PushApply()],
             [LogicalSampleToDistributedSample()],
             [FlattenUnionAll()],
+            rules.fixup_broadcast,
         ]
 
         if kwargs.get('push_sql', False):
@@ -1850,6 +1837,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             rules.push_apply,
             left_deep_tree_shuffle_logic,
             distributed_group_by(MyriaGroupBy),
+            rules.fixup_broadcast,
             hyper_cube_shuffle_logic
         ]
 
@@ -1962,7 +1950,7 @@ def compile_fragment(frag_root):
             (op_frag, op_queue) = one_fragment(rootOp)
             # .. Myria JSON expects the fragment operators in reverse order,
             # i.e., root at the bottom.
-            ret.append(reversed(op_frag))
+            ret.append(list(reversed(op_frag)))
             # .. and collect the newly discovered fragment roots.
             queue.extend(op_queue)
         return ret
@@ -1991,7 +1979,8 @@ def compile_fragment(frag_root):
                     "workers for one fragment"
                 reduceto = v
 
-        frag_compilated['overrideWorkers'] = reduceto
+        if reduceto:
+            frag_compilated['overrideWorkers'] = reduceto
 
         results.append(frag_compilated)
 

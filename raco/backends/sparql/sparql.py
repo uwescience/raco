@@ -156,6 +156,8 @@ class SPARQLAlgebra(Algebra):
             raco.rules.CrossProduct2Join(),
             raco.rules.SplitSelects(),
             raco.rules.PushSelects(),
+            raco.rules.InsertDeBroadcast(),
+            raco.rules.RemoveBroadcast(),
             raco.rules.MoveDeBroadcast(),
             raco.rules.OneToOne(algebra.Scan, SPARQLScan),
             raco.rules.OneToOne(algebra.Store, SPARQLStore),

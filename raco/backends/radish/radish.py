@@ -2540,7 +2540,7 @@ class GrappaAlgebra(Algebra):
             rules.push_apply,
             groupby_rules,
             [rules.NumTuplesPropagation()],
-            [rules.MoveDeBroadcast()],
+            rules.fixup_broadcast,
             grappify_rules
         ]
 

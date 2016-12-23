@@ -1241,7 +1241,8 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaBroadcastConsumer), 0)
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
         self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
-        self.assertEquals(pp.partitioning().broadcasted, RepresentationProperties().broadcasted)
+        self.assertEquals(pp.partitioning().broadcasted,
+                          RepresentationProperties().broadcasted)
 
     def test_flatten_unionall(self):
         """Test flattening a chain of UnionAlls"""
@@ -1254,5 +1255,5 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # should be UNIONAll([UNIONAll([expr_1, expr_2]), expr_3])
         self.assertEquals(self.get_count(lp, UnionAll), 2)
         pp = self.logical_to_physical(lp)
-        # should be UNIONALL([expr_1, expr_2, expr_
-3]       self.assertEquals(self.get_count(pp, MyriaUnionAll), 1)
+        # should be UNIONALL([expr_1, expr_2, expr_3])
+        self.assertEquals(self.get_count(pp, MyriaUnionAll), 1)

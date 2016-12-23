@@ -1164,8 +1164,7 @@ class Shuffle(UnaryOperator):
             "Must avoid shuffling broadcasted relation"
 
         # TODO: incorporate information about functional dependences
-        if self.shuffle_type == self.ShuffleType.SingleFieldHash \
-                or self.shuffle_type == self.ShuffleType.MultiFieldHash:
+        if self.shuffle_type == self.ShuffleType.Hash:
             return RepresentationProperties(
                 hash_partitioned=frozenset(
                     self.columnlist))
@@ -1180,7 +1179,7 @@ class Shuffle(UnaryOperator):
     class ShuffleType(object):
 
         """Enum of supported shuffling types."""
-        SingleFieldHash, MultiFieldHash, IdentityHash = range(3)
+        Hash, Identity = range(2)
 
 
 class HyperCubeShuffle(UnaryOperator):

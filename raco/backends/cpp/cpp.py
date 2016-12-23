@@ -585,7 +585,7 @@ class CCAlgebra(Algebra):
             [rules.ProjectToDistinctColumnSelect(),
              rules.JoinToProjectingJoin()],
             rules.push_apply,
-            [rules.MoveDeBroadcast()],
+            rules.fixup_broadcast,
             clangify(self.emit_print)
         ]
 
