@@ -1894,6 +1894,7 @@ class GrappaAlgebra(Algebra):
             rules.push_apply,
             groupby_rules,
             [rules.NumTuplesPropagation()],
+            [rules.MoveDeBroadcast()],
             grappify(join_type, self.emit_print, scan_array_repr,
                      groupby_class),
             [CrossProductWithSmall()]
