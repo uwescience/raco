@@ -1074,10 +1074,10 @@ class MoveDeBroadcast(Rule):
                 copy.input = exprcopy
                 return copy
             elif isinstance(expr.input, algebra.BinaryOperator):
-                assert expr.input.left.partitioning().broadcasted and \
-                    expr.input.right.partitioning().broadcasted, "Expected broadcast" \
-                                                                 "output on binary operator" \
-                                                                 "only if the inputs are broadcast"
+                assert (expr.input.left.partitioning().broadcasted and
+                        expr.input.right.partitioning().broadcasted), (
+                    "Expected broadcast output on binary operator " +
+                    "only if the inputs are broadcast")
                 copybin = MoveDeBroadcast._copy_op(expr.input)
                 copyexpr1 = MoveDeBroadcast._copy_op(expr)
                 copyexpr2 = MoveDeBroadcast._copy_op(expr)

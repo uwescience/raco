@@ -1222,7 +1222,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_count(pp, MyriaBroadcastConsumer), 1)
         self.assertEquals(self.get_count(pp, MyriaBroadcastProducer), 1)
-        self.assertEquals(pp.partitioning().broadcasted, RepresentationProperties(broadcasted=True).broadcasted)
+        self.assertEquals(pp.partitioning().broadcasted,
+                          RepresentationProperties(
+            broadcasted=True).broadcasted)
 
     def test_broadcast_join(self):
         query = """
