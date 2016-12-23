@@ -501,7 +501,8 @@ class CompositeBinaryOperator(BinaryOperator):
         elif self.right.partitioning().hash_partitioned != frozenset():
             return RepresentationProperties(
                 hash_partitioned=self.right.partitioning().hash_partitioned)
-        elif self.left.partitioning().broadcasted and self.right.partitioning().broadcasted:
+        elif self.left.partitioning().broadcasted and (
+                self.right.partitioning().broadcasted):
             return RepresentationProperties(broadcasted=True)
         else:
             return RepresentationProperties()
@@ -1142,8 +1143,8 @@ class Shuffle(UnaryOperator):
                                                    skip_out=True))
 
     def partitioning(self):
-        assert not self.input.partitioning().broadcasted, "Must avoid shuffling" \
-                                                          "broadcasted relation"
+        assert not self.input.partitioning().broadcasted, \
+            "Must avoid shuffling broadcasted relation"
 
         # TODO: incorporate information about functional dependences
         if self.shuffle_type == self.ShuffleType.SingleFieldHash \

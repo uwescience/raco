@@ -8,14 +8,12 @@ from raco.expression import NamedAttributeRef as AttRef
 from raco.expression import UnnamedAttributeRef as AttIndex
 from raco.expression import StateVar
 from raco.expression import aggregate
-import raco.expression
 
 from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
-    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaDupElim, MyriaScan,
-    MyriaGroupBy, MyriaSelect,
-    MyriaBroadcastConsumer, MyriaBroadcastProducer, MyriaQueryScan, MyriaSplitConsumer, MyriaDupElim,
-    MyriaGroupBy)
+    MyriaBroadcastConsumer, MyriaBroadcastProducer, MyriaSplitConsumer,
+    MyriaDupElim, MyriaScan, MyriaQueryScan, MyriaGroupBy, MyriaSelect)
+
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
                                  MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -1224,7 +1222,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.assertEquals(self.get_count(pp, MyriaBroadcastConsumer), 1)
         self.assertEquals(self.get_count(pp, MyriaBroadcastProducer), 1)
-        self.assertEquals(pp.partitioning().broadcasted, RepresentationProperties(broadcasted=True).broadcasted)
+        self.assertEquals(pp.partitioning().broadcasted,
+                          RepresentationProperties(
+            broadcasted=True).broadcasted)
 
     def test_broadcast_join(self):
         query = """
@@ -1241,5 +1241,5 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaBroadcastConsumer), 0)
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
         self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
-        self.assertEquals(pp.partitioning().broadcasted, RepresentationProperties().broadcasted)
-
+        self.assertEquals(pp.partitioning().broadcasted,
+                          RepresentationProperties().broadcasted)
