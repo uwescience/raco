@@ -1188,14 +1188,12 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self._check_aggregate_functions_pushed(
             'count(*)', r'count[(][a-zA-Z.]+[)]', True)
 
-    def test_broadcasted_to_not_broadcast(self):
-        """Test that no-broadcast storing a broadcasted relation pushes it into
-        the scan"""
-
+    def test_debroadcast_broadcasted_relation(self):
+        """Test that a shuffle over a broadcasted relation debroadcasts it"""
         query = """
         a = scan({broad});
         b = select j,k,l from a where j < 5;
-        store(b, OUTPUT);""".format(broad=self.broad_key)
+        store(b, OUTPUT, [j, k]);""".format(broad=self.broad_key)
 
         pp = self.get_physical_plan(query)
 
