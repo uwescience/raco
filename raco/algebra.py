@@ -640,9 +640,11 @@ def project_partitioning(columnlist, input_partitioning):
         return RepresentationProperties(
             hash_partitioned=frozenset(
                 expression.UnnamedAttributeRef(i)
-                for i in newrefs.values()))
+                for i in newrefs.values()),
+            broadcasted=input_partitioning.broadcasted)
     else:
-        return RepresentationProperties()
+        return RepresentationProperties(
+            broadcasted=input_partitioning.broadcasted)
 
 
 class Apply(UnaryOperator):
