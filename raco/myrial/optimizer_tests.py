@@ -10,7 +10,7 @@ from raco.expression import StateVar
 from raco.expression import aggregate
 
 from raco.backends.myria import (
-    MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
+    MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperCubeShuffleProducer,
     MyriaBroadcastConsumer, MyriaBroadcastProducer, MyriaSplitConsumer,
     MyriaScan, MyriaQueryScan, MyriaUnionAll,
     MyriaDupElim, MyriaGroupBy, MyriaSelect)
@@ -365,7 +365,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, Join), 2)
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 4)
         self.assertEquals(self.get_count(pp, NaryJoin), 0)
-        self.assertEquals(self.get_count(pp, MyriaHyperShuffleProducer), 0)
+        self.assertEquals(self.get_count(pp, MyriaHyperCubeShuffleProducer), 0)
 
         self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
@@ -390,7 +390,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, Join), 0)
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
         self.assertEquals(self.get_count(pp, NaryJoin), 1)
-        self.assertEquals(self.get_count(pp, MyriaHyperShuffleProducer), 3)
+        self.assertEquals(self.get_count(pp, MyriaHyperCubeShuffleProducer), 3)
 
         self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
@@ -409,7 +409,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp, hypercube=True)
 
         def get_max_dim_size(_op):
-            if isinstance(_op, MyriaHyperShuffleProducer):
+            if isinstance(_op, MyriaHyperCubeShuffleProducer):
                 yield max(_op.hyper_cube_dimensions)
 
         # the max hypercube dim size will be 8, e.g (1, 8, 1, 8) without

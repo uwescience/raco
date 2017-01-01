@@ -774,8 +774,12 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
             df = {
                 "type": "RoundRobin"
             }
+        elif self.shuffle_type == Shuffle.ShuffleType.Broadcast:
+            df = {
+                "type": "Broadcast"
+            }
         else:
-            # TODO: add other shuffle types
+            # TODO: merge HyperCubeShuffleProducer
             raise ValueError("Invalid ShuffleType")
 
         return {
@@ -861,17 +865,17 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
-class MyriaHyperShuffle(algebra.HyperCubeShuffle, MyriaOperator):
+class MyriaHyperCubeShuffle(algebra.HyperCubeShuffle, MyriaOperator):
 
-    """Represents a HyperShuffle shuffle operator"""
+    """Represents a HyperCubeShuffle shuffle operator"""
 
     def compileme(self, inputsym):
         raise NotImplementedError('shouldn''t ever get here, should be turned into HCSP-HCSC pair')  # noqa
 
 
-class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
+class MyriaHyperCubeShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
-    """A Myria HyperShuffleProducer"""
+    """A Myria HyperCubeShuffleProducer"""
 
     def __init__(self, input, hashed_columns,
                  hyper_cube_dims, mapped_hc_dims, cell_partition):
@@ -885,7 +889,7 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         return self.input.num_tuples()
 
     def partitioning(self):
-        return MyriaHyperShuffle(
+        return MyriaHyperCubeShuffle(
             self.input,
             self.hashed_columns,
             self.mapped_hc_dims,
@@ -902,18 +906,20 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
     def compileme(self, inputsym):
         return {
-            "opType": "HyperShuffleProducer",
-            "hashedColumns": list(self.hashed_columns),
-            "mappedHCDimensions": list(self.mapped_hc_dimensions),
-            "hyperCubeDimensions": list(self.hyper_cube_dimensions),
-            "cellPartition": self.cell_partition,
+            "opType": "HyperCubeShuffleProducer",
+            "distributeFunction": {
+                "hashedColumns": list(self.hashed_columns),
+                "mappedHCDimensions": list(self.mapped_hc_dimensions),
+                "hyperCubeDimensions": list(self.hyper_cube_dimensions),
+                "cellPartition": self.cell_partition
+            },
             "argChild": inputsym
         }
 
 
-class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
+class MyriaHyperCubeShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
 
-    """A Myria HyperShuffleConsumer"""
+    """A Myria HyperCubeShuffleConsumer"""
 
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
@@ -929,7 +935,7 @@ class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def compileme(self, inputsym):
         return {
-            "opType": "HyperShuffleConsumer",
+            "opType": "HyperCubeShuffleConsumer",
             "argOperatorId": inputsym
         }
 
@@ -1122,12 +1128,12 @@ class BreakHyperCubeShuffle(rules.Rule):
         self.hyper_cube_dimensions = hyper_cube_dims
         self.cell_partition = cell_partition
         """
-        if not isinstance(expr, MyriaHyperShuffle):
+        if not isinstance(expr, MyriaHyperCubeShuffle):
             return expr
-        producer = MyriaHyperShuffleProducer(
+        producer = MyriaHyperCubeShuffleProducer(
             expr.input, expr.hashed_columns, expr.hyper_cube_dimensions,
             expr.mapped_hc_dimensions, expr.cell_partition)
-        consumer = MyriaHyperShuffleConsumer(producer)
+        consumer = MyriaHyperCubeShuffleConsumer(producer)
         return consumer
 
 
@@ -1701,7 +1707,7 @@ myriafy = [
     rules.OneToOne(algebra.Select, MyriaSelect),
     rules.OneToOne(algebra.Distinct, MyriaDupElim),
     rules.OneToOne(algebra.Shuffle, MyriaShuffle),
-    rules.OneToOne(algebra.HyperCubeShuffle, MyriaHyperShuffle),
+    rules.OneToOne(algebra.HyperCubeShuffle, MyriaHyperCubeShuffle),
     rules.OneToOne(algebra.Collect, MyriaCollect),
     rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin),
     rules.OneToOne(algebra.NaryJoin, MyriaLeapFrogJoin),
@@ -1738,7 +1744,7 @@ class MyriaAlgebra(Algebra):
         MyriaShuffleConsumer,
         MyriaCollectConsumer,
         MyriaBroadcastConsumer,
-        MyriaHyperShuffleConsumer,
+        MyriaHyperCubeShuffleConsumer,
         MyriaScan,
         MyriaScanTemp,
         MyriaFileScan,
