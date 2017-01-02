@@ -1179,7 +1179,6 @@ class Shuffle(UnaryOperator):
         UnaryOperator.copy(self, other)
 
     class ShuffleType(object):
-
         """Enum of supported shuffling types."""
         Hash, Identity, Hyper, RoundRobin, Broadcast = range(5)
 

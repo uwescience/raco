@@ -1531,6 +1531,22 @@ class AddAppendTemp(rules.Rule):
 
 class PushIntoSQL(rules.Rule):
 
+    """Is there a debroadcast leaf operator in this expression?"""
+    @staticmethod
+    def has_debroadcast(expr):
+        if isinstance(expr, algebra.ZeroaryOperator):
+            return expr._debroadcast
+        elif isinstance(expr, algebra.UnaryOperator):
+            return PushIntoSQL.has_debroadcast(expr.input)
+        elif isinstance(expr, algebra.BinaryOperator):
+            return (PushIntoSQL.has_debroadcast(expr.left) or
+                    PushIntoSQL.has_debroadcast(expr.right))
+        elif isinstance(expr, algebra.NaryOperator):
+            for child in expr.children():
+                if PushIntoSQL.has_debroadcast(child):
+                    return True
+        return False
+
     def __init__(self, dialect=None, push_grouping=False):
         self.dialect = dialect or postgresql.dialect()
         self.push_grouping = push_grouping
@@ -1548,7 +1564,9 @@ class PushIntoSQL(rules.Rule):
             return MyriaQueryScan(sql=sql_string.process(sql_plan),
                                   scheme=expr.scheme(),
                                   num_tuples=expr.num_tuples(),
-                                  partitioning=expr.partitioning())
+                                  partitioning=expr.partitioning(),
+                                  debroadcast=PushIntoSQL.has_debroadcast(
+                                      expr))
         except NotImplementedError as e:
             LOGGER.warn("Error converting {plan}: {e}"
                         .format(plan=expr, e=e))
