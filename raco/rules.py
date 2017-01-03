@@ -1046,7 +1046,7 @@ def check_partition_equality(op, representation):
 
 class DeDupBroadcastInputs(Rule):
 
-    """Is there a debroadcast leaf operator in this expression?"""
+    """Mark all scans of broadcast relations as debroadcast."""
     @staticmethod
     def debroadcast_scans(expr):
         assert (expr.partitioning().broadcasted,
@@ -1074,13 +1074,17 @@ class DeDupBroadcastInputs(Rule):
                 algebra.Broadcast,
             ))
 
+        # We must evaluate broadcast partitioning of input to avoid asserts
+        # that exchange operators are non-broadcast-partitioned.
         if (is_nonlocal_exchange_op(expr) and
                 expr.input.partitioning().broadcasted):
             # eliminate redundant broadcasts
             if isinstance(expr, algebra.Broadcast):
                 return expr.input
+            # debroadcast all scans to avoid redundant inputs to shuffle
             DeDupBroadcastInputs.debroadcast_scans(expr.input)
         return expr
 
     def __str__(self):
-        return "Broadcast(X) => X"
+        return ("Broadcast(X = broadcast input) => X, "
+                "X(broadcast input) => X(debroadcast input)")
