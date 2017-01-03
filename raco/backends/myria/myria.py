@@ -614,7 +614,9 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
     def compileme(self, inputid):
         child_scheme = self.input.scheme()
         state_scheme = self.state_scheme
-        comp_map = lambda x: compile_mapping(x, child_scheme, state_scheme)
+
+        def comp_map(x):
+            compile_mapping(x, child_scheme, state_scheme)
         emitters = [comp_map(x) for x in self.emitters]
         inits = [comp_map(x) for x in self.inits]
         updaters = [comp_map(x) for x in self.updaters]
@@ -1330,8 +1332,8 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
                 new_dim_sizes = (dim_sizes[0:i] +
                                  tuple([dim_sizes[i] + 1]) +
                                  dim_sizes[i + 1:])
-                if (product(new_dim_sizes) <= num_server
-                        and new_dim_sizes not in visited):
+                if (product(new_dim_sizes) <= num_server and
+                        new_dim_sizes not in visited):
                     toVisit.append(new_dim_sizes)
         return opt_dim_sizes, min_work_load
 
@@ -1480,7 +1482,7 @@ class BroadcastBeforeCross(rules.Rule):
                 expr.left = algebra.Broadcast(expr.left)
             else:
                 expr.right = algebra.Broadcast(expr.right)
-        except NotImplementedError as e:
+        except NotImplementedError:
             # If cardinalities unknown, broadcast the right child
             expr.right = algebra.Broadcast(expr.right)
 
@@ -1517,12 +1519,10 @@ class AddAppendTemp(rules.Rule):
         right = child.args[1]
         rel_name = op.name
 
-        is_scan = lambda op: isinstance(
-            op,
-            MyriaScanTemp) and op.name == rel_name
+        def is_scan(op):
+            return (isinstance(op, MyriaScanTemp) and op.name == rel_name)
         if is_scan(left) and not any(is_scan(op) for op in right.walk()):
             return MyriaAppendTemp(name=rel_name, input=right)
-
         elif is_scan(right) and not any(is_scan(op) for op in left.walk()):
             return MyriaAppendTemp(name=rel_name, input=left)
 
@@ -1624,8 +1624,8 @@ class MergeToNaryJoin(rules.Rule):
     @staticmethod
     def collect_join_groups(op, conditions, children):
         assert isinstance(op, algebra.ProjectingJoin)
-        assert (isinstance(op.right, algebra.Select)
-                or issubclass(type(op.right), algebra.ZeroaryOperator))
+        assert (isinstance(op.right, algebra.Select) or
+                issubclass(type(op.right), algebra.ZeroaryOperator))
         children.append(op.right)
         conjuncs = expression.extract_conjuncs(op.condition)
         for cond in conjuncs:
@@ -1692,18 +1692,6 @@ class GetCardinalities(rules.Rule):
         return expr
 
 
-class DeBroadcastToSelect(rules.Rule):
-
-    def fire(self, expr):
-        if isinstance(self, algebra.DeBroadcast):
-            return MyriaSelect(
-                expression.EQ(
-                    expression.WORKERID,
-                    expression.NumericLiteral(0)))
-
-        return expr
-
-
 # 6. shuffle logics, hyper_cube_shuffle_logic is only used in HCAlgebra
 left_deep_tree_shuffle_logic = [
     ShuffleBeforeSetop(),
@@ -1738,7 +1726,6 @@ myriafy = [
     rules.OneToOne(algebra.Difference, MyriaDifference),
     rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
     rules.OneToOne(algebra.Sink, MyriaSink),
-    DeBroadcastToSelect()
 ]
 
 # 9. break communication boundary
@@ -1813,7 +1800,7 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             [rules.PushApply()],
             [LogicalSampleToDistributedSample()],
             [FlattenUnionAll()],
-            rules.fixup_broadcast,
+            [rules.DeDupBroadcastInputs()],
         ]
 
         if kwargs.get('push_sql', False):
@@ -1877,7 +1864,7 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             rules.push_apply,
             left_deep_tree_shuffle_logic,
             distributed_group_by(MyriaGroupBy),
-            rules.fixup_broadcast,
+            [rules.DeDupBroadcastInputs()],
             hyper_cube_shuffle_logic
         ]
 

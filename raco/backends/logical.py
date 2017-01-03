@@ -18,6 +18,4 @@ class OptLogicalAlgebra(Algebra):
                 rules.PushApply(),
                 rules.RemoveUnusedColumns(),
                 rules.PushApply(),
-                rules.InsertDeBroadcast(),
-                rules.RemoveBroadcast(),
-                rules.MoveDeBroadcast()]
+                rules.DeDupBroadcastInputs()]

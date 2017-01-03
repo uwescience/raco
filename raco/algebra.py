@@ -388,9 +388,8 @@ class IdenticalSchemeBinaryOperator(BinaryOperator):
 
     def partitioning(self):
         """keep the partitioning if both sides are identically partitioned"""
-        lp = self.left.partitioning()
-        if lp.hash_partitioned == self.right.partitioning().hash_partitioned:
-            return lp
+        if self.left.partitioning() == self.right.partitioning():
+            return self.left.partitioning()
         else:
             return RepresentationProperties()
 
@@ -433,8 +432,7 @@ class UnionAll(NaryOperator):
         """keep the partitioning if all children are identically
         partitioned"""
         for child in self.args:
-            if child.partitioning().hash_partitioned != \
-                    self.args[0].partitioning().hash_partitioned:
+            if child.partitioning() != self.args[0].partitioning():
                 return RepresentationProperties()
         return self.args[0].partitioning()
 
@@ -1259,23 +1257,6 @@ class Broadcast(UnaryOperator):
         return RepresentationProperties(broadcasted=True)
 
 
-class DeBroadcast(UnaryOperator):
-
-    """Make a broadcasted relation not broadcasted"""
-
-    def __init__(self, input=None):
-        super(DeBroadcast, self).__init__(input)
-
-    def num_tuples(self):
-        return self.input.num_tuples()
-
-    def shortStr(self):
-        return self.opname()
-
-    def partitioning(self):
-        return RepresentationProperties()
-
-
 class Split(UnaryOperator):
 
     """An in-memory pipeline between two operators. Typically used in
@@ -1564,7 +1545,10 @@ class Scan(ZeroaryOperator):
         return self._cardinality
 
     def partitioning(self):
-        return self._partitioning
+        if self._debroadcast:
+            assert self._partitioning.broadcasted
+        return (RepresentationProperties() if
+                self._debroadcast else self._partitioning)
 
     def __repr__(self):
         return "{op}({rk!r}, {sch!r}, {card!r}, {part!r}, {db!r})".format(

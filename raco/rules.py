@@ -1044,7 +1044,26 @@ def check_partition_equality(op, representation):
     return op.partitioning().hash_partitioned == frozenset(representation)
 
 
-class InsertDeBroadcast(Rule):
+class DeDupBroadcastInputs(Rule):
+
+    """Is there a debroadcast leaf operator in this expression?"""
+    @staticmethod
+    def debroadcast_scans(expr):
+        assert (expr.partitioning().broadcasted,
+                "Can only debroadcast broadcast inputs")
+        if isinstance(expr, algebra.ZeroaryOperator):
+            expr._debroadcast = True
+        elif isinstance(expr, algebra.UnaryOperator):
+            DeDupBroadcastInputs.debroadcast_scans(expr.input)
+        elif isinstance(expr, algebra.BinaryOperator):
+            DeDupBroadcastInputs.debroadcast_scans(expr.left)
+            DeDupBroadcastInputs.debroadcast_scans(expr.right)
+        elif isinstance(expr, algebra.NaryOperator):
+            for child in expr.children():
+                DeDupBroadcastInputs.debroadcast_scans(child)
+        else:
+            raise NotImplementedError(
+                "don't know how to debroadcast {}".format(type(expr)))
 
     def fire(self, expr):
         def is_nonlocal_exchange_op(expr):
@@ -1057,83 +1076,11 @@ class InsertDeBroadcast(Rule):
 
         if (is_nonlocal_exchange_op(expr) and
                 expr.input.partitioning().broadcasted):
-            child = algebra.DeBroadcast(expr.input)
-            expr.input = child
-            return expr
+            # eliminate redundant broadcasts
+            if isinstance(expr, algebra.Broadcast):
+                return expr.input
+            DeDupBroadcastInputs.debroadcast_scans(expr.input)
         return expr
 
     def __str__(self):
-        return "X => X(DeBroadcast) or X"
-
-
-class RemoveBroadcast(Rule):
-
-    def fire(self, expr):
-        if (isinstance(expr, algebra.Broadcast) and
-                isinstance(expr.input, algebra.DeBroadcast)):
-            return expr.input.input
-        return expr
-
-    def __str__(self):
-        return "Broadcast(DeBroadcast(X)) => X"
-
-
-class MoveDeBroadcast(Rule):
-
-    @staticmethod
-    def _copy_op(other):
-        try:
-            copy = other.__class__()
-        except Exception as e:
-            raise Exception("{}".format(other))
-
-        copy.copy(other)
-        return copy
-
-    def fire(self, expr):
-        if not isinstance(expr, algebra.DeBroadcast):
-            return expr
-
-        if expr.input.partitioning().broadcasted:
-            if isinstance(expr.input, algebra.ZeroaryOperator):
-                # tell the Scan/ScanTemp to scan only one replica
-                copy = MoveDeBroadcast._copy_op(expr.input)
-                copy._debroadcast = True
-                copy._partitioning = RepresentationProperties()
-                return copy
-            elif isinstance(expr.input, algebra.UnaryOperator):
-                copy = MoveDeBroadcast._copy_op(expr.input)
-                exprcopy = MoveDeBroadcast._copy_op(expr)
-                exprcopy.input = copy.input
-                copy.input = exprcopy
-                return copy
-            elif isinstance(expr.input, algebra.BinaryOperator):
-                assert (expr.input.left.partitioning().broadcasted and
-                        expr.input.right.partitioning().broadcasted), (
-                    "Expected broadcast output on binary operator " +
-                    "only if the inputs are broadcast")
-                copybin = MoveDeBroadcast._copy_op(expr.input)
-                copyexpr1 = MoveDeBroadcast._copy_op(expr)
-                copyexpr2 = MoveDeBroadcast._copy_op(expr)
-                copyexpr1.input = copybin.left
-                copyexpr2.input = copybin.right
-                copybin.left = copyexpr1
-                copybin.right = copyexpr2
-                return copybin
-            else:
-                # leave it where it is
-                return expr
-        else:
-            # remove the debroadcast because it isn't needed
-            return expr.input
-
-    def __str__(self):
-        return "DeBroadcast(X) => X(DeBroadcast) or X"
-
-
-# these rules must always be run together in the same order
-fixup_broadcast = [
-    InsertDeBroadcast(),
-    RemoveBroadcast(),
-    MoveDeBroadcast()
-]
+        return "Broadcast(X) => X"
