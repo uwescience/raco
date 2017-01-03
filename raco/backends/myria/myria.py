@@ -2001,9 +2001,10 @@ def compile_fragment(frag_root):
         for op in frag:
             v = op.reduceworkers()
             if v:
-                assert reduceto is None, "Don't know how to deal with" \
-                    "multiple declarations of reduced" \
-                    "workers for one fragment"
+                assert (reduceto is None or reduceto == v,
+                        "Don't know how to deal with "
+                        "multiple declarations of reduced "
+                        "workers for one fragment")
                 reduceto = v
 
         if reduceto:
