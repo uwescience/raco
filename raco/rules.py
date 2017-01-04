@@ -86,7 +86,7 @@ class NumTuplesPropagation(Rule):
                 abstract_values[t.name].appendValue(t.num_tuples())
             elif isinstance(t, algebra.ScanTemp):
                 if t.name:
-                    assert t.name in abstract_values, "Saw a ScanTemp before" \
+                    assert t.name in abstract_values, "Saw a ScanTemp before " \
                                                       "its StoreTemp"
                     possible_values = \
                         abstract_values[t.name].getValues()
@@ -97,7 +97,7 @@ class NumTuplesPropagation(Rule):
             yield None
 
         # run it
-        [_ for _ in tree.preorder(f)]
+        [_ for _ in tree.postorder(f)]
 
 
 class CrossProduct2Join(Rule):
