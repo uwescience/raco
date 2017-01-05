@@ -1212,7 +1212,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
     def test_broadcast_store(self):
         query = """
         r = scan({X});
-        store(r, OUTPUT, broadcast);
+        store(r, OUTPUT, broadcast());
         """.format(X=self.x_key)
 
         lp = self.get_logical_plan(query)
