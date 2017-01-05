@@ -154,9 +154,6 @@ class MyriaLanguage(Language):
 class MyriaOperator(object):
     language = MyriaLanguage
 
-    def reduceworkers(self):
-        return None
-
 
 def relation_key_to_json(relation_key):
     return {"userName": relation_key.user,
@@ -170,13 +167,8 @@ class MyriaScan(algebra.Scan, MyriaOperator):
         return {
             "opType": "TableScan",
             "relationKey": relation_key_to_json(self.relation_key),
+            "debroadcast": self._debroadcast
         }
-
-    def reduceworkers(self):
-        if self._debroadcast:
-            return [1]
-        else:
-            None
 
 
 class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
@@ -185,13 +177,8 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
         return {
             "opType": "TempTableScan",
             "table": self.name,
+            "debroadcast": self._debroadcast
         }
-
-    def reduceworkers(self):
-        if self._debroadcast:
-            return [1]
-        else:
-            None
 
 
 class MyriaFileScan(algebra.FileScan, MyriaOperator):
@@ -946,7 +933,8 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
 
     """A Myria Query Scan"""
 
-    def __init__(self, sql, scheme, num_tuples=algebra.DEFAULT_CARDINALITY,
+    def __init__(self, sql, scheme, source_relation_keys,
+                 num_tuples=algebra.DEFAULT_CARDINALITY,
                  partitioning=RepresentationProperties(),
                  debroadcast=False):
         self.sql = str(sql)
@@ -957,11 +945,10 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
         self._debroadcast = debroadcast
 
     def __repr__(self):
-        return ("{op}({sql!r}, {sch!r}, {nt!r}, {part!r}, {db!r})"
-                .format(op=self.opname(), sql=self.sql,
-                        sch=self._scheme, nt=self._num_tuples,
-                        part=self._partitioning,
-                        db=self._debroadcast))
+        return ("{op}({sql!r}, {sch!r}, {rels!r}, {nt!r}, {part!r}, {db!r})"
+                .format(op=self.opname(), sql=self.sql, sch=self._scheme,
+                        rels=self.source_relation_keys, nt=self._num_tuples,
+                        part=self._partitioning, db=self._debroadcast))
 
     def num_tuples(self):
         return self._num_tuples
@@ -981,14 +968,9 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
             "sql": self.sql,
             "schema": scheme_to_schema(self._scheme),
             "sourceRelationKeys": [
-                relation_key_to_json(rk) for rk in self.source_relation_keys]
+                relation_key_to_json(rk) for rk in self.source_relation_keys],
+            "debroadcast": self._debroadcast
         }
-
-    def reduceworkers(self):
-        if self._debroadcast:
-            return [1]
-        else:
-            None
 
 
 class MyriaCalculateSamplingDistribution(algebra.UnaryOperator, MyriaOperator):
@@ -1534,22 +1516,6 @@ class AddAppendTemp(rules.Rule):
 
 class PushIntoSQL(rules.Rule):
 
-    """Is there a debroadcast leaf operator in this expression?"""
-    @staticmethod
-    def has_debroadcast(expr):
-        if isinstance(expr, algebra.ZeroaryOperator):
-            return expr._debroadcast
-        elif isinstance(expr, algebra.UnaryOperator):
-            return PushIntoSQL.has_debroadcast(expr.input)
-        elif isinstance(expr, algebra.BinaryOperator):
-            return (PushIntoSQL.has_debroadcast(expr.left) or
-                    PushIntoSQL.has_debroadcast(expr.right))
-        elif isinstance(expr, algebra.NaryOperator):
-            for child in expr.children():
-                if PushIntoSQL.has_debroadcast(child):
-                    return True
-        return False
-
     def __init__(self, dialect=None, push_grouping=False):
         self.dialect = dialect or postgresql.dialect()
         self.push_grouping = push_grouping
@@ -1563,6 +1529,8 @@ class PushIntoSQL(rules.Rule):
         try:
             scan_relations = [s.relation_key for s in expr.walk()
                               if isinstance(s, algebra.Scan)]
+            has_debroadcast = any(isinstance(s, algebra.Scan) and
+                                  s._debroadcast for s in expr.walk())
             sql_plan = cat.get_sql(expr)
             sql_string = sql_plan.compile(dialect=self.dialect)
             sql_string.visit_bindparam = sql_string.render_literal_bindparam
@@ -1571,8 +1539,7 @@ class PushIntoSQL(rules.Rule):
                                   source_relation_keys=scan_relations,
                                   num_tuples=expr.num_tuples(),
                                   partitioning=expr.partitioning(),
-                                  debroadcast=PushIntoSQL.has_debroadcast(
-                                      expr))
+                                  debroadcast=has_debroadcast)
         except NotImplementedError as e:
             LOGGER.warn("Error converting {plan}: {e}"
                         .format(plan=expr, e=e))
@@ -2002,20 +1969,6 @@ def compile_fragment(frag_root):
     results = []
     for frag in fragments(frag_root):
         frag_compilated = {'operators': [call_compile_me(op) for op in frag]}
-
-        reduceto = None
-        for op in frag:
-            v = op.reduceworkers()
-            if v:
-                assert (reduceto is None or reduceto == v,
-                        "Don't know how to deal with "
-                        "multiple declarations of reduced "
-                        "workers for one fragment")
-                reduceto = v
-
-        if reduceto:
-            frag_compilated['overrideWorkers'] = reduceto
-
         results.append(frag_compilated)
 
     return results
