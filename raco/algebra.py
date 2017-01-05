@@ -95,7 +95,7 @@ class Operator(Printable):
         for x in f(self):
             yield x
         for c in self.children():
-            for x in c.postorder(f):
+            for x in c.preorder(f):
                 yield x
 
     def collectParents(self, parent_map=None):

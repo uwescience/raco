@@ -951,6 +951,7 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
                  debroadcast=False):
         self.sql = str(sql)
         self._scheme = scheme
+        self.source_relation_keys = source_relation_keys
         self._num_tuples = num_tuples
         self._partitioning = partitioning
         self._debroadcast = debroadcast
@@ -978,7 +979,9 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
         return {
             "opType": "DbQueryScan",
             "sql": self.sql,
-            "schema": scheme_to_schema(self._scheme)
+            "schema": scheme_to_schema(self._scheme),
+            "sourceRelationKeys": [
+                relation_key_to_json(rk) for rk in self.source_relation_keys]
         }
 
     def reduceworkers(self):
@@ -1558,11 +1561,14 @@ class PushIntoSQL(rules.Rule):
         cat = SQLCatalog(provider=PostgresSQLFunctionProvider(),
                          push_grouping=self.push_grouping)
         try:
+            scan_relations = [s.relation_key for s in expr.walk()
+                              if isinstance(s, algebra.Scan)]
             sql_plan = cat.get_sql(expr)
             sql_string = sql_plan.compile(dialect=self.dialect)
             sql_string.visit_bindparam = sql_string.render_literal_bindparam
             return MyriaQueryScan(sql=sql_string.process(sql_plan),
                                   scheme=expr.scheme(),
+                                  source_relation_keys=scan_relations,
                                   num_tuples=expr.num_tuples(),
                                   partitioning=expr.partitioning(),
                                   debroadcast=PushIntoSQL.has_debroadcast(
