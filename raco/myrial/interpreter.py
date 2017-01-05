@@ -399,10 +399,6 @@ class StatementProcessor(object):
             col_list = [get_unnamed_ref(a, scheme) for a in how_distributed]
             child_op = raco.algebra.Shuffle(
                 child_op, col_list, shuffle_type=Shuffle.ShuffleType.Hash)
-        # round-robin is the default
-        else:
-            child_op = raco.algebra.Shuffle(
-                child_op, shuffle_type=Shuffle.ShuffleType.RoundRobin)
         op = raco.algebra.Store(rel_key, child_op)
 
         uses_set = self.ep.get_and_clear_uses_set()
