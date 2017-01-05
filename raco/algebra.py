@@ -1150,7 +1150,10 @@ class Shuffle(UnaryOperator):
     def __init__(self, child=None, columnlist=None, shuffle_type=None):
         UnaryOperator.__init__(self, child)
         self.columnlist = columnlist
-        self.shuffle_type = shuffle_type
+        self.shuffle_type = shuffle_type or self.ShuffleType.Hash
+        if shuffle_type == self.ShuffleType.Hash:
+            assert columnlist, \
+                "column list for hash shuffle must be non-null and non-empty"
 
     def num_tuples(self):
         return self.input.num_tuples()
@@ -1178,7 +1181,7 @@ class Shuffle(UnaryOperator):
 
     class ShuffleType(object):
         """Enum of supported shuffling types."""
-        Hash, Identity, HyperCube, RoundRobin, Broadcast = range(5)
+        Hash, Identity, HyperCube, RoundRobin = range(4)
 
 
 class HyperCubeShuffle(UnaryOperator):

@@ -8,11 +8,11 @@ import raco.expression
 import raco.catalog
 import raco.scheme
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
-                                 MyriaHyperCubeAlgebra)
-from raco.backends.myria import compile_to_json
+                                 MyriaHyperCubeAlgebra,
+                                 compile_to_json)
 from raco.compile import optimize
 from raco import relation_key
-from raco.expression import StateVar
+from raco.algebra import Shuffle
 
 import collections
 import copy
@@ -388,13 +388,21 @@ class StatementProcessor(object):
         alias_expr = ("ALIAS", _id)
         child_op = self.ep.evaluate(alias_expr)
 
-        # TODO: add other types
         if how_distributed == "BROADCAST":
             child_op = raco.algebra.Broadcast(child_op)
+        elif how_distributed == "ROUND_ROBIN":
+            child_op = raco.algebra.Shuffle(
+                child_op, shuffle_type=Shuffle.ShuffleType.RoundRobin)
+        # hash-partitioned
         elif how_distributed:
             scheme = child_op.scheme()
             col_list = [get_unnamed_ref(a, scheme) for a in how_distributed]
-            child_op = raco.algebra.Shuffle(child_op, col_list)
+            child_op = raco.algebra.Shuffle(
+                child_op, col_list, shuffle_type=Shuffle.ShuffleType.Hash)
+        # round-robin is the default
+        else:
+            child_op = raco.algebra.Shuffle(
+                child_op, shuffle_type=Shuffle.ShuffleType.RoundRobin)
         op = raco.algebra.Store(rel_key, child_op)
 
         uses_set = self.ep.get_and_clear_uses_set()

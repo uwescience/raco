@@ -763,10 +763,6 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
             df = {
                 "type": "RoundRobin"
             }
-        elif self.shuffle_type == Shuffle.ShuffleType.Broadcast:
-            df = {
-                "type": "Broadcast"
-            }
         else:
             # TODO: merge HyperCubeShuffleProducer
             raise ValueError("Invalid ShuffleType")
