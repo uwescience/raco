@@ -1528,9 +1528,9 @@ class Scan(ZeroaryOperator):
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
-        return (ZeroaryOperator.__eq__(self, other)
-                and self.relation_key == other.relation_key
-                and self.scheme() == other.scheme())
+        return (ZeroaryOperator.__eq__(self, other) and
+                self.relation_key == other.relation_key and
+                self.scheme() == other.scheme())
 
     def __hash__(self):
         """
@@ -1540,9 +1540,9 @@ class Scan(ZeroaryOperator):
         return ("%s-%s" % (self.opname(), self.relation_key)).__hash__()
 
     def shortStr(self):
-        return "%s(%s, %s)" % (self.opname(),
-                               self.relation_key,
-                               "debroad" if self._debroadcast else "")
+        return ("DeBroadcast(%s(%s))" % (self.opname(), self.relation_key) if
+                self._debroadcast else
+                "%s(%s)" % (self.opname(), self.relation_key))
 
     def num_tuples(self):
         return self._cardinality
@@ -1690,15 +1690,16 @@ class ScanTemp(ZeroaryOperator):
 
     """Read the contents of a temporary relation."""
 
-    def __init__(self, name=None, _scheme=None, debroadcast=False):
+    def __init__(self, name=None, scheme=None, debroadcast=False):
         self.name = name
-        self._scheme = _scheme
+        self._scheme = scheme
         self._debroadcast = debroadcast
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
-        return (ZeroaryOperator.__eq__(self, other) and self.name == other.name
-                and self._scheme == other._scheme)
+        return (ZeroaryOperator.__eq__(self, other) and
+                self.name == other.name and
+                self._scheme == other._scheme)
 
     def num_tuples(self):
         if hasattr(self, 'analyzed_num_tuples'):

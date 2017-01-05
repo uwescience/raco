@@ -1211,8 +1211,6 @@ class ShuffleBeforeJoin(rules.Rule):
         right_cols = [expression.UnnamedAttributeRef(i)
                       for i in right_cols]
 
-        print "SHUFFLE BEFORE JOIN ", expr
-
         if check_partition_equality(expr.left, left_cols):
             new_left = expr.left
         elif expr.left.partitioning().broadcasted:
