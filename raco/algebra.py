@@ -1,5 +1,6 @@
 from raco import expression
 from raco import scheme
+from raco import types
 from raco.utility import Printable, real_str
 
 from abc import ABCMeta, abstractmethod
@@ -633,6 +634,53 @@ def project_partitioning(columnlist, input_partitioning):
                 for i in newrefs.values()))
     else:
         return RepresentationProperties()
+
+
+class StringSplit(UnaryOperator):
+
+    def __init__(self, split_column=None, regex=None, input=None):
+        """Split the specified column of the input using the specified regex.
+
+        :param split_col_index: index of input column to split
+        :type split_col_index: int
+
+        :param regex: valid Java regex
+        :type regex: string
+        """
+
+        UnaryOperator.__init__(self, input)
+        # Raise a TypeError if `splitcol` is not a valid attribute reference in the input schema
+        self.split_column = split_column
+        self.regex = regex
+
+    def __eq__(self, other):
+        return UnaryOperator.__eq__(self, other) and self.split_column == other.split_column and self.regex == other.regex
+
+    def __repr__(self):
+        return "{op}({col!r}, {reg!r}, {inp!r})".format(op=self.opname(),
+                                               col=self.split_column,
+                                               reg=self.regex,
+                                               inp=self.input)
+
+    def partitioning(self):
+        return self.input.partitioning()
+
+    def num_tuples(self):
+        # TODO: this is obviously bogus
+        return self.input.num_tuples()
+
+    def copy(self, other):
+        self.split_column = other.split_column
+        self.regex = other.regex
+        UnaryOperator.copy(self, other)
+
+    def scheme(self):
+        split_column_name = self.input.scheme().getName(self.split_column.get_position(self.input.scheme()))
+        split_values_column_name = "%s_splits" % split_column_name
+        return self.input.scheme() + scheme.Scheme(attributes=[(split_values_column_name, types.STRING_TYPE)])
+
+    def shortStr(self):
+        return "%s(%s, '%s')" % (self.opname(), self.split_column.get_position(self.scheme()), self.regex)
 
 
 class Apply(UnaryOperator):

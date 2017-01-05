@@ -223,6 +223,15 @@ class MyriaLimit(algebra.Limit, MyriaOperator):
             "numTuples": self.count,
         }
 
+class MyriaStringSplit(algebra.StringSplit, MyriaOperator):
+
+    def compileme(self, inputid):
+        return {
+            "opType": "Split",
+            "argChild": inputid,
+            "splitColumnIndex": self.split_column.get_position(self.input.scheme()),
+            "regex": self.regex,
+        }
 
 class MyriaUnionAll(algebra.UnionAll, MyriaOperator):
 
@@ -1669,6 +1678,7 @@ myriafy = [
     rules.OneToOne(algebra.Difference, MyriaDifference),
     rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
     rules.OneToOne(algebra.Sink, MyriaSink),
+    rules.OneToOne(algebra.StringSplit, MyriaStringSplit),
 ]
 
 # 9. break communication boundary
