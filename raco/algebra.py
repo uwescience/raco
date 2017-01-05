@@ -1178,7 +1178,7 @@ class Shuffle(UnaryOperator):
 
     class ShuffleType(object):
         """Enum of supported shuffling types."""
-        Hash, Identity, Hyper, RoundRobin, Broadcast = range(5)
+        Hash, Identity, HyperCube, RoundRobin, Broadcast = range(5)
 
 
 class HyperCubeShuffle(UnaryOperator):
