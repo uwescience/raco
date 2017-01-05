@@ -1046,25 +1046,6 @@ def check_partition_equality(op, representation):
 
 class DeDupBroadcastInputs(Rule):
 
-    """Mark all scans of broadcast relations as debroadcast."""
-    @staticmethod
-    def debroadcast_scans(expr):
-        assert (expr.partitioning().broadcasted,
-                "Can only debroadcast broadcast inputs")
-        if isinstance(expr, algebra.ZeroaryOperator):
-            expr._debroadcast = True
-        elif isinstance(expr, algebra.UnaryOperator):
-            DeDupBroadcastInputs.debroadcast_scans(expr.input)
-        elif isinstance(expr, algebra.BinaryOperator):
-            DeDupBroadcastInputs.debroadcast_scans(expr.left)
-            DeDupBroadcastInputs.debroadcast_scans(expr.right)
-        elif isinstance(expr, algebra.NaryOperator):
-            for child in expr.children():
-                DeDupBroadcastInputs.debroadcast_scans(child)
-        else:
-            raise NotImplementedError(
-                "don't know how to debroadcast {}".format(type(expr)))
-
     def fire(self, expr):
         def is_nonlocal_exchange_op(expr):
             return isinstance(expr, (
@@ -1074,6 +1055,13 @@ class DeDupBroadcastInputs(Rule):
                 algebra.Broadcast,
             ))
 
+        def debroadcast_scans(expr):
+            assert expr.partitioning().broadcasted, \
+                "Can only debroadcast broadcast inputs"
+            for e in expr.walk():
+                if isinstance(e, algebra.ZeroaryOperator):
+                    e._debroadcast = True
+
         # We must evaluate broadcast partitioning of input to avoid asserts
         # that exchange operators are non-broadcast-partitioned.
         if (is_nonlocal_exchange_op(expr) and
@@ -1082,7 +1070,7 @@ class DeDupBroadcastInputs(Rule):
             if isinstance(expr, algebra.Broadcast):
                 return expr.input
             # debroadcast all scans to avoid redundant inputs to shuffle
-            DeDupBroadcastInputs.debroadcast_scans(expr.input)
+            debroadcast_scans(expr.input)
         return expr
 
     def __str__(self):
