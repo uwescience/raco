@@ -1159,8 +1159,10 @@ class Shuffle(UnaryOperator):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), real_str(self.columnlist,
-                                                   skip_out=True))
+        if self.shuffle_type == self.ShuffleType.Hash:
+            return "%s(%s(%s))" % (self.opname(), self.shuffle_type,
+                                   real_str(self.columnlist, skip_out=True))
+        return "%s(%s)" % (self.opname(), self.shuffle_type)
 
     def partitioning(self):
         assert not self.input.partitioning().broadcasted, \
@@ -1181,7 +1183,8 @@ class Shuffle(UnaryOperator):
 
     class ShuffleType(object):
         """Enum of supported shuffling types."""
-        Hash, Identity, HyperCube, RoundRobin = range(4)
+        Hash, Identity, HyperCube, RoundRobin = (
+            'Hash', 'Identity', 'HyperCube', 'RoundRobin')
 
 
 class HyperCubeShuffle(UnaryOperator):

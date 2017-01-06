@@ -736,8 +736,9 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
             return "%s(h(%s))" % (self.opname(), hash_string)
 
     def __repr__(self):
-        return "{op}({inp!r}, {hc!r})".format(op=self.opname(), inp=self.input,
-                                              hc=self.hash_columns)
+        return "{op}({inp!r}, {hc!r}, {st!r})".format(
+            op=self.opname(), inp=self.input,
+            hc=self.hash_columns, st=self.shuffle_type)
 
     def partitioning(self):
         return Shuffle(
