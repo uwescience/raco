@@ -1490,10 +1490,11 @@ class ShuffleAfterFileScan(rules.Rule):
             for e in expr.walk():
                 if isinstance(e, algebra.FileScan):
                     e._needs_shuffle = False
+            return expr
 
         if isinstance(expr, algebra.FileScan):
             if expr._needs_shuffle:
-                expr = algebra.Shuffle(
+                return algebra.Shuffle(
                     expr, shuffle_type=Shuffle.ShuffleType.RoundRobin)
 
         return expr
