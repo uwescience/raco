@@ -1465,6 +1465,7 @@ class FileScan(ZeroaryOperator):
         self.format = format
         self._scheme = _scheme
         self.options = options
+        self._needs_shuffle = True
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):

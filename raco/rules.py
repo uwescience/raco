@@ -560,8 +560,8 @@ class PushApply(Rule):
 
             # If this apply is only AttributeRefs and the columns already
             # have the correct names, we can push it into the ProjectingJoin
-            if (all(isinstance(e, expression.AttributeRef) for e in emits)
-                    and len(set(emits)) == len(emits)):
+            if (all(isinstance(e, expression.AttributeRef) for e in emits) and
+                    len(set(emits)) == len(emits)):
                 new_cols = [child.output_columns[e.position] for e in emits]
                 # We need to ensure that left columns come before right cols
                 left_sch = child.left.scheme()
@@ -686,8 +686,8 @@ class RemoveUnusedColumns(Rule):
             column_list = [to_unnamed_recursive(c, in_scheme)
                            for c in op.output_columns]
 
-            accessed = (accessed_columns(condition)
-                        | set(c.position for c in op.output_columns))
+            accessed = (accessed_columns(condition) |
+                        set(c.position for c in op.output_columns))
             if len(accessed) == len(in_scheme):
                 return op
 

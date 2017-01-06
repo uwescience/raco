@@ -1480,6 +1480,25 @@ class ShuffleAfterSingleton(rules.Rule):
         return expr
 
 
+class ShuffleAfterFileScan(rules.Rule):
+
+    def fire(self, expr):
+        # don't shuffle any FileScan under an existing shuffle or broadcast
+        if isinstance(expr, (algebra.Shuffle,
+                             algebra.HyperCubeShuffle,
+                             algebra.Broadcast)):
+            for e in expr.walk():
+                if isinstance(e, algebra.FileScan):
+                    e._needs_shuffle = False
+
+        if isinstance(expr, algebra.FileScan):
+            if expr._needs_shuffle:
+                expr = algebra.Shuffle(
+                    expr, shuffle_type=Shuffle.ShuffleType.RoundRobin)
+
+        return expr
+
+
 class AddAppendTemp(rules.Rule):
 
     def fire(self, op):
@@ -1666,6 +1685,7 @@ left_deep_tree_shuffle_logic = [
     BroadcastBeforeCross(),
     ShuffleAfterSingleton(),
     CollectBeforeLimit(),
+    ShuffleAfterFileScan(),
 ]
 
 
