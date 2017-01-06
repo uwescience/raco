@@ -1494,6 +1494,7 @@ class ShuffleAfterFileScan(rules.Rule):
 
         if isinstance(expr, algebra.FileScan):
             if expr._needs_shuffle:
+                expr._needs_shuffle = False
                 return algebra.Shuffle(
                     expr, shuffle_type=Shuffle.ShuffleType.RoundRobin)
 
