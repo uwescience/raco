@@ -1502,6 +1502,28 @@ class ShuffleAfterFileScan(rules.Rule):
         return expr
 
 
+class PushSelectThroughShuffle(rules.Rule):
+
+    """Push selections through a shuffle. We only need to push it just under
+    the shuffle, since we can invoke the PushSelects rule again. We assume that
+    PushSelects has already been invoked, so all selects that could be pushed
+    through a shuffle are already immediately above the shuffle."""
+
+    def fire(self, expr):
+        if (isinstance(expr, algebra.Select) and
+            isinstance(expr.input, (algebra.Shuffle,
+                                    algebra.HyperCubeShuffle,
+                                    algebra.Broadcast,
+                                    algebra.Collect))):
+            expr.input.input = expr
+            return expr.input
+
+        return expr
+
+    def __str__(self):
+        return "Select(Shuffle) => Shuffle(Select)"
+
+
 class AddAppendTemp(rules.Rule):
 
     def fire(self, op):
@@ -1785,6 +1807,8 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             rules.push_select,
             rules.push_project,
             rules.push_apply,
+            [PushSelectThroughShuffle()],
+            rules.push_select,
             left_deep_tree_shuffle_logic,
             distributed_group_by(MyriaGroupBy),
             [rules.PushApply()],
@@ -1852,6 +1876,8 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             rules.push_project,
             merge_to_nary_join,
             rules.push_apply,
+            [PushSelectThroughShuffle()],
+            rules.push_select,
             left_deep_tree_shuffle_logic,
             distributed_group_by(MyriaGroupBy),
             [rules.DeDupBroadcastInputs()],
