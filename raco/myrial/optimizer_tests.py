@@ -1309,3 +1309,23 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertIsInstance(pp.input.input, MyriaShuffleProducer)
         self.assertEquals(pp.input.input.shuffle_type, 'Hash')
         self.assertIsInstance(pp.input.input.input, FileScan)
+
+    def test_push_select_below_shuffle_inserted_for_filescan(self):
+        """Test pushing selections below shuffles
+        automatically inserted after FileScan.
+        """
+        query = """
+        X = load('INPUT', csv(schema(a:int,b:int)));
+        Y = select * from X where a > b;
+        store(Y, 'OUTPUT');"""
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, Store), 1)
+        self.assertEquals(self.get_count(lp, Select), 1)
+        self.assertEquals(self.get_count(lp, FileScan), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertIsInstance(pp.input, MyriaShuffleConsumer)
+        self.assertIsInstance(pp.input.input, MyriaShuffleProducer)
+        self.assertIsInstance(pp.input.input.input, Select)
+        self.assertIsInstance(pp.input.input.input.input, FileScan)
