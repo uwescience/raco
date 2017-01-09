@@ -392,7 +392,7 @@ class StatementProcessor(object):
             child_op = raco.algebra.Broadcast(child_op)
         elif how_distributed == "ROUND_ROBIN":
             child_op = raco.algebra.Shuffle(
-                child_op, shuffle_type=Shuffle.ShuffleType.RoundRobin)
+                child_op, None, shuffle_type=Shuffle.ShuffleType.RoundRobin)
         # hash-partitioned
         elif how_distributed:
             scheme = child_op.scheme()

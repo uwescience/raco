@@ -1501,6 +1501,9 @@ class ShuffleAfterFileScan(rules.Rule):
 
         return expr
 
+    def __str__(self):
+        return "FileScan => Shuffle(FileScan)"
+
 
 class PushSelectThroughShuffle(rules.Rule):
 
@@ -1515,8 +1518,20 @@ class PushSelectThroughShuffle(rules.Rule):
                                     algebra.HyperCubeShuffle,
                                     algebra.Broadcast,
                                     algebra.Collect))):
-            expr.input.input = expr
-            return expr.input
+
+            old_select = expr
+            old_shuffle = expr.input
+            shuffle_child = expr.input.input
+
+            new_select = old_select.__class__()
+            new_select.copy(old_select)
+            new_select.input = shuffle_child
+
+            new_shuffle = old_shuffle.__class__()
+            new_shuffle.copy(old_shuffle)
+            new_shuffle.input = new_select
+
+            return new_shuffle
 
         return expr
 

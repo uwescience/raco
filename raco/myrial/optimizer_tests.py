@@ -1255,3 +1255,57 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp)
         # should be UNIONALL([expr_1, expr_2, expr_3])
         self.assertEquals(self.get_count(pp, MyriaUnionAll), 1)
+
+    def test_push_select_below_shuffle(self):
+        """Test pushing selections below shuffles."""
+        lp = StoreTemp('OUTPUT',
+                       Select(expression.LTEQ(AttRef("a"), AttRef("b")),
+                              Shuffle(
+                                      Scan(self.x_key, self.x_scheme),
+                                      [AttRef("a"), AttRef("b")], 'Hash')))  # noqa
+
+        self.assertEquals(self.get_count(lp, StoreTemp), 1)
+        self.assertEquals(self.get_count(lp, Select), 1)
+        self.assertEquals(self.get_count(lp, Shuffle), 1)
+        self.assertEquals(self.get_count(lp, Scan), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertIsInstance(pp.input, MyriaShuffleConsumer)
+        self.assertIsInstance(pp.input.input, MyriaShuffleProducer)
+        self.assertIsInstance(pp.input.input.input, Select)
+        self.assertIsInstance(pp.input.input.input.input, Scan)
+
+    def test_insert_shuffle_after_filescan(self):
+        """Test automatically inserting round-robin shuffle after FileScan."""
+        query = """
+        X = load('INPUT', csv(schema(a:int,b:int)));
+        store(X, 'OUTPUT');"""
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, Store), 1)
+        self.assertEquals(self.get_count(lp, FileScan), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertIsInstance(pp.input, MyriaShuffleConsumer)
+        self.assertIsInstance(pp.input.input, MyriaShuffleProducer)
+        self.assertEquals(pp.input.input.shuffle_type, 'RoundRobin')
+        self.assertIsInstance(pp.input.input.input, FileScan)
+
+    def test_elide_extra_shuffle_after_filescan(self):
+        """Test eliding default round-robin shuffle after FileScan
+        if shuffle is already present.
+        """
+        query = """
+        X = load('INPUT', csv(schema(a:int,b:int)));
+        store(X, 'OUTPUT', hash(a, b));"""
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, Store), 1)
+        self.assertEquals(self.get_count(lp, Shuffle), 1)
+        self.assertEquals(self.get_count(lp, FileScan), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertIsInstance(pp.input, MyriaShuffleConsumer)
+        self.assertIsInstance(pp.input.input, MyriaShuffleProducer)
+        self.assertEquals(pp.input.input.shuffle_type, 'Hash')
+        self.assertIsInstance(pp.input.input.input, FileScan)
