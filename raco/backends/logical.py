@@ -17,4 +17,5 @@ class OptLogicalAlgebra(Algebra):
                 rules.RemoveUnusedColumns(),
                 rules.PushApply(),
                 rules.RemoveUnusedColumns(),
-                rules.PushApply()]
+                rules.PushApply(),
+                rules.DeDupBroadcastInputs()]

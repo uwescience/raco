@@ -10,9 +10,10 @@ from raco.expression import StateVar
 from raco.expression import aggregate
 
 from raco.backends.myria import (
-    MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperShuffleProducer,
-    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaUnionAll,
-    MyriaDupElim, MyriaGroupBy)
+    MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperCubeShuffleProducer,
+    MyriaBroadcastConsumer, MyriaBroadcastProducer, MyriaSplitConsumer,
+    MyriaScan, MyriaQueryScan, MyriaUnionAll,
+    MyriaDupElim, MyriaGroupBy, MyriaSelect)
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
                                  MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -29,11 +30,16 @@ class OptimizerTest(myrial_test.MyrialTestCase):
     x_scheme = scheme.Scheme([("a", types.LONG_TYPE), ("b", types.LONG_TYPE), ("c", types.LONG_TYPE)])  # noqa
     y_scheme = scheme.Scheme([("d", types.LONG_TYPE), ("e", types.LONG_TYPE), ("f", types.LONG_TYPE)])  # noqa
     part_scheme = scheme.Scheme([("g", types.LONG_TYPE), ("h", types.LONG_TYPE), ("i", types.LONG_TYPE)])  # noqa
+    broad_scheme = scheme.Scheme([("j", types.LONG_TYPE), ("k", types.LONG_TYPE), ("l", types.LONG_TYPE)])  # noqa
     x_key = relation_key.RelationKey.from_string("public:adhoc:X")
     y_key = relation_key.RelationKey.from_string("public:adhoc:Y")
     part_key = relation_key.RelationKey.from_string("public:adhoc:part")
     part_partition = RepresentationProperties(
         hash_partitioned=frozenset([AttIndex(1)]))
+    broad_key = relation_key.RelationKey.from_string("public:adhoc:broad")
+    broad_partition = RepresentationProperties(
+        broadcasted=True
+    )
 
     def setUp(self):
         super(OptimizerTest, self).setUp()
@@ -50,6 +56,9 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.part_data = collections.Counter(
             [(random.randrange(rng), random.randrange(rng),
               random.randrange(rng)) for _ in range(count)])
+        self.broad_data = collections.Counter(
+            [(random.randrange(rng), random.randrange(rng),
+              random.randrange(rng)) for _ in range(count)])
 
         self.db.ingest(OptimizerTest.x_key,
                        self.x_data,
@@ -61,6 +70,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
                        self.part_data,
                        OptimizerTest.part_scheme,
                        self.part_partition)  # "partitioned" table
+        self.db.ingest(OptimizerTest.broad_key,
+                       self.broad_data,
+                       OptimizerTest.broad_scheme,
+                       self.broad_partition)
 
         self.expected = collections.Counter(
             [(a, b, c, d, e, f) for (a, b, c) in self.x_data
@@ -352,7 +365,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, Join), 2)
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 4)
         self.assertEquals(self.get_count(pp, NaryJoin), 0)
-        self.assertEquals(self.get_count(pp, MyriaHyperShuffleProducer), 0)
+        self.assertEquals(self.get_count(pp, MyriaHyperCubeShuffleProducer), 0)
 
         self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
@@ -377,7 +390,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, Join), 0)
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 0)
         self.assertEquals(self.get_count(pp, NaryJoin), 1)
-        self.assertEquals(self.get_count(pp, MyriaHyperShuffleProducer), 3)
+        self.assertEquals(self.get_count(pp, MyriaHyperCubeShuffleProducer), 3)
 
         self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
@@ -396,7 +409,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp, hypercube=True)
 
         def get_max_dim_size(_op):
-            if isinstance(_op, MyriaHyperShuffleProducer):
+            if isinstance(_op, MyriaHyperCubeShuffleProducer):
                 yield max(_op.hyper_cube_dimensions)
 
         # the max hypercube dim size will be 8, e.g (1, 8, 1, 8) without
@@ -1175,6 +1188,60 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self._check_aggregate_functions_pushed(
             'count(*)', r'count[(][a-zA-Z.]+[)]', True)
 
+    def test_debroadcast_broadcasted_relation(self):
+        """Test that a shuffle over a broadcasted relation debroadcasts it"""
+        query = """
+        a = scan({broad});
+        b = select j,k,l from a where j < 5;
+        store(b, OUTPUT, [j, k]);""".format(broad=self.broad_key)
+
+        pp = self.get_physical_plan(query)
+
+        def find_scan(_op):
+            if isinstance(_op, MyriaQueryScan) or isinstance(_op, MyriaScan):
+                if _op._debroadcast:
+                    yield True
+                else:
+                    yield False
+            else:
+                yield False
+
+        self.assertEquals(self.get_count(pp, MyriaSelect), 1)
+        self.assertTrue(any(pp.postorder(find_scan)))
+
+    def test_broadcast_store(self):
+        query = """
+        r = scan({X});
+        store(r, OUTPUT, broadcast());
+        """.format(X=self.x_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        self.assertEquals(self.get_count(pp, MyriaBroadcastConsumer), 1)
+        self.assertEquals(self.get_count(pp, MyriaBroadcastProducer), 1)
+        self.assertEquals(pp.partitioning().broadcasted,
+                          RepresentationProperties(
+            broadcasted=True).broadcasted)
+
+    def test_broadcast_join(self):
+        query = """
+        b = scan({broad});
+        x = scan({X});
+        o = select * from b, x where b.j==x.a;
+        store(o, OUTPUT);
+        """.format(X=self.x_key, broad=self.broad_key)
+
+        lp = self.get_logical_plan(query)
+        pp = self.logical_to_physical(lp)
+
+        self.assertEquals(self.get_count(pp, MyriaBroadcastProducer), 0)
+        self.assertEquals(self.get_count(pp, MyriaBroadcastConsumer), 0)
+        self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
+        self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
+        self.assertEquals(pp.partitioning().broadcasted,
+                          RepresentationProperties().broadcasted)
+
     def test_flatten_unionall(self):
         """Test flattening a chain of UnionAlls"""
         query = """
@@ -1188,3 +1255,77 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp)
         # should be UNIONALL([expr_1, expr_2, expr_3])
         self.assertEquals(self.get_count(pp, MyriaUnionAll), 1)
+
+    def test_push_select_below_shuffle(self):
+        """Test pushing selections below shuffles."""
+        lp = StoreTemp('OUTPUT',
+                       Select(expression.LTEQ(AttRef("a"), AttRef("b")),
+                              Shuffle(
+                                      Scan(self.x_key, self.x_scheme),
+                                      [AttRef("a"), AttRef("b")], 'Hash')))  # noqa
+
+        self.assertEquals(self.get_count(lp, StoreTemp), 1)
+        self.assertEquals(self.get_count(lp, Select), 1)
+        self.assertEquals(self.get_count(lp, Shuffle), 1)
+        self.assertEquals(self.get_count(lp, Scan), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertIsInstance(pp.input, MyriaShuffleConsumer)
+        self.assertIsInstance(pp.input.input, MyriaShuffleProducer)
+        self.assertIsInstance(pp.input.input.input, Select)
+        self.assertIsInstance(pp.input.input.input.input, Scan)
+
+    def test_insert_shuffle_after_filescan(self):
+        """Test automatically inserting round-robin shuffle after FileScan."""
+        query = """
+        X = load('INPUT', csv(schema(a:int,b:int)));
+        store(X, 'OUTPUT');"""
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, Store), 1)
+        self.assertEquals(self.get_count(lp, FileScan), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertIsInstance(pp.input, MyriaShuffleConsumer)
+        self.assertIsInstance(pp.input.input, MyriaShuffleProducer)
+        self.assertEquals(pp.input.input.shuffle_type, 'RoundRobin')
+        self.assertIsInstance(pp.input.input.input, FileScan)
+
+    def test_elide_extra_shuffle_after_filescan(self):
+        """Test eliding default round-robin shuffle after FileScan
+        if shuffle is already present.
+        """
+        query = """
+        X = load('INPUT', csv(schema(a:int,b:int)));
+        store(X, 'OUTPUT', hash(a, b));"""
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, Store), 1)
+        self.assertEquals(self.get_count(lp, Shuffle), 1)
+        self.assertEquals(self.get_count(lp, FileScan), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertIsInstance(pp.input, MyriaShuffleConsumer)
+        self.assertIsInstance(pp.input.input, MyriaShuffleProducer)
+        self.assertEquals(pp.input.input.shuffle_type, 'Hash')
+        self.assertIsInstance(pp.input.input.input, FileScan)
+
+    def test_push_select_below_shuffle_inserted_for_filescan(self):
+        """Test pushing selections below shuffles
+        automatically inserted after FileScan.
+        """
+        query = """
+        X = load('INPUT', csv(schema(a:int,b:int)));
+        Y = select * from X where a > b;
+        store(Y, 'OUTPUT');"""
+
+        lp = self.get_logical_plan(query)
+        self.assertEquals(self.get_count(lp, Store), 1)
+        self.assertEquals(self.get_count(lp, Select), 1)
+        self.assertEquals(self.get_count(lp, FileScan), 1)
+
+        pp = self.logical_to_physical(lp)
+        self.assertIsInstance(pp.input, MyriaShuffleConsumer)
+        self.assertIsInstance(pp.input.input, MyriaShuffleProducer)
+        self.assertIsInstance(pp.input.input.input, Select)
+        self.assertIsInstance(pp.input.input.input.input, FileScan)

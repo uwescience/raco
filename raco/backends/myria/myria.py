@@ -167,6 +167,7 @@ class MyriaScan(algebra.Scan, MyriaOperator):
         return {
             "opType": "TableScan",
             "relationKey": relation_key_to_json(self.relation_key),
+            "debroadcast": self._debroadcast
         }
 
 
@@ -176,6 +177,7 @@ class MyriaScanTemp(algebra.ScanTemp, MyriaOperator):
         return {
             "opType": "TempTableScan",
             "table": self.name,
+            "debroadcast": self._debroadcast
         }
 
 
@@ -294,54 +296,56 @@ class MyriaCrossProduct(algebra.CrossProduct, MyriaOperator):
 class MyriaStore(algebra.Store, MyriaOperator):
 
     def compileme(self, inputid):
-        partitionFunction = None
+        distributeFunction = None
         attributes = self.partitioning().hash_partitioned
         if attributes:
             indexes = [attr.get_position(self.scheme()) for attr in attributes]
-            if len(indexes) == 1:
-                partitionFunction = {
-                    "type": "SingleFieldHash",
-                    "index": indexes[0]
-                }
-            else:
-                partitionFunction = {
-                    "type": "MultiFieldHash",
-                    "indexes": indexes
-                }
-
+            distributeFunction = {
+                "type": "Hash",
+                "indexes": indexes
+            }
+        elif self.partitioning().broadcasted:
+            distributeFunction = {
+                "type": "Broadcast"
+            }
+        else:
+            distributeFunction = {
+                "type": "RoundRobin"
+            }
         return {
             "opType": "DbInsert",
             "relationKey": relation_key_to_json(self.relation_key),
             "argOverwriteTable": True,
             "argChild": inputid,
-            "partitionFunction": partitionFunction
+            "distributeFunction": distributeFunction
         }
 
 
 class MyriaStoreTemp(algebra.StoreTemp, MyriaOperator):
 
     def compileme(self, inputid):
-        partitionFunction = None
+        distributeFunction = None
         attributes = self.partitioning().hash_partitioned
         if attributes:
             indexes = [attr.get_position(self.scheme()) for attr in attributes]
-            if len(indexes) == 1:
-                partitionFunction = {
-                    "type": "SingleFieldHash",
-                    "index": indexes[0]
-                }
-            else:
-                partitionFunction = {
-                    "type": "MultiFieldHash",
-                    "indexes": indexes
-                }
-
+            distributeFunction = {
+                "type": "Hash",
+                "indexes": indexes
+            }
+        elif self.partitioning().broadcasted:
+            distributeFunction = {
+                "type": "Broadcast"
+            }
+        else:
+            distributeFunction = {
+                "type": "RoundRobin"
+            }
         return {
             "opType": "TempInsert",
             "table": self.name,
             "argOverwriteTable": True,
             "argChild": inputid,
-            "partitionFunction": partitionFunction
+            "distributeFunction": distributeFunction
         }
 
 
@@ -597,7 +601,9 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
     def compileme(self, inputid):
         child_scheme = self.input.scheme()
         state_scheme = self.state_scheme
-        comp_map = lambda x: compile_mapping(x, child_scheme, state_scheme)
+
+        def comp_map(x):
+            compile_mapping(x, child_scheme, state_scheme)
         emitters = [comp_map(x) for x in self.emitters]
         inits = [comp_map(x) for x in self.inits]
         updaters = [comp_map(x) for x in self.updaters]
@@ -711,26 +717,28 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
     def __init__(self, input, hash_columns, shuffle_type=None):
         algebra.UnaryOperator.__init__(self, input)
-        # If no specified shuffle type, it's a single/multi field hash.
+        # If no specified shuffle type, it's a hash.
+        # TODO: add support for more types, do not use None for Hash
         if shuffle_type is None:
-            shuffle_type = Shuffle.ShuffleType.SingleFieldHash if len(
-                hash_columns) == 1 else Shuffle.ShuffleType.MultiFieldHash
-        # Single field ShuffleTypes must have only one hash_column.
-        if shuffle_type in (Shuffle.ShuffleType.IdentityHash,
-                            Shuffle.ShuffleType.SingleFieldHash):
+            shuffle_type = Shuffle.ShuffleType.Hash
+        if shuffle_type == Shuffle.ShuffleType.Identity:
             assert len(hash_columns) == 1
         self.shuffle_type = shuffle_type
         self.hash_columns = hash_columns
 
     def shortStr(self):
-        if self.shuffle_type == Shuffle.ShuffleType.IdentityHash:
+        if self.shuffle_type == Shuffle.ShuffleType.Identity:
             return "%s(%s)" % (self.opname(), self.hash_columns[0])
-        hash_string = ','.join([str(x) for x in self.hash_columns])
-        return "%s(h(%s))" % (self.opname(), hash_string)
+        if self.shuffle_type == Shuffle.ShuffleType.RoundRobin:
+            return "%s" % self.opname()
+        if self.shuffle_type == Shuffle.ShuffleType.Hash:
+            hash_string = ','.join([str(x) for x in self.hash_columns])
+            return "%s(h(%s))" % (self.opname(), hash_string)
 
     def __repr__(self):
-        return "{op}({inp!r}, {hc!r})".format(op=self.opname(), inp=self.input,
-                                              hc=self.hash_columns)
+        return "{op}({inp!r}, {hc!r}, {st!r})".format(
+            op=self.opname(), inp=self.input,
+            hc=self.hash_columns, st=self.shuffle_type)
 
     def partitioning(self):
         return Shuffle(
@@ -742,28 +750,28 @@ class MyriaShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         return self.input.num_tuples()
 
     def compileme(self, inputid):
-        if self.shuffle_type == Shuffle.ShuffleType.SingleFieldHash:
-            pf = {
-                "type": "SingleFieldHash",
-                "index": self.hash_columns[0].position
-            }
-        elif self.shuffle_type == Shuffle.ShuffleType.MultiFieldHash:
-            pf = {
-                "type": "MultiFieldHash",
+        if self.shuffle_type == Shuffle.ShuffleType.Hash:
+            df = {
+                "type": "Hash",
                 "indexes": [x.position for x in self.hash_columns]
             }
-        elif self.shuffle_type == Shuffle.ShuffleType.IdentityHash:
-            pf = {
-                "type": "IdentityHash",
+        elif self.shuffle_type == Shuffle.ShuffleType.Identity:
+            df = {
+                "type": "Identity",
                 "index": self.hash_columns[0].position
             }
+        elif self.shuffle_type == Shuffle.ShuffleType.RoundRobin:
+            df = {
+                "type": "RoundRobin"
+            }
         else:
+            # TODO: merge HyperCubeShuffleProducer
             raise ValueError("Invalid ShuffleType")
 
         return {
             "opType": "ShuffleProducer",
             "argChild": inputid,
-            "argPf": pf
+            "distributeFunction": df
         }
 
 
@@ -843,17 +851,17 @@ class MyriaCollectConsumer(algebra.UnaryOperator, MyriaOperator):
         }
 
 
-class MyriaHyperShuffle(algebra.HyperCubeShuffle, MyriaOperator):
+class MyriaHyperCubeShuffle(algebra.HyperCubeShuffle, MyriaOperator):
 
-    """Represents a HyperShuffle shuffle operator"""
+    """Represents a HyperCubeShuffle shuffle operator"""
 
     def compileme(self, inputsym):
         raise NotImplementedError('shouldn''t ever get here, should be turned into HCSP-HCSC pair')  # noqa
 
 
-class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
+class MyriaHyperCubeShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
-    """A Myria HyperShuffleProducer"""
+    """A Myria HyperCubeShuffleProducer"""
 
     def __init__(self, input, hashed_columns,
                  hyper_cube_dims, mapped_hc_dims, cell_partition):
@@ -867,7 +875,7 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
         return self.input.num_tuples()
 
     def partitioning(self):
-        return MyriaHyperShuffle(
+        return MyriaHyperCubeShuffle(
             self.input,
             self.hashed_columns,
             self.mapped_hc_dims,
@@ -884,18 +892,20 @@ class MyriaHyperShuffleProducer(algebra.UnaryOperator, MyriaOperator):
 
     def compileme(self, inputsym):
         return {
-            "opType": "HyperShuffleProducer",
-            "hashedColumns": list(self.hashed_columns),
-            "mappedHCDimensions": list(self.mapped_hc_dimensions),
-            "hyperCubeDimensions": list(self.hyper_cube_dimensions),
-            "cellPartition": self.cell_partition,
+            "opType": "HyperCubeShuffleProducer",
+            "distributeFunction": {
+                "hashedColumns": list(self.hashed_columns),
+                "mappedHCDimensions": list(self.mapped_hc_dimensions),
+                "hyperCubeDimensions": list(self.hyper_cube_dimensions),
+                "cellPartition": self.cell_partition
+            },
             "argChild": inputsym
         }
 
 
-class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
+class MyriaHyperCubeShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
 
-    """A Myria HyperShuffleConsumer"""
+    """A Myria HyperCubeShuffleConsumer"""
 
     def __init__(self, input):
         algebra.UnaryOperator.__init__(self, input)
@@ -911,7 +921,7 @@ class MyriaHyperShuffleConsumer(algebra.UnaryOperator, MyriaOperator):
 
     def compileme(self, inputsym):
         return {
-            "opType": "HyperShuffleConsumer",
+            "opType": "HyperCubeShuffleConsumer",
             "argOperatorId": inputsym
         }
 
@@ -920,18 +930,22 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
 
     """A Myria Query Scan"""
 
-    def __init__(self, sql, scheme, num_tuples=algebra.DEFAULT_CARDINALITY,
-                 partitioning=RepresentationProperties()):
+    def __init__(self, sql, scheme, source_relation_keys,
+                 num_tuples=algebra.DEFAULT_CARDINALITY,
+                 partitioning=RepresentationProperties(),
+                 debroadcast=False):
         self.sql = str(sql)
         self._scheme = scheme
+        self.source_relation_keys = source_relation_keys
         self._num_tuples = num_tuples
         self._partitioning = partitioning
+        self._debroadcast = debroadcast
 
     def __repr__(self):
-        return ("{op}({sql!r}, {sch!r}, {nt!r}, {part!r})"
-                .format(op=self.opname(), sql=self.sql,
-                        sch=self._scheme, nt=self._num_tuples,
-                        part=self._partitioning))
+        return ("{op}({sql!r}, {sch!r}, {rels!r}, {nt!r}, {part!r}, {db!r})"
+                .format(op=self.opname(), sql=self.sql, sch=self._scheme,
+                        rels=self.source_relation_keys, nt=self._num_tuples,
+                        part=self._partitioning, db=self._debroadcast))
 
     def num_tuples(self):
         return self._num_tuples
@@ -949,7 +963,10 @@ class MyriaQueryScan(algebra.ZeroaryOperator, MyriaOperator):
         return {
             "opType": "DbQueryScan",
             "sql": self.sql,
-            "schema": scheme_to_schema(self._scheme)
+            "schema": scheme_to_schema(self._scheme),
+            "sourceRelationKeys": [
+                relation_key_to_json(rk) for rk in self.source_relation_keys],
+            "debroadcast": self._debroadcast
         }
 
 
@@ -1066,7 +1083,7 @@ class LogicalSampleToDistributedSample(rules.Rule):
                                                            is_pct, samp_type)
             # Master sends out how much each worker should sample.
             shuff = MyriaShuffle(samp_dist, [UnnamedAttributeRef(0)],
-                                 Shuffle.ShuffleType.IdentityHash)
+                                 Shuffle.ShuffleType.Identity)
             # Workers perform actual sampling.
             samp = MyriaSample(shuff, scan_r, samp_size, is_pct, samp_type)
             return samp
@@ -1095,12 +1112,12 @@ class BreakHyperCubeShuffle(rules.Rule):
         self.hyper_cube_dimensions = hyper_cube_dims
         self.cell_partition = cell_partition
         """
-        if not isinstance(expr, MyriaHyperShuffle):
+        if not isinstance(expr, MyriaHyperCubeShuffle):
             return expr
-        producer = MyriaHyperShuffleProducer(
+        producer = MyriaHyperCubeShuffleProducer(
             expr.input, expr.hashed_columns, expr.hyper_cube_dimensions,
             expr.mapped_hc_dimensions, expr.cell_partition)
-        consumer = MyriaHyperShuffleConsumer(producer)
+        consumer = MyriaHyperCubeShuffleConsumer(producer)
         return consumer
 
 
@@ -1197,10 +1214,14 @@ class ShuffleBeforeJoin(rules.Rule):
 
         if check_partition_equality(expr.left, left_cols):
             new_left = expr.left
+        elif expr.left.partitioning().broadcasted:
+            new_left = expr.left
         else:
             new_left = algebra.Shuffle(expr.left, left_cols)
 
         if check_partition_equality(expr.right, right_cols):
+            new_right = expr.right
+        elif expr.right.partitioning().broadcasted:
             new_right = expr.right
         else:
             new_right = algebra.Shuffle(expr.right, right_cols)
@@ -1291,8 +1312,8 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
                 new_dim_sizes = (dim_sizes[0:i] +
                                  tuple([dim_sizes[i] + 1]) +
                                  dim_sizes[i + 1:])
-                if (product(new_dim_sizes) <= num_server
-                        and new_dim_sizes not in visited):
+                if (product(new_dim_sizes) <= num_server and
+                        new_dim_sizes not in visited):
                     toVisit.append(new_dim_sizes)
         return opt_dim_sizes, min_work_load
 
@@ -1441,7 +1462,7 @@ class BroadcastBeforeCross(rules.Rule):
                 expr.left = algebra.Broadcast(expr.left)
             else:
                 expr.right = algebra.Broadcast(expr.right)
-        except NotImplementedError as e:
+        except NotImplementedError:
             # If cardinalities unknown, broadcast the right child
             expr.right = algebra.Broadcast(expr.right)
 
@@ -1458,6 +1479,64 @@ class ShuffleAfterSingleton(rules.Rule):
             return algebra.Shuffle(MyriaSingleton(), [UnnamedAttributeRef(0)])
 
         return expr
+
+
+class ShuffleAfterFileScan(rules.Rule):
+
+    def fire(self, expr):
+        # don't shuffle any FileScan under an existing shuffle or broadcast
+        if isinstance(expr, (algebra.Shuffle,
+                             algebra.HyperCubeShuffle,
+                             algebra.Broadcast)):
+            for e in expr.walk():
+                if isinstance(e, algebra.FileScan):
+                    e._needs_shuffle = False
+            return expr
+
+        if isinstance(expr, algebra.FileScan):
+            if expr._needs_shuffle:
+                expr._needs_shuffle = False
+                return algebra.Shuffle(
+                    expr, shuffle_type=Shuffle.ShuffleType.RoundRobin)
+
+        return expr
+
+    def __str__(self):
+        return "FileScan => Shuffle(FileScan)"
+
+
+class PushSelectThroughShuffle(rules.Rule):
+
+    """Push selections through a shuffle. We only need to push it just under
+    the shuffle, since we can invoke the PushSelects rule again. We assume that
+    PushSelects has already been invoked, so all selects that could be pushed
+    through a shuffle are already immediately above the shuffle."""
+
+    def fire(self, expr):
+        if (isinstance(expr, algebra.Select) and
+            isinstance(expr.input, (algebra.Shuffle,
+                                    algebra.HyperCubeShuffle,
+                                    algebra.Broadcast,
+                                    algebra.Collect))):
+
+            old_select = expr
+            old_shuffle = expr.input
+            shuffle_child = expr.input.input
+
+            new_select = old_select.__class__()
+            new_select.copy(old_select)
+            new_select.input = shuffle_child
+
+            new_shuffle = old_shuffle.__class__()
+            new_shuffle.copy(old_shuffle)
+            new_shuffle.input = new_select
+
+            return new_shuffle
+
+        return expr
+
+    def __str__(self):
+        return "Select(Shuffle) => Shuffle(Select)"
 
 
 class AddAppendTemp(rules.Rule):
@@ -1478,12 +1557,10 @@ class AddAppendTemp(rules.Rule):
         right = child.args[1]
         rel_name = op.name
 
-        is_scan = lambda op: isinstance(
-            op,
-            MyriaScanTemp) and op.name == rel_name
+        def is_scan(op):
+            return (isinstance(op, MyriaScanTemp) and op.name == rel_name)
         if is_scan(left) and not any(is_scan(op) for op in right.walk()):
             return MyriaAppendTemp(name=rel_name, input=right)
-
         elif is_scan(right) and not any(is_scan(op) for op in left.walk()):
             return MyriaAppendTemp(name=rel_name, input=left)
 
@@ -1503,13 +1580,19 @@ class PushIntoSQL(rules.Rule):
         cat = SQLCatalog(provider=PostgresSQLFunctionProvider(),
                          push_grouping=self.push_grouping)
         try:
+            scan_relations = [s.relation_key for s in expr.walk()
+                              if isinstance(s, algebra.Scan)]
+            has_debroadcast = any(isinstance(s, algebra.Scan) and
+                                  s._debroadcast for s in expr.walk())
             sql_plan = cat.get_sql(expr)
             sql_string = sql_plan.compile(dialect=self.dialect)
             sql_string.visit_bindparam = sql_string.render_literal_bindparam
             return MyriaQueryScan(sql=sql_string.process(sql_plan),
                                   scheme=expr.scheme(),
+                                  source_relation_keys=scan_relations,
                                   num_tuples=expr.num_tuples(),
-                                  partitioning=expr.partitioning())
+                                  partitioning=expr.partitioning(),
+                                  debroadcast=has_debroadcast)
         except NotImplementedError as e:
             LOGGER.warn("Error converting {plan}: {e}"
                         .format(plan=expr, e=e))
@@ -1567,8 +1650,8 @@ class MergeToNaryJoin(rules.Rule):
     @staticmethod
     def collect_join_groups(op, conditions, children):
         assert isinstance(op, algebra.ProjectingJoin)
-        assert (isinstance(op.right, algebra.Select)
-                or issubclass(type(op.right), algebra.ZeroaryOperator))
+        assert (isinstance(op.right, algebra.Select) or
+                issubclass(type(op.right), algebra.ZeroaryOperator))
         children.append(op.right)
         conjuncs = expression.extract_conjuncs(op.condition)
         for cond in conjuncs:
@@ -1642,6 +1725,7 @@ left_deep_tree_shuffle_logic = [
     BroadcastBeforeCross(),
     ShuffleAfterSingleton(),
     CollectBeforeLimit(),
+    ShuffleAfterFileScan(),
 ]
 
 
@@ -1656,7 +1740,7 @@ myriafy = [
     rules.OneToOne(algebra.Select, MyriaSelect),
     rules.OneToOne(algebra.Distinct, MyriaDupElim),
     rules.OneToOne(algebra.Shuffle, MyriaShuffle),
-    rules.OneToOne(algebra.HyperCubeShuffle, MyriaHyperShuffle),
+    rules.OneToOne(algebra.HyperCubeShuffle, MyriaHyperCubeShuffle),
     rules.OneToOne(algebra.Collect, MyriaCollect),
     rules.OneToOne(algebra.ProjectingJoin, MyriaSymmetricHashJoin),
     rules.OneToOne(algebra.NaryJoin, MyriaLeapFrogJoin),
@@ -1692,7 +1776,7 @@ class MyriaAlgebra(Algebra):
         MyriaShuffleConsumer,
         MyriaCollectConsumer,
         MyriaBroadcastConsumer,
-        MyriaHyperShuffleConsumer,
+        MyriaHyperCubeShuffleConsumer,
         MyriaScan,
         MyriaScanTemp,
         MyriaFileScan,
@@ -1739,10 +1823,13 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
             rules.push_project,
             rules.push_apply,
             left_deep_tree_shuffle_logic,
+            [PushSelectThroughShuffle()],
+            rules.push_select,
             distributed_group_by(MyriaGroupBy),
             [rules.PushApply()],
             [LogicalSampleToDistributedSample()],
             [FlattenUnionAll()],
+            [rules.DeDupBroadcastInputs()],
         ]
 
         if kwargs.get('push_sql', False):
@@ -1805,7 +1892,10 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
             merge_to_nary_join,
             rules.push_apply,
             left_deep_tree_shuffle_logic,
+            [PushSelectThroughShuffle()],
+            rules.push_select,
             distributed_group_by(MyriaGroupBy),
+            [rules.DeDupBroadcastInputs()],
             hyper_cube_shuffle_logic
         ]
 
@@ -1918,7 +2008,7 @@ def compile_fragment(frag_root):
             (op_frag, op_queue) = one_fragment(rootOp)
             # .. Myria JSON expects the fragment operators in reverse order,
             # i.e., root at the bottom.
-            ret.append(reversed(op_frag))
+            ret.append(list(reversed(op_frag)))
             # .. and collect the newly discovered fragment roots.
             queue.extend(op_queue)
         return ret
@@ -1934,8 +2024,12 @@ def compile_fragment(frag_root):
         return op_dict
 
     # Determine and encode the fragments.
-    return [{'operators': [call_compile_me(op) for op in frag]}
-            for frag in fragments(frag_root)]
+    results = []
+    for frag in fragments(frag_root):
+        frag_compilated = {'operators': [call_compile_me(op) for op in frag]}
+        results.append(frag_compilated)
+
+    return results
 
 
 def compile_plan(plan_op):

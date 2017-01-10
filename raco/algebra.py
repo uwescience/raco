@@ -352,12 +352,13 @@ class NaryJoin(NaryOperator):
         return DEFAULT_CARDINALITY
 
     def partitioning(self):
-        """attributes are mutually exclusive so union the partitioned
-        attributes"""
-        attributes = frozenset()
-        for c in self.children():
-            attributes = attributes.union(c.partitioning().hash_partitioned)
-        return RepresentationProperties(hash_partitioned=attributes)
+        """ The schemas are mutually exclusive
+        so conjunction of the partition functions"""
+
+        # TODO: being conservative, just take the left side because
+        # TODO: we don't support conjuncs in partition info
+        return RepresentationProperties(
+            hash_partitioned=self.args[0].partitioning().hash_partitioned)
 
     def scheme(self):
         combined = reduce(operator.add, [c.scheme() for c in self.children()])
@@ -387,9 +388,8 @@ class IdenticalSchemeBinaryOperator(BinaryOperator):
 
     def partitioning(self):
         """keep the partitioning if both sides are identically partitioned"""
-        lp = self.left.partitioning()
-        if lp.hash_partitioned == self.right.partitioning().hash_partitioned:
-            return lp
+        if self.left.partitioning() == self.right.partitioning():
+            return self.left.partitioning()
         else:
             return RepresentationProperties()
 
@@ -432,8 +432,7 @@ class UnionAll(NaryOperator):
         """keep the partitioning if all children are identically
         partitioned"""
         for child in self.args:
-            if child.partitioning().hash_partitioned != \
-                    self.args[0].partitioning().hash_partitioned:
+            if child.partitioning() != self.args[0].partitioning():
                 return RepresentationProperties()
         return self.args[0].partitioning()
 
@@ -509,10 +508,19 @@ class CompositeBinaryOperator(BinaryOperator):
         """ The schemas are mutually exclusive
         so conjunction of the partition functions"""
 
-        # TODO: being conservative, just take the left side because
+        # TODO: being conservative, just take one side because
         # TODO: we don't support conjuncs in partition info
-        return RepresentationProperties(
-            hash_partitioned=self.left.partitioning().hash_partitioned)
+        if self.left.partitioning().hash_partitioned != frozenset():
+            return RepresentationProperties(
+                hash_partitioned=self.left.partitioning().hash_partitioned)
+        elif self.right.partitioning().hash_partitioned != frozenset():
+            return RepresentationProperties(
+                hash_partitioned=self.right.partitioning().hash_partitioned)
+        elif self.left.partitioning().broadcasted and (
+                self.right.partitioning().broadcasted):
+            return RepresentationProperties(broadcasted=True)
+        else:
+            return RepresentationProperties()
 
     def scheme(self):
         """Return the scheme of the result."""
@@ -630,9 +638,11 @@ def project_partitioning(columnlist, input_partitioning):
         return RepresentationProperties(
             hash_partitioned=frozenset(
                 expression.UnnamedAttributeRef(i)
-                for i in newrefs.values()))
+                for i in newrefs.values()),
+            broadcasted=input_partitioning.broadcasted)
     else:
-        return RepresentationProperties()
+        return RepresentationProperties(
+            broadcasted=input_partitioning.broadcasted)
 
 
 class Apply(UnaryOperator):
@@ -1140,19 +1150,26 @@ class Shuffle(UnaryOperator):
     def __init__(self, child=None, columnlist=None, shuffle_type=None):
         UnaryOperator.__init__(self, child)
         self.columnlist = columnlist
-        self.shuffle_type = shuffle_type
+        self.shuffle_type = shuffle_type or self.ShuffleType.Hash
+        if shuffle_type == self.ShuffleType.Hash:
+            assert columnlist, \
+                "column list for hash shuffle must be non-null and non-empty"
 
     def num_tuples(self):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), real_str(self.columnlist,
-                                                   skip_out=True))
+        if self.shuffle_type == self.ShuffleType.Hash:
+            return "%s(%s(%s))" % (self.opname(), self.shuffle_type,
+                                   real_str(self.columnlist, skip_out=True))
+        return "%s(%s)" % (self.opname(), self.shuffle_type)
 
     def partitioning(self):
+        assert not self.input.partitioning().broadcasted, \
+            "Must avoid shuffling broadcasted relation"
+
         # TODO: incorporate information about functional dependences
-        if self.shuffle_type == self.ShuffleType.SingleFieldHash \
-                or self.shuffle_type == self.ShuffleType.MultiFieldHash:
+        if self.shuffle_type == self.ShuffleType.Hash:
             return RepresentationProperties(
                 hash_partitioned=frozenset(
                     self.columnlist))
@@ -1165,9 +1182,9 @@ class Shuffle(UnaryOperator):
         UnaryOperator.copy(self, other)
 
     class ShuffleType(object):
-
         """Enum of supported shuffling types."""
-        SingleFieldHash, MultiFieldHash, IdentityHash = range(3)
+        Hash, Identity, HyperCube, RoundRobin = (
+            'Hash', 'Identity', 'HyperCube', 'RoundRobin')
 
 
 class HyperCubeShuffle(UnaryOperator):
@@ -1243,8 +1260,7 @@ class Broadcast(UnaryOperator):
         return self.opname()
 
     def partitioning(self):
-        # TODO a way to say that all tuples are on all partitions
-        return RepresentationProperties()
+        return RepresentationProperties(broadcasted=True)
 
 
 class Split(UnaryOperator):
@@ -1452,6 +1468,7 @@ class FileScan(ZeroaryOperator):
         self.format = format
         self._scheme = _scheme
         self.options = options
+        self._needs_shuffle = True
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
@@ -1499,7 +1516,8 @@ class Scan(ZeroaryOperator):
 
     def __init__(self, relation_key=None, _scheme=None,
                  cardinality=DEFAULT_CARDINALITY,
-                 partitioning=RepresentationProperties()):
+                 partitioning=RepresentationProperties(),
+                 debroadcast=False):
         """Initialize a scan operator.
 
         relation_key is a string of the form "user:program:relation"
@@ -1509,13 +1527,14 @@ class Scan(ZeroaryOperator):
         self._scheme = _scheme
         self._cardinality = cardinality
         self._partitioning = partitioning
+        self._debroadcast = debroadcast
 
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
-        return (ZeroaryOperator.__eq__(self, other)
-                and self.relation_key == other.relation_key
-                and self.scheme() == other.scheme())
+        return (ZeroaryOperator.__eq__(self, other) and
+                self.relation_key == other.relation_key and
+                self.scheme() == other.scheme())
 
     def __hash__(self):
         """
@@ -1525,18 +1544,27 @@ class Scan(ZeroaryOperator):
         return ("%s-%s" % (self.opname(), self.relation_key)).__hash__()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), self.relation_key)
+        return ("DeBroadcast(%s(%s))" % (self.opname(), self.relation_key) if
+                self._debroadcast else
+                "%s(%s)" % (self.opname(), self.relation_key))
 
     def num_tuples(self):
         return self._cardinality
 
     def partitioning(self):
-        return self._partitioning
+        if self._debroadcast:
+            assert self._partitioning.broadcasted
+        return (RepresentationProperties() if
+                self._debroadcast else self._partitioning)
 
     def __repr__(self):
-        return "{op}({rk!r}, {sch!r}, {card!r}, {part!r})".format(
-            op=self.opname(), rk=self.relation_key, sch=self._scheme,
-            card=self._cardinality, part=self._partitioning)
+        return "{op}({rk!r}, {sch!r}, {card!r}, {part!r}, {db!r})".format(
+            op=self.opname(),
+            rk=self.relation_key,
+            sch=self._scheme,
+            card=self._cardinality,
+            part=self._partitioning,
+            db=self._debroadcast)
 
     def copy(self, other):
         """deep copy"""
@@ -1544,6 +1572,7 @@ class Scan(ZeroaryOperator):
         self._scheme = other._scheme
         self._cardinality = other._cardinality
         self._partitioning = other._partitioning
+        self._debroadcast = other._debroadcast
 
         # TODO: need a cleaner and more general way of tracing information
         # through the compilation process for debugging purposes
@@ -1665,14 +1694,16 @@ class ScanTemp(ZeroaryOperator):
 
     """Read the contents of a temporary relation."""
 
-    def __init__(self, name=None, _scheme=None):
+    def __init__(self, name=None, scheme=None, debroadcast=False):
         self.name = name
-        self._scheme = _scheme
+        self._scheme = scheme
+        self._debroadcast = debroadcast
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
-        return (ZeroaryOperator.__eq__(self, other) and self.name == other.name
-                and self._scheme == other._scheme)
+        return (ZeroaryOperator.__eq__(self, other) and
+                self.name == other.name and
+                self._scheme == other._scheme)
 
     def num_tuples(self):
         if hasattr(self, 'analyzed_num_tuples'):
@@ -1692,15 +1723,17 @@ class ScanTemp(ZeroaryOperator):
     def copy(self, other):
         self.name = other.name
         self._scheme = other._scheme
+        self._debroadcast = other._debroadcast
         ZeroaryOperator.copy(self, other)
 
     def scheme(self):
         return self._scheme
 
     def __repr__(self):
-        return "{op}({name!r}, {sch!r})".format(op=self.opname(),
-                                                name=self.name,
-                                                sch=self._scheme)
+        return "{op}({name!r}, {sch!r}, {db!r})".format(op=self.opname(),
+                                                        name=self.name,
+                                                        sch=self._scheme,
+                                                        db=self._debroadcast)
 
 
 class Sink(UnaryOperator):

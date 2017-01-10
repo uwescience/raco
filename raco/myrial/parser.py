@@ -514,9 +514,17 @@ class Parser(object):
     @staticmethod
     def p_optional_part_info(p):
         """optional_part_info : COMMA LBRACKET column_ref_list RBRACKET
+                              | COMMA HASH LPAREN column_ref_list RPAREN
+                              | COMMA BROADCAST LPAREN RPAREN
+                              | COMMA ROUND_ROBIN LPAREN RPAREN
                               | empty"""
         if len(p) > 2:
-            p[0] = p[3]
+            if p[2] == "HASH":
+                p[0] = p[4]
+            elif p[2] in ("BROADCAST", "ROUND_ROBIN"):
+                p[0] = p[2]
+            else:
+                p[0] = p[3]
         else:
             p[0] = None
 

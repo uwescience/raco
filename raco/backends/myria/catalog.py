@@ -66,14 +66,17 @@ class MyriaCatalog(Catalog):
             dataset_info = self.connection.dataset(relation_args)
         except MyriaError:
             raise ValueError('No relation {} in the catalog'.format(rel_key))
-        partition_function = dataset_info['howPartitioned']['pf']
-        # TODO: can we do anything useful with other hash partition functions?
-        if partition_function and partition_function['type'] in [
-                "SingleFieldHash", "MultiFieldHash"]:
-            if partition_function['type'] == "SingleFieldHash":
-                indexes = [partition_function['index']]
-            else:
-                indexes = partition_function['indexes']
-            return RepresentationProperties(
-                hash_partitioned=frozenset(AttIndex(i) for i in indexes))
+        distribute_function = dataset_info['howDistributed']['df']
+        # TODO: can we do anything useful with other distribute functions?
+        if distribute_function:
+            if distribute_function['type'] == "Broadcast":
+                return RepresentationProperties(broadcasted=True)
+            if distribute_function['type'] == "Identity":
+                index = distribute_function['index']
+                return RepresentationProperties(
+                    hash_partitioned=frozenset(AttIndex(index)))
+            elif distribute_function['type'] == "Hash":
+                indexes = distribute_function['indexes']
+                return RepresentationProperties(
+                    hash_partitioned=frozenset(AttIndex(i) for i in indexes))
         return RepresentationProperties()

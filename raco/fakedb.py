@@ -374,6 +374,9 @@ class FakeDatabase(Catalog):
             except IndexError:
                 break
 
+    def debroadcast(self, op):
+        return self.evaluate(op.input)
+
     def store(self, op):
         assert isinstance(op.relation_key, relation_key.RelationKey)
 
@@ -435,10 +438,10 @@ class FakeDatabase(Catalog):
     def myriainmemoryorderby(self, op):
         return self.evaluate(op.input)
 
-    def myriahypershuffleconsumer(self, op):
+    def myriahypercubeshuffleconsumer(self, op):
         return self.evaluate(op.input)
 
-    def myriahypershuffleproducer(self, op):
+    def myriahypercubeshuffleproducer(self, op):
         return self.evaluate(op.input)
 
     def myriasplitconsumer(self, op):
