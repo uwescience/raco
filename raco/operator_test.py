@@ -101,9 +101,11 @@ class OperatorTest(unittest.TestCase):
         from raco.backends.myria import (compile_to_json,
                                          MyriaLeftDeepTreeAlgebra)
         from compile import optimize
-        import json
-        json_string = json.dumps(compile_to_json("", None, optimize(store, MyriaLeftDeepTreeAlgebra())))  # noqa
-        assert json_string
+        plan = compile_to_json("", None, optimize(
+            store, MyriaLeftDeepTreeAlgebra()))  # noqa
+        for op in plan['plan']['fragments'][0]['operators']:
+            if op['opType'] == 'StatefulApply':
+                assert not any(exp is None for exp in op['emitExpressions'])
 
     def test_cast_to_float(self):
         scan = Scan(TestQueryFunctions.emp_key, TestQueryFunctions.emp_schema)

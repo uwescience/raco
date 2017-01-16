@@ -603,7 +603,8 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
         state_scheme = self.state_scheme
 
         def comp_map(x):
-            compile_mapping(x, child_scheme, state_scheme)
+            return compile_mapping(x, child_scheme, state_scheme)
+
         emitters = [comp_map(x) for x in self.emitters]
         inits = [comp_map(x) for x in self.inits]
         updaters = [comp_map(x) for x in self.updaters]
