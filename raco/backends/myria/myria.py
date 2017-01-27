@@ -473,18 +473,22 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
             return "AVG"
         elif isinstance(agg_expr, expression.STDEV):
             return "STDEV"
+        elif isinstance(agg_expr, expression.COUNTALL):
+            return "COUNT"
         raise NotImplementedError("MyriaGroupBy.agg_mapping({})".format(
             type(agg_expr)))
 
     @staticmethod
     def compile_builtin_agg(agg, child_scheme):
         assert isinstance(agg, expression.BuiltinAggregateExpression)
-        if isinstance(agg, expression.COUNTALL):
-            return {"type": "CountAll"}
 
-        assert isinstance(agg, expression.UnaryOperator)
-        column = expression.toUnnamed(agg.input, child_scheme).position
-        return {"type": "SingleColumn",
+        if isinstance(agg, expression.COUNTALL):
+            # Treat COUNT(*) the same as COUNT($0) since we don't support NULL
+            column = 0
+        else:
+            assert isinstance(agg, expression.UnaryOperator)
+            column = expression.toUnnamed(agg.input, child_scheme).position
+        return {"type": "Primitive",
                 "aggOps": [MyriaGroupBy.agg_mapping(agg)],
                 "column": column}
 
@@ -524,21 +528,12 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
                 "emitters": emitters
             })
 
-        ret = {
+        return {
             "argChild": inputid,
             "aggregators": aggregators,
+            "opType": "Aggregate",
+            "argGroupFields": [field.position for field in group_fields]
         }
-
-        num_fields = len(self.grouping_list)
-        if num_fields == 0:
-            ret["opType"] = "Aggregate"
-        elif num_fields == 1:
-            ret["opType"] = "SingleGroupByAggregate"
-            ret["argGroupField"] = group_fields[0].position
-        else:
-            ret["opType"] = "MultiGroupByAggregate"
-            ret["argGroupFields"] = [field.position for field in group_fields]
-        return ret
 
 
 class MyriaInMemoryOrderBy(algebra.OrderBy, MyriaOperator):
