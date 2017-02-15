@@ -6,9 +6,11 @@ import math
 import md5
 import random
 
+from raco.expression.udf import Function
+
 from .expression import (ZeroaryOperator, UnaryOperator, BinaryOperator,
                          NaryOperator, types, check_is_numeric, check_type,
-                         TypeSafetyViolation)
+                         TypeSafetyViolation, UnnamedAttributeRef)
 
 
 class UnaryFunction(UnaryOperator):
@@ -163,6 +165,22 @@ class UnaryTypePreservingFunction(UnaryFunction):
         input_type = self.input.typeof(scheme, state_scheme)
         check_is_numeric(input_type)
         return input_type
+
+
+class VariadicFunction(object):
+    def __init__(self, ftype, name, typ, **kwargs):
+        self.ftype = ftype
+        self.name = name
+        self.typ = typ
+        self.kwargs = kwargs
+
+    def bind(self, *args):
+        return Function(
+            ['arg_{}'.format(i) for i in xrange(len(args))],
+            self.ftype(self.name,
+                       self.typ,
+                       *[UnnamedAttributeRef(i) for i in xrange(len(args))],
+                       **self.kwargs))
 
 
 class ABS(UnaryTypePreservingFunction):

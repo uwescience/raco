@@ -2890,7 +2890,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         store(out, OUTPUT);
         """ % self.emp_key
 
-        self.get_physical_plan(query, udas=[('test', 2, LONG_TYPE)])
+        self.get_physical_plan(query, udas=[('test', LONG_TYPE)])
 
     def test_pyUDF_uda(self):
         query = """
@@ -2904,4 +2904,4 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         store(T1, out);
         """ % self.emp_key
 
-        self.get_physical_plan(query, udas=[('test_uda', 2, LONG_TYPE)])
+        self.get_physical_plan(query, udas=[('test_uda', LONG_TYPE)])

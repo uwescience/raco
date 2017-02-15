@@ -15,7 +15,8 @@ from raco.expression.udf import Function, StatefulFunc
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
-from raco.expression import StateVar, PythonUDF, UnnamedAttributeRef
+from raco.expression import StateVar, PythonUDF, UnnamedAttributeRef, \
+    VariadicFunction
 
 
 class JoinColumnCountMismatchException(Exception):
@@ -289,26 +290,21 @@ class Parser(object):
         return emit_op
 
     @staticmethod
-    def add_python_udf(name, arity, typ, **kwargs):
+    def add_python_udf(name, typ, **kwargs):
         """Add a Python user-defined function to the global function table.
 
         :param name: The name of the function
         :type name: string
         :param arity: Number of function arguments
-        :type arity: int
         :param typ: The output type of the function
         :type typ: string
         """
         if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, -1)
 
-        args = ['arg_{}'.format(i) for i in xrange(arity)]
-        body = PythonUDF(name, typ,
-                         *[UnnamedAttributeRef(i) for i in xrange(arity)],
-                         source=kwargs.get('source', None))
-
-        Parser.udf_functions[name] = Function(args, body)
-        return body
+        f = VariadicFunction(PythonUDF, name, typ, **kwargs)
+        Parser.udf_functions[name] = f
+        return f
 
     @staticmethod
     def mangle(name):
@@ -1045,6 +1041,9 @@ class Parser(object):
             func = Parser.udf_functions[name]
         else:
             func = expr_lib.lookup(name, len(args))
+
+        if isinstance(func, VariadicFunction):
+            func = func.bind(*args)
 
         if func is None:
             raise NoSuchFunctionException(name, p.lineno(0))
