@@ -18,7 +18,7 @@ type_to_raco = {Integer: types.LONG_TYPE,
                 Float: types.FLOAT_TYPE,
                 Boolean: types.BOOLEAN_TYPE,
                 DateTime: types.DATETIME_TYPE,
-                LargeBinary: types.BYTES_TYPE}
+                LargeBinary: types.BLOB_TYPE}
 
 
 raco_to_type = {types.LONG_TYPE: Integer,
@@ -28,7 +28,7 @@ raco_to_type = {types.LONG_TYPE: Integer,
                 types.DOUBLE_TYPE: Float,
                 types.BOOLEAN_TYPE: Boolean,
                 types.DATETIME_TYPE: DateTime,
-                types.BYTES_TYPE: LargeBinary}
+                types.BLOB_TYPE: LargeBinary}
 
 
 class DBConnection(object):
@@ -42,15 +42,14 @@ class DBConnection(object):
 
     def __add_function_registry__(self):
         functions_schema = Scheme([("name", types.STRING_TYPE),
-                                   ("text", types.STRING_TYPE),
-                                   ("lang", types.INT_TYPE),
-                                   ("inputSchema", types.STRING_TYPE),
+                                   ("description", types.STRING_TYPE),
                                    ("outputType", types.STRING_TYPE),
-                                   ("binary", types.BYTES_TYPE)])
+                                   ("lang", types.INT_TYPE),
+                                   ("binary", types.BLOB_TYPE)])
 
         columns = [Column(n, raco_to_type[t](), nullable=False)
                    for n, t in functions_schema.attributes]
-        table = Table("registered_udfs", self.metadata, *columns)
+        table = Table("registered_functions", self.metadata, *columns)
         table.create(self.engine)
 
     def get_scheme(self, rel_key):
@@ -113,12 +112,12 @@ class DBConnection(object):
 
     def get_function(self, name):
         """Retrieve a function from catalog."""
-        s = "select * from registered_udfs where name=" + str(name)
+        s = "select * from registered_functions where name=" + str(name)
         return dict(self.engine.execute(s).first())
 
     def register_function(self, tup):
         """Register a function in the catalog."""
-        table = self.metadata.tables['registered_udfs']
-        scheme = self.get_scheme('registered_udfs')
+        table = self.metadata.tables['registered_functions']
+        scheme = self.get_scheme('registered_functions')
         func = [{n: v for n, v in zip(scheme.get_names(), tup)}]
         self.engine.execute(table.insert(), func)

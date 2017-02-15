@@ -144,7 +144,7 @@ def local_mock(url, request):
         # lazy test
         return {'status_code': 200, 'content': request.body or ""}
 
-    elif url.path == '/function/register' and request.method == 'POST':
+    elif url.path == '/function' and request.method == 'POST':
         return {'status_code': 200, 'content': json.dumps([5])}
 
     elif url.path == '/function/test' and request.method == 'GET':
@@ -223,10 +223,11 @@ class TestQuery(unittest.TestCase):
         with HTTMock(local_mock):
             status = self.connection.create_function({
                 'name': 'test',
-                'text': 'function text',
+                'description': 'function text',
                 'outputType': 'INT_TYPE',
                 'lang': FunctionTypes.PYTHON,
                 'binary': "function binary"})
+            print status
             self.assertNotEquals(status, None)
 
     def test_get_function(self):
