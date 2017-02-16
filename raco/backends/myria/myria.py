@@ -18,6 +18,7 @@ from raco.expression import UnnamedAttributeRef
 from raco.expression import WORKERID, COUNTALL
 from raco.representation import RepresentationProperties
 from raco.rules import distributed_group_by, check_partition_equality
+from raco.expression import util
 
 LOGGER = logging.getLogger(__name__)
 
@@ -106,6 +107,14 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type': op.opname(),
             'children': children
+        }
+    elif isinstance(op, expression.PythonUDF):
+        return {
+            'type': op.opname(),
+            'name': op.name,
+            'outputType': op.typ,
+            'arguments': [compile_expr(arg, child_scheme, state_scheme)
+                          for arg in op.arguments]
         }
 
     ####

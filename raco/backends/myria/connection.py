@@ -4,7 +4,6 @@ import json
 import csv
 from time import sleep
 import logging
-import urllib
 from urlparse import urlparse, ParseResult
 from .errors import MyriaError
 
@@ -21,6 +20,11 @@ POST = 'POST'
 
 # Enable or configure logging
 logging.basicConfig(level=logging.WARN)
+
+
+class FunctionTypes(object):
+    POSTGRES = 0
+    PYTHON = 1
 
 
 class MyriaConnection(object):
@@ -476,3 +480,15 @@ class MyriaConnection(object):
             raise MyriaError('Error %d: %s'
                              % (r.status_code, r.text))
         return r.json()
+
+    def get_function(self, name):
+        """ Get user defined function metadata """
+        return self._wrap_get('/function/{}'.format(name))
+
+    def create_function(self, d):
+        """Register a User Defined Function with Myria """
+        return self._make_request(POST, '/function', json.dumps(d))
+
+    def get_functions(self):
+        """ List all the user defined functions in Myria """
+        return self._wrap_get('/function')

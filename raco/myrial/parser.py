@@ -15,7 +15,8 @@ from raco.expression.udf import Function, StatefulFunc
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
-from raco.expression import StateVar
+from raco.expression import StateVar, PythonUDF, UnnamedAttributeRef, \
+    VariadicFunction
 
 
 class JoinColumnCountMismatchException(Exception):
@@ -60,7 +61,8 @@ myrial_type_map = {
     "STRING": raco.types.STRING_TYPE,
     "INT": raco.types.LONG_TYPE,
     "FLOAT": raco.types.DOUBLE_TYPE,
-    "BOOLEAN": raco.types.BOOLEAN_TYPE
+    "BOOLEAN": raco.types.BOOLEAN_TYPE,
+    "BLOB": raco.types.BLOB_TYPE
 }
 
 
@@ -286,6 +288,23 @@ class Parser(object):
 
         Parser.udf_functions[name] = Function(args, emit_op)
         return emit_op
+
+    @staticmethod
+    def add_python_udf(name, typ, **kwargs):
+        """Add a Python user-defined function to the global function table.
+
+        :param name: The name of the function
+        :type name: string
+        :param arity: Number of function arguments
+        :param typ: The output type of the function
+        :type typ: string
+        """
+        if name in Parser.udf_functions:
+            raise DuplicateFunctionDefinitionException(name, -1)
+
+        f = VariadicFunction(PythonUDF, name, typ, **kwargs)
+        Parser.udf_functions[name] = f
+        return f
 
     @staticmethod
     def mangle(name):
@@ -1031,6 +1050,9 @@ class Parser(object):
         else:
             func = expr_lib.lookup(name, len(args))
 
+        if isinstance(func, VariadicFunction):
+            func = func.bind(*args)
+
         if func is None:
             raise NoSuchFunctionException(name, p.lineno(0))
         if len(func.args) != len(args):
@@ -1162,10 +1184,11 @@ class Parser(object):
         'empty :'
         pass
 
-    def parse(self, s):
+    def parse(self, s, udas=None):
         scanner.lexer.lineno = 1
         Parser.udf_functions = {}
         Parser.decomposable_aggs = {}
+        map(lambda uda: self.add_python_udf(*uda), udas or [])
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 

@@ -32,6 +32,18 @@ class MyriaCatalog(Catalog):
             raise RuntimeError("no connection.")
         return len(self.connection.workers_alive())
 
+    def get_function(self, name):
+        """ Get user defined function metadata """
+        if not self.connection:
+            raise RuntimeError("no connection.")
+
+        try:
+            function_info = self.connection.get_function(name)
+        except MyriaError:
+            raise ValueError("Function does not exist.")
+
+        return function_info
+
     def num_tuples(self, rel_key):
         relation_args = {
             'userName': rel_key.user,
