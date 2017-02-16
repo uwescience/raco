@@ -9,11 +9,6 @@ from python_test import PythonTestCase
 
 
 class TestSyntax(PythonTestCase):
-    def test_extra_arguments(self):
-        query = """lambda t, t2: t[0] == 6"""
-        self.assertRaises(PythonArgumentException,
-                          lambda: convert(query, [self.schema]))
-
     def test_invalid_attribute(self):
         query = """lambda t: t.foo == 6"""
         self.assertRaises(PythonConvertException,
