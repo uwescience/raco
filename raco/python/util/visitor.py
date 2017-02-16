@@ -84,17 +84,12 @@ class ExpressionVisitor(ast.NodeVisitor):
     """ Visitor that converts an AST to a RACO expression """
 
     def __init__(self, schema, udfs):
-        self.arity = len(schema)
         self.schema = schema
         self.names = None
         self.udfs = udfs
 
     def visit_arguments(self, node):
         """ Visitor for function arguments """
-        if len(node.args) != self.arity:
-            raise PythonArgumentException('Expected %d arguments, found %d' %
-                                          (len(node.args), self.arity),
-                                          -1, None)
         self.names = [n.id for n in node.args]
 
     def visit_UnaryOp(self, node):
@@ -237,8 +232,7 @@ class ExpressionVisitor(ast.NodeVisitor):
         name = node.func.id
         arity = len(node.args)
         udf = next((udf for udf in self.udfs
-                    if udf['name'] == name and
-                    len(udf['inputSchema']) == arity), None)
+                    if udf['name'] == name), None)
 
         # Ignore output type when looking up UDF
         if udf is None:
