@@ -50,6 +50,10 @@ class Operator(Printable):
         self.cleanup = ""
         self.alias = self
         self._trace = []
+        self.stop_recursion = False
+
+    def set_stop_recursion(self):
+        self.stop_recursion = True
 
     @abstractmethod
     def apply(self, f):
@@ -66,9 +70,10 @@ class Operator(Printable):
     def walk(self):
         """Return an iterator over the tree of operators."""
         yield self
-        for c in self.children():
-            for x in c.walk():
-                yield x
+        if not self.stop_recursion:
+            for c in self.children():
+                for x in c.walk():
+                    yield x
 
     @abstractmethod
     def num_tuples(self):
@@ -83,9 +88,10 @@ class Operator(Printable):
     def postorder(self, f):
         """Postorder traversal, applying a function to each operator.  The
         function returns an iterator"""
-        for c in self.children():
-            for x in c.postorder(f):
-                yield x
+        if not self.stop_recursion:
+            for c in self.children():
+                for x in c.postorder(f):
+                    yield x
         for x in f(self):
             yield x
 
@@ -94,17 +100,18 @@ class Operator(Printable):
         function returns an iterator"""
         for x in f(self):
             yield x
-        for c in self.children():
-            for x in c.preorder(f):
-                yield x
+        if not self.stop_recursion:
+            for c in self.children():
+                for x in c.preorder(f):
+                    yield x
 
-    def collectParents(self, parent_map=None):
+    def collectParents(self, parent_map={}):
         """Construct a dict mapping children to parents. Used in
         optimization"""
-        if parent_map is None:
-            parent_map = {}
+        if self.stop_recursion:
+            return
         for c in self.children():
-            parent_map.setdefault(c, []).append(self)
+            parent_map.setdefault(id(c), []).append(self)
             c.collectParents(parent_map)
 
     def __copy__(self):
@@ -114,8 +121,9 @@ class Operator(Printable):
         return self.__class__ == other.__class__
 
     def __str__(self):
-        if len(self.children()) > 0:
-            return "%s%s" % (self.shortStr(), real_str(self.children()))
+        if not self.stop_recursion:
+            if len(self.children()) > 0:
+                return "%s%s" % (self.shortStr(), real_str(self.children()))
         return self.shortStr()
 
     def __hash__(self):
@@ -206,7 +214,7 @@ class ZeroaryOperator(Operator):
         """Deep copy"""
         Operator.copy(self, other)
 
-    def compileme(self, resultsym):
+    def compileme(self):
         """Compile this operator, storing its result in resultsym"""
         raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
@@ -380,6 +388,163 @@ class NaryJoin(NaryOperator):
 
 
 """Logical Relational Algebra"""
+
+
+class ScanIDB(ZeroaryOperator):
+
+    def __init__(self, name, _scheme=None, idbcontroller=None):
+        self.name = name
+        self._scheme = _scheme
+        self.idbcontroller = idbcontroller
+        ZeroaryOperator.__init__(self)
+
+    def partitioning(self):
+        return RepresentationProperties()
+
+    def num_tuples(self):
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.name)
+
+    def scheme(self):
+        if self._scheme is not None:
+            return self._scheme
+        if self.idbcontroller is not None:
+            return self.idbcontroller.scheme()
+        return None
+
+    def __repr__(self):
+        return "{op}({name!r},{sch!r},{idb!r})".format(
+            op=self.opname(), name=self.name, sch=self._scheme,
+            idb=self.idbcontroller)
+
+
+class IDBController(NaryOperator):
+
+    def __init__(self, name=None, idb_id=None, children=None, emits=None,
+                 relation_key=None, recursion_mode=None):
+        self.name = name
+        self.idb_id = idb_id
+        self.emits = emits
+        self.relation_key = relation_key
+        self.recursion_mode = recursion_mode
+        NaryOperator.__init__(self, children)
+
+    def partitioning(self):
+        return RepresentationProperties()
+
+    def get_agg(self):
+        group_list, expr = self.get_group_agg()
+        if expr is None:
+            return {"type": "DupElim"}
+        if isinstance(expr,
+                      (expression.aggregate.MIN, expression.aggregate.LEXMIN)):
+            if isinstance(expr, expression.aggregate.MIN):
+                valueCols = [expr.input.get_position(self.scheme())]
+            else:
+                valueCols = [operand.get_position(self.scheme())
+                             for operand in expr.operands]
+            return {
+                "type": "KeepMinValue",
+                "keyColIndices": group_list,
+                "valueColIndices": valueCols
+            }
+        if isinstance(expr, expression.aggregate.COUNTALL):
+            return {
+                "type": "CountFilter",
+                "keyColIndices": group_list,
+                "threshold": expr.threshold
+            }
+
+    def get_group_agg(self):
+        agg_list = []
+        group_list = []
+        for emit in self.emits:
+            expr = emit.sexprs[0]
+            if isinstance(expr, expression.AggregateExpression):
+                if not isinstance(expr, (expression.aggregate.MIN,
+                                         expression.aggregate.LEXMIN,
+                                         expression.aggregate.COUNTALL)):
+                    raise NotImplementedError(
+                        "IDBController does not support agg type {}".format(
+                            type(expr)))
+                agg_list.append(expr)
+            else:
+                group_list.append(expr.get_position(self.scheme()))
+        if len(agg_list) > 1:
+            raise NotImplementedError("IDBController only can have one agg")
+        if len(agg_list) == 0:
+            agg = None
+        else:
+            agg = agg_list[0]
+        return (group_list, agg)
+
+    def num_tuples(self):
+        # TODO
+        return DEFAULT_CARDINALITY
+
+    def scheme(self):
+        child1, child2 = self.children()[:2]
+        if child1 is not None and not isinstance(child1, EmptyRelation):
+            input_scheme = child1.scheme()
+        elif child2 is not None and not isinstance(child2, EmptyRelation):
+            input_scheme = child2.scheme()
+        else:
+            return None
+
+        schema = scheme.Scheme()
+        for index, emit in enumerate(self.emits):
+            sexpr = emit.sexprs[0]
+            if isinstance(sexpr, expression.aggregate.LEXMIN):
+                for col in sexpr.operands:
+                    _name, _type = input_scheme.resolve(col)
+                    schema.addAttribute(_name, _type)
+            else:
+                name = (None if emit.column_names is None
+                        else emit.column_names[0])
+                _name = resolve_attribute_name(
+                    name, input_scheme, sexpr, index)
+                _type = sexpr.typeof(input_scheme, None)
+                schema.addAttribute(_name, _type)
+        return schema
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), real_str(self.name,
+                                                   skip_out=True))
+
+    def copy(self, other):
+        """deep copy"""
+        self.name = other.name
+        self.idb_id = other.idb_id
+        self.emits = other.emits
+        self.recursion_mode = other.recursion_mode
+        NaryOperator.copy(self, other)
+
+    def __repr__(self):
+        return "{op}({name!r},{id!r},{ch!r},{em!r},{key!r},{recur!r})".format(
+            op=self.opname(), name=self.name, id=self.idb_id, ch=self.args,
+            em=self.emits, key=self.relation_key, recur=self.recursion_mode)
+
+
+class EOSController(UnaryOperator):
+
+    """EOSController"""
+
+    def __init__(self, input=None):
+        UnaryOperator.__init__(self, input)
+
+    def partitioning(self):
+        return RepresentationProperties()
+
+    def num_tuples(self):
+        return 1
+
+    def scheme(self):
+        return scheme.Scheme([])
+
+    def shortStr(self):
+        return self.opname()
 
 
 class IdenticalSchemeBinaryOperator(BinaryOperator):
@@ -1087,8 +1252,9 @@ class ProjectingJoin(Join):
     """Logical Projecting Join operator"""
 
     def __init__(self, condition=None, left=None, right=None,
-                 output_columns=None):
+                 output_columns=None, pull_order_policy='ALTERNATE'):
         self.output_columns = output_columns
+        self.pull_order_policy = pull_order_policy
         Join.__init__(self, condition, left, right)
 
     def __eq__(self, other):
@@ -1102,9 +1268,10 @@ class ProjectingJoin(Join):
                                real_str(self.output_columns, skip_out=True))
 
     def __repr__(self):
-        return "{op}({cond!r}, {l!r}, {r!r}, {oc!r})"\
+        return "{op}({cond!r}, {l!r}, {r!r}, {oc!r}, {pr!r})"\
             .format(op=self.opname(), cond=self.condition,
-                    l=self.left, r=self.right, oc=self.output_columns)
+                    l=self.left, r=self.right, oc=self.output_columns,
+                    pr=self.pull_order_policy)
 
     def copy(self, other):
         """deep copy"""
@@ -1411,6 +1578,7 @@ class EmptyRelation(ZeroaryOperator):
     """Relation with no tuples."""
 
     def __init__(self, _scheme=None):
+        ZeroaryOperator.__init__(self)
         self._scheme = _scheme
 
     def num_tuples(self):
@@ -1827,6 +1995,29 @@ class DoWhile(NaryOperator):
 
     def scheme(self):
         """DoWhile does not return any tuples."""
+        return None
+
+
+class UntilConvergence(NaryOperator):
+
+    def __init__(self, ops=None, pull_order_policy='ALTERNATE'):
+        """Repeatedly execute a sequence of plans until convergence.
+        :params ops: A list of operations to execute in parallel.
+        """
+        NaryOperator.__init__(self, ops)
+        self.pull_order_policy = pull_order_policy
+
+    def partitioning(self):
+        return RepresentationProperties()
+
+    def num_tuples(self):
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+
+    def shortStr(self):
+        return self.opname()
+
+    def scheme(self):
+        """UntilConvergence does not return any tuples."""
         return None
 
 

@@ -11,9 +11,10 @@ from raco.expression import aggregate
 
 from raco.backends.myria import (
     MyriaShuffleConsumer, MyriaShuffleProducer, MyriaHyperCubeShuffleProducer,
-    MyriaBroadcastConsumer, MyriaBroadcastProducer, MyriaSplitConsumer,
-    MyriaScan, MyriaQueryScan, MyriaUnionAll,
-    MyriaDupElim, MyriaGroupBy, MyriaSelect)
+    MyriaBroadcastConsumer, MyriaQueryScan, MyriaSplitConsumer, MyriaUnionAll,
+    MyriaBroadcastProducer, MyriaScan, MyriaSelect, MyriaSplitProducer,
+    MyriaDupElim, MyriaGroupBy, MyriaIDBController, MyriaSymmetricHashJoin,
+    compile_to_json)
 from raco.backends.myria import (MyriaLeftDeepTreeAlgebra,
                                  MyriaHyperCubeAlgebra)
 from raco.compile import optimize
@@ -29,65 +30,43 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
     x_scheme = scheme.Scheme([("a", types.LONG_TYPE), ("b", types.LONG_TYPE), ("c", types.LONG_TYPE)])  # noqa
     y_scheme = scheme.Scheme([("d", types.LONG_TYPE), ("e", types.LONG_TYPE), ("f", types.LONG_TYPE)])  # noqa
+    z_scheme = scheme.Scheme([('src', types.LONG_TYPE), ('dst', types.LONG_TYPE)])  # noqa
     part_scheme = scheme.Scheme([("g", types.LONG_TYPE), ("h", types.LONG_TYPE), ("i", types.LONG_TYPE)])  # noqa
     broad_scheme = scheme.Scheme([("j", types.LONG_TYPE), ("k", types.LONG_TYPE), ("l", types.LONG_TYPE)])  # noqa
     x_key = relation_key.RelationKey.from_string("public:adhoc:X")
     y_key = relation_key.RelationKey.from_string("public:adhoc:Y")
+    z_key = relation_key.RelationKey.from_string("public:adhoc:Z")
     part_key = relation_key.RelationKey.from_string("public:adhoc:part")
+    broad_key = relation_key.RelationKey.from_string("public:adhoc:broad")
     part_partition = RepresentationProperties(
         hash_partitioned=frozenset([AttIndex(1)]))
-    broad_key = relation_key.RelationKey.from_string("public:adhoc:broad")
-    broad_partition = RepresentationProperties(
-        broadcasted=True
-    )
+    broad_partition = RepresentationProperties(broadcasted=True)
+    random.seed(387)  # make results deterministic
+    rng = 20
+    count = 30
+    z_data = collections.Counter([(1, 2), (2, 3), (1, 2), (3, 4)])
+    x_data = collections.Counter(
+        [(random.randrange(rng), random.randrange(rng),
+          random.randrange(rng)) for _ in range(count)])
+    y_data = collections.Counter(
+        [(random.randrange(rng), random.randrange(rng),
+          random.randrange(rng)) for _ in range(count)])
+    part_data = collections.Counter(
+        [(random.randrange(rng), random.randrange(rng),
+          random.randrange(rng)) for _ in range(count)])
+    broad_data = collections.Counter(
+        [(random.randrange(rng), random.randrange(rng),
+          random.randrange(rng)) for _ in range(count)])
 
     def setUp(self):
         super(OptimizerTest, self).setUp()
-
-        random.seed(387)  # make results deterministic
-        rng = 20
-        count = 30
-        self.x_data = collections.Counter(
-            [(random.randrange(rng), random.randrange(rng),
-              random.randrange(rng)) for _ in range(count)])
-        self.y_data = collections.Counter(
-            [(random.randrange(rng), random.randrange(rng),
-              random.randrange(rng)) for _ in range(count)])
-        self.part_data = collections.Counter(
-            [(random.randrange(rng), random.randrange(rng),
-              random.randrange(rng)) for _ in range(count)])
-        self.broad_data = collections.Counter(
-            [(random.randrange(rng), random.randrange(rng),
-              random.randrange(rng)) for _ in range(count)])
-
-        self.db.ingest(OptimizerTest.x_key,
-                       self.x_data,
-                       OptimizerTest.x_scheme)
-        self.db.ingest(OptimizerTest.y_key,
-                       self.y_data,
-                       OptimizerTest.y_scheme)
-        self.db.ingest(OptimizerTest.part_key,
-                       self.part_data,
-                       OptimizerTest.part_scheme,
+        self.db.ingest(self.x_key, self.x_data, self.x_scheme)
+        self.db.ingest(self.y_key, self.y_data, self.y_scheme)
+        self.db.ingest(self.z_key, self.z_data, self.z_scheme)
+        self.db.ingest(self.part_key, self.part_data, self.part_scheme,
                        self.part_partition)  # "partitioned" table
-        self.db.ingest(OptimizerTest.broad_key,
-                       self.broad_data,
-                       OptimizerTest.broad_scheme,
-                       self.broad_partition)
-
-        self.expected = collections.Counter(
-            [(a, b, c, d, e, f) for (a, b, c) in self.x_data
-             for (d, e, f) in self.y_data if a > b and e <= f and c == d])
-
-        self.z_key = relation_key.RelationKey.from_string("public:adhoc:Z")
-        self.z_data = collections.Counter([(1, 2), (2, 3), (1, 2), (3, 4)])
-        self.z_scheme = scheme.Scheme([('src', types.LONG_TYPE), ('dst', types.LONG_TYPE)])  # noqa
-        self.db.ingest('public:adhoc:Z', self.z_data, self.z_scheme)
-
-        self.expected2 = collections.Counter(
-            [(s1, d3) for (s1, d1) in self.z_data.elements()
-             for (s2, d2) in self.z_data.elements()
-             for (s3, d3) in self.z_data.elements() if d1 == s2 and d2 == s3])
+        self.db.ingest(self.broad_key, self.broad_data,
+                       self.broad_scheme, self.broad_partition)
 
     @staticmethod
     def logical_to_physical(lp, **kwargs):
@@ -138,7 +117,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
-        self.assertEquals(result, self.expected)
+        expected = collections.Counter(
+            [(a, b, c, d, e, f) for (a, b, c) in self.x_data
+             for (d, e, f) in self.y_data if a > b and e <= f and c == d])
+        self.assertEquals(result, expected)
 
     def test_collapse_applies(self):
         """Test pushing applies together."""
@@ -213,7 +195,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
              for (a, b, c) in self.x_data
              for (d, e, f) in self.x_data
              if a == d])
-
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
@@ -322,7 +303,10 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
-        self.assertEquals(result, self.expected)
+        expected = collections.Counter(
+            [(a, b, c, d, e, f) for (a, b, c) in self.x_data
+             for (d, e, f) in self.y_data if a > b and e <= f and c == d])
+        self.assertEquals(result, expected)
 
     def test_multi_condition_join(self):
         s = expression.AND(expression.EQ(AttRef("c"), AttRef("d")),
@@ -341,7 +325,6 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         expected = collections.Counter(
             [(a, b, c, d, e, f) for (a, b, c) in self.x_data
              for (d, e, f) in self.y_data if a == f and c == d])
-
         self.db.evaluate(pp)
         result = self.db.get_temp_table('OUTPUT')
         self.assertEquals(result, expected)
@@ -369,7 +352,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
-        self.assertEquals(result, self.expected2)
+        expected = collections.Counter(
+            [(s1, d3) for (s1, d1) in self.z_data.elements()
+             for (s2, d2) in self.z_data.elements()
+             for (s3, d3) in self.z_data.elements() if d1 == s2 and d2 == s3])
+        self.assertEquals(result, expected)
 
     def test_multiway_join_hyper_cube(self):
 
@@ -394,7 +381,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
 
         self.db.evaluate(pp)
         result = self.db.get_table('OUTPUT')
-        self.assertEquals(result, self.expected2)
+        expected = collections.Counter(
+            [(s1, d3) for (s1, d1) in self.z_data.elements()
+             for (s2, d2) in self.z_data.elements()
+             for (s3, d3) in self.z_data.elements() if d1 == s2 and d2 == s3])
+        self.assertEquals(result, expected)
 
     def test_hyper_cube_tie_breaking_heuristic(self):
         query = """
@@ -456,7 +447,11 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.db.evaluate(pp)
 
         result = self.db.get_temp_table('OUTPUT')
-        self.assertEquals(result, self.expected2)
+        expected = collections.Counter(
+            [(s1, d3) for (s1, d1) in self.z_data.elements()
+             for (s2, d2) in self.z_data.elements()
+             for (s3, d3) in self.z_data.elements() if d1 == s2 and d2 == s3])
+        self.assertEquals(result, expected)
 
     def test_explicit_shuffle(self):
         """Test of a user-directed partition operation."""
@@ -1255,6 +1250,145 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp)
         # should be UNIONALL([expr_1, expr_2, expr_3])
         self.assertEquals(self.get_count(pp, MyriaUnionAll), 1)
+
+    def list_ops_in_json(self, plan, type):
+        ops = []
+        for p in plan['plan']['plans']:
+            for frag in p['fragments']:
+                for op in frag['operators']:
+                    if op['opType'] == type:
+                        ops.append(op)
+        return ops
+
+    def test_cc(self):
+        """Test Connected Components"""
+        query = """
+        E = scan(public:adhoc:Z);
+        V = select distinct E.src as x from E;
+        do
+            CC = [nid, MIN(cid) as cid] <-
+                 [from V emit V.x as nid, V.x as cid] +
+                 [from E, CC where E.src = CC.nid emit E.dst as nid, CC.cid];
+        until convergence pull_idb;
+        store(CC, CC);
+        """
+        lp = self.get_logical_plan(query, async_ft='REJOIN')
+        pp = self.logical_to_physical(lp, async_ft='REJOIN')
+        for op in pp.children():
+            for child in op.children():
+                if isinstance(child, MyriaIDBController):
+                    # for checking rule RemoveSingleSplit
+                    assert not isinstance(op, MyriaSplitProducer)
+        plan = compile_to_json(query, lp, pp, 'myrial', async_ft='REJOIN')
+
+        joins = [op for op in pp.walk()
+                 if isinstance(op, MyriaSymmetricHashJoin)]
+        assert len(joins) == 1
+        assert joins[0].pull_order_policy == 'RIGHT'
+        self.assertEquals(plan['ftMode'], 'REJOIN')
+        idbs = self.list_ops_in_json(plan, 'IDBController')
+        self.assertEquals(len(idbs), 1)
+        self.assertEquals(idbs[0]['argState']['type'], 'KeepMinValue')
+        self.assertEquals(idbs[0]['sync'], False)  # default value: async
+        sps = self.list_ops_in_json(plan, 'ShuffleProducer')
+        assert any(sp['argBufferStateType']['type'] == 'KeepMinValue'
+                   for sp in sps if 'argBufferStateType' in sp and
+                   sp['argBufferStateType'] is not None)
+
+    def test_lca(self):
+        """Test LCA"""
+        query = """
+        Cite = scan(public:adhoc:X);
+        Paper = scan(public:adhoc:Y);
+        do
+        Ancestor = [a,b,MIN(dis) as dis] <- [from Cite emit a, b, 1 as dis] +
+                [from Ancestor, Cite
+                 where Ancestor.b = Cite.a
+                 emit Ancestor.a, Cite.b, Ancestor.dis+1];
+        LCA = [pid1,pid2,LEXMIN(dis,yr,anc)] <-
+                [from Ancestor as A1, Ancestor as A2, Paper
+                 where A1.b = A2.b and A1.b = Paper.d and A1.a < A2.a
+                 emit A1.a as pid1, A2.a as pid2,
+                 greater(A1.dis, A2.dis) as dis,
+                 Paper.e as yr, A1.b as anc];
+        until convergence sync;
+        store(LCA, LCA);
+        """
+        lp = self.get_logical_plan(query, async_ft='REJOIN')
+        pp = self.logical_to_physical(lp, async_ft='REJOIN')
+        plan = compile_to_json(query, lp, pp, 'myrial', async_ft='REJOIN')
+        idbs = self.list_ops_in_json(plan, 'IDBController')
+        self.assertEquals(len(idbs), 2)
+        self.assertEquals(idbs[0]['argState']['type'], 'KeepMinValue')
+        self.assertEquals(idbs[1]['argState']['type'], 'KeepMinValue')
+        self.assertEquals(len(idbs[1]['argState']['valueColIndices']), 3)
+        self.assertEquals(idbs[0]['sync'], True)
+        self.assertEquals(idbs[1]['sync'], True)
+
+    def test_galaxy_evolution(self):
+        """Test Galaxy Evolution"""
+        query = """
+        GoI = scan(public:adhoc:X);
+        Particles = scan(public:adhoc:Y);
+        do
+        Edges = [time,gid1,gid2,COUNT(*) as num] <-
+                [from Particles as P1, Particles as P2, Galaxies
+                where P1.d = P2.d and P1.f+1 = P2.f and
+                      P1.f = Galaxies.time and Galaxies.gid = P1.e
+                emit P1.f as time, P1.e as gid1, P2.e as gid2];
+        Galaxies = [time, gid] <-
+          [from GoI emit 1 as time, GoI.a as gid] +
+          [from Galaxies, Edges
+           where Galaxies.time = Edges.time and
+           Galaxies.gid = Edges.gid1 and Edges.num >= 4
+           emit Galaxies.time+1, Edges.gid2 as gid];
+        until convergence async build_EDB;
+        store(Galaxies, Galaxies);
+        """
+        lp = self.get_logical_plan(query, async_ft='REJOIN')
+        for op in lp.walk():
+            if isinstance(op, Select):
+                # for checking rule RemoveEmptyFilter
+                assert(op.condition is not None)
+        pp = self.logical_to_physical(lp, async_ft='REJOIN')
+        plan = compile_to_json(query, lp, pp, 'myrial', async_ft='REJOIN')
+        joins = [op for op in pp.walk()
+                 if isinstance(op, MyriaSymmetricHashJoin)]
+        # The two joins for Edges
+        assert len(
+            [j for j in joins if j.pull_order_policy == 'LEFT_EOS']) == 2
+
+        idbs = self.list_ops_in_json(plan, 'IDBController')
+        self.assertEquals(len(idbs), 2)
+        self.assertEquals(idbs[0]['argState']['type'], 'CountFilter')
+        self.assertEquals(idbs[1]['argState']['type'], 'DupElim')
+        self.assertEquals(idbs[0]['sync'], False)
+        self.assertEquals(idbs[1]['sync'], False)
+
+        super(OptimizerTest, self).new_processor()
+        query = """
+        GoI = scan(public:adhoc:X);
+        Particles = scan(public:adhoc:Y);
+        do
+        Edges = [time,gid1,gid2,COUNT(*) as num] <-
+                [from Particles as P1, Particles as P2, Galaxies
+                where P1.d = P2.d and P1.f+1 = P2.f and
+                      P1.f = Galaxies.time and Galaxies.gid = P1.e
+                emit P1.f as time, P1.e as gid1, P2.e as gid2];
+        Galaxies = [time, gid] <-
+          [from GoI emit 1 as time, GoI.a as gid] +
+          [from Galaxies, Edges
+           where Galaxies.time = Edges.time and
+           Galaxies.gid = Edges.gid1 and Edges.num > 3
+           emit Galaxies.time+1, Edges.gid2 as gid];
+        until convergence async build_EDB;
+        store(Galaxies, Galaxies);
+        """
+        lp = self.get_logical_plan(query, async_ft='REJOIN')
+        pp = self.logical_to_physical(lp, async_ft='REJOIN')
+        plan_gt = compile_to_json(query, lp, pp, 'myrial', async_ft='REJOIN')
+        idbs_gt = self.list_ops_in_json(plan_gt, 'IDBController')
+        self.assertEquals(idbs_gt[0], idbs[0])
 
     def test_push_select_below_shuffle(self):
         """Test pushing selections below shuffles."""
