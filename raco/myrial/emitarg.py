@@ -96,7 +96,8 @@ class NaryEmitArg(EmitArg):
         return self.statemods
 
     def __repr__(self):
-        return 'NaryEmitArg(%r)' % self.sexprs
+        return 'NaryEmitArg(%r,%r,%r)' % (
+            self.column_names, self.sexprs, self.statemods)
 
 
 def expand_relation(relation_name, symbols):
