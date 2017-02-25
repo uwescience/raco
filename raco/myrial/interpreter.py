@@ -382,6 +382,10 @@ class StatementProcessor(object):
         """Map a variable to the value of an expression."""
         self.__do_assignment(_id, expr)
 
+    def idbassign(self, _id, agg, expr):
+        """Map an IDB to the value of an expression."""
+        self.__do_assignment(_id, expr)
+
     def store(self, _id, rel_key, how_distributed):
         assert isinstance(rel_key, relation_key.RelationKey)
 
@@ -436,6 +440,106 @@ class StatementProcessor(object):
         # Add a control flow edge from the loop condition to the top of the
         # loop
         self.cfg.add_edge(last_op_id, first_op_id)
+
+    def check_schema(self, expr):
+        return True
+
+    def get_idb_leaves(self, expr, idbs):
+        ret = []
+        op = expr[0].lower()
+        args = expr[1:]
+        if op in ["bagcomp"]:
+            for _id, arg in args[0]:
+                if arg:
+                    ret += self.get_idb_leaves(arg, idbs)
+                elif _id in idbs:
+                    ret += [_id]
+        elif op in ["select"]:
+            for _id, arg in args[0].from_:
+                if arg:
+                    ret += self.get_idb_leaves(arg, idbs)
+                elif _id in idbs:
+                    ret += [_id]
+        elif op in ["join", "union", "cross", "diff", "intersect"]:
+            ret += self.get_idb_leaves(args[0], idbs)
+            ret += self.get_idb_leaves(args[1], idbs)
+        elif op in ["unionall"]:
+            for child in args[0]:
+                ret += self.get_idb_leaves(child, idbs)
+        elif op in ["limit", "countall", "distinct"]:
+            ret += self.get_idb_leaves(args[0], idbs)
+        elif op in ["alias"]:
+            if args[0] in idbs:
+                ret += [args[0]]
+        else:
+            raise InvalidStatementException('%s not recognized' % op)
+        return ret
+
+    def separate_inputs(self, expr, idbs, is_init):
+        op = expr[0].lower()
+        if op in ["unionall"]:
+            inputs = []
+            for input in expr[1]:
+                inputs += self.separate_inputs(input, idbs, is_init)
+            return inputs
+        else:
+            edb_only = len(self.get_idb_leaves(expr, idbs)) == 0
+            if (is_init and edb_only) or (not is_init and not edb_only):
+                return [expr]
+        return []
+
+    def untilconvergence(self, statement_list, recursion_mode,
+                         pull_order_policy):
+        idbs = {}
+        idx = 0
+        for _type, _id, emits, expr in statement_list:
+            if _id in self.symbols:
+                raise InvalidStatementException('IDB %s is already used' % _id)
+            idbcontroller = raco.algebra.IDBController(
+                _id, idx,
+                [None, None, raco.algebra.EmptyRelation(raco.scheme.Scheme())],
+                emits, None, recursion_mode)
+            idbs[_id] = idbcontroller
+            self.symbols[_id] = raco.algebra.ScanIDB(_id, None, idbcontroller)
+            idx = idx + 1
+
+        for _type, _id, emits, expr in statement_list:
+            initial_inputs = self.separate_inputs(expr, idbs, True)
+            if len(initial_inputs) == 0:
+                idbs[_id].children()[0] =\
+                    raco.algebra.EmptyRelation(raco.scheme.Scheme())
+            elif len(initial_inputs) == 1:
+                idbs[_id].children()[0] = self.ep.evaluate(initial_inputs[0])
+            else:
+                idbs[_id].children()[0] =\
+                    raco.algebra.UnionAll([self.ep.evaluate(expr)
+                                           for expr in initial_inputs])
+
+        done = False
+        while (not done):
+            done = True
+            for _type, _id, emits, expr in statement_list:
+                if idbs[_id].children()[1] is not None:
+                    continue
+                leaves = self.get_idb_leaves(expr, idbs)
+                if any(idbs[leaf].scheme() is None for leaf in leaves):
+                    done = False
+                else:
+                    iterative_inputs = self.separate_inputs(expr, idbs, False)
+                    if len(iterative_inputs) == 0:
+                        idbs[_id].children()[1] = raco.algebra.EmptyRelation(
+                            raco.scheme.Scheme())
+                    elif len(iterative_inputs) == 1:
+                        idbs[_id].children()[1] = self.ep.evaluate(
+                            iterative_inputs[0])
+                    else:
+                        idbs[_id].children()[1] = raco.algebra.UnionAll(
+                            [self.ep.evaluate(expr)
+                             for expr in iterative_inputs])
+
+        op = raco.algebra.UntilConvergence(idbs.values(), pull_order_policy)
+        uses_set = self.ep.get_and_clear_uses_set()
+        self.cfg.add_op(op, None, uses_set)
 
     def get_logical_plan(self, **kwargs):
         """Return an operator representing the logical query plan."""

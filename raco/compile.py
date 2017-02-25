@@ -43,6 +43,8 @@ def optimize_by_rules(expr, rules):
         def recursiverule(e):
             newe = rule(e)
             writer.write_if_enabled(newe, str(rule))
+            if newe.stop_recursion:
+                return newe
 
             # log the optimizer step
             if str(e) == str(newe):
