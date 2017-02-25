@@ -267,6 +267,14 @@ class TestQuery(unittest.TestCase):
             result = self.connection.queries()
             self.assertNotEqual(result, None)
 
+    def test_add_udf(self):
+        with HTTMock(local_mock):
+            name = 'myudf'
+            self.assertFalse(name in myrialparser.Parser.udf_functions)
+            self.connection.create_function({'name': name,
+                                             'outputType': 'STRING_TYPE'})
+            self.assertTrue(name in myrialparser.Parser.udf_functions)
+
 
 if __name__ == '__main__':
     unittest.main()

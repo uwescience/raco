@@ -497,7 +497,9 @@ class MyriaConnection(object):
 
     def create_function(self, d):
         """Register a User Defined Function with Myria """
-        return self._make_request(POST, '/function', json.dumps(d))
+        result = self._make_request(POST, '/function', json.dumps(d))
+        Parser.add_python_udf(d.pop('name'), d.pop('outputType'), **d)
+        return result
 
     def get_functions(self):
         """ List all the user defined functions in Myria """

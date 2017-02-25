@@ -295,7 +295,6 @@ class Parser(object):
 
         :param name: The name of the function
         :type name: string
-        :param arity: Number of function arguments
         :param typ: The output type of the function
         :type typ: string
         """
