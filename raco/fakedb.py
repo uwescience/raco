@@ -80,6 +80,15 @@ class FakeDatabase(Catalog):
         self.tables.add_table(rel_key, scheme, contents.elements())
         self.partitionings[rel_key] = partitioning
 
+    def add_function(self, tup):
+        print ("added function")
+        return self.tables.register_function(tup)
+
+    def get_function(self, name):
+        if name == "":
+            raise ValueError("Invalid UDF name.")
+        return self.tables.get_function(name)
+
     def get_scheme(self, rel_key):
         if isinstance(rel_key, basestring):
             rel_key = relation_key.RelationKey.from_string(rel_key)

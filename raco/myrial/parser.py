@@ -15,7 +15,8 @@ from raco.expression.udf import Function, StatefulFunc
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
-from raco.expression import StateVar
+from raco.expression import StateVar, PythonUDF, UnnamedAttributeRef, \
+    VariadicFunction
 
 
 class JoinColumnCountMismatchException(Exception):
@@ -60,7 +61,8 @@ myrial_type_map = {
     "STRING": raco.types.STRING_TYPE,
     "INT": raco.types.LONG_TYPE,
     "FLOAT": raco.types.DOUBLE_TYPE,
-    "BOOLEAN": raco.types.BOOLEAN_TYPE
+    "BOOLEAN": raco.types.BOOLEAN_TYPE,
+    "BLOB": raco.types.BLOB_TYPE
 }
 
 
@@ -288,6 +290,22 @@ class Parser(object):
         return emit_op
 
     @staticmethod
+    def add_python_udf(name, typ, **kwargs):
+        """Add a Python user-defined function to the global function table.
+
+        :param name: The name of the function
+        :type name: string
+        :param typ: The output type of the function
+        :type typ: string
+        """
+        if name in Parser.udf_functions:
+            raise DuplicateFunctionDefinitionException(name, -1)
+
+        f = VariadicFunction(PythonUDF, name, typ, **kwargs)
+        Parser.udf_functions[name] = f
+        return f
+
+    @staticmethod
     def mangle(name):
         Parser.mangle_id += 1
         return "{name}__{mid}".format(name=name, mid=Parser.mangle_id)
@@ -409,6 +427,22 @@ class Parser(object):
         p[0] = p[1] or []
 
     @staticmethod
+    def p_recursion_mode(p):
+        """recursion_mode : SYNC
+                          | ASYNC
+                          | empty"""
+        p[0] = p[1] or []
+
+    @staticmethod
+    def p_pull_order_policy(p):
+        """pull_order_policy : ALTERNATE
+                             | PULL_IDB
+                             | PULL_EDB
+                             | BUILD_EDB
+                             | empty"""
+        p[0] = p[1] or []
+
+    @staticmethod
     def p_function_arg_list(p):
         """function_arg_list : function_arg_list COMMA unreserved_id
                              | unreserved_id"""
@@ -470,6 +504,12 @@ class Parser(object):
         p[0] = ('ASSIGN', p[1], p[3])
 
     @staticmethod
+    def p_idbassign(p):
+        'idbassign : unreserved_id EQUALS LBRACKET emit_arg_list \
+            RBRACKET LARROW rvalue SEMI'
+        p[0] = ('IDBASSIGN', p[1], p[4], p[7])
+
+    @staticmethod
     def p_statement_empty(p):
         'statement : SEMI'
         p[0] = None  # stripped out by parse
@@ -481,6 +521,15 @@ class Parser(object):
         """rvalue : expression
                   | select_from_where"""
         p[0] = p[1]
+
+    @staticmethod
+    def p_idbassign_list(p):
+        """idbassign_list : idbassign_list idbassign
+                          | idbassign"""
+        if len(p) == 3:
+            p[0] = p[1] + [p[2]]
+        else:
+            p[0] = [p[1]]
 
     @staticmethod
     def p_statement_list(p):
@@ -495,6 +544,12 @@ class Parser(object):
     def p_statement_dowhile(p):
         'statement : DO statement_list WHILE expression SEMI'
         p[0] = ('DOWHILE', p[2], p[4])
+
+    @staticmethod
+    def p_statement_dountilconvergence(p):
+        ('statement : DO idbassign_list UNTIL CONVERGENCE '
+         'recursion_mode pull_order_policy SEMI')
+        p[0] = ('UNTILCONVERGENCE', p[2], p[5], p[6])
 
     @staticmethod
     def p_statement_store(p):
@@ -1031,6 +1086,9 @@ class Parser(object):
         else:
             func = expr_lib.lookup(name, len(args))
 
+        if isinstance(func, VariadicFunction):
+            func = func.bind(*args)
+
         if func is None:
             raise NoSuchFunctionException(name, p.lineno(0))
         if len(func.args) != len(args):
@@ -1162,10 +1220,11 @@ class Parser(object):
         'empty :'
         pass
 
-    def parse(self, s):
+    def parse(self, s, udas=None):
         scanner.lexer.lineno = 1
         Parser.udf_functions = {}
         Parser.decomposable_aggs = {}
+        map(lambda uda: self.add_python_udf(*uda), udas or [])
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 

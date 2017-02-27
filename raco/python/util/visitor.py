@@ -7,7 +7,7 @@ import ast
 from raco.expression import NamedAttributeRef, UnnamedAttributeRef, \
     StringLiteral, NumericLiteral, BooleanLiteral, \
     EQ, NEQ, LT, LTEQ, GT, GTEQ, AND, OR, NOT, \
-    PLUS, MINUS, DIVIDE, IDIVIDE, MOD, TIMES, NEG, CAST
+    PLUS, MINUS, DIVIDE, IDIVIDE, MOD, TIMES, NEG, CAST, PythonUDF
 from raco.types import STRING_TYPE, LONG_TYPE, DOUBLE_TYPE, BOOLEAN_TYPE
 from raco.expression.function import WORKERID, RANDOM, \
     ABS, CEIL, COS, FLOOR, LOG, SIN, SQRT, TAN, MD5, LEN, POW, \
@@ -83,17 +83,13 @@ zero = ast.Num(n=0)
 class ExpressionVisitor(ast.NodeVisitor):
     """ Visitor that converts an AST to a RACO expression """
 
-    def __init__(self, schema):
-        self.arity = len(schema)
+    def __init__(self, schema, udfs):
         self.schema = schema
         self.names = None
+        self.udfs = udfs
 
     def visit_arguments(self, node):
         """ Visitor for function arguments """
-        if len(node.args) != self.arity:
-            raise PythonArgumentException('Expected %d arguments, found %d' %
-                                          (len(node.args), self.arity),
-                                          -1, None)
         self.names = [n.id for n in node.args]
 
     def visit_UnaryOp(self, node):
@@ -206,6 +202,20 @@ class ExpressionVisitor(ast.NodeVisitor):
              self.visit(node.slice.upper or ast.Num(2 ** 30))])
 
     def visit_Call(self, node):
+        """ Visitor for calling built-in or UDF functions """
+        name = node.func.id
+        arity = len(node.args)
+
+        if (arity, name) in nary_map:
+            return self.visit_Call_builtin(node)
+        elif name in (udf['name'] for udf in self.udfs):
+            return self.visit_Call_UDF(node)
+        else:
+            raise PythonArgumentException(
+                'Unrecognized function %s or invalid arguments' % name,
+                node.lineno, node.col_offset)
+
+    def visit_Call_builtin(self, node):
         """ Visitor for calling built-in functions """
         name = node.func.id
         arity = len(node.args)
@@ -216,6 +226,25 @@ class ExpressionVisitor(ast.NodeVisitor):
                 node.lineno, node.col_offset)
 
         return nary_map[(arity, name)](map(self.visit, node.args))
+
+    def visit_Call_UDF(self, node):
+        """ Visitor for calling UDF functions """
+        name = node.func.id
+        arity = len(node.args)
+        udf = next((udf for udf in self.udfs
+                    if udf['name'] == name), None)
+
+        # Ignore output type when looking up UDF
+        if udf is None:
+            raise PythonArgumentException(
+                'Unrecognized function %s or invalid arguments' % name,
+                node.lineno, node.col_offset)
+
+        output_type = udf['outputType']
+        source = udf.get('source', None)
+        return PythonUDF(name, output_type,
+                         *map(self.visit, node.args),
+                         source=source)
 
     def visit_Str(self, node):
         """ Visitor for string literals """

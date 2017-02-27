@@ -320,6 +320,9 @@ class StringLiteral(Literal):
     def __str__(self):
         return '"{val}"'.format(val=self.value)
 
+    def get_val(self):
+        return self.value
+
 
 class NumericLiteral(Literal):
     pass

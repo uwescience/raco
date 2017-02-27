@@ -16,12 +16,15 @@ from raco import types
 from raco.myrial.exceptions import *
 from raco.expression import NestedAggregateException
 from raco.fake_data import FakeData
+from raco.types import LONG_TYPE
 
 
 class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
     def setUp(self):
         super(TestQueryFunctions, self).setUp()
+
+        self.db.add_function(TestQueryFunctions.test_function)
 
         self.db.ingest(TestQueryFunctions.emp_key,
                        TestQueryFunctions.emp_table,
@@ -2879,3 +2882,26 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
 
         expected = collections.Counter([(32, 5)])
         self.check_result(query, expected, output="powersOfTwo")
+
+    def test_pyUDF(self):
+        query = """
+        T1=scan(%s);
+        out = [from T1 emit test(T1.id, T1.dept_id) As ratio];
+        store(out, OUTPUT);
+        """ % self.emp_key
+
+        self.get_physical_plan(query, udas=[('test', LONG_TYPE)])
+
+    def test_pyUDF_uda(self):
+        query = """
+        uda Foo(x){
+        [0 as _count,0 as _sum];
+        [ _count+1, test_uda(_sum, x)];
+        [ test_uda(_sum,_count) ];
+        };
+
+        T1 = [from scan(%s) as t emit Foo(t.id) As mask];
+        store(T1, out);
+        """ % self.emp_key
+
+        self.get_physical_plan(query, udas=[('test_uda', LONG_TYPE)])

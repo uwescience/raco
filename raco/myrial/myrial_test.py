@@ -16,8 +16,10 @@ class MyrialTestCase(unittest.TestCase):
 
     def setUp(self):
         self.db = self.create_db()
-
         self.parser = parser.Parser()
+        self.new_processor()
+
+    def new_processor(self):
         self.processor = interpreter.StatementProcessor(self.db)
 
     def parse(self, query):
@@ -27,7 +29,9 @@ class MyrialTestCase(unittest.TestCase):
 
     def get_plan(self, query, **kwargs):
         """Get the MyriaL query plan for a query"""
-        statements = self.parser.parse(query)
+        statements = self.parser.parse(query, udas=kwargs.get('udas', None))
+
+        print statements
         self.processor.evaluate(statements)
         if kwargs.get('logical', False):
             p = self.processor.get_logical_plan(**kwargs)

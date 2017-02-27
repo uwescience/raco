@@ -4,11 +4,20 @@ import json
 import csv
 from time import sleep
 import logging
-import urllib
 from urlparse import urlparse, ParseResult
+
+from raco.backends.logical import OptLogicalAlgebra
+from raco.backends.myria import MyriaHyperCubeAlgebra, MyriaLeftDeepTreeAlgebra, \
+    compile_to_json
+from raco.backends.myria.catalog import MyriaCatalog
+from raco.myrial import interpreter
+from raco.myrial.parser import Parser
+
 from .errors import MyriaError
 
 import requests
+
+from raco import compile, RACompiler
 
 __all__ = ['MyriaConnection']
 
@@ -21,6 +30,11 @@ POST = 'POST'
 
 # Enable or configure logging
 logging.basicConfig(level=logging.WARN)
+
+
+class FunctionTypes(object):
+    POSTGRES = 0
+    PYTHON = 1
 
 
 class MyriaConnection(object):
@@ -289,7 +303,7 @@ class MyriaConnection(object):
                 continue
             raise MyriaError(r)
 
-    def compile_program(self, program, language="MyriaL", profile=False):
+    def compile_program(self, program, language="MyriaL", **kwargs):
         """Get a compiled plan for a given program.
 
         Args:
@@ -297,12 +311,12 @@ class MyriaConnection(object):
             language: the language in which the program is written
                       (default: MyriaL).
         """
-        body = {'query': program, 'language': language, 'profile': profile}
-        response = requests.post(self.execution_url + '/compile', data=body)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise MyriaError(response)
+        logical = self._get_plan(program, language, 'logical', **kwargs)
+        physical = self._get_plan(program, language, 'physical', **kwargs)
+        compiled = compile_to_json(program, logical, physical, language)
+        compiled['profilingMode'] = ["QUERY", "RESOURCE"] \
+            if kwargs.get('profile', False) else []
+        return compiled
 
     def submit_query(self, query):
         """Submit the query to Myria, and return the status including the URL
@@ -476,3 +490,64 @@ class MyriaConnection(object):
             raise MyriaError('Error %d: %s'
                              % (r.status_code, r.text))
         return r.json()
+
+    def get_function(self, name):
+        """ Get user defined function metadata """
+        return self._wrap_get('/function/{}'.format(name))
+
+    def create_function(self, d):
+        """Register a User Defined Function with Myria """
+        result = self._make_request(POST, '/function', json.dumps(d))
+        Parser.add_python_udf(d.pop('name'), d.pop('outputType'), **d)
+        return result
+
+    def get_functions(self):
+        """ List all the user defined functions in Myria """
+        return self._wrap_get('/function')
+
+    def _get_plan(self, query, language, plan_type, **kwargs):
+        catalog = MyriaCatalog(self)
+        algebra = MyriaHyperCubeAlgebra(catalog) \
+            if kwargs.get('multiway_jon', False) \
+            else MyriaLeftDeepTreeAlgebra()
+
+        if language.lower() == "datalog":
+            return self._get_datalog_plan(query, plan_type, algebra, **kwargs)
+        elif language.lower() in ["myrial", "sql"]:
+            return self._get_myrial_or_sql_plan(query, plan_type,
+                                                catalog, algebra, **kwargs)
+        else:
+            raise NotImplementedError('Language %s not supported' % language)
+
+    @staticmethod
+    def _get_myrial_or_sql_plan(query, plan_type, catalog, algebra, **kwargs):
+        parsed = Parser().parse(query)
+        processor = interpreter.StatementProcessor(catalog)
+        processor.evaluate(parsed)
+
+        if plan_type == 'logical':
+            return processor.get_physical_plan(
+                target_alg=OptLogicalAlgebra())
+        elif plan_type == 'physical':
+            return processor.get_physical_plan(
+                target_alg=algebra,
+                multiway_join=kwargs.get('multiway_join', False),
+                push_sql=kwargs.get('push_sql', True))
+        else:
+            raise NotImplementedError('Myria plan type %s' % plan_type)
+
+    @staticmethod
+    def _get_datalog_plan(query, plan_type, algebra, **kwargs):
+        datalog = RACompiler()
+        datalog.fromDatalog(query)
+
+        if not datalog.logicalplan:
+            raise SyntaxError("Unable to parse Datalog")
+        elif plan_type == 'logical':
+            return datalog.logicalplan
+        elif plan_type == 'physical':
+            datalog.optimize(target=algebra,
+                             push_sql=kwargs.get('push_sql', True))
+            return datalog.physicalplan
+        else:
+            raise NotImplementedError('Datalog plan type %s' % plan_type)
