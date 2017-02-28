@@ -641,7 +641,8 @@ class MyriaStatefulApply(algebra.StatefulApply, MyriaOperator):
         state_scheme = self.state_scheme
 
         def comp_map(x):
-            compile_mapping(x, child_scheme, state_scheme)
+            return compile_mapping(x, child_scheme, state_scheme)
+
         emitters = [comp_map(x) for x in self.emitters]
         inits = [comp_map(x) for x in self.inits]
         updaters = [comp_map(x) for x in self.updaters]
@@ -2280,13 +2281,8 @@ def ensure_store_temp(label, op):
     return MyriaStoreTemp(input=op, name=label)
 
 
-def compile_fragment(frag_root):
+def compile_fragment(frag_root, op_ids):
     """Given a root operator, produce a SubQueryEncoding."""
-
-    # A dictionary mapping each object to a unique, object-dependent id.
-    # Since we want this to be truly unique for each object instance, even if
-    # two objects are equal, we use id(obj) as the key.
-    op_ids = defaultdict(OpIdFactory().getter())
 
     def one_fragment(rootOp):
         """Given an operator that is the root of a query fragment/plan, extract
@@ -2341,7 +2337,7 @@ def compile_fragment(frag_root):
             queue.extend(op_queue)
         return ret
 
-    def call_compile_me(op):
+    def call_compile_me(op, op_ids):
         "A shortcut to call the operator's compile_me function."
         op_id = op_ids[id(op)]
         child_op_ids = [op_ids[id(child)] for child in op.children()]
@@ -2354,7 +2350,8 @@ def compile_fragment(frag_root):
     # Determine and encode the fragments.
     results = []
     for frag in fragments(frag_root):
-        frag_compilated = {'operators': [call_compile_me(op) for op in frag]}
+        frag_compilated = {
+            'operators': [call_compile_me(op, op_ids) for op in frag]}
         results.append(frag_compilated)
 
     return results
@@ -2365,13 +2362,18 @@ def compile_plan(plan_op):
     produce the dictionary encoding of the physical plan, in other words, a
     nested collection of Java QueryPlan operators."""
 
+    # A dictionary mapping each object to a unique, object-dependent id.
+    # Since we want this to be truly unique for each object instance, even if
+    # two objects are equal, we use id(obj) as the key.
+    op_ids = defaultdict(OpIdFactory().getter())
+
     subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile,
                    algebra.UntilConvergence)
     if not isinstance(plan_op, subplan_ops):
         plan_op = algebra.Parallel([plan_op])
 
     if isinstance(plan_op, algebra.Parallel):
-        frag_list = [compile_fragment(op) for op in plan_op.children()]
+        frag_list = [compile_fragment(op, op_ids) for op in plan_op.children()]
         return {"type": "SubQuery",
                 "fragments": list(itertools.chain(*frag_list))}
 
@@ -2395,7 +2397,7 @@ def compile_plan(plan_op):
                 "condition": condition.name}
 
     elif isinstance(plan_op, algebra.UntilConvergence):
-        frag_list = [compile_fragment(op) for op in plan_op.children()]
+        frag_list = [compile_fragment(op, op_ids) for op in plan_op.children()]
         return {"type": "SubQuery",
                 "fragments": list(itertools.chain(*frag_list))}
 
