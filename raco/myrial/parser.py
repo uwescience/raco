@@ -62,7 +62,9 @@ myrial_type_map = {
     "INT": raco.types.LONG_TYPE,
     "FLOAT": raco.types.DOUBLE_TYPE,
     "BOOLEAN": raco.types.BOOLEAN_TYPE,
-    "BLOB": raco.types.BLOB_TYPE
+    "BLOB": raco.types.BLOB_TYPE,
+    "INT32": raco.types.INT_TYPE,
+    "FLOAT32": raco.types.FLOAT_TYPE,
 }
 
 
@@ -737,8 +739,11 @@ class Parser(object):
     def p_type_name(p):
         """type_name : STRING
                      | INT
+                     | FLOAT
                      | BOOLEAN
-                     | FLOAT"""
+                     | BLOB
+                     | INT32
+                     | FLOAT32"""
         p[0] = myrial_type_map[p[1]]
 
     @staticmethod

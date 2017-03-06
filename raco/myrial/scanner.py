@@ -11,7 +11,7 @@ keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
             'ROUND_ROBIN', 'IDENTITY', 'UNTIL', 'CONVERGENCE', "SYNC", "ASYNC",
             'ALTERNATE', 'PULL_IDB', 'PULL_EDB', 'BUILD_EDB']
 
-types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN']
+types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN', 'BLOB', 'INT32', 'FLOAT32']
 
 comprehension_keywords = ['SELECT', 'AS', 'EMIT', 'FROM', 'WHERE']
 
