@@ -570,12 +570,15 @@ class Parser(object):
     def p_optional_part_info(p):
         """optional_part_info : COMMA LBRACKET column_ref_list RBRACKET
                               | COMMA HASH LPAREN column_ref_list RPAREN
+                              | COMMA IDENTITY LPAREN column_ref RPAREN
                               | COMMA BROADCAST LPAREN RPAREN
                               | COMMA ROUND_ROBIN LPAREN RPAREN
                               | empty"""
         if len(p) > 2:
             if p[2] == "HASH":
-                p[0] = p[4]
+                p[0] = (p[2], p[4])
+            elif p[2] == "IDENTITY":
+                p[0] = (p[2], [p[4]])
             elif p[2] in ("BROADCAST", "ROUND_ROBIN"):
                 p[0] = p[2]
             else:

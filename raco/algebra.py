@@ -1321,6 +1321,10 @@ class Shuffle(UnaryOperator):
         if shuffle_type == self.ShuffleType.Hash:
             assert columnlist, \
                 "column list for hash shuffle must be non-null and non-empty"
+        if shuffle_type == self.ShuffleType.Identity:
+            assert columnlist is not None and len(columnlist) == 1, \
+                "column list for identity shuffle " \
+                "must be non-null and contain one element"
 
     def num_tuples(self):
         return self.input.num_tuples()
