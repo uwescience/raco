@@ -582,9 +582,9 @@ class Parser(object):
             elif p[2] == "IDENTITY":
                 p[0] = (p[2], [p[4]])
             elif p[2] in ("BROADCAST", "ROUND_ROBIN"):
-                p[0] = p[2]
+                p[0] = (p[2], None)
             else:
-                p[0] = p[3]
+                p[0] = ("HASH", p[3])
         else:
             p[0] = None
 

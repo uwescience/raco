@@ -392,20 +392,23 @@ class StatementProcessor(object):
         alias_expr = ("ALIAS", _id)
         child_op = self.ep.evaluate(alias_expr)
 
-        if how_distributed == "BROADCAST":
-            child_op = raco.algebra.Broadcast(child_op)
-        elif how_distributed == "ROUND_ROBIN":
-            child_op = raco.algebra.Shuffle(
-                child_op, None, shuffle_type=Shuffle.ShuffleType.RoundRobin)
-        # hash-partitioned or identity
-        elif how_distributed:
-            shuffle_types = dict(HASH=Shuffle.ShuffleType.Hash,
-                                 IDENTITY=Shuffle.ShuffleType.Identity)
-            scheme = child_op.scheme()
-            col_list = [get_unnamed_ref(a, scheme) for a in how_distributed[1]]
-            child_op = raco.algebra.Shuffle(
-                child_op, col_list,
-                shuffle_type=shuffle_types[how_distributed[0]])
+        if how_distributed:
+            if how_distributed[0] == "BROADCAST":
+                child_op = raco.algebra.Broadcast(child_op)
+            elif how_distributed[0] == "ROUND_ROBIN":
+                child_op = raco.algebra.Shuffle(
+                    child_op, None,
+                    shuffle_type=Shuffle.ShuffleType.RoundRobin)
+            else:
+                shuffle_types = dict(HASH=Shuffle.ShuffleType.Hash,
+                                     IDENTITY=Shuffle.ShuffleType.Identity)
+                scheme = child_op.scheme()
+                col_list = [get_unnamed_ref(a, scheme)
+                            for a in how_distributed[1]]
+                child_op = raco.algebra.Shuffle(
+                    child_op, col_list,
+                    shuffle_type=shuffle_types[how_distributed[0]])
+
         op = raco.algebra.Store(rel_key, child_op)
 
         uses_set = self.ep.get_and_clear_uses_set()
