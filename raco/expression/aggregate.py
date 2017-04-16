@@ -260,6 +260,9 @@ class SUM(UnaryFunction, TrivialAggregateExpression):
 
 
 class AVG(UnaryFunction, BuiltinAggregateExpression):
+    def __init__(self, input):
+        UnaryFunction.__init__(self, CAST(types.DOUBLE_TYPE, input))
+
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         filtered = list(x for x in inputs if x is not None)
@@ -267,7 +270,7 @@ class AVG(UnaryFunction, BuiltinAggregateExpression):
 
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
-        check_is_numeric(input_type)
+        check_type(input_type, [types.DOUBLE_TYPE])
         return types.DOUBLE_TYPE
 
     def get_decomposable_state(self):
@@ -281,6 +284,9 @@ class AVG(UnaryFunction, BuiltinAggregateExpression):
 
 
 class STDEV(UnaryFunction, BuiltinAggregateExpression):
+    def __init__(self, input):
+        UnaryFunction.__init__(self, CAST(types.DOUBLE_TYPE, input))
+
     def evaluate_aggregate(self, tuple_iterator, scheme):
         inputs = (self.input.evaluate(t, scheme) for t in tuple_iterator)
         filtered = [x for x in inputs if x is not None]
@@ -294,7 +300,7 @@ class STDEV(UnaryFunction, BuiltinAggregateExpression):
 
     def typeof(self, scheme, state_scheme):
         input_type = self.input.typeof(scheme, state_scheme)
-        check_is_numeric(input_type)
+        check_type(input_type, [types.DOUBLE_TYPE])
         return types.DOUBLE_TYPE
 
     def get_decomposable_state(self):
