@@ -496,10 +496,11 @@ class MyriaConnection(object):
         """ Get user defined function metadata """
         return self._wrap_get('/function/{}'.format(name))
 
-    def create_function(self, d):
+    def create_function(self, d, overwrite_if_exists=False):
         """Register a User Defined Function with Myria """
         result = self._make_request(POST, '/function', json.dumps(d))
-        Parser.add_python_udf(d.pop('name'), d.pop('outputType'), **d)
+        Parser.add_python_udf(d.pop('name'), d.pop('outputType'),
+                              overwrite_if_exists=overwrite_if_exists, **d)
         return result
 
     def get_functions(self):
