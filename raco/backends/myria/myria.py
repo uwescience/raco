@@ -113,7 +113,7 @@ def compile_expr(op, child_scheme, state_scheme):
             'type': op.opname(),
             'name': op.name,
             'outputType': op.typ,
-            'arguments': [compile_expr(arg, child_scheme, state_scheme)
+            'children': [compile_expr(arg, child_scheme, state_scheme)
                           for arg in op.arguments]
         }
 
