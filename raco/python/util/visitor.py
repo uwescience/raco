@@ -7,7 +7,7 @@ import ast
 from raco.expression import NamedAttributeRef, UnnamedAttributeRef, \
     StringLiteral, NumericLiteral, BooleanLiteral, \
     EQ, NEQ, LT, LTEQ, GT, GTEQ, AND, OR, NOT, \
-    PLUS, MINUS, DIVIDE, IDIVIDE, MOD, TIMES, NEG, CAST, PythonUDF
+    PLUS, MINUS, DIVIDE, IDIVIDE, MOD, TIMES, NEG, CAST, PYUDF
 from raco.types import STRING_TYPE, LONG_TYPE, DOUBLE_TYPE, BOOLEAN_TYPE
 from raco.expression.function import WORKERID, RANDOM, \
     ABS, CEIL, COS, FLOOR, LOG, SIN, SQRT, TAN, MD5, LEN, POW, \
@@ -242,9 +242,9 @@ class ExpressionVisitor(ast.NodeVisitor):
 
         output_type = udf['outputType']
         source = udf.get('source', None)
-        return PythonUDF(name, output_type,
-                         *map(self.visit, node.args),
-                         source=source)
+        return PYUDF(name, output_type,
+                     *map(self.visit, node.args),
+                     source=source)
 
     def visit_Str(self, node):
         """ Visitor for string literals """

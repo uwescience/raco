@@ -15,7 +15,7 @@ from raco.expression.udf import Function, StatefulFunc
 import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
-from raco.expression import StateVar, PythonUDF, UnnamedAttributeRef, \
+from raco.expression import StateVar, PYUDF, UnnamedAttributeRef, \
     VariadicFunction
 
 
@@ -300,7 +300,7 @@ class Parser(object):
         if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, -1)
 
-        f = VariadicFunction(PythonUDF, name, typ, **kwargs)
+        f = VariadicFunction(PYUDF, name, typ, **kwargs)
         Parser.udf_functions[name] = f
         return f
 

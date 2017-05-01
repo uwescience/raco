@@ -317,12 +317,12 @@ class LEN(UnaryFunction):
         return types.LONG_TYPE
 
 
-class PythonUDF(NaryFunction):
+class PYUDF(NaryFunction):
 
     literals = []
 
     def __init__(self, name, typ, *args, **kwargs):
-        super(PythonUDF, self).__init__(args)
+        super(PYUDF, self).__init__(args)
         self.name = name
         self.source = kwargs.get('source', None)
         self.func = eval(self.source) if self.source else None

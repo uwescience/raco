@@ -108,7 +108,7 @@ def compile_expr(op, child_scheme, state_scheme):
             'type': op.opname(),
             'children': children
         }
-    elif isinstance(op, expression.PythonUDF):
+    elif isinstance(op, expression.PYUDF):
         return {
             'type': op.opname(),
             'name': op.name,
