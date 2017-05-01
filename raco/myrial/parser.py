@@ -262,7 +262,7 @@ class Parser(object):
         Parser.add_udf(p, name, args, emit_exprs)
 
     @staticmethod
-    def add_udf(p, name, args, body_exprs):
+    def add_udf(p, name, args, body_exprs, overwrite_if_exists=False):
         """Add a user-defined function to the global function table.
 
         :param p: The parser context
@@ -273,10 +273,9 @@ class Parser(object):
         :param body_exprs: A list of scalar expressions containing the body
         :type body_exprs: list of raco.expression.Expression
         """
-        if name in Parser.udf_functions:
+        if name in Parser.udf_functions and not overwrite_if_exists:
             raise DuplicateFunctionDefinitionException(name, p.lineno(0))
-
-        if len(args) != len(set(args)):
+        elif len(args) != len(set(args)) and not overwrite_if_exists:
             raise DuplicateVariableException(name, p.lineno(0))
 
         if len(body_exprs) == 1:
