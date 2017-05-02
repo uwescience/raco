@@ -35,6 +35,7 @@ logging.basicConfig(level=logging.WARN)
 class FunctionTypes(object):
     POSTGRES = 0
     PYTHON = 1
+    JAVA = 2
 
 
 class MyriaConnection(object):
