@@ -16,11 +16,15 @@ import raco.expression.expressions_library as expr_lib
 from .exceptions import *
 import raco.types
 from raco.expression import StateVar, PythonUDF, UnnamedAttributeRef, \
-    VariadicFunction
-
+    VariadicFunction, JavaUDF
 
 class JoinColumnCountMismatchException(Exception):
     pass
+
+class FunctionTypes(object):
+    POSTGRES = 0
+    PYTHON = 1
+    JAVA = 2
 
 # ID is a symbol name that identifies an input expression; columns is a list of
 # columns expressed as either names or integer positions.
@@ -290,7 +294,7 @@ class Parser(object):
         return emit_op
 
     @staticmethod
-    def add_python_udf(name, typ, **kwargs):
+    def add_external_udf(name, typ, ftyp, **kwargs):
         """Add a Python user-defined function to the global function table.
 
         :param name: The name of the function
@@ -300,8 +304,10 @@ class Parser(object):
         """
         if name in Parser.udf_functions:
             raise DuplicateFunctionDefinitionException(name, -1)
-
-        f = VariadicFunction(PythonUDF, name, typ, **kwargs)
+        if ftyp == FunctionTypes.PYTHON:
+            f = VariadicFunction(PythonUDF, name, typ, **kwargs)
+        elif ftyp == FunctionTypes.JAVA:
+            f = VariadicFunction(JavaUDF, name, typ, **kwargs)
         Parser.udf_functions[name] = f
         return f
 
@@ -1224,7 +1230,7 @@ class Parser(object):
         scanner.lexer.lineno = 1
         Parser.udf_functions = {}
         Parser.decomposable_aggs = {}
-        map(lambda uda: self.add_python_udf(*uda), udas or [])
+        map(lambda uda: self.add_external_udf(*uda), udas or [])
         parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 

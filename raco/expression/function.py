@@ -359,6 +359,35 @@ class PythonUDF(NaryFunction):
         else:
             raise NotImplementedError()
 
+class JavaUDF(NaryFunction):
+    def __init__(self, name, typ, *args, **kwargs):
+        super(JavaUDF, self).__init__(args)
+        self.name = name
+        self.typ = typ
+        self.source = None
+        self.func = None
+        self.arguments = tuple(args)
+
+    def __str__(self):
+        return "%s(%s, %s, %s)" % (self.__class__.__name__,
+                                   self.name,
+                                   map(str, self.arguments),
+                                   self.typ)
+
+    def __repr__(self):
+        return "{op}({n!r},{t!r},*{a!r}, source={s!r})".format(
+            op=self.opname(),
+            n=self.name,
+            a=self.arguments,
+            t=self.typ,
+            s=self.source)
+
+    def typeof(self, scheme, state_scheme):
+        return self.typ
+
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError()
+
 
 class SPLIT(BinaryFunction):
     literals = ["SPLIT"]

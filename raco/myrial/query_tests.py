@@ -17,6 +17,7 @@ from raco.myrial.exceptions import *
 from raco.expression import NestedAggregateException
 from raco.fake_data import FakeData
 from raco.types import LONG_TYPE
+from raco.myrial.parser import FunctionTypes
 
 
 class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
@@ -2890,7 +2891,7 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         store(out, OUTPUT);
         """ % self.emp_key
 
-        self.get_physical_plan(query, udas=[('test', LONG_TYPE)])
+        print self.get_physical_plan(query, udas=[('test', LONG_TYPE, FunctionTypes.PYTHON)])
 
     def test_pyUDF_uda(self):
         query = """
@@ -2904,4 +2905,15 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         store(T1, out);
         """ % self.emp_key
 
-        self.get_physical_plan(query, udas=[('test_uda', LONG_TYPE)])
+        self.get_physical_plan(query, udas=[('test_uda', LONG_TYPE, FunctionTypes.PYTHON)])
+
+    def test_javaUDF(self):
+        query = """
+        T1=scan(%s);
+        out = [from T1 emit square(T1.id, T1.dept_id) As ratio];
+        store(out, OUTPUT);
+        """ % self.emp_key
+
+        physical_plan = self.get_physical_plan(query, udas=[('square', LONG_TYPE, FunctionTypes.JAVA)])
+        self.assertEqual(interpreter.get_json_from_physical_plan(physical_plan), '')
+        # self.assertEqual(physical_plan, '')
