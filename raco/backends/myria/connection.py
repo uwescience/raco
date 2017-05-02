@@ -109,6 +109,7 @@ class MyriaConnection(object):
         self._session = requests.Session()
         self._session.headers.update(self._DEFAULT_HEADERS)
         self.execution_url = execution_url
+        self._udfs = None
 
     def _finish_async_request(self, method, url, body=None, accept=JSON):
         headers = {
@@ -495,10 +496,11 @@ class MyriaConnection(object):
         """ Get user defined function metadata """
         return self._wrap_get('/function/{}'.format(name))
 
-    def create_function(self, d):
+    def create_function(self, d, overwrite_if_exists=False):
         """Register a User Defined Function with Myria """
         result = self._make_request(POST, '/function', json.dumps(d))
-        Parser.add_python_udf(d.pop('name'), d.pop('outputType'), **d)
+        Parser.add_python_udf(d.pop('name'), d.pop('outputType'),
+                              overwrite_if_exists=overwrite_if_exists, **d)
         return result
 
     def get_functions(self):
@@ -519,9 +521,10 @@ class MyriaConnection(object):
         else:
             raise NotImplementedError('Language %s not supported' % language)
 
-    @staticmethod
-    def _get_myrial_or_sql_plan(query, plan_type, catalog, algebra, **kwargs):
-        parsed = Parser().parse(query)
+    def _get_myrial_or_sql_plan(self, query, plan_type, catalog, algebra,
+                                **kwargs):
+        parsed = Parser().parse(query, udas=[(udf['name'], udf['outputType'])
+                                             for udf in self._get_udfs()])
         processor = interpreter.StatementProcessor(catalog)
         processor.evaluate(parsed)
 
@@ -551,3 +554,9 @@ class MyriaConnection(object):
             return datalog.physicalplan
         else:
             raise NotImplementedError('Datalog plan type %s' % plan_type)
+
+    def _get_udfs(self):
+        if not self._udfs:
+            self._udfs = [self.get_function(name)
+                          for name in self.get_functions()]
+        return self._udfs
