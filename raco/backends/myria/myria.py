@@ -2278,10 +2278,6 @@ def ensure_store_temp(label, op):
 
 def compile_fragment(frag_root, op_ids):
     """Given a root operator, produce a SubQueryEncoding."""
-    # A dictionary mapping each object to a unique, object-dependent id.
-    # Since we want this to be truly unique for each object instance, even if
-    # two objects are equal, we use id(obj) as the key.
-    op_ids = defaultdict(OpIdFactory().getter())
 
     def one_fragment(rootOp):
         """Given an operator that is the root of a query fragment/plan, extract
