@@ -243,6 +243,8 @@ class SQLCatalog(Catalog):
         raise NotImplementedError("convert {op} to sql".format(op=type(plan)))
 
     def get_sql(self, plan):
+        print "Get SQL plan"
+        print plan
         if isinstance(plan, algebra.ZeroaryOperator):
             return self._get_zeroary_sql(plan)
         elif isinstance(plan, algebra.UnaryOperator):

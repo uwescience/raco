@@ -1681,8 +1681,18 @@ class PushIntoSQL(rules.Rule):
                               if isinstance(s, algebra.Scan)]
             has_debroadcast = any(isinstance(s, algebra.Scan) and
                                   s._debroadcast for s in expr.walk())
+            print " trying to get SQL plan for :"
+            print expr
+            print "******"
+
             sql_plan = cat.get_sql(expr)
+            print "Sql plan"
+            print sql_plan
+            print "*******"
             sql_string = sql_plan.compile(dialect=self.dialect)
+            print "Sql String"
+            print sql_string
+            print "*******"
             sql_string.visit_bindparam = sql_string.render_literal_bindparam
             return MyriaQueryScan(sql=sql_string.process(sql_plan),
                                   scheme=expr.scheme(),
