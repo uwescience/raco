@@ -11,6 +11,7 @@ import raco.myrial.interpreter as interpreter
 import raco.scheme as scheme
 import raco.myrial.groupby
 import raco.myrial.myrial_test as myrial_test
+from raco.algebra import Apply
 from raco import types
 
 from raco.myrial.exceptions import *
@@ -2883,19 +2884,34 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         expected = collections.Counter([(32, 5)])
         self.check_result(query, expected, output="powersOfTwo")
 
-    def test_pyUDF(self):
+    def test_pyUDF_dotted_arguments(self):
         query = """
         T1=scan(%s);
-        out = [from T1 emit test(T1.id, T1.dept_id) As ratio];
+        out = [from T1 emit test(T1.id, T1.dept_id) As output];
         store(out, OUTPUT);
         """ % self.emp_key
 
-        self.get_physical_plan(query, udas=[('test', LONG_TYPE)])
+        plan = self.get_physical_plan(query, udas=[('test', LONG_TYPE)])
+        apply = [op for op in plan.walk() if isinstance(op, Apply)][0]
+        ref = apply.emitters[0][1]
+        assert str(ref) == "PYUDF(test, ['id', 'dept_id'], LONG_TYPE)"
+
+    def test_pyUDF_with_positional_arguments(self):
+        query = """
+        T1=scan(%s);
+        out = [from T1 emit test($0, $1) As output];
+        store(out, OUTPUT);
+        """ % self.emp_key
+
+        plan = self.get_physical_plan(query, udas=[('test', LONG_TYPE)])
+        apply = [op for op in plan.walk() if isinstance(op, Apply)][0]
+        ref = apply.emitters[0][1]
+        assert str(ref) == "PYUDF(test, ['$0', '$1'], LONG_TYPE)"
 
     def test_pyUDF_uda(self):
         query = """
         uda Foo(x){
-        [0 as _count,0 as _sum];
+        [0 as _count, 0 as _sum];
         [ _count+1, test_uda(_sum, x)];
         [ test_uda(_sum,_count) ];
         };
