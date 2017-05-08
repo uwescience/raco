@@ -617,9 +617,13 @@ class MyriaApply(algebra.Apply, MyriaOperator):
     """Represents a simple apply operator"""
 
     def compileme(self, inputid):
+        print "Apply rule compile"
         child_scheme = self.input.scheme()
+        print child_scheme
+        print inputid
         emitters = [compile_mapping(x, child_scheme, None)
                     for x in self.emitters]
+        print emitters
         return {
             'opType': 'Apply',
             'argChild': inputid,
