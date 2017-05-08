@@ -179,7 +179,7 @@ class VariadicFunction(object):
             ['arg_{}'.format(i) for i in xrange(len(args))],
             self.ftype(self.name,
                        self.typ,
-                       *[UnnamedAttributeRef(i) for i in xrange(len(args))],
+                       *args,
                        **self.kwargs))
 
 
