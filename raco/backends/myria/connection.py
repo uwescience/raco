@@ -313,7 +313,11 @@ class MyriaConnection(object):
                       (default: MyriaL).
         """
         logical = self._get_plan(program, language, 'logical', **kwargs)
+        print "logical plan+++++++"
+        print logical
         physical = self._get_plan(program, language, 'physical', **kwargs)
+        print physical
+        print "Physical plan ++++++++++++++"
         compiled = compile_to_json(program, logical, physical, language)
         compiled['profilingMode'] = ["QUERY", "RESOURCE"] \
             if kwargs.get('profile', False) else []
