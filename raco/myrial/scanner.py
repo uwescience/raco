@@ -101,7 +101,10 @@ def t_BLOB_LITERAL(t):
     b'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
     print "t_blob literal"
     print t
-    t.value = bytes(t.value)
+    val = t.value[1:-1]
+    print "val"
+    print val
+    t.value = bytes(val)
     return t
 
 
