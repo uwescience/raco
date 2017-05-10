@@ -35,7 +35,7 @@ python_type_map = {
     bool: BOOLEAN_TYPE,
     float: DOUBLE_TYPE,
     str: STRING_TYPE,
-    bytearray: BLOB_TYPE
+    bytes: BLOB_TYPE
 }
 
 reverse_python_type_map = {v: k for k, v in python_type_map.iteritems()}
