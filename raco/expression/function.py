@@ -355,7 +355,7 @@ class PYUDF(NaryFunction):
         super(PYUDF, self).apply(f)
         self.arguments = tuple(self.arguments)
 
-        def typeof(self, scheme, state_scheme):
+    def typeof(self, scheme, state_scheme):
         return self.typ
 
     def set_typ(self, typ):
