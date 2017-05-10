@@ -98,12 +98,13 @@ def t_INTEGER_LITERAL(t):
     return t
 
 def t_BLOB_LITERAL(t):
-    b'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
+    ##b'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
+    b'^(?!.*NULL).*$'
     print "t_blob literal"
-    print t
+    ##print t
     val = t.value[1:-1]
-    print "val"
-    print val
+    ##print "val"
+    ##print val
     t.value = bytes(val)
     return t
 
