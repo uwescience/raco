@@ -1238,6 +1238,8 @@ class Parser(object):
 
     @staticmethod
     def p_error(token):
+        print "token"
+        print token
         if token:
             raise MyrialParseException(token)
         else:
