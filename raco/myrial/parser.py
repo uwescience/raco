@@ -975,7 +975,7 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_blob_literal(p):
-        '''sexpr : BLOB_LITERAL'''
+        '''sexpr : NULL'''
         p[0] = sexpr.BlobLiteral(p[1])
 
     @staticmethod
@@ -1229,7 +1229,7 @@ class Parser(object):
         Parser.udf_functions = {}
         Parser.decomposable_aggs = {}
         map(lambda uda: self.add_python_udf(*uda), udas or [])
-        parser = yacc.yacc(module=self, debug=True, optimize=False)
+        parser = yacc.yacc(module=self, debug=False, optimize=False)
         stmts = parser.parse(s, lexer=scanner.lexer, tracking=True)
 
         # Strip out the remnants of parsed functions to leave only a list of
