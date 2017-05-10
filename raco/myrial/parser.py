@@ -976,6 +976,7 @@ class Parser(object):
     @staticmethod
     def p_sexpr_blob_literal(p):
         '''sexpr : BLOB_LITERAL'''
+        print "parsing the token"
         print p
         print p[0]
         print p[1]

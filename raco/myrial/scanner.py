@@ -99,6 +99,7 @@ def t_INTEGER_LITERAL(t):
 
 def t_BLOB_LITERAL(t):
     b'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
+    print "t_blob literal"
     print t
     t.value = bytes(t.value)
     return t
