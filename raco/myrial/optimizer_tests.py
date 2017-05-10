@@ -1251,7 +1251,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # should be UNIONALL([expr_1, expr_2, expr_3])
         self.assertEquals(self.get_count(pp, MyriaUnionAll), 1)
 
-    def list_ops_in_json(self, plan, type):
+        def list_ops_in_json(self, plan, type):
         ops = []
         for p in plan['plan']['plans']:
             for frag in p['fragments']:

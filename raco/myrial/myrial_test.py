@@ -31,7 +31,6 @@ class MyrialTestCase(unittest.TestCase):
         """Get the MyriaL query plan for a query"""
         statements = self.parser.parse(query, udas=kwargs.get('udas', None))
 
-        print statements
         self.processor.evaluate(statements)
         if kwargs.get('logical', False):
             p = self.processor.get_logical_plan(**kwargs)

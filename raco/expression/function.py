@@ -412,3 +412,4 @@ class NGRAM(BinaryFunction):
         rt = self.right.typeof(scheme, state_scheme)
         check_type(rt, types.LONG_TYPE)
         return types.STRING_TYPE
+
