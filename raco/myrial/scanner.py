@@ -98,7 +98,7 @@ def t_INTEGER_LITERAL(t):
     return t
 
 def t_BLOB_LITERAL(t):
-    b'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
+    r'*'
     t.value = bytes(t.value)
     return t
 
