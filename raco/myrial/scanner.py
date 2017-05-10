@@ -9,7 +9,7 @@ keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
             'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CSV', 'SCHEMA',
             'OPP', 'TIPSY', 'UDA', 'TRUE', 'FALSE', 'HASH', 'BROADCAST',
             'ROUND_ROBIN', 'UNTIL', 'CONVERGENCE', "SYNC", "ASYNC",
-            'ALTERNATE', 'PULL_IDB', 'PULL_EDB', 'BUILD_EDB', "NULL"]
+            'ALTERNATE', 'PULL_IDB', 'PULL_EDB', 'BUILD_EDB']
 
 types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN']
 
