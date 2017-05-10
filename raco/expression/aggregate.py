@@ -3,7 +3,7 @@ Aggregate expressions for use in Raco
 """
 
 from .expression import *
-from .function import UnaryFunction, SQRT, POW
+from .function import UnaryFunction, SQRT, POW, NaryFunction
 from .statevar import *
 from raco import types
 from abc import abstractmethod
@@ -201,6 +201,15 @@ class MIN(UnaryFunction, TrivialAggregateExpression):
 
     def typeof(self, scheme, state_scheme):
         return self.input.typeof(scheme, state_scheme)
+
+
+class LEXMIN(NaryFunction, TrivialAggregateExpression):
+    # TODO: support for fakedb
+    def evaluate_aggregate(self, tuple_iterator, scheme):
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        raise NotImplementedError()
 
 
 class COUNTALL(ZeroaryOperator, BuiltinAggregateExpression):

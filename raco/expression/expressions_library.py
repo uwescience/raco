@@ -29,6 +29,12 @@ def create_nested_binary(num_args, func):
     return Function(var, reduce(func, var_refs))
 
 
+def create_variable_length_function(num_args, func):
+    var = ["x{i}".format(i=i + 1) for i in xrange(num_args)]
+    var_refs = [NamedAttributeRef(vstr) for vstr in var]
+    return Function(var, func(var_refs))
+
+
 # mapping from name -> dict or Function
 # the dict is a mapping from arity -> Function
 EXPRESSIONS_CASE = {
@@ -47,6 +53,8 @@ EXPRESSIONS_CASE = {
     'greatest': lambda num_args: create_nested_binary(num_args, GREATER),
     'least': lambda num_args: create_nested_binary(num_args, LESSER),
     'greater': create_nested_binary(2, GREATER),
+    'lexmin': lambda num_args:
+        create_variable_length_function(num_args, LEXMIN),
     'lesser': create_nested_binary(2, LESSER),
     'substr': Function(['str', 'begin', 'end'],
                        SUBSTR([NamedAttributeRef('str'),

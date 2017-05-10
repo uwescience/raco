@@ -50,6 +50,10 @@ class Operator(Printable):
         self.cleanup = ""
         self.alias = self
         self._trace = []
+        self.stop_recursion = False
+
+    def set_stop_recursion(self):
+        self.stop_recursion = True
 
     @abstractmethod
     def apply(self, f):
@@ -66,9 +70,10 @@ class Operator(Printable):
     def walk(self):
         """Return an iterator over the tree of operators."""
         yield self
-        for c in self.children():
-            for x in c.walk():
-                yield x
+        if not self.stop_recursion:
+            for c in self.children():
+                for x in c.walk():
+                    yield x
 
     @abstractmethod
     def num_tuples(self):
@@ -83,9 +88,10 @@ class Operator(Printable):
     def postorder(self, f):
         """Postorder traversal, applying a function to each operator.  The
         function returns an iterator"""
-        for c in self.children():
-            for x in c.postorder(f):
-                yield x
+        if not self.stop_recursion:
+            for c in self.children():
+                for x in c.postorder(f):
+                    yield x
         for x in f(self):
             yield x
 
@@ -94,17 +100,18 @@ class Operator(Printable):
         function returns an iterator"""
         for x in f(self):
             yield x
-        for c in self.children():
-            for x in c.postorder(f):
-                yield x
+        if not self.stop_recursion:
+            for c in self.children():
+                for x in c.preorder(f):
+                    yield x
 
-    def collectParents(self, parent_map=None):
+    def collectParents(self, parent_map={}):
         """Construct a dict mapping children to parents. Used in
         optimization"""
-        if parent_map is None:
-            parent_map = {}
+        if self.stop_recursion:
+            return
         for c in self.children():
-            parent_map.setdefault(c, []).append(self)
+            parent_map.setdefault(id(c), []).append(self)
             c.collectParents(parent_map)
 
     def __copy__(self):
@@ -114,8 +121,9 @@ class Operator(Printable):
         return self.__class__ == other.__class__
 
     def __str__(self):
-        if len(self.children()) > 0:
-            return "%s%s" % (self.shortStr(), real_str(self.children()))
+        if not self.stop_recursion:
+            if len(self.children()) > 0:
+                return "%s%s" % (self.shortStr(), real_str(self.children()))
         return self.shortStr()
 
     def __hash__(self):
@@ -206,7 +214,7 @@ class ZeroaryOperator(Operator):
         """Deep copy"""
         Operator.copy(self, other)
 
-    def compileme(self, resultsym):
+    def compileme(self):
         """Compile this operator, storing its result in resultsym"""
         raise NotImplementedError("{op}.compileme".format(op=type(self)))
 
@@ -352,12 +360,13 @@ class NaryJoin(NaryOperator):
         return DEFAULT_CARDINALITY
 
     def partitioning(self):
-        """attributes are mutually exclusive so union the partitioned
-        attributes"""
-        attributes = frozenset()
-        for c in self.children():
-            attributes = attributes.union(c.partitioning().hash_partitioned)
-        return RepresentationProperties(hash_partitioned=attributes)
+        """ The schemas are mutually exclusive
+        so conjunction of the partition functions"""
+
+        # TODO: being conservative, just take the left side because
+        # TODO: we don't support conjuncs in partition info
+        return RepresentationProperties(
+            hash_partitioned=self.args[0].partitioning().hash_partitioned)
 
     def scheme(self):
         combined = reduce(operator.add, [c.scheme() for c in self.children()])
@@ -381,15 +390,171 @@ class NaryJoin(NaryOperator):
 """Logical Relational Algebra"""
 
 
+class ScanIDB(ZeroaryOperator):
+
+    def __init__(self, name, _scheme=None, idbcontroller=None):
+        self.name = name
+        self._scheme = _scheme
+        self.idbcontroller = idbcontroller
+        ZeroaryOperator.__init__(self)
+
+    def partitioning(self):
+        return RepresentationProperties()
+
+    def num_tuples(self):
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.name)
+
+    def scheme(self):
+        if self._scheme is not None:
+            return self._scheme
+        if self.idbcontroller is not None:
+            return self.idbcontroller.scheme()
+        return None
+
+    def __repr__(self):
+        return "{op}({name!r},{sch!r},{idb!r})".format(
+            op=self.opname(), name=self.name, sch=self._scheme,
+            idb=self.idbcontroller)
+
+
+class IDBController(NaryOperator):
+
+    def __init__(self, name=None, idb_id=None, children=None, emits=None,
+                 relation_key=None, recursion_mode=None):
+        self.name = name
+        self.idb_id = idb_id
+        self.emits = emits
+        self.relation_key = relation_key
+        self.recursion_mode = recursion_mode
+        NaryOperator.__init__(self, children)
+
+    def partitioning(self):
+        return RepresentationProperties()
+
+    def get_agg(self):
+        group_list, expr = self.get_group_agg()
+        if expr is None:
+            return {"type": "DupElim"}
+        if isinstance(expr,
+                      (expression.aggregate.MIN, expression.aggregate.LEXMIN)):
+            if isinstance(expr, expression.aggregate.MIN):
+                valueCols = [expr.input.get_position(self.scheme())]
+            else:
+                valueCols = [operand.get_position(self.scheme())
+                             for operand in expr.operands]
+            return {
+                "type": "KeepMinValue",
+                "keyColIndices": group_list,
+                "valueColIndices": valueCols
+            }
+        if isinstance(expr, expression.aggregate.COUNTALL):
+            return {
+                "type": "CountFilter",
+                "keyColIndices": group_list,
+                "threshold": expr.threshold
+            }
+
+    def get_group_agg(self):
+        agg_list = []
+        group_list = []
+        for emit in self.emits:
+            expr = emit.sexprs[0]
+            if isinstance(expr, expression.AggregateExpression):
+                if not isinstance(expr, (expression.aggregate.MIN,
+                                         expression.aggregate.LEXMIN,
+                                         expression.aggregate.COUNTALL)):
+                    raise NotImplementedError(
+                        "IDBController does not support agg type {}".format(
+                            type(expr)))
+                agg_list.append(expr)
+            else:
+                group_list.append(expr.get_position(self.scheme()))
+        if len(agg_list) > 1:
+            raise NotImplementedError("IDBController only can have one agg")
+        if len(agg_list) == 0:
+            agg = None
+        else:
+            agg = agg_list[0]
+        return (group_list, agg)
+
+    def num_tuples(self):
+        # TODO
+        return DEFAULT_CARDINALITY
+
+    def scheme(self):
+        child1, child2 = self.children()[:2]
+        if child1 is not None and not isinstance(child1, EmptyRelation):
+            input_scheme = child1.scheme()
+        elif child2 is not None and not isinstance(child2, EmptyRelation):
+            input_scheme = child2.scheme()
+        else:
+            return None
+
+        schema = scheme.Scheme()
+        for index, emit in enumerate(self.emits):
+            sexpr = emit.sexprs[0]
+            if isinstance(sexpr, expression.aggregate.LEXMIN):
+                for col in sexpr.operands:
+                    _name, _type = input_scheme.resolve(col)
+                    schema.addAttribute(_name, _type)
+            else:
+                name = (None if emit.column_names is None
+                        else emit.column_names[0])
+                _name = resolve_attribute_name(
+                    name, input_scheme, sexpr, index)
+                _type = sexpr.typeof(input_scheme, None)
+                schema.addAttribute(_name, _type)
+        return schema
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), real_str(self.name,
+                                                   skip_out=True))
+
+    def copy(self, other):
+        """deep copy"""
+        self.name = other.name
+        self.idb_id = other.idb_id
+        self.emits = other.emits
+        self.recursion_mode = other.recursion_mode
+        NaryOperator.copy(self, other)
+
+    def __repr__(self):
+        return "{op}({name!r},{id!r},{ch!r},{em!r},{key!r},{recur!r})".format(
+            op=self.opname(), name=self.name, id=self.idb_id, ch=self.args,
+            em=self.emits, key=self.relation_key, recur=self.recursion_mode)
+
+
+class EOSController(UnaryOperator):
+
+    """EOSController"""
+
+    def __init__(self, input=None):
+        UnaryOperator.__init__(self, input)
+
+    def partitioning(self):
+        return RepresentationProperties()
+
+    def num_tuples(self):
+        return 1
+
+    def scheme(self):
+        return scheme.Scheme([])
+
+    def shortStr(self):
+        return self.opname()
+
+
 class IdenticalSchemeBinaryOperator(BinaryOperator):
 
     """BinaryOperator where both sides have the same schema"""
 
     def partitioning(self):
         """keep the partitioning if both sides are identically partitioned"""
-        lp = self.left.partitioning()
-        if lp.hash_partitioned == self.right.partitioning().hash_partitioned:
-            return lp
+        if self.left.partitioning() == self.right.partitioning():
+            return self.left.partitioning()
         else:
             return RepresentationProperties()
 
@@ -432,8 +597,7 @@ class UnionAll(NaryOperator):
         """keep the partitioning if all children are identically
         partitioned"""
         for child in self.args:
-            if child.partitioning().hash_partitioned != \
-                    self.args[0].partitioning().hash_partitioned:
+            if child.partitioning() != self.args[0].partitioning():
                 return RepresentationProperties()
         return self.args[0].partitioning()
 
@@ -509,10 +673,19 @@ class CompositeBinaryOperator(BinaryOperator):
         """ The schemas are mutually exclusive
         so conjunction of the partition functions"""
 
-        # TODO: being conservative, just take the left side because
+        # TODO: being conservative, just take one side because
         # TODO: we don't support conjuncs in partition info
-        return RepresentationProperties(
-            hash_partitioned=self.left.partitioning().hash_partitioned)
+        if self.left.partitioning().hash_partitioned != frozenset():
+            return RepresentationProperties(
+                hash_partitioned=self.left.partitioning().hash_partitioned)
+        elif self.right.partitioning().hash_partitioned != frozenset():
+            return RepresentationProperties(
+                hash_partitioned=self.right.partitioning().hash_partitioned)
+        elif self.left.partitioning().broadcasted and (
+                self.right.partitioning().broadcasted):
+            return RepresentationProperties(broadcasted=True)
+        else:
+            return RepresentationProperties()
 
     def scheme(self):
         """Return the scheme of the result."""
@@ -630,9 +803,11 @@ def project_partitioning(columnlist, input_partitioning):
         return RepresentationProperties(
             hash_partitioned=frozenset(
                 expression.UnnamedAttributeRef(i)
-                for i in newrefs.values()))
+                for i in newrefs.values()),
+            broadcasted=input_partitioning.broadcasted)
     else:
-        return RepresentationProperties()
+        return RepresentationProperties(
+            broadcasted=input_partitioning.broadcasted)
 
 
 class Apply(UnaryOperator):
@@ -1077,8 +1252,9 @@ class ProjectingJoin(Join):
     """Logical Projecting Join operator"""
 
     def __init__(self, condition=None, left=None, right=None,
-                 output_columns=None):
+                 output_columns=None, pull_order_policy='ALTERNATE'):
         self.output_columns = output_columns
+        self.pull_order_policy = pull_order_policy
         Join.__init__(self, condition, left, right)
 
     def __eq__(self, other):
@@ -1092,9 +1268,10 @@ class ProjectingJoin(Join):
                                real_str(self.output_columns, skip_out=True))
 
     def __repr__(self):
-        return "{op}({cond!r}, {l!r}, {r!r}, {oc!r})"\
+        return "{op}({cond!r}, {l!r}, {r!r}, {oc!r}, {pr!r})"\
             .format(op=self.opname(), cond=self.condition,
-                    l=self.left, r=self.right, oc=self.output_columns)
+                    l=self.left, r=self.right, oc=self.output_columns,
+                    pr=self.pull_order_policy)
 
     def copy(self, other):
         """deep copy"""
@@ -1140,19 +1317,26 @@ class Shuffle(UnaryOperator):
     def __init__(self, child=None, columnlist=None, shuffle_type=None):
         UnaryOperator.__init__(self, child)
         self.columnlist = columnlist
-        self.shuffle_type = shuffle_type
+        self.shuffle_type = shuffle_type or self.ShuffleType.Hash
+        if shuffle_type == self.ShuffleType.Hash:
+            assert columnlist, \
+                "column list for hash shuffle must be non-null and non-empty"
 
     def num_tuples(self):
         return self.input.num_tuples()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), real_str(self.columnlist,
-                                                   skip_out=True))
+        if self.shuffle_type == self.ShuffleType.Hash:
+            return "%s(%s(%s))" % (self.opname(), self.shuffle_type,
+                                   real_str(self.columnlist, skip_out=True))
+        return "%s(%s)" % (self.opname(), self.shuffle_type)
 
     def partitioning(self):
+        assert not self.input.partitioning().broadcasted, \
+            "Must avoid shuffling broadcasted relation"
+
         # TODO: incorporate information about functional dependences
-        if self.shuffle_type == self.ShuffleType.SingleFieldHash \
-                or self.shuffle_type == self.ShuffleType.MultiFieldHash:
+        if self.shuffle_type == self.ShuffleType.Hash:
             return RepresentationProperties(
                 hash_partitioned=frozenset(
                     self.columnlist))
@@ -1165,9 +1349,9 @@ class Shuffle(UnaryOperator):
         UnaryOperator.copy(self, other)
 
     class ShuffleType(object):
-
         """Enum of supported shuffling types."""
-        SingleFieldHash, MultiFieldHash, IdentityHash = range(3)
+        Hash, Identity, HyperCube, RoundRobin = (
+            'Hash', 'Identity', 'HyperCube', 'RoundRobin')
 
 
 class HyperCubeShuffle(UnaryOperator):
@@ -1243,8 +1427,7 @@ class Broadcast(UnaryOperator):
         return self.opname()
 
     def partitioning(self):
-        # TODO a way to say that all tuples are on all partitions
-        return RepresentationProperties()
+        return RepresentationProperties(broadcasted=True)
 
 
 class Split(UnaryOperator):
@@ -1395,6 +1578,7 @@ class EmptyRelation(ZeroaryOperator):
     """Relation with no tuples."""
 
     def __init__(self, _scheme=None):
+        ZeroaryOperator.__init__(self)
         self._scheme = _scheme
 
     def num_tuples(self):
@@ -1452,6 +1636,7 @@ class FileScan(ZeroaryOperator):
         self.format = format
         self._scheme = _scheme
         self.options = options
+        self._needs_shuffle = True
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
@@ -1499,7 +1684,8 @@ class Scan(ZeroaryOperator):
 
     def __init__(self, relation_key=None, _scheme=None,
                  cardinality=DEFAULT_CARDINALITY,
-                 partitioning=RepresentationProperties()):
+                 partitioning=RepresentationProperties(),
+                 debroadcast=False):
         """Initialize a scan operator.
 
         relation_key is a string of the form "user:program:relation"
@@ -1509,13 +1695,14 @@ class Scan(ZeroaryOperator):
         self._scheme = _scheme
         self._cardinality = cardinality
         self._partitioning = partitioning
+        self._debroadcast = debroadcast
 
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
-        return (ZeroaryOperator.__eq__(self, other)
-                and self.relation_key == other.relation_key
-                and self.scheme() == other.scheme())
+        return (ZeroaryOperator.__eq__(self, other) and
+                self.relation_key == other.relation_key and
+                self.scheme() == other.scheme())
 
     def __hash__(self):
         """
@@ -1525,18 +1712,27 @@ class Scan(ZeroaryOperator):
         return ("%s-%s" % (self.opname(), self.relation_key)).__hash__()
 
     def shortStr(self):
-        return "%s(%s)" % (self.opname(), self.relation_key)
+        return ("DeBroadcast(%s(%s))" % (self.opname(), self.relation_key) if
+                self._debroadcast else
+                "%s(%s)" % (self.opname(), self.relation_key))
 
     def num_tuples(self):
         return self._cardinality
 
     def partitioning(self):
-        return self._partitioning
+        if self._debroadcast:
+            assert self._partitioning.broadcasted
+        return (RepresentationProperties() if
+                self._debroadcast else self._partitioning)
 
     def __repr__(self):
-        return "{op}({rk!r}, {sch!r}, {card!r}, {part!r})".format(
-            op=self.opname(), rk=self.relation_key, sch=self._scheme,
-            card=self._cardinality, part=self._partitioning)
+        return "{op}({rk!r}, {sch!r}, {card!r}, {part!r}, {db!r})".format(
+            op=self.opname(),
+            rk=self.relation_key,
+            sch=self._scheme,
+            card=self._cardinality,
+            part=self._partitioning,
+            db=self._debroadcast)
 
     def copy(self, other):
         """deep copy"""
@@ -1544,6 +1740,7 @@ class Scan(ZeroaryOperator):
         self._scheme = other._scheme
         self._cardinality = other._cardinality
         self._partitioning = other._partitioning
+        self._debroadcast = other._debroadcast
 
         # TODO: need a cleaner and more general way of tracing information
         # through the compilation process for debugging purposes
@@ -1665,14 +1862,16 @@ class ScanTemp(ZeroaryOperator):
 
     """Read the contents of a temporary relation."""
 
-    def __init__(self, name=None, _scheme=None):
+    def __init__(self, name=None, scheme=None, debroadcast=False):
         self.name = name
-        self._scheme = _scheme
+        self._scheme = scheme
+        self._debroadcast = debroadcast
         ZeroaryOperator.__init__(self)
 
     def __eq__(self, other):
-        return (ZeroaryOperator.__eq__(self, other) and self.name == other.name
-                and self._scheme == other._scheme)
+        return (ZeroaryOperator.__eq__(self, other) and
+                self.name == other.name and
+                self._scheme == other._scheme)
 
     def num_tuples(self):
         if hasattr(self, 'analyzed_num_tuples'):
@@ -1692,15 +1891,17 @@ class ScanTemp(ZeroaryOperator):
     def copy(self, other):
         self.name = other.name
         self._scheme = other._scheme
+        self._debroadcast = other._debroadcast
         ZeroaryOperator.copy(self, other)
 
     def scheme(self):
         return self._scheme
 
     def __repr__(self):
-        return "{op}({name!r}, {sch!r})".format(op=self.opname(),
-                                                name=self.name,
-                                                sch=self._scheme)
+        return "{op}({name!r}, {sch!r}, {db!r})".format(op=self.opname(),
+                                                        name=self.name,
+                                                        sch=self._scheme,
+                                                        db=self._debroadcast)
 
 
 class Sink(UnaryOperator):
@@ -1794,6 +1995,29 @@ class DoWhile(NaryOperator):
 
     def scheme(self):
         """DoWhile does not return any tuples."""
+        return None
+
+
+class UntilConvergence(NaryOperator):
+
+    def __init__(self, ops=None, pull_order_policy='ALTERNATE'):
+        """Repeatedly execute a sequence of plans until convergence.
+        :params ops: A list of operations to execute in parallel.
+        """
+        NaryOperator.__init__(self, ops)
+        self.pull_order_policy = pull_order_policy
+
+    def partitioning(self):
+        return RepresentationProperties()
+
+    def num_tuples(self):
+        raise NotImplementedError("{op}.num_tuples".format(op=type(self)))
+
+    def shortStr(self):
+        return self.opname()
+
+    def scheme(self):
+        """UntilConvergence does not return any tuples."""
         return None
 
 

@@ -102,8 +102,8 @@ def local_mock(url, request):
                 'columnNames': [u'name', u'pages'],
                 'columnTypes': ['STRING_TYPE', 'LONG_TYPE']
             },
-            'howPartitioned': {
-                'pf': None,
+            'howDistributed': {
+                'df': None,
                 'workers': None
             },
             'numTuples': 50

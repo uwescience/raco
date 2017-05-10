@@ -1,14 +1,13 @@
 import re
 
 from raco import algebra, expression
-from raco import expression
+from raco.representation import RepresentationProperties
 from .expression import (accessed_columns, UnnamedAttributeRef,
-                         to_unnamed_recursive, RANDOM)
+                         rebase_local_aggregate_output, rebase_finalizer,
+                         to_unnamed_recursive, StateVar, RANDOM)
 
 from abc import ABCMeta, abstractmethod
 import itertools
-from raco.expression import rebase_local_aggregate_output, StateVar, \
-    rebase_finalizer, UnnamedAttributeRef
 
 
 class Rule(object):
@@ -49,6 +48,7 @@ class Rule(object):
 
 
 class AbstractInterpretedValue:
+
     def __init__(self):
         self._values = set()
 
@@ -63,6 +63,7 @@ class AbstractInterpretedValue:
 
 
 class NumTuplesPropagation(Rule):
+
     def fire(self, expr):
         # TODO I really just want this to fire once on the top node...
         if isinstance(expr, algebra.Sequence):
@@ -86,7 +87,7 @@ class NumTuplesPropagation(Rule):
                 abstract_values[t.name].appendValue(t.num_tuples())
             elif isinstance(t, algebra.ScanTemp):
                 if t.name:
-                    assert t.name in abstract_values, "Saw a ScanTemp before" \
+                    assert t.name in abstract_values, "Saw a ScanTemp before " \
                                                       "its StoreTemp"
                     possible_values = \
                         abstract_values[t.name].getValues()
@@ -97,7 +98,7 @@ class NumTuplesPropagation(Rule):
             yield None
 
         # run it
-        [_ for _ in tree.preorder(f)]
+        [_ for _ in tree.postorder(f)]
 
 
 class CrossProduct2Join(Rule):
@@ -559,8 +560,8 @@ class PushApply(Rule):
 
             # If this apply is only AttributeRefs and the columns already
             # have the correct names, we can push it into the ProjectingJoin
-            if (all(isinstance(e, expression.AttributeRef) for e in emits)
-                    and len(set(emits)) == len(emits)):
+            if (all(isinstance(e, expression.AttributeRef) for e in emits) and
+                    len(set(emits)) == len(emits)):
                 new_cols = [child.output_columns[e.position] for e in emits]
                 # We need to ensure that left columns come before right cols
                 left_sch = child.left.scheme()
@@ -685,8 +686,8 @@ class RemoveUnusedColumns(Rule):
             column_list = [to_unnamed_recursive(c, in_scheme)
                            for c in op.output_columns]
 
-            accessed = (accessed_columns(condition)
-                        | set(c.position for c in op.output_columns))
+            accessed = (accessed_columns(condition) |
+                        set(c.position for c in op.output_columns))
             if len(accessed) == len(in_scheme):
                 return op
 
@@ -1041,3 +1042,37 @@ def check_partition_equality(op, representation):
     """
 
     return op.partitioning().hash_partitioned == frozenset(representation)
+
+
+class DeDupBroadcastInputs(Rule):
+
+    def fire(self, expr):
+        def is_nonlocal_exchange_op(expr):
+            return isinstance(expr, (
+                algebra.Shuffle,
+                algebra.HyperCubeShuffle,
+                algebra.Collect,
+                algebra.Broadcast,
+            ))
+
+        def debroadcast_scans(expr):
+            assert expr.partitioning().broadcasted, \
+                "Can only debroadcast broadcast inputs"
+            for e in expr.walk():
+                if isinstance(e, algebra.ZeroaryOperator):
+                    e._debroadcast = True
+
+        # We must evaluate broadcast partitioning of input to avoid asserts
+        # that exchange operators are non-broadcast-partitioned.
+        if (is_nonlocal_exchange_op(expr) and
+                expr.input.partitioning().broadcasted):
+            # eliminate redundant broadcasts
+            if isinstance(expr, algebra.Broadcast):
+                return expr.input
+            # debroadcast all scans to avoid redundant inputs to shuffle
+            debroadcast_scans(expr.input)
+        return expr
+
+    def __str__(self):
+        return ("Broadcast(X = broadcast input) => X, "
+                "X(broadcast input) => X(debroadcast input)")

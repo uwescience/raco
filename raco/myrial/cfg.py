@@ -221,6 +221,9 @@ class ControlFlowGraph(object):
                 if self.graph.in_degree(nodeB) == 2:
                     continue  # start of do/while loop
 
+                if isinstance(self.graph.node[nodeB]['op'], UntilConvergence):
+                    continue  # start of do/until convergence
+
                 def_var = self.graph.node[nodeA]['def_var']
                 if not def_var:
                     continue
