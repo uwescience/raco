@@ -330,11 +330,10 @@ class NumericLiteral(Literal):
 
 class BlobLiteral(Literal):
 
-    def __str__(self):
-        return '"{val}"'.format(val=self.value)
-
-    def get_val(self):
-        return self.value
+    def typeof(self, scheme, state_scheme):
+        print self.value
+        print types.python_type_map[type(self.value)]
+        return types.python_type_map[type(self.value)]
 
 
 class BooleanLiteral(Literal):
