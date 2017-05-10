@@ -32,7 +32,7 @@ tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
           'TIMES', 'DIVIDE', 'IDIVIDE', 'MOD', 'LT', 'GT', 'GE', 'GE2',
           'LE', 'LE2', 'EQ', 'NE', 'NE2', 'NE3', 'COMMA', 'SEMI', 'EQUALS',
           'COLON', 'DOLLAR', 'ID', 'LARROW',
-          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL',
+          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL', 'BLOB_LITERAL'
           'LBRACE', 'RBRACE'] + reserved
 
 # Regular expression rules for simple tokens
@@ -97,6 +97,10 @@ def t_INTEGER_LITERAL(t):
     t.value = int(t.value)
     return t
 
+def t_BLOB_LITERAL(t):
+    b'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
+    t.value = bytes(t.value)
+    return t
 
 def t_STRING_LITERAL(t):
     r'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
