@@ -327,8 +327,10 @@ class StringLiteral(Literal):
 class NumericLiteral(Literal):
     pass
 
+
 class BlobLiteral(Literal):
     pass
+
 
 class BooleanLiteral(Literal):
     pass
