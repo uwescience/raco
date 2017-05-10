@@ -974,6 +974,11 @@ class Parser(object):
         p[0] = sexpr.BooleanLiteral(bv)
 
     @staticmethod
+    def p_sexpr_blob_literal(p):
+        '''sexpr : ""'''
+        p[0] = sexpr.BooleanLiteral(p[1])
+
+    @staticmethod
     def p_sexpr_id(p):
         'sexpr : unreserved_id'
         try:
