@@ -111,6 +111,7 @@ def t_BLOB_LITERAL(t):
 def t_STRING_LITERAL(t):
     r'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
     t.value = t.value[1:-1].decode("string_escape")
+    print t.value
     return t
 
 
