@@ -331,9 +331,7 @@ class NumericLiteral(Literal):
 class BlobLiteral(Literal):
 
     def typeof(self, scheme, state_scheme):
-        print "what is the type?"
-        print types.python_type_map[type(self.value)]
-        return types.python_type_map[type(self.value)]
+        return types.BLOB_TYPE
 
 
 class BooleanLiteral(Literal):

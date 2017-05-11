@@ -97,17 +97,6 @@ def t_INTEGER_LITERAL(t):
     t.value = int(t.value)
     return t
 
-def t_BLOB_LITERAL(t):
-    ##b'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
-    r'b"([^\\\n"]|\\.)*"|b\'([^\\\n\']|\\.)*\''
-    print "t_blob literal"
-    ##print t
-    ##print "val"
-    ##print val
-    t.value = bytes(t.value[1:-1])
-    return t
-
-
 def t_STRING_LITERAL(t):
     r'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
     t.value = t.value[1:-1].decode("string_escape")
