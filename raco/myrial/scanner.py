@@ -97,10 +97,10 @@ def t_INTEGER_LITERAL(t):
     t.value = int(t.value)
     return t
 
+
 def t_STRING_LITERAL(t):
     r'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
     t.value = t.value[1:-1].decode("string_escape")
-    print t.value
     return t
 
 
