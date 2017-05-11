@@ -1057,11 +1057,9 @@ class Parser(object):
         # Mangle state variable names to allow multiple invocations to coexist
         state_vars_mangled = [Parser.mangle(sv) for sv in state_var_names]
         mangle_dict = dict(zip(state_var_names, state_vars_mangled))
-        print "resolve init expression in uda"
 
         statemods = []
         for name, (init_expr, update_expr) in func.statemods.iteritems():
-            print init_expr
             # Convert state mod references into appropriate expressions
             update_expr = sexpr.resolve_state_vars(update_expr,  # noqa
                 state_var_names, mangle_dict)
