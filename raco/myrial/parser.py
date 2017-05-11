@@ -1061,7 +1061,7 @@ class Parser(object):
 
         statemods = []
         for name, (init_expr, update_expr) in func.statemods.iteritems():
-            print name
+            print init_expr
             # Convert state mod references into appropriate expressions
             update_expr = sexpr.resolve_state_vars(update_expr,  # noqa
                 state_var_names, mangle_dict)

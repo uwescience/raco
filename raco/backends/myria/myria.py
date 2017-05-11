@@ -64,6 +64,12 @@ def compile_expr(op, child_scheme, state_scheme):
             'value': bool(op.value),
             'valueType': 'BOOLEAN_TYPE'
         }
+    elif isinstance(op, expression.BlobLiteral):
+        return{
+            'type': 'CONSTANT',
+            'value': str(op.value),
+            'valueType': types.BLOB_TYPE
+        }
     elif isinstance(op, expression.StateRef):
         return {
             'type': 'STATE',
