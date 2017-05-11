@@ -67,7 +67,7 @@ def compile_expr(op, child_scheme, state_scheme):
     elif isinstance(op, expression.BlobLiteral):
         return{
             'type': 'CONSTANT',
-            'value': str(op.value),
+            'value': str.lower(op.value),
             'valueType': types.BLOB_TYPE
         }
     elif isinstance(op, expression.StateRef):
