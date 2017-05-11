@@ -331,7 +331,9 @@ class NumericLiteral(Literal):
 class BlobLiteral(Literal):
 
     def get_val(self):
-        return str.lower(self.value)
+        val = str.lower(self.value)
+        print val
+        return val
 
     def typeof(self, scheme, state_scheme):
         return types.BLOB_TYPE
