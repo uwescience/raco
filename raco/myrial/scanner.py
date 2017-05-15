@@ -33,7 +33,7 @@ tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
           'LE', 'LE2', 'EQ', 'NE', 'NE2', 'NE3', 'COMMA', 'SEMI', 'EQUALS',
           'COLON', 'DOLLAR', 'ID', 'LARROW',
           'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL',
-          'LBRACE', 'RBRACE'] + reserved
+          'LBRACE', 'RBRACE', 'UNDERSCORE'] + reserved
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('
@@ -68,7 +68,7 @@ t_EQUALS = r'='
 t_COLON = r':'
 t_DOLLAR = r'\$'
 t_LARROW = r'<-'
-
+t_UNDERSCORE = r'_'
 # Regular expressions for non-trivial tokens
 
 

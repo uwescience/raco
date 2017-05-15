@@ -975,7 +975,7 @@ class Parser(object):
 
     @staticmethod
     def p_sexpr_blob_literal(p):
-        '''sexpr : _'''
+        '''sexpr : UNDERSCORE'''
         p[0] = sexpr.BlobLiteral()
 
     @staticmethod
