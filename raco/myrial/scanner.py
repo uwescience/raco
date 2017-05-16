@@ -68,7 +68,6 @@ t_EQUALS = r'='
 t_COLON = r':'
 t_DOLLAR = r'\$'
 t_LARROW = r'<-'
-t_UNDERSCORE = r'\_'
 # Regular expressions for non-trivial tokens
 
 
