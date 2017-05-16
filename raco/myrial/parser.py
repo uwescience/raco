@@ -335,8 +335,6 @@ class Parser(object):
         # Unpack the update, init expressions into a statemod dictionary
         statemods = collections.OrderedDict()
         for init, update in zip(inits, updates):
-            print " in parser"
-            print init
             if not isinstance(init, emitarg.NaryEmitArg):
                 raise IllegalWildcardException(name, lineno)
 
@@ -364,7 +362,6 @@ class Parser(object):
         #  - The emitter expressions can reference state variables.
         allvars = statemods.keys() + args
         for init_expr, update_expr in statemods.itervalues():
-            print init_expr
             Parser.check_for_undefined(p, name, init_expr, [])
             Parser.check_for_undefined(p, name, update_expr, allvars)
 
