@@ -9,7 +9,7 @@ keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
             'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CSV', 'SCHEMA',
             'OPP', 'TIPSY', 'UDA', 'TRUE', 'FALSE', 'HASH', 'BROADCAST',
             'ROUND_ROBIN', 'UNTIL', 'CONVERGENCE', "SYNC", "ASYNC",
-            'ALTERNATE', 'PULL_IDB', 'PULL_EDB', 'BUILD_EDB']
+            'ALTERNATE', 'PULL_IDB', 'PULL_EDB', 'BUILD_EDB', "EMPTY_BLOB"]
 
 types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN']
 
@@ -33,7 +33,7 @@ tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
           'LE', 'LE2', 'EQ', 'NE', 'NE2', 'NE3', 'COMMA', 'SEMI', 'EQUALS',
           'COLON', 'DOLLAR', 'ID', 'LARROW',
           'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL',
-          'LBRACE', 'RBRACE', 'UNDERSCORE'] + reserved
+          'LBRACE', 'RBRACE'] + reserved
 
 # Regular expression rules for simple tokens
 t_LPAREN = r'\('
