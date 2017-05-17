@@ -102,7 +102,6 @@ def t_STRING_LITERAL(t):
     t.value = t.value[1:-1].decode("string_escape")
     return t
 
-
 def t_newline(t):
     r'\n+'
     t.lexer.lineno += len(t.value)
