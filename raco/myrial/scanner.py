@@ -9,9 +9,9 @@ keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
             'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CSV', 'SCHEMA',
             'OPP', 'TIPSY', 'UDA', 'TRUE', 'FALSE', 'HASH', 'BROADCAST',
             'ROUND_ROBIN', 'UNTIL', 'CONVERGENCE', "SYNC", "ASYNC",
-            'ALTERNATE', 'PULL_IDB', 'PULL_EDB', 'BUILD_EDB', "EMPTY_BLOB"]
+            'ALTERNATE', 'PULL_IDB', 'PULL_EDB', 'BUILD_EDB']
 
-types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN']
+types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN', 'BLOB']
 
 comprehension_keywords = ['SELECT', 'AS', 'EMIT', 'FROM', 'WHERE']
 
@@ -32,7 +32,7 @@ tokens = ['LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'DOT', 'PLUS', 'MINUS',
           'TIMES', 'DIVIDE', 'IDIVIDE', 'MOD', 'LT', 'GT', 'GE', 'GE2',
           'LE', 'LE2', 'EQ', 'NE', 'NE2', 'NE3', 'COMMA', 'SEMI', 'EQUALS',
           'COLON', 'DOLLAR', 'ID', 'LARROW',
-          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL',
+          'STRING_LITERAL', 'INTEGER_LITERAL', 'FLOAT_LITERAL', 'BLOB_LITERAL',
           'LBRACE', 'RBRACE'] + reserved
 
 # Regular expression rules for simple tokens
@@ -71,6 +71,12 @@ t_LARROW = r'<-'
 # Regular expressions for non-trivial tokens
 
 
+def t_BLOB_LITERAL(t):
+    r"b'(?:\\x[0-9a-fA-F]{2})*'"
+    t.value = bytes(t.value)
+    return t
+
+
 def t_ID(t):
     r'[a-zA-Z_][a-zA-Z_0-9]*'
     global reserved
@@ -101,6 +107,7 @@ def t_STRING_LITERAL(t):
     r'"([^\\\n"]|\\.)*"|\'([^\\\n\']|\\.)*\''
     t.value = t.value[1:-1].decode("string_escape")
     return t
+
 
 def t_newline(t):
     r'\n+'

@@ -330,6 +330,10 @@ class NumericLiteral(Literal):
 
 class BlobLiteral(Literal):
 
+    def __str__(self):
+        return repr(self.value)
+
+    # for Python 3, map `bytes` to BLOB_TYPE in `types.python_type_map`
     def typeof(self, scheme, state_scheme):
         return types.BLOB_TYPE
 
