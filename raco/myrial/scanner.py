@@ -72,7 +72,7 @@ t_LARROW = r'<-'
 
 
 def t_BLOB_LITERAL(t):
-    r"b'(?:\\x[0-9a-fA-F]{2})*'"
+    r'b((\'(\\x[0-9a-fA-F]{2})*\')|(\"(\\x[0-9a-fA-F]{2})*\"))'
     t.value = bytes(t.value)
     return t
 
