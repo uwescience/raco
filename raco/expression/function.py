@@ -414,7 +414,7 @@ class NGRAM(BinaryFunction):
         return types.STRING_TYPE
 
 
-class BITSET(BinaryFunction):
+class BITSET(UnaryFunction):
     literals = ["BITSET"]
 
     # TODO: implement once fakedb can handle flatmap functions
