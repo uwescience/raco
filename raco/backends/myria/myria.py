@@ -226,16 +226,16 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
                 }
             else:
                 encoding = {
-                "opType": "TupleSource",
-                "reader": dict({
-                    "readerType": "CSV",
-                    "schema": scheme_to_schema(self.scheme())
-                }, **self.options),
-                "source": {
-                    "dataType": "URI",
-                    "uri": self.path
+                    "opType": "TupleSource",
+                    "reader": dict({
+                        "readerType": "CSV",
+                        "schema": scheme_to_schema(self.scheme())
+                    }, **self.options),
+                    "source": {
+                        "dataType": "URI",
+                        "uri": self.path
+                    }
                 }
-            }
 
         return encoding
 
