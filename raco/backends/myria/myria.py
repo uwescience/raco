@@ -19,6 +19,7 @@ from raco.expression import WORKERID, COUNTALL
 from raco.representation import RepresentationProperties
 from raco.rules import distributed_group_by, check_partition_equality
 from raco.expression import util
+from urlparse import urlparse
 
 LOGGER = logging.getLogger(__name__)
 
@@ -210,7 +211,21 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
             }
 
         else:
-            encoding = {
+            url_parser = urlparse(self.path)
+            if(url_parser.scheme == 's3'):
+                encoding = {
+                    "opType": "CSVFileScanFragment",
+                    "reader": dict({
+                        "readerType": "CSV",
+                        "schema": scheme_to_schema(self.scheme())
+                    }, **self.options),
+                    "source": {
+                        "dataType": "S3",
+                        "s3Uri": self.path
+                    }
+                }
+            else:
+                encoding = {
                 "opType": "TupleSource",
                 "reader": dict({
                     "readerType": "CSV",
