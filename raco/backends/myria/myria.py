@@ -211,8 +211,8 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
             }
 
         else:
-            url_parser = urlparse(self.path)
-            if(url_parser.scheme == 's3'):
+            parsed_url = urlparse(self.path)
+            if parsed_url.scheme == 's3':
                 encoding = {
                     "opType": "CSVFragmentTupleSource",
                     "reader": dict({
