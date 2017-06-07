@@ -214,7 +214,7 @@ class MyriaFileScan(algebra.FileScan, MyriaOperator):
             url_parser = urlparse(self.path)
             if(url_parser.scheme == 's3'):
                 encoding = {
-                    "opType": "CSVFileScanFragment",
+                    "opType": "CSVFragmentTupleSource",
                     "reader": dict({
                         "readerType": "CSV",
                         "schema": scheme_to_schema(self.scheme())
