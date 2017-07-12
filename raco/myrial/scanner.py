@@ -73,14 +73,13 @@ t_LARROW = r'<-'
 
 def t_BLOB_LITERAL(t):
     r'b((\'(\\x[0-9a-fA-F]{2})*\')|(\"(\\x[0-9a-fA-F]{2})*\"))'
-    t.value = bytes(t.value)
+    t.value = bytes(t.value[2:-1].decode("string_escape"))
     return t
 
 
 def t_ID(t):
     r'[a-zA-Z_][a-zA-Z_0-9]*'
     global reserved
-
     upped = t.value.upper()
     if upped in reserved:
         t.type = upped
