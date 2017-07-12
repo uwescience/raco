@@ -725,6 +725,7 @@ class Parser(object):
         """literal_arg : STRING_LITERAL
                        | INTEGER_LITERAL
                        | FLOAT_LITERAL
+                       | BLOB_LITERAL
                        | TRUE
                        | FALSE"""
         p[0] = p[1]
@@ -734,7 +735,8 @@ class Parser(object):
         """type_name : STRING
                      | INT
                      | BOOLEAN
-                     | FLOAT"""
+                     | FLOAT
+                     | BLOB"""
         p[0] = myrial_type_map[p[1]]
 
     @staticmethod
@@ -972,6 +974,11 @@ class Parser(object):
                  | FALSE'''
         bv = p[1] == 'TRUE'
         p[0] = sexpr.BooleanLiteral(bv)
+
+    @staticmethod
+    def p_sexpr_blob_literal(p):
+        'sexpr : BLOB_LITERAL'
+        p[0] = sexpr.BlobLiteral(p[1])
 
     @staticmethod
     def p_sexpr_id(p):

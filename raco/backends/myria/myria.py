@@ -1,5 +1,6 @@
 import itertools
 import logging
+import base64
 from collections import defaultdict, deque
 from functools import reduce
 from operator import mul
@@ -63,7 +64,13 @@ def compile_expr(op, child_scheme, state_scheme):
         return {
             'type': 'CONSTANT',
             'value': bool(op.value),
-            'valueType': 'BOOLEAN_TYPE'
+            'valueType': types.BOOLEAN_TYPE
+        }
+    elif isinstance(op, expression.BlobLiteral):
+        return{
+            'type': 'CONSTANT',
+            'value': base64.standard_b64encode(op.value),
+            'valueType': types.BLOB_TYPE
         }
     elif isinstance(op, expression.StateRef):
         return {

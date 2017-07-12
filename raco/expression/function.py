@@ -412,3 +412,18 @@ class NGRAM(BinaryFunction):
         rt = self.right.typeof(scheme, state_scheme)
         check_type(rt, types.LONG_TYPE)
         return types.STRING_TYPE
+
+
+class BITSET(UnaryFunction):
+    literals = ["BITSET"]
+
+    # TODO: implement once fakedb can handle flatmap functions
+    def evaluate(self, _tuple, scheme, state=None):
+        raise NotImplementedError()
+
+    def typeof(self, scheme, state_scheme):
+        input_type = self.input.typeof(scheme, state_scheme)
+        if input_type != types.BLOB_TYPE:
+            raise TypeSafetyViolation("Must be a BLOB for %s" % (
+                self.__class__,))
+        return types.BOOLEAN_TYPE
