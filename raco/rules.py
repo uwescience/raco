@@ -1041,7 +1041,7 @@ def check_partition_equality(op, representation):
     @return true if the op has an equal hash partitioning to representation
     """
 
-    return op.partitioning().hash_partitioned == frozenset(representation)
+    return op.partitioning().hash_partitioned == tuple(representation)
 
 
 class DeDupBroadcastInputs(Rule):

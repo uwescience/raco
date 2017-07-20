@@ -77,7 +77,7 @@ class FakeCatalog(Catalog):
                 self.sizes[RelationKey(child)] = size
         if child_partitionings:
             for child, part in child_partitionings.items():
-                self.partitionings[RelationKey(child)] = frozenset(part)
+                self.partitionings[RelationKey(child)] = tuple(part)
         if child_functions:
             for child, typ in child_functions.items():
                 self.functions[child] = funcObj
