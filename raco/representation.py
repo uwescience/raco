@@ -4,7 +4,7 @@ class RepresentationProperties(object):
 
     def __init__(
             self,
-            hash_partitioned=frozenset(),
+            hash_partitioned=tuple(),
             sorted=None,
             grouped=None,
             broadcasted=False):
@@ -59,5 +59,5 @@ class RepresentationProperties(object):
 
     def __hash__(self):
         """Override the default hash behavior
-        (that returns the id or the object)"""
+        (that returns the id of the object)"""
         return hash(tuple(sorted(self.__dict__.items())))

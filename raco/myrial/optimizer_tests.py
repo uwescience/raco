@@ -39,7 +39,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
     part_key = relation_key.RelationKey.from_string("public:adhoc:part")
     broad_key = relation_key.RelationKey.from_string("public:adhoc:broad")
     part_partition = RepresentationProperties(
-        hash_partitioned=frozenset([AttIndex(1)]))
+        hash_partitioned=tuple([AttIndex(1)]))
     broad_partition = RepresentationProperties(broadcasted=True)
     random.seed(387)  # make results deterministic
     rng = 20
@@ -871,7 +871,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
         self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
         self.assertEquals(pp.partitioning().hash_partitioned,
-                          frozenset([AttIndex(0)]))
+                          tuple([AttIndex(0)]))
 
     def test_partitioning_from_scan(self):
         """Store will know the partitioning of a partitioned store relation"""
@@ -904,7 +904,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         self.assertEquals(self.get_count(pp, MyriaShuffleProducer), 1)
         self.assertEquals(self.get_count(pp, MyriaShuffleConsumer), 1)
         self.assertEquals(pp.partitioning().hash_partitioned,
-                          frozenset([AttIndex(2)]))
+                          tuple([AttIndex(2)]))
 
     def test_remove_shuffle(self):
         """No shuffle for hash join needed when the input is partitioned"""
@@ -959,7 +959,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp)
 
         self.assertEquals(pp.partitioning().hash_partitioned,
-                          frozenset())
+                          tuple())
 
     def test_apply_maintains_partitioning(self):
         """Projecting out non-partitioned attributes
@@ -975,7 +975,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp)
 
         self.assertEquals(pp.partitioning().hash_partitioned,
-                          frozenset([AttIndex(0)]))
+                          tuple([AttIndex(0)]))
 
     def test_swapping_apply_maintains_partitioning(self):
         """Projecting out non-partitioned attributes
@@ -991,7 +991,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         pp = self.logical_to_physical(lp)
 
         self.assertEquals(pp.partitioning().hash_partitioned,
-                          frozenset([AttIndex(1)]))
+                          tuple([AttIndex(1)]))
 
     def test_projecting_join_maintains_partitioning(self):
         """Projecting join: projecting out non-partitioned attributes
@@ -1014,7 +1014,7 @@ class OptimizerTest(myrial_test.MyrialTestCase):
         # TODO: this test case forces conservative behavior
         # (in general, info could be h($0) && h($2)
         self.assertEquals(pp.partitioning().hash_partitioned,
-                          frozenset([AttIndex(0)]))
+                          tuple([AttIndex(0)]))
 
     def test_no_shuffle_for_partitioned_distinct(self):
         """Do not shuffle for Distinct if already partitioned"""

@@ -86,9 +86,9 @@ class MyriaCatalog(Catalog):
             if distribute_function['type'] == "Identity":
                 index = distribute_function['index']
                 return RepresentationProperties(
-                    hash_partitioned=frozenset(AttIndex(index)))
+                    hash_partitioned=tuple(AttIndex(index)))
             elif distribute_function['type'] == "Hash":
                 indexes = distribute_function['indexes']
                 return RepresentationProperties(
-                    hash_partitioned=frozenset(AttIndex(i) for i in indexes))
+                    hash_partitioned=tuple(AttIndex(i) for i in indexes))
         return RepresentationProperties()

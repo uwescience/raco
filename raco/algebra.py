@@ -675,10 +675,10 @@ class CompositeBinaryOperator(BinaryOperator):
 
         # TODO: being conservative, just take one side because
         # TODO: we don't support conjuncs in partition info
-        if self.left.partitioning().hash_partitioned != frozenset():
+        if self.left.partitioning().hash_partitioned != tuple():
             return RepresentationProperties(
                 hash_partitioned=self.left.partitioning().hash_partitioned)
-        elif self.right.partitioning().hash_partitioned != frozenset():
+        elif self.right.partitioning().hash_partitioned != tuple():
             return RepresentationProperties(
                 hash_partitioned=self.right.partitioning().hash_partitioned)
         elif self.left.partitioning().broadcasted and (
@@ -785,7 +785,7 @@ def project_partitioning(columnlist, input_partitioning):
     """Return the partitioning for a simple projection that supports
     duplicates, swapping, and removal"""
 
-    if input_partitioning.hash_partitioned <= frozenset(columnlist):
+    if set(input_partitioning.hash_partitioned) <= set(columnlist):
         # Translate to new schema.
 
         # In general, Apply can make hash partitioning into a disjunction
@@ -800,10 +800,16 @@ def project_partitioning(columnlist, input_partitioning):
             if old not in newrefs:
                 newrefs[old] = newi
 
+        # Generate a tuple of partitioning attribute indexes,
+        # in the same order as the input partitioning.
+        new_idxs = [newrefs[old]
+                    for old in input_partitioning.hash_partitioned
+                    if old in newrefs]
+
         return RepresentationProperties(
-            hash_partitioned=frozenset(
+            hash_partitioned=tuple(
                 expression.UnnamedAttributeRef(i)
-                for i in newrefs.values()),
+                for i in new_idxs),
             broadcasted=input_partitioning.broadcasted)
     else:
         return RepresentationProperties(
@@ -1145,7 +1151,7 @@ class GroupBy(UnaryOperator):
 
     def partitioning(self):
         ip = self.input.partitioning()
-        if ip.hash_partitioned <= frozenset(self.grouping_list):
+        if set(ip.hash_partitioned) <= set(self.grouping_list):
             return ip
         else:
             return RepresentationProperties()
@@ -1338,7 +1344,7 @@ class Shuffle(UnaryOperator):
         # TODO: incorporate information about functional dependences
         if self.shuffle_type == self.ShuffleType.Hash:
             return RepresentationProperties(
-                hash_partitioned=frozenset(
+                hash_partitioned=tuple(
                     self.columnlist))
         else:
             return RepresentationProperties()
@@ -1463,7 +1469,7 @@ class PartitionBy(UnaryOperator):
 
     def partitioning(self):
         return RepresentationProperties(
-            hash_partitioned=frozenset(
+            hash_partitioned=tuple(
                 self.columnlist))
 
     def shortStr(self):
