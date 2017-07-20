@@ -297,7 +297,8 @@ class Parser(object):
         :param typ: The output type of the function
         :type typ: string
         """
-        if name in Parser.udf_functions:
+        if name in Parser.udf_functions and \
+                not kwargs.pop('overwrite_if_exists', False):
             raise DuplicateFunctionDefinitionException(name, -1)
 
         f = VariadicFunction(PYUDF, name, typ, **kwargs)
