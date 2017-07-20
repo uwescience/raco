@@ -752,8 +752,9 @@ class Parser(object):
     @staticmethod
     def p_expression_bagcomp(p):
         'expression : LBRACKET FROM from_arg_list opt_where_clause \
+        opt_orderby_clause \
         EMIT emit_arg_list RBRACKET'
-        p[0] = ('BAGCOMP', p[3], p[4], p[6])
+        p[0] = ('BAGCOMP', p[3], p[4], p[5], p[7])
 
     @staticmethod
     def p_from_arg_list(p):
@@ -790,6 +791,36 @@ class Parser(object):
             p[0] = p[2]
         else:
             p[0] = None
+
+    @staticmethod
+    def p_opt_orderby_clause(p):
+        """opt_orderby_clause : ORDERBY orderby_arg_list
+                              | empty"""
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = None
+
+    @staticmethod
+    def p_explicit_orderby_list(p):
+        """orderby_arg_list : orderby_arg_list COMMA orderby_arg
+                            | orderby_arg"""
+        if len(p) == 4:
+            p[0] = p[1] + (p[3],)
+        else:
+            p[0] = (p[1],)
+
+    @staticmethod
+    def p_explicit_orderby_explicit(p):
+        """orderby_arg : column_ref ASC
+                        | column_ref DESC
+                        | column_ref"""
+        if len(p) == 3 and p[2] == 'ASC':
+            p[0] = (p[1],True)
+        if len(p) == 3 and p[2] == 'DESC':
+            p[0] = (p[1],False)
+        else:
+            p[0] = (p[1],True)
 
     @staticmethod
     def p_emit_arg_list(p):

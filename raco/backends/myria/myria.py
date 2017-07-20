@@ -1268,9 +1268,15 @@ class CollectBeforeLimit(rules.Rule):
             return MyriaLimit(exp.count,
                               algebra.Collect(
                                   MyriaLimit(exp.count, exp.input)))
-
         return exp
 
+class GlobalOrderBy(rules.Rule):
+
+    def fire(self, exp):
+        if exp.__class__ == algebra.OrderBy:
+            return MyriaInMemoryOrderBy(algebra.Collect(
+                                            exp.input),exp.sort_columns, exp.ascending)
+        return exp
 
 class ShuffleBeforeSetop(rules.Rule):
 
@@ -1844,6 +1850,7 @@ left_deep_tree_shuffle_logic = [
     ShuffleBeforeIDBController(),
     BroadcastBeforeCross(),
     ShuffleAfterSingleton(),
+    GlobalOrderBy(),
     CollectBeforeLimit(),
     ShuffleAfterFileScan(),
 ]
@@ -1872,6 +1879,7 @@ myriafy = [
     rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
     rules.OneToOne(algebra.Difference, MyriaDifference),
     rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
+    rules.OneToOne(algebra.Limit, MyriaLimit),
     rules.OneToOne(algebra.Sink, MyriaSink),
     rules.OneToOne(algebra.IDBController, MyriaIDBController),
 ]
@@ -2436,6 +2444,9 @@ def compile_to_json(raw_query, logical_plan, physical_plan,
                    algebra.UntilConvergence)
     assert isinstance(physical_plan, subplan_ops), \
         'Physical plan must be a subplan operator, not {}'.format(type(physical_plan))  # noqa
+
+    if('OrderBy' in str(logical_plan) and 'Limit' not in str(logical_plan)):
+        raise Exception("OrderBy queries must use the Limit operator")
 
     # raw_query must be a string
     if not isinstance(raw_query, basestring):

@@ -168,13 +168,15 @@ class ExpressionProcessor(object):
                 if name not in from_args:
                     from_args[name] = self.__lookup_symbol(name)
 
-    def bagcomp(self, from_clause, where_clause, emit_clause):
+    def bagcomp(self, from_clause, where_clause, orderby_clause, emit_clause):
         """Evaluate a bag comprehension.
 
         from_clause: A list of tuples of the form (id, expr).  expr can
         be None, which means "read the value from the symbol table".
 
         where_clause: An optional scalar expression (raco.expression).
+
+        orderby_clause: An optional list of OrderbyArg instances.
 
         emit_clause: A list of EmitArg instances, each defining one or more
         output columns.
@@ -231,6 +233,11 @@ class ExpressionProcessor(object):
             # to be checked
             where_clause.typeof(op.scheme(), None)
             op = raco.algebra.Select(condition=where_clause, input=op)
+
+        if orderby_clause:
+            orderbyTuples = zip(*orderby_clause)
+            if orderby_clause:
+                op = raco.algebra.OrderBy(input=op, sort_columns=orderbyTuples[0], ascending=orderbyTuples[1])
 
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
                      for (name, sexpr) in emit_args]
