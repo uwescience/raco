@@ -237,7 +237,9 @@ class ExpressionProcessor(object):
         if orderby_clause:
             orderbyTuples = zip(*orderby_clause)
             if orderby_clause:
-                op = raco.algebra.OrderBy(input=op, sort_columns=orderbyTuples[0], ascending=orderbyTuples[1])
+                op = raco.algebra.OrderBy(input=op,
+                                          sort_columns=orderbyTuples[0],
+                                          ascending=orderbyTuples[1])
 
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
                      for (name, sexpr) in emit_args]

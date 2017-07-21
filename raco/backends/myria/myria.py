@@ -1270,13 +1270,16 @@ class CollectBeforeLimit(rules.Rule):
                                   MyriaLimit(exp.count, exp.input)))
         return exp
 
+
 class GlobalOrderBy(rules.Rule):
 
     def fire(self, exp):
         if exp.__class__ == algebra.OrderBy:
-            return MyriaInMemoryOrderBy(algebra.Collect(
-                                            exp.input),exp.sort_columns, exp.ascending)
+            return MyriaInMemoryOrderBy(
+                algebra.Collect(exp.input),
+                exp.sort_columns, exp.ascending)
         return exp
+
 
 class ShuffleBeforeSetop(rules.Rule):
 
@@ -2445,7 +2448,9 @@ def compile_to_json(raw_query, logical_plan, physical_plan,
     assert isinstance(physical_plan, subplan_ops), \
         'Physical plan must be a subplan operator, not {}'.format(type(physical_plan))  # noqa
 
-    if('OrderBy' in str(logical_plan) and 'Limit' not in str(logical_plan)):
+    if('OrderBy' in str(logical_plan)
+            and 'Limit' not in str(logical_plan)
+            and 'MyriaHyperCube' not in str(logical_plan)):
         raise Exception("OrderBy queries must use the Limit operator")
 
     # raw_query must be a string

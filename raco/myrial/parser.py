@@ -816,11 +816,11 @@ class Parser(object):
                         | column_ref DESC
                         | column_ref"""
         if len(p) == 3 and p[2] == 'ASC':
-            p[0] = (p[1],True)
+            p[0] = (p[1], True)
         if len(p) == 3 and p[2] == 'DESC':
-            p[0] = (p[1],False)
+            p[0] = (p[1], False)
         else:
-            p[0] = (p[1],True)
+            p[0] = (p[1], True)
 
     @staticmethod
     def p_emit_arg_list(p):
