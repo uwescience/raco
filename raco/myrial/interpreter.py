@@ -145,7 +145,7 @@ class ExpressionProcessor(object):
 
     def select(self, args):
         """Evaluate a select-from-where expression."""
-        op = self.bagcomp(args.from_, args.where, args.select)
+        op = self.bagcomp(args.from_, args.where, None, args.select)
         if args.distinct:
             op = raco.algebra.Distinct(input=op)
         if args.limit is not None:
