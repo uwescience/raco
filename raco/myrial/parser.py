@@ -272,6 +272,8 @@ class Parser(object):
         :type args: list of strings
         :param body_exprs: A list of scalar expressions containing the body
         :type body_exprs: list of raco.expression.Expression
+        :param overwrite_if_exists: overwrite the UDF if it already exists
+        :type overwrite_if_exists: bool
         """
         if name in Parser.udf_functions and not overwrite_if_exists:
             raise DuplicateFunctionDefinitionException(name, p.lineno(0))
@@ -289,15 +291,17 @@ class Parser(object):
         return emit_op
 
     @staticmethod
-    def add_python_udf(name, typ, **kwargs):
+    def add_python_udf(name, typ, overwrite_if_exists=False, **kwargs):
         """Add a Python user-defined function to the global function table.
 
         :param name: The name of the function
         :type name: string
         :param typ: The output type of the function
         :type typ: string
+        :param overwrite_if_exists: overwrite the UDF if it already exists
+        :type overwrite_if_exists: bool
         """
-        if name in Parser.udf_functions:
+        if name in Parser.udf_functions and not overwrite_if_exists:
             raise DuplicateFunctionDefinitionException(name, -1)
 
         f = VariadicFunction(PYUDF, name, typ, **kwargs)
