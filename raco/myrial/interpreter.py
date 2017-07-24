@@ -145,7 +145,7 @@ class ExpressionProcessor(object):
 
     def select(self, args):
         """Evaluate a select-from-where expression."""
-        op = self.bagcomp(args.from_, args.where, None, args.select)
+        op = self.bagcomp(args.from_, args.where, args.orderby, args.select)
         if args.distinct:
             op = raco.algebra.Distinct(input=op)
         if args.limit is not None:
@@ -234,13 +234,6 @@ class ExpressionProcessor(object):
             where_clause.typeof(op.scheme(), None)
             op = raco.algebra.Select(condition=where_clause, input=op)
 
-        if orderby_clause:
-            orderbyTuples = zip(*orderby_clause)
-            if orderby_clause:
-                op = raco.algebra.OrderBy(input=op,
-                                          sort_columns=orderbyTuples[0],
-                                          ascending=orderbyTuples[1])
-
         emit_args = [(name, multiway.rewrite_refs(sexpr, from_args, info))
                      for (name, sexpr) in emit_args]
 
@@ -248,16 +241,23 @@ class ExpressionProcessor(object):
 
         if any(raco.expression.expression_contains_aggregate(ex)
                for name, ex in emit_args):
-            return groupby.groupby(op, emit_args, implicit_group_by_cols,
-                                   statemods)
+                    op = groupby.groupby(op, emit_args, implicit_group_by_cols,
+                                         statemods)
         else:
             if statemods:
-                return raco.algebra.StatefulApply(emit_args, statemods, op)
+                op = raco.algebra.StatefulApply(emit_args, statemods, op)
             if (len(from_args) == 1 and len(emit_clause) == 1 and
                 isinstance(emit_clause[0],
                            (TableWildcardEmitArg, FullWildcardEmitArg))):
-                return op
-            return raco.algebra.Apply(emit_args, op)
+                op = op
+            op = raco.algebra.Apply(emit_args, op)
+
+        if orderby_clause:
+            orderbyTuples = zip(*orderby_clause)
+            op = raco.algebra.OrderBy(input=op,
+                                      sort_columns=orderbyTuples[0],
+                                      ascending=orderbyTuples[1])
+        return op
 
     def distinct(self, expr):
         op = self.evaluate(expr)

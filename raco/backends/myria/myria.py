@@ -1258,26 +1258,19 @@ class BreakSplit(rules.Rule):
         return consumer
 
 
-class CollectBeforeLimit(rules.Rule):
-
-    """Similar to a decomposable GroupBy, rewrite Limit as
-    Limit[Collect[Limit]]"""
+class LimitOrderBy(rules.Rule):
 
     def fire(self, exp):
-        if exp.__class__ == algebra.Limit:
-            return MyriaLimit(exp.count,
-                              algebra.Collect(
-                                  MyriaLimit(exp.count, exp.input)))
-        return exp
-
-
-class GlobalOrderBy(rules.Rule):
-
-    def fire(self, exp):
-        if exp.__class__ == algebra.OrderBy:
-            return MyriaInMemoryOrderBy(
-                algebra.Collect(exp.input),
-                exp.sort_columns, exp.ascending)
+        if exp.__class__ == algebra.Limit and \
+                isinstance(exp.children()[0], algebra.OrderBy):
+            child = exp.children()[0]
+            return MyriaLimit(exp.count, MyriaInMemoryOrderBy(
+                algebra.Collect(
+                    MyriaLimit(exp.count,
+                               MyriaInMemoryOrderBy(child.input,
+                                                    child.sort_columns,
+                                                    child.ascending))),
+                child.sort_columns, child.ascending))
         return exp
 
 
@@ -1853,8 +1846,7 @@ left_deep_tree_shuffle_logic = [
     ShuffleBeforeIDBController(),
     BroadcastBeforeCross(),
     ShuffleAfterSingleton(),
-    GlobalOrderBy(),
-    CollectBeforeLimit(),
+    LimitOrderBy(),
     ShuffleAfterFileScan(),
 ]
 
@@ -2441,17 +2433,14 @@ def compile_to_json(raw_query, logical_plan, physical_plan,
     # Store/StoreTemp is a reasonable physical plan... for now.
     root_ops = (algebra.Store, algebra.StoreTemp, algebra.Sink)
     if isinstance(physical_plan, root_ops):
+        if isinstance(logical_plan.input, algebra.OrderBy):
+            raise Exception("Order By queries must use the Limit operator")
         physical_plan = algebra.Parallel([physical_plan])
 
     subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile,
                    algebra.UntilConvergence)
     assert isinstance(physical_plan, subplan_ops), \
         'Physical plan must be a subplan operator, not {}'.format(type(physical_plan))  # noqa
-
-    if('OrderBy' in str(logical_plan)
-            and 'Limit' not in str(logical_plan)
-            and 'MyriaHyperCube' not in str(logical_plan)):
-        raise Exception("OrderBy queries must use the Limit operator")
 
     # raw_query must be a string
     if not isinstance(raw_query, basestring):

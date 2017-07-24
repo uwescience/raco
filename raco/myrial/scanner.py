@@ -71,6 +71,14 @@ t_LARROW = r'<-'
 # Regular expressions for non-trivial tokens
 
 
+def t_ORDERBY(t):
+    r'ORDER\s+BY'
+    # remove spaces
+    value = ''.join(x for x in t.value if not x.isspace())
+    t.value = value
+    return t
+
+
 def t_BLOB_LITERAL(t):
     r'b((\'(\\x[0-9a-fA-F]{2})*\')|(\"(\\x[0-9a-fA-F]{2})*\"))'
     t.value = bytes(t.value[2:-1].decode("string_escape"))
