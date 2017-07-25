@@ -91,7 +91,8 @@ def t_ID(t):
 
 
 def t_FLOAT_LITERAL(t):
-    r"""\d*\.\d+"""
+    # Left group: scientific notation, right group: decimal form
+    r"""(\d*(\.\d+)?[eE][-+]?\d+)|(\d*\.\d+)"""
     t.value = float(t.value)
     return t
 
