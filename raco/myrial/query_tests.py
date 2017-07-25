@@ -2771,6 +2771,21 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         ex_scheme = scheme.Scheme([('foo', types.DOUBLE_TYPE)])
         self.check_result(query, ex, ex_scheme)
 
+    def test_scientific_notation(self):
+        literals = ["1.0e20", "3e40", "5e-6", ".7e8", ".9e-12",
+                    "-3e45", "-6e-78", "9e+12", "3E4"]
+        query = """
+        emp = SCAN({});
+        bc = [FROM emp EMIT {}];
+        STORE(bc, OUTPUT);
+        """.format(self.emp_key, ','.join(literals))
+
+        ex = collections.Counter(
+            (tuple(map(float, literals)),) * len(self.emp_table))  # noqa
+        ex_scheme = scheme.Scheme([('$%d' % i, types.DOUBLE_TYPE)
+                                   for i in xrange(len(literals))])
+        self.check_result(query, ex, ex_scheme)
+
     def test_sequence(self):
         query = """
         T1 = scan({rel});
