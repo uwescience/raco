@@ -1638,7 +1638,7 @@ class MemoryScanOfFileScan(rules.Rule):
 
     def fire(self, expr):
         if isinstance(expr, algebra.Scan) \
-                and not isinstance(expr, GrappaFileScan):
+                and not isinstance(expr, cppcommon.CBaseFileScan):
             return self._memory_scan_class(
                 GrappaFileScan(self._array_rep,
                                expr.relation_key,
@@ -2314,6 +2314,8 @@ class GrappaWhileCondition(rules.Rule):
     result of the condition table"""
 
     def fire(self, expr):
+        if isinstance(expr, GrappaDoWhile):
+            return expr
         if isinstance(expr, algebra.DoWhile):
             newdw = rules.OneToOne(algebra.DoWhile, GrappaDoWhile).fire(expr)
             newdw.copy(expr)
