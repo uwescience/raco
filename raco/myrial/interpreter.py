@@ -245,11 +245,11 @@ class ExpressionProcessor(object):
                                          statemods)
         else:
             if statemods:
-                op = raco.algebra.StatefulApply(emit_args, statemods, op)
+                return raco.algebra.StatefulApply(emit_args, statemods, op)
             if (len(from_args) == 1 and len(emit_clause) == 1 and
                 isinstance(emit_clause[0],
                            (TableWildcardEmitArg, FullWildcardEmitArg))):
-                op = op
+                return op
             op = raco.algebra.Apply(emit_args, op)
 
         if orderby_clause:
