@@ -145,11 +145,10 @@ class ExpressionProcessor(object):
 
     def select(self, args):
         """Evaluate a select-from-where expression."""
-        op = self.bagcomp(args.from_, args.where, args.orderby, args.select)
+        op = self.bagcomp(args.from_, args.where,
+                          args.select, args.orderby, args.limit)
         if args.distinct:
             op = raco.algebra.Distinct(input=op)
-        if args.limit is not None:
-            op = raco.algebra.Limit(input=op, count=args.limit)
 
         return op
 
@@ -168,7 +167,8 @@ class ExpressionProcessor(object):
                 if name not in from_args:
                     from_args[name] = self.__lookup_symbol(name)
 
-    def bagcomp(self, from_clause, where_clause, orderby_clause, emit_clause):
+    def bagcomp(self, from_clause, where_clause, emit_clause,
+                orderby_clause, limit_clause):
         """Evaluate a bag comprehension.
 
         from_clause: A list of tuples of the form (id, expr).  expr can
@@ -257,6 +257,10 @@ class ExpressionProcessor(object):
             op = raco.algebra.OrderBy(input=op,
                                       sort_columns=orderbyTuples[0],
                                       ascending=orderbyTuples[1])
+
+        if limit_clause:
+            op = raco.algebra.Limit(input=op, count=limit_clause)
+
         return op
 
     def distinct(self, expr):

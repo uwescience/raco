@@ -753,9 +753,8 @@ class Parser(object):
     @staticmethod
     def p_expression_bagcomp(p):
         'expression : LBRACKET FROM from_arg_list opt_where_clause \
-        opt_orderby_clause \
-        EMIT emit_arg_list RBRACKET'
-        p[0] = ('BAGCOMP', p[3], p[4], p[5], p[7])
+        EMIT emit_arg_list opt_orderby_clause opt_limit RBRACKET'
+        p[0] = ('BAGCOMP', p[3], p[4], p[6], p[7], p[8])
 
     @staticmethod
     def p_from_arg_list(p):
