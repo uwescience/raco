@@ -1524,7 +1524,8 @@ class HCShuffleBeforeNaryJoin(rules.Rule):
         if not isinstance(expr, algebra.NaryJoin):
             return expr
         # check if HC shuffle has been placed before
-        shuffled_child = [isinstance(op, algebra.HyperCubeShuffle)
+        shuffled_child = [isinstance(op, algebra.HyperCubeShuffle) or
+                          isinstance(op, algebra.OrderBy)
                           for op in list(expr.children())]
         if all(shuffled_child):    # already shuffled
             assert len(expr.children()) > 0
@@ -1730,6 +1731,8 @@ class InsertSplit(rules.Rule):
         """Walk the tree starting from op and insert a split when we
         encounter a heavyweight operator."""
         if isinstance(op, MyriaAlgebra.fragment_leaves):
+            return op
+        if isinstance(op, algebra.Split):
             return op
 
         if isinstance(op, InsertSplit.heavy_ops):
@@ -2197,13 +2200,11 @@ class MyriaLeftDeepTreeAlgebra(MyriaAlgebra):
 
         rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
 
-        # flatten the rules lists
-        rule_list = list(itertools.chain(*rule_grps_sequence))
-
         # disable specified rules
-        rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
+        for l in rule_grps_sequence:
+            rules.Rule.apply_disable_flags(l, *kwargs.keys())
 
-        return rule_list
+        return rule_grps_sequence
 
 
 class MyriaHyperCubeAlgebra(MyriaAlgebra):
@@ -2261,13 +2262,11 @@ class MyriaHyperCubeAlgebra(MyriaAlgebra):
 
         rule_grps_sequence = opt_grps_sequence + compile_grps_sequence
 
-        # flatten the rules lists
-        rule_list = list(itertools.chain(*rule_grps_sequence))
-
         # disable specified rules
-        rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
+        for l in rule_grps_sequence:
+            rules.Rule.apply_disable_flags(l, *kwargs.keys())
 
-        return rule_list
+        return rule_grps_sequence
 
     def __init__(self, catalog=None):
         self.catalog = catalog

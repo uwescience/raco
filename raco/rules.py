@@ -557,30 +557,16 @@ class PushApply(Rule):
 
         elif isinstance(child, algebra.ProjectingJoin):
             emits = op.get_unnamed_emit_exprs()
-
-            # If this apply is only AttributeRefs and the columns already
-            # have the correct names, we can push it into the ProjectingJoin
-            if (all(isinstance(e, expression.AttributeRef) for e in emits) and
-                    len(set(emits)) == len(emits)):
-                new_cols = [child.output_columns[e.position] for e in emits]
-                # We need to ensure that left columns come before right cols
-                left_sch = child.left.scheme()
-                right_sch = child.right.scheme()
-                combined = left_sch + right_sch
-                left_len = len(left_sch)
-                new_cols = [expression.to_unnamed_recursive(e, combined)
-                            for e in new_cols]
-                side = [e.position >= left_len for e in new_cols]
-                if sorted(side) == side:
-                    # Left columns do come before right cols
-                    new_pj = algebra.ProjectingJoin(
-                        condition=child.condition, left=child.left,
-                        right=child.right, output_columns=new_cols)
-                    if new_pj.scheme() == op.scheme():
-                        return new_pj
-
             accessed = sorted(set(itertools.chain(*(accessed_columns(e)
                                                     for e in emits))))
+            new_cols = [child.output_columns[p] for p in accessed]
+            # We need to ensure that left columns come before right cols
+            left_sch = child.left.scheme()
+            right_sch = child.right.scheme()
+            combined = left_sch + right_sch
+            new_cols = [expression.to_unnamed_recursive(e, combined)
+                        for e in new_cols]
+
             index_map = {a: i for (i, a) in enumerate(accessed)}
             child.output_columns = [child.output_columns[i] for i in accessed]
             for e in emits:
@@ -847,9 +833,6 @@ push_apply = [
     # For now, run twice and finish with PushApply.
     PushApply(),
     RemoveUnusedColumns(),
-    PushApply(),
-    RemoveUnusedColumns(),
-    PushApply(),
     RemoveNoOpApply(),
 ]
 

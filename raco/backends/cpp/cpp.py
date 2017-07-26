@@ -596,10 +596,7 @@ class CCAlgebra(Algebra):
         if kwargs.get('external_indexing'):
             CBaseLanguage.set_external_indexing(True)
 
-        # flatten the rules lists
-        rule_list = list(itertools.chain(*rule_grps_sequence))
+        for rule_list in rule_grps_sequence:
+            rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
 
-        # disable specified rules
-        rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
-
-        return rule_list
+        return rule_grps_sequence

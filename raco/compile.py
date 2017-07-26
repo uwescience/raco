@@ -5,6 +5,8 @@ from raco.utility import emit
 import raco.viz as viz
 import os
 from raco.utility import colored
+from rules import RemoveUnusedColumns
+from raco.backends.myria import MyriaLeftDeepTreeAlgebra
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -35,31 +37,39 @@ class PlanWriter():
         self.ind += 1
 
 
-def optimize_by_rules(expr, rules):
+def optimize_by_rules(expr, rules_lists):
     writer = PlanWriter()
     writer.write_if_enabled(expr, "before rules")
 
-    for rule in rules:
-        def recursiverule(e):
-            newe = rule(e)
-            writer.write_if_enabled(newe, str(rule))
-            if newe.stop_recursion:
-                return newe
+    for rules in rules_lists:
+        for i in range(20):
+            changed = False
+            for rule in rules:
+                def recursiverule(e):
+                    newe = rule(e)
+                    writer.write_if_enabled(newe, str(rule))
+                    if newe.stop_recursion:
+                        return newe
 
-            # log the optimizer step
-            if str(e) == str(newe):
-                LOG.debug("apply rule %s (no effect)\n" +
-                          " %s \n", rule, e)
-            else:
-                LOG.debug("apply rule %s\n" +
-                          colored("  -", "red") + " %s" + "\n" +
-                          colored("  +", "green") + " %s", rule, e, newe)
+                    # log the optimizer step
+                    if str(e) == str(newe):
+                        LOG.debug("apply rule %s (no effect)\n %s \n", rule, e)
+                    else:
+                        LOG.debug("apply rule %s\n" +
+                                  colored("  -", "red") + " %s" + "\n" +
+                                  colored("  +", "green") + " %s",
+                                  rule, e, newe)
 
-            newe.apply(recursiverule)
-
-            return newe
-        expr = recursiverule(expr)
-
+                    newe.apply(recursiverule)
+                    return newe
+                expr_old = str(expr)
+                expr = recursiverule(expr)
+                if expr_old != str(expr):
+                    changed = True
+            if not changed:
+                break
+        if changed:
+            print "Rule set %s did not converge in 20 iterations" % rules
     return expr
 
 
