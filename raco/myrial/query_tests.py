@@ -600,23 +600,47 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         expected = collections.Counter([(x[3],) for x in self.emp_table])
         self.check_result(query, expected)
 
-    def test_limit(self):
+    def test_limit_without_orderby_assert(self):
         query = """
         out = LIMIT(SCAN(%s), 3);
         STORE(out, OUTPUT);
         """ % self.emp_key
 
-        result = self.execute_query(query)
-        self.assertEquals(len(result), 3)
+        with self.assertRaises(Exception):  # noqa
+            self.check_result(query, None)
 
-    def test_sql_limit(self):
+    def test_orderby_without_limit_assert(self):
         query = """
-        out = SELECT * FROM SCAN(%s) as X LIMIT 3;
+        out = SELECT * FROM SCAN(%s) as X ORDER BY $0;
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        with self.assertRaises(Exception):  # noqa
+            self.check_result(query, None)
+
+    def test_limit_orderby(self):
+        query = """
+        out = [FROM SCAN(%s) as X EMIT * ORDER BY $0 ASC LIMIT 3];
         STORE(out, OUTPUT);
         """ % self.emp_key
 
         result = self.execute_query(query)
-        self.assertEquals(len(result), 3)
+        expectedResult = sorted(self.emp_table.elements(),
+                                key=lambda emp: emp[0])[:3]
+
+        self.assertEquals(result, expectedResult)
+
+    def test_sql_limit_orderby(self):
+        query = """
+        out = SELECT * FROM SCAN(%s) as X ORDER BY $0 ASC LIMIT 3;
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result = self.execute_query(query)
+        expectedResult = sorted(self.emp_table.elements(),
+                                key=lambda emp: emp[0])[:3]
+
+        self.assertEquals(result, expectedResult)
 
     def test_table_literal_boolean(self):
         query = """

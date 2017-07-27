@@ -2433,10 +2433,6 @@ def compile_to_json(raw_query, logical_plan, physical_plan,
     # Store/StoreTemp is a reasonable physical plan... for now.
     root_ops = (algebra.Store, algebra.StoreTemp, algebra.Sink)
     if isinstance(physical_plan, root_ops):
-        if isinstance(physical_plan.input, MyriaSplitConsumer):
-            splitOperator = physical_plan.input.input.input
-            if isinstance(splitOperator, MyriaInMemoryOrderBy):
-                raise Exception("Order By queries must use the Limit operator")
         physical_plan = algebra.Parallel([physical_plan])
 
     subplan_ops = (algebra.Parallel, algebra.Sequence, algebra.DoWhile,

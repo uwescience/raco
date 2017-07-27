@@ -249,16 +249,20 @@ class ExpressionProcessor(object):
             if (len(from_args) == 1 and len(emit_clause) == 1 and
                 isinstance(emit_clause[0],
                            (TableWildcardEmitArg, FullWildcardEmitArg))):
-                return op
+                op = op
             op = raco.algebra.Apply(emit_args, op)
 
         if orderby_clause:
+            if limit_clause is None:
+                raise Exception("Order By queries must use the Limit operator")
             orderbyTuples = zip(*orderby_clause)
             op = raco.algebra.OrderBy(input=op,
                                       sort_columns=orderbyTuples[0],
                                       ascending=orderbyTuples[1])
 
         if limit_clause:
+            if orderby_clause is None:
+                raise Exception("Limit queries must use the Order By operator")
             op = raco.algebra.Limit(input=op, count=limit_clause)
 
         return op
