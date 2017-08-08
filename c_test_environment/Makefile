@@ -1,8 +1,7 @@
 # WARNING: name environment source files .h or .cc, but not .cpp, which is reserved (.gitignore laziness)
 
 CXX ?= g++
-
-CFLAGS =-ggdb -std=c++11 -O3
+CXXFLAGS += -ggdb -std=c++11 -O3
 #-O3 #-m64 -Wno-deprecated -fPIC
 
 ifneq ($(shell uname), Darwin)
@@ -10,9 +9,9 @@ LIBS = -lrt
 endif
 
 INCL = 
-COMP = $(CXX) $(CFLAGS) -c $< $(INCL) 
-LINK = $(CXX) $(CFLAGS) -o $@ $^ $(LIBS)
-COMPLINK = $(CXX) $(CFLAGS) -o $@ $^ $(LIBS) $@.cc
+COMP = $(CXX) $(CXXFLAGS) -c $< $(INCL)
+LINK = $(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
+COMPLINK = $(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS) $@.cc
 
 
 # for 'triangle'
@@ -22,7 +21,7 @@ TRILIBDEFS = -DTRILIBRARY
 #all: 
 
 %.convert: %.convert.cpp convert2bin.h
-	g++ -std=c++11 -o $@ $< 
+	$(CXX) $(CXXFLAGS) -o $@ $<
 
 %.exe: %.o io_util.o counters_util.o strings.o
 	$(LINK) 

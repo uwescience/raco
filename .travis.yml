@@ -1,6 +1,13 @@
 language: python
 python:
   - "2.7"
+addons:
+  apt:
+    packages:
+    - clang-3.6
+    - lldb-3.6
+    - libc++-dev
+    - libc++abi-dev
 install:
   - pip install pip --upgrade
   - pip install setuptools --upgrade
@@ -8,6 +15,8 @@ install:
   - python setup.py install
   - pip install coveralls
   - export CXX=clang++
+  - export CXXFLAGS="-stdlib=libc++"
+  - export LDFLAGS=-lc++abi
 script: nosetests --with-coverage --cover-package=raco --logging-level=WARN
 after_success:
   - coveralls
