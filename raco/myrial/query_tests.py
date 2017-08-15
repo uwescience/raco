@@ -618,6 +618,28 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
         with self.assertRaises(Exception):  # noqa
             self.check_result(query, None)
 
+    def test_limit_orderby(self):
+        query = """
+        out = [FROM SCAN(%s) as X EMIT * ORDER BY $0 ASC LIMIT 3];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result = self.execute_query(query)
+        expectedResult = collections.Counter(
+            sorted(self.emp_table.elements(), key=lambda emp: emp[0])[:3])
+        self.assertEquals(result, expectedResult)
+
+    def test_sql_limit_orderby(self):
+        query = """
+        out = SELECT * FROM SCAN(%s) as X ORDER BY $0 ASC LIMIT 3;
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result = self.execute_query(query)
+        expectedResult = collections.Counter(
+            sorted(self.emp_table.elements(), key=lambda emp: emp[0])[:3])
+        self.assertEquals(result, expectedResult)
+
     def test_table_literal_boolean(self):
         query = """
         X = [truE as MyTrue, FaLse as MyFalse];

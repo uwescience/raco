@@ -176,10 +176,12 @@ class ExpressionProcessor(object):
 
         where_clause: An optional scalar expression (raco.expression).
 
-        orderby_clause: An optional list of OrderbyArg instances.
-
         emit_clause: A list of EmitArg instances, each defining one or more
         output columns.
+
+        orderby_clause: An optional list of OrderbyArg instances.
+
+        limit_clause: An optional integer expression
         """
 
         # Make sure no aliases were reused: [FROM X, X EMIT *] is illegal
@@ -241,20 +243,20 @@ class ExpressionProcessor(object):
 
         if any(raco.expression.expression_contains_aggregate(ex)
                for name, ex in emit_args):
-                    op = groupby.groupby(op, emit_args, implicit_group_by_cols,
-                                         statemods)
+            op = groupby.groupby(op, emit_args, implicit_group_by_cols,
+                                 statemods)
         else:
             if statemods:
                 return raco.algebra.StatefulApply(emit_args, statemods, op)
-            if (len(from_args) == 1 and len(emit_clause) == 1 and
-                isinstance(emit_clause[0],
-                           (TableWildcardEmitArg, FullWildcardEmitArg))):
-                op = op
-            op = raco.algebra.Apply(emit_args, op)
+            if not (len(from_args) == 1 and len(emit_clause) == 1 and
+                    isinstance(emit_clause[0],
+                               (TableWildcardEmitArg, FullWildcardEmitArg))):
+                op = raco.algebra.Apply(emit_args, op)
 
         if orderby_clause:
             if limit_clause is None:
-                raise Exception("Order By queries must use the Limit operator")
+                raise Exception(
+                    "An ORDER BY clause must be accompanied by a LIMIT clause")
             orderbyTuples = zip(*orderby_clause)
             op = raco.algebra.OrderBy(input=op,
                                       sort_columns=orderbyTuples[0],
@@ -262,7 +264,8 @@ class ExpressionProcessor(object):
 
         if limit_clause:
             if orderby_clause is None:
-                raise Exception("Limit queries must use the Order By operator")
+                raise Exception(
+                    "A LIMIT clause must be accompanied by an ORDER BY clause")
             op = raco.algebra.Limit(input=op, count=limit_clause)
 
         return op
