@@ -255,7 +255,7 @@ class ExpressionProcessor(object):
 
         if orderby_clause:
             if limit_clause is None:
-                raise Exception(
+                raise InvalidStatementException(
                     "An ORDER BY clause must be accompanied by a LIMIT clause")
             orderbyTuples = zip(*orderby_clause)
             op = raco.algebra.OrderBy(input=op,
@@ -264,7 +264,7 @@ class ExpressionProcessor(object):
 
         if limit_clause:
             if orderby_clause is None:
-                raise Exception(
+                raise InvalidStatementException(
                     "A LIMIT clause must be accompanied by an ORDER BY clause")
             op = raco.algebra.Limit(input=op, count=limit_clause)
 

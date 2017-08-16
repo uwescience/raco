@@ -271,7 +271,7 @@ class FakeDatabase(Catalog):
 
     def orderby(self, op):
         it = self.evaluate(op.input)
-        oList = zip(op.sort_columns, op.ascending)
+        oList = reversed(zip(op.sort_columns, op.ascending))
         sortedList = list(it)
         for o in oList:
             sortedList = sorted(

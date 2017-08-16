@@ -640,6 +640,40 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
             sorted(self.emp_table.elements(), key=lambda emp: emp[0])[:3])
         self.assertEquals(result, expectedResult)
 
+    def test_limit_orderby_multikey(self):
+        query = """
+        out = [FROM SCAN(%s) as X EMIT *
+               ORDER BY $1 ASC, $3 DESC, $2 ASC
+               LIMIT 3];
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result = self.execute_query(query)
+
+        firstSort = sorted(self.emp_table.elements(), key=lambda emp: emp[2])
+        secondSort = sorted(firstSort, key=lambda emp: emp[3], reverse=True)
+        thirdSortLimit = sorted(secondSort, key=lambda emp: emp[1])[:3]
+        expectedResult = collections.Counter(thirdSortLimit)
+
+        self.assertEquals(result, expectedResult)
+
+    def test_sql_limit_orderby_multikey(self):
+        query = """
+        out = SELECT * FROM SCAN(%s) as X
+              ORDER BY $1 ASC, $3 DESC, $2 ASC
+              LIMIT 3;
+        STORE(out, OUTPUT);
+        """ % self.emp_key
+
+        result = self.execute_query(query)
+
+        firstSort = sorted(self.emp_table.elements(), key=lambda emp: emp[2])
+        secondSort = sorted(firstSort, key=lambda emp: emp[3], reverse=True)
+        thirdSortLimit = sorted(secondSort, key=lambda emp: emp[1])[:3]
+        expectedResult = collections.Counter(thirdSortLimit)
+
+        self.assertEquals(result, expectedResult)
+
     def test_table_literal_boolean(self):
         query = """
         X = [truE as MyTrue, FaLse as MyFalse];
