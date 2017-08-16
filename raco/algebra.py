@@ -1237,8 +1237,8 @@ class OrderBy(UnaryOperator):
         return "{op}({inp!r}, {scol!r}, {asc!r})".format(
             op=self.opname(),
             inp=self.input,
-            scol=list(self.sort_columns),
-            asc=list(self.ascending))
+            scol=self.sort_columns,
+            asc=self.ascending)
 
     def num_tuples(self):
         return self.input.num_tuples()
