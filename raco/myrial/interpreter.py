@@ -145,11 +145,10 @@ class ExpressionProcessor(object):
 
     def select(self, args):
         """Evaluate a select-from-where expression."""
-        op = self.bagcomp(args.from_, args.where, args.select)
+        op = self.bagcomp(args.from_, args.where,
+                          args.select, args.orderby, args.limit)
         if args.distinct:
             op = raco.algebra.Distinct(input=op)
-        if args.limit is not None:
-            op = raco.algebra.Limit(input=op, count=args.limit)
 
         return op
 
@@ -168,7 +167,8 @@ class ExpressionProcessor(object):
                 if name not in from_args:
                     from_args[name] = self.__lookup_symbol(name)
 
-    def bagcomp(self, from_clause, where_clause, emit_clause):
+    def bagcomp(self, from_clause, where_clause, emit_clause,
+                orderby_clause, limit_clause):
         """Evaluate a bag comprehension.
 
         from_clause: A list of tuples of the form (id, expr).  expr can
@@ -178,6 +178,10 @@ class ExpressionProcessor(object):
 
         emit_clause: A list of EmitArg instances, each defining one or more
         output columns.
+
+        orderby_clause: An optional list of OrderbyArg instances.
+
+        limit_clause: An optional integer expression
         """
 
         # Make sure no aliases were reused: [FROM X, X EMIT *] is illegal
@@ -239,16 +243,32 @@ class ExpressionProcessor(object):
 
         if any(raco.expression.expression_contains_aggregate(ex)
                for name, ex in emit_args):
-            return groupby.groupby(op, emit_args, implicit_group_by_cols,
-                                   statemods)
+            op = groupby.groupby(op, emit_args, implicit_group_by_cols,
+                                 statemods)
         else:
             if statemods:
                 return raco.algebra.StatefulApply(emit_args, statemods, op)
-            if (len(from_args) == 1 and len(emit_clause) == 1 and
-                isinstance(emit_clause[0],
-                           (TableWildcardEmitArg, FullWildcardEmitArg))):
-                return op
-            return raco.algebra.Apply(emit_args, op)
+            if not (len(from_args) == 1 and len(emit_clause) == 1 and
+                    isinstance(emit_clause[0],
+                               (TableWildcardEmitArg, FullWildcardEmitArg))):
+                op = raco.algebra.Apply(emit_args, op)
+
+        if orderby_clause:
+            if limit_clause is None:
+                raise InvalidStatementException(
+                    "An ORDER BY clause must be accompanied by a LIMIT clause")
+            orderbyTuples = zip(*orderby_clause)
+            op = raco.algebra.OrderBy(input=op,
+                                      sort_columns=orderbyTuples[0],
+                                      ascending=orderbyTuples[1])
+
+        if limit_clause:
+            if orderby_clause is None:
+                raise InvalidStatementException(
+                    "A LIMIT clause must be accompanied by an ORDER BY clause")
+            op = raco.algebra.Limit(input=op, count=limit_clause)
+
+        return op
 
     def distinct(self, expr):
         op = self.evaluate(expr)

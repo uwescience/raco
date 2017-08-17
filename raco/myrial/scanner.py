@@ -9,11 +9,11 @@ keywords = ['WHILE', 'DO', 'DEF', 'APPLY', 'CASE', 'WHEN', 'THEN',
             'ELSE', 'END', 'CONST', 'LOAD', 'DUMP', 'CSV', 'SCHEMA',
             'OPP', 'TIPSY', 'UDA', 'TRUE', 'FALSE', 'HASH', 'BROADCAST',
             'ROUND_ROBIN', 'UNTIL', 'CONVERGENCE', "SYNC", "ASYNC",
-            'ALTERNATE', 'PULL_IDB', 'PULL_EDB', 'BUILD_EDB']
+            'ALTERNATE', 'PULL_IDB', 'PULL_EDB', 'BUILD_EDB', 'ASC', 'DESC']
 
 types = ['INT', 'STRING', 'FLOAT', 'BOOLEAN', 'BLOB']
 
-comprehension_keywords = ['SELECT', 'AS', 'EMIT', 'FROM', 'WHERE']
+comprehension_keywords = ['SELECT', 'AS', 'EMIT', 'FROM', 'WHERE', 'ORDERBY']
 
 word_operators = ['AND', 'OR', 'NOT']
 
@@ -69,6 +69,14 @@ t_COLON = r':'
 t_DOLLAR = r'\$'
 t_LARROW = r'<-'
 # Regular expressions for non-trivial tokens
+
+
+def t_ORDERBY(t):
+    r'ORDER\s+BY'
+    # remove spaces
+    value = ''.join(x for x in t.value if not x.isspace())
+    t.value = value
+    return t
 
 
 def t_BLOB_LITERAL(t):

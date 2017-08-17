@@ -269,6 +269,15 @@ class FakeDatabase(Catalog):
         it = self.evaluate(op.input)
         return itertools.islice(it, op.count)
 
+    def orderby(self, op):
+        it = self.evaluate(op.input)
+        oList = reversed(zip(op.sort_columns, op.ascending))
+        sortedList = list(it)
+        for o in oList:
+            sortedList = sorted(
+                sortedList, key=lambda x: x[o[0]], reverse=not o[1])
+        return iter(sortedList)
+
     @staticmethod
     def singletonrelation(op):
         return iter([()])
@@ -445,7 +454,7 @@ class FakeDatabase(Catalog):
                 for t in self.naryjoin(op))
 
     def myriainmemoryorderby(self, op):
-        return self.evaluate(op.input)
+        return self.orderby(op)
 
     def myriahypercubeshuffleconsumer(self, op):
         return self.evaluate(op.input)

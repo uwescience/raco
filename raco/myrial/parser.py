@@ -27,7 +27,8 @@ class JoinColumnCountMismatchException(Exception):
 JoinTarget = collections.namedtuple('JoinTarget', ['expr', 'columns'])
 
 SelectFromWhere = collections.namedtuple(
-    'SelectFromWhere', ['distinct', 'select', 'from_', 'where', 'limit'])
+    'SelectFromWhere', ['distinct', 'select', 'from_',
+                        'where', 'orderby', 'limit'])
 
 DecomposableAgg = collections.namedtuple(
     'DecomposableAgg', ['logical', 'local', 'remote'])
@@ -752,8 +753,8 @@ class Parser(object):
     @staticmethod
     def p_expression_bagcomp(p):
         'expression : LBRACKET FROM from_arg_list opt_where_clause \
-        EMIT emit_arg_list RBRACKET'
-        p[0] = ('BAGCOMP', p[3], p[4], p[6])
+        EMIT emit_arg_list opt_orderby_clause opt_limit RBRACKET'
+        p[0] = ('BAGCOMP', p[3], p[4], p[6], p[7], p[8])
 
     @staticmethod
     def p_from_arg_list(p):
@@ -790,6 +791,36 @@ class Parser(object):
             p[0] = p[2]
         else:
             p[0] = None
+
+    @staticmethod
+    def p_opt_orderby_clause(p):
+        """opt_orderby_clause : ORDERBY orderby_arg_list
+                              | empty"""
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = None
+
+    @staticmethod
+    def p_explicit_orderby_list(p):
+        """orderby_arg_list : orderby_arg_list COMMA orderby_arg
+                            | orderby_arg"""
+        if len(p) == 4:
+            p[0] = p[1] + (p[3],)
+        else:
+            p[0] = (p[1],)
+
+    @staticmethod
+    def p_explicit_orderby_arg(p):
+        """orderby_arg : column_ref ASC
+                        | column_ref DESC
+                        | column_ref"""
+        if len(p) == 3 and p[2] == 'ASC':
+            p[0] = (p[1], True)
+        if len(p) == 3 and p[2] == 'DESC':
+            p[0] = (p[1], False)
+        else:
+            p[0] = (p[1], True)
 
     @staticmethod
     def p_emit_arg_list(p):
@@ -845,9 +876,11 @@ class Parser(object):
 
     @staticmethod
     def p_select_from_where(p):
-        'select_from_where : SELECT opt_distinct emit_arg_list FROM from_arg_list opt_where_clause opt_limit'  # noqa
+        'select_from_where : SELECT opt_distinct emit_arg_list FROM from_arg_list \
+         opt_where_clause opt_orderby_clause opt_limit'  # noqa
         p[0] = ('SELECT', SelectFromWhere(distinct=p[2], select=p[3],
-                                          from_=p[5], where=p[6], limit=p[7]))
+                                          from_=p[5], where=p[6],
+                                          orderby=p[7], limit=p[8]))
 
     @staticmethod
     def p_opt_distinct(p):

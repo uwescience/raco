@@ -1258,17 +1258,19 @@ class BreakSplit(rules.Rule):
         return consumer
 
 
-class CollectBeforeLimit(rules.Rule):
-
-    """Similar to a decomposable GroupBy, rewrite Limit as
-    Limit[Collect[Limit]]"""
+class LimitOrderBy(rules.Rule):
 
     def fire(self, exp):
-        if exp.__class__ == algebra.Limit:
-            return MyriaLimit(exp.count,
-                              algebra.Collect(
-                                  MyriaLimit(exp.count, exp.input)))
-
+        if exp.__class__ == algebra.Limit and \
+                isinstance(exp.children()[0], algebra.OrderBy):
+            child = exp.children()[0]
+            return MyriaLimit(exp.count, MyriaInMemoryOrderBy(
+                algebra.Collect(
+                    MyriaLimit(exp.count,
+                               MyriaInMemoryOrderBy(child.input,
+                                                    child.sort_columns,
+                                                    child.ascending))),
+                child.sort_columns, child.ascending))
         return exp
 
 
@@ -1844,7 +1846,7 @@ left_deep_tree_shuffle_logic = [
     ShuffleBeforeIDBController(),
     BroadcastBeforeCross(),
     ShuffleAfterSingleton(),
-    CollectBeforeLimit(),
+    LimitOrderBy(),
     ShuffleAfterFileScan(),
 ]
 
@@ -1872,6 +1874,7 @@ myriafy = [
     rules.OneToOne(algebra.UnionAll, MyriaUnionAll),
     rules.OneToOne(algebra.Difference, MyriaDifference),
     rules.OneToOne(algebra.OrderBy, MyriaInMemoryOrderBy),
+    rules.OneToOne(algebra.Limit, MyriaLimit),
     rules.OneToOne(algebra.Sink, MyriaSink),
     rules.OneToOne(algebra.IDBController, MyriaIDBController),
 ]

@@ -1221,13 +1221,24 @@ class GroupBy(UnaryOperator):
 
 class OrderBy(UnaryOperator):
 
-    """ Logical Sort operator
-    """
+    """ Logical OrderBy operator"""
 
     def __init__(self, input=None, sort_columns=None, ascending=None):
         UnaryOperator.__init__(self, input)
         self.sort_columns = sort_columns
         self.ascending = ascending
+
+    def __eq__(self, other):
+        return UnaryOperator.__eq__(self, other) and \
+            self.sort_columns == other.sort_columns and \
+            self.ascending == other.ascending
+
+    def __repr__(self):
+        return "{op}({inp!r}, {scol!r}, {asc!r})".format(
+            op=self.opname(),
+            inp=self.input,
+            scol=self.sort_columns,
+            asc=self.ascending)
 
     def num_tuples(self):
         return self.input.num_tuples()
