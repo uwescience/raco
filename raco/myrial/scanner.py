@@ -72,10 +72,7 @@ t_LARROW = r'<-'
 
 
 def t_ORDERBY(t):
-    r'ORDER\s+BY'
-    # remove spaces
-    value = ''.join(x for x in t.value if not x.isspace())
-    t.value = value
+    r'(?i)ORDER\s+BY'
     return t
 
 
