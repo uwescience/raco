@@ -15,11 +15,10 @@ from raco.backends import Language, Algebra
 from raco.backends.sql.catalog import SQLCatalog, PostgresSQLFunctionProvider
 from raco.catalog import Catalog
 from raco.datastructure.UnionFind import UnionFind
-from raco.expression import UnnamedAttributeRef
+from raco.expression import AttributeRef, UnnamedAttributeRef
 from raco.expression import WORKERID, COUNTALL
 from raco.representation import RepresentationProperties
 from raco.rules import distributed_group_by, check_partition_equality
-from raco.expression import util
 from urlparse import urlparse
 
 LOGGER = logging.getLogger(__name__)
@@ -599,10 +598,16 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
 class MyriaInMemoryOrderBy(algebra.OrderBy, MyriaOperator):
 
     def compileme(self, inputsym):
+        # In principle, MyriaL supports arbitrary scalar expressions
+        # as ORDER BY arguments, but MyriaX can only handle column references.
+        assert all(isinstance(col, AttributeRef)
+                   for col in self.sort_columns),\
+            "Myria supports only column references as ORDER BY arguments."
         return {
             "opType": "InMemoryOrderBy",
             "argChild": inputsym,
-            "argSortColumns": self.sort_columns,
+            "argSortColumns": [col.get_position(self.scheme())
+                               for col in self.sort_columns],
             "argAscending": self.ascending
         }
 

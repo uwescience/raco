@@ -404,8 +404,8 @@ class UnnamedAttributeRef(AttributeRef):
                                                dbg=self.debug_info)
 
     def __eq__(self, other):
-        return (other.__class__ == self.__class__
-                and other.position == self.position)
+        return (other.__class__ == self.__class__ and
+                other.position == self.position)
 
     def __ne__(self, other):
         return not self.__eq__(other)
