@@ -812,9 +812,9 @@ class Parser(object):
 
     @staticmethod
     def p_explicit_orderby_arg(p):
-        """orderby_arg : sexpr ASC
-                        | sexpr DESC
-                        | sexpr"""
+        """orderby_arg : column_ref ASC
+                        | column_ref DESC
+                        | column_ref"""
         if len(p) == 3 and p[2] == 'ASC':
             p[0] = (p[1], True)
         if len(p) == 3 and p[2] == 'DESC':

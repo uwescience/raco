@@ -257,11 +257,11 @@ class ExpressionProcessor(object):
             if limit_clause is None:
                 raise InvalidStatementException(
                     "An ORDER BY clause must be accompanied by a LIMIT clause")
-            orderby_exprs, orderby_ords = zip(*orderby_clause)
-            orderby_exprs = [multiway.rewrite_refs(sexpr, from_args, info)
-                             for sexpr in orderby_exprs]
+            orderby_cols, orderby_ords = zip(*orderby_clause)
+            orderby_cols = [get_unnamed_ref(col, op.scheme())
+                            for col in orderby_cols]
             op = raco.algebra.OrderBy(input=op,
-                                      sort_columns=orderby_exprs,
+                                      sort_columns=orderby_cols,
                                       ascending=orderby_ords)
 
         if limit_clause:

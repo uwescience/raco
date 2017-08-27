@@ -598,16 +598,10 @@ class MyriaGroupBy(algebra.GroupBy, MyriaOperator):
 class MyriaInMemoryOrderBy(algebra.OrderBy, MyriaOperator):
 
     def compileme(self, inputsym):
-        # In principle, MyriaL supports arbitrary scalar expressions
-        # as ORDER BY arguments, but MyriaX can only handle column references.
-        assert all(isinstance(col, AttributeRef)
-                   for col in self.sort_columns),\
-            "Myria supports only column references as ORDER BY arguments."
         return {
             "opType": "InMemoryOrderBy",
             "argChild": inputsym,
-            "argSortColumns": [col.get_position(self.scheme())
-                               for col in self.sort_columns],
+            "argSortColumns": [col.position for col in self.sort_columns],
             "argAscending": self.ascending
         }
 
