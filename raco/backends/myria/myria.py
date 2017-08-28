@@ -601,7 +601,7 @@ class MyriaInMemoryOrderBy(algebra.OrderBy, MyriaOperator):
         return {
             "opType": "InMemoryOrderBy",
             "argChild": inputsym,
-            "argSortColumns": [col.position for col in self.sort_columns],
+            "argSortColumns": self.sort_columns,
             "argAscending": self.ascending
         }
 
