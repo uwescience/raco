@@ -2,6 +2,7 @@ import base64
 import ConfigParser
 import json
 import csv
+from enum import Enum
 from time import sleep
 import logging
 from urlparse import urlparse, ParseResult
@@ -32,7 +33,7 @@ POST = 'POST'
 logging.basicConfig(level=logging.WARN)
 
 
-class FunctionTypes(object):
+class FunctionTypes(Enum):
     POSTGRES = 0
     PYTHON = 1
 
