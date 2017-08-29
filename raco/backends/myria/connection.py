@@ -209,6 +209,10 @@ class MyriaConnection(object):
         else:
             raise MyriaError(r)
 
+    def version(self):
+        """Return information about the MyriaX version """
+        return self._wrap_get('/server')
+
     def workers(self):
         """Return a dictionary of the workers"""
         return self._wrap_get('/workers')
