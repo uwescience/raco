@@ -2714,6 +2714,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
             [(x[0], x[2][0:3]) for x in self.emp_table.elements()])
         self.check_result(query, expected)
 
+    def test_byterange(self):
+        query = r"""
+        BYTES = [b'\xDE\xAD\xBE\xEF' AS bytes];
+        out = [FROM BYTES AS X EMIT byterange(X.bytes, 2, 4) as res];
+        STORE(out, OUTPUT);
+        """
+
+        expected = collections.Counter({(b'\xBE\xEF',): 1})
+        self.check_result(query, expected)
+
     def test_len(self):
         query = """
         out = [FROM SCAN(%s) AS X EMIT X.id, len(X.name)];

@@ -304,6 +304,23 @@ class SUBSTR(NaryFunction):
         return types.STRING_TYPE
 
 
+class BYTERANGE(NaryFunction):
+    literals = ["BYTERANGE"]
+
+    def evaluate(self, _tuple, scheme, state=None):
+        inputBlob = self.operands[0].evaluate(_tuple, scheme, state)
+        beginIdx = self.operands[1].evaluate(_tuple, scheme, state)
+        endIdx = self.operands[2].evaluate(_tuple, scheme, state)
+        return inputBlob[beginIdx:endIdx]
+
+    def typeof(self, scheme, state_scheme):
+        check_type(self.operands[0].typeof(scheme, state_scheme), types.BLOB_TYPE)  # noqa
+        check_type(self.operands[1].typeof(scheme, state_scheme), types.LONG_TYPE)  # noqa
+        check_type(self.operands[2].typeof(scheme, state_scheme), types.LONG_TYPE)  # noqa
+
+        return types.BLOB_TYPE
+
+
 class LEN(UnaryFunction):
     literals = ["LEN"]
 
