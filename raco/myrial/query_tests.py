@@ -2714,6 +2714,16 @@ class TestQueryFunctions(myrial_test.MyrialTestCase, FakeData):
             [(x[0], x[2][0:3]) for x in self.emp_table.elements()])
         self.check_result(query, expected)
 
+    def test_concat(self):
+        query = """
+        STRS = ["a" as a, "b" as b];
+        out = [FROM STRS EMIT concat(a, b)];
+        STORE(out, OUTPUT);
+        """
+
+        expected = collections.Counter({('ab',): 1})
+        self.check_result(query, expected)
+
     def test_byterange(self):
         query = r"""
         BYTES = [b'\xDE\xAD\xBE\xEF' AS bytes];

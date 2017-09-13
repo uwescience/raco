@@ -110,7 +110,7 @@ def one_to_one_function(func_name):
 ONE_TO_ONE_FUNCS = ['ABS', 'CEIL', 'COS', 'FLOOR', 'LOG', 'SIN', 'SQRT',
                     'TAN', 'LEN', 'POW', 'MAX', 'MIN', 'SUM', 'AVG', 'STDEV',
                     'COUNTALL', 'MD5', 'RANDOM', 'YEAR', 'MONTH', 'DAY',
-                    'SPLIT', 'SEQUENCE', 'NGRAM', 'BITSET']
+                    'SPLIT', 'SEQUENCE', 'NGRAM', 'BITSET', 'CONCAT']
 
 ONE_TO_ONE_EXPRS = {k.lower(): one_to_one_function(k) for k in ONE_TO_ONE_FUNCS}  # noqa
 
