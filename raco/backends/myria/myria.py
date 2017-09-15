@@ -105,7 +105,7 @@ def compile_expr(op, child_scheme, state_scheme):
                 'outputType': op._type
             }
         }
-    elif isinstance(op, expression.SUBSTR):
+    elif isinstance(op, (expression.SUBSTR, expression.BYTERANGE)):
         children = []
         op.operands[1] = expression.CAST(types.INT_TYPE, op.operands[1])
         op.operands[2] = expression.CAST(types.INT_TYPE, op.operands[2])
