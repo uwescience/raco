@@ -280,7 +280,8 @@ class MyriaConnection(object):
 
         return self._make_request(POST, '/dataset', json.dumps(body))
 
-    def execute_program(self, program, language="MyriaL", server=None):
+    def execute_program(self, program, language="MyriaL", server=None,
+                        wait_for_completion=True, profile=False):
         """Execute the program in the specified language on Myria, polling
         its status until the query is finished. Returns the query status
         struct.
@@ -289,16 +290,20 @@ class MyriaConnection(object):
             program: a Myria program as a string.
             language: the language in which the program is written
                       (default: MyriaL).
+            server: override connection server
+            wait_for_completion: block until query completes
+            profile: profile query execution
         """
 
-        body = {"query": program, "language": language}
+        body = {"query": program, "language": language,
+                "profile": str(profile)}
         r = requests.post((server or self.execution_url) + '/execute',
                           data=body)
         if r.status_code != 201:
             raise MyriaError(r)
 
         query_uri = r.json()['url']
-        while True:
+        while wait_for_completion:
             r = requests.get(query_uri)
             if r.status_code == 200:
                 return r.json()
