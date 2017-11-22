@@ -566,6 +566,11 @@ class Parser(object):
         p[0] = ('SINK', p[3])
 
     @staticmethod
+    def p_statement_export(p):
+        'statement : EXPORT LPAREN unreserved_id COMMA STRING_LITERAL RPAREN SEMI'  # noqa
+        p[0] = ('EXPORT', p[3], p[5])
+
+    @staticmethod
     def p_statement_dump(p):
         'statement : DUMP LPAREN unreserved_id RPAREN SEMI'
         p[0] = ('DUMP', p[3])

@@ -18,8 +18,8 @@ comprehension_keywords = ['SELECT', 'AS', 'EMIT', 'FROM', 'WHERE', 'ORDERBY']
 word_operators = ['AND', 'OR', 'NOT']
 
 builtins = ['EMPTY', 'WORKER_ID', 'SCAN', 'COUNTALL', 'COUNT', 'STORE',
-            'DIFF', 'CROSS', 'JOIN', 'UNION', 'UNIONALL', 'INTERSECT',
-            'DISTINCT', 'LIMIT', 'SINK', 'SAMPLESCAN', 'LIKE']
+            'EXPORT', 'DIFF', 'CROSS', 'JOIN', 'UNION', 'UNIONALL',
+            'INTERSECT', 'DISTINCT', 'LIMIT', 'SINK', 'SAMPLESCAN', 'LIKE']
 
 
 # identifiers with special meaning; case-insensitive

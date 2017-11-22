@@ -1576,6 +1576,33 @@ class Store(UnaryOperator):
         UnaryOperator.copy(self, other)
 
 
+class Export(UnaryOperator):
+
+    """ export tuples to S3."""
+
+    def __init__(self, uri=None, plan=None):
+        UnaryOperator.__init__(self, plan)
+        self.uri = uri
+
+    def num_tuples(self):
+        return self.input.num_tuples()
+
+    def partitioning(self):
+        return self.input.partitioning()
+
+    def shortStr(self):
+        return "%s(%s)" % (self.opname(), self.uri)
+
+    def __repr__(self):
+        return "{op}({u!r},{pl!r})".format(op=self.opname(),
+                                           u=self.uri,
+                                           pl=self.plan)
+
+    def copy(self, other):
+        self.uri = other.uri
+        UnaryOperator.copy(self, other)
+
+
 class Dump(UnaryOperator):
 
     """Echo input to standard out; only useful for standalone raco."""

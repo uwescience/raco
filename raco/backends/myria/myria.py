@@ -388,6 +388,17 @@ class MyriaSink(algebra.Sink, MyriaOperator):
         }
 
 
+class MyriaExport(algebra.Export, MyriaOperator):
+
+    def compileme(self, inputid):
+        return {
+            "opType": "TupleSink",
+            "tupleWriter": {"writerType": "CSV"},
+            "dataSink": {"uri": self.uri, "dataType": "Uri"},
+            "argChild": inputid,
+        }
+
+
 class MyriaAppendTemp(algebra.AppendTemp, MyriaOperator):
 
     def compileme(self, inputid):
@@ -1856,6 +1867,7 @@ myriafy = [
     rules.OneToOne(algebra.CrossProduct, MyriaCrossProduct),
     rules.OneToOne(algebra.Store, MyriaStore),
     rules.OneToOne(algebra.StoreTemp, MyriaStoreTemp),
+    rules.OneToOne(algebra.Export, MyriaExport),
     rules.OneToOne(algebra.StatefulApply, MyriaStatefulApply),
     rules.OneToOne(algebra.Apply, MyriaApply),
     rules.OneToOne(algebra.Select, MyriaSelect),
@@ -2430,7 +2442,7 @@ def compile_to_json(raw_query, logical_plan, physical_plan,
     string and passed along unchanged."""
 
     # Store/StoreTemp is a reasonable physical plan... for now.
-    root_ops = (algebra.Store, algebra.StoreTemp, algebra.Sink)
+    root_ops = (algebra.Store, algebra.StoreTemp, algebra.Sink, algebra.Export)
     if isinstance(physical_plan, root_ops):
         physical_plan = algebra.Parallel([physical_plan])
 
