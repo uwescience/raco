@@ -152,7 +152,7 @@ class SPARQLApply(algebra.Apply, SPARQLOperator):
 class SPARQLAlgebra(Algebra):
 
     def opt_rules(self, **kwargs):
-        rules = [
+        rules = [[
             raco.rules.CrossProduct2Join(),
             raco.rules.SplitSelects(),
             raco.rules.PushSelects(),
@@ -162,6 +162,6 @@ class SPARQLAlgebra(Algebra):
             raco.rules.OneToOne(algebra.Select, SPARQLSelect),
             raco.rules.OneToOne(algebra.Apply, SPARQLApply),
             raco.rules.OneToOne(algebra.Join, SPARQLJoin),
-        ]
+        ]]
 
         return rules

@@ -1638,7 +1638,7 @@ class MemoryScanOfFileScan(rules.Rule):
 
     def fire(self, expr):
         if isinstance(expr, algebra.Scan) \
-                and not isinstance(expr, GrappaFileScan):
+                and not isinstance(expr, cppcommon.CBaseFileScan):
             return self._memory_scan_class(
                 GrappaFileScan(self._array_rep,
                                expr.relation_key,
@@ -2314,6 +2314,8 @@ class GrappaWhileCondition(rules.Rule):
     result of the condition table"""
 
     def fire(self, expr):
+        if isinstance(expr, GrappaDoWhile):
+            return expr
         if isinstance(expr, algebra.DoWhile):
             newdw = rules.OneToOne(algebra.DoWhile, GrappaDoWhile).fire(expr)
             newdw.copy(expr)
@@ -2552,10 +2554,8 @@ class GrappaAlgebra(Algebra):
         if external_indexing:
             CBaseLanguage.set_external_indexing(True)
 
-        # flatten the rules lists
-        rule_list = list(itertools.chain(*rule_grps_sequence))
-
         # disable specified rules
-        rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
+        for rule_list in rule_grps_sequence:
+            rules.Rule.apply_disable_flags(rule_list, *kwargs.keys())
 
-        return rule_list
+        return rule_grps_sequence
